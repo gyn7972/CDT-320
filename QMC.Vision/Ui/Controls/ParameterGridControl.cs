@@ -188,6 +188,36 @@ namespace QMC.Vision.Ui.Controls
             }
         }
 
+        private void BrowseFileRow(DataGridViewRow row)
+        {
+            try
+            {
+                var item = row != null ? row.Tag as ParameterGridItem : null;
+                if (item == null) return;
+                using (var d = new OpenFileDialog())
+                {
+                    d.Filter = string.IsNullOrEmpty(item.FileFilter) ? "모든 파일 (*.*)|*.*" : item.FileFilter;
+                    d.Title = item.DisplayName;
+                    string cur = item.Getter != null ? Convert.ToString(item.Getter()) : string.Empty;
+                    if (!string.IsNullOrWhiteSpace(cur))
+                    {
+                        try
+                        {
+                            string dir = System.IO.Path.GetDirectoryName(cur);
+                            if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir)) d.InitialDirectory = dir;
+                            if (System.IO.File.Exists(cur)) d.FileName = System.IO.Path.GetFileName(cur);
+                        }
+                        catch { }
+                    }
+                    if (d.ShowDialog(this) == DialogResult.OK) CommitValue(row, d.FileName);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] BrowseFile failed: " + ex.Message);
+            }
+        }
+
         private void ShowSliderRow(DataGridViewRow row)
         {
             try
@@ -536,6 +566,8 @@ namespace QMC.Vision.Ui.Controls
                     item.OnAction?.Invoke();
                 else if (item.ValueType == ParameterGridValueType.FolderPath)
                     BrowseFolderRow(grid.Rows[e.RowIndex]);
+                else if (item.ValueType == ParameterGridValueType.FilePath)
+                    BrowseFileRow(grid.Rows[e.RowIndex]);
                 else if (item.ValueType == ParameterGridValueType.Slider)
                     ShowSliderRow(grid.Rows[e.RowIndex]);
             }

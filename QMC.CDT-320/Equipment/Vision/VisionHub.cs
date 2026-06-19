@@ -19,6 +19,9 @@ namespace QMC.CDT320.VisionComm
         public static VisionTcpClient TopSide     { get; private set; }
         public static VisionTcpClient BottomSide  { get; private set; }
 
+        /// <summary>마지막으로 연결한 Vision PC 호스트(IP). 뷰어 스트림 접속 등에 재사용.</summary>
+        public static string Host { get; private set; }
+
         public static event Action ConnectionChanged;
 
         public static bool AllConnected =>
@@ -39,6 +42,7 @@ namespace QMC.CDT320.VisionComm
             int mainPort = 5104, int topSidePort = 5105, int bottomSidePort = 5106)
         {
             DisconnectAll();
+            Host = host;
 
             Wafer      = New("WaferVision",      host, waferPort);
             Inspection = New("BottomInspection", host, inspectionPort);

@@ -19,6 +19,7 @@ namespace QMC.Vision.Ui.Pages
         private FlowLayoutPanel  _setFlow;
         private Panel            _recipeBar;
         private Button           _btnSaveRecipe;  // 레시피 저장(품목별) — Finder 레일 하단
+        private Button           _btnLoadRecipe;  // 레시피 불러오기(되돌리기) — 저장 버튼 아래
 
         private Panel            _sidebar;        // 우측 2(고정): 모듈(검사 알고리즘) 평면 선택
         private Label            _sideHdr;
@@ -69,6 +70,7 @@ namespace QMC.Vision.Ui.Pages
             this._setFlow = new System.Windows.Forms.FlowLayoutPanel();
             this._recipeBar = new System.Windows.Forms.Panel();
             this._btnSaveRecipe = new System.Windows.Forms.Button();
+            this._btnLoadRecipe = new System.Windows.Forms.Button();
             this._setHdr = new System.Windows.Forms.Label();
             this._sidebar = new System.Windows.Forms.Panel();
             this._sideFlow = new System.Windows.Forms.FlowLayoutPanel();
@@ -402,18 +404,20 @@ namespace QMC.Vision.Ui.Pages
             // _recipeBar
             // 
             this._recipeBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(89)))), ((int)(((byte)(89)))), ((int)(((byte)(89)))));
+            this._recipeBar.Controls.Add(this._btnLoadRecipe);
             this._recipeBar.Controls.Add(this._btnSaveRecipe);
             this._recipeBar.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this._recipeBar.Location = new System.Drawing.Point(0, 646);
+            this._recipeBar.Location = new System.Drawing.Point(0, 604);
             this._recipeBar.Name = "_recipeBar";
             this._recipeBar.Padding = new System.Windows.Forms.Padding(6, 6, 6, 8);
-            this._recipeBar.Size = new System.Drawing.Size(200, 50);
+            this._recipeBar.Size = new System.Drawing.Size(200, 92);
             this._recipeBar.TabIndex = 1;
             // 
             // _btnSaveRecipe
             // 
+            this._btnSaveRecipe.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
             this._btnSaveRecipe.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
-            this._btnSaveRecipe.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnSaveRecipe.FlatAppearance.BorderSize = 0;
             this._btnSaveRecipe.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnSaveRecipe.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
@@ -425,6 +429,23 @@ namespace QMC.Vision.Ui.Pages
             this._btnSaveRecipe.Text = "레시피 저장 (품목별)";
             this._btnSaveRecipe.UseVisualStyleBackColor = false;
             this._btnSaveRecipe.Click += new System.EventHandler(this.OnSaveRecipeClick);
+            //
+            // _btnLoadRecipe
+            //
+            this._btnLoadRecipe.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this._btnLoadRecipe.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(110)))), ((int)(((byte)(160)))));
+            this._btnLoadRecipe.FlatAppearance.BorderSize = 0;
+            this._btnLoadRecipe.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnLoadRecipe.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._btnLoadRecipe.ForeColor = System.Drawing.Color.White;
+            this._btnLoadRecipe.Location = new System.Drawing.Point(6, 48);
+            this._btnLoadRecipe.Name = "_btnLoadRecipe";
+            this._btnLoadRecipe.Size = new System.Drawing.Size(188, 36);
+            this._btnLoadRecipe.TabIndex = 1;
+            this._btnLoadRecipe.Text = "불러오기 (되돌리기)";
+            this._btnLoadRecipe.UseVisualStyleBackColor = false;
+            this._btnLoadRecipe.Click += new System.EventHandler(this.OnLoadRecipeClick);
             // 
             // _setHdr
             // 

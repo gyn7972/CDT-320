@@ -56,6 +56,11 @@ namespace QMC.Vision.Modules
         long ViewerFrameSeq { get; }
 
         GrabResult Grab(int timeoutMs = 3000);
+
+        /// <summary>도구(Finder/Inspector) 단위 그랩 — 그 도구에 전용 시뮬 저장이미지가 지정되어 있으면 그것을 우선 로드,
+        /// 없으면 <see cref="Grab(int)"/>(모듈 저장이미지→실제 카메라)로 위임한다.</summary>
+        GrabResult GrabForTool(string toolId, int timeoutMs = 3000);
+
         void SetCamera(ICamera newCamera);
         void RaiseAlarm(string reason);
         Bitmap AcquireViewerFrame();

@@ -272,8 +272,11 @@ namespace QMC.Vision.Modules
 
         public long ViewerFrameSeq { get { lock (_tapLock) return _frameSeq; } }
 
+        private int _savedFrameSeq;   // '저장 이미지로 그랩' 프레임 번호
+
         public GrabResult Grab(int timeoutMs = 3000)
         {
+            if (Camera == null) return GrabResult.Fail("camera not assigned", Name);
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
             _exposureEndFired = false;
@@ -285,6 +288,55 @@ namespace QMC.Vision.Modules
             }
             else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
             return g;
+        }
+
+        /// <summary>도구(Finder/Inspector) 단위 그랩 — 도구 전용 저장이미지가 있으면 우선, 없으면 <see cref="Grab(int)"/> 위임.</summary>
+        public GrabResult GrabForTool(string toolId, int timeoutMs = 3000)
+        {
+            var saved = TryGrabSavedImageForTool(toolId);
+            if (saved != null)
+            {
+                if (saved.IsSuccess && saved.Image != null) TapFrame(saved.Image);
+                if (saved.IsSuccess) { try { ExposureDone?.Invoke(Name); } catch { } }
+                else try { Alarmed?.Invoke(Name, saved.ErrorMessage); } catch { }
+                return saved;
+            }
+            return Grab(timeoutMs);
+        }
+
+        /// <summary>도구 노드 Setup.SimUseSavedImage=true 면 그 도구 전용 저장 이미지를 로드. 아니면 null(카메라로 위임).</summary>
+        private GrabResult TryGrabSavedImageForTool(string toolId)
+        {
+            if (string.IsNullOrEmpty(toolId)) return null;
+            var node = GetAlgorithm(toolId);
+            var s = node?.Setup as AlgoSetupBase;
+            if (s == null || !s.SimUseSavedImage) return null;
+            return LoadImageAsGrab(s.SimSavedImagePath);
+        }
+
+        /// <summary>지정 경로의 이미지를 GrabResult 로 로드(파일 잠금 방지 위해 복제본 생성). 경로/파일 문제는 실패 GrabResult.</summary>
+        private GrabResult LoadImageAsGrab(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return GrabResult.Fail("저장 이미지 경로 미지정", Name);
+            if (!System.IO.File.Exists(path))
+                return GrabResult.Fail("저장 이미지 없음: " + path, Name);
+            try
+            {
+                if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
+                byte[] bytes = System.IO.File.ReadAllBytes(path);
+                using (var ms = new System.IO.MemoryStream(bytes))
+                using (var tmp = System.Drawing.Image.FromStream(ms))
+                {
+                    var bmp = new System.Drawing.Bitmap(tmp);
+                    int seq = System.Threading.Interlocked.Increment(ref _savedFrameSeq);
+                    return GrabResult.Success(bmp, seq, "saved:" + System.IO.Path.GetFileName(path));
+                }
+            }
+            catch (Exception ex)
+            {
+                return GrabResult.Fail("저장 이미지 로드 실패: " + ex.Message, Name);
+            }
         }
 
         public void RaiseAlarm(string reason)

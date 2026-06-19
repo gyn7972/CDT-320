@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QMC.Vision 시퀀서 — 코드 구현 방식</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2c313c;
+    --fg:#e6e9ef; --mut:#9aa3b2; --accent:#e8851a; --accent2:#3b82f6;
+    --kw:#c792ea; --str:#c3e88d; --com:#6b7689; --typ:#82aaff; --num:#f78c6c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI","맑은 고딕",system-ui,sans-serif;line-height:1.6}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:25px;margin:0 0 4px}
+  h2{font-size:18px;margin:34px 0 10px;padding-bottom:7px;border-bottom:2px solid var(--accent)}
+  .step-no{display:inline-block;background:var(--accent);color:#fff;border-radius:6px;padding:0 9px;margin-right:8px;font-size:15px}
+  p{margin:8px 0}
+  .sub{color:var(--mut);margin:0 0 16px}
+  code{background:#11141a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-family:Consolas,monospace;font-size:.86em;color:#ffd9a8}
+  .file{font-family:Consolas,monospace;font-size:12px;color:#9fb3c8;margin:2px 0 6px}
+  pre{background:#0b0e13;border:1px solid var(--line);border-radius:9px;padding:14px 16px;overflow:auto;margin:8px 0;font-family:Consolas,monospace;font-size:12.6px;line-height:1.5}
+  pre .k{color:var(--kw)} pre .t{color:var(--typ)} pre .s{color:var(--str)} pre .c{color:var(--com)} pre .n{color:var(--num)}
+  .chain{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:8px 0 6px}
+  .b{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12.5px}
+  .b b{color:#fff}
+  .ar{color:var(--accent);font-weight:700}
+  .note{border-left:3px solid var(--accent2);background:#15202e;padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;color:#cfe0f3;font-size:14px}
+  .muted{color:var(--mut);font-size:13px}
+  ul{margin:8px 0 8px 20px;padding:0} li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>QMC.Vision 시퀀서 — 코드 구현 방식</h1>
+  <p class="sub">어떤 코드를 써서 RUN → 실제 검사 실행까지 가는가 (장비PC V: 소스 기준) · 네임스페이스 <code>QMC.Vision.Sequencing</code></p>
+
+  <div class="note">
+    <b>한 줄 원리.</b> UI 버튼이 <b>호스트</b>에 위임 → 호스트가 <b>컨텍스트+조정자</b>를 만들고 → 조정자가 선택 모듈마다 <b>시퀀스를 <code>Task.Run</code>으로 병렬 실행</b> →
+    각 시퀀스는 <b><code>async/await</code> 루프</b>로 사이클을 돌며 <b>디스패처</b>를 거쳐 <b>공유 명령 코어</b>를 호출합니다. 정지는 <b><code>CancellationToken</code></b>, 수동 진행은 <b><code>SemaphoreSlim</code> 게이트</b>로 구현돼 있습니다.
+  </div>
+
+  <h2>전체 호출 체인</h2>
+  <div class="chain">
+    <span class="b"><b>SequencerPage</b><br><span class="muted">UI 버튼</span></span><span class="ar">→</span>
+    <span class="b"><b>Form1.AutoSeq</b><br><span class="muted">Host</span></span><span class="ar">→</span>
+    <span class="b"><b>VisionAutoSequenceHost</b><br>.StartModules()</span><span class="ar">→</span>
+    <span class="b"><b>AutoSequenceCoordinator</b><br>.Start()</span><span class="ar">→ Task.Run →</span>
+    <span class="b"><b>ModuleSequenceBase</b><br>.RunAsync()</span><span class="ar">→</span>
+    <span class="b"><b>Context.Dispatch</b></span><span class="ar">→</span>
+    <span class="b"><b>DirectVisionCommandDispatcher</b></span><span class="ar">→</span>
+    <span class="b"><b>VisionCommandCore</b></span>
+  </div>
+
+  <h2><span class="step-no">1</span>진입 — Form1이 호스트를 1개 생성</h2>
+  <div class="file">QMC.Vision/Form1.cs</div>
+  <pre><span class="c">// 머신(5모듈)으로 자동 시퀀스 호스트 1개 생성. 로그싱크=SeqLog.</span>
+_autoSeqHost = <span class="k">new</span> <span class="t">VisionAutoSequenceHost</span>(Machine, SeqLog);
+<span class="k">internal</span> <span class="t">VisionAutoSequenceHost</span> AutoSeq => _autoSeqHost;   <span class="c">// UI가 접근</span>
+
+<span class="c">// 작업화면 RUN 토글(자체실행 모드일 때)</span>
+<span class="k">if</span> (on) _autoSeqHost?.Start(VisionConfigStore.Current.SimSequenceIntervalMs);
+<span class="k">else</span>    _autoSeqHost?.Stop();</pre>
+  <p class="muted">호스트는 <b>프로세스에 하나</b>. 부팅 시 자동 시작하지 않음(STOP 기준).</p>
+
+  <h2><span class="step-no">2</span>UI — SequencerPage가 호스트에 위임</h2>
+  <div class="file">QMC.Vision/Ui/Pages/Work/SequencerPage.cs</div>
+  <pre><span class="c">// 시작: 선택 모듈 + 모드 + 간격을 호스트로 넘김</span>
+<span class="k">private void</span> OnStartClick(<span class="t">object</span> sender, <span class="t">EventArgs</span> e){
+    <span class="k">var</span> host = Host;
+    <span class="k">int</span> interval = VisionConfigStore.Current?.SimSequenceIntervalMs ?? <span class="n">500</span>;
+    host.AutoSeq.StartModules(SelectedKind(), SelectedMode(), interval);
+}
+<span class="k">private void</span> OnStopClick(...) => Host?.AutoSeq?.Stop();
+<span class="k">private void</span> OnStepClick(...) => host.AutoSeq.StepModule(SelectedKind());  <span class="c">// Step(수동) 모드 1단계</span>
+
+<span class="c">// 로그/메트릭: 호스트 이벤트 구독 + 0.7s 타이머로 Metrics() 폴링</span>
+host.AutoSeq.Message += OnSeqMessage;          <span class="c">// 실시간 로그</span>
+<span class="k">var</span> snap = host.AutoSeq.Metrics();           <span class="c">// 사이클 ms / 사이클수</span></pre>
+  <p class="muted">UI는 실행 로직을 전혀 갖지 않고 <b>호스트 API(StartModules/Stop/StepModule/Metrics/Message)</b>만 호출합니다.</p>
+
+  <h2><span class="step-no">3</span>Host — 컨텍스트와 조정자를 만든다</h2>
+  <div class="file">QMC.Vision/Sequencing/Common/VisionAutoSequenceHost.cs</div>
+  <pre><span class="k">public void</span> StartModules(<span class="t">SequenceModuleKind</span> kind, <span class="t">SequenceRunMode</span> mode, <span class="k">int</span> cycleIntervalMs){
+    Stop();                                  <span class="c">// 기존 실행 정지</span>
+    <span class="k">if</span> (kind == <span class="t">SequenceModuleKind</span>.None) <span class="k">return</span>;
+    <span class="k">var</span> ctx = <span class="k">new</span> <span class="t">VisionSequenceContext</span>(_machine, <span class="k">null</span>, LogSink){   <span class="c">// 디스패처 null→기본 Direct</span>
+        CycleIntervalMs = cycleIntervalMs > <span class="n">0</span> ? cycleIntervalMs : <span class="n">500</span>
+    };
+    _coordinator = <span class="k">new</span> <span class="t">AutoSequenceCoordinator</span>(ctx);
+    _coordinator.Start(kind, mode);
+}</pre>
+
+  <h2><span class="step-no">4</span>Coordinator — 모듈마다 시퀀스를 병렬 Task로 실행</h2>
+  <div class="file">QMC.Vision/Sequencing/Common/AutoSequenceCoordinator.cs</div>
+  <pre><span class="c">// 생성자: 존재하는 모듈마다 전용 시퀀스 등록</span>
+Register(<span class="t">SequenceModuleKind</span>.WaferVision, ctx.Machine.WaferVision != <span class="k">null</span> ? <span class="k">new</span> <span class="t">WaferVisionSequence</span>(ctx) : <span class="k">null</span>);
+Register(<span class="t">SequenceModuleKind</span>.BinVision,   ctx.Machine.BinVision   != <span class="k">null</span> ? <span class="k">new</span> <span class="t">BinVisionSequence</span>(ctx)   : <span class="k">null</span>);
+<span class="c">// … Bottom / TopSide / BottomSide …</span>
+
+<span class="k">public void</span> Start(<span class="t">SequenceModuleKind</span> selected, <span class="t">SequenceRunMode</span> mode){
+    Stop();
+    _cts = <span class="k">new</span> <span class="t">CancellationTokenSource</span>();
+    <span class="t">CancellationToken</span> ct = _cts.Token;
+    <span class="k">foreach</span> (<span class="k">var</span> kv <span class="k">in</span> _sequences){
+        <span class="k">if</span> ((selected &amp; kv.Key) == <span class="n">0</span> || kv.Value == <span class="k">null</span>) <span class="k">continue</span>;  <span class="c">// 비트플래그 선택</span>
+        kv.Value.Configure(mode);
+        <span class="t">ModuleSequenceBase</span> seq = kv.Value;
+        _running.Add(<span class="t">Task</span>.Run(() => seq.RunAsync(ct)));        <span class="c">// ★ 모듈별 병렬 실행</span>
+    }
+}</pre>
+  <p class="muted"><b>핵심:</b> 선택된 모듈들이 <b>각자 별도 Task</b>로 동시에 돌고, <b>하나의 <code>CancellationToken</code></b>으로 일괄 정지됩니다. 정지 시 <code>cts.Cancel()</code> + <code>Dispose()</code>(누수 방지).</p>
+
+  <h2><span class="step-no">5</span>Sequence 실행 — Auto 루프 vs Step 게이트</h2>
+  <div class="file">QMC.Vision/Sequencing/Common/ModuleSequenceBase.cs</div>
+  <pre><span class="k">public async</span> <span class="t">Task</span> RunAsync(<span class="t">CancellationToken</span> ct){
+    <span class="k">if</span> (Mode == <span class="t">SequenceRunMode</span>.Auto){
+        <span class="k">await</span> ExecuteAutoAsync(ct); <span class="k">return</span>;            <span class="c">// 연속</span>
+    }
+    <span class="k">while</span> (!ct.IsCancellationRequested){                  <span class="c">// Manual/Step</span>
+        <span class="k">await</span> _stepGate.WaitAsync(ct);                     <span class="c">// ★ 신호 올 때까지 대기</span>
+        <span class="k">await</span> ExecuteStepAsync(ct);                        <span class="c">// 1사이클</span>
+    }
+}
+<span class="c">// Auto: 사이클 → 간격 대기 무한 반복</span>
+<span class="k">protected virtual async</span> <span class="t">Task</span> ExecuteAutoAsync(<span class="t">CancellationToken</span> ct){
+    <span class="k">while</span> (!ct.IsCancellationRequested){
+        <span class="k">await</span> RunModuleCycleAsync(ct);
+        <span class="k">await</span> <span class="t">Task</span>.Delay(CycleIntervalMs, ct);
+    }
+}
+<span class="c">// StepUnit(): UI '한 단계' → 게이트 1회 해제(중복 방지 가드)</span>
+<span class="k">public void</span> StepUnit(){
+    <span class="k">if</span> (<span class="t">Interlocked</span>.CompareExchange(<span class="k">ref</span> _stepBusyOrQueued, <span class="n">1</span>, <span class="n">0</span>) == <span class="n">0</span>)
+        _stepGate.Release();
+}</pre>
+  <p class="muted"><b>Auto</b>=<code>while</code>+<code>Task.Delay</code> 연속, <b>Step</b>=<code>SemaphoreSlim</code> 게이트(<code>WaitAsync</code>↔<code>Release</code>)로 1단계씩. 둘 다 <code>CancellationToken</code>으로 즉시 취소.</p>
+
+  <h2><span class="step-no">6</span>1사이클 — 단계 순회 + 판정</h2>
+  <div class="file">ModuleSequenceBase.RunModuleCycleAsync()</div>
+  <pre><span class="k">var</span> chipUid = ResolveCycleChipUid();                  <span class="c">// SimEmitChipUid면 합성 발급(자재추적)</span>
+<span class="k">foreach</span> (<span class="k">var</span> step <span class="k">in</span> CycleSteps()){                  <span class="c">// (cmd, id) 순서</span>
+    <span class="k">string</span> cmd = step.Key, id = step.Value;
+    <span class="k">if</span> (cmd == <span class="s">"MATCH"</span>   &amp;&amp; !Module.Finders.ContainsKey(id))   <span class="k">continue</span>;  <span class="c">// 없으면 skip</span>
+    <span class="k">if</span> (cmd == <span class="s">"INSPECT"</span> &amp;&amp; !Module.Inspectors.ContainsKey(id)) <span class="k">continue</span>;
+    <span class="k">string</span> result = Context.Dispatch(Module, cmd, BuildDispatchArgs(id, chipUid));  <span class="c">// ★ 실행</span>
+    <span class="k">if</span> (IsStepFail(result)) { <span class="c">/* fail:/ERR → NG + 사람이 읽는 사유 */</span> }
+    <span class="k">var</span> ng = MatchNgIfBelowThreshold(cmd, id, result);    <span class="c">// score &lt; AcceptThreshold → NG</span>
+}
+<span class="c">// 스톱워치로 LastCycleMs / CycleCount 갱신(메트릭)</span></pre>
+  <p class="muted">단계 순서는 <b>모듈별 <code>CycleSteps()</code> override</b>가 정의 — 예: <code>WaferVisionSequence</code></p>
+  <pre><span class="k">protected override</span> <span class="t">IEnumerable</span>&lt;<span class="t">KeyValuePair</span>&lt;<span class="k">string</span>,<span class="k">string</span>&gt;&gt; CycleSteps(){
+    <span class="k">yield return</span> Step(<span class="s">"GRAB"</span>, <span class="k">null</span>);
+    <span class="k">yield return</span> Step(<span class="s">"MATCH"</span>, <span class="s">"EjectPinFinder"</span>);
+    <span class="k">yield return</span> Step(<span class="s">"MATCH"</span>, <span class="s">"FirstReferenceFinder"</span>);   <span class="c">// 2점 정렬…</span>
+    <span class="c">// … Reticle / SecondReference / AlignDie / Die / Scale</span>
+}</pre>
+
+  <h2><span class="step-no">7</span>디스패치 → 공유 코어 (실제 명령 실행)</h2>
+  <div class="file">VisionSequenceContext.cs · DirectVisionCommandDispatcher.cs</div>
+  <pre><span class="c">// Context: 예외를 삼키지 않고 ERR: 문자열로 변환</span>
+<span class="k">public string</span> Dispatch(<span class="t">IVisionModule</span> module, <span class="k">string</span> cmd, <span class="k">string</span>[] args){
+    <span class="k">try</span> { <span class="k">return</span> Dispatcher.Execute(module, cmd, args); }
+    <span class="k">catch</span> (<span class="t">Exception</span> ex) { <span class="k">return</span> <span class="s">"ERR:"</span> + ex.Message; }
+}
+<span class="c">// Direct: TCP 서버와 '동일 코어' 호출 (결과·mm변환·로그 일관)</span>
+<span class="k">switch</span> (cmd.ToUpperInvariant()){
+    <span class="k">case</span> <span class="s">"GRAB"</span>:    <span class="k">return</span> <span class="t">VisionCommandCore</span>.Grab(module);
+    <span class="k">case</span> <span class="s">"MATCH"</span>:   <span class="k">return</span> <span class="t">VisionCommandCore</span>.Match(module, cfg, id, chipUid);
+    <span class="k">case</span> <span class="s">"INSPECT"</span>: <span class="k">return</span> <span class="t">VisionCommandCore</span>.Inspect(module, cfg, id, chipUid);
+    <span class="k">case</span> <span class="s">"TRAIN"</span>:   <span class="k">return</span> <span class="t">VisionCommandCore</span>.Train(module, id);
+}</pre>
+  <p class="muted">→ 실제 운영의 <code>VisionTcpServer</code>도 같은 <code>VisionCommandCore</code>를 부릅니다. 그래서 <b>Sim 자체실행과 핸들러 TCP 경로의 결과가 동일</b>합니다.</p>
+
+  <h2>스레딩 · 수명 모델 (요약)</h2>
+  <ul>
+    <li><b>병렬성</b>: 모듈마다 <code>Task.Run(RunAsync)</code> — UI 스레드 비차단. 로그는 <code>BeginInvoke</code>로 UI 마샬링.</li>
+    <li><b>정지</b>: 공유 <code>CancellationTokenSource</code> → <code>Cancel()</code>+<code>Dispose()</code> → 모든 <code>await</code> 지점에서 <code>OperationCanceledException</code>으로 빠져나옴.</li>
+    <li><b>수동 진행</b>: <code>SemaphoreSlim</code> 게이트. <code>StepUnit()</code>가 <code>Release</code>, 직전 step 진행 중이면 <code>Interlocked</code> 가드로 무시.</li>
+    <li><b>모드</b>: <code>Configure(mode)</code>로 Auto/Manual/Step 지정 후 <code>RunAsync</code>가 분기.</li>
+    <li><b>판정</b>: <code>fail:</code>/<code>ERR</code>=실행실패, <code>FAIL;</code>=검사NG(정상), MATCH score &lt; <code>AcceptThreshold</code>=NG.</li>
+    <li><b>메트릭</b>: 각 사이클 <code>Stopwatch</code> → <code>LastCycleMs</code>/<code>CycleCount</code> → <code>Snapshot()</code> → UI 0.7s 폴링.</li>
+  </ul>
+
+  <div class="note" style="margin-top:24px">
+    <b>정리.</b> “자체 구현 방식” = <b>UI는 호스트 API만 호출</b> → 호스트가 <b>컨텍스트+조정자</b> 생성 → 조정자가 <b><code>Task.Run</code>으로 모듈별 시퀀스를 병렬</b> 실행 →
+    각 시퀀스는 <b><code>async</code> 루프(또는 <code>SemaphoreSlim</code> 게이트)</b>로 <code>CycleSteps()</code>를 돌며 <b><code>Context.Dispatch → VisionCommandCore</code></b>로 실제 명령을 실행. 외부 라이브러리 없이 .NET <code>Task</code>/<code>SemaphoreSlim</code>/<code>CancellationToken</code>만으로 구성돼 있습니다.
+  </div>
+
+  <p class="muted" style="margin-top:28px">근거 파일: <code>Form1.cs</code> · <code>Ui/Pages/Work/SequencerPage.cs</code> · <code>Sequencing/Common/{VisionAutoSequenceHost, AutoSequenceCoordinator, ModuleSequenceBase, VisionSequenceContext, DirectVisionCommandDispatcher}.cs</code> · <code>Sequencing/&lt;모듈&gt;/&lt;모듈&gt;Sequence.cs</code> (장비PC V: 기준)</p>
+
+</div>
+</body>
+</html>

@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
+using QMC.Vision.Config;
 using QMC.Vision.Modules;
 
 namespace QMC.Vision.Sequencing
@@ -112,6 +113,10 @@ namespace QMC.Vision.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (Module == null) return Fail("SEQ-" + Name + "-NOMOD", "모듈 미지정");
 
+                // 시뮬 자체구동이 실제(핸들러) 흐름과 동일하게 chipUid 를 발급(옵션) — MaterialTracker/로그까지 태움.
+                string chipUid = ResolveCycleChipUid();
+
+                var failReasons = new System.Collections.Generic.List<string>();
                 foreach (var step in CycleSteps())
                 {
                     ct.ThrowIfCancellationRequested();
@@ -119,7 +124,36 @@ namespace QMC.Vision.Sequencing
                     // 모듈에 없는 finder/inspector 단계는 조용히 skip(모듈별 순서 정의 시 안전).
                     if (cmd == "MATCH"   && id != null && !Module.Finders.ContainsKey(id))    continue;
                     if (cmd == "INSPECT" && id != null && !Module.Inspectors.ContainsKey(id)) continue;
-                    LogStep(cmd, id ?? "", Context.Dispatch(Module, cmd, id == null ? null : new[] { id }));
+                    string result = Context.Dispatch(Module, cmd, BuildDispatchArgs(id, chipUid));
+                    LogStep(cmd, id ?? "", result);
+                    string tgt = string.IsNullOrEmpty(id) ? cmd : id;
+                    if (IsStepFail(result))
+                    {
+                        // 실행 실패(학습 없음·매칭 실패 등) — 사람이 읽기 쉬운 사유로 표시.
+                        string reason = HumanReason(ReasonOf(result));
+                        string line = "[SEQ-" + Name + "] " + tgt + " → NG (" + reason + ")";
+                        WriteLog(Name, line);
+                        Context.LogPublic(line);
+                        failReasons.Add(tgt + " → " + reason);
+                        continue;
+                    }
+                    // MATCH score 게이트 — AcceptThreshold 미만이면 NG(스코어 포함) 표시.
+                    string ng = MatchNgIfBelowThreshold(cmd, id, result);
+                    if (ng != null)
+                    {
+                        string line = "[SEQ-" + Name + "] " + tgt + " → NG (" + ng + ")";
+                        WriteLog(Name, line);
+                        Context.LogPublic(line);
+                        failReasons.Add(tgt + " → NG " + ng);
+                    }
+                }
+
+                // 실패 단계가 있으면 '왜 fail 인지'를 한 줄로 모아 표시(원인 파악 용이).
+                if (failReasons.Count > 0)
+                {
+                    string summary = "[SEQ-" + Name + "] 사이클 NG — " + string.Join(", ", failReasons);
+                    WriteLog(Name, summary);
+                    Context.LogPublic(summary);
                 }
 
                 await Task.Yield();
@@ -147,9 +181,11 @@ namespace QMC.Vision.Sequencing
         /// <summary>단계 결과 로깅 — Manual/Step(테스트) 모드는 모든 단계, Auto 모드는 실패만 기록(연속실행 로그 폭주 방지).</summary>
         private void LogStep(string cmd, string target, string result)
         {
+            // 실행 실패만 fail 로 본다. 실행 오류는 소문자 "fail:"(콜론) 또는 "ERR" 로 시작한다.
+            // 검사 NG 판정은 대문자 "FAIL;"(세미콜론)로 반환되는 '정상 결과'이므로 실패로 오인하면 안 된다.
             bool fail = !string.IsNullOrEmpty(result) &&
-                        (result.IndexOf("fail", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                         result.StartsWith("ERR", StringComparison.OrdinalIgnoreCase));
+                        (result.StartsWith("fail:", StringComparison.Ordinal) ||
+                         result.StartsWith("ERR",   StringComparison.Ordinal));
             if (Mode == SequenceRunMode.Auto && !fail) return;   // Auto 정상 단계는 생략
 
             string line = "[SEQ-" + Name + "] " + cmd
@@ -157,6 +193,86 @@ namespace QMC.Vision.Sequencing
                         + " = " + (result ?? "-");
             WriteLog(Name, line);        // 이력(EventLogger "SEQ")
             Context.LogPublic(line);     // 로그 싱크
+        }
+
+        /// <summary>이번 사이클 chipUid 결정 — SimEmitChipUid=true 면 합성 발급(실제 흐름과 동일), 아니면 빈 값(로그/추적 생략).</summary>
+        private string ResolveCycleChipUid()
+        {
+            try
+            {
+                var cfg = VisionConfigStore.Current;
+                if (cfg == null || !cfg.SimEmitChipUid) return string.Empty;
+                return "SIM-" + Name + "-" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+            }
+            catch { return string.Empty; }
+        }
+
+        /// <summary>디스패치 인자 구성 — GRAB(id=null)은 null, 그 외는 [id] 또는 chipUid 포함 [id, chipUid].</summary>
+        private static string[] BuildDispatchArgs(string id, string chipUid)
+        {
+            if (id == null) return null;
+            return string.IsNullOrEmpty(chipUid) ? new[] { id } : new[] { id, chipUid };
+        }
+
+        /// <summary>디스패치 결과가 '실행 실패'인지 — "fail:" 또는 "ERR" 시작.
+        /// (대문자 "FAIL;..."=검사 NG 는 정상 결과이므로 실패로 보지 않음.)</summary>
+        private static bool IsStepFail(string result)
+            => !string.IsNullOrEmpty(result) &&
+               (result.StartsWith("fail:", StringComparison.Ordinal) ||
+                result.StartsWith("ERR", StringComparison.Ordinal));
+
+        /// <summary>실패 결과에서 사유만 추출("fail:no image or train" → "no image or train").</summary>
+        private static string ReasonOf(string result)
+        {
+            if (string.IsNullOrEmpty(result)) return "unknown";
+            if (result.StartsWith("fail:", StringComparison.Ordinal)) return result.Substring(5).Trim();
+            return result.Trim();
+        }
+
+        /// <summary>백엔드 실패 사유를 운영자가 읽기 쉬운 문구로 변환. 미지의 사유는 원문 유지.</summary>
+        private static string HumanReason(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "원인 미상";
+            string r = raw.ToLowerInvariant();
+            if (r.Contains("train"))     return "학습(Train) 없음 — TRAIN 필요";
+            if (r.Contains("no match"))  return "매칭 실패(no match)";
+            if (r.Contains("finder"))    return "파인더 미정의";
+            if (r.Contains("inspector")) return "검사기 미정의";
+            if (r.Contains("grab"))      return "그랩 실패(카메라 확인)";
+            if (r.Contains("module"))    return "모듈 미지정";
+            return raw;
+        }
+
+        /// <summary>MATCH 결과(OK;...score=)의 score 가 finder AcceptThreshold 미만이면 NG 문구 반환, 아니면 null.
+        /// AcceptThreshold 가 0 이하이면 게이트하지 않는다.</summary>
+        private string MatchNgIfBelowThreshold(string cmd, string id, string result)
+        {
+            if (cmd != "MATCH" || string.IsNullOrEmpty(id)) return null;
+            if (result == null || !result.StartsWith("OK", StringComparison.Ordinal)) return null;
+            if (Module == null || !Module.Finders.TryGetValue(id, out var f) || f == null) return null;
+            double thr = f.AcceptThreshold;
+            if (thr <= 0.0) return null;
+            double score = ParseScore(result);
+            if (score >= thr) return null;
+            return "score=" + score.ToString("F3") + " < " + thr.ToString("F2");
+        }
+
+        /// <summary>"OK;x=..;score=0.159" 같은 결과에서 score 값을 파싱(없으면 0).</summary>
+        private static double ParseScore(string result)
+        {
+            try
+            {
+                int i = result.IndexOf("score=", StringComparison.Ordinal);
+                if (i < 0) return 0.0;
+                string s = result.Substring(i + 6);
+                int j = s.IndexOf(';');
+                if (j >= 0) s = s.Substring(0, j);
+                double v;
+                double.TryParse(s, System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out v);
+                return v;
+            }
+            catch { return 0.0; }
         }
 
         /// <summary>실패 처리 — 로그 + Alarm 후 -1 반환.</summary>

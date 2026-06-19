@@ -17,8 +17,8 @@ namespace QMC.Vision.Backends.Cognex
         public string Id { get; }
         public Roi    InspectionRoi { get; set; }
 
-        /// <summary>Blob 임계값 (HardFixedThreshold). InspectorAlgoRecipe.Threshold 가 노드 Apply 로 주입.</summary>
-        public int    Threshold        { get; set; } = 128;
+        /// <summary>Blob 임계값 (HardFixedThreshold, 소수 허용). InspectorAlgoRecipe.Threshold 가 노드 Apply 로 주입.</summary>
+        public double Threshold        { get; set; } = 128;
         /// <summary>최소 결함 면적 (픽셀^2). 이 미만 blob 은 무시.</summary>
         public int    MinDefectArea    { get; set; } = 25;
         /// <summary>PASS 판정 기준: defect 영역 합계 ≤ 이 값.</summary>

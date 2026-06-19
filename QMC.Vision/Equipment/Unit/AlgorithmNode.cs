@@ -115,7 +115,20 @@ namespace QMC.Vision.Modules
             if (Recipe is InspectorAlgoRecipe r)
             {
                 if (r.InspectionRoi != null) _inspector.InspectionRoi = r.InspectionRoi.Clone();
-                if (_inspector is CognexInspector cog) cog.Threshold = r.Threshold;   // int↔int (소실 제거)
+                if (_inspector is CognexInspector cog) cog.Threshold = r.Threshold;   // double↔double
+                else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
+                {
+                    pg.Threshold     = r.Threshold;
+                    pg.GapLowerLimit = r.GapLowerLimit;
+                    pg.GapUpperLimit = r.GapUpperLimit;
+                    pg.GapOffset     = r.GapOffset;
+                    pg.PixelSizeXmm  = r.PixelSizeXmm;
+                    pg.PixelSizeYmm  = r.PixelSizeYmm;
+                    pg.DarkDie       = r.DarkDie;
+                    pg.EdgeStep      = r.EdgeStep;
+                    pg.BandTrim      = r.BandTrim;
+                    pg.OutlierSigma  = r.OutlierSigma;
+                }
             }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
@@ -128,6 +141,19 @@ namespace QMC.Vision.Modules
             {
                 r.InspectionRoi = _inspector.InspectionRoi?.Clone();
                 if (_inspector is CognexInspector cog) r.Threshold = cog.Threshold;
+                else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
+                {
+                    r.Threshold     = pg.Threshold;
+                    r.GapLowerLimit = pg.GapLowerLimit;
+                    r.GapUpperLimit = pg.GapUpperLimit;
+                    r.GapOffset     = pg.GapOffset;
+                    r.PixelSizeXmm  = pg.PixelSizeXmm;
+                    r.PixelSizeYmm  = pg.PixelSizeYmm;
+                    r.DarkDie       = pg.DarkDie;
+                    r.EdgeStep      = pg.EdgeStep;
+                    r.BandTrim      = pg.BandTrim;
+                    r.OutlierSigma  = pg.OutlierSigma;
+                }
             }
             if (_inspector is IAlgoParamSync s) s.CollectParams(Recipe, Config, Setup);
         }

@@ -80,6 +80,13 @@
     <Compile Include="BaseComponent.cs" />
     <Compile Include="BaseEquipmentNode.cs" />
     <Compile Include="BaseUnit.cs" />
+    <Compile Include="Ui\Controls\CameraViewBase.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ICameraViewSource.cs" />
+    <Compile Include="Ui\Controls\OverlayMark.cs" />
+    <Compile Include="Ui\Controls\VisionFrameMeta.cs" />
+    <Compile Include="Ui\Controls\VisionFrameCodec.cs" />
     <Compile Include="Data\Store\DataPaths.cs" />
     <Compile Include="Data\Store\DataStoreResult.cs" />
     <Compile Include="Data\Store\EquipmentDataStore.cs" />

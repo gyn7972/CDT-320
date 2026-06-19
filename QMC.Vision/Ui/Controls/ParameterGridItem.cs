@@ -16,6 +16,7 @@ namespace QMC.Vision.Ui.Controls
         Info,        // 읽기전용 표시(값만, 편집 불가)
         Action,      // 버튼 셀(클릭 시 OnAction 실행)
         FolderPath,  // 경로 텍스트 + 클릭 시 폴더 선택 다이얼로그
+        FilePath,    // 경로 텍스트 + 클릭 시 파일 열기 다이얼로그(FileFilter 적용)
         Slider       // 정수 슬라이더(클릭 시 트랙바 다이얼로그). SliderMin/SliderMax 범위.
     }
 
@@ -47,6 +48,9 @@ namespace QMC.Vision.Ui.Controls
         /// <summary>Slider 타입 — 최소/최대 범위(정수).</summary>
         public int SliderMin { get; set; }
         public int SliderMax { get; set; } = 100;
+
+        /// <summary>FilePath 타입 — OpenFileDialog 필터(예: "이미지|*.png;*.bmp").</summary>
+        public string FileFilter { get; set; }
 
         public ParameterGridItem()
         {
@@ -185,6 +189,21 @@ namespace QMC.Vision.Ui.Controls
                 DisplayName = displayName,
                 Scope = scope,
                 ValueType = ParameterGridValueType.FolderPath,
+                Getter = () => getter() ?? string.Empty,
+                Setter = value => setter(Convert.ToString(value))
+            };
+        }
+
+        /// <summary>파일 경로 행 — 텍스트 표시 + 클릭 시 파일 열기 다이얼로그. filter 미지정 시 모든 파일.</summary>
+        public static ParameterGridItem FilePath(string displayName, ParameterGridScope scope, Func<string> getter, Action<string> setter, string filter = null)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Scope = scope,
+                ValueType = ParameterGridValueType.FilePath,
+                FileFilter = filter,
                 Getter = () => getter() ?? string.Empty,
                 Setter = value => setter(Convert.ToString(value))
             };

@@ -61,6 +61,9 @@
     <Compile Include="Sequencing\Common\IVisionCommandDispatcher.cs" />
     <Compile Include="Sequencing\Common\DirectVisionCommandDispatcher.cs" />
     <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
+    <Compile Include="Equipment\Core\AlignAngleEstimator.cs" />
+    <Compile Include="Sequencing\Common\SequenceToolCatalog.cs" />
+    <Compile Include="Sequencing\Common\ToolSequence.cs" />
     <Compile Include="Sequencing\Common\ModuleSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Common\VisionAutoSequenceHost.cs" />
@@ -93,6 +96,7 @@
     <Compile Include="Equipment\Core\ResourceMonitor.cs" />
     <Compile Include="Equipment\Core\ModuleResultStore.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />
+    <Compile Include="Equipment\Core\PlacementGapInspector.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
     <Compile Include="Equipment\Core\DataLogSaver.cs" />
     <Compile Include="Equipment\Cameras\Sim\SimCamera.cs" />
@@ -244,6 +248,7 @@
     <Compile Include="Ui\Controls\CameraView.Designer.cs">
       <DependentUpon>CameraView.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Controls\VisionModuleSource.cs" />
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
       <SubType>Component</SubType>
     </Compile>
