@@ -28,13 +28,21 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
             RegisterActionButton(BtnInit,       "work.init",       op, OpenInitializationMonitor);
-            RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync(), false));
+            RegisterActionButton(BtnStart,      "work.start",      op, () =>
+            {
+                if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
+                    RunSafe(async c => await c.StartAsync(), false);
+            });
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
             {
                 await c.StopSequenceAsync();
                 await c.StopAsync();
             }, false));
-            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunProcessSequenceStepAsync(), false));
+            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
+            {
+                if (ConfirmRun("Cycle Run", "Cycle Run 을 진행하시겠습니까?"))
+                    RunSafe(async c => await c.RunProcessSequenceStepAsync(), false);
+            });
             RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.CycleStopAsync(), false));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
@@ -112,6 +120,28 @@ namespace QMC.CDT_320.Ui.Tabs
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
                 if (showFailureDialog)
                     QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ConfirmRun(string actionLabel, string message)
+        {
+            try
+            {
+                return QMC.Common.MessageDialog.Show(
+                    FindForm(),
+                    message,
+                    actionLabel,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question) == DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ConfirmRun",
+                    "Run confirmation dialog failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

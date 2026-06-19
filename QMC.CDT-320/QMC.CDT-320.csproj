@@ -1046,6 +1046,9 @@
     <EmbeddedResource Include="Ui\Pages\Settings\IoListPage.resx">
       <DependentUpon>IoListPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.resx">
+      <DependentUpon>MotionPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>
     </EmbeddedResource>
