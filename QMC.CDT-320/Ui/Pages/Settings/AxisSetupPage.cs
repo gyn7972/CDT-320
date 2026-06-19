@@ -37,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private List<AxisRow> _items;
         private bool _gridLoading;
         private QMC.CDT_320.Ui.Dialogs.SharedRailXSetupDialog _sharedRailXDialog;
+        private QMC.CDT_320.Ui.Dialogs.PickerZoneSetupDialog _pickerZoneDialog;
 
         public AxisSetupPage()
         {
@@ -116,6 +117,42 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.MessageDialog.Show("SharedRailX dialog open failed: " + ex.Message,
                     "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnPickerZoneClick(object sender, EventArgs e)
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show("MachineController 미초기화", "Picker Zone",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (_pickerZoneDialog == null || _pickerZoneDialog.IsDisposed)
+                {
+                    _pickerZoneDialog = new QMC.CDT_320.Ui.Dialogs.PickerZoneSetupDialog(host.Controller);
+                    _pickerZoneDialog.FormClosed += (s, args) => { _pickerZoneDialog = null; };
+                    _pickerZoneDialog.Show(host);
+                }
+                else
+                {
+                    if (!_pickerZoneDialog.Visible)
+                        _pickerZoneDialog.Show(host);
+                    _pickerZoneDialog.Activate();
+                    _pickerZoneDialog.BringToFront();
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show("Picker Zone 설정창 열기 실패: " + ex.Message,
+                    "Picker Zone", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {

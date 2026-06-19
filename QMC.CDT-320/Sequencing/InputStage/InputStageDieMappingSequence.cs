@@ -150,12 +150,15 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
                         "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                _frameSpec = ResolveFrameSpecForWafer(_wafer);
+
+                result = RestoreStageAlignRuntimeResultFromMaterial();
+                if (result != 0) return result;
+
                 if (Stage.PitchX == 0.0 || Stage.PitchY == 0.0)
                     return Fail("IN-STAGE-DIEMAP-ALIGN", Stage.Name,
-                        "InputStage align result is not available. Run align before die mapping. PitchX=" +
-                        Stage.PitchX + ", PitchY=" + Stage.PitchY);
+                        BuildStageAlignMissingReason());
 
-                _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 if (_frameSpec == null)
                     return Fail("IN-STAGE-DIEMAP-SPEC", "Material",
                         "TapeFrame spec was not found. waferId=" + _wafer.WaferId +
@@ -175,6 +178,91 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-DIEMAP-CHECK-EX", "InputStageDieMappingSequence", "Die mapping unit check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int RestoreStageAlignRuntimeResultFromMaterial()
+        {
+            try
+            {
+                if (Stage == null)
+                    return 0;
+
+                if (Stage.PitchX > 0.0 && Stage.PitchY > 0.0)
+                    return 0;
+
+                if (_wafer == null)
+                    return 0;
+
+                if (!_wafer.HasInputStageAlignResult)
+                    return 0;
+
+                if (_wafer.InputStageAlignPitchX <= 0.0 || _wafer.InputStageAlignPitchY <= 0.0)
+                    return 0;
+
+                Stage.ApplyWaferAlignResult(
+                    _wafer.InputStageAlignOriginX,
+                    _wafer.InputStageAlignOriginY,
+                    _wafer.InputStageAlignPitchX,
+                    _wafer.InputStageAlignPitchY,
+                    _wafer.InputStageAlignOffsetX,
+                    _wafer.InputStageAlignOffsetY);
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 시작 전 저장된 InputStage Align 결과를 Stage 런타임에 복구했습니다. waferId=" +
+                    _wafer.WaferId +
+                    ", originX=" + _wafer.InputStageAlignOriginX.ToString("F6") +
+                    ", originY=" + _wafer.InputStageAlignOriginY.ToString("F6") +
+                    ", pitchX=" + _wafer.InputStageAlignPitchX.ToString("F6") +
+                    ", pitchY=" + _wafer.InputStageAlignPitchY.ToString("F6") +
+                    ", offsetX=" + _wafer.InputStageAlignOffsetX.ToString("F6") +
+                    ", offsetY=" + _wafer.InputStageAlignOffsetY.ToString("F6") + " - Ok");
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-ALIGN-RESTORE", Stage != null ? Stage.Name : "InputStageUnit",
+                    "저장된 InputStage Align 결과를 Stage 런타임에 복구하지 못했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildStageAlignMissingReason()
+        {
+            try
+            {
+                string waferId = _wafer != null ? _wafer.WaferId : "-";
+                bool hasAlign = _wafer != null && _wafer.HasInputStageAlignResult;
+                double waferPitchX = _wafer != null ? _wafer.InputStageAlignPitchX : 0.0;
+                double waferPitchY = _wafer != null ? _wafer.InputStageAlignPitchY : 0.0;
+                double framePitchX = _frameSpec != null ? _frameSpec.PitchX : 0.0;
+                double framePitchY = _frameSpec != null ? _frameSpec.PitchY : 0.0;
+
+                return "InputStage Align 결과가 없어 Die Mapping을 시작할 수 없습니다. " +
+                       "Die Mapping 전에 Wafer Align을 완료해야 합니다. " +
+                       "waferId=" + waferId +
+                       ", stagePitchX=" + Stage.PitchX +
+                       ", stagePitchY=" + Stage.PitchY +
+                       ", waferHasAlign=" + hasAlign +
+                       ", waferPitchX=" + waferPitchX +
+                       ", waferPitchY=" + waferPitchY +
+                       ", frameSpec=" + (_frameSpec != null ? _frameSpec.Name : "-") +
+                       ", framePitchX=" + framePitchX +
+                       ", framePitchY=" + framePitchY;
+            }
+            catch (Exception ex)
+            {
+                return "InputStage Align 결과가 없어 Die Mapping을 시작할 수 없습니다. 상세 원인 생성 실패: " + ex.Message;
             }
             finally
             {
@@ -460,6 +548,9 @@ namespace QMC.CDT320.Sequencing
                 if (_dieMap == null || _waferMap == null)
                     return Fail("IN-STAGE-DIEMAP-APPLY", "InputStageDieMappingSequence", "Die map result is not available.");
 
+                int result = ResolveMaterialStateWaferForDieMapApply();
+                if (result != 0) return result;
+
                 ApplyInputPickupSequence(_dieMap);
                 double mappingOffsetX = _dieMap.OriginX - Stage.OriginX;
                 double mappingOffsetY = _dieMap.OriginY - Stage.OriginY;
@@ -673,6 +764,52 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveMaterialStateWaferForDieMapApply()
+        {
+            try
+            {
+                WaferMaterial stateWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (stateWafer == null)
+                {
+                    return Fail("IN-STAGE-DIEMAP-WAFER-SYNC", "Material",
+                        "Die Mapping 결과를 저장할 InputStage Material을 찾을 수 없습니다. " +
+                        "stageWafer=" + (_wafer != null ? _wafer.WaferId : "-"));
+                }
+
+                if (_wafer != null &&
+                    !string.IsNullOrWhiteSpace(_wafer.WaferId) &&
+                    !string.Equals(_wafer.WaferId, stateWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail("IN-STAGE-DIEMAP-WAFER-MISMATCH", "Material",
+                        "Die Mapping 대상 Wafer와 MaterialState InputStage Wafer가 다릅니다. " +
+                        "sequenceWafer=" + _wafer.WaferId +
+                        ", stateWafer=" + stateWafer.WaferId);
+                }
+
+                _wafer = stateWafer;
+                if (Stage != null)
+                    Stage.SetCurrentWaferMaterial(_wafer);
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 결과 저장 대상 Wafer를 MaterialState 기준으로 동기화했습니다. waferId=" +
+                    _wafer.WaferId + " - Ok");
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-WAFER-SYNC-EX", "Material",
+                    "Die Mapping 결과 저장 대상 Wafer 동기화 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {

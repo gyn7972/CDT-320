@@ -114,6 +114,7 @@ namespace QMC.CDT320
         [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
         [DataMember] public double PickerPitchY { get; set; } // Picker1~4 사이 Y축 기구 피치입니다.
+        [DataMember] public PickerZoneXSetup ZoneX { get; set; } = new PickerZoneXSetup(); // PickerX 엔코더 위치 기준으로 현재 작업 존을 판정하는 범위 설정입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
@@ -127,11 +128,14 @@ namespace QMC.CDT320
                 InputVisionToPicker = new PickerVisionCoordinateOffsets();
             if (OutputVisionToPicker == null)
                 OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (ZoneX == null)
+                ZoneX = new PickerZoneXSetup();
             if (PickerYFacingXClearance <= 0.0)
                 PickerYFacingXClearance = 150.0;
 
             InputVisionToPicker.EnsureArrays();
             OutputVisionToPicker.EnsureArrays();
+            ZoneX.Ensure();
 
             if (InputVisionToPicker.IsAllZero())
             {

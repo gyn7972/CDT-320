@@ -2,12 +2,23 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerProcessSequence : PickerSequenceBase<PickerProcessStep>
     {
+        private enum OppositePickerMaterialPhase
+        {
+            Empty,
+            NeedBottom,
+            NeedSide,
+            ReadyToPlace,
+            Mixed,
+            Unknown
+        }
+
         private PickerPickUpSequence _pickUpSequence;
         private PickerBottomInspectionSequence _bottomInspectionSequence;
         private PickerSideInspectionSequence _sideInspectionSequence;
@@ -558,11 +569,16 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (!HasLoadedDieOnOppositePicker())
+                string stateDetail;
+                OppositePickerMaterialPhase materialPhase = ResolveOppositePickerMaterialPhase(out stateDetail);
+                bool busReady = IsOppositePickerPhaseReady(requiredSignal, requiredCompletedSignal);
+                bool materialReady = IsOppositeMaterialReadyForAction(actionName, materialPhase);
+
+                if (materialPhase == OppositePickerMaterialPhase.Empty)
                 {
                     WriteLog("PickerProcessSequence",
                         Name + " " + actionName + " 진입 허용. 상대 Picker에 Die가 없습니다. side=" +
-                        Side + " - Check");
+                        Side + ", " + BuildOppositePickerWorkState() + " - Check");
                     return 0;
                 }
 
@@ -573,11 +589,17 @@ namespace QMC.CDT320.Sequencing
                         Side + ", opposite=" + GetOppositeSideName());
                 }
 
-                if (IsOppositePickerPhaseReady(requiredSignal, requiredCompletedSignal))
+                if (busReady || materialReady)
                 {
                     WriteLog("PickerProcessSequence",
-                        Name + " " + actionName + " 진입 허용. 상대 Picker phase 신호 확인. signal=" +
-                        requiredSignal + ", completeSignal=" + requiredCompletedSignal + " - Check");
+                        Name + " " + actionName + " 진입 허용. 상대 Picker 상태 확인. " +
+                        "busReady=" + busReady +
+                        ", materialReady=" + materialReady +
+                        ", materialPhase=" + materialPhase +
+                        ", " + stateDetail +
+                        ", " + BuildOppositePickerWorkState() +
+                        ", requiredSignal=" + requiredSignal +
+                        ", requiredCompleteSignal=" + requiredCompletedSignal + " - Check");
                     return 0;
                 }
 
@@ -586,28 +608,47 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PROCESS-PHASE-BLOCK", Name,
                         blockedMessage + " 수동/Step 모드에서는 대기하지 않습니다. " +
                         "상대 Picker 상태를 확인한 뒤 다시 실행하세요. side=" + Side +
+                        ", materialPhase=" + materialPhase +
+                        ", " + stateDetail +
+                        ", " + BuildOppositePickerWorkState() +
                         ", requiredSignal=" + requiredSignal +
                         ", requiredCompleteSignal=" + requiredCompletedSignal);
                 }
 
                 WriteLog("PickerProcessSequence",
-                    Name + " " + actionName + " 진입 대기. 상대 Picker가 Die를 가지고 있어 phase 신호를 기다립니다. " +
-                    "side=" + Side + ", requiredSignal=" + requiredSignal +
+                    Name + " " + actionName + " 진입 대기. 상대 Picker의 Bus/Material/작업영역 상태를 기다립니다. " +
+                    "side=" + Side +
+                    ", materialPhase=" + materialPhase +
+                    ", " + stateDetail +
+                    ", " + BuildOppositePickerWorkState() +
+                    ", requiredSignal=" + requiredSignal +
                     ", requiredCompleteSignal=" + requiredCompletedSignal + " - Wait");
 
-                while (HasLoadedDieOnOppositePicker() &&
-                       !IsOppositePickerPhaseReady(requiredSignal, requiredCompletedSignal))
+                while (true)
                 {
                     ct.ThrowIfCancellationRequested();
                     Context.StopIfCycleStopRequested(Name + "." + actionName + ".WaitOppositePickerPhase");
+
+                    materialPhase = ResolveOppositePickerMaterialPhase(out stateDetail);
+                    if (materialPhase == OppositePickerMaterialPhase.Empty)
+                        break;
+
+                    busReady = IsOppositePickerPhaseReady(requiredSignal, requiredCompletedSignal);
+                    materialReady = IsOppositeMaterialReadyForAction(actionName, materialPhase);
+                    if (busReady || materialReady)
+                        break;
 
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
                 ct.ThrowIfCancellationRequested();
                 WriteLog("PickerProcessSequence",
-                    Name + " " + actionName + " 진입 허용. 상대 Picker phase 조건 충족. " +
-                    "side=" + Side + ", requiredSignal=" + requiredSignal +
+                    Name + " " + actionName + " 진입 허용. 상대 Picker 진입 조건 충족. " +
+                    "side=" + Side +
+                    ", materialPhase=" + materialPhase +
+                    ", " + stateDetail +
+                    ", " + BuildOppositePickerWorkState() +
+                    ", requiredSignal=" + requiredSignal +
                     ", requiredCompleteSignal=" + requiredCompletedSignal + " - Ok");
                 return 0;
             }
@@ -626,6 +667,153 @@ namespace QMC.CDT320.Sequencing
                     ", requiredSignal=" + requiredSignal +
                     ", requiredCompleteSignal=" + requiredCompletedSignal +
                     ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private OppositePickerMaterialPhase ResolveOppositePickerMaterialPhase(out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                MaterialLocationKind location = Side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerRear
+                    : MaterialLocationKind.PickerFront;
+
+                int occupiedCount = 0;
+                int needBottomCount = 0;
+                int needSideCount = 0;
+                int readyToPlaceCount = 0;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    occupiedCount++;
+
+                    bool bottomDone = HasInspectionResult(die, "Bottom");
+                    bool side0Done = HasInspectionResult(die, "Side0");
+                    bool side90Done = HasInspectionResult(die, "Side90");
+
+                    if (!bottomDone)
+                    {
+                        needBottomCount++;
+                        continue;
+                    }
+
+                    if (!side0Done || !side90Done)
+                    {
+                        needSideCount++;
+                        continue;
+                    }
+
+                    readyToPlaceCount++;
+                }
+
+                detail =
+                    "opposite=" + GetOppositeSideName() +
+                    ", occupied=" + occupiedCount +
+                    ", needBottom=" + needBottomCount +
+                    ", needSide=" + needSideCount +
+                    ", readyToPlace=" + readyToPlaceCount;
+
+                if (occupiedCount == 0)
+                    return OppositePickerMaterialPhase.Empty;
+
+                int activePhaseCount = 0;
+                if (needBottomCount > 0)
+                    activePhaseCount++;
+                if (needSideCount > 0)
+                    activePhaseCount++;
+                if (readyToPlaceCount > 0)
+                    activePhaseCount++;
+
+                if (activePhaseCount > 1)
+                    return OppositePickerMaterialPhase.Mixed;
+
+                if (needBottomCount > 0)
+                    return OppositePickerMaterialPhase.NeedBottom;
+
+                if (needSideCount > 0)
+                    return OppositePickerMaterialPhase.NeedSide;
+
+                if (readyToPlaceCount > 0)
+                    return OppositePickerMaterialPhase.ReadyToPlace;
+
+                return OppositePickerMaterialPhase.Unknown;
+            }
+            catch (Exception ex)
+            {
+                detail = "opposite=" + GetOppositeSideName() + ", error=" + ex.Message;
+                WriteLog("PickerProcessSequence",
+                    Name + " 상대 Picker Material 단계 확인 실패. side=" + Side +
+                    ", " + detail + " - Failed");
+                return OppositePickerMaterialPhase.Unknown;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositeMaterialReadyForAction(string actionName, OppositePickerMaterialPhase phase)
+        {
+            try
+            {
+                if (phase == OppositePickerMaterialPhase.Empty)
+                    return true;
+
+                if (phase == OppositePickerMaterialPhase.NeedSide ||
+                    phase == OppositePickerMaterialPhase.ReadyToPlace)
+                    return true;
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 상대 Picker Material 진입 허용 판단 실패. action=" + actionName +
+                    ", phase=" + phase +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildOppositePickerWorkState()
+        {
+            try
+            {
+                PickerWorkZone workZone;
+                string owner;
+                bool active = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    Side != PickerSequenceSide.Front,
+                    out workZone,
+                    out owner);
+
+                string resourceState = string.Empty;
+                if (Context != null && Context.Resources != null)
+                {
+                    resourceState =
+                        ", resources=inputStage[" + Context.Resources.GetHolder(SequenceResourceKind.InputStageArea) + "]" +
+                        ", inspection[" + Context.Resources.GetHolder(SequenceResourceKind.InspectionArea) + "]" +
+                        ", outputPlace[" + Context.Resources.GetHolder(SequenceResourceKind.OutputPlaceArea) + "]";
+                }
+
+                return "oppositeWorkActive=" + active +
+                       ", oppositeWorkZone=" + workZone +
+                       ", oppositeWorkOwner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
+                       resourceState;
+            }
+            catch (Exception ex)
+            {
+                return "oppositeWorkStateError=" + ex.Message;
             }
             finally
             {

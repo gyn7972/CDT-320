@@ -1710,6 +1710,7 @@ namespace QMC.CDT_320
             try { Bridge?.Dispose(); } catch { }
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }
+            try { QMC.Common.Logging.EventLogger.FlushPending(1000); } catch { }
             Lang.LanguageChanged    -= OnLocalizationChanged;
             UserSession.UserChanged -= OnUserChanged;
             base.OnFormClosing(e);
@@ -1722,7 +1723,7 @@ namespace QMC.CDT_320
                 if (_materialStateSavedForExit)
                     return true;
 
-                bool saved = MaterialStateService.TryNotifyAndSave("ApplicationExit");
+                bool saved = MaterialStateService.TryFlushPendingSave("ApplicationExit");
                 if (saved)
                 {
                     _materialStateSavedForExit = true;

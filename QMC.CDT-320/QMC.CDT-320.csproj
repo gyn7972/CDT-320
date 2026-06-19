@@ -82,6 +82,7 @@
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
     <Compile Include="Equipment\Unit\PickerFrontUnit.cs" />
     <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
+    <Compile Include="Equipment\Unit\PickerZoneXSetup.cs" />
     <Compile Include="Equipment\Unit\Common\PickerTransferTypes.cs" />
     <Compile Include="Equipment\Unit\VisionUnit.cs" />
     <Compile Include="Equipment\Unit\Common\IUnitJogController.cs" />
@@ -588,6 +589,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.Designer.cs">
       <DependentUpon>SharedRailXSetupDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PickerZoneSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PickerZoneSetupDialog.Designer.cs">
+      <DependentUpon>PickerZoneSetupDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.cs">
       <SubType>Form</SubType>

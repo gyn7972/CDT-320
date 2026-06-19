@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
@@ -39,6 +40,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label _lblPickFailValue;
         private readonly Label _lblPlaceFailValue;
         private readonly Label _lblHeadZoneValue;
+        private readonly Label _lblHeadProcessValue;
+        private readonly Label[] _processFlowLabels;
+        private readonly Label _lblProcessDetailValue;
         private readonly Label[] _colletUseTitleLabels;
         private readonly Label[] _colletUseValueLabels;
         private readonly IndicatorDot[] _vacuumDots;
@@ -61,6 +65,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private PickerSideInspectionSequence _sideInspectStepSequence;
         private PickerPlaceSequence _placeStepSequence;
         private bool _manualSequenceRunning;
+        private string _lastStableProcess = "AVOID";
 
         private sealed class RuntimeOffsetRowTag
         {
@@ -80,6 +85,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Label lblPickFailValue,
             Label lblPlaceFailValue,
             Label lblHeadZoneValue,
+            Label lblHeadProcessValue,
+            Label[] processFlowLabels,
+            Label lblProcessDetailValue,
             Label[] colletUseTitleLabels,
             Label[] colletUseValueLabels,
             IndicatorDot[] vacuumDots,
@@ -108,6 +116,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblPickFailValue = lblPickFailValue;
             _lblPlaceFailValue = lblPlaceFailValue;
             _lblHeadZoneValue = lblHeadZoneValue;
+            _lblHeadProcessValue = lblHeadProcessValue;
+            _processFlowLabels = processFlowLabels ?? new Label[0];
+            _lblProcessDetailValue = lblProcessDetailValue;
             _colletUseTitleLabels = colletUseTitleLabels ?? new Label[0];
             _colletUseValueLabels = colletUseValueLabels ?? new Label[0];
             _vacuumDots = vacuumDots ?? new IndicatorDot[0];
@@ -126,7 +137,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             WireEvents();
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
-            _timer.Tick += (s, e) => Refresh();
+            _timer.Tick += (s, e) =>
+            {
+                if (!PageBase.ShouldRefreshVisible(_owner))
+                    return;
+
+                Refresh();
+            };
             _owner.HandleCreated += (s, e) => _timer.Start();
             _owner.HandleDestroyed += (s, e) =>
             {
@@ -195,6 +212,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblPickFailValue.Text = "0 ea";
             _lblPlaceFailValue.Text = "0 ea";
             SetHeadZone("-");
+            SetHeadProcess("-");
+            SetProcessFlow("-");
+            SetProcessDetail("-");
             for (int i = 0; i < _colletUseTitleLabels.Length; i++)
             {
                 if (_colletUseTitleLabels[i] != null)
@@ -269,7 +289,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblColletCheckValue.Text = cdaOk && vacuumOk ? "READY" : "CHECK";
             _lblPickFailValue.Text = GetPickFailCount(machine) + " ea";
             _lblPlaceFailValue.Text = GetPlaceFailCount(machine) + " ea";
-            SetHeadZone(ResolveHeadZone(machine));
+            string headZone = ResolveHeadZone(machine);
+            string headProcess = ResolveHeadProcess(machine, headZone);
+            bool pickerMoving = IsPickerMoving(machine);
+            SetHeadZone(headZone);
+            SetHeadProcess(headProcess);
+            SetProcessFlow(headProcess);
+            SetProcessDetail(ResolveProcessDetail(machine, headProcess, pickerMoving));
+
+            if (!pickerMoving && IsStableProcess(headProcess))
+                _lastStableProcess = NormalizeFlowProcess(headProcess);
         }
 
         private void ClearCounters()
@@ -1198,54 +1227,83 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private string ResolveHeadZone(CDT320_Machine machine)
         {
-            if (machine == null)
-                return "-";
-
-            BaseAxis pickerX = GetAxis(machine, PickerAxis.PickerX);
-            BaseAxis pickerY = GetAxis(machine, PickerAxis.PickerY);
-            if (pickerX == null)
-                return "-";
-
-            if (pickerX.IsMoving || (pickerY != null && pickerY.IsMoving))
-                return "MOVING";
-
-            if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null)
+            try
             {
-                if (machine.PickerFrontUnit.IsPickerInLoadPosition())
-                    return "INPUT";
-                if (IsAnyPickerInDiePickPosition(machine))
-                    return "PICK";
-                if (IsPickerXInZone(machine, "BottomPosition"))
-                    return "INSPECT_B";
-                if (IsPickerXInZone(machine, "SidePosition"))
-                    return "INSPECT_S";
-                if (IsAnyPickerInDiePlacePosition(machine))
-                    return "PLACE";
-                if (machine.PickerFrontUnit.IsPickerInUnloadPosition())
-                    return "OUTPUT";
-                if (machine.PickerFrontUnit.IsPickerInAvoidPosition())
-                    return "AVOID";
-            }
+                if (machine == null)
+                    return "-";
 
-            if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null)
+                string physicalZone = ResolveEncoderHeadZone(machine);
+                return string.IsNullOrWhiteSpace(physicalZone) ? "UNKNOWN" : physicalZone;
+            }
+            catch (Exception ex)
             {
-                if (machine.PickerRearUnit.IsPickerInLoadPosition())
-                    return "INPUT";
-                if (IsAnyPickerInDiePickPosition(machine))
-                    return "PICK";
-                if (IsPickerXInZone(machine, "BottomPosition"))
-                    return "INSPECT_B";
-                if (IsPickerXInZone(machine, "SidePosition"))
-                    return "INSPECT_S";
-                if (IsAnyPickerInDiePlacePosition(machine))
-                    return "PLACE";
-                if (machine.PickerRearUnit.IsPickerInUnloadPosition())
-                    return "OUTPUT";
-                if (machine.PickerRearUnit.IsPickerInAvoidPosition())
-                    return "AVOID";
+                WriteAlarm("Picker Head Zone 판정 실패: " + ex.Message);
+                return "UNKNOWN";
             }
+            finally
+            {
+            }
+        }
 
-            return "UNKNOWN";
+        private string ResolveEncoderHeadZone(CDT320_Machine machine)
+        {
+            try
+            {
+                if (machine == null)
+                    return "UNKNOWN";
+
+                string physicalZone = PickerZoneInterlockRules.ResolvePickerPhysicalZoneName(
+                    machine,
+                    _side == PickerSequenceSide.Front);
+
+                return string.IsNullOrWhiteSpace(physicalZone) ? "UNKNOWN" : physicalZone;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker Head Zone 엔코더 보조 판정 실패: " + ex.Message);
+                return "UNKNOWN";
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveActivePickerWorkZone()
+        {
+            try
+            {
+                PickerWorkZone zone;
+                string owner;
+                bool active = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    _side == PickerSequenceSide.Front,
+                    out zone,
+                    out owner);
+
+                if (!active)
+                    return string.Empty;
+
+                switch (zone)
+                {
+                    case PickerWorkZone.Input:
+                        return "PICK";
+                    case PickerWorkZone.Bottom:
+                        return "INSPECT_B";
+                    case PickerWorkZone.Side:
+                        return "INSPECT_S";
+                    case PickerWorkZone.Output:
+                        return "PLACE";
+                    default:
+                        return string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker Head Zone 작업영역 판정 실패: " + ex.Message);
+                return string.Empty;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsPickerXInZone(CDT320_Machine machine, string positionName)
@@ -1270,6 +1328,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private bool IsAnyPickerInDieBottomZone(CDT320_Machine machine)
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieBottomZone(pickerNo))
+                    return true;
+                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieBottomZone(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsAnyPickerInDieSideZone(CDT320_Machine machine)
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieSideZone(pickerNo))
+                    return true;
+                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieSideZone(pickerNo))
+                    return true;
+            }
+
+            return false;
         }
 
         private bool IsAnyPickerInDiePickPosition(CDT320_Machine machine)
@@ -1337,6 +1421,253 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     _lblHeadZoneValue.BackColor = Color.White;
                     _lblHeadZoneValue.ForeColor = Color.Black;
                     break;
+            }
+        }
+
+        private string ResolveHeadProcess(CDT320_Machine machine, string encoderZone)
+        {
+            try
+            {
+                string activeWorkZone = ResolveActivePickerWorkZone();
+                if (!string.IsNullOrWhiteSpace(activeWorkZone))
+                    return ResolveHeadProcessFromZone(activeWorkZone);
+
+                if (IsPickerMoving(machine))
+                    return "MOVING";
+
+                return ResolveHeadProcessFromZone(encoderZone);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker 공정 상태 판정 실패: " + ex.Message);
+                return "UNKNOWN";
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveHeadProcessFromZone(string zone)
+        {
+            switch (zone)
+            {
+                case "AVOID":
+                    return "AVOID";
+                case "INPUT":
+                case "PICK":
+                    return "PICKUP";
+                case "INSPECT_B":
+                    return "INSPECT_B";
+                case "INSPECT_S":
+                    return "INSPECT_S";
+                case "PLACE":
+                case "OUTPUT":
+                    return "PLACE";
+                case "MOVING":
+                    return "MOVING";
+                case "UNKNOWN":
+                    return "UNKNOWN";
+                default:
+                    return "-";
+            }
+        }
+
+        private void SetHeadProcess(string process)
+        {
+            if (_lblHeadProcessValue == null)
+                return;
+
+            _lblHeadProcessValue.Text = string.IsNullOrEmpty(process) ? "-" : process;
+            _lblHeadProcessValue.ForeColor = Color.White;
+
+            switch (_lblHeadProcessValue.Text)
+            {
+                case "PICKUP":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(0, 128, 192);
+                    break;
+                case "INSPECT_B":
+                case "INSPECT_S":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(217, 119, 6);
+                    break;
+                case "PLACE":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(139, 92, 246);
+                    break;
+                case "AVOID":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(0, 176, 80);
+                    break;
+                case "MOVING":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(255, 192, 0);
+                    _lblHeadProcessValue.ForeColor = Color.Black;
+                    break;
+                case "UNKNOWN":
+                    _lblHeadProcessValue.BackColor = Color.FromArgb(160, 160, 160);
+                    break;
+                default:
+                    _lblHeadProcessValue.BackColor = Color.White;
+                    _lblHeadProcessValue.ForeColor = Color.Black;
+                    break;
+            }
+        }
+
+        private bool IsPickerMoving(CDT320_Machine machine)
+        {
+            try
+            {
+                PickerAxis[] axes = new PickerAxis[]
+                {
+                    PickerAxis.PickerX,
+                    PickerAxis.PickerY,
+                    PickerAxis.PickerT0,
+                    PickerAxis.PickerT1,
+                    PickerAxis.PickerT2,
+                    PickerAxis.PickerT3,
+                    PickerAxis.PickerZ0,
+                    PickerAxis.PickerZ1,
+                    PickerAxis.PickerZ2,
+                    PickerAxis.PickerZ3
+                };
+
+                foreach (PickerAxis axis in axes)
+                {
+                    BaseAxis item = GetAxis(machine, axis);
+                    if (item != null && item.IsMoving)
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker 공정 이동 상태 판정 실패: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveProcessDetail(CDT320_Machine machine, string process, bool moving)
+        {
+            string flowProcess = NormalizeFlowProcess(process);
+            string encoderZone = ResolveEncoderHeadZone(machine);
+            string encoderText = string.IsNullOrWhiteSpace(encoderZone)
+                ? string.Empty
+                : " / ENC=" + encoderZone;
+
+            if (string.IsNullOrWhiteSpace(flowProcess) || flowProcess == "-")
+                return string.IsNullOrWhiteSpace(encoderText) ? "-" : encoderText.TrimStart(' ', '/');
+
+            if (flowProcess == "UNKNOWN")
+                return "현재 위치 확인 필요" + encoderText;
+
+            if (moving)
+            {
+                if (IsStableProcess(flowProcess) &&
+                    IsStableProcess(_lastStableProcess) &&
+                    !string.Equals(_lastStableProcess, flowProcess, StringComparison.OrdinalIgnoreCase))
+                    return _lastStableProcess + " -> " + flowProcess + " 이동 중" + encoderText;
+
+                return flowProcess + " 위치 이동 중" + encoderText;
+            }
+
+            switch (flowProcess)
+            {
+                case "AVOID":
+                    return "AVOID 대기" + encoderText;
+                case "PICKUP":
+                    return "PICKUP 공정 진행 중" + encoderText;
+                case "BOTTOM":
+                    return "BOTTOM 검사 진행 중" + encoderText;
+                case "SIDE":
+                    return "SIDE 검사 진행 중" + encoderText;
+                case "PLACE":
+                    return "PLACE 공정 진행 중" + encoderText;
+                default:
+                    return flowProcess + encoderText;
+            }
+        }
+
+        private void SetProcessFlow(string process)
+        {
+            string active = NormalizeFlowProcess(process);
+            for (int i = 0; i < _processFlowLabels.Length; i++)
+            {
+                Label label = _processFlowLabels[i];
+                if (label == null)
+                    continue;
+
+                bool selected = string.Equals(label.Text, active, StringComparison.OrdinalIgnoreCase);
+                label.BackColor = selected ? ResolveProcessColor(active) : Color.FromArgb(105, 105, 105);
+                label.ForeColor = selected && active == "SIDE" ? Color.Black : Color.White;
+            }
+        }
+
+        private void SetProcessDetail(string detail)
+        {
+            if (_lblProcessDetailValue == null)
+                return;
+
+            _lblProcessDetailValue.Text = string.IsNullOrWhiteSpace(detail) ? "-" : detail;
+            _lblProcessDetailValue.ForeColor = Color.Black;
+            _lblProcessDetailValue.BackColor = detail != null && detail.Contains("이동 중")
+                ? Color.FromArgb(255, 242, 204)
+                : Color.White;
+        }
+
+        private string NormalizeFlowProcess(string process)
+        {
+            switch (process)
+            {
+                case "INPUT":
+                case "PICK":
+                case "PICKUP":
+                    return "PICKUP";
+                case "INSPECT":
+                case "INSPECT_B":
+                case "BOTTOM":
+                    return "BOTTOM";
+                case "INSPECT_S":
+                case "SIDE":
+                    return "SIDE";
+                case "OUTPUT":
+                case "PLACE":
+                    return "PLACE";
+                case "AVOID":
+                case "UNKNOWN":
+                case "MOVING":
+                case "-":
+                    return process;
+                default:
+                    return string.IsNullOrWhiteSpace(process) ? "-" : process;
+            }
+        }
+
+        private bool IsStableProcess(string process)
+        {
+            string value = NormalizeFlowProcess(process);
+            return value == "AVOID" ||
+                   value == "PICKUP" ||
+                   value == "BOTTOM" ||
+                   value == "SIDE" ||
+                   value == "PLACE";
+        }
+
+        private Color ResolveProcessColor(string process)
+        {
+            switch (process)
+            {
+                case "AVOID":
+                    return Color.FromArgb(0, 176, 80);
+                case "PICKUP":
+                    return Color.FromArgb(0, 128, 192);
+                case "BOTTOM":
+                    return Color.FromArgb(217, 119, 6);
+                case "SIDE":
+                    return Color.FromArgb(255, 192, 0);
+                case "PLACE":
+                    return Color.FromArgb(139, 92, 246);
+                default:
+                    return Color.FromArgb(160, 160, 160);
             }
         }
 

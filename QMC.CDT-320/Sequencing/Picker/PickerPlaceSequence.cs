@@ -148,9 +148,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPlaceStep.CalculatePlaceTarget:
                     return Task.FromResult(CalculatePlaceTarget());
 
-                // 피커 XY 픽업 T 이동
-                case PickerPlaceStep.MovePickerXYPickT:
-                    return MovePickerXYPickTAsync(ct);
+                // 피커 X/Y/T 플레이스 티칭 위치 이동. Bin 내 Y 좌표는 OutputStageY가 담당한다.
+                case PickerPlaceStep.MovePickerXYAndTToPlace:
+                    return MovePickerXYAndTToPlaceAsync(ct);
 
                 // 플레이스 대상 검증
                 case PickerPlaceStep.VerifyPlaceTarget:
@@ -521,16 +521,16 @@ namespace QMC.CDT320.Sequencing
                 _receiveTarget.TargetX +
                 _outputVisionToPickerX +
                 ResolvePickerAlignOffsetX(_currentPickerIndex);
-            _targetPickerY = ResolvePickerZoneY("DiePlacePosition", _currentPickerIndex);
+            _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition");
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition");
 
-            CurrentStep = PickerPlaceStep.MovePickerXYPickT;
+            CurrentStep = PickerPlaceStep.MovePickerXYAndTToPlace;
             return 0;
         }
 
-        private async Task<int> MovePickerXYPickTAsync(CancellationToken ct)
+        private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
         {
             int result = await EnsurePickerYAtAvoidBeforePlaceMoveAsync(ct).ConfigureAwait(false);
             if (result != 0)
@@ -538,11 +538,12 @@ namespace QMC.CDT320.Sequencing
 
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
+            targets[PickerAxis.PickerY] = _targetPickerY;
             targets[GetPickerTAxis(_currentPickerIndex)] = _targetPickerT;
 
             result = await MovePickerAxesAndVerifyAsync(
                 targets,
-                "place picker X/T",
+                "place picker X/Y/T",
                 ct,
                 "DiePlacePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
@@ -585,6 +586,13 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PLACE-POSITION-CHECK", Name,
                     "OutputStageY final position check failed before place. " +
                     OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY));
+            }
+
+            if (!IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+            {
+                return Fail("PICKER-PLACE-POSITION-CHECK", Name,
+                    "PickerY final teaching position check failed before place. " +
+                    BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY));
             }
 
             if (!IsPickerAxisInPosition(GetPickerTAxis(_currentPickerIndex), _targetPickerT))

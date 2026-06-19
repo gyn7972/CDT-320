@@ -36,7 +36,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             BackColor = Color.FromArgb(207, 210, 214);
             ForeColor = Color.Black;
             refreshTimer.Interval = 250;
-            refreshTimer.Tick += delegate { RefreshView(); };
+            refreshTimer.Tick += delegate
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshView();
+            };
             optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
             waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;

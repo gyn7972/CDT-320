@@ -143,6 +143,9 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void OnLiveEvent(EventRow r)
         {
+            if (!ShouldRefreshVisible(this))
+                return;
+
             if (InvokeRequired)
             {
                 BeginInvoke(new Action<EventRow>(OnLiveEvent), r);

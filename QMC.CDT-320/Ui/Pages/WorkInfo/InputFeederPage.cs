@@ -28,7 +28,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             WireSequenceActionButtons();
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
-            _timer.Tick += (s, e) => RefreshFromMachine();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshFromMachine();
+            };
             HandleCreated += (s, e) => _timer.Start();
             HandleDestroyed += (s, e) => _timer.Stop();
         }

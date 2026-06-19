@@ -105,23 +105,25 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 string axisReason;
-                if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
 
-                if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //픽커를 홈 잡기전에.. 피더를 먼저 잡는데 이게 어떻게 되지?
+                //if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
-                if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
+
+                //if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
                 OutputCassetteUnit cassette = machine.OutputCassetteUnit;
                 if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)

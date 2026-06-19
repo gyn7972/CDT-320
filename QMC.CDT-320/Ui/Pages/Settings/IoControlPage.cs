@@ -28,7 +28,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             WireEvents();
 
             _timer = new Timer { Interval = 200 };
-            _timer.Tick += (s, e) => RefreshRows();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshRows();
+            };
             HandleCreated += (s, e) =>
             {
                 EnsureLoaded();

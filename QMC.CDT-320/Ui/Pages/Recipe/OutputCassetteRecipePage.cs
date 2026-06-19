@@ -115,6 +115,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
                 RefreshView();
             }
             catch

@@ -11,7 +11,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
-            _timer.Tick += (s, e) => Refresh4();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                Refresh4();
+            };
             HandleCreated += (s, e) => _timer.Start();
             HandleDestroyed += (s, e) => _timer.Stop();
         }

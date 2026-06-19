@@ -1169,6 +1169,18 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+
+                if (side == BinSide.Good)
+                {
+                    int readyResult = await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+                        "Good Stage Load",
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
+                    if (readyResult != 0)
+                        return readyResult;
+                }
 
                 if (side == BinSide.Good &&
                     HasStageAxis(BinStageAxis.GoodBinZ) &&
@@ -1273,6 +1285,14 @@ namespace QMC.CDT320
                 if (side == BinSide.Ng)
                     return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
 
+                int readyResult = await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+                    "Good Stage Unload",
+                    timeoutMs,
+                    bFine,
+                    ct).ConfigureAwait(false);
+                if (readyResult != 0)
+                    return readyResult;
+
                 int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1286,6 +1306,91 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseOutputStageAlarm("OS-STAGE-UNLOAD-EX", "Output stage unload position exception. side=" + side + ", " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(string motionName, int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+
+                if (!HasStageAxis(BinStageAxis.GoodBinZ))
+                    return 0;
+
+                if (!IsGoodStageZInAvoidPosition())
+                {
+                    int goodZResult = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    if (goodZResult != 0)
+                    {
+                        return RaiseOutputStageAlarm(
+                            "OS-GOOD-Z-AVOID-BEFORE-NG-AVOID",
+                            motionName + " 전 GoodStageZ Avoid 이동 실패. result=" + goodZResult + ", " +
+                            DescribeOutputStageInterlockState(BinSide.Good));
+                    }
+                }
+
+                if (!IsGoodStageZInAvoidPosition())
+                {
+                    return RaiseOutputStageAlarm(
+                        "OS-GOOD-Z-AVOID-CHECK",
+                        motionName + " 전 GoodStageZ가 Avoid 위치가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                int clampLiftResult = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs, ct).ConfigureAwait(false);
+                if (clampLiftResult != 0)
+                {
+                    return RaiseOutputStageAlarm(
+                        "OS-NG-CLAMP-UP-BEFORE-GOOD-Z",
+                        motionName + " 전 NG Bin Clamp Lift Up 실패. result=" + clampLiftResult + ", " +
+                        DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                if (!IsBinGuideClampLiftUp(BinSide.Ng))
+                {
+                    return RaiseOutputStageAlarm(
+                        "OS-NG-CLAMP-UP-CHECK",
+                        motionName + " 전 NG Bin Clamp Lift가 Up 상태가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                if (!IsNgStageInAvoidPosition())
+                {
+                    int ngAvoidResult = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    if (ngAvoidResult != 0)
+                    {
+                        return RaiseOutputStageAlarm(
+                            "OS-NG-AVOID-BEFORE-GOOD-Z",
+                            motionName + " 전 NG Stage Avoid 이동 실패. result=" + ngAvoidResult + ", " +
+                            DescribeOutputStageInterlockState(BinSide.Good));
+                    }
+                }
+
+                if (!IsNgStageInAvoidPosition())
+                {
+                    return RaiseOutputStageAlarm(
+                        "OS-NG-AVOID-CHECK-BEFORE-GOOD-Z",
+                        motionName + " 전 NG Stage가 Avoid 위치가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm(
+                    "OS-GOOD-Z-PRECHECK-EX",
+                    motionName + " 전 NG Stage Avoid 선행 조건 확인 중 예외가 발생했습니다. error=" + ex.Message + ", " +
+                    DescribeOutputStageInterlockState(BinSide.Good));
             }
             finally
             {
