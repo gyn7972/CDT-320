@@ -360,14 +360,11 @@ namespace QMC.CDT320.Interlocks
                 PickerWorkZone otherActiveZone = GetActivePickerYTargetZone(otherFront);
                 if (otherActiveZone != PickerWorkZone.Unknown)
                 {
-                    if (CanShareForwardY(targetZone, otherActiveZone))
-                        return true;
-
                     string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
                     return MotionGuardRuleHelpers.Block(
                         movingName,
                         movingName + " Y축 전진 이동 불가: " + otherActiveName +
-                        "Y가 같은 존 또는 알 수 없는 존으로 이동 중입니다. targetZone=" + targetZone +
+                        "Y가 아직 이동 중입니다. 한쪽 PickerY가 전진 존으로 이동할 때는 상대 PickerY가 반드시 Avoid 위치에 있어야 합니다. targetZone=" + targetZone +
                         ", otherActiveTargetZone=" + otherActiveZone +
                         ", target=" + request.TargetValue.ToString("0.###") +
                         ", targetName=" + request.TargetName,
@@ -378,14 +375,11 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 PickerWorkZone otherZone = ResolveCurrentXZone(request.Machine, otherFront);
-                if (CanShareForwardY(targetZone, otherZone))
-                    return true;
-
                 string otherName = isFront ? "RearPicker" : "FrontPicker";
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " Y축 전진 이동 불가: " + otherName +
-                    "Y가 Avoid 위치가 아니고 두 픽커의 작업 존이 동시에 허용되는 조합이 아닙니다. targetZone=" + targetZone +
+                    "Y가 Avoid 위치가 아닙니다. 존 내부 검사 동작 중에는 자기 PickerY가 전진 위치에 있어도 되지만, 다른 PickerY가 새로 전진 이동하려면 상대 PickerY는 Avoid 위치여야 합니다. targetZone=" + targetZone +
                     ", otherZone=" + otherZone +
                     ", target=" + request.TargetValue.ToString("0.###") +
                     ", targetName=" + request.TargetName,
