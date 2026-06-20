@@ -320,7 +320,7 @@ namespace QMC.CDT320
         private static bool ShouldForceCommandInputsOff()
         {
             var settings = AppSettingsStore.Current;
-            return settings != null && (settings.DryRunMode || settings.BypassHardware || settings.SimulationMode);
+            return settings != null && (settings.BypassHardware || settings.SimulationMode);
         }
 
         private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed)

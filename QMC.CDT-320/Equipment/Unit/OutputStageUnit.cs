@@ -1968,12 +1968,46 @@ namespace QMC.CDT320
             }
         }
 
-        private static void ApplyOutputStageCylinderSettings(BaseCylinder cylinder)
+        private void ApplyOutputStageCylinderSettings(BaseCylinder cylinder)
         {
             if (cylinder == null)
                 return;
 
             CylinderSettingsStore.Apply(cylinder);
+
+            if (ShouldUseOutputStageDryRunCylinderIo())
+            {
+                AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                return;
+            }
+
+            if (ShouldUseOutputStageSimulationCylinderIo())
+                AjinFactory.ApplyCylinderSimulation(cylinder, true);
+        }
+
+        private bool ShouldUseOutputStageDryRunCylinderIo()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appDryRun = settings != null &&
+                             settings.DryRunMode &&
+                             !settings.SimulationMode &&
+                             settings.UseAjin &&
+                             AjinFactory.IsRealBoardReady;
+            bool unitDryRun = Config != null && Config.bDryRun;
+            return (appDryRun || unitDryRun) &&
+                   AjinFactory.IsRealBoardReady &&
+                   (settings == null || !settings.SimulationMode);
+        }
+
+        private bool ShouldUseOutputStageSimulationCylinderIo()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appSimulation = settings == null ||
+                                 settings.SimulationMode ||
+                                 !settings.UseAjin ||
+                                 !AjinFactory.IsRealBoardReady;
+            bool setupSimulation = Setup != null && Setup.IsSimulationMode;
+            return appSimulation || (setupSimulation && !ShouldUseOutputStageDryRunCylinderIo());
         }
 
         private BaseCylinder ResolveBinGuideLiftCylinder(BinSide side)

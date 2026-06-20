@@ -163,9 +163,7 @@ namespace QMC.CDT320.Ajin
                 cylinder.Recipe.BwdTimeoutMs = settings.BwdTimeoutMs;
 
                 bool dryRunMode = IsApplicationDryRunMode();
-                bool simulationMode = settings.IsSimulationMode;
-                if (IsApplicationSimulationMode())
-                    simulationMode = true;
+                bool simulationMode = IsApplicationSimulationMode();
 
                 if (dryRunMode)
                     AjinFactory.ApplyCylinderDryRun(cylinder, true);

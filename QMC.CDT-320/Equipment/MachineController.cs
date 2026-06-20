@@ -2641,19 +2641,19 @@ namespace QMC.CDT320
                     "OutputNgStageY HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
             }
 
-            if (!DryRun && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+            if (!outputStage.IsBinGuideDown(BinSide.Good))
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (!DryRun && outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
+            if (!outputStage.IsBinGuideDown(BinSide.Ng))
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (!DryRun && outputStage.NgBinClampUpSensor != null && outputStage.NgBinClampUpSensor.IsOn)
+            if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Clamp 실린더가 Up 상태가 아닙니다."));
@@ -3950,7 +3950,7 @@ namespace QMC.CDT320
                     "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
             }
 
-            if (!DryRun && outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+            if (outputStage != null && !outputStage.IsBinGuideDown(BinSide.Good))
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));

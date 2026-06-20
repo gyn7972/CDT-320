@@ -511,6 +511,7 @@
     <Compile Include="Equipment\Ajin\AjinSystem.cs" />
     <Compile Include="Equipment\Ajin\CylinderManager.cs" />
     <Compile Include="Equipment\Ajin\CylinderSettingsStore.cs" />
+    <Compile Include="Equipment\Ajin\IoRuntimePolicy.cs" />
     <Compile Include="Equipment\Ajin\IoSettingsStore.cs" />
     <!-- Equipment / Vision (Vision ?�로?�스 ?�신) -->
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />

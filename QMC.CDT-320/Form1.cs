@@ -145,7 +145,7 @@ namespace QMC.CDT_320
                         else if (dryRun)
                             AjinFactory.ApplyInputDryRun(input, true);
                         else
-                            AjinFactory.ApplyInputPersistedSimulation(input);
+                            AjinFactory.ApplyInputSimulation(input, false);
                     }
 
                     foreach (BaseDigitalOutput output in EnumerateOutputs(Machine))
@@ -153,7 +153,7 @@ namespace QMC.CDT_320
                         if (forceSimulation || dryRun)
                             AjinFactory.ApplyOutputSimulation(output, forceSimulation);
                         else
-                            AjinFactory.ApplyOutputPersistedSimulation(output);
+                            AjinFactory.ApplyOutputSimulation(output, false);
                     }
 
                     foreach (BaseCylinder cylinder in EnumerateCylinders(Machine))
@@ -1358,6 +1358,8 @@ namespace QMC.CDT_320
                     AjinFactory.ApplyInputSimulation(input, true);
                 else if (dryRun)
                     AjinFactory.ApplyInputDryRun(input, true);
+                else
+                    AjinFactory.ApplyInputSimulation(input, false);
                 return;
             }
 
@@ -1367,6 +1369,8 @@ namespace QMC.CDT_320
                 if (simulation)
                     AjinFactory.ApplyOutputSimulation(output, true);
                 else if (dryRun)
+                    AjinFactory.ApplyOutputSimulation(output, false);
+                else
                     AjinFactory.ApplyOutputSimulation(output, false);
                 return;
             }
@@ -1378,6 +1382,8 @@ namespace QMC.CDT_320
                     AjinFactory.ApplyCylinderSimulation(cylinder, true);
                 else if (dryRun)
                     AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                else
+                    QMC.CDT320.Ajin.CylinderSettingsStore.Apply(cylinder);
                 return;
             }
 
