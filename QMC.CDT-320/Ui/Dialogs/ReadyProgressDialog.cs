@@ -5,8 +5,8 @@ using QMC.Common.Ui.Dialogs;
 namespace QMC.CDT_320.Ui.Dialogs
 {
     /// <summary>
-    /// READY(Avoid) 시퀀스 진행 팝업. 공용 <see cref="ProgressDialog"/> 를 재사용하고,
-    /// MachineController.ReadySequenceProgressChanged 를 구독해 진행 상황만 매핑한다.
+    /// READY(Avoid) 시퀀스 진행 팝업입니다. 공용 <see cref="ProgressDialog"/>를 재사용하고
+    /// MachineController.ReadySequenceProgressChanged를 구독해 진행 상태만 표시합니다.
     /// </summary>
     public sealed class ReadyProgressDialog : ProgressDialog
     {
@@ -45,7 +45,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyProgress(progress);
         }
 
-        /// <summary>Ready 진행 모델을 공용 진행 모델로 변환해 표시한다.</summary>
+        /// <summary>Ready 진행 모델을 공용 진행 모델로 변환해 표시합니다.</summary>
         public void ApplyProgress(MachineReadyProgress progress)
         {
             if (progress == null)
@@ -64,11 +64,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             switch (state)
             {
-                case MachineReadySequenceState.Completed: return ProgressState.Completed;
-                case MachineReadySequenceState.Failed: return ProgressState.Failed;
-                case MachineReadySequenceState.Canceled: return ProgressState.Canceled;
-                case MachineReadySequenceState.Running: return ProgressState.Running;
-                default: return ProgressState.Idle;
+                case MachineReadySequenceState.Completed:
+                    return ProgressState.Completed;
+                case MachineReadySequenceState.Failed:
+                    return ProgressState.Failed;
+                case MachineReadySequenceState.Canceled:
+                    return ProgressState.Canceled;
+                case MachineReadySequenceState.Running:
+                    return ProgressState.Running;
+                default:
+                    return ProgressState.Idle;
             }
         }
     }

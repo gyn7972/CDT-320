@@ -79,6 +79,7 @@
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
+    <Compile Include="Equipment\MachineReadyProgress.cs" />
     <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
@@ -595,6 +596,9 @@
     </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.Designer.cs">
       <DependentUpon>InitializationMonitorDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.cs">
       <SubType>Form</SubType>
