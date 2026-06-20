@@ -36,6 +36,9 @@ namespace QMC.CDT320
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        // 4개 유닛(INPUT/FRONT/REAR/OUTPUT) 동작 상태. UI 가 스냅샷으로 폴링한다. (앱 수명 동안 유지)
+        private readonly QMC.CDT320.Sequencing.SequenceActivityMonitor _sequenceActivity =
+            new QMC.CDT320.Sequencing.SequenceActivityMonitor();
         private int _manualBusyCount;
         private CancellationTokenSource _manualCts;
         private bool _isMachineInitialized;
@@ -88,6 +91,8 @@ namespace QMC.CDT320
         public bool IsDeveloperReadyRestored => _isDeveloperReadyRestored;
         public MachineReadyProgress ReadySequenceProgress => _readySequenceProgress;
         public bool IsReadySequenceRunning => _readySequenceProgress != null && _readySequenceProgress.IsRunning;
+        /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT) 시퀀스 동작 상태(공식 상태 객체). UI 표시용.</summary>
+        public QMC.CDT320.Sequencing.SequenceActivityMonitor SequenceActivity => _sequenceActivity;
         public DateTime MachineInitializedAt { get; private set; }
         public string LastActionFailureMessage { get; private set; }
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
@@ -5238,7 +5243,10 @@ namespace QMC.CDT320
 
                 _autoCts = new CancellationTokenSource();
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
-                _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
+                // 새 시퀀스 시작: 4개 유닛 상태를 Idle 로 초기화하고 동일 ActivityMonitor 를 컨텍스트에 주입한다.
+                _sequenceActivity.Reset();
+                _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    this, bus, new QMC.CDT320.Sequencing.SequenceResourceManager(), _sequenceActivity);
                 _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
 
                 _coordinator.Register(
@@ -5278,6 +5286,9 @@ namespace QMC.CDT320
                     }
                     catch (QMC.CDT320.Sequencing.SequenceStopException ex)
                     {
+                        // 남아 있는 진행/대기 유닛을 정지 상태로 정리한다.
+                        _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Stopped,
+                            "시퀀스가 정지되었습니다.");
                         QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                             "Sequence stopped: " + ex.Message + " - Stopped");
                         Log("[SEQ] stopped: " + ex.Message);
@@ -5299,10 +5310,16 @@ namespace QMC.CDT320
                     }
                     catch (OperationCanceledException)
                     {
+                        // 남아 있는 진행/대기 유닛을 취소 상태로 정리한다.
+                        _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Canceled,
+                            "시퀀스가 취소되었습니다.");
                         Log("[SEQ] Canceled");
                     }
                     catch (Exception ex)
                     {
+                        // 실패 유닛은 UnitSequenceBase 에서 이미 Alarm. 남은 진행/대기 유닛은 정지로 정리한다.
+                        _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Stopped,
+                            "다른 유닛 알람으로 정지되었습니다.");
                         QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                             "자동 시퀀스 실패: " + ex.Message + " - Failed");
                         AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "자동 시퀀스 실패: " + ex.Message);

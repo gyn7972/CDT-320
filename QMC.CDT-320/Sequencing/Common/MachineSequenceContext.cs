@@ -8,16 +8,26 @@ namespace QMC.CDT320.Sequencing
     {
         /// <summary>지정한 컨트롤러와 신호 버스로 시퀀스 컨텍스트를 생성합니다.</summary>
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus)
-            : this(controller, bus, new SequenceResourceManager())
+            : this(controller, bus, new SequenceResourceManager(), null)
         {
         }
 
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus, SequenceResourceManager resources)
+            : this(controller, bus, resources, null)
+        {
+        }
+
+        public MachineSequenceContext(MachineController controller, SequenceSignalBus bus,
+            SequenceResourceManager resources, SequenceActivityMonitor activity)
         {
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Bus = bus ?? throw new ArgumentNullException(nameof(bus));
             Resources = resources ?? new SequenceResourceManager();
+            Activity = activity ?? new SequenceActivityMonitor();
         }
+
+        /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT)의 동작 상태를 보관하는 공식 상태 객체입니다.</summary>
+        public SequenceActivityMonitor Activity { get; private set; }
 
         /// <summary>시퀀스를 구동하는 장비 컨트롤러입니다.</summary>
         public MachineController Controller { get; private set; }

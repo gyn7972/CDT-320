@@ -43,25 +43,57 @@ namespace QMC.CDT320.Sequencing
             // 이 유닛(및 하위 시퀀스)의 모든 공개 로그를 유닛 종류에 맞는 EventKind 로 분류한다.
             using (SequenceLog.Push(SequenceLog.FromUnitKind(Kind), Name, null))
             {
-                if (Mode == SequenceRunMode.Auto)
-                {
-                    await ExecuteAutoAsync(ct).ConfigureAwait(false);
-                    return;
-                }
+                SequenceActivityMonitor activity = Context.Activity;
+                string baseAction = Mode == SequenceRunMode.Auto ? "자동 시퀀스 실행" : "수동/스텝 시퀀스 실행";
 
-                Context.LogPublic("[SEQ] " + Name + " manual/step gate 대기");
-                while (!ct.IsCancellationRequested)
+                // 상태 표시는 기존 throw 흐름을 그대로 유지하고, 상태 객체만 갱신한다. (예외 삼키지 않음)
+                if (activity != null)
+                    activity.Update(Kind, SequenceActivityState.Running, baseAction, null, null);
+
+                try
                 {
-                    await _stepGate.WaitAsync(ct).ConfigureAwait(false);
-                    ct.ThrowIfCancellationRequested();
-                    try
+                    if (Mode == SequenceRunMode.Auto)
                     {
-                        await ExecuteStepAsync(ct).ConfigureAwait(false);
+                        await ExecuteAutoAsync(ct).ConfigureAwait(false);
+                        if (activity != null)
+                            activity.SetState(Kind, SequenceActivityState.Completed, "시퀀스가 정상 완료되었습니다.");
+                        return;
                     }
-                    finally
+
+                    Context.LogPublic("[SEQ] " + Name + " manual/step gate 대기");
+                    while (!ct.IsCancellationRequested)
                     {
-                        Interlocked.Exchange(ref _stepBusyOrQueued, 0);
+                        await _stepGate.WaitAsync(ct).ConfigureAwait(false);
+                        ct.ThrowIfCancellationRequested();
+                        try
+                        {
+                            await ExecuteStepAsync(ct).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            Interlocked.Exchange(ref _stepBusyOrQueued, 0);
+                        }
                     }
+                }
+                catch (OperationCanceledException)
+                {
+                    if (activity != null)
+                        activity.SetState(Kind, SequenceActivityState.Canceled, "시퀀스가 취소되었습니다.");
+                    throw;
+                }
+                catch (SequenceStopException ex)
+                {
+                    if (activity != null)
+                        activity.SetState(Kind, SequenceActivityState.Stopped,
+                            string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    if (activity != null)
+                        activity.SetState(Kind, SequenceActivityState.Alarm,
+                            string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
+                    throw;
                 }
             }
         }

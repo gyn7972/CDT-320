@@ -310,6 +310,9 @@
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
     <Compile Include="Sequencing\Common\SequenceUnitKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivityState.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivitySnapshot.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivityMonitor.cs" />
     <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
     <Compile Include="Sequencing\Common\SequenceRunOptions.cs" />
     <Compile Include="Sequencing\Common\SequenceAwaiter.cs" />

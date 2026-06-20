@@ -102,11 +102,13 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void RefreshPositions()
         {
             if (IsDisposed) return;
+            // 축 상태는 MotionMonitorService 백그라운드 폴링이 갱신한다.
+            // UI 스레드에서 UpdateStatus(보드 I/O + 축 lock)를 호출하지 않고 캐시 값만 읽어 표시한다.
+            // (CYCLING 중 시퀀스 모션과의 lock 경합으로 UI 가 멈추는 것을 방지)
             foreach (var row in _rows)
             {
                 try
                 {
-                    row.Axis.UpdateStatus();
                     ApplySnapshot(row.Item, AxisStatusSnapshot.FromAxis(row.Axis));
                 }
                 catch

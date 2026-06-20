@@ -32,7 +32,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 RefreshData();
             };
-            HandleCreated += (s, e) => _timer.Start();
+            VisibleChanged += (s, e) => { if (Visible) _timer.Start(); else _timer.Stop(); };
             HandleDestroyed += (s, e) => _timer.Stop();
         }
 

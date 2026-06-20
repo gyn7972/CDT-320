@@ -104,8 +104,13 @@ namespace QMC.CDT_320.Ui.Controls
                 if (!PageBase.ShouldRefreshVisible(this))
                     return;
 
+                // 변경 이벤트(Material/Lot)가 없으면 아무 일도 하지 않는다. (idle tick 비용 0)
+                // → 큰 다이맵(수천 개)을 매 100ms 마다 스캔/재계산하던 UI 스레드 부하 제거.
                 bool dirtyEvent = Interlocked.Exchange(ref _dirty, 0) == 1;
-                EnsureDisplayMap(dirtyEvent);
+                if (!dirtyEvent)
+                    return;
+
+                EnsureDisplayMap(true);
 
                 long sig = ComputeSignature(_displayMap);
                 if (sig == _signature)
@@ -182,11 +187,11 @@ namespace QMC.CDT_320.Ui.Controls
                     {
                         if (entry == null)
                             continue;
+                        // 표시 색(ResolveEntryColor)은 IsTarget/Result/BinCode 로 결정되므로
+                        // 이 세 값만으로 변경을 감지한다. (값당 ResolveInputDieDisplayState 호출 제거 → 비용 대폭 감소)
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
-                        h = h * 31 + StringComparer.OrdinalIgnoreCase.GetHashCode(
-                            MaterialStateService.ResolveInputDieDisplayState(entry) ?? string.Empty);
                     }
                 }
                 else

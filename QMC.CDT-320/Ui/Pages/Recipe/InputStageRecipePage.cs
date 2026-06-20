@@ -250,6 +250,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
+        }
+
         protected override void OnHandleDestroyed(EventArgs e)
         {
             try

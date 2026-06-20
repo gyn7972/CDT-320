@@ -150,7 +150,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 Refresh();
             };
-            _owner.HandleCreated += (s, e) => _timer.Start();
+            _owner.VisibleChanged += (s, e) => { if (_owner.Visible) _timer.Start(); else _timer.Stop(); };
             _owner.HandleDestroyed += (s, e) =>
             {
                 _timer.Stop();

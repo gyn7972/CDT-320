@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                     RefreshAll();
                 };
-                _refresh.Start();
+                VisibleChanged += (s, e) => { if (Visible) _refresh.Start(); else _refresh.Stop(); };
                 RefreshAll();
             }
         }

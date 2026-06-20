@@ -63,6 +63,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
+        }
+
         /// <summary>핸들이 해제될 때 타이머와 조그 동작을 정지합니다.</summary>
         protected override void OnHandleDestroyed(EventArgs e)
         {
