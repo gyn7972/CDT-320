@@ -147,15 +147,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // contentLayout
             // 
-            this.contentLayout.ColumnCount = 4;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.94741F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.05259F));
+            this.contentLayout.ColumnCount = 3;
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 93F));
             this.contentLayout.Controls.Add(this.centerLayout, 0, 0);
-            this.contentLayout.Controls.Add(this.leftLayout, 1, 0);
+            this.contentLayout.Controls.Add(this.grpJog, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
-            this.contentLayout.Controls.Add(this.grpSpeed, 3, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -168,10 +166,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // centerLayout
             // 
-            this.centerLayout.ColumnCount = 1;
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.centerLayout.ColumnCount = 2;
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.centerLayout.Controls.Add(this.grpVision, 0, 0);
             this.centerLayout.Controls.Add(this.grpManual, 0, 1);
+            this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
+            this.centerLayout.SetRowSpan(this.leftLayout, 2);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.centerLayout.Location = new System.Drawing.Point(8, 8);
             this.centerLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -195,7 +196,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Size = new System.Drawing.Size(675, 470);
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
-            this.grpVision.Text = "VISION VIEW";
+            this.grpVision.Text = "VISION";
             // 
             // tabVision
             // 
@@ -524,7 +525,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpWait.Size = new System.Drawing.Size(449, 145);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
-            this.grpWait.Text = "WAIT TIME / SPEED";
+            this.grpWait.Text = "WAIT TIME";
             // 
             // waitParameterGrid
             // 
@@ -549,7 +550,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpIo.Size = new System.Drawing.Size(449, 215);
             this.grpIo.TabIndex = 2;
             this.grpIo.TabStop = false;
-            this.grpIo.Text = "I/O";
+            this.grpIo.Text = "CYLINDER && I/O";
             // 
             // ioCylinderPanel
             // 
@@ -565,7 +566,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.rightLayout.ColumnCount = 1;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Controls.Add(this.grpJog, 0, 0);
+            this.rightLayout.Controls.Add(this.grpSpeed, 0, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(1148, 8);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);

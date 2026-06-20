@@ -299,7 +299,7 @@
             this.grpActions.Size = new System.Drawing.Size(290, 621);
             this.grpActions.TabIndex = 0;
             this.grpActions.TabStop = false;
-            this.grpActions.Text = "ACTION";
+            this.grpActions.Text = "MANUAL ACTION";
             // 
             // actionScrollPanel
             // 
@@ -819,7 +819,7 @@
             this.grpJog.Size = new System.Drawing.Size(554, 868);
             this.grpJog.TabIndex = 0;
             this.grpJog.TabStop = false;
-            this.grpJog.Text = "JOG";
+            this.grpJog.Text = "JOG OPERATION";
             // 
             // jogCompositeLayout
             // 
