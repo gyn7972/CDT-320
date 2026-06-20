@@ -14,6 +14,7 @@ namespace QMC.CDT_320.Ui.Tabs
     public partial class WorkTab : TabBase
     {
         private InitializationMonitorDialog _initializationMonitorDialog;
+        private ReadyProgressDialog _readyProgressDialog;
 
         public WorkTab()
         {
@@ -133,27 +134,91 @@ namespace QMC.CDT_320.Ui.Tabs
 
         private async System.Threading.Tasks.Task RunReadySequenceWithMessageAsync(MachineController controller)
         {
+            if (controller == null)
+                return;
+
+            // 중복 READY 클릭 방지: '실제로' Ready 시퀀스가 진행 중일 때만 새로 시작하지 않고 기존 팝업을 앞으로 가져온다.
+            if (controller.IsReadySequenceRunning)
+            {
+                if (_readyProgressDialog != null && !_readyProgressDialog.IsDisposed)
+                {
+                    _readyProgressDialog.Activate();
+                    _readyProgressDialog.BringToFront();
+                }
+                return;
+            }
+
+            // 이전 실행의 잔여 팝업이 남아 있으면 정리한다. (남아 있어도 새 팝업이 막히지 않도록)
+            try
+            {
+                if (_readyProgressDialog != null && !_readyProgressDialog.IsDisposed)
+                {
+                    _readyProgressDialog.Close();
+                    _readyProgressDialog.Dispose();
+                }
+            }
+            catch
+            {
+            }
+            _readyProgressDialog = null;
+
+            // 팝업 owner 를 확실히 잡는다. (owner 가 null 이면 메인 폼 뒤로 깔릴 수 있음)
+            IWin32Window owner = FindForm() ?? (IWin32Window)Form.ActiveForm;
+
             ReadyProgressDialog progressDialog = null;
             try
             {
                 progressDialog = new ReadyProgressDialog(controller);
-                progressDialog.Show(FindForm());
+                _readyProgressDialog = progressDialog;
+                if (owner != null)
+                    progressDialog.Show(owner);
+                else
+                    progressDialog.Show();
                 progressDialog.BringToFront();
+                progressDialog.Activate();
+                progressDialog.Refresh();
             }
             catch (Exception ex)
             {
+                progressDialog = null;
+                _readyProgressDialog = null;
                 QMC.Common.Log.Write("Main", "SYSTEM", "ReadyProgressDialog",
                     "Ready progress dialog open failed: " + ex.Message + " - Failed");
+                // 확인 다이얼로그는 정상 동작하므로, 팝업 생성 실패 시 원인을 화면으로도 알린다.
+                QMC.Common.MessageDialog.Show(
+                    FindForm(),
+                    "Ready 진행 팝업을 열지 못했습니다.\n" + ex.Message,
+                    "Ready",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
             }
 
-            int result = await controller.RunReadySequenceAsync();
+            // Show 직후 메시지 루프가 한 번 펌프되어 팝업이 실제로 화면에 그려지도록 양보한다.
+            await System.Threading.Tasks.Task.Yield();
 
-            if (progressDialog != null && !progressDialog.IsDisposed)
+            int result = -1;
+            try
             {
-                progressDialog.ApplyProgress(controller.ReadySequenceProgress);
-                await System.Threading.Tasks.Task.Delay(result == 0 ? 700 : 300);
-                progressDialog.Close();
-                progressDialog.Dispose();
+                result = await controller.RunReadySequenceAsync();
+            }
+            finally
+            {
+                // 진행 결과를 마지막으로 한 번 더 반영한 뒤(완료/실패 표시) 잠깐 보여주고 닫는다.
+                if (progressDialog != null && !progressDialog.IsDisposed)
+                {
+                    progressDialog.ApplyProgress(controller.ReadySequenceProgress);
+                    await System.Threading.Tasks.Task.Delay(result == 0 ? 700 : 500);
+                    try
+                    {
+                        progressDialog.Close();
+                        progressDialog.Dispose();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                _readyProgressDialog = null;
             }
 
             if (result == 0)
@@ -232,6 +297,9 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 if (_initializationMonitorDialog != null && !_initializationMonitorDialog.IsDisposed)
                     _initializationMonitorDialog.Close();
+
+                if (_readyProgressDialog != null && !_readyProgressDialog.IsDisposed)
+                    _readyProgressDialog.Close();
             }
             catch
             {

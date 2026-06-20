@@ -5015,13 +5015,15 @@ namespace QMC.CDT320
                 }
 
                 manualScope = EnterManualOperation();
-                SetReadySequenceProgress(MachineReadySequenceState.Running, 0, 0, 6, "Ready", "Ready 시퀀스를 시작합니다.");
+
+                var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine, SetReadySequenceProgress);
+                int totalSteps = sequence.TotalStepCount;
+                SetReadySequenceProgress(MachineReadySequenceState.Running, 0, 0, totalSteps, "Ready", "Ready 시퀀스를 시작합니다.");
 
                 Log("[READY] Ready sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence start. - Start");
 
-                var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine, SetReadySequenceProgress);
                 int result = await sequence.RunAsync(ManualOperationToken).ConfigureAwait(false);
                 if (result != 0)
                 {
@@ -5036,7 +5038,7 @@ namespace QMC.CDT320
 
                 SaveMachineRuntimeState("ReadySequenceComplete");
                 SetStatus(EquipmentStatus.Ready);
-                SetReadySequenceProgress(MachineReadySequenceState.Completed, 100, 6, 6, "Ready", "Ready 시퀀스가 완료되었습니다.");
+                SetReadySequenceProgress(MachineReadySequenceState.Completed, 100, totalSteps, totalSteps, "Ready", "Ready 시퀀스가 완료되었습니다.");
                 Log("[READY] Ready sequence complete.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence complete. - Ok");
