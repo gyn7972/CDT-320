@@ -53,7 +53,6 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _refresh = new System.Windows.Forms.Timer { Interval = RefreshIntervalMs };
                 _refresh.Tick += OnRefreshTick;
-                _refresh.Start();
             }
         }
 
@@ -192,6 +191,7 @@ namespace QMC.CDT_320.Ui.Controls
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
+                        h = h * 31 + StableHash(MaterialStateService.ResolveInputDieDisplayState(entry));
                     }
                 }
                 else
@@ -200,6 +200,21 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 return h;
+            }
+        }
+
+        private static int StableHash(string text)
+        {
+            unchecked
+            {
+                int hash = 23;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    for (int i = 0; i < text.Length; i++)
+                        hash = hash * 31 + text[i];
+                }
+
+                return hash;
             }
         }
 
@@ -402,6 +417,47 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch { }
             base.OnHandleDestroyed(e);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnParentChanged(EventArgs e)
+        {
+            base.OnParentChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        private void UpdateRefreshTimer()
+        {
+            try
+            {
+                if (_refresh == null || IsDisposed)
+                    return;
+
+                if (PageBase.ShouldRefreshVisible(this))
+                {
+                    MarkDirty();
+                    if (!_refresh.Enabled)
+                        _refresh.Start();
+                }
+                else if (_refresh.Enabled)
+                {
+                    _refresh.Stop();
+                }
+            }
+            catch
+            {
+            }
         }
     }
 }

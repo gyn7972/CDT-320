@@ -31,12 +31,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _refresh.Tick += (s, e) =>
                 {
                     if (!ShouldRefreshVisible(this))
+                    {
+                        _refresh.Stop();
                         return;
+                    }
 
                     RefreshAll();
                 };
-                _refresh.Start();
-                RefreshAll();
             }
         }
 
@@ -278,6 +279,47 @@ namespace QMC.CDT_320.Ui.Pages.Work
             catch { }
 
             base.OnHandleDestroyed(e);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnParentChanged(EventArgs e)
+        {
+            base.OnParentChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        private void UpdateRefreshTimer()
+        {
+            try
+            {
+                if (_refresh == null || IsDisposed)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                {
+                    RefreshAll();
+                    if (!_refresh.Enabled)
+                        _refresh.Start();
+                }
+                else if (_refresh.Enabled)
+                {
+                    _refresh.Stop();
+                }
+            }
+            catch
+            {
+            }
         }
 
         /// <summary>작업 메인 화면 표시용 스냅샷 모델. (UI 표시 문자열만 보관)</summary>
