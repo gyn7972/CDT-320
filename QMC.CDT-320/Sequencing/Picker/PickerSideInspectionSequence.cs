@@ -29,7 +29,6 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT180;
         private bool _inspectionYPositionReady;
         private SequenceResourceLease _inspectionAreaLease;
-        private SequenceResourceLease _outputPlaceAreaLease;
 
         public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerSideInspectionSequence" : "RearPickerSideInspectionSequence")
@@ -277,16 +276,10 @@ namespace QMC.CDT320.Sequencing
                         return -1;
                 }
 
-                if (_outputPlaceAreaLease == null)
-                {
-                    _outputPlaceAreaLease = await AcquireResourceAsync(
-                        SequenceResourceKind.OutputPlaceArea,
-                        Name + ":SideSharedRailX",
-                        ct).ConfigureAwait(false);
-                    if (_outputPlaceAreaLease == null)
-                        return -1;
-                }
-
+                // Side 검사는 InspectionArea만 점유한다.
+                // Output Place와는 다른 작업 존이므로 OutputPlaceArea를 함께 잡으면
+                // 한 Picker가 Place하는 동안 다른 Picker가 다음 검사로 넘어가지 못한다.
+                // 실제 축 간섭은 Picker phase gate, Picker Y zone gate, SharedRailX/Encoder 인터락이 최종 방어한다.
                 return 0;
             }
             catch (OperationCanceledException)
@@ -302,7 +295,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail(
                     "PICKER-SIDE-RESOURCE",
                     Name,
-                    "사이드 검사 리소스 점유 실패. InspectionArea와 OutputPlaceArea를 확인하세요. error=" + ex.Message);
+                    "사이드 검사 리소스 점유 실패. InspectionArea를 확인하세요. error=" + ex.Message);
             }
             finally
             {
@@ -810,12 +803,6 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ReleasePickerWorkArea();
-
-                if (_outputPlaceAreaLease != null)
-                {
-                    _outputPlaceAreaLease.Dispose();
-                    _outputPlaceAreaLease = null;
-                }
 
                 if (_inspectionAreaLease == null)
                     return;
