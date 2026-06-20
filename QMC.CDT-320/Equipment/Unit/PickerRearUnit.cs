@@ -680,7 +680,7 @@ namespace QMC.CDT320
                     AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
                         axis,
                         targetPos,
-                        ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
+                        ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false) ;
                     if (!waitResult.Success)
                         return RaisePickerAlarm(
                             AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
