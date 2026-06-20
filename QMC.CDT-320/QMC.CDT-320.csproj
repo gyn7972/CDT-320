@@ -43,6 +43,7 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>..\..\CDT-320\</OutputPath>
@@ -699,6 +700,8 @@
     <Compile Include="Sequencing\Common\SequenceResourceKind.cs" />
     <Compile Include="Sequencing\Common\SequenceResourceLease.cs" />
     <Compile Include="Sequencing\Common\SequenceResourceManager.cs" />
+    <Compile Include="Sequencing\Common\PickerProcessPhase.cs" />
+    <Compile Include="Sequencing\Common\PickerPhaseCoordinator.cs" />
     <!-- Sequencing / Picker -->
     <Compile Include="Sequencing\Picker\PickerSequenceSide.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceKind.cs" />

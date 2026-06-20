@@ -17,6 +17,7 @@ namespace QMC.CDT320.Sequencing
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Bus = bus ?? throw new ArgumentNullException(nameof(bus));
             Resources = resources ?? new SequenceResourceManager();
+            PickerPhases = new PickerPhaseCoordinator();
         }
 
         /// <summary>시퀀스를 구동하는 장비 컨트롤러입니다.</summary>
@@ -29,6 +30,8 @@ namespace QMC.CDT320.Sequencing
         public SequenceSignalBus Bus { get; private set; }
 
         public SequenceResourceManager Resources { get; private set; }
+
+        internal PickerPhaseCoordinator PickerPhases { get; private set; }
         private int _cycleStopRequested;
 
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>

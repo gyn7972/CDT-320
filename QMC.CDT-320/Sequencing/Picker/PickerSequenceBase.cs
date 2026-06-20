@@ -292,6 +292,14 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                    axis,
+                    targetName,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (yReadyResult != 0)
+                    return yReadyResult;
+
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
@@ -337,6 +345,14 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 ct.ThrowIfCancellationRequested();
+
+                int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                    targets,
+                    targetName,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (yReadyResult != 0)
+                    return yReadyResult;
 
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
@@ -399,6 +415,197 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-MOVE-EX", Name, description + " parallel move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+            IDictionary<PickerAxis, double> targets,
+            string targetName,
+            string description,
+            CancellationToken ct)
+        {
+            if (targets == null || !targets.ContainsKey(PickerAxis.PickerY))
+                return 0;
+
+            double target = targets[PickerAxis.PickerY];
+            if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
+                return 0;
+
+            return await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                PickerAxis.PickerY,
+                targetName,
+                description,
+                ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+            PickerAxis axis,
+            string targetName,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (axis != PickerAxis.PickerY)
+                    return 0;
+
+                if (!IsForwardPickerYMoveTarget(targetName))
+                    return 0;
+
+                bool waitLogged = false;
+                while (!IsOppositePickerYAtAvoidPosition())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerYAvoid");
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("PickerYMoveGate",
+                            Name + " Auto Y축 전진 이동 대기. 상대 PickerY가 Avoid 위치가 될 때까지 기다립니다. " +
+                            "side=" + Side +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", description=" + description +
+                            ", opposite=" + BuildOppositePickerYState() + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerYMoveGate",
+                        Name + " Auto Y축 전진 이동 대기 완료. 상대 PickerY Avoid 확인. " +
+                        "side=" + Side +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", description=" + description + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-Y-MOVE-GATE-EX", Name,
+                    "Auto Y축 전진 이동 전 상대 PickerY Avoid 대기 중 예외가 발생했습니다. " +
+                    "side=" + Side +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsForwardPickerYMoveTarget(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                return true;
+
+            if (targetName.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("PickerPhase=SafeY", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+
+            return true;
+        }
+
+        private bool IsOppositePickerYAtAvoidPosition()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (RearPicker == null)
+                        return true;
+
+                    return RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
+                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
+                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                }
+
+                if (FrontPicker == null)
+                    return true;
+
+                return FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
+                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
+                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildOppositePickerYState()
+        {
+            try
+            {
+                BaseAxis axis = ResolveOppositePickerYAxis();
+
+                if (axis == null)
+                    return "PickerY=null";
+
+                return "name=" + axis.Name +
+                       ", actual=" + axis.ActualPosition +
+                       ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                       ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                       ", alarm=" + (axis.IsAlarm ? "ON" : "OFF");
+            }
+            catch (Exception ex)
+            {
+                return "stateError=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private BaseAxis ResolveOppositePickerYAxis()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    BaseAxis axis;
+                    if (RearPicker != null &&
+                        RearPicker.Axes != null &&
+                        RearPicker.Axes.TryGetValue(PickerAxis.PickerY, out axis))
+                        return axis;
+
+                    return null;
+                }
+
+                BaseAxis frontAxis;
+                if (FrontPicker != null &&
+                    FrontPicker.Axes != null &&
+                    FrontPicker.Axes.TryGetValue(PickerAxis.PickerY, out frontAxis))
+                    return frontAxis;
+
+                return null;
+            }
+            catch
+            {
+                return null;
             }
             finally
             {
