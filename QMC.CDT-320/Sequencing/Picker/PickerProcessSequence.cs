@@ -849,6 +849,9 @@ namespace QMC.CDT320.Sequencing
                 if (Context == null || Context.Bus == null)
                     return;
 
+                if (Context.Bus.IsSet(signalName))
+                    return;
+
                 Context.Bus.Set(signalName);
                 WriteLog("PickerProcessSequence",
                     Name + " " + phaseName + " 검사 상태 신호를 설정했습니다. signal=" + signalName + " - Ok");
@@ -869,6 +872,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 if (Context == null || Context.Bus == null)
+                    return;
+
+                if (!Context.Bus.IsSet(signalName))
                     return;
 
                 Context.Bus.Reset(signalName);
