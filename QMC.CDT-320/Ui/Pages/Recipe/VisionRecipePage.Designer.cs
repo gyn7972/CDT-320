@@ -283,8 +283,8 @@
             // centerLayout
             // 
             this.centerLayout.ColumnCount = 2;
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.94741F));
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.05259F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.centerLayout.Controls.Add(this.grpVision, 0, 0);
             this.centerLayout.Controls.Add(this.grpManual, 0, 1);
             this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
@@ -310,7 +310,7 @@
             this.grpVision.Size = new System.Drawing.Size(675, 470);
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
-            this.grpVision.Text = "VISION STATUS";
+            this.grpVision.Text = "VISION";
             // 
             // visionPanel
             // 

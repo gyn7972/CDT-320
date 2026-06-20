@@ -119,6 +119,11 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        public static PickerWorkZone GetPickerYActiveTargetZone(bool isFront)
+        {
+            return GetActivePickerYTargetZone(isFront);
+        }
+
         public static string ResolvePickerPhysicalZoneName(CDT320_Machine machine, bool isFront)
         {
             try

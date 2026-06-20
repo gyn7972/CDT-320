@@ -845,7 +845,7 @@ namespace QMC.CDT320.Sequencing
                     ResolvePickerAlignOffsetT(_currentPickerIndex) +
                     _visionOffset.DeltaTheta;
                 _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
-                _targetNeedleX = ResolveNeedleXForVisionX(_pickTarget.TargetX);
+                _targetNeedleX = ResolveNeedleXForVisionX(_pickTarget.TargetX, _visionOffset.DeltaX);
                 _targetNeedleZ = ResolveNeedleZPickTarget();
                 _targetEjectPinZ = ResolveEjectPinZPickTarget();
 
@@ -1031,6 +1031,26 @@ namespace QMC.CDT320.Sequencing
                 int finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
                 if (finalCheck != 0)
                     return finalCheck;
+
+                string needleAreaReason;
+                if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
+                {
+                    return Fail("PICKER-PICKUP-NEEDLE-WORK-AREA", stage.Name,
+                        "PickUp 보정 Needle 목표 위치가 작업 가능 영역을 벗어났습니다. " +
+                        "die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", needleX=" + _targetNeedleX.ToString("F6") +
+                        ", stageY=" + _targetStageY.ToString("F6") +
+                        ", reason=" + needleAreaReason);
+                }
+
+                result = await MoveNeedleXAndVerifyAsync(
+                    stage,
+                    _targetNeedleX,
+                    "pick corrected NeedleX",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
                 if (result != 0)
@@ -1560,13 +1580,13 @@ namespace QMC.CDT320.Sequencing
             _diePicked = false;
         }
 
-        private double ResolveNeedleXForVisionX(double visionX)
+        private double ResolveNeedleXForVisionX(double visionX, double visionOffsetX = 0.0)
         {
             InputStageUnit stage = ResolveInputStage();
             double offset = stage != null && stage.Setup != null
                 ? stage.Setup.NeedleXToVisionXOffset
                 : 0.0;
-            return visionX - offset;
+            return visionX + visionOffsetX - offset;
         }
 
         private double ResolveNeedleZPickTarget()
