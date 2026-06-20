@@ -362,9 +362,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_visionUnit == null)
                 return -1;
 
-            int r = await _visionUnit.MoveToFrontSideVisionProcess0Position();
-            if (r != 0) return r;
-            return await _visionUnit.MoveToRearSideVisionProcess0Position();
+            return await _visionUnit.ManualMoveBothSideVisionProcess0Position();
         }
 
         // Front/Rear 양측을 각자 Process 위치(90도)로 이동
@@ -373,9 +371,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_visionUnit == null)
                 return -1;
 
-            int r = await _visionUnit.MoveToFrontSideVisionProcess90Position();
-            if (r != 0) return r;
-            return await _visionUnit.MoveToRearSideVisionProcess90Position();
+            return await _visionUnit.ManualMoveBothSideVisionProcess90Position();
         }
 
         private void BindParameterGridMenus()

@@ -28,6 +28,9 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerY;
         private double _targetPickerT;
         private double _targetPickerZ;
+        private double _targetNeedleX;
+        private double _targetNeedleZ;
+        private double _targetEjectPinZ;
         private bool _diePicked;
         private SequenceResourceLease _inputStageLease;
         private PickUpBatchItem _currentBatchItem;
@@ -44,6 +47,9 @@ namespace QMC.CDT320.Sequencing
             public double TargetPickerY;
             public double TargetPickerT;
             public double TargetPickerZ;
+            public double TargetNeedleX;
+            public double TargetNeedleZ;
+            public double TargetEjectPinZ;
             public bool DiePicked;
         }
 
@@ -839,6 +845,9 @@ namespace QMC.CDT320.Sequencing
                     ResolvePickerAlignOffsetT(_currentPickerIndex) +
                     _visionOffset.DeltaTheta;
                 _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
+                _targetNeedleX = ResolveNeedleXForVisionX(_pickTarget.TargetX, _visionOffset.DeltaX);
+                _targetNeedleZ = ResolveNeedleZPickTarget();
+                _targetEjectPinZ = ResolveEjectPinZPickTarget();
 
                 WriteLog("PickerPickUpSequence",
                     Name + " calculated pick target. die=" + _currentDieId +
@@ -848,6 +857,9 @@ namespace QMC.CDT320.Sequencing
                     ", pickerY=" + _targetPickerY +
                     ", pickerT=" + _targetPickerT +
                     ", pickerZ=" + _targetPickerZ +
+                    ", needleX=" + _targetNeedleX +
+                    ", needleZ=" + _targetNeedleZ +
+                    ", ejectPinZ=" + _targetEjectPinZ +
                     ", inputVisionX=" + _pickTarget.TargetX +
                     ", inputStageY=" + _pickTarget.TargetY +
                     ", inputVisionToPickerOffsetX=" + inputVisionToPickerX +
@@ -1020,6 +1032,26 @@ namespace QMC.CDT320.Sequencing
                 if (finalCheck != 0)
                     return finalCheck;
 
+                string needleAreaReason;
+                if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
+                {
+                    return Fail("PICKER-PICKUP-NEEDLE-WORK-AREA", stage.Name,
+                        "PickUp 보정 Needle 목표 위치가 작업 가능 영역을 벗어났습니다. " +
+                        "die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", needleX=" + _targetNeedleX.ToString("F6") +
+                        ", stageY=" + _targetStageY.ToString("F6") +
+                        ", reason=" + needleAreaReason);
+                }
+
+                result = await MoveNeedleXAndVerifyAsync(
+                    stage,
+                    _targetNeedleX,
+                    "pick corrected NeedleX",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1146,24 +1178,222 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            string needleAreaReason;
+            if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
+            {
+                return Fail("PICKER-PICKUP-NEEDLE-WORK-AREA", stage.Name,
+                    "PickUp 전 Needle 목표 위치가 작업 가능 영역을 벗어났습니다. " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", needleX=" + _targetNeedleX.ToString("F6") +
+                    ", stageY=" + _targetStageY.ToString("F6") +
+                    ", reason=" + needleAreaReason);
+            }
+
+            result = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, _targetNeedleX, "pick NeedleX");
+            if (result != 0)
+                return result;
+
             CurrentStep = PickerPickUpStep.MovePickerZPick;
             return 0;
         }
 
         private async Task<int> MovePickerZPickAsync(CancellationToken ct)
         {
-            PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
-            int result = await MovePickerAxisAndVerifyAsync(
-                zAxis,
-                _targetPickerZ,
-                "pick Z down",
-                ct,
-                "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            int result = await MovePickerNeedleEjectZToPickAsync(ct).ConfigureAwait(false);
             if (result != 0)
+            {
+                await TryMovePickerNeedleAndEjectPinZToAvoidAsync("Pick Z 동기 이동 실패 후 Z축 안전 복귀", ct).ConfigureAwait(false);
                 return result;
+            }
 
             CurrentStep = PickerPickUpStep.VacuumOn;
             return 0;
+        }
+
+        private async Task<int> MovePickerNeedleEjectZToPickAsync(CancellationToken ct)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
+                Task<int> pickerZMove = MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    _targetPickerZ,
+                    "pick Z down",
+                    ct,
+                    "DiePickPosition[" + _currentPickerIndex + "]");
+                Task<int> needleZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    _targetNeedleZ,
+                    "픽업 NeedleZ 상승",
+                    ct);
+                Task<int> ejectPinZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    _targetEjectPinZ,
+                    "픽업 EjectPinZ 상승",
+                    ct);
+
+                int[] results = await Task.WhenAll(pickerZMove, needleZMove, ejectPinZMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0 || results[2] != 0)
+                {
+                    return Fail("PICKER-PICKUP-Z-SYNC", Name,
+                        "PickUp Z 동기 이동 실패. " +
+                        "pickerZResult=" + results[0] +
+                        ", needleZResult=" + results[1] +
+                        ", ejectPinZResult=" + results[2] +
+                        ", " + BuildPickerAxisState(pickerZ, _targetPickerZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, _targetNeedleZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ));
+                }
+
+                int check = CheckPickerAxisInPosition(pickerZ, _targetPickerZ, "pick Z down");
+                if (check != 0)
+                    return check;
+
+                check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, _targetNeedleZ, "픽업 NeedleZ 상승");
+                if (check != 0)
+                    return check;
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ, "픽업 EjectPinZ 상승");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-SYNC-EX", Name,
+                    "PickUp Z 동기 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerNeedleEjectZToAvoidAsync(
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            string description,
+            CancellationToken ct)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
+                double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                Task<int> pickerZMove = MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    pickerZAvoid,
+                    "pick Z avoid after pickup",
+                    ct,
+                    "AvoidPosition");
+                Task<int> needleZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    needleZAvoid,
+                    "픽업 후 NeedleZ 안전 위치 복귀",
+                    ct);
+                Task<int> ejectPinZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    ejectPinZAvoid,
+                    "픽업 후 EjectPinZ 안전 위치 복귀",
+                    ct);
+
+                int[] results = await Task.WhenAll(pickerZMove, needleZMove, ejectPinZMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0 || results[2] != 0)
+                {
+                    return Fail("PICKER-PICKUP-Z-AVOID-SYNC", Name,
+                        description + " 실패. " +
+                        "pickerZResult=" + results[0] +
+                        ", needleZResult=" + results[1] +
+                        ", ejectPinZResult=" + results[2] +
+                        ", " + BuildPickerAxisState(pickerZ, pickerZAvoid) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, needleZAvoid) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectPinZAvoid));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-AVOID-SYNC-EX", Name,
+                    description + " 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> TryMovePickerNeedleAndEjectPinZToAvoidAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                InputStageUnit stage = ResolveInputStage();
+                if (stage == null)
+                    return -1;
+
+                PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
+                double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
+                double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
+                double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                Task<int> pickerZMove = MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    pickerZAvoid,
+                    description + " PickerZ",
+                    ct,
+                    "AvoidPosition");
+                Task<int> needleZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    needleZAvoid,
+                    description + " NeedleZ",
+                    ct);
+                Task<int> ejectPinZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    ejectPinZAvoid,
+                    description + " EjectPinZ",
+                    ct);
+
+                int[] results = await Task.WhenAll(pickerZMove, needleZMove, ejectPinZMove).ConfigureAwait(false);
+                WriteLog("PickerPickUpSequence",
+                    Name + " " + description +
+                    ". pickerZResult=" + results[0] +
+                    ", needleZResult=" + results[1] +
+                    ", ejectPinZResult=" + results[2] + " - Check");
+                return results[0] == 0 && results[1] == 0 && results[2] == 0 ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " " + description + " 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> VacuumOnAsync(CancellationToken ct)
@@ -1229,7 +1459,10 @@ namespace QMC.CDT320.Sequencing
                 {
                     BuildBooleanMeasurement("VacuumOn", true),
                     BuildBooleanMeasurement("FlowCheckOn", true),
-                    BuildMeasurement("PickerNo", _currentPickerNo, "no", MaterialInspectionResult.Ok)
+                    BuildMeasurement("PickerNo", _currentPickerNo, "no", MaterialInspectionResult.Ok),
+                    BuildMeasurement("NeedleX", _targetNeedleX, "mm", MaterialInspectionResult.Ok),
+                    BuildMeasurement("NeedleZ", _targetNeedleZ, "mm", MaterialInspectionResult.Ok),
+                    BuildMeasurement("EjectPinZ", _targetEjectPinZ, "mm", MaterialInspectionResult.Ok)
                 }
             });
 
@@ -1241,7 +1474,11 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
             double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "pick Z avoid after pickup", ct, "AvoidPosition").ConfigureAwait(false);
+            int result = await MovePickerNeedleEjectZToAvoidAsync(
+                zAxis,
+                avoid,
+                "PickUp 완료 후 PickerZ/NeedleZ/EjectPinZ 안전 복귀",
+                ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1297,6 +1534,9 @@ namespace QMC.CDT320.Sequencing
             _targetPickerY = item != null ? item.TargetPickerY : 0.0;
             _targetPickerT = item != null ? item.TargetPickerT : 0.0;
             _targetPickerZ = item != null ? item.TargetPickerZ : 0.0;
+            _targetNeedleX = item != null ? item.TargetNeedleX : 0.0;
+            _targetNeedleZ = item != null ? item.TargetNeedleZ : 0.0;
+            _targetEjectPinZ = item != null ? item.TargetEjectPinZ : 0.0;
             _diePicked = item != null && item.DiePicked;
         }
 
@@ -1315,6 +1555,9 @@ namespace QMC.CDT320.Sequencing
             _currentBatchItem.TargetPickerY = _targetPickerY;
             _currentBatchItem.TargetPickerT = _targetPickerT;
             _currentBatchItem.TargetPickerZ = _targetPickerZ;
+            _currentBatchItem.TargetNeedleX = _targetNeedleX;
+            _currentBatchItem.TargetNeedleZ = _targetNeedleZ;
+            _currentBatchItem.TargetEjectPinZ = _targetEjectPinZ;
             _currentBatchItem.DiePicked = _diePicked || _currentBatchItem.DiePicked;
         }
 
@@ -1331,7 +1574,58 @@ namespace QMC.CDT320.Sequencing
             _targetPickerY = 0.0;
             _targetPickerT = 0.0;
             _targetPickerZ = 0.0;
+            _targetNeedleX = 0.0;
+            _targetNeedleZ = 0.0;
+            _targetEjectPinZ = 0.0;
             _diePicked = false;
+        }
+
+        private double ResolveNeedleXForVisionX(double visionX, double visionOffsetX = 0.0)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            double offset = stage != null && stage.Setup != null
+                ? stage.Setup.NeedleXToVisionXOffset
+                : 0.0;
+            return visionX + visionOffsetX - offset;
+        }
+
+        private double ResolveNeedleZPickTarget()
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null || stage.Recipe == null)
+                return 0.0;
+
+            stage.Recipe.EnsurePositionObjects();
+            return stage.Recipe.NeedleZ.ProcessPosition;
+        }
+
+        private double ResolveEjectPinZPickTarget()
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null || stage.Recipe == null)
+                return 0.0;
+
+            stage.Recipe.EnsurePositionObjects();
+            double offset = stage.Config != null ? stage.Config.PickUpEjectPinOffset : 0.0;
+            return stage.Recipe.EjectPinZ.ProcessPosition + offset;
+        }
+
+        private static double ResolveNeedleZAvoidTarget(InputStageUnit stage)
+        {
+            if (stage == null || stage.Recipe == null)
+                return 0.0;
+
+            stage.Recipe.EnsurePositionObjects();
+            return stage.Recipe.NeedleZ.AvoidPosition;
+        }
+
+        private static double ResolveEjectPinZAvoidTarget(InputStageUnit stage)
+        {
+            if (stage == null || stage.Recipe == null)
+                return 0.0;
+
+            stage.Recipe.EnsurePositionObjects();
+            return stage.Recipe.EjectPinZ.AvoidPosition;
         }
 
         private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct)
@@ -1419,15 +1713,43 @@ namespace QMC.CDT320.Sequencing
 
                 double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : targetX;
                 double currentY = stage.StageY != null ? stage.StageY.ActualPosition : targetY;
+                double targetNeedleX = ResolveNeedleXForVisionX(targetX);
+
+                string needleAreaReason;
+                if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out needleAreaReason))
+                {
+                    return Fail("PICKER-PICKUP-NEEDLE-WORK-AREA", stage.Name,
+                        "니들 목표 위치가 작업 가능 영역을 벗어났습니다. " +
+                        "description=" + description +
+                        ", visionX=" + targetX.ToString("F6") +
+                        ", needleX=" + targetNeedleX.ToString("F6") +
+                        ", stageY=" + targetY.ToString("F6") +
+                        ", reason=" + needleAreaReason);
+                }
 
                 bool visionXInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.VisionX, targetX);
                 bool stageYInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, targetY);
                 if (visionXInPosition && stageYInPosition)
+                {
+                    int needleResult = await MoveNeedleXAndVerifyAsync(
+                        stage,
+                        targetNeedleX,
+                        description + " NeedleX",
+                        ct).ConfigureAwait(false);
+                    if (needleResult != 0)
+                        return needleResult;
+
                     return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+                }
 
                 if (!visionXInPosition && stageYInPosition)
                 {
-                    int result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    int result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                        stage,
+                        targetX,
+                        targetNeedleX,
+                        description,
+                        ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -1440,6 +1762,14 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
+                    result = await MoveNeedleXAndVerifyAsync(
+                        stage,
+                        targetNeedleX,
+                        description + " NeedleX",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
                     return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
                 }
 
@@ -1447,7 +1777,12 @@ namespace QMC.CDT320.Sequencing
                 bool canMoveXFirst = stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason);
                 if (canMoveXFirst)
                 {
-                    int result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    int result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                        stage,
+                        targetX,
+                        targetNeedleX,
+                        description,
+                        ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -1466,7 +1801,12 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                        stage,
+                        targetX,
+                        targetNeedleX,
+                        description,
+                        ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -1543,6 +1883,106 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> MoveInputVisionXAndNeedleXAndVerifyAsync(
+            InputStageUnit stage,
+            double visionTarget,
+            double needleTarget,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task<int> visionMove = MoveInputVisionXAndVerifyAsync(
+                    stage,
+                    visionTarget,
+                    description + " VisionX",
+                    ct);
+                Task<int> needleMove = MoveNeedleXAndVerifyAsync(
+                    stage,
+                    needleTarget,
+                    description + " NeedleX",
+                    ct);
+
+                int[] results = await Task.WhenAll(visionMove, needleMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail("PICKER-PICKUP-VISION-NEEDLE-X", stage != null ? stage.Name : "InputStageUnit",
+                        "InputVisionX와 NeedleX 동시 이동 실패. " +
+                        "visionResult=" + results[0] +
+                        ", needleResult=" + results[1] +
+                        ", visionTarget=" + visionTarget.ToString("F6") +
+                        ", needleTarget=" + needleTarget.ToString("F6") +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.VisionX, visionTarget) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, needleTarget));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VISION-NEEDLE-X-EX", stage != null ? stage.Name : "InputStageUnit",
+                    "InputVisionX와 NeedleX 동시 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedleXAndVerifyAsync(
+            InputStageUnit stage,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleX, target))
+                    return CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, target, description);
+
+                int result = await MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.NeedleX,
+                    target,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await WaitInputStageAxisInPositionResultAsync(
+                    stage,
+                    WaferStageAxis.NeedleX,
+                    target,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-NEEDLEX-MOVE-EX", stage != null ? stage.Name : "InputStageUnit",
+                    "NeedleX 이동 중 예외가 발생했습니다. description=" + description +
+                    ", target=" + target.ToString("F6") +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveInputStageYAndVerifyAsync(
             InputStageUnit stage,
             double workAreaVisionX,
@@ -1601,7 +2041,15 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            return CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, targetY, description + " StageY");
+            result = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, targetY, description + " StageY");
+            if (result != 0)
+                return result;
+
+            return CheckInputStageAxisInPosition(
+                stage,
+                WaferStageAxis.NeedleX,
+                ResolveNeedleXForVisionX(targetX),
+                description + " NeedleX");
         }
 
         private bool IsInputStageAxisAlreadyInPosition(InputStageUnit stage, WaferStageAxis axis, double target)
@@ -1834,6 +2282,12 @@ namespace QMC.CDT320.Sequencing
                 // 비전 X축 반환
                 case WaferStageAxis.VisionX:
                     return stage.CameraX;
+                case WaferStageAxis.NeedleX:
+                    return stage.NeedleBlockX;
+                case WaferStageAxis.NeedleZ:
+                    return stage.NeedleZ;
+                case WaferStageAxis.EjectPinZ:
+                    return stage.EjectPinZ;
                 default:
                     return null;
             }

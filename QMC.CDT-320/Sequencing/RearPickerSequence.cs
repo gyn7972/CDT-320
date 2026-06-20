@@ -7,7 +7,9 @@ namespace QMC.CDT320.Sequencing
 {
     public sealed class RearPickerSequence : UnitSequenceBase
     {
+        private static readonly TimeSpan FrontPickupYieldLogInterval = TimeSpan.FromSeconds(2);
         private PickerProcessSequence _stepSequence;
+        private DateTime _lastFrontPickupYieldLogTime = DateTime.MinValue;
 
         public RearPickerSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.PickerRear, "RearPicker")
@@ -246,9 +248,7 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                WriteLog("YieldInputPickupPriorityToFrontAsync",
-                    "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
-                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
+                WriteFrontPickupYieldWaitLog();
 
                 await Task.Delay(300, ct).ConfigureAwait(false);
                 return true;
@@ -268,6 +268,29 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker Front 우선순위 양보 확인 중 예외 발생: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void WriteFrontPickupYieldWaitLog()
+        {
+            try
+            {
+                DateTime now = DateTime.Now;
+                if (now - _lastFrontPickupYieldLogTime < FrontPickupYieldLogInterval)
+                    return;
+
+                _lastFrontPickupYieldLogTime = now;
+                WriteLog("YieldInputPickupPriorityToFrontAsync",
+                    "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
+                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("YieldInputPickupPriorityToFrontAsync",
+                    "RearPicker Front 우선권 대기 로그 처리 중 예외 발생: " + ex.Message + " - Failed");
             }
             finally
             {

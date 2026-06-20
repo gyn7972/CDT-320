@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
@@ -26,7 +27,6 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerZ;
         private double _targetPickerT0;
         private double _targetPickerT90;
-        private double _targetPickerT180;
         private bool _inspectionYPositionReady;
         private SequenceResourceLease _inspectionAreaLease;
 
@@ -152,10 +152,6 @@ namespace QMC.CDT320.Sequencing
                 // 사이드 90 검사 요청
                 case PickerSideInspectionStep.RequestSide90Inspection:
                     return RequestSide90InspectionAsync(ct);
-
-                // 사이드 T 180 이동
-                case PickerSideInspectionStep.MoveSideT180:
-                    return MoveSideT180Async(ct);
 
                 // 사이드 검사 결과 적용
                 case PickerSideInspectionStep.ApplySideInspectionResult:
@@ -362,8 +358,8 @@ namespace QMC.CDT320.Sequencing
             _targetPickerT0 = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "SidePosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
-            _targetPickerT180 = _targetPickerT0 + 180.0;
 
+            bool wasInInspectionZone = _inspectionYPositionReady;
             bool xPositionReady = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
@@ -372,6 +368,12 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = _inspectionYPositionReady
                     ? PickerSideInspectionStep.MoveSideZ
                     : PickerSideInspectionStep.MoveSideYToInspection;
+                return 0;
+            }
+
+            if (_inspectionYPositionReady || wasInInspectionZone)
+            {
+                CurrentStep = PickerSideInspectionStep.MoveSideXToInspection;
                 return 0;
             }
 
@@ -480,6 +482,10 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            result = await MoveSideVisionProcess0PositionAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             CurrentStep = PickerSideInspectionStep.RequestSide0Inspection;
             return 0;
         }
@@ -510,6 +516,10 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            result = await MoveSideVisionProcess90PositionAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             CurrentStep = PickerSideInspectionStep.RequestSide90Inspection;
             return 0;
         }
@@ -525,23 +535,59 @@ namespace QMC.CDT320.Sequencing
             }
 
             await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
-            CurrentStep = PickerSideInspectionStep.MoveSideT180;
+            CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
             return 0;
         }
 
-        private async Task<int> MoveSideT180Async(CancellationToken ct)
+        private async Task<int> MoveSideVisionProcess0PositionAsync(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(
-                GetPickerTAxis(_currentPickerIndex),
-                _targetPickerT180,
-                "side inspection T 180deg",
-                ct,
-                "DieSidePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            return await MoveSideVisionProcessPositionAsync(0, ct).ConfigureAwait(false);
+        }
 
-            CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
-            return 0;
+        private async Task<int> MoveSideVisionProcess90PositionAsync(CancellationToken ct)
+        {
+            return await MoveSideVisionProcessPositionAsync(90, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveSideVisionProcessPositionAsync(int angleDeg, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
+                if (vision == null)
+                {
+                    return Fail("PICKER-SIDE-VISION-UNIT-MISSING", "Vision",
+                        "Side 검사 카메라 이동 실패. VisionUnit을 찾을 수 없습니다. angle=" + angleDeg +
+                        ", pickerNo=" + _currentPickerNo);
+                }
+
+                int result = angleDeg == 90
+                    ? await vision.MoveBothSideVisionProcess90PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false)
+                    : await vision.MoveBothSideVisionProcess0PositionAsync(Options != null && Options.FineMove).ConfigureAwait(false);
+
+                if (result != 0)
+                {
+                    return Fail("PICKER-SIDE-VISION-POSITION", "Vision",
+                        "Side 검사 카메라 " + angleDeg + "도 티칭 위치 이동 실패. result=" + result +
+                        ", pickerNo=" + _currentPickerNo);
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SIDE-VISION-POSITION-EX", "Vision",
+                    "Side 검사 카메라 " + angleDeg + "도 티칭 위치 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int ApplySideInspectionResult()

@@ -527,9 +527,11 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "WaferStageT is moving.", out reason);
             if (IsMovingExcept(stage.ExpanderZ, movingName, "WaferExpandingZ", "ExpanderZ"))
                 return MotionGuardRuleHelpers.Block(movingName, "ExpanderZ is moving.", out reason);
-            if (IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
+            if (!IsNeedleXMove(movingName) &&
+                IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
-            if (IsMovingExcept(stage.NeedleBlockX, movingName, "NeedleX", "NeedleBlockX"))
+            if (!IsInputVisionXMove(movingName) &&
+                IsMovingExcept(stage.NeedleBlockX, movingName, "NeedleX", "NeedleBlockX"))
                 return MotionGuardRuleHelpers.Block(movingName, "NeedleX is moving.", out reason);
 
             //서로 같이 움직여도 상관없음.
@@ -539,6 +541,18 @@ namespace QMC.CDT320.Interlocks
             //    return MotionGuardRuleHelpers.Block(movingName, "EjectPinZ is moving.", out reason);
 
             return true;
+        }
+
+        private static bool IsInputVisionXMove(string movingName)
+        {
+            return string.Equals(movingName, "InputVisionX", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "CameraX", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsNeedleXMove(string movingName)
+        {
+            return string.Equals(movingName, "NeedleX", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "NeedleBlockX", System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsExpanderZPositiveMove(MotionGuardRuleContext request, InputStageUnit stage)

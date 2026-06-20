@@ -76,7 +76,12 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             try
             {
-                RegisterSidebarButton(button, i18nKey, minLevel, () => new WorkMainPage());
+                if (button == null)
+                    return;
+
+                AccessPolicy.RegisterFeature(i18nKey, minLevel);
+                button.Tag = "i18n:" + i18nKey + ";level:" + minLevel;
+                button.Text = QMC.CDT_320.Ui.Localization.Lang.T(i18nKey);
                 button.Click += (s, e) => onClick?.Invoke();
             }
             catch (Exception ex)

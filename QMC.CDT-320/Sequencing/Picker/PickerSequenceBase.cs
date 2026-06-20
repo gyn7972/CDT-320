@@ -459,7 +459,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 bool waitLogged = false;
-                while (!IsOppositePickerYAtAvoidPosition())
+                while (!IsOppositePickerYReadyForForwardMove())
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
@@ -468,7 +468,7 @@ namespace QMC.CDT320.Sequencing
                     if (!waitLogged)
                     {
                         WriteLog("PickerYMoveGate",
-                            Name + " Auto Y축 전진 이동 대기. 상대 PickerY가 Avoid 위치가 될 때까지 기다립니다. " +
+                            Name + " Auto Y축 전진 이동 대기. 상대 PickerY가 Avoid 위치이고 이동 타깃이 정리될 때까지 기다립니다. " +
                             "side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
                             ", description=" + description +
@@ -482,7 +482,7 @@ namespace QMC.CDT320.Sequencing
                 if (waitLogged)
                 {
                     WriteLog("PickerYMoveGate",
-                        Name + " Auto Y축 전진 이동 대기 완료. 상대 PickerY Avoid 확인. " +
+                        Name + " Auto Y축 전진 이동 대기 완료. 상대 PickerY Avoid 및 이동 타깃 해제 확인. " +
                         "side=" + Side +
                         ", targetName=" + (targetName ?? "-") +
                         ", description=" + description + " - Ok");
@@ -524,6 +524,23 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return true;
+        }
+
+        private bool IsOppositePickerYReadyForForwardMove()
+        {
+            try
+            {
+                bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+                PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
+                return activeTargetZone == PickerWorkZone.Unknown && IsOppositePickerYAtAvoidPosition();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsOppositePickerYAtAvoidPosition()
@@ -568,6 +585,7 @@ namespace QMC.CDT320.Sequencing
                 return "name=" + axis.Name +
                        ", actual=" + axis.ActualPosition +
                        ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                       ", activeTargetZone=" + PickerZoneInterlockRules.GetPickerYActiveTargetZone(Side == PickerSequenceSide.Rear) +
                        ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
                        ", alarm=" + (axis.IsAlarm ? "ON" : "OFF");
             }

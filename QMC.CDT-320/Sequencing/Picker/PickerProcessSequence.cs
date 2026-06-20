@@ -439,6 +439,19 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetPickerPhaseSignal(GetOwnSideInspectionCompleteSignal(), "SideComplete");
                     _sideInspectionSequence = null;
+
+                    int safeYResult = await MovePickerAxisAndVerifyAsync(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        "Side 검사 완료 후 Place 진입 전 PickerY Safe 위치 이동",
+                        ct,
+                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    if (safeYResult != 0)
+                    {
+                        ReleasePickerProcessPhase("SideInspectionSafeYFailed");
+                        return safeYResult;
+                    }
+
                     int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.Place, "SideInspectionToPlace", ct).ConfigureAwait(false);
                     if (nextPhaseResult != 0)
                         return nextPhaseResult;
@@ -849,6 +862,9 @@ namespace QMC.CDT320.Sequencing
                 if (Context == null || Context.Bus == null)
                     return;
 
+                if (Context.Bus.IsSet(signalName))
+                    return;
+
                 Context.Bus.Set(signalName);
                 WriteLog("PickerProcessSequence",
                     Name + " " + phaseName + " 검사 상태 신호를 설정했습니다. signal=" + signalName + " - Ok");
@@ -869,6 +885,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 if (Context == null || Context.Bus == null)
+                    return;
+
+                if (!Context.Bus.IsSet(signalName))
                     return;
 
                 Context.Bus.Reset(signalName);
