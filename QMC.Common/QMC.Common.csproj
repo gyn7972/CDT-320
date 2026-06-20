@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -85,6 +86,10 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\ICameraViewSource.cs" />
+    <Compile Include="Ui\Controls\CircularProgressView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ProgressDialog.cs" />
     <Compile Include="Ui\Controls\OverlayMark.cs" />
     <Compile Include="Ui\Controls\VisionFrameMeta.cs" />
     <Compile Include="Ui\Controls\VisionFrameCodec.cs" />

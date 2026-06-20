@@ -1,6 +1,8 @@
 ﻿using QMC.CDT320;
 using QMC.CDT320.Initialization;
 using QMC.Common.Logging;
+using QMC.Common.Ui.Controls;
+using QMC.Common.Ui.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -21,6 +23,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private readonly MachineController _controller;
         private bool _running;
+        private ProgressDialog _progressDialog;
 
         public InitializationMonitorDialog(MachineController controller)
         {
@@ -39,6 +42,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_controller != null)
                 _controller.AxisInitializeStepProgressChanged -= OnAxisInitializeStepProgressChanged;
+
+            CloseInitProgressDialog();
         }
 
         private void LoadPlanToGrid()
@@ -131,7 +136,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!int.TryParse(grid.CurrentRow.Tag.ToString(), out stepNo))
                 return;
 
-            await RunAsync(() => _controller.InitializePlanStepAsync(stepNo));
+            await RunAsync(() => _controller.InitializePlanStepAsync(stepNo), "스텝 초기화");
         }
 
         private async void btnRunAll_Click(object sender, EventArgs e)
@@ -145,7 +150,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             ResetStatuses();
-            await RunAsync(() => _controller.InitializeAllAxesForMonitorAsync());
+            await RunAsync(() => _controller.InitializeAllAxesForMonitorAsync(), "전체 초기화");
         }
 
         private void btnRefresh_Click(object sender, EventArgs e)
@@ -161,19 +166,22 @@ namespace QMC.CDT_320.Ui.Dialogs
             Close();
         }
 
-        private async Task RunAsync(Func<Task<int>> action)
+        private async Task RunAsync(Func<Task<int>> action, string contextTitle)
         {
             if (_running || action == null || _controller == null)
                 return;
 
             string warningMessage = null;
             string errorMessage = null;
+            int result = -1;
 
             try
             {
                 _running = true;
                 SetButtonsEnabled(false);
-                int result = await action();
+                OpenInitProgressDialog(contextTitle);
+
+                result = await action();
                 ApplyStoredStatuses();
                 if (result != 0)
                 {
@@ -188,6 +196,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                await CloseInitProgressDialogAsync(result, contextTitle, warningMessage ?? errorMessage);
                 _running = false;
                 SetButtonsEnabled(true);
             }
@@ -245,6 +254,136 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             ApplyProgressToRows(progress);
+            UpdateInitProgressDialogRunning(progress.GroupName);
+        }
+
+        /// <summary>초기화 실행 중 공용 진행 팝업을 띄운다. (스텝/전체 공통)</summary>
+        private void OpenInitProgressDialog(string contextTitle)
+        {
+            try
+            {
+                CloseInitProgressDialog();
+
+                _progressDialog = new ProgressDialog
+                {
+                    Text = contextTitle,
+                    RunningTitle = contextTitle + " 진행 중",
+                    CompletedTitle = contextTitle + " 완료",
+                    FailedTitle = contextTitle + " 실패",
+                    CanceledTitle = contextTitle + " 정지",
+                    IdleTitle = contextTitle + " 준비",
+                    DefaultStepText = "초기화 시퀀스를 준비합니다.",
+                    DefaultMessage = "초기화가 완료될 때까지 기다려 주세요."
+                };
+                _progressDialog.ApplyProgress(BuildInitProgressInfo(ProgressState.Running, "초기화 시퀀스를 시작합니다.", null));
+                _progressDialog.Show(this);
+                _progressDialog.BringToFront();
+                _progressDialog.Activate();
+                _progressDialog.Refresh();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "InitProgressDialog",
+                    "Init progress dialog open failed: " + ex.Message);
+            }
+        }
+
+        private void UpdateInitProgressDialogRunning(string stepName)
+        {
+            if (_progressDialog == null || _progressDialog.IsDisposed)
+                return;
+
+            _progressDialog.ApplyProgress(BuildInitProgressInfo(ProgressState.Running,
+                string.IsNullOrWhiteSpace(stepName) ? "초기화 시퀀스를 진행합니다." : stepName, null));
+        }
+
+        private async Task CloseInitProgressDialogAsync(int result, string contextTitle, string failureMessage)
+        {
+            if (_progressDialog == null || _progressDialog.IsDisposed)
+            {
+                _progressDialog = null;
+                return;
+            }
+
+            try
+            {
+                if (result == 0)
+                {
+                    _progressDialog.ApplyProgress(new ProgressInfo(ProgressState.Completed, 100,
+                        CountInitDoneRows(), CountInitTotalRows(), contextTitle, contextTitle + " 가 완료되었습니다."));
+                }
+                else
+                {
+                    int total = CountInitTotalRows();
+                    int done = CountInitDoneRows();
+                    int percent = total > 0 ? (int)Math.Round(done * 100.0 / total) : 0;
+                    _progressDialog.ApplyProgress(new ProgressInfo(ProgressState.Failed, percent, done, total,
+                        contextTitle,
+                        string.IsNullOrWhiteSpace(failureMessage) ? contextTitle + " 가 실패했습니다." : failureMessage));
+                }
+
+                await Task.Delay(result == 0 ? 700 : 600);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                CloseInitProgressDialog();
+            }
+        }
+
+        private void CloseInitProgressDialog()
+        {
+            try
+            {
+                if (_progressDialog != null && !_progressDialog.IsDisposed)
+                {
+                    _progressDialog.Close();
+                    _progressDialog.Dispose();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _progressDialog = null;
+            }
+        }
+
+        private ProgressInfo BuildInitProgressInfo(ProgressState state, string stepName, string message)
+        {
+            int total = CountInitTotalRows();
+            int done = CountInitDoneRows();
+            int percent = total > 0 ? (int)Math.Round(done * 100.0 / total) : 0;
+            return new ProgressInfo(state, percent, done, total, stepName,
+                message ?? "초기화 시퀀스를 진행합니다.");
+        }
+
+        private int CountInitTotalRows()
+        {
+            int total = 0;
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                string st = Convert.ToString(row.Cells[colStatus.Index].Value);
+                if (string.Equals(st, StatusDisabled, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                total++;
+            }
+            return total;
+        }
+
+        private int CountInitDoneRows()
+        {
+            int done = 0;
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                string st = Convert.ToString(row.Cells[colStatus.Index].Value);
+                if (string.Equals(st, StatusDone, StringComparison.OrdinalIgnoreCase))
+                    done++;
+            }
+            return done;
         }
 
         private void ApplyStoredStatuses()

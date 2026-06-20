@@ -4,6 +4,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,9 +13,9 @@ namespace QMC.CDT320.Sequencing
     /// <summary>장비 전체 모션을 안전한 Ready(Avoid) 위치로 복귀시키는 시퀀스입니다.</summary>
     internal sealed class MachineReadySequence
     {
-        private const int ReadyStepCount = 6;
         private readonly CDT320_Machine _machine;
         private readonly Action<MachineReadyProgress> _progressChanged;
+        private readonly List<ReadyStep> _steps;
         private int _completedStepCount;
 
         public MachineReadySequence(CDT320_Machine machine)
@@ -26,82 +27,60 @@ namespace QMC.CDT320.Sequencing
         {
             _machine = machine;
             _progressChanged = progressChanged;
+            _steps = BuildReadySteps();
         }
 
         public string LastErrorMessage { get; private set; }
+
+        /// <summary>현재 활성화된 Ready 단계 수. 단계 추가/주석 해제 시 자동으로 반영된다.</summary>
+        public int TotalStepCount
+        {
+            get { return _steps != null ? _steps.Count : 0; }
+        }
+
+        /// <summary>
+        /// 현재 활성 Ready 단계 목록. 동작 흐름(순서/실패 시 중단)은 기존과 동일하다.<br/>
+        /// 비활성 단계는 주석으로 보관하며, 주석을 해제하면 <see cref="TotalStepCount"/> 가 자동으로 늘어난다.
+        /// </summary>
+        private List<ReadyStep> BuildReadySteps()
+        {
+            return new List<ReadyStep>
+            {
+                new ReadyStep("OutputStage VisionX Avoid", ct => MoveOutputStageVisionXOnlyAvoidAsync(ct)),
+                new ReadyStep("Front/Rear Picker Z Avoid", ct => MoveFrontRearPickerZAxesAvoidAsync(ct)),
+                new ReadyStep("Front/Rear Picker Y Avoid", ct => MoveFrontRearPickerYAxesAvoidAsync(ct)),
+                new ReadyStep("Front/Rear Picker T Avoid", ct => MoveFrontRearPickerTAxesAvoidAsync(ct)),
+                new ReadyStep("Front/Rear Picker X Avoid", ct => MoveFrontRearPickerXAxesAvoidAsync(ct)),
+                new ReadyStep("InputStage VisionX Avoid", ct => MoveInputStageVisionXOnlyAvoidAsync(ct)),
+
+                // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
+                //new ReadyStep("OutputStage Avoid", ct => MoveOutputStageAvoidAsync(ct)),
+                //new ReadyStep("Front Picker Avoid", ct => MoveFrontPickerAvoidAsync(ct)),
+                //new ReadyStep("Rear Picker Avoid", ct => MoveRearPickerAvoidAsync(ct)),
+                //new ReadyStep("Side Vision Avoid", ct => MoveSideVisionAvoidAsync(ct)),
+                //new ReadyStep("InputStage Avoid", ct => MoveInputStageAvoidAsync(ct)),
+                //new ReadyStep("Input Feeder Avoid", ct => MoveInputFeederAvoidAsync(ct)),
+                //new ReadyStep("Output Feeder Avoid", ct => MoveOutputFeederAvoidAsync(ct)),
+                //new ReadyStep("Input Cassette Avoid", ct => MoveInputCassetteAvoidAsync(ct)),
+                //new ReadyStep("Output Cassette Avoid", ct => MoveOutputCassetteAvoidAsync(ct)),
+            };
+        }
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
             try
             {
                 LastErrorMessage = string.Empty;
+                _completedStepCount = 0;
                 LogStep("Ready 시퀀스 시작.");
 
-                int result = 0;
-
-                result = await RunReadyStepAsync("OutputStage VisionX Avoid", () => MoveOutputStageVisionXOnlyAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await RunReadyStepAsync("Front/Rear Picker Z Avoid", () => MoveFrontRearPickerZAxesAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await RunReadyStepAsync("Front/Rear Picker Y Avoid", () => MoveFrontRearPickerYAxesAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await RunReadyStepAsync("Front/Rear Picker T Avoid", () => MoveFrontRearPickerTAxesAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await RunReadyStepAsync("Front/Rear Picker X Avoid", () => MoveFrontRearPickerXAxesAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await RunReadyStepAsync("InputStage VisionX Avoid", () => MoveInputStageVisionXOnlyAvoidAsync(ct)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                // 우선 아래는 확인 하면서 누르자.
-
-                //result = await MoveOutputStageAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveFrontPickerAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveRearPickerAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveSideVisionAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveInputStageAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                
-
-                //result = await MoveInputFeederAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveOutputFeederAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveInputCassetteAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
-
-                //result = await MoveOutputCassetteAvoidAsync(ct).ConfigureAwait(false);
-                //if (result != 0)
-                //    return result;
+                // 활성 단계를 순서대로 실행한다. 한 단계라도 실패하면 즉시 중단한다(기존 흐름 동일).
+                foreach (ReadyStep step in _steps)
+                {
+                    int result = await RunReadyStepAsync(step.Name, () => step.Action(ct)).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 LogStep("Ready 시퀀스 완료.");
                 return 0;
@@ -141,14 +120,27 @@ namespace QMC.CDT320.Sequencing
             if (handler == null)
                 return;
 
-            int percent = ReadyStepCount <= 0 ? 0 : (int)Math.Round((_completedStepCount * 100.0) / ReadyStepCount);
+            int total = TotalStepCount;
+            int percent = total <= 0 ? 0 : (int)Math.Round((_completedStepCount * 100.0) / total);
             handler(new MachineReadyProgress(
                 state,
                 percent,
                 _completedStepCount,
-                ReadyStepCount,
+                total,
                 stepName,
                 message));
+        }
+
+        private struct ReadyStep
+        {
+            public readonly string Name;
+            public readonly Func<CancellationToken, Task<int>> Action;
+
+            public ReadyStep(string name, Func<CancellationToken, Task<int>> action)
+            {
+                Name = name;
+                Action = action;
+            }
         }
 
         private async Task<int> MoveOutputStageVisionXOnlyAvoidAsync(CancellationToken ct)
