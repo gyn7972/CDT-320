@@ -117,6 +117,7 @@
     <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleHelpers.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleRegistry.cs" />
+    <Compile Include="Equipment\MachineReadyProgress.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
@@ -590,6 +591,9 @@
     </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.Designer.cs">
       <DependentUpon>InitializationMonitorDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
+      <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.cs">
       <SubType>Form</SubType>

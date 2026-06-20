@@ -40,6 +40,8 @@ namespace QMC.CDT320
         private CancellationTokenSource _manualCts;
         private bool _isMachineInitialized;
         private bool _isDeveloperReadyRestored;
+        private MachineReadyProgress _readySequenceProgress =
+            new MachineReadyProgress(MachineReadySequenceState.Idle, 0, 0, 0, "", "");
         private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
         private readonly object _initializeHomedAxisLock = new object();
@@ -55,6 +57,7 @@ namespace QMC.CDT320
         public event Action<int, int> CycleProgress;  // (done, total)
         public event Action<bool> MachineInitializedChanged;
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
+        public event Action<MachineReadyProgress> ReadySequenceProgressChanged;
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
@@ -83,6 +86,8 @@ namespace QMC.CDT320
         }
         public bool IsMachineInitialized => _isMachineInitialized;
         public bool IsDeveloperReadyRestored => _isDeveloperReadyRestored;
+        public MachineReadyProgress ReadySequenceProgress => _readySequenceProgress;
+        public bool IsReadySequenceRunning => _readySequenceProgress != null && _readySequenceProgress.IsRunning;
         public DateTime MachineInitializedAt { get; private set; }
         public string LastActionFailureMessage { get; private set; }
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
@@ -4974,6 +4979,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 READY 시퀀스를 수행할 수 없습니다. 알람을 해제한 뒤 다시 실행하세요.";
+                    SetReadySequenceProgress(MachineReadySequenceState.Failed, 0, 0, 0, "Ready", LastActionFailureMessage);
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                         "Ready sequence failed: alarm status is active. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Warning, "READY-ALARM", "MachineController", LastActionFailureMessage);
@@ -4981,9 +4987,20 @@ namespace QMC.CDT320
                     return -1;
                 }
 
+                if (IsReadySequenceRunning)
+                {
+                    LastActionFailureMessage = "READY 시퀀스가 이미 진행 중입니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                        "Ready sequence failed: ready sequence is already running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-RUNNING", "MachineController", LastActionFailureMessage);
+                    Log("[READY] failed: ready sequence is already running");
+                    return -1;
+                }
+
                 if (IsSequenceRunning)
                 {
                     LastActionFailureMessage = "Sequence 실행 중에는 READY 시퀀스를 수행할 수 없습니다.";
+                    SetReadySequenceProgress(MachineReadySequenceState.Failed, 0, 0, 0, "Ready", LastActionFailureMessage);
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                         "Ready sequence failed: sequence is already running. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Warning, "READY-RUNNING", "MachineController", LastActionFailureMessage);
@@ -4992,27 +5009,34 @@ namespace QMC.CDT320
                 }
 
                 if (!EnsureMachineInitializedForRun("RunReadySequenceAsync"))
+                {
+                    SetReadySequenceProgress(MachineReadySequenceState.Failed, 0, 0, 0, "Ready", LastActionFailureMessage);
                     return -1;
+                }
 
                 manualScope = EnterManualOperation();
+                SetReadySequenceProgress(MachineReadySequenceState.Running, 0, 0, 6, "Ready", "Ready 시퀀스를 시작합니다.");
 
                 Log("[READY] Ready sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence start. - Start");
 
-                var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine);
+                var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine, SetReadySequenceProgress);
                 int result = await sequence.RunAsync(ManualOperationToken).ConfigureAwait(false);
                 if (result != 0)
                 {
                     LastActionFailureMessage = string.IsNullOrEmpty(sequence.LastErrorMessage)
                         ? "READY 시퀀스 실패."
                         : sequence.LastErrorMessage;
+                    SetReadySequenceProgress(MachineReadySequenceState.Failed, ReadySequenceProgress.Percent,
+                        ReadySequenceProgress.CompletedSteps, ReadySequenceProgress.TotalSteps, ReadySequenceProgress.CurrentStepName, LastActionFailureMessage);
                     SetStatus(EquipmentStatus.Alarm);
                     return result;
                 }
 
                 SaveMachineRuntimeState("ReadySequenceComplete");
                 SetStatus(EquipmentStatus.Ready);
+                SetReadySequenceProgress(MachineReadySequenceState.Completed, 100, 6, 6, "Ready", "Ready 시퀀스가 완료되었습니다.");
                 Log("[READY] Ready sequence complete.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence complete. - Ok");
@@ -5021,6 +5045,8 @@ namespace QMC.CDT320
             catch (OperationCanceledException)
             {
                 LastActionFailureMessage = "READY 시퀀스가 정지되었습니다.";
+                SetReadySequenceProgress(MachineReadySequenceState.Canceled, ReadySequenceProgress.Percent,
+                    ReadySequenceProgress.CompletedSteps, ReadySequenceProgress.TotalSteps, ReadySequenceProgress.CurrentStepName, LastActionFailureMessage);
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence canceled. - Stopped");
                 Log("[READY] canceled");
@@ -5030,6 +5056,8 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 LastActionFailureMessage = "READY 시퀀스 실패: " + ex.Message;
+                SetReadySequenceProgress(MachineReadySequenceState.Failed, ReadySequenceProgress.Percent,
+                    ReadySequenceProgress.CompletedSteps, ReadySequenceProgress.TotalSteps, ReadySequenceProgress.CurrentStepName, LastActionFailureMessage);
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence failed: " + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "READY-EX", "MachineController", LastActionFailureMessage);
@@ -7009,6 +7037,33 @@ namespace QMC.CDT320
             _status = s;
             var h = StatusChanged;
             if (h != null) try { h(s); } catch { }
+        }
+
+        private void SetReadySequenceProgress(MachineReadyProgress progress)
+        {
+            if (progress == null)
+                return;
+
+            _readySequenceProgress = progress;
+            var h = ReadySequenceProgressChanged;
+            if (h != null) try { h(progress); } catch { }
+        }
+
+        private void SetReadySequenceProgress(
+            MachineReadySequenceState state,
+            int percent,
+            int completedSteps,
+            int totalSteps,
+            string currentStepName,
+            string message)
+        {
+            SetReadySequenceProgress(new MachineReadyProgress(
+                state,
+                percent,
+                completedSteps,
+                totalSteps,
+                currentStepName,
+                message));
         }
 
         private void Log(string msg)

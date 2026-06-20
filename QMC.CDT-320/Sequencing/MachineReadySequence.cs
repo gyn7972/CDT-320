@@ -12,11 +12,20 @@ namespace QMC.CDT320.Sequencing
     /// <summary>장비 전체 모션을 안전한 Ready(Avoid) 위치로 복귀시키는 시퀀스입니다.</summary>
     internal sealed class MachineReadySequence
     {
+        private const int ReadyStepCount = 6;
         private readonly CDT320_Machine _machine;
+        private readonly Action<MachineReadyProgress> _progressChanged;
+        private int _completedStepCount;
 
         public MachineReadySequence(CDT320_Machine machine)
+            : this(machine, null)
+        {
+        }
+
+        public MachineReadySequence(CDT320_Machine machine, Action<MachineReadyProgress> progressChanged)
         {
             _machine = machine;
+            _progressChanged = progressChanged;
         }
 
         public string LastErrorMessage { get; private set; }
@@ -30,27 +39,27 @@ namespace QMC.CDT320.Sequencing
 
                 int result = 0;
 
-                result = await MoveOutputStageVisionXOnlyAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("OutputStage VisionX Avoid", () => MoveOutputStageVisionXOnlyAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = await MoveFrontRearPickerZAxesAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("Front/Rear Picker Z Avoid", () => MoveFrontRearPickerZAxesAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = await MoveFrontRearPickerYAxesAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("Front/Rear Picker Y Avoid", () => MoveFrontRearPickerYAxesAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = await MoveFrontRearPickerTAxesAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("Front/Rear Picker T Avoid", () => MoveFrontRearPickerTAxesAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = await MoveFrontRearPickerXAxesAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("Front/Rear Picker X Avoid", () => MoveFrontRearPickerXAxesAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                result = await MoveInputStageVisionXOnlyAvoidAsync(ct).ConfigureAwait(false);
+                result = await RunReadyStepAsync("InputStage VisionX Avoid", () => MoveInputStageVisionXOnlyAvoidAsync(ct)).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -110,6 +119,36 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> RunReadyStepAsync(string stepName, Func<Task<int>> action)
+        {
+            ReportProgress(MachineReadySequenceState.Running, stepName, stepName + " 진행 중입니다.");
+
+            int result = await action().ConfigureAwait(false);
+            if (result == 0)
+            {
+                _completedStepCount++;
+                ReportProgress(MachineReadySequenceState.Running, stepName, stepName + " 완료.");
+            }
+
+            return result;
+        }
+
+        private void ReportProgress(MachineReadySequenceState state, string stepName, string message)
+        {
+            Action<MachineReadyProgress> handler = _progressChanged;
+            if (handler == null)
+                return;
+
+            int percent = ReadyStepCount <= 0 ? 0 : (int)Math.Round((_completedStepCount * 100.0) / ReadyStepCount);
+            handler(new MachineReadyProgress(
+                state,
+                percent,
+                _completedStepCount,
+                ReadyStepCount,
+                stepName,
+                message));
         }
 
         private async Task<int> MoveOutputStageVisionXOnlyAvoidAsync(CancellationToken ct)

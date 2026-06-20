@@ -1,11 +1,12 @@
+﻿using QMC.CDT320;
+using QMC.CDT320.Initialization;
+using QMC.Common.Logging;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using QMC.CDT320;
-using QMC.CDT320.Initialization;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -135,6 +136,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private async void btnRunAll_Click(object sender, EventArgs e)
         {
+            DialogResult result = QMC.Common.MessageDialog.Show(
+                    "전체 초기화를 진행하시겠습니까?", "전체 초기화", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result != DialogResult.Yes)
+            {
+                EventLogger.Write(EventKind.Event, "UI", "전체 초기화", "btnRunAll_Click canceled.");
+                return;
+            }
+
             ResetStatuses();
             await RunAsync(() => _controller.InitializeAllAxesForMonitorAsync());
         }

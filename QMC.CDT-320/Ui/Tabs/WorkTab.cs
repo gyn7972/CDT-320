@@ -133,15 +133,31 @@ namespace QMC.CDT_320.Ui.Tabs
 
         private async System.Threading.Tasks.Task RunReadySequenceWithMessageAsync(MachineController controller)
         {
-            int result = await controller.RunReadySequenceAsync().ConfigureAwait(false);
+            ReadyProgressDialog progressDialog = null;
+            try
+            {
+                progressDialog = new ReadyProgressDialog(controller);
+                progressDialog.Show(FindForm());
+                progressDialog.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ReadyProgressDialog",
+                    "Ready progress dialog open failed: " + ex.Message + " - Failed");
+            }
+
+            int result = await controller.RunReadySequenceAsync();
+
+            if (progressDialog != null && !progressDialog.IsDisposed)
+            {
+                progressDialog.ApplyProgress(controller.ReadySequenceProgress);
+                await System.Threading.Tasks.Task.Delay(result == 0 ? 700 : 300);
+                progressDialog.Close();
+                progressDialog.Dispose();
+            }
+
             if (result == 0)
             {
-                QMC.Common.MessageDialog.Show(
-                    FindForm(),
-                    "Ready 완료.",
-                    "Ready",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
                 return;
             }
 
