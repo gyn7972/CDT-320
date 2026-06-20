@@ -23,6 +23,7 @@ namespace QMC.CDT320.Sequencing
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Bus = bus ?? throw new ArgumentNullException(nameof(bus));
             Resources = resources ?? new SequenceResourceManager();
+            Activity = activity ?? new SequenceActivityMonitor();
             PickerPhases = new PickerPhaseCoordinator();
         }
 
