@@ -16,7 +16,6 @@ namespace QMC.CDT320.Sequencing
         RequestSide0Inspection,
         MoveSideT90,
         RequestSide90Inspection,
-        MoveSideT180,
         ApplySideInspectionResult,
         MoveSideZToAvoid,
         MoveSideTToSafe,
