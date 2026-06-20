@@ -1,4 +1,4 @@
-using QMC.CDT320.Ajin;
+﻿using QMC.CDT320.Ajin;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
@@ -309,6 +309,22 @@ namespace QMC.CDT320
             return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.Process90Position, bFine);
         }
 
+        public Task<int> MoveBothSideVisionProcess0PositionAsync(bool bFine = false)
+        {
+            var targets = new Dictionary<VisionAxis, double>();
+            targets[VisionAxis.FrontSideVisionY] = Recipe.FrontSideVision.Process0Position;
+            targets[VisionAxis.RearSideVisionY] = Recipe.RearSideVision.Process0Position;
+            return MoveVisionAxes(targets, bFine);
+        }
+
+        public Task<int> MoveBothSideVisionProcess90PositionAsync(bool bFine = false)
+        {
+            var targets = new Dictionary<VisionAxis, double>();
+            targets[VisionAxis.FrontSideVisionY] = Recipe.FrontSideVision.Process90Position;
+            targets[VisionAxis.RearSideVisionY] = Recipe.RearSideVision.Process90Position;
+            return MoveVisionAxes(targets, bFine);
+        }
+
         // 기존 단일 PROCESS 이동(검사 시퀀스 등)은 0도 PROCESS 위치를 기준으로 동작한다.
         public Task<int> MoveToFrontSideVisionProcessPosition(bool bFine = false)
         {
@@ -570,6 +586,8 @@ namespace QMC.CDT320
         public Task<int> ManualMoveToRearSideVisionAvoidPosition(bool bFine = false) { return MoveToRearSideVisionAvoidPosition(bFine); }
         public Task<int> ManualMoveToFrontSideVisionProcessPosition(bool bFine = false) { return MoveToFrontSideVisionProcessPosition(bFine); }
         public Task<int> ManualMoveToRearSideVisionProcessPosition(bool bFine = false) { return MoveToRearSideVisionProcessPosition(bFine); }
+        public Task<int> ManualMoveBothSideVisionProcess0Position(bool bFine = false) { return MoveBothSideVisionProcess0PositionAsync(bFine); }
+        public Task<int> ManualMoveBothSideVisionProcess90Position(bool bFine = false) { return MoveBothSideVisionProcess90PositionAsync(bFine); }
         public Task<bool> ManualTriggerFrontVisionCapture() { return TriggerFrontSideVisionCapture(); }
         public Task<bool> ManualTriggerRearVisionCapture() { return TriggerRearSideVisionCapture(); }
 

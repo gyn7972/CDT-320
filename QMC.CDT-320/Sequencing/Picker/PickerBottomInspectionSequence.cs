@@ -344,8 +344,11 @@ namespace QMC.CDT320.Sequencing
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
+            bool wasInInspectionZone = _inspectionYPositionReady;
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
             if (!_inspectionYPositionReady &&
+                !wasInInspectionZone &&
                 !IsPickerAxisInPosition(PickerAxis.PickerY, GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
             {
                 CurrentStep = PickerBottomInspectionStep.MoveBottomYToAvoidBeforeInspection;
