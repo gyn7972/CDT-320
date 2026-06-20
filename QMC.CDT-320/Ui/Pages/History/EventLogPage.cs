@@ -14,9 +14,16 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         // 표시 상한(최신 N개). 최근 1시간 필터와 함께 로딩 부하를 제한한다.
         private const int MaxRows = 500;
+        private const int LiveFlushIntervalMs = 250;
+        private const int MaxLiveFlushRows = 100;
+        private const int MaxPendingLiveRows = 1000;
 
         // 사이드바 버튼(경고/데이터/작업)이 지정하는 초기 Kind 프리셋. null 이면 전체(이벤트).
         private readonly EventKind? _presetKind;
+        private readonly object _pendingLiveRowsLock = new object();
+        private readonly Queue<EventRow> _pendingLiveRows = new Queue<EventRow>();
+        private readonly Timer _liveFlushTimer = new Timer();
+        private bool _liveEventSubscribed;
 
         // 사용자가 직접 연 로그 파일 경로. null 이면 DATE 피커 날짜 기준으로 읽는다.
         private string _overridePath;
@@ -66,8 +73,14 @@ namespace QMC.CDT_320.Ui.Pages.History
             _dp.ValueChanged += (s, e) => { _overridePath = null; ReloadCurrent(); };
             btnRefresh.Click += (s, e) => ReloadCurrent();
             btnOpenFile.Click += (s, e) => OpenFile();
-            EventLogger.EventLogged += OnLiveEvent;
-            Disposed += (s, e) => EventLogger.EventLogged -= OnLiveEvent;
+            _liveFlushTimer.Interval = LiveFlushIntervalMs;
+            _liveFlushTimer.Tick += (s, e) => FlushPendingLiveRows();
+            Disposed += (s, e) =>
+            {
+                UnsubscribeLiveEvents();
+                _liveFlushTimer.Stop();
+                _liveFlushTimer.Dispose();
+            };
             Load += (s, e) => ReloadCurrent();
         }
 
@@ -141,24 +154,116 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateLiveEventSubscription();
+        }
+
+        private void UpdateLiveEventSubscription()
+        {
+            if (ShouldRefreshVisible(this))
+            {
+                SubscribeLiveEvents();
+                if (!_liveFlushTimer.Enabled)
+                    _liveFlushTimer.Start();
+            }
+            else
+            {
+                UnsubscribeLiveEvents();
+                _liveFlushTimer.Stop();
+                ClearPendingLiveRows();
+            }
+        }
+
+        private void SubscribeLiveEvents()
+        {
+            if (_liveEventSubscribed)
+                return;
+
+            EventLogger.EventLogged += OnLiveEvent;
+            _liveEventSubscribed = true;
+        }
+
+        private void UnsubscribeLiveEvents()
+        {
+            if (!_liveEventSubscribed)
+                return;
+
+            EventLogger.EventLogged -= OnLiveEvent;
+            _liveEventSubscribed = false;
+        }
+
         private void OnLiveEvent(EventRow r)
+        {
+            if (r == null || !PassesKindFilter(r.Kind))
+                return;
+
+            lock (_pendingLiveRowsLock)
+            {
+                _pendingLiveRows.Enqueue(r);
+                while (_pendingLiveRows.Count > MaxPendingLiveRows)
+                    _pendingLiveRows.Dequeue();
+            }
+        }
+
+        private void FlushPendingLiveRows()
         {
             if (!ShouldRefreshVisible(this))
                 return;
 
-            if (InvokeRequired)
+            // 직접 연 파일을 보는 중이면 실시간 이벤트로 덮지 않는다.
+            // 최신순 표시이므로 새 이벤트는 맨 위에 삽입한다.
+            if (_overridePath != null || _dp == null || _dp.Value.Date != DateTime.Today)
             {
-                BeginInvoke(new Action<EventRow>(OnLiveEvent), r);
+                ClearPendingLiveRows();
                 return;
             }
 
-            // 직접 연 파일을 보는 중이면 실시간 이벤트로 덮지 않는다.
-            // 최신순 표시이므로 새 이벤트는 맨 위에 삽입한다.
-            if (_overridePath == null && _dp != null && _dp.Value.Date == DateTime.Today && PassesKindFilter(r.Kind))
+            List<EventRow> rows = DequeuePendingLiveRows();
+            if (rows.Count == 0)
+                return;
+
+            DateTime cutoff = DateTime.Now.AddHours(-1);
+            var prevAutoSize = _grid.AutoSizeColumnsMode;
+            _grid.SuspendLayout();
+            try
             {
-                _grid.Rows.Insert(0, BuildRow(r));               // 최신이 맨 위
-                while (_grid.Rows.Count > MaxRows)               // 상한 유지
-                    _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+                _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                foreach (EventRow row in rows)
+                {
+                    if (row == null || row.When < cutoff)
+                        continue;
+
+                    _grid.Rows.Insert(0, BuildRow(row));
+                    while (_grid.Rows.Count > MaxRows)
+                        _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+                }
+            }
+            finally
+            {
+                _grid.AutoSizeColumnsMode = prevAutoSize;
+                _grid.ResumeLayout();
+            }
+        }
+
+        private List<EventRow> DequeuePendingLiveRows()
+        {
+            var rows = new List<EventRow>();
+            lock (_pendingLiveRowsLock)
+            {
+                while (_pendingLiveRows.Count > 0 && rows.Count < MaxLiveFlushRows)
+                    rows.Add(_pendingLiveRows.Dequeue());
+            }
+
+            return rows;
+        }
+
+        private void ClearPendingLiveRows()
+        {
+            lock (_pendingLiveRowsLock)
+            {
+                _pendingLiveRows.Clear();
             }
         }
 
