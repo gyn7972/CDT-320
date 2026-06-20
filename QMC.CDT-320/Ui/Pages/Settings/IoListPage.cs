@@ -326,6 +326,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 string name = SelectedCylinderName();
                 if (string.IsNullOrWhiteSpace(name)) return;
 
+                CommitGridEdit();
+                DataGridViewRow row = SelectedCylinderRow();
+                if (row != null)
+                {
+                    SaveCylinderMapping(row);
+                    AjinConfigStore.SaveOrThrow();
+                    CylinderManager.ApplyMappings();
+                    ApplyUnitCylinderMappings();
+                    RebuildRowIndex();
+                }
+
                 CylinderItemSettings settings = CylinderSettingsStore.Get(name);
                 settings.FwdTimeoutMs = Convert.ToInt32(nudFwdTimeout.Value);
                 settings.BwdTimeoutMs = Convert.ToInt32(nudBwdTimeout.Value);
@@ -344,13 +355,56 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 if (showResult)
                     lblCylinderResult.Text = "APPLIED";
-                EventLogger.Write(EventKind.Event, "QMC", "CYL-TEST-APPLY", "Cylinder test settings applied: " + name);
+                EventLogger.Write(EventKind.Event, "QMC", "CYL-TEST-APPLY",
+                    "Cylinder settings and mapping applied: " + name);
             }
             catch (Exception ex)
             {
                 lblCylinderResult.Text = "APPLY FAIL";
                 EventLogger.Write(EventKind.Alarm, "QMC", "CYL-TEST-APPLY", "Cylinder test settings apply failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "CYLINDER TEST", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private DataGridViewRow SelectedCylinderRow()
+        {
+            try
+            {
+                if (_grid.CurrentRow != null && !_grid.CurrentRow.IsNewRow)
+                    return _grid.CurrentRow;
+                if (_grid.SelectedRows.Count > 0 && !_grid.SelectedRows[0].IsNewRow)
+                    return _grid.SelectedRows[0];
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return null;
+        }
+
+        private void CommitGridEdit()
+        {
+            try
+            {
+                if (_grid == null)
+                    return;
+
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+
+                _grid.EndEdit();
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+            catch
+            {
+                throw;
             }
             finally
             {
@@ -867,10 +921,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (_simColumnIndex < 0) return;
-                if (_grid.IsCurrentCellDirty)
-                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
-                _grid.EndEdit();
-                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                CommitGridEdit();
 
                 foreach (DataGridViewRow row in _grid.Rows)
                 {
