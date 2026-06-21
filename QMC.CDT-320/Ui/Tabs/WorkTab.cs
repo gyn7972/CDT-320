@@ -75,6 +75,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 _statusController.StatusChanged -= OnControllerStatusChanged;
                 _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+                _statusController.StopRequested -= OnControllerStopRequested;
             }
 
             base.AttachHost(host);
@@ -84,6 +85,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 _statusController.StatusChanged += OnControllerStatusChanged;
                 _statusController.ReadySequenceProgressChanged += OnReadySequenceProgressChanged;
+                _statusController.StopRequested += OnControllerStopRequested;
             }
 
             UpdateCommandButtonStates();
@@ -321,6 +323,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     _statusController.StatusChanged -= OnControllerStatusChanged;
                     _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+                    _statusController.StopRequested -= OnControllerStopRequested;
                     _statusController = null;
                 }
 
@@ -375,6 +378,11 @@ namespace QMC.CDT_320.Ui.Tabs
 
         private async System.Threading.Tasks.Task RunStopSequenceWithMessageAsync(MachineController controller)
         {
+            await ShowStopProgressAsync(controller, true);
+        }
+
+        private async System.Threading.Tasks.Task ShowStopProgressAsync(MachineController controller, bool issueStopCommand)
+        {
             if (controller == null)
                 return;
 
@@ -411,7 +419,8 @@ namespace QMC.CDT_320.Ui.Tabs
 
             try
             {
-                await controller.StopAsync();
+                if (issueStopCommand)
+                    await controller.StopAsync();
 
                 if (progressDialog != null && !progressDialog.IsDisposed)
                 {
@@ -435,6 +444,25 @@ namespace QMC.CDT_320.Ui.Tabs
 
                 _stopProgressDialog = null;
             }
+        }
+
+        private void OnControllerStopRequested()
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                try { BeginInvoke(new Action(OnControllerStopRequested)); }
+                catch { }
+                return;
+            }
+
+            MachineController controller = Host != null ? Host.Controller : _statusController;
+            if (controller == null)
+                return;
+
+            _ = ShowStopProgressAsync(controller, false);
         }
 
         private void OnControllerStatusChanged(EquipmentStatus status)

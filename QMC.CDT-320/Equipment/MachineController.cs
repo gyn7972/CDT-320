@@ -58,6 +58,7 @@ namespace QMC.CDT320
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string> LogMessage;
         public event Action<int, int> CycleProgress;  // (done, total)
+        public event Action StopRequested;
         public event Action<bool> MachineInitializedChanged;
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
         public event Action<MachineReadyProgress> ReadySequenceProgressChanged;
@@ -5142,6 +5143,8 @@ namespace QMC.CDT320
         /// </summary>
         public async Task StopAsync()
         {
+            OnStopRequested();
+
             if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
             {
                 await RequestCycleStopSequenceAsync().ConfigureAwait(false);
@@ -5181,6 +5184,21 @@ namespace QMC.CDT320
                 Log("[STOP] Stopped.");
             }
             SetStatus(EquipmentStatus.Stopped);
+        }
+
+        private void OnStopRequested()
+        {
+            var handler = StopRequested;
+            if (handler == null)
+                return;
+
+            try
+            {
+                handler();
+            }
+            catch
+            {
+            }
         }
 
         public IDisposable EnterManualOperation()
