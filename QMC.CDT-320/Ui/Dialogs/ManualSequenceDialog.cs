@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -20,14 +20,49 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void WireEvents()
         {
-            btnInputStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.InputLoader, "INPUT STEP").ConfigureAwait(true); };
-            btnOutputStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.OutputUnloader, "OUTPUT STEP").ConfigureAwait(true); };
+            btnInputLoad.Click += async delegate { await RunManualProcessAsync("INPUT LOAD", _controller.RunManualInputLoadAsync).ConfigureAwait(true); };
+            btnInputUnload.Click += async delegate { await RunManualProcessAsync("INPUT UNLOAD", _controller.RunManualInputUnloadAsync).ConfigureAwait(true); };
+            btnOutputLoad.Click += async delegate { await RunManualProcessAsync("OUTPUT LOAD", _controller.RunManualOutputLoadAsync).ConfigureAwait(true); };
+            btnOutputUnload.Click += async delegate { await RunManualProcessAsync("OUTPUT UNLOAD", _controller.RunManualOutputUnloadAsync).ConfigureAwait(true); };
             btnPickUp.Click += async delegate { await RunPickerProcessAsync("PickUp", "PICK UP").ConfigureAwait(true); };
             btnBottom.Click += async delegate { await RunPickerProcessAsync("Bottom", "BOTTOM").ConfigureAwait(true); };
             btnSide.Click += async delegate { await RunPickerProcessAsync("Side", "SIDE").ConfigureAwait(true); };
             btnPlace.Click += async delegate { await RunPickerProcessAsync("Place", "PLACE").ConfigureAwait(true); };
             btnAllStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.All, "ALL STEP").ConfigureAwait(true); };
             btnClose.Click += delegate { Close(); };
+        }
+
+        private async Task RunManualProcessAsync(string label, Func<Task<int>> action)
+        {
+            if (_busy)
+                return;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+                statusLabel.Text = label + " 실행 중...";
+
+                int result = await action().ConfigureAwait(true);
+                if (result == 0)
+                {
+                    statusLabel.Text = label + " 완료.";
+                    return;
+                }
+
+                ShowFailure(string.IsNullOrWhiteSpace(_controller.LastActionFailureMessage)
+                    ? label + " 실행 실패"
+                    : _controller.LastActionFailureMessage);
+            }
+            catch (Exception ex)
+            {
+                ShowError(label + " 실행 중 예외가 발생했습니다. " + ex.Message);
+            }
+            finally
+            {
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
         }
 
         private async Task RunUnitStepAsync(SequenceUnitKind unit, string label)

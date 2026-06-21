@@ -991,6 +991,9 @@
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
     </EmbeddedResource>

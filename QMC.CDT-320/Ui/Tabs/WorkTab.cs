@@ -15,6 +15,7 @@ namespace QMC.CDT_320.Ui.Tabs
     {
         private InitializationMonitorDialog _initializationMonitorDialog;
         private ReadyProgressDialog _readyProgressDialog;
+        private ManualSequenceDialog _manualSequenceDialog;
         private MachineController _statusController;
 
         public WorkTab()
@@ -327,6 +328,9 @@ namespace QMC.CDT_320.Ui.Tabs
 
                 if (_readyProgressDialog != null && !_readyProgressDialog.IsDisposed)
                     _readyProgressDialog.Close();
+
+                if (_manualSequenceDialog != null && !_manualSequenceDialog.IsDisposed)
+                    _manualSequenceDialog.Close();
             }
             catch
             {
@@ -345,8 +349,24 @@ namespace QMC.CDT_320.Ui.Tabs
                 return;
             }
 
-            using (var dlg = new ManualSequenceDialog(Host.Controller))
-                dlg.ShowDialog(FindForm());
+            if (_manualSequenceDialog != null && !_manualSequenceDialog.IsDisposed)
+            {
+                if (_manualSequenceDialog.WindowState == FormWindowState.Minimized)
+                    _manualSequenceDialog.WindowState = FormWindowState.Normal;
+
+                _manualSequenceDialog.Activate();
+                _manualSequenceDialog.BringToFront();
+                return;
+            }
+
+            _manualSequenceDialog = new ManualSequenceDialog(Host.Controller);
+            _manualSequenceDialog.FormClosed += delegate { _manualSequenceDialog = null; };
+
+            Form owner = FindForm();
+            if (owner != null)
+                _manualSequenceDialog.Show(owner);
+            else
+                _manualSequenceDialog.Show();
         }
 
         private void OnControllerStatusChanged(EquipmentStatus status)
