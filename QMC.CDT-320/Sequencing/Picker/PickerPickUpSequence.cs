@@ -996,28 +996,6 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + areaReason);
                 }
 
-                int result = await MoveInputStageYForPickerWorkPointCommandAsync(
-                    stage,
-                    _pickTarget.TargetX,
-                    _targetStageY,
-                    "pick corrected StageY",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await WaitInputStageAxisInPositionResultAsync(
-                    stage,
-                    WaferStageAxis.WaferY,
-                    _targetStageY,
-                    "pick corrected StageY",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                int finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
-                if (finalCheck != 0)
-                    return finalCheck;
-
                 string needleAreaReason;
                 if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
                 {
@@ -1030,44 +1008,43 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + needleAreaReason);
                 }
 
-                result = await MoveNeedleXAndVerifyAsync(
+                int result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                var pickerTargets = new Dictionary<PickerAxis, double>();
+                pickerTargets[PickerAxis.PickerX] = _targetPickerX;
+                pickerTargets[PickerAxis.PickerY] = _targetPickerY;
+                pickerTargets[tAxis] = _targetPickerT;
+
+                Task<int> stageYMove = MoveInputStageYAndVerifyAsync(
+                    stage,
+                    _pickTarget.TargetX,
+                    _targetStageY,
+                    "pick corrected StageY",
+                    ct);
+                Task<int> needleXMove = MoveNeedleXAndVerifyAsync(
                     stage,
                     _targetNeedleX,
                     "pick corrected NeedleX",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MovePickerAxisAndVerifyAsync(
-                    PickerAxis.PickerX,
-                    _targetPickerX,
-                    "pick corrected PickerX",
+                    ct);
+                Task<int> pickerMove = MovePickerAxesAndVerifyAsync(
+                    pickerTargets,
+                    "pick corrected Picker X/Y/T",
                     ct,
-                    targetName).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                    targetName);
 
-                result = await MovePickerAxisAndVerifyAsync(
-                    PickerAxis.PickerY,
-                    _targetPickerY,
-                    "pick PickerY teaching position",
-                    ct,
-                    targetName).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MovePickerAxisAndVerifyAsync(
-                    tAxis,
-                    _targetPickerT,
-                    "pick corrected PickerT",
-                    ct,
-                    targetName).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                int[] results = await Task.WhenAll(stageYMove, needleXMove, pickerMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0 || results[2] != 0)
+                {
+                    return Fail("PICKER-PICKUP-PARALLEL-MOVE", Name,
+                        "PickUp StageY/NeedleX/Picker X/Y/T 동시 이동 실패. " +
+                        "stageYResult=" + results[0] +
+                        ", needleXResult=" + results[1] +
+                        ", pickerResult=" + results[2] +
+                        ", die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo);
+                }
 
                 CurrentStep = PickerPickUpStep.VerifyPickTarget;
                 return 0;

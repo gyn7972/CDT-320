@@ -79,12 +79,12 @@ namespace QMC.CDT320.Sequencing
             var builder = new StringBuilder();
             builder.AppendLine(actionName + " 실패");
             builder.AppendLine();
+            AppendLine(builder, "원인", failure.Message);
             AppendLine(builder, "Sequence", failure.SequenceName);
             AppendLine(builder, "Kind", failure.SequenceKind);
             AppendLine(builder, "Step", failure.StepName);
             AppendLine(builder, "Alarm Code", failure.AlarmCode);
             AppendLine(builder, "Source", failure.Source);
-            AppendLine(builder, "원인", failure.Message);
             builder.AppendLine();
             builder.Append("Alarm/Event Log에도 동일한 내용이 기록되어 있습니다.");
             return builder.ToString();
@@ -110,12 +110,12 @@ namespace QMC.CDT320.Sequencing
 
             var builder = new StringBuilder(message ?? "");
             builder.Append(" Detail: ");
+            AppendInline(builder, "Cause", failure.Message);
             AppendInline(builder, "Sequence", failure.SequenceName);
             AppendInline(builder, "Kind", failure.SequenceKind);
             AppendInline(builder, "Step", failure.StepName);
             AppendInline(builder, "Alarm Code", failure.AlarmCode);
             AppendInline(builder, "Source", failure.Source);
-            AppendInline(builder, "Cause", failure.Message);
             return builder.ToString().TrimEnd(' ', '|');
         }
 

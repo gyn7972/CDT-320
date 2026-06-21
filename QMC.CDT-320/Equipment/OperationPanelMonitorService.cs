@@ -30,9 +30,12 @@ namespace QMC.CDT320
         private long _stopChangedTick;
         private long _resetChangedTick;
         private bool _prevEmgFront;
+        private long _lastLampRefreshTick;
         private int _commandBusy;
         private int _buzzerMuted;
-        private const int ButtonDebounceMs = 250;
+        private const int MonitorPollIntervalMs = 20;
+        private const int ButtonDebounceMs = 50;
+        private const int LampRefreshIntervalMs = 100;
 
         public OperationPanelMonitorService(CDT320_Machine machine, MachineController controller)
         {
@@ -77,7 +80,7 @@ namespace QMC.CDT320
                     // Keep the monitor alive; UI/manual operation should not die from one I/O read/write failure.
                 }
 
-                await Task.Delay(100, token).ConfigureAwait(false);
+                await Task.Delay(MonitorPollIntervalMs, token).ConfigureAwait(false);
             }
         }
 
@@ -103,7 +106,7 @@ namespace QMC.CDT320
             if (!_buttonStatesInitialized)
             {
                 InitializeButtonStates(rawStart, rawStop, rawReset);
-                ApplyLampState(op, _stableStart, _stableReset);
+                ApplyLampState(op, _stableStart, _stableReset, true);
                 return;
             }
 
@@ -128,20 +131,21 @@ namespace QMC.CDT320
             if (stop && !_prevStop && !_stopReleaseRequired)
             {
                 _stopReleaseRequired = true;
-                RunCommand(HandleStopAsync);
+                RunPriorityCommand(HandleStopAsync);
             }
 
             if (reset && !_prevReset && !_resetReleaseRequired)
             {
                 _resetReleaseRequired = true;
-                RunCommand(HandleResetAsync);
+                RunPriorityCommand(HandleResetAsync);
             }
+
+            bool buttonStateChanged = start != _prevStart || stop != _prevStop || reset != _prevReset;
+            ApplyLampState(op, start, reset, buttonStateChanged);
 
             _prevStart = start;
             _prevStop = stop;
             _prevReset = reset;
-
-            ApplyLampState(op, start, reset);
         }
 
         private void ResetButtonMonitorState()
@@ -161,6 +165,7 @@ namespace QMC.CDT320
             _startChangedTick = 0;
             _stopChangedTick = 0;
             _resetChangedTick = 0;
+            _lastLampRefreshTick = 0;
             _buttonStatesInitialized = false;
         }
 
@@ -323,8 +328,14 @@ namespace QMC.CDT320
             return settings != null && (settings.BypassHardware || settings.SimulationMode);
         }
 
-        private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed)
+        private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed, bool force = false)
         {
+            long now = Environment.TickCount;
+            if (!force && ElapsedMs(_lastLampRefreshTick, now) < LampRefreshIntervalMs)
+                return;
+
+            _lastLampRefreshTick = now;
+
             bool alarm = IsAlarmActive();
             bool autoRunning = IsAutoRunning();
             bool manualRunning = IsManualRunning();
@@ -410,6 +421,20 @@ namespace QMC.CDT320
             });
         }
 
+        private void RunPriorityCommand(Func<Task> action)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await action().ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            });
+        }
+
         private async Task HandleStartAsync()
         {
             if (!CanAcceptStartCommand())
@@ -420,7 +445,6 @@ namespace QMC.CDT320
 
         private async Task HandleStopAsync()
         {
-            await _controller.StopSequenceAsync().ConfigureAwait(false);
             await _controller.StopAsync().ConfigureAwait(false);
         }
 
@@ -452,6 +476,9 @@ namespace QMC.CDT320
 
             try
             {
+                if (output.IsOn == on)
+                    return;
+
                 if (on)
                     output.On();
                 else

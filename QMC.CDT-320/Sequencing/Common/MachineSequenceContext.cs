@@ -25,6 +25,7 @@ namespace QMC.CDT320.Sequencing
             Resources = resources ?? new SequenceResourceManager();
             Activity = activity ?? new SequenceActivityMonitor();
             PickerPhases = new PickerPhaseCoordinator();
+            OutputPostPlaceInspections = new OutputPostPlaceInspectionQueue(this);
         }
 
         /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT)의 동작 상태를 보관하는 공식 상태 객체입니다.</summary>
@@ -42,6 +43,7 @@ namespace QMC.CDT320.Sequencing
         public SequenceResourceManager Resources { get; private set; }
 
         internal PickerPhaseCoordinator PickerPhases { get; private set; }
+        internal OutputPostPlaceInspectionQueue OutputPostPlaceInspections { get; private set; }
         private int _cycleStopRequested;
 
         /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>

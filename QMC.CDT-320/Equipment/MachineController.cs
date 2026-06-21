@@ -5135,23 +5135,37 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>?뺤?: ?꾩옱 ?숈옉 以묒씤 異??뺤? + ?쒕낫 ?곹깭???좎?.
-        /// 吏꾪뻾 以?LOT ???덉쑝硫?誘몄쭊???ㅼ씠瑜?Skipped 移댁슫?몃줈 湲곕줉?섍퀬 LOT JSON ???</summary>
-        public Task StopAsync()
+        /// <summary>
+        /// 일반 정지 요청입니다.
+        /// 자동 시퀀스 중에는 축을 즉시 정지하지 않고 현재 동작 경계에서 정지하도록 요청합니다.
+        /// 축 즉시 정지는 EMO/알람 응답 또는 수동 조작 정지에서만 수행합니다.
+        /// </summary>
+        public async Task StopAsync()
         {
+            if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
+            {
+                await RequestCycleStopSequenceAsync().ConfigureAwait(false);
+                Log("[STOP] 일반 정지 요청: 현재 동작 완료 후 시퀀스 경계에서 정지합니다.");
+                return;
+            }
+
+            if (_cycleCts != null && _status == EquipmentStatus.AutoRunning)
+            {
+                _cycleStopRequested = true;
+                _cycleResumePending = true;
+                Log("[STOP] 일반 정지 요청: 현재 사이클 완료 후 정지합니다.");
+                return;
+            }
+
             CancelManualOperation();
 
-            // 1) 紐⑤뱺 異??뺤? (?쒕낫???좎?)
+            // 수동/조그 조작 중에는 운전자가 누른 정지 명령이므로 현재 움직이는 축을 정지한다.
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
-            // 2) ?�이?�이 진행 중이?�면 cancel ???�제 LOT 마무리는 CycleRunAsync ??
-            //    catch (OperationCanceledException) ?먯꽌 SkippedCount ? ?④퍡 泥섎━??
             bool wasCycling = (_status == EquipmentStatus.AutoRunning);
-            _cycleStopRequested = false;
             _cycleResumePending = false;
             _cycleCts?.Cancel();
 
-            // 3) 吏꾪뻾 ?곹깭 濡쒓렇 媛뺥솕 + LOT 留덈Т由?(CloseLot)
             var lot = QMC.CDT320.Lots.LotStorage.ActiveLot;
             if (wasCycling && lot != null)
             {
@@ -5167,7 +5181,6 @@ namespace QMC.CDT320
                 Log("[STOP] Stopped.");
             }
             SetStatus(EquipmentStatus.Stopped);
-            return Task.CompletedTask;
         }
 
         public IDisposable EnterManualOperation()
@@ -5678,6 +5691,191 @@ namespace QMC.CDT320
             _coordinator.StepAll();
         }
 
+        /// <summary>Manual Sequence Dialog에서 지정 유닛을 Auto와 같은 데이터/시퀀스 컨텍스트로 1단계 진행합니다.</summary>
+        public async Task<int> RunManualSequenceUnitStepAsync(QMC.CDT320.Sequencing.SequenceUnitKind unit)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (unit == QMC.CDT320.Sequencing.SequenceUnitKind.None)
+                {
+                    LastActionFailureMessage = "실행할 Manual 시퀀스 유닛이 선택되지 않았습니다.";
+                    return -1;
+                }
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 Manual 시퀀스를 실행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                        LastActionFailureMessage + " unit=" + unit + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunManualSequenceUnitStepAsync"))
+                    return -1;
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 Manual 시퀀스를 실행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                        LastActionFailureMessage + " unit=" + unit + " - Failed");
+                    return -1;
+                }
+
+                if (IsSequenceRunning)
+                {
+                    if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    {
+                        LastActionFailureMessage = "Auto Sequence 실행 중에는 Manual 시퀀스를 실행할 수 없습니다.";
+                        QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                            LastActionFailureMessage + " unit=" + unit + " - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        return -1;
+                    }
+
+                    ManualStep(unit);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                        "Manual sequence unit step gate released. unit=" + unit + " - Ok");
+                    return 0;
+                }
+
+                if (_status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto Running 상태에서는 Manual 시퀀스를 시작할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                        LastActionFailureMessage + " unit=" + unit + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                await StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.ProcessStep()).ConfigureAwait(false);
+                ManualStep(unit);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                    "Manual sequence process step mode started. unit=" + unit + " - Ok");
+                Log("[SEQ] Manual sequence step start. unit=" + unit);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Manual 시퀀스 실행 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
+                    LastActionFailureMessage + " unit=" + unit + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-STEP-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>Manual Sequence Dialog에서 Picker 단위 공정을 Auto와 동일한 Material/DieMap 상태로 실행합니다.</summary>
+        public async Task<int> RunManualPickerProcessAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            string processName)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 Picker Manual 공정을 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 Picker Manual 공정을 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 Picker Manual 공정을 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunManualPickerProcessAsync"))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (EnterManualOperation())
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+                    var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Auto;
+
+                    string name = (processName ?? "").Trim();
+                    int result;
+                    if (string.Equals(name, "PickUp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
+                            .RunAsync(ManualOperationToken, options).ConfigureAwait(false);
+                    }
+                    else if (string.Equals(name, "Bottom", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result = await new QMC.CDT320.Sequencing.PickerBottomInspectionSequence(context, side)
+                            .RunAsync(ManualOperationToken, options).ConfigureAwait(false);
+                    }
+                    else if (string.Equals(name, "Side", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result = await new QMC.CDT320.Sequencing.PickerSideInspectionSequence(context, side)
+                            .RunAsync(ManualOperationToken, options).ConfigureAwait(false);
+                    }
+                    else if (string.Equals(name, "Place", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result = await new QMC.CDT320.Sequencing.PickerPlaceSequence(context, side)
+                            .RunAsync(ManualOperationToken, options).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        LastActionFailureMessage = "지원하지 않는 Picker Manual 공정입니다. process=" + processName;
+                        return -1;
+                    }
+
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = "Picker Manual 공정 실패. side=" + side + ", process=" + processName + ", result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState("ManualPickerProcess:" + side + ":" + processName);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "Picker Manual 공정이 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Picker Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>Work CYCLE RUN 버튼에서 공정 전체 시퀀스를 1단계 진행합니다.</summary>
         public async Task<int> RunProcessSequenceStepAsync()
         {
@@ -5920,18 +6118,32 @@ namespace QMC.CDT320
                 int startCycle = resumeCycle ? System.Math.Max(0, CycleDone / pickers) : 0;
                 for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
-                    if (_cycleCts.Token.IsCancellationRequested) break;
+                    if (_cycleStopRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
                     await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // ?ъ씠???몃뜳??+ total ?꾨떖
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
                     RaiseProgress();
+                    if (_cycleStopRequested)
+                    {
+                        Log("[CYCLE STOP] 현재 사이클 완료 후 정지합니다. done=" + CycleDone + "/" + CycleTotal);
+                        break;
+                    }
                     // R3 ??Manual 紐⑤뱶: 1 ?ъ씠??泥섎━ ???먮룞 ?뺤?
                     if (CycleMode == CycleMode.Manual)
                     {
                         Log("[CYCLE] Manual mode. Stop after one die batch. done=" + CycleDone);
                         break;
                     }
+                }
+
+                if (_cycleStopRequested)
+                {
+                    _cycleResumePending = true;
+                    Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
+                    try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
+                    SetStatus(EquipmentStatus.CycleStopped);
+                    return;
                 }
 
                 // ?ъ씠??醫낅즺 ???쇰뜑 ?꾪눜
@@ -5999,8 +6211,7 @@ namespace QMC.CDT320
             {
                 _cycleStopRequested = true;
                 _cycleResumePending = true;
-                _cycleCts.Cancel();
-                Log("[CYCLE STOP] requested");
+                Log("[CYCLE STOP] requested. 현재 사이클 완료 후 정지합니다.");
             }
             return Task.CompletedTask;
         }

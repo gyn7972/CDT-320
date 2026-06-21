@@ -15,6 +15,7 @@ namespace QMC.CDT_320.Ui.Tabs
     {
         private InitializationMonitorDialog _initializationMonitorDialog;
         private ReadyProgressDialog _readyProgressDialog;
+        private MachineController _statusController;
 
         public WorkTab()
         {
@@ -39,17 +40,11 @@ namespace QMC.CDT_320.Ui.Tabs
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
                     RunSafe(async c => await c.StartAsync(), false);
             });
-            RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
-            {
-                await c.StopSequenceAsync();
-                await c.StopAsync();
-            }, false));
+            RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await c.StopAsync(), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
             {
-                if (ConfirmRun("Cycle Run", "Cycle Run 을 진행하시겠습니까?"))
-                    RunSafe(async c => await c.RunProcessSequenceStepAsync(), false);
+                OpenManualSequenceDialog();
             });
-            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.CycleStopAsync(), false));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
             RegisterActionButton(BtnEStop,      "work.estop",      op, () => RunSafe(async c => await c.EmergencyStopAsync()));
@@ -70,6 +65,26 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnVisionAlign,       "work.visionAlign",       en, () => new VisionAlignPage());
             RegisterSidebarButton(BtnWaferMapOpen,      "work.waferMapOpen",      en, () => new WaferMapOpenPage());
             RegisterSidebarButton(BtnDieMap,            "work.dieMap",            en, () => new DieMapPage());
+        }
+
+        public override void AttachHost(Form1 host)
+        {
+            if (_statusController != null)
+            {
+                _statusController.StatusChanged -= OnControllerStatusChanged;
+                _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+            }
+
+            base.AttachHost(host);
+
+            _statusController = host != null ? host.Controller : null;
+            if (_statusController != null)
+            {
+                _statusController.StatusChanged += OnControllerStatusChanged;
+                _statusController.ReadySequenceProgressChanged += OnReadySequenceProgressChanged;
+            }
+
+            UpdateCommandButtonStates();
         }
 
         private void RegisterActionButton(SidebarButton button, string i18nKey, UserLevel minLevel, Action onClick)
@@ -300,6 +315,13 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             try
             {
+                if (_statusController != null)
+                {
+                    _statusController.StatusChanged -= OnControllerStatusChanged;
+                    _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+                    _statusController = null;
+                }
+
                 if (_initializationMonitorDialog != null && !_initializationMonitorDialog.IsDisposed)
                     _initializationMonitorDialog.Close();
 
@@ -313,6 +335,103 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void OpenManualSequenceDialog()
+        {
+            if (Host == null || Host.Controller == null)
+            {
+                QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Cycle Run", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var dlg = new ManualSequenceDialog(Host.Controller))
+                dlg.ShowDialog(FindForm());
+        }
+
+        private void OnControllerStatusChanged(EquipmentStatus status)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<EquipmentStatus>(OnControllerStatusChanged), status);
+                return;
+            }
+
+            UpdateCommandButtonStates();
+        }
+
+        private void OnReadySequenceProgressChanged(MachineReadyProgress progress)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<MachineReadyProgress>(OnReadySequenceProgressChanged), progress);
+                return;
+            }
+
+            UpdateCommandButtonStates();
+        }
+
+        private void UpdateCommandButtonStates()
+        {
+            MachineController controller = Host != null ? Host.Controller : _statusController;
+            EquipmentStatus status = controller != null ? controller.Status : EquipmentStatus.Idle;
+            bool readyRunning = controller != null && controller.IsReadySequenceRunning;
+            bool autoRunning = status == EquipmentStatus.AutoRunning;
+            bool manualRunning = status == EquipmentStatus.ManualRunning;
+
+            ClearCommandButtonState(BtnReady);
+            ClearCommandButtonState(BtnStart);
+            ClearCommandButtonState(BtnStop);
+            ClearCommandButtonState(BtnCycleRun);
+            ClearCommandButtonState(BtnResetAlarm);
+
+            if (readyRunning)
+                SetCommandButtonState(BtnReady, System.Drawing.Color.FromArgb(0xF5, 0xC7, 0x18), System.Drawing.Color.Black);
+            else if (status == EquipmentStatus.Ready)
+                SetCommandButtonState(BtnReady, System.Drawing.Color.FromArgb(0x2E, 0x7D, 0x32), System.Drawing.Color.White);
+
+            if (autoRunning)
+            {
+                SetCommandButtonState(BtnStart, System.Drawing.Color.FromArgb(0xE8, 0x5D, 0x1A), System.Drawing.Color.White);
+                SetCommandButtonState(BtnCycleRun, System.Drawing.Color.FromArgb(0xE8, 0x5D, 0x1A), System.Drawing.Color.White);
+            }
+            else if (manualRunning)
+            {
+                SetCommandButtonState(BtnStart, System.Drawing.Color.FromArgb(0x03, 0xA9, 0xF4), System.Drawing.Color.White);
+            }
+
+            if (status == EquipmentStatus.Stopped)
+                SetCommandButtonState(BtnStop, System.Drawing.Color.FromArgb(0xB7, 0x1C, 0x1C), System.Drawing.Color.White);
+
+            if (status == EquipmentStatus.CycleStopped)
+                SetCommandButtonState(BtnStop, System.Drawing.Color.FromArgb(0xF5, 0xC7, 0x18), System.Drawing.Color.Black);
+
+            if (status == EquipmentStatus.Alarm)
+                SetCommandButtonState(BtnResetAlarm, System.Drawing.Color.FromArgb(0xC6, 0x28, 0x28), System.Drawing.Color.White);
+        }
+
+        private static void SetCommandButtonState(SidebarButton button, System.Drawing.Color backColor, System.Drawing.Color foreColor)
+        {
+            if (button == null)
+                return;
+
+            button.StateBackColor = backColor;
+            button.StateForeColor = foreColor;
+        }
+
+        private static void ClearCommandButtonState(SidebarButton button)
+        {
+            if (button == null)
+                return;
+
+            button.StateBackColor = null;
+            button.StateForeColor = null;
         }
 
         private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task<int>> action, bool showFailureDialog = true)

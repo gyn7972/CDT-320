@@ -302,6 +302,9 @@ namespace QMC.CDT320.VisionComm
 
     public class InspectionResultDto
     {
+        // INSPECT 응답 예:
+        // ACK|Bin|INSPECT|PASS;x=0.001;y=-0.002;t=0.010;score=0.98
+        // x/y/t는 위치 보정 파라미터가 아니라 Vision이 측정한 die offset으로 저장한다.
         public bool   IsPass    { get; set; }
         public bool   HasOffset { get; set; }
         public double OffsetX   { get; set; }

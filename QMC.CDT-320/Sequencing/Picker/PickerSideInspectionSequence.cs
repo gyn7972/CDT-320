@@ -29,6 +29,14 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT90;
         private bool _inspectionYPositionReady;
         private SequenceResourceLease _inspectionAreaLease;
+        private readonly List<PendingT0Return> _pendingT0Returns = new List<PendingT0Return>();
+
+        private sealed class PendingT0Return
+        {
+            public int PickerIndex;
+            public double Target;
+            public Task<int> MoveTask;
+        }
 
         public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerSideInspectionSequence" : "RearPickerSideInspectionSequence")
@@ -46,6 +54,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ReleaseInspectionArea();
+                ClearPendingT0Return();
                 CurrentStep = PickerSideInspectionStep.Complete;
             }
             catch
@@ -157,11 +166,11 @@ namespace QMC.CDT320.Sequencing
                 case PickerSideInspectionStep.ApplySideInspectionResult:
                     return Task.FromResult(ApplySideInspectionResult());
 
-                // 사이드 Z로 어보이드 이동
+                // 사이드 Z 어보이드 후 T 0도 복귀를 다음 검사 동작과 겹치도록 예약
                 case PickerSideInspectionStep.MoveSideZToAvoid:
                     return MoveSideZToAvoidAsync(ct);
 
-                // 사이드 T로 안전 이동
+                // 사이드 검사 종료 후 T를 0도 기준으로 복귀
                 case PickerSideInspectionStep.MoveSideTToSafe:
                     return MoveSideTToSafeAsync(ct);
 
@@ -205,6 +214,7 @@ namespace QMC.CDT320.Sequencing
 
             _pickerCursor = 0;
             _inspectionYPositionReady = false;
+            ClearPendingT0Return();
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -335,6 +345,12 @@ namespace QMC.CDT320.Sequencing
         {
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
+                if (HasPendingT0Return())
+                {
+                    CurrentStep = PickerSideInspectionStep.MoveSideTToSafe;
+                    return 0;
+                }
+
                 CurrentStep = PickerSideInspectionStep.Complete;
                 ReleaseInspectionArea();
                 return 0;
@@ -406,23 +422,23 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideXToInspectionAsync(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX,
-                _targetPickerX,
-                "side inspection X",
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = _targetPickerX;
+            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+                targets[PickerAxis.PickerY] = _targetPickerY;
+
+            int result = await MovePickerAxesAndVerifyAsync(
+                targets,
+                "side inspection X/Y",
                 ct,
                 "DieSidePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
-            {
-                CurrentStep = PickerSideInspectionStep.MoveSideZ;
-                return 0;
-            }
-
-            // 피커 간 이동에서는 Y Avoid 복귀 없이 현재 피커의 AlignOffsetY가 반영된 Y 위치만 보정한다.
-            CurrentStep = PickerSideInspectionStep.MoveSideYToInspection;
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
+            CurrentStep = _inspectionYPositionReady
+                ? PickerSideInspectionStep.MoveSideZ
+                : PickerSideInspectionStep.MoveSideYToInspection;
             return 0;
         }
 
@@ -492,6 +508,12 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RequestSide0InspectionAsync(CancellationToken ct)
         {
+            int pendingResult = await StartPendingT0ReturnCommandAsync(
+                "다음 Picker Side 0도 검사 중 이전 PickerT 0도 복귀",
+                ct).ConfigureAwait(false);
+            if (pendingResult != 0)
+                return pendingResult;
+
             _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
             if (_side0Result == null)
             {
@@ -670,24 +692,29 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveSideZToAvoidAsync(CancellationToken ct)
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
-            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "side inspection Z avoid", ct, "AvoidPosition").ConfigureAwait(false);
+            double zAvoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+
+            int result = await MovePickerAxisAndVerifyAsync(
+                zAxis,
+                zAvoid,
+                "사이드 검사 종료 후 PickerZ 어보이드",
+                ct,
+                "DieSideExit[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
+            QueuePendingT0Return(_currentPickerIndex, _targetPickerT0);
             CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
             return 0;
         }
 
         private async Task<int> MoveSideTToSafeAsync(CancellationToken ct)
         {
-            PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
-            double target = GetPickerTeachingPosition(tAxis, "PickPosition") + ResolvePickerAlignOffsetT(_currentPickerIndex);
-            int result = await MovePickerAxisAndVerifyAsync(tAxis, target, "side inspection T safe", ct, "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            int result = await CompletePendingT0ReturnAsync(ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerSideInspectionStep.MoveSideYToAvoid;
+            CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
             return 0;
         }
 
@@ -723,12 +750,199 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        private void QueuePendingT0Return(int pickerIndex, double target)
+        {
+            PickerAxis tAxis = GetPickerTAxis(pickerIndex);
+            if (IsPickerAxisInPosition(tAxis, target))
+                return;
+
+            for (int i = 0; i < _pendingT0Returns.Count; i++)
+            {
+                if (_pendingT0Returns[i].PickerIndex == pickerIndex)
+                {
+                    _pendingT0Returns[i].Target = target;
+                    _pendingT0Returns[i].MoveTask = null;
+                    return;
+                }
+            }
+
+            _pendingT0Returns.Add(new PendingT0Return
+            {
+                PickerIndex = pickerIndex,
+                Target = target
+            });
+
+            WriteLog("PickerSideInspectionSequence",
+                Name + " Side 90도 검사 완료 후 PickerT 0도 복귀를 다음 검사 동작과 겹치도록 예약했습니다. " +
+                "pickerNo=" + ToPickerNo(pickerIndex) +
+                ", target=" + target.ToString("F3") + " - Ok");
+        }
+
+        private bool HasPendingT0Return()
+        {
+            return _pendingT0Returns.Count > 0;
+        }
+
+        private void ClearPendingT0Return()
+        {
+            _pendingT0Returns.Clear();
+        }
+
+        private async Task<int> StartPendingT0ReturnCommandAsync(string description, CancellationToken ct)
+        {
+            if (!HasPendingT0Return())
+                return 0;
+
+            ct.ThrowIfCancellationRequested();
+
+            for (int i = _pendingT0Returns.Count - 1; i >= 0; i--)
+            {
+                PendingT0Return pending = _pendingT0Returns[i];
+                PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
+                if (IsPickerAxisInPosition(tAxis, pending.Target))
+                {
+                    _pendingT0Returns.RemoveAt(i);
+                    continue;
+                }
+
+                if (pending.MoveTask != null)
+                {
+                    if (!pending.MoveTask.IsCompleted)
+                        continue;
+
+                    int completedResult = await pending.MoveTask.ConfigureAwait(false);
+                    if (completedResult != 0)
+                    {
+                        return Fail("PICKER-SIDE-T0-DEFER-CMD", Name,
+                            description + " 완료된 복귀 명령 결과 실패. result=" + completedResult +
+                            ", pickerNo=" + ToPickerNo(pending.PickerIndex) +
+                            ", " + BuildPickerAxisState(tAxis, pending.Target));
+                    }
+
+                    if (!IsPickerAxisInPosition(tAxis, pending.Target))
+                    {
+                        return Fail("PICKER-SIDE-T0-DEFER-FINAL-POS", Name,
+                            description + " 완료된 PickerT 0도 복귀 최종 위치 확인 실패. " +
+                            BuildPickerAxisState(tAxis, pending.Target));
+                    }
+
+                    _pendingT0Returns.RemoveAt(i);
+                    continue;
+                }
+
+                pending.MoveTask = MovePickerAxisCommandAsync(
+                    tAxis,
+                    pending.Target,
+                    "DieSideT0ReturnDeferred[" + pending.PickerIndex + "]");
+
+                WriteLog("PickerSideInspectionSequence",
+                    Name + " 이전 PickerT 0도 복귀 명령을 백그라운드로 시작했습니다. description=" + description +
+                    ", pickerNo=" + ToPickerNo(pending.PickerIndex) +
+                    ", " + BuildPickerAxisState(tAxis, pending.Target) + " - Ok");
+            }
+
+            return 0;
+        }
+
+        private async Task<int> CompletePendingT0ReturnAsync(CancellationToken ct)
+        {
+            if (!HasPendingT0Return())
+                return 0;
+
+            // 다음 검사 동작이 없는 마지막 Picker는 여기서 Z 상승 후 T 0도 복귀를 직접 완료한다.
+            for (int i = _pendingT0Returns.Count - 1; i >= 0; i--)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PendingT0Return pending = _pendingT0Returns[i];
+                PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
+                if (IsPickerAxisInPosition(tAxis, pending.Target))
+                {
+                    _pendingT0Returns.RemoveAt(i);
+                    continue;
+                }
+
+                if (pending.MoveTask != null)
+                    continue;
+
+                int moveResult = await MovePickerAxisAndVerifyAsync(
+                    tAxis,
+                    pending.Target,
+                    "마지막 Side PickerT 0도 복귀",
+                    ct,
+                    "DieSideT0ReturnFinal[" + pending.PickerIndex + "]").ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+
+                if (!IsPickerAxisInPosition(tAxis, pending.Target))
+                {
+                    return Fail("PICKER-SIDE-T0-DEFER-FINAL-POS", Name,
+                        "예약된 PickerT 0도 복귀 최종 위치 확인 실패. " +
+                        BuildPickerAxisState(tAxis, pending.Target));
+                }
+
+                _pendingT0Returns.RemoveAt(i);
+            }
+
+            // 이전 Picker들은 다음 Picker 검사 중 백그라운드로 복귀 중이어야 하므로, 완료 시점에 결과만 확인한다.
+            for (int i = _pendingT0Returns.Count - 1; i >= 0; i--)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PendingT0Return pending = _pendingT0Returns[i];
+                PickerAxis tAxis = GetPickerTAxis(pending.PickerIndex);
+                if (IsPickerAxisInPosition(tAxis, pending.Target))
+                {
+                    _pendingT0Returns.RemoveAt(i);
+                    continue;
+                }
+
+                int moveResult = await pending.MoveTask.ConfigureAwait(false);
+                if (moveResult != 0)
+                {
+                    return Fail("PICKER-SIDE-T0-DEFER-CMD", Name,
+                        "예약된 PickerT 0도 복귀 명령 결과 실패. result=" + moveResult +
+                        ", pickerNo=" + ToPickerNo(pending.PickerIndex) +
+                        ", " + BuildPickerAxisState(tAxis, pending.Target));
+                }
+
+                var waitResult = await WaitPickerAxisMoveDoneAsync(
+                    tAxis,
+                    pending.Target,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                {
+                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-SIDE-T0-DEFER", waitResult), Name,
+                        "예약된 PickerT 0도 복귀 완료 대기 실패. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(tAxis, pending.Target)));
+                }
+
+                if (!IsPickerAxisInPosition(tAxis, pending.Target))
+                {
+                    return Fail("PICKER-SIDE-T0-DEFER-FINAL-POS", Name,
+                        "예약된 PickerT 0도 복귀 최종 위치 확인 실패. " +
+                        BuildPickerAxisState(tAxis, pending.Target));
+                }
+
+                _pendingT0Returns.RemoveAt(i);
+            }
+
+            return 0;
+        }
+
         private int SelectNextPickerOrComplete()
         {
             _pickerCursor++;
 
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
+                if (HasPendingT0Return())
+                {
+                    CurrentStep = PickerSideInspectionStep.MoveSideTToSafe;
+                    return 0;
+                }
+
                 CurrentStep = PickerSideInspectionStep.Complete;
                 return 0;
             }

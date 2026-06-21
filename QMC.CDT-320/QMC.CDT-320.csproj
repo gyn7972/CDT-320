@@ -370,6 +370,7 @@
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageReceiveDieSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageInspectBinSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputPostPlaceInspectionQueue.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
@@ -593,6 +594,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.Designer.cs">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.cs">
       <SubType>Form</SubType>

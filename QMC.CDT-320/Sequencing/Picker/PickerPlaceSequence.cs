@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Interlocks;
-using QMC.CDT320.VisionComm;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -28,10 +27,9 @@ namespace QMC.CDT320.Sequencing
         private string _placedDieId = "";
         private BinSide _placedOutputSide;
         private OutputStageReceiveTarget _placedReceiveTarget;
-        private double _outputInspectVisionX;
-        private double _outputInspectStageY;
         private SequenceResourceLease _outputPlaceLease;
         private SequenceResourceLease _outputStageLease;
+        private bool _outputInspectBatchOpen;
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -184,23 +182,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 자재로 아웃풋 스테이지 갱신
                 case PickerPlaceStep.UpdateMaterialToOutputStage:
-                    return Task.FromResult(UpdateMaterialToOutputStage());
-
-                // Output camera 검사 전 Picker Output zone 이탈
-                case PickerPlaceStep.MovePickerToAvoidBeforeOutputInspection:
-                    return MovePickerToAvoidBeforeOutputInspectionAsync(ct);
-
-                // Output camera를 방금 Place한 Die 위치로 이동
-                case PickerPlaceStep.MoveOutputCameraToPlacedDie:
-                    return MoveOutputCameraToPlacedDieAsync(ct);
-
-                // Output camera 검사 및 Material/map 반영
-                case PickerPlaceStep.TriggerOutputDieInspection:
-                    return TriggerOutputDieInspectionAsync(ct);
-
-                // Output camera 검사 후 VisionX Avoid 복귀
-                case PickerPlaceStep.MoveOutputCameraToAvoidAfterInspection:
-                    return MoveOutputCameraToAvoidAfterInspectionAsync(ct);
+                    return Task.FromResult(UpdateMaterialToOutputStage(ct));
 
                 case PickerPlaceStep.RecoverOutputStageAfterPlace:
                     return RecoverOutputStageAfterPlaceAsync(ct);
@@ -252,6 +234,7 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            BeginOutputPostPlaceInspectionBatch();
             CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
             return 0;
         }
@@ -429,6 +412,10 @@ namespace QMC.CDT320.Sequencing
         {
             if (_outputPlaceLease == null)
             {
+                int inspectWaitResult = await WaitOutputPostPlaceInspectionIdleAsync(ct).ConfigureAwait(false);
+                if (inspectWaitResult != 0)
+                    return inspectWaitResult;
+
                 _outputPlaceLease = await AcquireResourceAsync(SequenceResourceKind.OutputPlaceArea, Name + ":Place", ct).ConfigureAwait(false);
                 if (_outputPlaceLease == null)
                     return -1;
@@ -555,15 +542,25 @@ namespace QMC.CDT320.Sequencing
                 _receiveTarget.TargetY +
                 _outputVisionToPickerY;
 
-            int result = await MoveOutputStageAxisAndVerifyAsync(yAxis, _targetOutputStageY, "output stage receive Y", ct).ConfigureAwait(false);
+            CalculatePlaceTargetValues();
+
+            int result = await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerPlaceStep.CalculatePlaceTarget;
+            CurrentStep = PickerPlaceStep.VerifyPlaceTarget;
             return 0;
         }
 
         private int CalculatePlaceTarget()
+        {
+            CalculatePlaceTargetValues();
+
+            CurrentStep = PickerPlaceStep.MovePickerXYAndTToPlace;
+            return 0;
+        }
+
+        private void CalculatePlaceTargetValues()
         {
             _targetPickerX = OutputStage.Recipe.VisionX.ProcessPosition +
                 _receiveTarget.TargetX +
@@ -573,9 +570,6 @@ namespace QMC.CDT320.Sequencing
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition");
-
-            CurrentStep = PickerPlaceStep.MovePickerXYAndTToPlace;
-            return 0;
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
@@ -587,7 +581,8 @@ namespace QMC.CDT320.Sequencing
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
             targets[PickerAxis.PickerY] = _targetPickerY;
-            targets[GetPickerTAxis(_currentPickerIndex)] = _targetPickerT;
+
+            AddLoadedPickerTPlaceTargets(targets);
 
             result = await MovePickerAxesAndVerifyAsync(
                 targets,
@@ -599,6 +594,56 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerPlaceStep.VerifyPlaceTarget;
             return 0;
+        }
+
+        private async Task<int> MoveOutputStageYAndPickerXYTToPlaceAsync(BinStageAxis yAxis, CancellationToken ct)
+        {
+            int result = await EnsurePickerYAtAvoidBeforePlaceMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            var pickerTargets = new Dictionary<PickerAxis, double>();
+            pickerTargets[PickerAxis.PickerX] = _targetPickerX;
+            pickerTargets[PickerAxis.PickerY] = _targetPickerY;
+            AddLoadedPickerTPlaceTargets(pickerTargets);
+
+            Task<int> stageYMove = MoveOutputStageAxisAndVerifyAsync(
+                yAxis,
+                _targetOutputStageY,
+                "output stage receive Y",
+                ct);
+            Task<int> pickerMove = MovePickerAxesAndVerifyAsync(
+                pickerTargets,
+                "place picker X/Y/T",
+                ct,
+                "DiePlacePosition[" + _currentPickerIndex + "]");
+
+            int[] results = await Task.WhenAll(stageYMove, pickerMove).ConfigureAwait(false);
+            if (results[0] != 0 || results[1] != 0)
+            {
+                return Fail("PICKER-PLACE-PARALLEL-MOVE", Name,
+                    "Place OutputStageY와 Picker X/Y/T 동시 이동 실패. " +
+                    "stageYResult=" + results[0] +
+                    ", pickerResult=" + results[1] +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide);
+            }
+
+            return 0;
+        }
+
+        private void AddLoadedPickerTPlaceTargets(IDictionary<PickerAxis, double> targets)
+        {
+            foreach (int pickerIndex in _pickedPickerIndexes)
+            {
+                PickerAxis tAxis = GetPickerTAxis(pickerIndex);
+                double target = GetPickerTeachingPosition(tAxis, "PlacePosition") +
+                    ResolvePickerAlignOffsetT(pickerIndex);
+
+                if (!IsPickerAxisAlreadyInPosition(tAxis, target))
+                    targets[tAxis] = target;
+            }
         }
 
         private async Task<int> EnsurePickerYAtAvoidBeforePlaceMoveAsync(CancellationToken ct)
@@ -742,7 +787,7 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int UpdateMaterialToOutputStage()
+        private int UpdateMaterialToOutputStage(CancellationToken ct)
         {
             if (!MaterialStateService.MoveDieToOutputStage(_currentDie.DieId, _currentOutputSide, _receiveTarget))
             {
@@ -765,185 +810,50 @@ namespace QMC.CDT320.Sequencing
             _placedOutputSide = _currentOutputSide;
             _placedReceiveTarget = _receiveTarget;
 
-            CurrentStep = PickerPlaceStep.MovePickerToAvoidBeforeOutputInspection;
+            int inspectQueueResult = RegisterOutputPostPlaceInspection(ct);
+            if (inspectQueueResult != 0)
+                return inspectQueueResult;
+
+            CurrentStep = PickerPlaceStep.RecoverOutputStageAfterPlace;
             return 0;
         }
 
-        private async Task<int> MovePickerToAvoidBeforeOutputInspectionAsync(CancellationToken ct)
+        private int RegisterOutputPostPlaceInspection(CancellationToken ct)
         {
             try
             {
-                int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
-                    "Output camera 검사 전 Picker Output zone 이탈",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                CurrentStep = PickerPlaceStep.MoveOutputCameraToPlacedDie;
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-PLACE-OUTPUT-INSPECT-PICKER-AVOID-EX", Name,
-                    "Output camera 검사 전 Picker Avoid 이동 중 예외가 발생했습니다. side=" + Side +
-                    ", outputSide=" + _placedOutputSide +
-                    ", die=" + _placedDieId +
-                    ", error=" + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> MoveOutputCameraToPlacedDieAsync(CancellationToken ct)
-        {
-            try
-            {
-                if (OutputStage == null)
-                    return Fail("PICKER-PLACE-OUTPUT-INSPECT-STAGE-MISSING", "OutputStage",
-                        "Output camera 검사를 위한 OutputStageUnit이 없습니다.");
-
-                if (OutputStage.Recipe == null)
-                    return Fail("PICKER-PLACE-OUTPUT-INSPECT-RECIPE", "OutputStage",
-                        "Output camera 검사를 위한 OutputStage recipe가 없습니다.");
-
-                if (_placedReceiveTarget == null)
-                    return Fail("PICKER-PLACE-OUTPUT-INSPECT-TARGET", "Material",
-                        "Output camera 검사 대상 좌표가 없습니다. die=" + _placedDieId +
-                        ", side=" + _placedOutputSide);
-
-                OutputStage.Recipe.EnsurePositionObjects();
-                BinStageAxis yAxis = _placedOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
-                double baseY = _placedOutputSide == BinSide.Ng
-                    ? OutputStage.Recipe.NGStageY.ProcessPosition
-                    : OutputStage.Recipe.GoodStageY.ProcessPosition;
-
-                _outputInspectVisionX = OutputStage.Recipe.VisionX.ProcessPosition + _placedReceiveTarget.TargetX;
-                _outputInspectStageY = baseY + _placedReceiveTarget.TargetY;
-
-                int result = await MoveOutputStageAxisAndVerifyAsync(
-                    yAxis,
-                    _outputInspectStageY,
-                    "Output camera 검사 StageY",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MoveOutputStageAxisAndVerifyAsync(
-                    BinStageAxis.VisionX,
-                    _outputInspectVisionX,
-                    "Output camera 검사 VisionX",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                CurrentStep = PickerPlaceStep.TriggerOutputDieInspection;
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-PLACE-OUTPUT-INSPECT-MOVE-EX", "OutputStage",
-                    "Output camera 검사 위치 이동 중 예외가 발생했습니다. die=" + _placedDieId +
-                    ", side=" + _placedOutputSide +
-                    ", error=" + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> TriggerOutputDieInspectionAsync(CancellationToken ct)
-        {
-            try
-            {
-                ct.ThrowIfCancellationRequested();
-
-                int slotIndex = _placedReceiveTarget != null ? _placedReceiveTarget.OrderIndex : 0;
-                InspectionResultDto inspection = await AwaitStepWithCancellationAsync(
-                    BinVisionHelper.CheckPlacementAsync(slotIndex, ResolveTimeout()),
-                    ct).ConfigureAwait(false);
-                bool inspectionOk = inspection != null && inspection.IsPass;
-
-                VisionOffset offset = new VisionOffset
+                if (Context == null || Context.OutputPostPlaceInspections == null)
                 {
-                    X = inspection != null ? inspection.OffsetX : 0.0,
-                    Y = inspection != null ? inspection.OffsetY : 0.0,
-                    R = inspection != null ? inspection.OffsetT : 0.0,
-                    IsValid = inspection != null && inspection.HasOffset
-                };
+                    return Fail("PICKER-PLACE-OUTPUT-INSPECT-QUEUE", Name,
+                        "Output camera 후검사 큐가 없어 요청을 등록하지 못했습니다. die=" +
+                        _placedDieId + ", side=" + _placedOutputSide);
+                }
 
-                MaterialStateService.UpdateOutputStageDieInspection(
-                    _placedDieId,
-                    _placedOutputSide,
-                    _placedReceiveTarget,
-                    inspectionOk,
-                    offset,
-                    inspection != null ? inspection.Raw : "");
+                int result = Context.OutputPostPlaceInspections.Enqueue(
+                    new OutputPostPlaceInspectionRequest
+                    {
+                        DieId = _placedDieId,
+                        OutputSide = _placedOutputSide,
+                        ReceiveTarget = _placedReceiveTarget,
+                        FineMove = Options != null && Options.FineMove,
+                        MoveTimeoutMs = ResolveTimeout(),
+                        Owner = Name
+                    },
+                    ct);
+                if (result != 0)
+                    return result;
 
                 WriteLog("PickerPlaceSequence",
-                    Name + " Output camera die 검사 완료. die=" + _placedDieId +
+                    Name + " Output camera 후검사 요청 등록 완료. die=" + _placedDieId +
                     ", side=" + _placedOutputSide +
-                    ", slotIndex=" + slotIndex +
-                    ", ok=" + inspectionOk +
-                    ", offsetX=" + offset.X.ToString("F6") +
-                    ", offsetY=" + offset.Y.ToString("F6") +
-                    ", offsetT=" + offset.R.ToString("F6") +
-                    ", visionX=" + _outputInspectVisionX.ToString("F6") +
-                    ", stageY=" + _outputInspectStageY.ToString("F6") + " - Ok");
-
-                CurrentStep = PickerPlaceStep.MoveOutputCameraToAvoidAfterInspection;
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
                 return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-PLACE-OUTPUT-INSPECT-EX", "Vision",
-                    "Output camera die 검사 중 예외가 발생했습니다. die=" + _placedDieId +
-                    ", side=" + _placedOutputSide +
-                    ", error=" + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task<int> MoveOutputCameraToAvoidAfterInspectionAsync(CancellationToken ct)
-        {
-            try
-            {
-                int result = await AwaitStepWithCancellationAsync(
-                    OutputStage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
-                    ct).ConfigureAwait(false);
-
-                if (result != 0)
-                    return Fail("PICKER-PLACE-OUTPUT-INSPECT-VISION-AVOID", "OutputStage",
-                        "Output camera 검사 후 OutputVisionX Avoid 이동 실패. side=" + _placedOutputSide +
-                        ", die=" + _placedDieId +
-                        ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_placedOutputSide));
-
-                CurrentStep = PickerPlaceStep.RecoverOutputStageAfterPlace;
-                return 0;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return Fail("PICKER-PLACE-OUTPUT-INSPECT-VISION-AVOID-EX", "OutputStage",
-                    "Output camera 검사 후 OutputVisionX Avoid 이동 중 예외가 발생했습니다. die=" + _placedDieId +
-                    ", side=" + _placedOutputSide +
+                return Fail("PICKER-PLACE-OUTPUT-INSPECT-QUEUE-EX", Name,
+                    "Output camera 후검사 요청 등록 중 예외가 발생했습니다. die=" +
+                    _placedDieId + ", side=" + _placedOutputSide +
                     ", error=" + ex.Message);
             }
             finally
@@ -1005,6 +915,33 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> WaitOutputPostPlaceInspectionIdleAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (Context == null || Context.OutputPostPlaceInspections == null)
+                    return 0;
+
+                return await Context.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                    Name + " Place 진입",
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-OUTPUT-INSPECT-WAIT-EX", Name,
+                    "Place 진입 전 Output camera 후검사 완료 대기 중 예외가 발생했습니다. side=" +
+                    _currentOutputSide + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void NotifySequenceProgressAfterPlace()
         {
             try
@@ -1056,7 +993,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
+                int result = await MovePickerToAvoidAfterPlaceFastAsync(
                     "Place 완료 후 Picker 전체 Avoid 복귀",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -1064,6 +1001,7 @@ namespace QMC.CDT320.Sequencing
 
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
+                EndOutputPostPlaceInspectionBatch();
                 CurrentStep = PickerPlaceStep.Complete;
                 return 0;
             }
@@ -1080,6 +1018,58 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(string description, CancellationToken ct)
+        {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                description + " Z축 Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            targets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+            targets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+            targets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+            targets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+
+            result = await MovePickerAxesAndVerifyAsync(
+                targets,
+                description + " X/Y/T축 동시 Avoid",
+                ct,
+                "AvoidPosition;PickerPhase=PlaceDoneFastAvoid").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            PickerAxis[] finalAxes =
+            {
+                PickerAxis.PickerX,
+                PickerAxis.PickerY,
+                PickerAxis.PickerT0,
+                PickerAxis.PickerT1,
+                PickerAxis.PickerT2,
+                PickerAxis.PickerT3,
+                PickerAxis.PickerZ0,
+                PickerAxis.PickerZ1,
+                PickerAxis.PickerZ2,
+                PickerAxis.PickerZ3
+            };
+
+            foreach (PickerAxis axis in finalAxes)
+            {
+                double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                if (!IsPickerAxisInPosition(axis, target))
+                {
+                    return Fail("PICKER-PLACE-AVOID-FINAL-POS", Name,
+                        description + " 최종 Avoid 위치 확인 실패. " +
+                        BuildPickerAxisState(axis, target));
+                }
+            }
+
+            return 0;
         }
 
         private async Task<int> MoveOutputStageAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
@@ -1226,6 +1216,55 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("PickerPlaceSequence", "OutputPlaceArea lease release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void BeginOutputPostPlaceInspectionBatch()
+        {
+            try
+            {
+                if (_outputInspectBatchOpen)
+                    return;
+
+                if (Context == null || Context.OutputPostPlaceInspections == null)
+                    return;
+
+                Context.OutputPostPlaceInspections.BeginBatch(Name);
+                _outputInspectBatchOpen = true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Output camera 후검사 묶음 시작 처리 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void EndOutputPostPlaceInspectionBatch()
+        {
+            try
+            {
+                if (!_outputInspectBatchOpen)
+                    return;
+
+                _outputInspectBatchOpen = false;
+
+                if (Context == null || Context.OutputPostPlaceInspections == null)
+                    return;
+
+                Context.OutputPostPlaceInspections.EndBatch(Name);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Output camera 후검사 묶음 종료 처리 중 예외가 발생했습니다. error=" +
+                    ex.Message + " - Failed");
             }
             finally
             {
