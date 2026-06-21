@@ -175,7 +175,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Text = "INFO";
+            this.lblHeader.Tag = "i18n:wi.outputFeeder";
+            this.lblHeader.Text = "OUTPUT FEEDER";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // topLayout
@@ -652,7 +653,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.lblTargetCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblTargetCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTargetCaption.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            this.lblTargetCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblTargetCaption.Location = new System.Drawing.Point(11, 116);
             this.lblTargetCaption.Name = "lblTargetCaption";
             this.lblTargetCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);

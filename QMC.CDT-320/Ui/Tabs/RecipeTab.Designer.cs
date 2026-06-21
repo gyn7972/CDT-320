@@ -88,7 +88,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnProject
             //
             this.BtnProject.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnProject.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnProject.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnProject.Location = new System.Drawing.Point(4, 6);
             this.BtnProject.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnProject.Name = "BtnProject";
@@ -100,7 +100,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnInputCassette
             //
             this.BtnInputCassette.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputCassette.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnInputCassette.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnInputCassette.Location = new System.Drawing.Point(4, 54);
             this.BtnInputCassette.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnInputCassette.Name = "BtnInputCassette";
@@ -112,7 +112,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnInputFeeder
             //
             this.BtnInputFeeder.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputFeeder.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnInputFeeder.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnInputFeeder.Location = new System.Drawing.Point(4, 102);
             this.BtnInputFeeder.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnInputFeeder.Name = "BtnInputFeeder";
@@ -124,7 +124,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnInputStage
             //
             this.BtnInputStage.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputStage.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnInputStage.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnInputStage.Location = new System.Drawing.Point(4, 150);
             this.BtnInputStage.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnInputStage.Name = "BtnInputStage";
@@ -136,7 +136,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnFrontHead
             //
             this.BtnFrontHead.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnFrontHead.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnFrontHead.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnFrontHead.Location = new System.Drawing.Point(4, 198);
             this.BtnFrontHead.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnFrontHead.Name = "BtnFrontHead";
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnRearHead
             //
             this.BtnRearHead.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnRearHead.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnRearHead.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnRearHead.Location = new System.Drawing.Point(4, 246);
             this.BtnRearHead.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnRearHead.Name = "BtnRearHead";
@@ -160,7 +160,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputFeeder
             //
             this.BtnOutputFeeder.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputFeeder.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputFeeder.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputFeeder.Location = new System.Drawing.Point(4, 342);
             this.BtnOutputFeeder.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputFeeder.Name = "BtnOutputFeeder";
@@ -172,7 +172,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputCassette
             //
             this.BtnOutputCassette.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputCassette.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputCassette.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputCassette.Location = new System.Drawing.Point(4, 390);
             this.BtnOutputCassette.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputCassette.Name = "BtnOutputCassette";
@@ -184,7 +184,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputStage
             //
             this.BtnOutputStage.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputStage.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputStage.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputStage.Location = new System.Drawing.Point(4, 294);
             this.BtnOutputStage.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputStage.Name = "BtnOutputStage";
@@ -196,7 +196,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnInputVision
             //
             this.BtnInputVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputVision.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnInputVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnInputVision.Location = new System.Drawing.Point(4, 452);
             this.BtnInputVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnInputVision.Name = "BtnInputVision";
@@ -208,7 +208,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputVision
             //
             this.BtnOutputVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputVision.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputVision.Location = new System.Drawing.Point(4, 644);
             this.BtnOutputVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputVision.Name = "BtnOutputVision";
@@ -220,7 +220,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnLowerVision
             //
             this.BtnLowerVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnLowerVision.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnLowerVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnLowerVision.Location = new System.Drawing.Point(4, 548);
             this.BtnLowerVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLowerVision.Name = "BtnLowerVision";
@@ -232,7 +232,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnBottomVision
             //
             this.BtnBottomVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnBottomVision.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnBottomVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnBottomVision.Location = new System.Drawing.Point(4, 500);
             this.BtnBottomVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnBottomVision.Name = "BtnBottomVision";
@@ -244,7 +244,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnSideVision
             //
             this.BtnSideVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnSideVision.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnSideVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnSideVision.Location = new System.Drawing.Point(4, 596);
             this.BtnSideVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnSideVision.Name = "BtnSideVision";
@@ -256,7 +256,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnVisionStage
             //
             this.BtnVisionStage.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnVisionStage.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnVisionStage.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnVisionStage.Location = new System.Drawing.Point(4, 692);
             this.BtnVisionStage.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnVisionStage.Name = "BtnVisionStage";
@@ -268,7 +268,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnInputMapCreate
             //
             this.BtnInputMapCreate.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputMapCreate.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnInputMapCreate.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnInputMapCreate.Location = new System.Drawing.Point(4, 706);
             this.BtnInputMapCreate.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnInputMapCreate.Name = "BtnInputMapCreate";
@@ -280,7 +280,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputMapCreate
             //
             this.BtnOutputMapCreate.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputMapCreate.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputMapCreate.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputMapCreate.Location = new System.Drawing.Point(4, 754);
             this.BtnOutputMapCreate.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputMapCreate.Name = "BtnOutputMapCreate";
@@ -292,7 +292,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnDieMapSetup
             //
             this.BtnDieMapSetup.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnDieMapSetup.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnDieMapSetup.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnDieMapSetup.Location = new System.Drawing.Point(4, 802);
             this.BtnDieMapSetup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnDieMapSetup.Name = "BtnDieMapSetup";
@@ -304,7 +304,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnDieSubset
             //
             this.BtnDieSubset.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnDieSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnDieSubset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnDieSubset.Location = new System.Drawing.Point(4, 864);
             this.BtnDieSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnDieSubset.Name = "BtnDieSubset";
@@ -316,7 +316,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnTapeFrameSubset
             //
             this.BtnTapeFrameSubset.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnTapeFrameSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnTapeFrameSubset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnTapeFrameSubset.Location = new System.Drawing.Point(4, 912);
             this.BtnTapeFrameSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnTapeFrameSubset.Name = "BtnTapeFrameSubset";
@@ -328,7 +328,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnLoadFrame
             //
             this.BtnLoadFrame.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnLoadFrame.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnLoadFrame.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnLoadFrame.Location = new System.Drawing.Point(4, 960);
             this.BtnLoadFrame.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLoadFrame.Name = "BtnLoadFrame";
@@ -340,7 +340,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnUnloadFrame
             //
             this.BtnUnloadFrame.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnUnloadFrame.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnUnloadFrame.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnUnloadFrame.Location = new System.Drawing.Point(4, 1008);
             this.BtnUnloadFrame.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnUnloadFrame.Name = "BtnUnloadFrame";
@@ -352,7 +352,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnBinCode
             //
             this.BtnBinCode.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnBinCode.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnBinCode.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnBinCode.Location = new System.Drawing.Point(4, 1056);
             this.BtnBinCode.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnBinCode.Name = "BtnBinCode";
@@ -364,7 +364,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnModuleSubset
             //
             this.BtnModuleSubset.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnModuleSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnModuleSubset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnModuleSubset.Location = new System.Drawing.Point(4, 1104);
             this.BtnModuleSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnModuleSubset.Name = "BtnModuleSubset";
@@ -376,7 +376,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnOutputSubset
             //
             this.BtnOutputSubset.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnOutputSubset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnOutputSubset.Location = new System.Drawing.Point(4, 1152);
             this.BtnOutputSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputSubset.Name = "BtnOutputSubset";
@@ -388,7 +388,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnPickupSubset
             //
             this.BtnPickupSubset.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnPickupSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnPickupSubset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnPickupSubset.Location = new System.Drawing.Point(4, 1200);
             this.BtnPickupSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnPickupSubset.Name = "BtnPickupSubset";
@@ -400,7 +400,7 @@ namespace QMC.CDT_320.Ui.Tabs
             // BtnForceControl
             //
             this.BtnForceControl.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnForceControl.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnForceControl.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnForceControl.Location = new System.Drawing.Point(4, 1262);
             this.BtnForceControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnForceControl.Name = "BtnForceControl";

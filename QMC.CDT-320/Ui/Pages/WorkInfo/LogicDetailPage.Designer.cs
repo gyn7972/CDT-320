@@ -63,7 +63,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._grid.BackgroundColor = Color.White;
             this._grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             this._grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(0x50, 0x50, 0x50);
-            this._grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            this._grid.ColumnHeadersDefaultCellStyle.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
             this._grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
             this._grid.Columns.Add("INDEX", "INDEX");
             this._grid.Columns.Add("MODULE", "MODULE");
@@ -73,7 +73,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._grid.Columns.Add("DURATION", "DURATION(ms)");
             this._grid.Dock = DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
-            this._grid.Font = new Font("Segoe UI", 9F);
+            this._grid.Font = new Font("맑은 고딕", 9F);
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;
             this._grid.RowTemplate.Height = 26;

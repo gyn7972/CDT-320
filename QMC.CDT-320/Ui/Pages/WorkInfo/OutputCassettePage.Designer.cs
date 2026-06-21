@@ -162,14 +162,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Text = "INFO";
+            this.lblHeader.Tag = "i18n:wi.outputCassette";
+            this.lblHeader.Text = "OUTPUT CASSETTE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // topLayout
@@ -214,7 +215,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.lblLifterAxisTitle.BackColor = System.Drawing.Color.Black;
             this.lblLifterAxisTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLifterAxisTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
+            this.lblLifterAxisTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblLifterAxisTitle.ForeColor = System.Drawing.Color.White;
             this.lblLifterAxisTitle.Location = new System.Drawing.Point(3, 0);
             this.lblLifterAxisTitle.Name = "lblLifterAxisTitle";
@@ -369,10 +370,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpLegend
             // 
-            this.grpLegend.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.grpLegend.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpLegend.Controls.Add(this.legendLayout);
             this.grpLegend.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpLegend.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Bold);
+            this.grpLegend.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpLegend.Location = new System.Drawing.Point(942, 12);
             this.grpLegend.Margin = new System.Windows.Forms.Padding(4);
             this.grpLegend.Name = "grpLegend";
@@ -605,7 +606,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpSlotState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpSlotState.Controls.Add(this.slotStateLayout);
             this.grpSlotState.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpSlotState.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
+            this.grpSlotState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpSlotState.Location = new System.Drawing.Point(15, 11);
             this.grpSlotState.Name = "grpSlotState";
             this.grpSlotState.Size = new System.Drawing.Size(244, 603);
@@ -713,7 +714,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.btnInit.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnInit.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnInit.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnInit.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnInit.Location = new System.Drawing.Point(11, 129);
             this.btnInit.Name = "btnInit";
             this.btnInit.Size = new System.Drawing.Size(105, 36);
@@ -736,7 +737,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpLifter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpLifter.Controls.Add(this.cassetteLevelLayout);
             this.grpLifter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpLifter.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F, System.Drawing.FontStyle.Bold);
+            this.grpLifter.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpLifter.Location = new System.Drawing.Point(265, 11);
             this.grpLifter.Name = "grpLifter";
             this.grpLifter.Size = new System.Drawing.Size(754, 603);

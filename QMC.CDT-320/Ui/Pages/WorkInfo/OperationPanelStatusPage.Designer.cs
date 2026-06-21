@@ -191,7 +191,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpButtons.Size = new System.Drawing.Size(453, 172);
             this.grpButtons.TabIndex = 0;
             this.grpButtons.TabStop = false;
-            this.grpButtons.Text = "Operation Buttons (DI)";
+            this.grpButtons.Text = "OPERATION BUTTONS (DI)";
             // 
             // buttonLayout
             // 
@@ -374,7 +374,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpLamps.Size = new System.Drawing.Size(453, 172);
             this.grpLamps.TabIndex = 1;
             this.grpLamps.TabStop = false;
-            this.grpLamps.Text = "Operation Lamps (DO)";
+            this.grpLamps.Text = "OPERATION LAMPS (DO)";
             // 
             // lampLayout
             // 
@@ -482,7 +482,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpResources.Size = new System.Drawing.Size(454, 172);
             this.grpResources.TabIndex = 2;
             this.grpResources.TabStop = false;
-            this.grpResources.Text = "Resource Sensors";
+            this.grpResources.Text = "RESOURCE SENSORS";
             // 
             // resourceLayout
             // 
@@ -665,7 +665,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpTower.Size = new System.Drawing.Size(453, 160);
             this.grpTower.TabIndex = 3;
             this.grpTower.TabStop = false;
-            this.grpTower.Text = "Tower Lamp + Buzzer";
+            this.grpTower.Text = "TOWER LAMP + BUZZER";
             // 
             // towerLayout
             // 
@@ -798,7 +798,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpIonizer.Size = new System.Drawing.Size(454, 160);
             this.grpIonizer.TabIndex = 4;
             this.grpIonizer.TabStop = false;
-            this.grpIonizer.Text = "Ionizer";
+            this.grpIonizer.Text = "IONIZER";
             // 
             // ionizerLayout
             // 

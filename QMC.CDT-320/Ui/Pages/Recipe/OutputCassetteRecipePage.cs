@@ -100,6 +100,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
                 BindParameterGridMenus();
+                BindTeachingMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
                 grpIo.ContextMenuStrip.Items.Add("Output cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
@@ -568,10 +569,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                AttachTeachMenu(lblRecipeLoadingVal, "Loading");
-                AttachTeachMenu(lblRecipeUnloadingVal, "Unloading");
+                AttachTeachMenu(lblRecipeLoadingVal, "GoodLoading");
+                AttachTeachMenu(lblRecipeUnloadingVal, "GoodUnloading");
                 AttachTeachMenu(lblRecipeAvoidVal, "Avoid");
-                AttachTeachMenu(lblRecipeFirstSlotVal, "FirstSlot");
+                AttachTeachMenu(lblRecipeFirstSlotVal, "GoodFirstSlot");
                 AttachTeachMenu(lblRecipeMappingStartVal, "MappingStart");
                 AttachTeachMenu(lblRecipeMappingEndVal, "MappingEnd");
             }

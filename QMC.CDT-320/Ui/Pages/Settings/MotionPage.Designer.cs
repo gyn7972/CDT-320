@@ -223,7 +223,7 @@
             this.grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Segoe UI", 9F);
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F);
             dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -251,7 +251,7 @@
             this.dataGridViewTextBoxColumn18});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.EnableHeadersVisualStyles = false;
-            this.grid.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.grid.Location = new System.Drawing.Point(8, 68);
             this.grid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grid.MultiSelect = false;
@@ -723,7 +723,7 @@
             this.dataGridViewTextBoxColumn37});
             this.speedGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.speedGrid.EnableHeadersVisualStyles = false;
-            this.speedGrid.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.speedGrid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.speedGrid.Location = new System.Drawing.Point(0, 0);
             this.speedGrid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.speedGrid.MultiSelect = false;

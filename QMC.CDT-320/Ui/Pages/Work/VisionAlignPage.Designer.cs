@@ -81,7 +81,7 @@
             this.rootLayout.SetColumnSpan(this.lblHeader, 2);
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
@@ -303,7 +303,7 @@
             this.rootLayout.SetColumnSpan(this.lblHeader, 2);
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
