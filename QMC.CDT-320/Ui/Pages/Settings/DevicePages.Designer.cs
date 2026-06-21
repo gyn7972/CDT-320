@@ -120,7 +120,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblPortTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblPortTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPortTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPortTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblPortTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblPortTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblPortTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblPortTitle.Text = "PORT";
@@ -136,7 +136,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblBaudTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblBaudTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBaudTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBaudTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblBaudTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblBaudTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblBaudTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblBaudTitle.Text = "BAUD RATE";
@@ -152,7 +152,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblDataBitsTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblDataBitsTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDataBitsTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDataBitsTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDataBitsTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDataBitsTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblDataBitsTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDataBitsTitle.Text = "DATA BITS";
@@ -168,7 +168,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblParityTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblParityTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblParityTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblParityTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblParityTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblParityTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblParityTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblParityTitle.Text = "PARITY";
@@ -184,7 +184,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblStopBitsTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblStopBitsTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStopBitsTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStopBitsTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblStopBitsTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblStopBitsTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblStopBitsTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblStopBitsTitle.Text = "STOP BITS";
@@ -200,7 +200,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblHeadCharTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblHeadCharTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadCharTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadCharTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblHeadCharTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblHeadCharTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblHeadCharTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblHeadCharTitle.Text = "HEAD CHAR";
@@ -216,7 +216,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblTailCharTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblTailCharTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTailCharTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTailCharTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblTailCharTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblTailCharTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblTailCharTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblTailCharTitle.Text = "TAIL CHAR";
@@ -232,7 +232,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblTimeoutTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblTimeoutTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTimeoutTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTimeoutTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblTimeoutTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblTimeoutTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblTimeoutTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblTimeoutTitle.Text = "READ TIMEOUT";
@@ -248,7 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblRetryTitle.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblRetryTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblRetryTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRetryTitle.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblRetryTitle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblRetryTitle.Margin = new System.Windows.Forms.Padding(2);
             this.lblRetryTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblRetryTitle.Text = "RETRY COUNT";
@@ -262,11 +262,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblRetryValue.Text = "3";
             this.lblRetryValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.btnConnect.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnConnect.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnConnect.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnConnect.Margin = new System.Windows.Forms.Padding(2);
             this.btnConnect.Text = "CONNECT";
             this.btnTestRead.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnTestRead.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnTestRead.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnTestRead.Margin = new System.Windows.Forms.Padding(2);
             this.btnTestRead.Text = "TEST READ";
             this.lblLastResult.BackColor = System.Drawing.Color.Black;
@@ -415,7 +415,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.inputVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.inputVisionLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.inputVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.inputVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.inputVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.inputVisionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.inputVisionLayout.Padding = new System.Windows.Forms.Padding(8);
             this.outputVisionLayout.ColumnCount = 7;
@@ -432,7 +432,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.outputVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.outputVisionLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.outputVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.outputVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.outputVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.outputVisionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.outputVisionLayout.Padding = new System.Windows.Forms.Padding(8);
             this.lowerVisionLayout.ColumnCount = 7;
@@ -449,7 +449,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lowerVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.lowerVisionLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.lowerVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.lowerVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.lowerVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.lowerVisionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lowerVisionLayout.Padding = new System.Windows.Forms.Padding(8);
             this.bottomVisionLayout.ColumnCount = 7;
@@ -466,7 +466,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.bottomVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.bottomVisionLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.bottomVisionLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.bottomVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.bottomVisionLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.bottomVisionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bottomVisionLayout.Padding = new System.Windows.Forms.Padding(8);
             this.sideVisionFrontLayout.ColumnCount = 7;
@@ -483,7 +483,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.sideVisionFrontLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.sideVisionFrontLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.sideVisionFrontLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.sideVisionFrontLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.sideVisionFrontLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.sideVisionFrontLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.sideVisionFrontLayout.Padding = new System.Windows.Forms.Padding(8);
             this.sideVisionRearLayout.ColumnCount = 7;
@@ -500,7 +500,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.sideVisionRearLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "1", Font = new System.Drawing.Font("Consolas", 10F) }, 3, 0);
             this.sideVisionRearLayout.Controls.Add(new System.Windows.Forms.Label() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "ZOOM", TextAlign = System.Drawing.ContentAlignment.MiddleLeft }, 4, 0);
             this.sideVisionRearLayout.Controls.Add(new System.Windows.Forms.TextBox() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "50", Font = new System.Drawing.Font("Consolas", 10F) }, 5, 0);
-            this.sideVisionRearLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
+            this.sideVisionRearLayout.Controls.Add(new System.Windows.Forms.Button() { Dock = System.Windows.Forms.DockStyle.Fill, Text = "APPLY", FlatStyle = System.Windows.Forms.FlatStyle.Flat, Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold) }, 6, 0);
             this.sideVisionRearLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.sideVisionRearLayout.Padding = new System.Windows.Forms.Padding(8);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -577,12 +577,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.sensorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.grpSensor1.Controls.Add(this.sensor1Layout);
             this.grpSensor1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpSensor1.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.grpSensor1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpSensor1.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpSensor1.Text = "SENSOR #1";
             this.grpSensor2.Controls.Add(this.sensor2Layout);
             this.grpSensor2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpSensor2.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.grpSensor2.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpSensor2.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpSensor2.Text = "SENSOR #2";
             this.sensor1Layout.ColumnCount = 6;

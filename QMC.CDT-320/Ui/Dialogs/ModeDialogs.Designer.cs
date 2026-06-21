@@ -44,7 +44,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Tag = "i18n:dlg.lotIdInput";
             this.lblTitle.Text = "LOT ID INPUT";
@@ -60,7 +60,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.inputLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.inputLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.lblLotId.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLotId.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblLotId.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblLotId.Text = "LOT ID";
             this.lblLotId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.tbLotId.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -78,12 +78,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.btnOk.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnOk.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOk.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnOk.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOk.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.btnOk.Text = "OK";
             this.btnCancel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCancel.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCancel.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.btnCancel.Tag = "i18n:common.cancel";
             this.btnCancel.Text = "CANCEL";

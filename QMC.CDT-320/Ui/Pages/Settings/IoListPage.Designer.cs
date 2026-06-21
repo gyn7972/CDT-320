@@ -115,7 +115,7 @@
             // lblSubHeader
             // 
             this.lblSubHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSubHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblSubHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSubHeader.Location = new System.Drawing.Point(8, 40);
             this.lblSubHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblSubHeader.Name = "lblSubHeader";
@@ -198,7 +198,7 @@
             // lblCylinderTestTitle
             // 
             this.lblCylinderTestTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCylinderTestTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblCylinderTestTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCylinderTestTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(34)))), ((int)(((byte)(40)))));
             this.lblCylinderTestTitle.Location = new System.Drawing.Point(11, 8);
             this.lblCylinderTestTitle.Name = "lblCylinderTestTitle";
@@ -211,7 +211,7 @@
             // 
             this.cylinderTestPanel.SetColumnSpan(this.lblSelectedCylinder, 7);
             this.lblSelectedCylinder.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSelectedCylinder.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblSelectedCylinder.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSelectedCylinder.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(95)))), ((int)(((byte)(150)))));
             this.lblSelectedCylinder.Location = new System.Drawing.Point(191, 8);
             this.lblSelectedCylinder.Name = "lblSelectedCylinder";
@@ -223,7 +223,7 @@
             // lblFwdTimeout
             // 
             this.lblFwdTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFwdTimeout.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblFwdTimeout.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblFwdTimeout.Location = new System.Drawing.Point(11, 44);
             this.lblFwdTimeout.Name = "lblFwdTimeout";
             this.lblFwdTimeout.Size = new System.Drawing.Size(174, 42);
@@ -234,7 +234,7 @@
             // nudFwdTimeout
             // 
             this.nudFwdTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.nudFwdTimeout.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.nudFwdTimeout.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.nudFwdTimeout.Increment = new decimal(new int[] {
             100,
             0,
@@ -263,7 +263,7 @@
             // lblBwdTimeout
             // 
             this.lblBwdTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBwdTimeout.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBwdTimeout.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblBwdTimeout.Location = new System.Drawing.Point(331, 44);
             this.lblBwdTimeout.Name = "lblBwdTimeout";
             this.lblBwdTimeout.Size = new System.Drawing.Size(134, 42);
@@ -274,7 +274,7 @@
             // nudBwdTimeout
             // 
             this.nudBwdTimeout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.nudBwdTimeout.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.nudBwdTimeout.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.nudBwdTimeout.Increment = new decimal(new int[] {
             100,
             0,
@@ -303,7 +303,7 @@
             // chkSingleSolenoid
             // 
             this.chkSingleSolenoid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkSingleSolenoid.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.chkSingleSolenoid.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.chkSingleSolenoid.Location = new System.Drawing.Point(621, 47);
             this.chkSingleSolenoid.Name = "chkSingleSolenoid";
             this.chkSingleSolenoid.Size = new System.Drawing.Size(124, 36);
@@ -313,7 +313,7 @@
             // chkUseFwdSensor
             // 
             this.chkUseFwdSensor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkUseFwdSensor.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.chkUseFwdSensor.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.chkUseFwdSensor.Location = new System.Drawing.Point(751, 47);
             this.chkUseFwdSensor.Name = "chkUseFwdSensor";
             this.chkUseFwdSensor.Size = new System.Drawing.Size(124, 36);
@@ -323,7 +323,7 @@
             // chkUseBwdSensor
             // 
             this.chkUseBwdSensor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkUseBwdSensor.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.chkUseBwdSensor.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.chkUseBwdSensor.Location = new System.Drawing.Point(881, 47);
             this.chkUseBwdSensor.Name = "chkUseBwdSensor";
             this.chkUseBwdSensor.Size = new System.Drawing.Size(124, 36);
@@ -333,7 +333,7 @@
             // lblFwdLabel
             // 
             this.lblFwdLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFwdLabel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblFwdLabel.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblFwdLabel.Location = new System.Drawing.Point(11, 86);
             this.lblFwdLabel.Name = "lblFwdLabel";
             this.lblFwdLabel.Size = new System.Drawing.Size(174, 42);
@@ -344,7 +344,7 @@
             // txtFwdLabel
             // 
             this.txtFwdLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtFwdLabel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.txtFwdLabel.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.txtFwdLabel.Location = new System.Drawing.Point(192, 93);
             this.txtFwdLabel.Margin = new System.Windows.Forms.Padding(4, 7, 4, 7);
             this.txtFwdLabel.Name = "txtFwdLabel";
@@ -355,7 +355,7 @@
             // lblBwdLabel
             // 
             this.lblBwdLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBwdLabel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBwdLabel.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblBwdLabel.Location = new System.Drawing.Point(331, 86);
             this.lblBwdLabel.Name = "lblBwdLabel";
             this.lblBwdLabel.Size = new System.Drawing.Size(134, 42);
@@ -366,7 +366,7 @@
             // txtBwdLabel
             // 
             this.txtBwdLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.txtBwdLabel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.txtBwdLabel.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.txtBwdLabel.Location = new System.Drawing.Point(472, 93);
             this.txtBwdLabel.Margin = new System.Windows.Forms.Padding(4, 7, 4, 7);
             this.txtBwdLabel.Name = "txtBwdLabel";
@@ -379,7 +379,7 @@
             this.btnCylinderApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCylinderApply.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderApply.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCylinderApply.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCylinderApply.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCylinderApply.ForeColor = System.Drawing.Color.White;
             this.btnCylinderApply.Location = new System.Drawing.Point(12, 136);
             this.btnCylinderApply.Margin = new System.Windows.Forms.Padding(4, 8, 4, 4);
@@ -393,7 +393,7 @@
             this.btnCylinderFwd.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCylinderFwd.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderFwd.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCylinderFwd.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCylinderFwd.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCylinderFwd.ForeColor = System.Drawing.Color.White;
             this.btnCylinderFwd.Location = new System.Drawing.Point(192, 136);
             this.btnCylinderFwd.Margin = new System.Windows.Forms.Padding(4, 8, 4, 4);
@@ -407,7 +407,7 @@
             this.btnCylinderBwd.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCylinderBwd.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderBwd.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCylinderBwd.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCylinderBwd.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCylinderBwd.ForeColor = System.Drawing.Color.White;
             this.btnCylinderBwd.Location = new System.Drawing.Point(332, 136);
             this.btnCylinderBwd.Margin = new System.Windows.Forms.Padding(4, 8, 4, 4);
@@ -421,7 +421,7 @@
             this.btnCylinderOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCylinderOff.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCylinderOff.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCylinderOff.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCylinderOff.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCylinderOff.ForeColor = System.Drawing.Color.White;
             this.btnCylinderOff.Location = new System.Drawing.Point(472, 136);
             this.btnCylinderOff.Margin = new System.Windows.Forms.Padding(4, 8, 4, 4);
@@ -434,7 +434,7 @@
             // 
             this.cylinderTestPanel.SetColumnSpan(this.lblCylinderResult, 4);
             this.lblCylinderResult.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCylinderResult.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblCylinderResult.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblCylinderResult.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
             this.lblCylinderResult.Location = new System.Drawing.Point(621, 128);
             this.lblCylinderResult.Name = "lblCylinderResult";
@@ -467,7 +467,7 @@
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.Location = new System.Drawing.Point(4, 8);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -481,7 +481,7 @@
             this.btnReload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReload.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.White;
             this.btnReload.Location = new System.Drawing.Point(134, 8);
             this.btnReload.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -495,7 +495,7 @@
             this.btnAddRow.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAddRow.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAddRow.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAddRow.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAddRow.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAddRow.ForeColor = System.Drawing.Color.White;
             this.btnAddRow.Location = new System.Drawing.Point(264, 8);
             this.btnAddRow.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);

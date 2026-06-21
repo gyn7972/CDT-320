@@ -128,7 +128,7 @@
             // 
             this.lblLanguage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblLanguage.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLanguage.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblLanguage.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblLanguage.Location = new System.Drawing.Point(10, 10);
             this.lblLanguage.Margin = new System.Windows.Forms.Padding(2);
             this.lblLanguage.Name = "lblLanguage";
@@ -142,7 +142,7 @@
             // 
             this.lblBinArray.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblBinArray.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinArray.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblBinArray.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblBinArray.Location = new System.Drawing.Point(10, 50);
             this.lblBinArray.Margin = new System.Windows.Forms.Padding(2);
             this.lblBinArray.Name = "lblBinArray";
@@ -156,7 +156,7 @@
             // 
             this.lblVisionMatch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblVisionMatch.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblVisionMatch.Location = new System.Drawing.Point(10, 90);
             this.lblVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this.lblVisionMatch.Name = "lblVisionMatch";
@@ -170,7 +170,7 @@
             // 
             this.lblSimulationMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSimulationMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblSimulationMode.Location = new System.Drawing.Point(10, 130);
             this.lblSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblSimulationMode.Name = "lblSimulationMode";
@@ -184,7 +184,7 @@
             // 
             this.lblDryRunMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDryRunMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDryRunMode.Location = new System.Drawing.Point(10, 170);
             this.lblDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDryRunMode.Name = "lblDryRunMode";
@@ -198,7 +198,7 @@
             //
             this.lblDeveloperMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDeveloperMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDeveloperMode.Location = new System.Drawing.Point(10, 210);
             this.lblDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this.lblDeveloperMode.Name = "lblDeveloperMode";
@@ -212,7 +212,7 @@
             // 
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbLang.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbLang.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbLang.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbLang.Location = new System.Drawing.Point(190, 10);
             this._cbLang.Margin = new System.Windows.Forms.Padding(2);
             this._cbLang.Name = "_cbLang";
@@ -223,7 +223,7 @@
             // 
             this._cbBinArr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbBinArr.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbBinArr.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbBinArr.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbBinArr.Location = new System.Drawing.Point(190, 50);
             this._cbBinArr.Margin = new System.Windows.Forms.Padding(2);
             this._cbBinArr.Name = "_cbBinArr";
@@ -234,7 +234,7 @@
             // 
             this._cbVisionMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbVisionMatch.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbVisionMatch.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbVisionMatch.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbVisionMatch.Location = new System.Drawing.Point(190, 90);
             this._cbVisionMatch.Margin = new System.Windows.Forms.Padding(2);
             this._cbVisionMatch.Name = "_cbVisionMatch";
@@ -245,7 +245,7 @@
             // 
             this._cbSimulationMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbSimulationMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbSimulationMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbSimulationMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbSimulationMode.Location = new System.Drawing.Point(190, 130);
             this._cbSimulationMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbSimulationMode.Name = "_cbSimulationMode";
@@ -256,7 +256,7 @@
             // 
             this._cbDryRunMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDryRunMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbDryRunMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbDryRunMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbDryRunMode.Location = new System.Drawing.Point(190, 170);
             this._cbDryRunMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDryRunMode.Name = "_cbDryRunMode";
@@ -267,7 +267,7 @@
             //
             this._cbDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDeveloperMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbDeveloperMode.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbDeveloperMode.Location = new System.Drawing.Point(190, 210);
             this._cbDeveloperMode.Margin = new System.Windows.Forms.Padding(2);
             this._cbDeveloperMode.Name = "_cbDeveloperMode";
@@ -309,7 +309,7 @@
             // 
             this._cbAjin.AutoSize = true;
             this._cbAjin.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbAjin.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._cbAjin.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._cbAjin.Location = new System.Drawing.Point(3, 3);
             this._cbAjin.Name = "_cbAjin";
             this._cbAjin.Size = new System.Drawing.Size(174, 30);
@@ -320,7 +320,7 @@
             // lblIrq
             // 
             this.lblIrq.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblIrq.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblIrq.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblIrq.Location = new System.Drawing.Point(183, 0);
             this.lblIrq.Name = "lblIrq";
             this.lblIrq.Size = new System.Drawing.Size(74, 36);
@@ -331,7 +331,7 @@
             // _tbIrq
             // 
             this._tbIrq.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbIrq.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbIrq.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbIrq.Location = new System.Drawing.Point(263, 3);
             this._tbIrq.Name = "_tbIrq";
             this._tbIrq.Size = new System.Drawing.Size(1380, 23);

@@ -327,7 +327,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.AllowUserToResizeRows = false;
             this.gridDieList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.gridDieList.BackgroundColor = System.Drawing.Color.White;
-            this.gridDieList.ColumnHeadersHeight = 25;
+            this.gridDieList.ColumnHeadersHeight = 32;
             this.gridDieList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridDieList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colIndex,

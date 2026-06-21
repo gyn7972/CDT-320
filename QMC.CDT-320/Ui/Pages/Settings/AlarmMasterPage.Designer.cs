@@ -109,7 +109,7 @@
             // lblSearch
             // 
             this.lblSearch.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSearch.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblSearch.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblSearch.Location = new System.Drawing.Point(3, 0);
             this.lblSearch.Name = "lblSearch";
             this.lblSearch.Size = new System.Drawing.Size(58, 38);
@@ -120,7 +120,7 @@
             // _tbFilter
             // 
             this._tbFilter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbFilter.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbFilter.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbFilter.Location = new System.Drawing.Point(67, 3);
             this._tbFilter.Name = "_tbFilter";
             this._tbFilter.Size = new System.Drawing.Size(294, 23);
@@ -129,7 +129,7 @@
             // lblCategory
             // 
             this.lblCategory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCategory.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblCategory.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblCategory.Location = new System.Drawing.Point(367, 0);
             this.lblCategory.Name = "lblCategory";
             this.lblCategory.Size = new System.Drawing.Size(74, 38);
@@ -141,7 +141,7 @@
             // 
             this._cbCategory.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbCategory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbCategory.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbCategory.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbCategory.Location = new System.Drawing.Point(447, 3);
             this._cbCategory.Name = "_cbCategory";
             this._cbCategory.Size = new System.Drawing.Size(164, 23);
@@ -150,7 +150,7 @@
             // _lblCount
             // 
             this._lblCount.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblCount.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._lblCount.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._lblCount.Location = new System.Drawing.Point(617, 0);
             this._lblCount.Name = "_lblCount";
             this._lblCount.Size = new System.Drawing.Size(84, 38);
@@ -162,7 +162,7 @@
             // 
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnReload.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnReload.Location = new System.Drawing.Point(707, 3);
             this.btnReload.Name = "btnReload";
             this.btnReload.Size = new System.Drawing.Size(114, 32);
@@ -174,7 +174,7 @@
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(120)))), ((int)(((byte)(180)))));
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSave.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.Location = new System.Drawing.Point(827, 3);
             this.btnSave.Name = "btnSave";

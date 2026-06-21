@@ -109,7 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Text = title,
                 Dock = DockStyle.Fill,
                 Margin = new Padding(4),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Font = new Font("맑은 고딕", 9F, FontStyle.Bold),
             };
             var pg = new ParamGrid
             {

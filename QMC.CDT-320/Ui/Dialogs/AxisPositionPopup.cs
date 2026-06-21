@@ -18,8 +18,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly Timer _timer = new Timer();
         private readonly MotionMonitorService _monitor;
 
-        private readonly Font _headerFont = new Font("Segoe UI", 11F, FontStyle.Bold);
-        private readonly Font _rowFont = new Font("Segoe UI", 11F, FontStyle.Bold);
+        private readonly Font _headerFont = new Font("맑은 고딕", 11F, FontStyle.Bold);
+        private readonly Font _rowFont = new Font("맑은 고딕", 11F, FontStyle.Bold);
         private readonly Brush _headerBack = new SolidBrush(Color.White);
         private readonly Pen _borderPen = new Pen(Color.FromArgb(0, 90, 180), 2);
 

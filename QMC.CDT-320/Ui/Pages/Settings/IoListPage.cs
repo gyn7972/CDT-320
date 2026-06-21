@@ -1258,7 +1258,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 cell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
-                cell.Style.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+                cell.Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
                 cell.Style.BackColor = isOn ? Color.FromArgb(212, 245, 222) : Color.White;
                 cell.Style.ForeColor = isOn ? Color.FromArgb(20, 120, 60) : Color.FromArgb(80, 80, 80);
                 cell.Style.SelectionBackColor = isOn ? Color.FromArgb(160, 220, 180) : SystemColors.Highlight;

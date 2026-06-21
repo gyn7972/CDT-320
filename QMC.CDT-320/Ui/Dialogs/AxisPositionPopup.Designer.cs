@@ -30,7 +30,7 @@
             this.colPosition,
             this.colUnit});
             this.listViewAxis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listViewAxis.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.listViewAxis.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.listViewAxis.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(220)))), ((int)(((byte)(130)))));
             this.listViewAxis.FullRowSelect = true;
             this.listViewAxis.HideSelection = false;
@@ -77,7 +77,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.ClientSize = new System.Drawing.Size(407, 523);
             this.Controls.Add(this.listViewAxis);
-            this.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MinimumSize = new System.Drawing.Size(360, 380);
             this.Name = "AxisPositionPopup";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;

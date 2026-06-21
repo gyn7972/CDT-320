@@ -36,7 +36,7 @@ namespace QMC.CDT_320.Ui.Pages
             this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
             this.lblPlaceholder.Dock = DockStyle.Fill;
-            this.lblPlaceholder.Font = new Font("Segoe UI", 20F);
+            this.lblPlaceholder.Font = new Font("맑은 고딕", 20F);
             this.lblPlaceholder.ForeColor = Color.FromArgb(0x55, 0x55, 0x55);
             this.lblPlaceholder.Tag = "i18n:common.caption";
             this.lblPlaceholder.Text = Lang.T("common.caption") + "   (placeholder)";

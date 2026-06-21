@@ -77,7 +77,7 @@ namespace QMC.CDT_320.Ui.Controls
             // lblTitle
             // 
             this.lblTitle.AutoEllipsis = true;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(35)))), ((int)(((byte)(39)))), ((int)(((byte)(45)))));
             this.lblTitle.Location = new System.Drawing.Point(18, 15);
             this.lblTitle.Name = "lblTitle";
@@ -99,7 +99,7 @@ namespace QMC.CDT_320.Ui.Controls
             // 
             // lblUnit
             // 
-            this.lblUnit.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblUnit.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblUnit.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(83)))), ((int)(((byte)(89)))), ((int)(((byte)(98)))));
             this.lblUnit.Location = new System.Drawing.Point(384, 50);
             this.lblUnit.Name = "lblUnit";
@@ -156,7 +156,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn7
             // 
             this.btn7.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn7.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn7.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn7.Location = new System.Drawing.Point(3, 3);
             this.btn7.Name = "btn7";
             this.btn7.Size = new System.Drawing.Size(68, 50);
@@ -168,7 +168,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn8
             // 
             this.btn8.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn8.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn8.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn8.Location = new System.Drawing.Point(77, 3);
             this.btn8.Name = "btn8";
             this.btn8.Size = new System.Drawing.Size(68, 50);
@@ -180,7 +180,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn9
             // 
             this.btn9.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn9.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn9.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn9.Location = new System.Drawing.Point(151, 3);
             this.btn9.Name = "btn9";
             this.btn9.Size = new System.Drawing.Size(68, 50);
@@ -192,7 +192,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnBack
             // 
             this.btnBack.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnBack.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnBack.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnBack.Location = new System.Drawing.Point(225, 3);
             this.btnBack.Name = "btnBack";
             this.btnBack.Size = new System.Drawing.Size(68, 50);
@@ -204,7 +204,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn4
             // 
             this.btn4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn4.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn4.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn4.Location = new System.Drawing.Point(3, 59);
             this.btn4.Name = "btn4";
             this.btn4.Size = new System.Drawing.Size(68, 50);
@@ -216,7 +216,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn5
             // 
             this.btn5.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn5.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn5.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn5.Location = new System.Drawing.Point(77, 59);
             this.btn5.Name = "btn5";
             this.btn5.Size = new System.Drawing.Size(68, 50);
@@ -228,7 +228,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn6
             // 
             this.btn6.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn6.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn6.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn6.Location = new System.Drawing.Point(151, 59);
             this.btn6.Name = "btn6";
             this.btn6.Size = new System.Drawing.Size(68, 50);
@@ -240,7 +240,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnClear
             // 
             this.btnClear.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnClear.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnClear.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnClear.Location = new System.Drawing.Point(225, 59);
             this.btnClear.Name = "btnClear";
             this.btnClear.Size = new System.Drawing.Size(68, 50);
@@ -252,7 +252,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn1
             // 
             this.btn1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn1.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn1.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn1.Location = new System.Drawing.Point(3, 115);
             this.btn1.Name = "btn1";
             this.btn1.Size = new System.Drawing.Size(68, 50);
@@ -264,7 +264,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn2
             // 
             this.btn2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn2.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn2.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn2.Location = new System.Drawing.Point(77, 115);
             this.btn2.Name = "btn2";
             this.btn2.Size = new System.Drawing.Size(68, 50);
@@ -276,7 +276,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn3
             // 
             this.btn3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn3.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn3.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn3.Location = new System.Drawing.Point(151, 115);
             this.btn3.Name = "btn3";
             this.btn3.Size = new System.Drawing.Size(68, 50);
@@ -288,7 +288,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnSign
             // 
             this.btnSign.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSign.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btnSign.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnSign.Location = new System.Drawing.Point(225, 115);
             this.btnSign.Name = "btnSign";
             this.btnSign.Size = new System.Drawing.Size(68, 50);
@@ -300,7 +300,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn0
             // 
             this.btn0.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn0.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btn0.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btn0.Location = new System.Drawing.Point(3, 171);
             this.btn0.Name = "btn0";
             this.btn0.Size = new System.Drawing.Size(68, 50);
@@ -312,7 +312,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnDot
             // 
             this.btnDot.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDot.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.btnDot.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.btnDot.Location = new System.Drawing.Point(77, 171);
             this.btnDot.Name = "btnDot";
             this.btnDot.Size = new System.Drawing.Size(68, 50);
@@ -325,7 +325,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btn000
             // 
             this.btn000.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btn000.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.btn000.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btn000.Location = new System.Drawing.Point(151, 171);
             this.btn000.Name = "btn000";
             this.btn000.Size = new System.Drawing.Size(68, 50);
@@ -337,7 +337,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnAdd1000
             // 
             this.btnAdd1000.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAdd1000.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAdd1000.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAdd1000.Location = new System.Drawing.Point(299, 3);
             this.btnAdd1000.Name = "btnAdd1000";
             this.btnAdd1000.Size = new System.Drawing.Size(72, 50);
@@ -350,7 +350,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnSub1000
             // 
             this.btnSub1000.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSub1000.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSub1000.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSub1000.Location = new System.Drawing.Point(373, 3);
             this.btnSub1000.Name = "btnSub1000";
             this.btnSub1000.Size = new System.Drawing.Size(72, 50);
@@ -363,7 +363,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnAdd100
             // 
             this.btnAdd100.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAdd100.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAdd100.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAdd100.Location = new System.Drawing.Point(299, 59);
             this.btnAdd100.Name = "btnAdd100";
             this.btnAdd100.Size = new System.Drawing.Size(72, 50);
@@ -376,7 +376,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnSub100
             // 
             this.btnSub100.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSub100.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSub100.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSub100.Location = new System.Drawing.Point(373, 59);
             this.btnSub100.Name = "btnSub100";
             this.btnSub100.Size = new System.Drawing.Size(72, 50);
@@ -389,7 +389,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnAdd10
             // 
             this.btnAdd10.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAdd10.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAdd10.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAdd10.Location = new System.Drawing.Point(299, 115);
             this.btnAdd10.Name = "btnAdd10";
             this.btnAdd10.Size = new System.Drawing.Size(72, 50);
@@ -402,7 +402,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnSub10
             // 
             this.btnSub10.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSub10.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSub10.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSub10.Location = new System.Drawing.Point(373, 115);
             this.btnSub10.Name = "btnSub10";
             this.btnSub10.Size = new System.Drawing.Size(72, 50);
@@ -415,7 +415,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnAdd1
             // 
             this.btnAdd1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAdd1.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAdd1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAdd1.Location = new System.Drawing.Point(299, 171);
             this.btnAdd1.Name = "btnAdd1";
             this.btnAdd1.Size = new System.Drawing.Size(72, 50);
@@ -428,7 +428,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnSub1
             // 
             this.btnSub1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSub1.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSub1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSub1.Location = new System.Drawing.Point(373, 171);
             this.btnSub1.Name = "btnSub1";
             this.btnSub1.Size = new System.Drawing.Size(72, 50);
@@ -443,7 +443,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnOk.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(34)))), ((int)(((byte)(113)))), ((int)(((byte)(239)))));
             this.btnOk.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnOk.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOk.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.btnOk.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.btnOk.ForeColor = System.Drawing.Color.White;
             this.btnOk.Location = new System.Drawing.Point(225, 171);
             this.btnOk.Name = "btnOk";
@@ -456,7 +456,7 @@ namespace QMC.CDT_320.Ui.Controls
             // btnCancel
             // 
             this.btnCancel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCancel.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCancel.Location = new System.Drawing.Point(3, 227);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(442, 50);

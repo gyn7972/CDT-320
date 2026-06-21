@@ -116,7 +116,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // lblHost
             // 
             this.lblHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHost.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblHost.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblHost.Location = new System.Drawing.Point(3, 0);
             this.lblHost.Name = "lblHost";
             this.lblHost.Size = new System.Drawing.Size(74, 40);
@@ -127,7 +127,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // _tbHost
             // 
             this._tbHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbHost.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbHost.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbHost.Location = new System.Drawing.Point(83, 3);
             this._tbHost.Name = "_tbHost";
             this._tbHost.Size = new System.Drawing.Size(174, 27);
@@ -137,7 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // lblPort
             // 
             this.lblPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPort.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblPort.Location = new System.Drawing.Point(263, 0);
             this.lblPort.Name = "lblPort";
             this.lblPort.Size = new System.Drawing.Size(64, 40);
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // _tbPort
             // 
             this._tbPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbPort.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbPort.Location = new System.Drawing.Point(333, 3);
             this._tbPort.Name = "_tbPort";
             this._tbPort.Size = new System.Drawing.Size(94, 27);
@@ -159,7 +159,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             this._btnConnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnConnect.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnConnect.Location = new System.Drawing.Point(433, 3);
             this._btnConnect.Name = "_btnConnect";
             this._btnConnect.Size = new System.Drawing.Size(944, 34);
@@ -169,7 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // lblConnStatus
             // 
             this.lblConnStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblConnStatus.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblConnStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblConnStatus.Location = new System.Drawing.Point(3, 40);
             this.lblConnStatus.Name = "lblConnStatus";
             this.lblConnStatus.Size = new System.Drawing.Size(74, 36);
@@ -181,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             this.linkLayout.SetColumnSpan(this._lblStatus, 4);
             this._lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblStatus.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._lblStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._lblStatus.ForeColor = System.Drawing.Color.IndianRed;
             this._lblStatus.Location = new System.Drawing.Point(83, 40);
             this._lblStatus.Name = "_lblStatus";

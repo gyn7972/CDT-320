@@ -143,7 +143,7 @@
             // lblHost
             // 
             this.lblHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHost.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblHost.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblHost.Location = new System.Drawing.Point(3, 0);
             this.lblHost.Name = "lblHost";
             this.lblHost.Size = new System.Drawing.Size(124, 36);
@@ -154,7 +154,7 @@
             // _tbHost
             // 
             this._tbHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbHost.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbHost.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbHost.Location = new System.Drawing.Point(133, 3);
             this._tbHost.Name = "_tbHost";
             this._tbHost.Size = new System.Drawing.Size(174, 27);
@@ -163,7 +163,7 @@
             // lblWaferPort
             // 
             this.lblWaferPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferPort.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblWaferPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblWaferPort.Location = new System.Drawing.Point(3, 36);
             this.lblWaferPort.Name = "lblWaferPort";
             this.lblWaferPort.Size = new System.Drawing.Size(124, 36);
@@ -174,7 +174,7 @@
             // _tbWafer
             // 
             this._tbWafer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbWafer.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbWafer.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbWafer.Location = new System.Drawing.Point(133, 39);
             this._tbWafer.Name = "_tbWafer";
             this._tbWafer.Size = new System.Drawing.Size(174, 27);
@@ -184,7 +184,7 @@
             // 
             this._lblWafer.AutoSize = true;
             this._lblWafer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblWafer.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this._lblWafer.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this._lblWafer.ForeColor = System.Drawing.Color.Gray;
             this._lblWafer.Location = new System.Drawing.Point(313, 36);
             this._lblWafer.Name = "_lblWafer";
@@ -195,7 +195,7 @@
             // lblInspectionPort
             // 
             this.lblInspectionPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInspectionPort.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblInspectionPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblInspectionPort.Location = new System.Drawing.Point(3, 72);
             this.lblInspectionPort.Name = "lblInspectionPort";
             this.lblInspectionPort.Size = new System.Drawing.Size(124, 36);
@@ -206,7 +206,7 @@
             // _tbInsp
             // 
             this._tbInsp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbInsp.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbInsp.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbInsp.Location = new System.Drawing.Point(133, 75);
             this._tbInsp.Name = "_tbInsp";
             this._tbInsp.Size = new System.Drawing.Size(174, 27);
@@ -216,7 +216,7 @@
             // 
             this._lblInsp.AutoSize = true;
             this._lblInsp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblInsp.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this._lblInsp.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this._lblInsp.ForeColor = System.Drawing.Color.Gray;
             this._lblInsp.Location = new System.Drawing.Point(313, 72);
             this._lblInsp.Name = "_lblInsp";
@@ -227,7 +227,7 @@
             // lblBinPort
             // 
             this.lblBinPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinPort.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblBinPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblBinPort.Location = new System.Drawing.Point(3, 108);
             this.lblBinPort.Name = "lblBinPort";
             this.lblBinPort.Size = new System.Drawing.Size(124, 36);
@@ -238,7 +238,7 @@
             // _tbBin
             // 
             this._tbBin.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._tbBin.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._tbBin.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbBin.Location = new System.Drawing.Point(133, 111);
             this._tbBin.Name = "_tbBin";
             this._tbBin.Size = new System.Drawing.Size(174, 27);
@@ -248,7 +248,7 @@
             // 
             this._lblBin.AutoSize = true;
             this._lblBin.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblBin.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this._lblBin.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this._lblBin.ForeColor = System.Drawing.Color.Gray;
             this._lblBin.Location = new System.Drawing.Point(313, 108);
             this._lblBin.Name = "_lblBin";
@@ -261,7 +261,7 @@
             this._cbAuto.AutoSize = true;
             this.linkLayout.SetColumnSpan(this._cbAuto, 3);
             this._cbAuto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbAuto.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._cbAuto.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._cbAuto.Location = new System.Drawing.Point(3, 147);
             this._cbAuto.Name = "_cbAuto";
             this._cbAuto.Size = new System.Drawing.Size(1374, 34);
@@ -292,7 +292,7 @@
             // 
             this._btnConnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnConnect.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnConnect.Location = new System.Drawing.Point(3, 3);
             this._btnConnect.Name = "_btnConnect";
             this._btnConnect.Size = new System.Drawing.Size(144, 36);
@@ -303,7 +303,7 @@
             // 
             this._btnDisconnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnDisconnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnDisconnect.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._btnDisconnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnDisconnect.Location = new System.Drawing.Point(153, 3);
             this._btnDisconnect.Name = "_btnDisconnect";
             this._btnDisconnect.Size = new System.Drawing.Size(144, 36);
@@ -314,7 +314,7 @@
             // 
             this._btnPing.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnPing.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnPing.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._btnPing.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnPing.Location = new System.Drawing.Point(303, 3);
             this._btnPing.Name = "_btnPing";
             this._btnPing.Size = new System.Drawing.Size(144, 36);
@@ -325,7 +325,7 @@
             // 
             this.linkLayout.SetColumnSpan(this.lblHint, 3);
             this.lblHint.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHint.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblHint.ForeColor = System.Drawing.Color.DimGray;
             this.lblHint.Location = new System.Drawing.Point(3, 232);
             this.lblHint.Name = "lblHint";

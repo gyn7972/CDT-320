@@ -270,7 +270,7 @@
             this.lblJogHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.jogLayout.SetColumnSpan(this.lblJogHeader, 3);
             this.lblJogHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblJogHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblJogHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblJogHeader.ForeColor = System.Drawing.Color.White;
             this.lblJogHeader.Location = new System.Drawing.Point(1, 1);
             this.lblJogHeader.Margin = new System.Windows.Forms.Padding(0);
@@ -284,7 +284,7 @@
             // 
             this.jogLayout.SetColumnSpan(this._jogAxisLabel, 3);
             this._jogAxisLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._jogAxisLabel.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._jogAxisLabel.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._jogAxisLabel.Location = new System.Drawing.Point(4, 30);
             this._jogAxisLabel.Name = "_jogAxisLabel";
             this._jogAxisLabel.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -309,7 +309,7 @@
             // lblSpeed
             // 
             this.lblSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSpeed.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblSpeed.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblSpeed.Location = new System.Drawing.Point(4, 88);
             this.lblSpeed.Name = "lblSpeed";
             this.lblSpeed.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -333,7 +333,7 @@
             // lblSpeedUnit
             // 
             this.lblSpeedUnit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSpeedUnit.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblSpeedUnit.Font = new System.Drawing.Font("맑은 고딕", 8F);
             this.lblSpeedUnit.ForeColor = System.Drawing.Color.DimGray;
             this.lblSpeedUnit.Location = new System.Drawing.Point(228, 88);
             this.lblSpeedUnit.Name = "lblSpeedUnit";
@@ -345,7 +345,7 @@
             // lblStep
             // 
             this.lblStep.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStep.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblStep.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblStep.Location = new System.Drawing.Point(4, 119);
             this.lblStep.Name = "lblStep";
             this.lblStep.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -370,7 +370,7 @@
             // 
             this.btnStepMul10.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStepMul10.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStepMul10.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStepMul10.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStepMul10.Location = new System.Drawing.Point(5, 154);
             this.btnStepMul10.Margin = new System.Windows.Forms.Padding(4);
             this.btnStepMul10.Name = "btnStepMul10";
@@ -383,7 +383,7 @@
             this.jogLayout.SetColumnSpan(this.btnStepDiv10, 2);
             this.btnStepDiv10.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStepDiv10.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStepDiv10.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStepDiv10.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStepDiv10.Location = new System.Drawing.Point(88, 154);
             this.btnStepDiv10.Margin = new System.Windows.Forms.Padding(4);
             this.btnStepDiv10.Name = "btnStepDiv10";
@@ -418,7 +418,7 @@
             // 
             this.btnStep5.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStep5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStep5.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStep5.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStep5.Location = new System.Drawing.Point(1, 1);
             this.btnStep5.Margin = new System.Windows.Forms.Padding(1);
             this.btnStep5.Name = "btnStep5";
@@ -430,7 +430,7 @@
             // 
             this.btnStep1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStep1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStep1.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStep1.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStep1.Location = new System.Drawing.Point(59, 1);
             this.btnStep1.Margin = new System.Windows.Forms.Padding(1);
             this.btnStep1.Name = "btnStep1";
@@ -442,7 +442,7 @@
             // 
             this.btnStep01.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStep01.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStep01.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStep01.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStep01.Location = new System.Drawing.Point(117, 1);
             this.btnStep01.Margin = new System.Windows.Forms.Padding(1);
             this.btnStep01.Name = "btnStep01";
@@ -454,7 +454,7 @@
             // 
             this.btnStep001.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStep001.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStep001.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStep001.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStep001.Location = new System.Drawing.Point(175, 1);
             this.btnStep001.Margin = new System.Windows.Forms.Padding(1);
             this.btnStep001.Name = "btnStep001";
@@ -466,7 +466,7 @@
             // 
             this.btnStep0001.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStep0001.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStep0001.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this.btnStep0001.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.btnStep0001.Location = new System.Drawing.Point(233, 1);
             this.btnStep0001.Margin = new System.Windows.Forms.Padding(1);
             this.btnStep0001.Name = "btnStep0001";
@@ -490,7 +490,7 @@
             // 
             this.jogLayout.SetColumnSpan(this.lblJogHint, 3);
             this.lblJogHint.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblJogHint.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblJogHint.Font = new System.Drawing.Font("맑은 고딕", 8F);
             this.lblJogHint.ForeColor = System.Drawing.Color.DimGray;
             this.lblJogHint.Location = new System.Drawing.Point(4, 489);
             this.lblJogHint.Name = "lblJogHint";

@@ -36,7 +36,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._topPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this._titleLabel.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this._titleLabel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._titleLabel.Font = new System.Drawing.Font("Segoe UI", 44F, System.Drawing.FontStyle.Bold);
+            this._titleLabel.Font = new System.Drawing.Font("맑은 고딕", 44F, System.Drawing.FontStyle.Bold);
             this._titleLabel.ForeColor = System.Drawing.Color.White;
             this._titleLabel.Text = "MODE";
             this._titleLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;

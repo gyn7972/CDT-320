@@ -189,7 +189,7 @@
             // 
             this.lblPageHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblPageHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPageHeader.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblPageHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblPageHeader.ForeColor = System.Drawing.Color.White;
             this.lblPageHeader.Location = new System.Drawing.Point(8, 8);
             this.lblPageHeader.Margin = new System.Windows.Forms.Padding(0);
@@ -204,7 +204,7 @@
             // 
             this.lblModuleHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblModuleHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblModuleHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblModuleHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblModuleHeader.ForeColor = System.Drawing.Color.White;
             this.lblModuleHeader.Location = new System.Drawing.Point(8, 38);
             this.lblModuleHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
@@ -376,7 +376,7 @@
             // 
             this.lblConfigHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblConfigHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblConfigHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblConfigHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblConfigHeader.ForeColor = System.Drawing.Color.White;
             this.lblConfigHeader.Location = new System.Drawing.Point(8, 368);
             this.lblConfigHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
@@ -394,7 +394,7 @@
             this.configTabs.Controls.Add(this.tabConfig);
             this.configTabs.Controls.Add(this.tabSpeed);
             this.configTabs.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.configTabs.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.configTabs.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.configTabs.ItemSize = new System.Drawing.Size(100, 32);
             this.configTabs.Location = new System.Drawing.Point(8, 398);
             this.configTabs.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
@@ -848,7 +848,7 @@
             // 
             this.btnSpeedReload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSpeedReload.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSpeedReload.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedReload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSpeedReload.ForeColor = System.Drawing.Color.White;
             this.btnSpeedReload.Location = new System.Drawing.Point(1486, 6);
             this.btnSpeedReload.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
@@ -861,7 +861,7 @@
             // 
             this.btnSpeedSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSpeedSave.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSpeedSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSpeedSave.ForeColor = System.Drawing.Color.White;
             this.btnSpeedSave.Location = new System.Drawing.Point(1360, 6);
             this.btnSpeedSave.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
@@ -874,7 +874,7 @@
             // 
             this.btnSpeedScale.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSpeedScale.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSpeedScale.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedScale.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSpeedScale.ForeColor = System.Drawing.Color.White;
             this.btnSpeedScale.Location = new System.Drawing.Point(1244, 6);
             this.btnSpeedScale.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
@@ -885,7 +885,7 @@
             // 
             // lblSpeedScaleCaption
             // 
-            this.lblSpeedScaleCaption.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedScaleCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblSpeedScaleCaption.Location = new System.Drawing.Point(1068, 6);
             this.lblSpeedScaleCaption.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
             this.lblSpeedScaleCaption.Name = "lblSpeedScaleCaption";
@@ -937,7 +937,7 @@
             this.btnEnable.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnEnable.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnEnable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnEnable.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnEnable.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnEnable.ForeColor = System.Drawing.Color.White;
             this.btnEnable.Location = new System.Drawing.Point(4, 8);
             this.btnEnable.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -951,7 +951,7 @@
             this.btnDisable.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnDisable.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDisable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDisable.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnDisable.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnDisable.ForeColor = System.Drawing.Color.White;
             this.btnDisable.Location = new System.Drawing.Point(118, 8);
             this.btnDisable.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -965,7 +965,7 @@
             this.btnHome.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnHome.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnHome.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnHome.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnHome.ForeColor = System.Drawing.Color.White;
             this.btnHome.Location = new System.Drawing.Point(232, 8);
             this.btnHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -979,7 +979,7 @@
             this.btnGroupHome.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnGroupHome.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnGroupHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGroupHome.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnGroupHome.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnGroupHome.ForeColor = System.Drawing.Color.White;
             this.btnGroupHome.Location = new System.Drawing.Point(362, 8);
             this.btnGroupHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -993,7 +993,7 @@
             this.btnAllHome.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAllHome.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAllHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAllHome.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAllHome.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAllHome.ForeColor = System.Drawing.Color.White;
             this.btnAllHome.Location = new System.Drawing.Point(492, 8);
             this.btnAllHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1007,7 +1007,7 @@
             this.btnAllStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAllStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAllStop.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAllStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAllStop.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAllStop.ForeColor = System.Drawing.Color.White;
             this.btnAllStop.Location = new System.Drawing.Point(622, 8);
             this.btnAllStop.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1021,7 +1021,7 @@
             this.btnAlarmClear.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAlarmClear.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAlarmClear.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAlarmClear.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAlarmClear.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAlarmClear.ForeColor = System.Drawing.Color.White;
             this.btnAlarmClear.Location = new System.Drawing.Point(752, 8);
             this.btnAlarmClear.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1035,7 +1035,7 @@
             this.btnAllServoOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAllServoOff.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAllServoOff.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAllServoOff.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAllServoOff.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAllServoOff.ForeColor = System.Drawing.Color.White;
             this.btnAllServoOff.Location = new System.Drawing.Point(898, 8);
             this.btnAllServoOff.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1049,7 +1049,7 @@
             this.btnServoOn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnServoOn.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnServoOn.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnServoOn.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnServoOn.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnServoOn.ForeColor = System.Drawing.Color.White;
             this.btnServoOn.Location = new System.Drawing.Point(1060, 8);
             this.btnServoOn.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1063,7 +1063,7 @@
             this.btnServoOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnServoOff.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnServoOff.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnServoOff.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnServoOff.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnServoOff.ForeColor = System.Drawing.Color.White;
             this.btnServoOff.Location = new System.Drawing.Point(1190, 8);
             this.btnServoOff.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1077,7 +1077,7 @@
             this.btnParaLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnParaLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnParaLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnParaLoad.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnParaLoad.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnParaLoad.ForeColor = System.Drawing.Color.White;
             this.btnParaLoad.Location = new System.Drawing.Point(1320, 8);
             this.btnParaLoad.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1091,7 +1091,7 @@
             this.btnParaSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnParaSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnParaSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnParaSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnParaSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnParaSave.ForeColor = System.Drawing.Color.White;
             this.btnParaSave.Location = new System.Drawing.Point(1434, 8);
             this.btnParaSave.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
@@ -1105,7 +1105,7 @@
             this.btnBoardScan.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBoardScan.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnBoardScan.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnBoardScan.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnBoardScan.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnBoardScan.ForeColor = System.Drawing.Color.White;
             this.btnBoardScan.Location = new System.Drawing.Point(1548, 8);
             this.btnBoardScan.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);

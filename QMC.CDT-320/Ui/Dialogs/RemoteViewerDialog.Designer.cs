@@ -71,7 +71,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
             this.lblTitle.Name = "lblTitle";
@@ -108,7 +108,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // lblPort
             // 
             this.lblPort.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPort.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblPort.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPort.Location = new System.Drawing.Point(13, 14);
             this.lblPort.Name = "lblPort";
             this.lblPort.Size = new System.Drawing.Size(46, 26);
@@ -145,7 +145,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnStart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(120)))), ((int)(((byte)(210)))));
             this._btnStart.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnStart.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this._btnStart.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this._btnStart.ForeColor = System.Drawing.Color.White;
             this._btnStart.Location = new System.Drawing.Point(180, 14);
             this._btnStart.Margin = new System.Windows.Forms.Padding(8, 0, 4, 0);
@@ -161,7 +161,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnStop.Enabled = false;
             this._btnStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this._btnStop.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this._btnStop.Location = new System.Drawing.Point(286, 14);
             this._btnStop.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this._btnStop.Name = "_btnStop";
@@ -228,7 +228,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnClose.DialogResult = System.Windows.Forms.DialogResult.OK;
             this._btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnClose.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this._btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this._btnClose.Location = new System.Drawing.Point(559, 9);
             this._btnClose.Name = "_btnClose";
             this._btnClose.Size = new System.Drawing.Size(102, 20);

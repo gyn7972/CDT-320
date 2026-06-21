@@ -50,7 +50,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Text = "SYSTEM SELF-TEST";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -92,13 +92,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.bottomLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this._btnRun.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRun.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this._btnRun.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this._btnRun.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this._btnRun.Text = "RUN";
             this._btnClose.DialogResult = System.Windows.Forms.DialogResult.OK;
             this._btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnClose.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this._btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this._btnClose.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this._btnClose.Text = "CLOSE";
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
