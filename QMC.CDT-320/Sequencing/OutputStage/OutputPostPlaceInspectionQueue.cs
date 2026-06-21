@@ -10,18 +10,28 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
+
     internal sealed class OutputPostPlaceInspectionRequest
     {
+
         public string DieId { get; set; } = "";
+
         public BinSide OutputSide { get; set; }
+
         public OutputStageReceiveTarget ReceiveTarget { get; set; }
+
         public bool FineMove { get; set; }
+
         public int MoveTimeoutMs { get; set; }
+
         public string Owner { get; set; } = "";
     }
 
     internal sealed class OutputPostPlaceInspectionQueue
     {
+        // Place 시퀀스는 4-head를 모두 내려놓는 동안 OutputPlaceArea를 보유한다.
+        // 후검사는 요청만 큐에 등록하고, Place가 끝나 Picker가 Output zone에서 빠진 뒤
+        // 이 큐가 OutputPlaceArea를 넘겨받아 Output camera 검사와 Material 업데이트를 수행한다.
         private readonly MachineSequenceContext _context;
         private readonly ConcurrentQueue<OutputPostPlaceInspectionRequest> _queue =
             new ConcurrentQueue<OutputPostPlaceInspectionRequest>();
@@ -55,13 +65,11 @@ namespace QMC.CDT320.Sequencing
                 Interlocked.Exchange(ref _batchDepth, 0);
                 depth = 0;
             }
-
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "Output camera 후검사 묶음 등록 종료. owner=" +
                 (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
                 ", depth=" + depth +
                 ", pendingOrRunning=" + Volatile.Read(ref _pendingOrRunning) + " - Ok");
-
             if (depth == 0 && Volatile.Read(ref _pendingOrRunning) > 0)
             {
                 _signal.Release();
@@ -75,7 +83,6 @@ namespace QMC.CDT320.Sequencing
             if (request == null)
                 return RaiseFailure("OUT-POST-INSPECT-REQUEST", "OutputPostPlaceInspection",
                     "Output camera 후검사 요청 정보가 없습니다.");
-
             if (Volatile.Read(ref _failed) != 0)
             {
                 return RaiseFailure(
@@ -85,7 +92,6 @@ namespace QMC.CDT320.Sequencing
                     "die=" + request.DieId + ", side=" + request.OutputSide +
                     ", lastFailure=" + _failureMessage);
             }
-
             request.ReceiveTarget = CloneReceiveTarget(request.ReceiveTarget);
             Interlocked.Increment(ref _pendingOrRunning);
             _queue.Enqueue(request);
@@ -96,14 +102,12 @@ namespace QMC.CDT320.Sequencing
                 ", targetX=" + (request.ReceiveTarget != null ? request.ReceiveTarget.TargetX.ToString("F6") : "-") +
                 ", targetY=" + (request.ReceiveTarget != null ? request.ReceiveTarget.TargetY.ToString("F6") : "-") +
                 ", owner=" + request.Owner + " - Ok");
-
             if (Volatile.Read(ref _batchDepth) <= 0)
             {
                 _signal.Release();
                 if (Interlocked.CompareExchange(ref _workerRunning, 1, 0) == 0)
                     Task.Run(() => ProcessQueueAsync(ct));
             }
-
             return 0;
         }
 
@@ -111,17 +115,13 @@ namespace QMC.CDT320.Sequencing
         {
             string safeWaiter = string.IsNullOrWhiteSpace(waiter) ? "Unknown" : waiter;
             bool waitLogged = false;
-
             if (Volatile.Read(ref _failed) != 0)
                 return ReportStoredFailure(safeWaiter);
-
             while (Volatile.Read(ref _pendingOrRunning) > 0)
             {
                 ct.ThrowIfCancellationRequested();
-
                 if (Volatile.Read(ref _failed) != 0)
                     return ReportStoredFailure(safeWaiter);
-
                 if (!waitLogged)
                 {
                     Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -129,19 +129,15 @@ namespace QMC.CDT320.Sequencing
                         Volatile.Read(ref _pendingOrRunning) + " - Wait");
                     waitLogged = true;
                 }
-
                 await Task.Delay(50, ct).ConfigureAwait(false);
             }
-
             if (waitLogged)
             {
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                     safeWaiter + " Output camera 후검사 완료 대기 종료. - Ok");
             }
-
             if (Volatile.Read(ref _failed) != 0)
                 return ReportStoredFailure(safeWaiter);
-
             return 0;
         }
 
@@ -153,7 +149,6 @@ namespace QMC.CDT320.Sequencing
                 {
                     await _signal.WaitAsync(ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
-
                     if (Volatile.Read(ref _batchDepth) > 0)
                     {
                         Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -161,7 +156,6 @@ namespace QMC.CDT320.Sequencing
                             Volatile.Read(ref _batchDepth) + " - Wait");
                         continue;
                     }
-
                     OutputPostPlaceInspectionRequest request;
                     if (_queue.TryDequeue(out request))
                     {
@@ -177,7 +171,6 @@ namespace QMC.CDT320.Sequencing
                             return;
                         }
                     }
-
                     if (_queue.IsEmpty)
                     {
                         Interlocked.Exchange(ref _workerRunning, 0);
@@ -211,7 +204,6 @@ namespace QMC.CDT320.Sequencing
             bool shouldMoveVisionAvoid = false;
             int inspectedCount = 0;
             bool firstRequestCompleted = false;
-
             try
             {
                 OutputStageUnit stage = _context.Machine != null ? _context.Machine.OutputStageUnit : null;
@@ -222,13 +214,11 @@ namespace QMC.CDT320.Sequencing
                     return RaiseFailure("OUT-POST-INSPECT-STAGE-MISSING", "OutputStage",
                         "Output camera 후검사를 위한 OutputStageUnit이 없습니다.");
                 }
-
                 int timeout = firstRequest != null && firstRequest.MoveTimeoutMs > 0
                     ? firstRequest.MoveTimeoutMs
                     : 10000;
-
-                // Place 시퀀스가 다이를 모두 내려놓을 때까지 OutputPlaceArea를 정상 보유한다.
-                // 후검사는 같은 영역을 이어받아야 하므로, 여기서는 모션 timeout으로 오판하지 않고
+                // Place 시퀀스가 모든 다이를 내려놓을 때까지 OutputPlaceArea를 정상 보유한다.
+                // 후검사는 같은 영역을 이어받아야 하므로 여기서는 모션 timeout으로 실패시키지 않고
                 // Stop/Alarm 취소 토큰이 들어올 때까지 기다린다.
                 placeLease = await _context.Resources.AcquireAsync(
                     SequenceResourceKind.OutputPlaceArea,
@@ -241,7 +231,6 @@ namespace QMC.CDT320.Sequencing
                     firstRequestCompleted = true;
                     return -1;
                 }
-
                 OutputPostPlaceInspectionRequest request = firstRequest;
                 while (request != null)
                 {
@@ -257,17 +246,13 @@ namespace QMC.CDT320.Sequencing
                         if (object.ReferenceEquals(request, firstRequest))
                             firstRequestCompleted = true;
                     }
-
                     if (result != 0)
                         return result;
-
                     shouldMoveVisionAvoid = true;
                     inspectedCount++;
-
                     OutputPostPlaceInspectionRequest next;
                     request = _queue.TryDequeue(out next) ? next : null;
                 }
-
                 if (shouldMoveVisionAvoid && lastRequest != null)
                 {
                     Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -275,13 +260,11 @@ namespace QMC.CDT320.Sequencing
                         ", lastDie=" + lastRequest.DieId +
                         ", lastSide=" + lastRequest.OutputSide +
                         ". 이제 OutputVisionX를 Avoid로 이동합니다. - Ok");
-
                     timeout = lastRequest.MoveTimeoutMs > 0 ? lastRequest.MoveTimeoutMs : 10000;
                     int result = await MoveVisionXToAvoidAsync(stage, lastRequest, timeout, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
-
                 return 0;
             }
             catch (OperationCanceledException)
@@ -310,18 +293,15 @@ namespace QMC.CDT320.Sequencing
             CancellationToken ct)
         {
             SequenceResourceLease stageLease = null;
-
             try
             {
                 if (stage.Recipe == null)
                     return RaiseFailure("OUT-POST-INSPECT-RECIPE", "OutputStage",
                         "Output camera 후검사를 위한 OutputStage recipe가 없습니다.");
-
                 if (request.ReceiveTarget == null)
                     return RaiseFailure("OUT-POST-INSPECT-TARGET", "Material",
                         "Output camera 후검사 대상 좌표가 없습니다. die=" + request.DieId +
                         ", side=" + request.OutputSide);
-
                 int timeout = request.MoveTimeoutMs > 0 ? request.MoveTimeoutMs : 10000;
                 SequenceResourceKind stageResource = request.OutputSide == BinSide.Ng
                     ? SequenceResourceKind.OutputNgStageArea
@@ -333,16 +313,13 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (stageLease == null)
                     return -1;
-
                 stage.Recipe.EnsurePositionObjects();
-
                 BinStageAxis yAxis = request.OutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 double baseY = request.OutputSide == BinSide.Ng
                     ? stage.Recipe.NGStageY.ProcessPosition
                     : stage.Recipe.GoodStageY.ProcessPosition;
                 double targetVisionX = stage.Recipe.VisionX.ProcessPosition + request.ReceiveTarget.TargetX;
                 double targetStageY = baseY + request.ReceiveTarget.TargetY;
-
                 int readyResult = await EnsureStageReadyForInspectionAsync(
                     stage,
                     request,
@@ -350,7 +327,6 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (readyResult != 0)
                     return readyResult;
-
                 int result = await MoveStageAxisAndVerifyAsync(
                     stage,
                     yAxis,
@@ -362,7 +338,6 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-
                 result = await MoveStageAxisAndVerifyAsync(
                     stage,
                     BinStageAxis.VisionX,
@@ -374,14 +349,12 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-
                 int slotIndex = request.ReceiveTarget.OrderIndex;
                 InspectionResultDto inspection = await SequenceAwaiter.AwaitAsync(
                     BinVisionHelper.CheckPlacementAsync(slotIndex, timeout),
                     null,
                     ct).ConfigureAwait(false);
                 bool inspectionOk = inspection != null && inspection.IsPass;
-
                 VisionOffset offset = new VisionOffset
                 {
                     X = inspection != null ? inspection.OffsetX : 0.0,
@@ -389,7 +362,6 @@ namespace QMC.CDT320.Sequencing
                     R = inspection != null ? inspection.OffsetT : 0.0,
                     IsValid = inspection != null && inspection.HasOffset
                 };
-
                 MaterialStateService.UpdateOutputStageDieInspection(
                     request.DieId,
                     request.OutputSide,
@@ -397,7 +369,6 @@ namespace QMC.CDT320.Sequencing
                     inspectionOk,
                     offset,
                     inspection != null ? inspection.Raw : "");
-
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                     "Output camera 후검사 완료. die=" + request.DieId +
                     ", side=" + request.OutputSide +
@@ -408,7 +379,6 @@ namespace QMC.CDT320.Sequencing
                     ", offsetT=" + offset.R.ToString("F6") +
                     ", visionX=" + targetVisionX.ToString("F6") +
                     ", stageY=" + targetStageY.ToString("F6") + " - Ok");
-
                 return 0;
             }
             catch (OperationCanceledException)
@@ -447,10 +417,8 @@ namespace QMC.CDT320.Sequencing
                         ", side=" + request.OutputSide +
                         ", result=" + goodZResult + ", " +
                         stage.DescribeOutputStageInterlockState(request.OutputSide));
-
                 return 0;
             }
-
             if (!stage.IsNgStageInAvoidPosition())
             {
                 int goodZToAvoidResult = await SequenceAwaiter.AwaitAsync(
@@ -463,7 +431,6 @@ namespace QMC.CDT320.Sequencing
                         request.DieId + ", result=" + goodZToAvoidResult + ", " +
                         stage.DescribeOutputStageInterlockState(request.OutputSide));
             }
-
             int ngAvoidResult = await SequenceAwaiter.AwaitAsync(
                 stage.MoveNgStageToAvoidAndVerifyAsync(timeout, request.FineMove, ct),
                 -1,
@@ -474,7 +441,6 @@ namespace QMC.CDT320.Sequencing
                     ", side=" + request.OutputSide +
                     ", result=" + ngAvoidResult + ", " +
                     stage.DescribeOutputStageInterlockState(request.OutputSide));
-
             int goodZProcessResult = await MoveStageAxisAndVerifyAsync(
                 stage,
                 BinStageAxis.GoodBinZ,
@@ -486,7 +452,6 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
             if (goodZProcessResult != 0)
                 return goodZProcessResult;
-
             return 0;
         }
 
@@ -500,13 +465,11 @@ namespace QMC.CDT320.Sequencing
                 stage.MoveVisionXToAvoidAndVerifyAsync(timeout, request.FineMove, ct),
                 -1,
                 ct).ConfigureAwait(false);
-
             if (result != 0)
                 return RaiseFailure("OUT-POST-INSPECT-VISION-AVOID", "OutputStage",
                     "Output camera 후검사 후 OutputVisionX Avoid 이동 실패. die=" + request.DieId +
                     ", side=" + request.OutputSide +
                     ", result=" + result + ", " + stage.DescribeStageLoadMoveState(request.OutputSide));
-
             return 0;
         }
 
@@ -532,7 +495,6 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + request.DieId +
                     ", side=" + request.OutputSide +
                     ". " + stage.BuildStageAxisState(axis, target));
-
             AxisMoveWaitResult waitResult = await stage.WaitStageAxisMoveDoneInPosition(
                 axis,
                 target,
@@ -545,10 +507,8 @@ namespace QMC.CDT320.Sequencing
                     ", die=" + request.DieId +
                     ", side=" + request.OutputSide +
                     ". " + AxisMoveWaiter.FormatResult(waitResult, stage.BuildStageAxisState(axis, target)));
-
             return 0;
         }
-
         private int RaiseFailure(string alarmCode, string source, string message)
         {
             MarkFailed(alarmCode, message);
@@ -571,7 +531,6 @@ namespace QMC.CDT320.Sequencing
             _failureCode = alarmCode ?? "";
             _failureMessage = message ?? "";
         }
-
         private int ReportStoredFailure(string waiter)
         {
             string safeWaiter = string.IsNullOrWhiteSpace(waiter) ? "Unknown" : waiter;
@@ -597,7 +556,6 @@ namespace QMC.CDT320.Sequencing
             int remaining = Interlocked.Decrement(ref _pendingOrRunning);
             if (remaining < 0)
                 Interlocked.Exchange(ref _pendingOrRunning, 0);
-
             if (request != null)
             {
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -616,7 +574,6 @@ namespace QMC.CDT320.Sequencing
                 CompleteRequest(request);
                 drained++;
             }
-
             if (drained > 0)
             {
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -629,7 +586,6 @@ namespace QMC.CDT320.Sequencing
         {
             if (source == null)
                 return null;
-
             return new OutputStageReceiveTarget
             {
                 StageLocation = source.StageLocation,
