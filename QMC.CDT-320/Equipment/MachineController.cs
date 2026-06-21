@@ -5149,13 +5149,20 @@ namespace QMC.CDT320
                 return;
             }
 
+            if (_cycleCts != null && _status == EquipmentStatus.AutoRunning)
+            {
+                _cycleStopRequested = true;
+                _cycleResumePending = true;
+                Log("[STOP] 일반 정지 요청: 현재 사이클 완료 후 정지합니다.");
+                return;
+            }
+
             CancelManualOperation();
 
             // 수동/조그 조작 중에는 운전자가 누른 정지 명령이므로 현재 움직이는 축을 정지한다.
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
             bool wasCycling = (_status == EquipmentStatus.AutoRunning);
-            _cycleStopRequested = false;
             _cycleResumePending = false;
             _cycleCts?.Cancel();
 
@@ -5926,18 +5933,32 @@ namespace QMC.CDT320
                 int startCycle = resumeCycle ? System.Math.Max(0, CycleDone / pickers) : 0;
                 for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
-                    if (_cycleCts.Token.IsCancellationRequested) break;
+                    if (_cycleStopRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
                     await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // ?ъ씠???몃뜳??+ total ?꾨떖
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
                     RaiseProgress();
+                    if (_cycleStopRequested)
+                    {
+                        Log("[CYCLE STOP] 현재 사이클 완료 후 정지합니다. done=" + CycleDone + "/" + CycleTotal);
+                        break;
+                    }
                     // R3 ??Manual 紐⑤뱶: 1 ?ъ씠??泥섎━ ???먮룞 ?뺤?
                     if (CycleMode == CycleMode.Manual)
                     {
                         Log("[CYCLE] Manual mode. Stop after one die batch. done=" + CycleDone);
                         break;
                     }
+                }
+
+                if (_cycleStopRequested)
+                {
+                    _cycleResumePending = true;
+                    Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
+                    try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
+                    SetStatus(EquipmentStatus.CycleStopped);
+                    return;
                 }
 
                 // ?ъ씠??醫낅즺 ???쇰뜑 ?꾪눜
@@ -6005,8 +6026,7 @@ namespace QMC.CDT320
             {
                 _cycleStopRequested = true;
                 _cycleResumePending = true;
-                _cycleCts.Cancel();
-                Log("[CYCLE STOP] requested");
+                Log("[CYCLE STOP] requested. 현재 사이클 완료 후 정지합니다.");
             }
             return Task.CompletedTask;
         }
