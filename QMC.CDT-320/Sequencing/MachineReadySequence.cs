@@ -46,12 +46,11 @@ namespace QMC.CDT320.Sequencing
         {
             return new List<ReadyStep>
             {
-                new ReadyStep("OutputStage VisionX Avoid", ct => MoveOutputStageVisionXOnlyAvoidAsync(ct)),
+                new ReadyStep("Input/Output VisionX Avoid", ct => MoveInputOutputVisionXOnlyAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker Z Avoid", ct => MoveFrontRearPickerZAxesAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker T Avoid", ct => MoveFrontRearPickerTAxesAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker Y Avoid", ct => MoveFrontRearPickerYAxesAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker X Avoid", ct => MoveFrontRearPickerXAxesAvoidAsync(ct)),
-                new ReadyStep("InputStage VisionX Avoid", ct => MoveInputStageVisionXOnlyAvoidAsync(ct)),
 
                 // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
                 //new ReadyStep("OutputStage Avoid", ct => MoveOutputStageAvoidAsync(ct)),
@@ -140,6 +139,42 @@ namespace QMC.CDT320.Sequencing
             {
                 Name = name;
                 Action = action;
+            }
+        }
+
+        private async Task<int> MoveInputOutputVisionXOnlyAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                LogStep("InputStage VisionX / OutputStage VisionX 동시 Avoid 이동 시작.");
+
+                Task<int> outputTask = MoveOutputStageVisionXOnlyAvoidAsync(ct);
+                Task<int> inputTask = MoveInputStageVisionXOnlyAvoidAsync(ct);
+
+                int[] results = await Task.WhenAll(outputTask, inputTask).ConfigureAwait(false);
+                if (results[0] != 0)
+                    return results[0];
+                if (results[1] != 0)
+                    return results[1];
+
+                LogStep("InputStage VisionX / OutputStage VisionX 동시 Avoid 이동 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "READY-INPUT-OUTPUT-VISION-X-EX",
+                    "MachineReadySequence",
+                    "InputStage VisionX / OutputStage VisionX 동시 Avoid 이동 예외: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 

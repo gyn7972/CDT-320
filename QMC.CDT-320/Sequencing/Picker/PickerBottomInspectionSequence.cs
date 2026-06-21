@@ -377,23 +377,23 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomXToInspectionAsync(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX,
-                _targetPickerX,
-                "bottom inspection X",
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = _targetPickerX;
+            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+                targets[PickerAxis.PickerY] = _targetPickerY;
+
+            int result = await MovePickerAxesAndVerifyAsync(
+                targets,
+                "bottom inspection X/Y",
                 ct,
                 "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
-            {
-                CurrentStep = PickerBottomInspectionStep.MoveBottomZ;
-                return 0;
-            }
-
-            // 피커 간 이동에서는 Y Avoid 복귀 없이 현재 피커의 AlignOffsetY가 반영된 Y 위치만 보정한다.
-            CurrentStep = PickerBottomInspectionStep.MoveBottomYToInspection;
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
+            CurrentStep = _inspectionYPositionReady
+                ? PickerBottomInspectionStep.MoveBottomZ
+                : PickerBottomInspectionStep.MoveBottomYToInspection;
             return 0;
         }
 

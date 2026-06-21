@@ -16,11 +16,16 @@ namespace QMC.CDT320.Materials
         private static readonly object _saveRequestSync = new object();
         private static readonly object _saveIoSync = new object();
         private static readonly object _stateChangedSync = new object();
-        private const int MaterialSaveQuietMs = 300;
+        // Material snapshot is large during auto run. Keep UI/state events responsive,
+        // but throttle full JSON disk saves so every die/inspection update does not
+        // serialize/validate/replace the 10MB+ state file.
+        private const int MaterialSaveQuietMs = 1000;
+        private const int MaterialSaveMinimumIntervalMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
         private static bool _saveWorkerRunning;
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
+        private static DateTime _lastSaveCompletedUtc = DateTime.MinValue;
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
@@ -2631,6 +2636,7 @@ namespace QMC.CDT320.Materials
                     await Task.Delay(MaterialSaveQuietMs).ConfigureAwait(false);
 
                     string reason;
+                    int waitMs;
                     lock (_saveRequestSync)
                     {
                         if (!_saveRequested)
@@ -2640,7 +2646,18 @@ namespace QMC.CDT320.Materials
                         }
 
                         reason = _pendingSaveReason;
-                        _saveRequested = false;
+                        waitMs = ResolveBackgroundSaveWaitMs(reason);
+                        if (waitMs <= 0)
+                        {
+                            _saveRequested = false;
+                            _pendingSaveReason = "";
+                        }
+                    }
+
+                    if (waitMs > 0)
+                    {
+                        await Task.Delay(waitMs).ConfigureAwait(false);
+                        continue;
                     }
 
                     SaveCurrentSnapshot(reason);
@@ -2659,6 +2676,53 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static int ResolveBackgroundSaveWaitMs(string reason)
+        {
+            try
+            {
+                if (IsImmediateBackgroundSaveReason(reason))
+                    return 0;
+
+                if (_lastSaveCompletedUtc == DateTime.MinValue)
+                    return 0;
+
+                double elapsedMs = (DateTime.UtcNow - _lastSaveCompletedUtc).TotalMilliseconds;
+                if (elapsedMs >= MaterialSaveMinimumIntervalMs)
+                    return 0;
+
+                int waitMs = MaterialSaveMinimumIntervalMs - (int)elapsedMs;
+                return waitMs < 0 ? 0 : waitMs;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsImmediateBackgroundSaveReason(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return false;
+
+            if (reason.IndexOf("Initialize", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Manual", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Clear", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Mapping", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("MapTransfer", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Dialog", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return false;
+        }
+
         private static bool SaveCurrentSnapshot(string reason)
         {
             bool saved = false;
@@ -2675,6 +2739,9 @@ namespace QMC.CDT320.Materials
                 {
                     saved = MaterialSnapshotStore.Save(State);
                 }
+
+                if (saved)
+                    _lastSaveCompletedUtc = DateTime.UtcNow;
 
                 if (!saved)
                 {

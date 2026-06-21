@@ -279,7 +279,7 @@ namespace QMC.CDT_320
             // lblStateBig
             // 
             this.lblStateBig.BackColor = System.Drawing.Color.Transparent;
-            this.lblStateBig.Font = new System.Drawing.Font("Segoe UI Light", 26F);
+            this.lblStateBig.Font = new System.Drawing.Font("Segoe UI", 23F, System.Drawing.FontStyle.Bold);
             this.lblStateBig.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this.lblStateBig.Location = new System.Drawing.Point(1480, 10);
             this.lblStateBig.Name = "lblStateBig";

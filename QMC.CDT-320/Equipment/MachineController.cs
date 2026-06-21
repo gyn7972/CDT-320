@@ -5135,23 +5135,30 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>?뺤?: ?꾩옱 ?숈옉 以묒씤 異??뺤? + ?쒕낫 ?곹깭???좎?.
-        /// 吏꾪뻾 以?LOT ???덉쑝硫?誘몄쭊???ㅼ씠瑜?Skipped 移댁슫?몃줈 湲곕줉?섍퀬 LOT JSON ???</summary>
-        public Task StopAsync()
+        /// <summary>
+        /// 일반 정지 요청입니다.
+        /// 자동 시퀀스 중에는 축을 즉시 정지하지 않고 현재 동작 경계에서 정지하도록 요청합니다.
+        /// 축 즉시 정지는 EMO/알람 응답 또는 수동 조작 정지에서만 수행합니다.
+        /// </summary>
+        public async Task StopAsync()
         {
+            if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
+            {
+                await RequestCycleStopSequenceAsync().ConfigureAwait(false);
+                Log("[STOP] 일반 정지 요청: 현재 동작 완료 후 시퀀스 경계에서 정지합니다.");
+                return;
+            }
+
             CancelManualOperation();
 
-            // 1) 紐⑤뱺 異??뺤? (?쒕낫???좎?)
+            // 수동/조그 조작 중에는 운전자가 누른 정지 명령이므로 현재 움직이는 축을 정지한다.
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
-            // 2) ?�이?�이 진행 중이?�면 cancel ???�제 LOT 마무리는 CycleRunAsync ??
-            //    catch (OperationCanceledException) ?먯꽌 SkippedCount ? ?④퍡 泥섎━??
             bool wasCycling = (_status == EquipmentStatus.AutoRunning);
             _cycleStopRequested = false;
             _cycleResumePending = false;
             _cycleCts?.Cancel();
 
-            // 3) 吏꾪뻾 ?곹깭 濡쒓렇 媛뺥솕 + LOT 留덈Т由?(CloseLot)
             var lot = QMC.CDT320.Lots.LotStorage.ActiveLot;
             if (wasCycling && lot != null)
             {
@@ -5167,7 +5174,6 @@ namespace QMC.CDT320
                 Log("[STOP] Stopped.");
             }
             SetStatus(EquipmentStatus.Stopped);
-            return Task.CompletedTask;
         }
 
         public IDisposable EnterManualOperation()

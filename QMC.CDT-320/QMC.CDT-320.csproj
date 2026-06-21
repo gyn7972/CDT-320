@@ -370,6 +370,7 @@
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageReceiveDieSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageInspectBinSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputPostPlaceInspectionQueue.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
