@@ -595,6 +595,9 @@
     <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\StopProgressDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\ManualSequenceDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -990,6 +993,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>

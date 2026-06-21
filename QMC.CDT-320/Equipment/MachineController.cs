@@ -58,6 +58,7 @@ namespace QMC.CDT320
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string> LogMessage;
         public event Action<int, int> CycleProgress;  // (done, total)
+        public event Action StopRequested;
         public event Action<bool> MachineInitializedChanged;
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
         public event Action<MachineReadyProgress> ReadySequenceProgressChanged;
@@ -5142,6 +5143,8 @@ namespace QMC.CDT320
         /// </summary>
         public async Task StopAsync()
         {
+            OnStopRequested();
+
             if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
             {
                 await RequestCycleStopSequenceAsync().ConfigureAwait(false);
@@ -5181,6 +5184,21 @@ namespace QMC.CDT320
                 Log("[STOP] Stopped.");
             }
             SetStatus(EquipmentStatus.Stopped);
+        }
+
+        private void OnStopRequested()
+        {
+            var handler = StopRequested;
+            if (handler == null)
+                return;
+
+            try
+            {
+                handler();
+            }
+            catch
+            {
+            }
         }
 
         public IDisposable EnterManualOperation()
@@ -5868,6 +5886,130 @@ namespace QMC.CDT320
             {
                 LastActionFailureMessage = "Picker Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message;
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public Task<int> RunManualInputLoadAsync()
+        {
+            return RunManualUnitProcessAsync(
+                "INPUT LOAD",
+                "SEQ-MANUAL-IN-LOAD",
+                async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
+                {
+                    return await new QMC.CDT320.Sequencing.InputSequence(context)
+                        .ExecuteWaferLoadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                        .ConfigureAwait(false);
+                });
+        }
+
+        public Task<int> RunManualInputUnloadAsync()
+        {
+            return RunManualUnitProcessAsync(
+                "INPUT UNLOAD",
+                "SEQ-MANUAL-IN-UNLOAD",
+                async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
+                {
+                    return await new QMC.CDT320.Sequencing.InputSequence(context)
+                        .ExecuteCurrentWaferUnloadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                        .ConfigureAwait(false);
+                });
+        }
+
+        public Task<int> RunManualOutputLoadAsync()
+        {
+            return RunManualUnitProcessAsync(
+                "OUTPUT LOAD",
+                "SEQ-MANUAL-OUT-LOAD",
+                async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
+                {
+                    return await new QMC.CDT320.Sequencing.OutputSequence(context)
+                        .ExecuteNextOutputLoadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                        .ConfigureAwait(false);
+                });
+        }
+
+        public Task<int> RunManualOutputUnloadAsync()
+        {
+            return RunManualUnitProcessAsync(
+                "OUTPUT UNLOAD",
+                "SEQ-MANUAL-OUT-UNLOAD",
+                async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
+                {
+                    return await new QMC.CDT320.Sequencing.OutputSequence(context)
+                        .ExecuteNextOutputUnloadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                        .ConfigureAwait(false);
+                });
+        }
+
+        private async Task<int> RunManualUnitProcessAsync(
+            string processLabel,
+            string alarmCodePrefix,
+            Func<QMC.CDT320.Sequencing.MachineSequenceContext, CancellationToken, Task<int>> action)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 " + processLabel + " Manual 공정을 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 " + processLabel + " Manual 공정을 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 " + processLabel + " Manual 공정을 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunManualUnitProcessAsync:" + processLabel))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (EnterManualOperation())
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+
+                    int result = await action(context, ManualOperationToken).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = processLabel + " Manual 공정 실패. result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState("ManualUnitProcess:" + processLabel);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = processLabel + " Manual 공정이 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = processLabel + " Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-EX", "MachineController", LastActionFailureMessage);
                 SetStatus(EquipmentStatus.Alarm);
                 return -1;
             }

@@ -15,6 +15,8 @@ namespace QMC.CDT_320.Ui.Tabs
     {
         private InitializationMonitorDialog _initializationMonitorDialog;
         private ReadyProgressDialog _readyProgressDialog;
+        private StopProgressDialog _stopProgressDialog;
+        private ManualSequenceDialog _manualSequenceDialog;
         private MachineController _statusController;
 
         public WorkTab()
@@ -40,7 +42,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
                     RunSafe(async c => await c.StartAsync(), false);
             });
-            RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await c.StopAsync(), false));
+            RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await RunStopSequenceWithMessageAsync(c), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
             {
                 OpenManualSequenceDialog();
@@ -73,6 +75,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 _statusController.StatusChanged -= OnControllerStatusChanged;
                 _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+                _statusController.StopRequested -= OnControllerStopRequested;
             }
 
             base.AttachHost(host);
@@ -82,6 +85,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 _statusController.StatusChanged += OnControllerStatusChanged;
                 _statusController.ReadySequenceProgressChanged += OnReadySequenceProgressChanged;
+                _statusController.StopRequested += OnControllerStopRequested;
             }
 
             UpdateCommandButtonStates();
@@ -319,6 +323,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 {
                     _statusController.StatusChanged -= OnControllerStatusChanged;
                     _statusController.ReadySequenceProgressChanged -= OnReadySequenceProgressChanged;
+                    _statusController.StopRequested -= OnControllerStopRequested;
                     _statusController = null;
                 }
 
@@ -327,6 +332,12 @@ namespace QMC.CDT_320.Ui.Tabs
 
                 if (_readyProgressDialog != null && !_readyProgressDialog.IsDisposed)
                     _readyProgressDialog.Close();
+
+                if (_stopProgressDialog != null && !_stopProgressDialog.IsDisposed)
+                    _stopProgressDialog.Close();
+
+                if (_manualSequenceDialog != null && !_manualSequenceDialog.IsDisposed)
+                    _manualSequenceDialog.Close();
             }
             catch
             {
@@ -345,8 +356,113 @@ namespace QMC.CDT_320.Ui.Tabs
                 return;
             }
 
-            using (var dlg = new ManualSequenceDialog(Host.Controller))
-                dlg.ShowDialog(FindForm());
+            if (_manualSequenceDialog != null && !_manualSequenceDialog.IsDisposed)
+            {
+                if (_manualSequenceDialog.WindowState == FormWindowState.Minimized)
+                    _manualSequenceDialog.WindowState = FormWindowState.Normal;
+
+                _manualSequenceDialog.Activate();
+                _manualSequenceDialog.BringToFront();
+                return;
+            }
+
+            _manualSequenceDialog = new ManualSequenceDialog(Host.Controller);
+            _manualSequenceDialog.FormClosed += delegate { _manualSequenceDialog = null; };
+
+            Form owner = FindForm();
+            if (owner != null)
+                _manualSequenceDialog.Show(owner);
+            else
+                _manualSequenceDialog.Show();
+        }
+
+        private async System.Threading.Tasks.Task RunStopSequenceWithMessageAsync(MachineController controller)
+        {
+            await ShowStopProgressAsync(controller, true);
+        }
+
+        private async System.Threading.Tasks.Task ShowStopProgressAsync(MachineController controller, bool issueStopCommand)
+        {
+            if (controller == null)
+                return;
+
+            if (_stopProgressDialog != null && !_stopProgressDialog.IsDisposed)
+            {
+                _stopProgressDialog.Activate();
+                _stopProgressDialog.BringToFront();
+                return;
+            }
+
+            IWin32Window owner = FindForm() ?? (IWin32Window)Form.ActiveForm;
+            StopProgressDialog progressDialog = null;
+            try
+            {
+                progressDialog = new StopProgressDialog(controller);
+                _stopProgressDialog = progressDialog;
+                if (owner != null)
+                    progressDialog.Show(owner);
+                else
+                    progressDialog.Show();
+                progressDialog.BringToFront();
+                progressDialog.Activate();
+                progressDialog.Refresh();
+            }
+            catch (Exception ex)
+            {
+                progressDialog = null;
+                _stopProgressDialog = null;
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopProgressDialog",
+                    "Stop progress dialog open failed: " + ex.Message + " - Failed");
+            }
+
+            await System.Threading.Tasks.Task.Yield();
+
+            try
+            {
+                if (issueStopCommand)
+                    await controller.StopAsync();
+
+                if (progressDialog != null && !progressDialog.IsDisposed)
+                {
+                    await progressDialog.WaitForStopCompleteAsync();
+                    await System.Threading.Tasks.Task.Delay(controller.Status == EquipmentStatus.Alarm ? 500 : 700);
+                }
+            }
+            finally
+            {
+                if (progressDialog != null && !progressDialog.IsDisposed)
+                {
+                    try
+                    {
+                        progressDialog.Close();
+                        progressDialog.Dispose();
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                _stopProgressDialog = null;
+            }
+        }
+
+        private void OnControllerStopRequested()
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                try { BeginInvoke(new Action(OnControllerStopRequested)); }
+                catch { }
+                return;
+            }
+
+            MachineController controller = Host != null ? Host.Controller : _statusController;
+            if (controller == null)
+                return;
+
+            _ = ShowStopProgressAsync(controller, false);
         }
 
         private void OnControllerStatusChanged(EquipmentStatus status)
@@ -385,6 +501,10 @@ namespace QMC.CDT_320.Ui.Tabs
             bool autoRunning = status == EquipmentStatus.AutoRunning;
             bool manualRunning = status == EquipmentStatus.ManualRunning;
 
+            SetCommandButtonEnabled(BtnInit, !autoRunning);
+            SetCommandButtonEnabled(BtnReady, !autoRunning);
+            SetCommandButtonEnabled(BtnCycleRun, !autoRunning);
+
             ClearCommandButtonState(BtnReady);
             ClearCommandButtonState(BtnStart);
             ClearCommandButtonState(BtnStop);
@@ -399,7 +519,6 @@ namespace QMC.CDT_320.Ui.Tabs
             if (autoRunning)
             {
                 SetCommandButtonState(BtnStart, System.Drawing.Color.FromArgb(0xE8, 0x5D, 0x1A), System.Drawing.Color.White);
-                SetCommandButtonState(BtnCycleRun, System.Drawing.Color.FromArgb(0xE8, 0x5D, 0x1A), System.Drawing.Color.White);
             }
             else if (manualRunning)
             {
@@ -414,6 +533,15 @@ namespace QMC.CDT_320.Ui.Tabs
 
             if (status == EquipmentStatus.Alarm)
                 SetCommandButtonState(BtnResetAlarm, System.Drawing.Color.FromArgb(0xC6, 0x28, 0x28), System.Drawing.Color.White);
+        }
+
+        private static void SetCommandButtonEnabled(SidebarButton button, bool enabled)
+        {
+            if (button == null)
+                return;
+
+            if (button.Enabled != enabled)
+                button.Enabled = enabled;
         }
 
         private static void SetCommandButtonState(SidebarButton button, System.Drawing.Color backColor, System.Drawing.Color foreColor)
