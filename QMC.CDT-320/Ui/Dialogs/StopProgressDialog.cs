@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common;
+using QMC.Common.Motion;
 using QMC.CDT320;
 using QMC.CDT320.Sequencing;
 using QMC.Common.Ui.Controls;
@@ -17,6 +20,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly MachineController _controller;
         private readonly Timer _refreshTimer;
         private readonly TaskCompletionSource<bool> _completionSource = new TaskCompletionSource<bool>();
+        private DateTime? _motionIdleSinceUtc;
         private bool _completed;
 
         public StopProgressDialog(MachineController controller)
@@ -97,6 +101,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             EquipmentStatus status = _controller != null ? _controller.Status : EquipmentStatus.Idle;
             ProgressState state = MapProgressState(status);
+            bool axesIdle = AreAxesIdle(out string movingAxesText);
+            bool canCloseAsStopped = IsTerminalStopState(status) && axesIdle && IsMotionIdleSettled();
+
+            if (state == ProgressState.Completed && !canCloseAsStopped)
+                state = ProgressState.Running;
+            else if (state == ProgressState.Canceled && !axesIdle)
+                state = ProgressState.Running;
+
             bool done = state == ProgressState.Completed || state == ProgressState.Failed || state == ProgressState.Canceled;
 
             int total = 4;
@@ -114,6 +126,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 stepName = "알람 상태";
                 message = "정지 처리 중 알람이 발생했습니다. Alarm/Event Log를 확인하세요.";
+            }
+            else if (!axesIdle)
+            {
+                stepName = "축 이동 완료 대기";
+                message += Environment.NewLine + "이동 중 축 : " + movingAxesText;
+            }
+            else if (IsTerminalStopState(status))
+            {
+                stepName = "축 정지 안정 확인";
+                message += Environment.NewLine + "모든 축 이동 완료 확인 중입니다.";
             }
 
             int percent = total > 0 ? Math.Min(100, Math.Max(0, completed * 100 / total)) : 0;
@@ -143,6 +165,97 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return ProgressState.Canceled;
                 default:
                     return ProgressState.Running;
+            }
+        }
+
+        private bool AreAxesIdle(out string movingAxesText)
+        {
+            movingAxesText = "";
+            if (_controller == null || _controller.Machine == null)
+            {
+                _motionIdleSinceUtc = DateTime.UtcNow;
+                return true;
+            }
+
+            var moving = new List<string>();
+            foreach (BaseAxis axis in EnumerateAxes(_controller.Machine))
+            {
+                if (axis != null && axis.IsMoving)
+                {
+                    string name = !string.IsNullOrWhiteSpace(axis.Name) ? axis.Name : axis.GetType().Name;
+                    moving.Add(name + "(" + axis.ActualPosition.ToString("0.###") + ")");
+                    if (moving.Count >= 6)
+                        break;
+                }
+            }
+
+            if (moving.Count == 0)
+            {
+                if (!_motionIdleSinceUtc.HasValue)
+                    _motionIdleSinceUtc = DateTime.UtcNow;
+
+                return true;
+            }
+
+            _motionIdleSinceUtc = null;
+            movingAxesText = string.Join(", ", moving.ToArray());
+            return false;
+        }
+
+        private bool IsMotionIdleSettled()
+        {
+            return _motionIdleSinceUtc.HasValue &&
+                   (DateTime.UtcNow - _motionIdleSinceUtc.Value).TotalMilliseconds >= 500.0;
+        }
+
+        private static bool IsTerminalStopState(EquipmentStatus status)
+        {
+            return status == EquipmentStatus.Stopped ||
+                   status == EquipmentStatus.CycleStopped ||
+                   status == EquipmentStatus.Ready ||
+                   status == EquipmentStatus.Idle;
+        }
+
+        private static IEnumerable<BaseAxis> EnumerateAxes(CDT320_Machine machine)
+        {
+            if (machine == null || machine.Units == null)
+                yield break;
+
+            foreach (BaseEquipmentNode unit in machine.Units)
+            {
+                foreach (BaseAxis axis in EnumerateAxes(unit))
+                    yield return axis;
+            }
+        }
+
+        private static IEnumerable<BaseAxis> EnumerateAxes(BaseEquipmentNode node)
+        {
+            if (node == null)
+                yield break;
+
+            var axis = node as BaseAxis;
+            if (axis != null)
+            {
+                yield return axis;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null)
+                yield break;
+
+            var components = prop.GetValue(node, null) as System.Collections.IEnumerable;
+            if (components == null)
+                yield break;
+
+            foreach (object child in components)
+            {
+                BaseEquipmentNode childNode = child as BaseEquipmentNode;
+                if (childNode == null)
+                    continue;
+
+                foreach (BaseAxis childAxis in EnumerateAxes(childNode))
+                    yield return childAxis;
             }
         }
 
