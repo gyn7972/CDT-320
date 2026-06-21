@@ -2,6 +2,7 @@ using System;
 using System.Windows.Forms;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
@@ -60,6 +61,25 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     btnCcs.Text,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
+            };
+
+            btnTestAlarm.Click += (s, e) =>
+            {
+                try
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        QMC.CDT_320.Ui.Security.UserSession.Name,
+                        "TEST-ALARM",
+                        "작업 메인 화면에서 테스트 알람 버튼을 눌렀습니다.");
+                }
+                catch { }
+
+                AlarmManager.Raise(
+                    AlarmSeverity.Critical,
+                    "TEST-ALARM",
+                    "WorkMainPage",
+                    "테스트 알람이 발생했습니다. 오토/메뉴얼 시퀀스 정지 및 축 긴급 정지 응답을 확인하세요.");
             };
         }
 
