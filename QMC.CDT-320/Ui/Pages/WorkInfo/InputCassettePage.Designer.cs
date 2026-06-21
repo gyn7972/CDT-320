@@ -144,7 +144,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 143F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 96F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
@@ -638,7 +638,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPrev.Name = "btnPrev";
             this.btnPrev.Size = new System.Drawing.Size(105, 36);
             this.btnPrev.TabIndex = 4;
-            this.btnPrev.Tag = "i18n:common.prev";
             this.btnPrev.Text = "PREV";
             // 
             // btnNext
@@ -650,7 +649,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnNext.Name = "btnNext";
             this.btnNext.Size = new System.Drawing.Size(105, 36);
             this.btnNext.TabIndex = 5;
-            this.btnNext.Tag = "i18n:common.next";
             this.btnNext.Text = "NEXT";
             // 
             // btnInit
@@ -662,7 +660,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInit.Name = "btnInit";
             this.btnInit.Size = new System.Drawing.Size(105, 36);
             this.btnInit.TabIndex = 6;
-            this.btnInit.Tag = "i18n:wi.lifterInit";
             this.btnInit.Text = "LIFTER INIT";
             // 
             // btnReady
@@ -674,7 +671,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnReady.Name = "btnReady";
             this.btnReady.Size = new System.Drawing.Size(105, 36);
             this.btnReady.TabIndex = 7;
-            this.btnReady.Tag = "i18n:wi.lifterReady";
             this.btnReady.Text = "LIFTER READY";
             // 
             // grpLifter

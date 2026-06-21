@@ -185,8 +185,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.leftLayout.ColumnCount = 3;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 27.65957F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 39.41236F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 27F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.leftLayout.Controls.Add(this.grpState, 0, 0);
             this.leftLayout.Controls.Add(this.grpCounters, 1, 0);
             this.leftLayout.Controls.Add(this.grpCylinder, 2, 0);
@@ -216,8 +216,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // stateLayout
             // 
             this.stateLayout.ColumnCount = 2;
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.86159F));
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.13841F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.stateLayout.Controls.Add(this.lblStageExistTitle, 0, 0);
             this.stateLayout.Controls.Add(this.lblStageExistValue, 1, 0);
             this.stateLayout.Controls.Add(this.lblStageAlignTitle, 0, 1);
