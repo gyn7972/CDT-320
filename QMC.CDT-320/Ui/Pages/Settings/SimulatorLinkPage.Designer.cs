@@ -77,7 +77,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             this.grpLink.Controls.Add(this.linkLayout);
             this.grpLink.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.grpLink.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpLink.Location = new System.Drawing.Point(8, 40);
             this.grpLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpLink.Name = "grpLink";

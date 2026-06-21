@@ -454,7 +454,7 @@
             // 
             this.grpConfig.Controls.Add(this.pgConfig);
             this.grpConfig.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpConfig.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpConfig.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpConfig.Location = new System.Drawing.Point(3, 3);
             this.grpConfig.Name = "grpConfig";
             this.grpConfig.Size = new System.Drawing.Size(442, 184);
@@ -485,7 +485,7 @@
             // 
             this.grpInposition.Controls.Add(this.pgInposition);
             this.grpInposition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpInposition.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpInposition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpInposition.Location = new System.Drawing.Point(451, 3);
             this.grpInposition.Name = "grpInposition";
             this.grpInposition.Size = new System.Drawing.Size(442, 184);
@@ -516,7 +516,7 @@
             // 
             this.grpLimit.Controls.Add(this.pgLimit);
             this.grpLimit.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpLimit.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpLimit.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpLimit.Location = new System.Drawing.Point(899, 3);
             this.grpLimit.Name = "grpLimit";
             this.grpLimit.Size = new System.Drawing.Size(442, 184);
@@ -547,7 +547,7 @@
             // 
             this.grpEmergency.Controls.Add(this.pgEmergency);
             this.grpEmergency.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpEmergency.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpEmergency.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpEmergency.Location = new System.Drawing.Point(3, 193);
             this.grpEmergency.Name = "grpEmergency";
             this.grpEmergency.Size = new System.Drawing.Size(442, 134);
@@ -578,7 +578,7 @@
             // 
             this.grpHome.Controls.Add(this.pgHome);
             this.grpHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpHome.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpHome.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpHome.Location = new System.Drawing.Point(451, 193);
             this.grpHome.Name = "grpHome";
             this.grpHome.Size = new System.Drawing.Size(442, 134);
@@ -609,7 +609,7 @@
             // 
             this.grpAlarm.Controls.Add(this.pgAlarm);
             this.grpAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpAlarm.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpAlarm.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpAlarm.Location = new System.Drawing.Point(899, 193);
             this.grpAlarm.Name = "grpAlarm";
             this.grpAlarm.Size = new System.Drawing.Size(442, 134);
@@ -640,7 +640,7 @@
             // 
             this.grpPositionClear.Controls.Add(this.pgPositionClear);
             this.grpPositionClear.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpPositionClear.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.grpPositionClear.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.grpPositionClear.Location = new System.Drawing.Point(3, 333);
             this.grpPositionClear.Name = "grpPositionClear";
             this.grpPositionClear.Size = new System.Drawing.Size(442, 146);
