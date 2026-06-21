@@ -278,6 +278,12 @@ namespace QMC.CDT320.Materials
         [DataMember] public double PosX { get; set; }
         [DataMember] public double PosY { get; set; }
         [DataMember] public string DieUid { get; set; } = "";
+        [DataMember] public bool IsOutputInspectionDone { get; set; }
+        [DataMember] public bool IsOutputInspectionOk { get; set; }
+        [DataMember] public double OutputInspectionOffsetX { get; set; }
+        [DataMember] public double OutputInspectionOffsetY { get; set; }
+        [DataMember] public double OutputInspectionOffsetT { get; set; }
+        [DataMember] public string OutputInspectionRaw { get; set; } = "";
     }
 
     [DataContract]

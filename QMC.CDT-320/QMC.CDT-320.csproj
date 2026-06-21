@@ -710,6 +710,7 @@
     <Compile Include="Sequencing\Picker\PickerSequenceKind.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceOptions.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpStep.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPrepareStep.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
@@ -717,6 +718,8 @@
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />

@@ -1182,6 +1182,112 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static void UpdateOutputStageDieInspection(
+            string dieId,
+            QMC.CDT320.BinSide side,
+            OutputStageReceiveTarget receiveTarget,
+            bool inspectionOk,
+            VisionOffset offset,
+            string raw)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return;
+
+                    MaterialLocationKind stageLocation = ResolveOutputStageLocation(side);
+                    WaferMaterial outputWafer = GetWaferAtLocation(stageLocation);
+                    DieMaterial die = GetOrCreateDieMaterial(dieId);
+
+                    if (offset == null)
+                        offset = new VisionOffset();
+
+                    die.BinOffset = offset;
+                    if (die.Inspections == null)
+                        die.Inspections = new List<DieInspectionRecord>();
+
+                    DieInspectionRecord record = die.Inspections.FirstOrDefault(x =>
+                        x != null &&
+                        string.Equals(x.InspectionType, "OutputPlaceVision", StringComparison.OrdinalIgnoreCase));
+                    if (record == null)
+                    {
+                        record = new DieInspectionRecord { InspectionType = "OutputPlaceVision" };
+                        die.Inspections.Add(record);
+                    }
+
+                    record.Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+                    record.Offset = offset;
+                    record.UpdatedAt = DateTime.Now;
+                    record.Measurements = new List<InspectionMeasurement>
+                    {
+                        new InspectionMeasurement
+                        {
+                            Name = "OutputVisionResult",
+                            Value = inspectionOk ? 1.0 : 0.0,
+                            Unit = "bool",
+                            RawValue = inspectionOk ? "OK" : "NG",
+                            Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                        },
+                        new InspectionMeasurement
+                        {
+                            Name = "OutputVisionRaw",
+                            RawValue = raw ?? "",
+                            Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                        }
+                    };
+
+                    if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
+                    {
+                        OutputReceiveSlotMaterial slot = null;
+                        if (receiveTarget != null)
+                        {
+                            slot = outputWafer.OutputReceiveSlots.FirstOrDefault(s =>
+                                s != null && s.OrderIndex == receiveTarget.OrderIndex);
+                        }
+
+                        if (slot == null)
+                        {
+                            slot = outputWafer.OutputReceiveSlots.FirstOrDefault(s =>
+                                s != null &&
+                                string.Equals(s.DieUid, dieId, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        if (slot != null)
+                        {
+                            slot.DieUid = dieId;
+                            slot.IsOutputInspectionDone = true;
+                            slot.IsOutputInspectionOk = inspectionOk;
+                            slot.OutputInspectionOffsetX = offset.X;
+                            slot.OutputInspectionOffsetY = offset.Y;
+                            slot.OutputInspectionOffsetT = offset.R;
+                            slot.OutputInspectionRaw = raw ?? "";
+                            outputWafer.UpdatedAt = DateTime.Now;
+                        }
+                    }
+
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("OutputStageDieInspection");
+                    Log.Write("Main", "MATERIAL", "OutputStageDieInspection",
+                        "Output stage die inspection updated. die=" + dieId +
+                        ", side=" + side +
+                        ", ok=" + inspectionOk +
+                        ", offsetX=" + offset.X +
+                        ", offsetY=" + offset.Y +
+                        ", offsetT=" + offset.R + " - Ok");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output stage die inspection update failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side)
         {
             string reason;
