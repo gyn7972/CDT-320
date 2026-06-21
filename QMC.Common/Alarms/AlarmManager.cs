@@ -57,6 +57,11 @@ namespace QMC.Common.Alarms
 
         public static AlarmRecord Raise(AlarmSeverity sev, string code, string source, string message)
         {
+            // 안전 등급 재정의 전까지는 Warning도 Error로 승격한다.
+            // Warning 상태로 시퀀스가 계속 진행되면 장비 간섭/모션 알람을 놓칠 수 있다.
+            if (sev == AlarmSeverity.Warning)
+                sev = AlarmSeverity.Error;
+
             // Stage 19 — AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
             // Stage 23 — Lang.Current (ko/en) 적용
             if (string.IsNullOrEmpty(message))

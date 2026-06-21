@@ -73,6 +73,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblLotCaption;
         private Label lblLot;
         private Button btnCcs;
+        private Button btnTestAlarm;
 
         private void InitializeComponent()
         {
@@ -142,6 +143,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblLotCaption = new Label();
             this.lblLot = new Label();
             this.btnCcs = new Button();
+            this.btnTestAlarm = new Button();
             this.SuspendLayout();
 
             this.rootLayout.BackColor = UiTheme.MainBg;
@@ -370,9 +372,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.Controls.Add(this.lblLotCaption, 0, 6);
             this.workTimeBody.Controls.Add(this.lblLot, 1, 6);
             this.workTimeBody.Controls.Add(this.btnCcs, 2, 6);
+            this.workTimeBody.Controls.Add(this.btnTestAlarm, 0, 7);
             this.workTimeBody.Dock = DockStyle.Fill;
             this.workTimeBody.Padding = new Padding(6);
-            this.workTimeBody.RowCount = 7;
+            this.workTimeBody.RowCount = 8;
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
@@ -380,7 +383,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            this.workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
             this.workTimeBody.SetColumnSpan(this.btnCcs, 2);
+            this.workTimeBody.SetColumnSpan(this.btnTestAlarm, 4);
 
             this.lblProjectCaption.BackColor = Color.FromArgb(0xD0, 0xD0, 0xD0);
             this.lblProjectCaption.Dock = DockStyle.Fill;
@@ -710,6 +715,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnCcs.ForeColor = Color.White;
             this.btnCcs.Tag = "i18n:work.workTime.ccs";
             this.btnCcs.Text = Lang.T("work.workTime.ccs");
+            this.btnTestAlarm.BackColor = Color.FromArgb(0xB7, 0x1C, 0x1C);
+            this.btnTestAlarm.Dock = DockStyle.Fill;
+            this.btnTestAlarm.FlatStyle = FlatStyle.Flat;
+            this.btnTestAlarm.Font = UiTheme.ButtonFont;
+            this.btnTestAlarm.ForeColor = Color.White;
+            this.btnTestAlarm.Text = "TEST ALARM";
 
             this.Controls.Add(this.rootLayout);
             this.Name = "WorkMainPage";
