@@ -10,7 +10,6 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnStart;
         internal SidebarButton BtnStop;
         internal SidebarButton BtnCycleRun;
-        internal SidebarButton BtnCycleStop;
         internal SidebarButton BtnResetAlarm;
         internal SidebarButton BtnShutdown;
         internal SidebarButton BtnEStop;
@@ -41,7 +40,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnStart = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnStop = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnCycleRun = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnCycleStop = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnResetAlarm = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnShutdown = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnEStop = new QMC.CDT_320.Ui.Controls.SidebarButton();
@@ -156,17 +154,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnCycleRun.Size = new System.Drawing.Size(184, 46);
             this.BtnCycleRun.TabIndex = 6;
             this.BtnCycleRun.Text = "CYCLE RUN";
-            //
-            // BtnCycleStop
-            //
-            this.BtnCycleStop.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnCycleStop.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnCycleStop.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnCycleStop.Name = "BtnCycleStop";
-            this.BtnCycleStop.Selected = false;
-            this.BtnCycleStop.Size = new System.Drawing.Size(184, 46);
-            this.BtnCycleStop.TabIndex = 7;
-            this.BtnCycleStop.Text = "CYCLE STOP";
             //
             // BtnResetAlarm
             //
@@ -392,7 +379,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnStart);
             this.PnlSidebarButtons.Controls.Add(this.BtnStop);
             this.PnlSidebarButtons.Controls.Add(this.BtnCycleRun);
-            this.PnlSidebarButtons.Controls.Add(this.BtnCycleStop);
             this.PnlSidebarButtons.Controls.Add(this.BtnResetAlarm);
             this.PnlSidebarButtons.Controls.Add(this.BtnShutdown);
             this.PnlSidebarButtons.Controls.Add(this.BtnEStop);
