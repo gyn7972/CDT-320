@@ -90,7 +90,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpActiveLot.Controls.Add(this.lotLayout);
             this.grpActiveLot.Dock = DockStyle.Fill;
             this.grpActiveLot.Font = UiTheme.SectionFont;
-            this.grpActiveLot.Text = "Active Lot";
+            this.grpActiveLot.Text = "ACTIVE LOT";
 
             this.lotLayout.ColumnCount = 2;
             this.lotLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
@@ -235,7 +235,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpBin.Controls.Add(this._binPanel);
             this.grpBin.Dock = DockStyle.Fill;
             this.grpBin.Font = UiTheme.SectionFont;
-            this.grpBin.Text = "Bin distribution";
+            this.grpBin.Text = "BIN DISTRIBUTION";
 
             this._binPanel.BackColor = Color.White;
             this._binPanel.Dock = DockStyle.Fill;

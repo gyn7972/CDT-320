@@ -77,12 +77,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._grid.BackgroundColor = System.Drawing.Color.White;
             this._grid.ColumnHeadersDefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             this._grid.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(80, 80, 80);
-            this._grid.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this._grid.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._grid.ColumnHeadersDefaultCellStyle.ForeColor = System.Drawing.Color.White;
             this._grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colIdx, this.colName, this.colServo, this.colMove, this.colAlarm, this.colPos, this.colResult });
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
-            this._grid.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._grid.MultiSelect = false;
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;

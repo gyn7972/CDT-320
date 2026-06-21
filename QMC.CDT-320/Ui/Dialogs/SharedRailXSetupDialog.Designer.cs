@@ -126,7 +126,7 @@
             // lblTitle
             // 
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Malgun Gothic", 12F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
             this.lblTitle.Name = "lblTitle";
             this.lblTitle.Size = new System.Drawing.Size(1154, 34);
@@ -257,7 +257,7 @@
             //
             this.lblStatusParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
             this.lblStatusParameter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStatusParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblStatusParameter.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblStatusParameter.Location = new System.Drawing.Point(3, 0);
             this.lblStatusParameter.Name = "lblStatusParameter";
             this.lblStatusParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
@@ -270,7 +270,7 @@
             //
             this.lblTestParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
             this.lblTestParameter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTestParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblTestParameter.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblTestParameter.Location = new System.Drawing.Point(441, 0);
             this.lblTestParameter.Name = "lblTestParameter";
             this.lblTestParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
@@ -289,7 +289,7 @@
             this.grid.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             headerStyle.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
-            headerStyle.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            headerStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             headerStyle.ForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
             headerStyle.SelectionBackColor = System.Drawing.Color.FromArgb(238, 242, 246);
             headerStyle.SelectionForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
@@ -505,7 +505,7 @@
             this.btnStop.BackColor = System.Drawing.Color.FromArgb(176, 48, 48);
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStop.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
             this.btnStop.Location = new System.Drawing.Point(1067, 11);
             this.btnStop.Name = "btnStop";
@@ -536,7 +536,7 @@
             // lblStatus
             // 
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStatus.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblStatus.Location = new System.Drawing.Point(3, 589);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(1154, 28);
@@ -550,7 +550,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1184, 641);
             this.Controls.Add(this.layoutRoot);
-            this.Font = new System.Drawing.Font("Malgun Gothic", 9F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MinimumSize = new System.Drawing.Size(1080, 520);
             this.Name = "SharedRailXSetupDialog";
             this.Padding = new System.Windows.Forms.Padding(12);

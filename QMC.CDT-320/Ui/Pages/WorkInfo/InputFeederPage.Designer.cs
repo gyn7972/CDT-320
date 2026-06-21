@@ -121,7 +121,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             this.lblHeader.ForeColor = Color.White;
             this.lblHeader.Padding = new Padding(10, 0, 0, 0);
-            this.lblHeader.Text = "INFO";
+            this.lblHeader.Tag = "i18n:wi.inputFeeder";
+            this.lblHeader.Text = "INPUT FEEDER";
             this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
             this.topLayout.ColumnCount = 3;

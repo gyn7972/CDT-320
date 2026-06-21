@@ -75,7 +75,7 @@
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1400, 26);
+            this.lblHeader.Size = new System.Drawing.Size(1400, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "I/O CONTROL";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;

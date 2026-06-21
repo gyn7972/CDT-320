@@ -186,7 +186,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             headerStyle.BackColor = System.Drawing.SystemColors.Control;
-            headerStyle.Font = new System.Drawing.Font("Malgun Gothic", 9F);
+            headerStyle.Font = new System.Drawing.Font("맑은 고딕", 9F);
             headerStyle.ForeColor = System.Drawing.SystemColors.WindowText;
             headerStyle.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             headerStyle.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -365,7 +365,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(844, 421);
             this.Controls.Add(this.rootLayout);
-            this.Font = new System.Drawing.Font("Malgun Gothic", 9F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "InputStageDieMapSetupDialog";

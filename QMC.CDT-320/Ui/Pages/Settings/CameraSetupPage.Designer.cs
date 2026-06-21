@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Text = "CAMERA SETUP";
@@ -85,7 +85,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._grid.Columns["ROLE"].ReadOnly = true;
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
-            this._grid.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this._grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._grid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this._grid.MultiSelect = false;
             this._grid.RowHeadersVisible = false;

@@ -193,6 +193,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
+            this.lblHeader.Tag = "i18n:wi.outputStage";
             this.lblHeader.Text = "OUTPUT STAGE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
