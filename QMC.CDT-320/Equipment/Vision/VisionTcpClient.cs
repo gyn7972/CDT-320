@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -301,16 +302,80 @@ namespace QMC.CDT320.VisionComm
 
     public class InspectionResultDto
     {
-        public bool   IsPass   { get; set; }
-        public string Raw      { get; set; }
+        public bool   IsPass    { get; set; }
+        public bool   HasOffset { get; set; }
+        public double OffsetX   { get; set; }
+        public double OffsetY   { get; set; }
+        public double OffsetT   { get; set; }
+        public double Score     { get; set; }
+        public string Raw       { get; set; }
+
         public static InspectionResultDto Parse(string line)
         {
             var r = new InspectionResultDto { Raw = line };
             if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) return r;
             var parts = line.Split('|');
             if (parts.Length < 4) return r;
-            r.IsPass = parts[3].StartsWith("PASS");
+
+            var tokens = parts[3].Split(';');
+            if (tokens.Length == 0) return r;
+
+            string result = tokens[0].Trim();
+            r.IsPass =
+                string.Equals(result, "PASS", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(result, "OK", StringComparison.OrdinalIgnoreCase);
+
+            foreach (var token in tokens)
+            {
+                var eq = token.IndexOf('=');
+                if (eq <= 0) continue;
+
+                string key = token.Substring(0, eq).Trim();
+                string value = token.Substring(eq + 1).Trim();
+                double parsed;
+                if (!TryParseDouble(value, out parsed))
+                    continue;
+
+                switch (key.ToLowerInvariant())
+                {
+                    case "x":
+                    case "dx":
+                    case "offsetx":
+                    case "offset_x":
+                        r.OffsetX = parsed;
+                        r.HasOffset = true;
+                        break;
+                    case "y":
+                    case "dy":
+                    case "offsety":
+                    case "offset_y":
+                        r.OffsetY = parsed;
+                        r.HasOffset = true;
+                        break;
+                    case "r":
+                    case "t":
+                    case "dt":
+                    case "theta":
+                    case "offsett":
+                    case "offset_t":
+                        r.OffsetT = parsed;
+                        r.HasOffset = true;
+                        break;
+                    case "score":
+                        r.Score = parsed;
+                        break;
+                }
+            }
+
             return r;
+        }
+
+        private static bool TryParseDouble(string value, out double result)
+        {
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result))
+                return true;
+
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out result);
         }
     }
 }

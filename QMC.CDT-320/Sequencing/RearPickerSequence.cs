@@ -199,6 +199,9 @@ namespace QMC.CDT320.Sequencing
                 if (HasLoadedDieOnPicker())
                     return true;
 
+                if (!IsRearPickerEnabled())
+                    return false;
+
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
@@ -291,6 +294,27 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker Front 우선권 대기 로그 처리 중 예외 발생: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsRearPickerEnabled()
+        {
+            try
+            {
+                return Context != null &&
+                       Context.Machine != null &&
+                       Context.Machine.PickerRearUnit != null &&
+                       Context.Machine.PickerRearUnit.Config != null &&
+                       Context.Machine.PickerRearUnit.Config.UseUnit;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("IsRearPickerEnabled",
+                    "RearPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

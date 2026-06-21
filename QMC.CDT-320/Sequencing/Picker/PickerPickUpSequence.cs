@@ -151,9 +151,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
-                // 이번 PickUp 사이클에서 사용할 다이 배치 예약
+                // Input die vision 준비
                 case PickerPickUpStep.BuildPickBatch:
-                    return Task.FromResult(BuildPickBatch());
+                    return PrepareInputDieVisionBatchAsync(ct);
 
                 // 다음 비전 검사 대상 선택
                 case PickerPickUpStep.SelectNextInspectionTarget:
@@ -403,84 +403,70 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int BuildPickBatch()
+        private async Task<int> PrepareInputDieVisionBatchAsync(CancellationToken ct)
         {
-            _pickBatchItems.Clear();
-            _inspectionCursor = 0;
-            _pickCursor = 0;
-            ClearCurrentPickContext();
-
-            int occupiedPickerCount = 0;
-            for (int i = 0; i < _enabledPickerIndexes.Count; i++)
+            try
             {
-                int pickerIndex = _enabledPickerIndexes[i];
-                int pickerNo = ToPickerNo(pickerIndex);
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+                ClearCurrentPickContext();
 
-                DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
-                if (loadedDie != null)
+                InputDieVisionPrepareSequence prepareSequence = new InputDieVisionPrepareSequence(
+                    Context,
+                    Side,
+                    _enabledPickerIndexes);
+
+                int result = await prepareSequence.RunAsync(ct, Options).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                IList<InputDieVisionPreparedItem> preparedItems = prepareSequence.PreparedItems;
+                for (int i = 0; i < preparedItems.Count; i++)
                 {
-                    occupiedPickerCount++;
-                    WriteLog("PickerPickUpSequence",
-                        Name + " picker already has die, skip pickup reservation. " +
-                        "이미 Die를 가지고 있어 PickUp 예약에서 제외합니다. " +
-                        "pickerNo=" + pickerNo +
-                        ", pickerIndex=" + pickerIndex +
-                        ", loadedDie=" + loadedDie.DieId + " - Check");
-                    continue;
+                    InputDieVisionPreparedItem prepared = preparedItems[i];
+                    if (prepared == null)
+                        continue;
+
+                    _pickBatchItems.Add(new PickUpBatchItem
+                    {
+                        PickerIndex = prepared.PickerIndex,
+                        PickerNo = prepared.PickerNo,
+                        DieId = prepared.DieId,
+                        PickTarget = prepared.PickTarget,
+                        VisionOffset = prepared.VisionOffset,
+                        DiePicked = prepared.DiePicked
+                    });
                 }
 
-                InputStagePickTarget target = MaterialStateService.ReserveNextInputStagePickTarget(PickerLocationKind, pickerNo);
-                string dieId = target != null ? target.DieId : "";
-
-                if (string.IsNullOrWhiteSpace(dieId))
+                if (_pickBatchItems.Count == 0)
                 {
                     WriteLog("PickerPickUpSequence",
-                        Name + " has no more ready input die for batch. pickerNo=" + pickerNo + " - Check");
-                    continue;
+                        Name + " Input die vision 준비 결과가 없어 PickUp을 완료 처리합니다. side=" + Side + " - Check");
+                    CurrentStep = PickerPickUpStep.Complete;
+                    ReleaseInputStageArea();
+                    return 0;
                 }
-
-                PickUpBatchItem item = new PickUpBatchItem
-                {
-                    PickerIndex = pickerIndex,
-                    PickerNo = pickerNo,
-                    DieId = dieId,
-                    PickTarget = target
-                };
-                _pickBatchItems.Add(item);
 
                 WriteLog("PickerPickUpSequence",
-                    Name + " reserved input die for batch. die=" + dieId +
-                    ", pickerNo=" + pickerNo +
-                    ", pickerIndex=" + pickerIndex +
-                    ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
-                    ", inputVisionX=" + target.TargetX +
-                    ", inputStageY=" + target.TargetY + " - Ok");
-            }
+                    Name + " Input die vision 준비 결과를 PickUp 배치로 받았습니다. count=" + _pickBatchItems.Count +
+                    ", enabledPickerCount=" + _enabledPickerIndexes.Count + " - Ok");
 
-            if (_pickBatchItems.Count == 0)
-            {
-                if (occupiedPickerCount > 0 && occupiedPickerCount >= _enabledPickerIndexes.Count)
-                {
-                    return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
-                        "사용 설정된 모든 Picker가 이미 Die를 가지고 있어 PickUp을 시작할 수 없습니다. " +
-                        "먼저 검사/Place/Recover를 진행해 Picker를 비운 뒤 다시 시작하세요. " +
-                        "occupiedPickerCount=" + occupiedPickerCount +
-                        ", enabledPickerCount=" + _enabledPickerIndexes.Count +
-                        ", side=" + Side);
-                }
-
-                WriteLog("PickerPickUpSequence", Name + " has no input die batch target. side=" + Side + " - Check");
-                CurrentStep = PickerPickUpStep.Complete;
-                ReleaseInputStageArea();
+                CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
                 return 0;
             }
-
-            WriteLog("PickerPickUpSequence",
-                Name + " pick batch created. count=" + _pickBatchItems.Count +
-                ", enabledPickerCount=" + _enabledPickerIndexes.Count + " - Ok");
-
-            CurrentStep = PickerPickUpStep.SelectNextInspectionTarget;
-            return 0;
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VISION-PREPARE-EX", Name,
+                    "Input die vision 준비 시퀀스 실행 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int SelectNextInspectionTarget()

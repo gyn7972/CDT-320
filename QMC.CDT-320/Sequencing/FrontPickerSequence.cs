@@ -195,6 +195,9 @@ namespace QMC.CDT320.Sequencing
                 if (HasLoadedDieOnPicker())
                     return true;
 
+                if (!IsFrontPickerEnabled())
+                    return false;
+
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
@@ -207,6 +210,26 @@ namespace QMC.CDT320.Sequencing
             catch (System.Exception ex)
             {
                 WriteLog("HasPickerWork", "FrontPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsFrontPickerEnabled()
+        {
+            try
+            {
+                return Context != null &&
+                       Context.Machine != null &&
+                       Context.Machine.PickerFrontUnit != null &&
+                       Context.Machine.PickerFrontUnit.Config != null &&
+                       Context.Machine.PickerFrontUnit.Config.UseUnit;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("IsFrontPickerEnabled", "FrontPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
                 return false;
             }
             finally
