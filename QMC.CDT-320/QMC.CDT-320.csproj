@@ -595,6 +595,12 @@
     <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.Designer.cs">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.cs">
       <SubType>Form</SubType>
     </Compile>

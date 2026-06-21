@@ -43,10 +43,8 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await c.StopAsync(), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
             {
-                if (ConfirmRun("Cycle Run", "Cycle Run 을 진행하시겠습니까?"))
-                    RunSafe(async c => await c.RunProcessSequenceStepAsync(), false);
+                OpenManualSequenceDialog();
             });
-            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.CycleStopAsync(), false));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
             RegisterActionButton(BtnEStop,      "work.estop",      op, () => RunSafe(async c => await c.EmergencyStopAsync()));
@@ -339,6 +337,18 @@ namespace QMC.CDT_320.Ui.Tabs
             }
         }
 
+        private void OpenManualSequenceDialog()
+        {
+            if (Host == null || Host.Controller == null)
+            {
+                QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Cycle Run", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var dlg = new ManualSequenceDialog(Host.Controller))
+                dlg.ShowDialog(FindForm());
+        }
+
         private void OnControllerStatusChanged(EquipmentStatus status)
         {
             if (IsDisposed)
@@ -379,7 +389,6 @@ namespace QMC.CDT_320.Ui.Tabs
             ClearCommandButtonState(BtnStart);
             ClearCommandButtonState(BtnStop);
             ClearCommandButtonState(BtnCycleRun);
-            ClearCommandButtonState(BtnCycleStop);
             ClearCommandButtonState(BtnResetAlarm);
 
             if (readyRunning)
@@ -401,7 +410,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 SetCommandButtonState(BtnStop, System.Drawing.Color.FromArgb(0xB7, 0x1C, 0x1C), System.Drawing.Color.White);
 
             if (status == EquipmentStatus.CycleStopped)
-                SetCommandButtonState(BtnCycleStop, System.Drawing.Color.FromArgb(0xF5, 0xC7, 0x18), System.Drawing.Color.Black);
+                SetCommandButtonState(BtnStop, System.Drawing.Color.FromArgb(0xF5, 0xC7, 0x18), System.Drawing.Color.Black);
 
             if (status == EquipmentStatus.Alarm)
                 SetCommandButtonState(BtnResetAlarm, System.Drawing.Color.FromArgb(0xC6, 0x28, 0x28), System.Drawing.Color.White);
