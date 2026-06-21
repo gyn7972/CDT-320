@@ -167,7 +167,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.colName.Name = "colName";
             this.colName.ReadOnly = true;
             this.colName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colName.Width = 130;
+            this.colName.Width = 170;
             // 
             // colValue
             // 

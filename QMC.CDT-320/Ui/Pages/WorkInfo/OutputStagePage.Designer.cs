@@ -240,7 +240,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpState.Location = new System.Drawing.Point(3, 3);
             this.grpState.Name = "grpState";
-            this.grpState.Size = new System.Drawing.Size(319, 214);
+            this.grpState.Size = new System.Drawing.Size(319, 254);
             this.grpState.TabIndex = 0;
             this.grpState.TabStop = false;
             this.grpState.Text = "WORK INFO";
@@ -269,7 +269,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.stateLayout.Size = new System.Drawing.Size(313, 188);
+            this.stateLayout.Size = new System.Drawing.Size(313, 228);
             this.stateLayout.TabIndex = 0;
             // 
             // lblGoodExistTitle
@@ -388,7 +388,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpCounters.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpCounters.Location = new System.Drawing.Point(328, 3);
             this.grpCounters.Name = "grpCounters";
-            this.grpCounters.Size = new System.Drawing.Size(260, 214);
+            this.grpCounters.Size = new System.Drawing.Size(260, 254);
             this.grpCounters.TabIndex = 1;
             this.grpCounters.TabStop = false;
             this.grpCounters.Text = "COUNTER";
@@ -413,7 +413,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.counterLayout.Size = new System.Drawing.Size(254, 188);
+            this.counterLayout.Size = new System.Drawing.Size(254, 228);
             this.counterLayout.TabIndex = 0;
             // 
             // lblGoodCountTitle
@@ -505,7 +505,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpCylinder.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpCylinder.Location = new System.Drawing.Point(594, 3);
             this.grpCylinder.Name = "grpCylinder";
-            this.grpCylinder.Size = new System.Drawing.Size(390, 214);
+            this.grpCylinder.Size = new System.Drawing.Size(390, 254);
             this.grpCylinder.TabIndex = 2;
             this.grpCylinder.TabStop = false;
             this.grpCylinder.Text = "CYLINDER INFO";
@@ -538,7 +538,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.Size = new System.Drawing.Size(384, 188);
+            this.cylinderLayout.Size = new System.Drawing.Size(384, 228);
             this.cylinderLayout.TabIndex = 0;
             // 
             // lblGoodGuideTitle
@@ -685,7 +685,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampStateTitle.Location = new System.Drawing.Point(15, 178);
             this.lblNgClampStateTitle.Name = "lblNgClampStateTitle";
             this.lblNgClampStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgClampStateTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblNgClampStateTitle.Size = new System.Drawing.Size(202, 38);
             this.lblNgClampStateTitle.TabIndex = 14;
             this.lblNgClampStateTitle.Text = "NG CLAMP";
             this.lblNgClampStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -698,7 +698,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampStateValue.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblNgClampStateValue.Location = new System.Drawing.Point(223, 178);
             this.lblNgClampStateValue.Name = "lblNgClampStateValue";
-            this.lblNgClampStateValue.Size = new System.Drawing.Size(146, 32);
+            this.lblNgClampStateValue.Size = new System.Drawing.Size(146, 38);
             this.lblNgClampStateValue.TabIndex = 15;
             this.lblNgClampStateValue.Text = "--";
             this.lblNgClampStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -710,9 +710,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.Controls.Add(this.infoLayout);
             this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpInfo.Location = new System.Drawing.Point(3, 223);
+            this.grpInfo.Location = new System.Drawing.Point(3, 263);
             this.grpInfo.Name = "grpInfo";
-            this.grpInfo.Size = new System.Drawing.Size(981, 526);
+            this.grpInfo.Size = new System.Drawing.Size(981, 486);
             this.grpInfo.TabIndex = 3;
             this.grpInfo.TabStop = false;
             this.grpInfo.Text = "INFO";
@@ -736,7 +736,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.infoLayout.Size = new System.Drawing.Size(975, 500);
+            this.infoLayout.Size = new System.Drawing.Size(975, 460);
             this.infoLayout.TabIndex = 0;
             // 
             // goodYPanel
@@ -921,7 +921,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialPanel.Location = new System.Drawing.Point(1004, 11);
             this.materialPanel.Name = "materialPanel";
             this.materialPanel.RowCount = 2;
-            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.materialPanel.Size = new System.Drawing.Size(657, 752);
             this.materialPanel.TabIndex = 1;
@@ -940,7 +940,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialHeaderLayout.Location = new System.Drawing.Point(3, 3);
             this.materialHeaderLayout.Name = "materialHeaderLayout";
             this.materialHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.materialHeaderLayout.Size = new System.Drawing.Size(651, 28);
+            this.materialHeaderLayout.Size = new System.Drawing.Size(651, 70);
             this.materialHeaderLayout.TabIndex = 0;
             // 
             // lblMaterialTitle
@@ -949,9 +949,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblMaterialTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblMaterialTitle.Location = new System.Drawing.Point(3, 0);
             this.lblMaterialTitle.Name = "lblMaterialTitle";
-            this.lblMaterialTitle.Size = new System.Drawing.Size(457, 28);
+            this.lblMaterialTitle.Size = new System.Drawing.Size(457, 70);
             this.lblMaterialTitle.TabIndex = 0;
-            this.lblMaterialTitle.Text = "MATERIAL";
+            this.lblMaterialTitle.Text = "STAGE";
             this.lblMaterialTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // rdoGoodMaterial
@@ -961,7 +961,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoGoodMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoGoodMaterial.Location = new System.Drawing.Point(466, 3);
             this.rdoGoodMaterial.Name = "rdoGoodMaterial";
-            this.rdoGoodMaterial.Size = new System.Drawing.Size(84, 22);
+            this.rdoGoodMaterial.Size = new System.Drawing.Size(84, 64);
             this.rdoGoodMaterial.TabIndex = 1;
             this.rdoGoodMaterial.TabStop = true;
             this.rdoGoodMaterial.Text = "GOOD";
@@ -973,7 +973,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoNgMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoNgMaterial.Location = new System.Drawing.Point(556, 3);
             this.rdoNgMaterial.Name = "rdoNgMaterial";
-            this.rdoNgMaterial.Size = new System.Drawing.Size(84, 22);
+            this.rdoNgMaterial.Size = new System.Drawing.Size(84, 64);
             this.rdoNgMaterial.TabIndex = 2;
             this.rdoNgMaterial.Text = "NG";
             this.rdoNgMaterial.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -982,10 +982,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.materialDetailView.Location = new System.Drawing.Point(4, 38);
+            this.materialDetailView.Location = new System.Drawing.Point(4, 80);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(4);
             this.materialDetailView.Name = "materialDetailView";
-            this.materialDetailView.Size = new System.Drawing.Size(649, 710);
+            this.materialDetailView.Size = new System.Drawing.Size(649, 668);
             this.materialDetailView.TabIndex = 1;
             // 
             // actionPanel
