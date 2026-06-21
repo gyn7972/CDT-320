@@ -246,12 +246,12 @@ namespace QMC.CDT_320.Ui.Localization
             A("work.outputMapTransfer","OUTPUT Die Map 전환",    "OUTPUT Die Map Switch");
             A("work.visionAlign",     "비전 얼라인",         "Vision Align");
             A("work.waferMapOpen",    "웨이퍼 맵 오픈",      "Wafer Map Open");
-            A("work.dieMap",          "다이 맵",            "Die Map");
+            A("work.dieMap",          "DIE MAP",            "DIE MAP");
             A("work.colletCheckMode", "콜렛 확인 모드",       "Collet Check Mode");
             A("work.needlePosMode",   "니들 위치 확인모드",    "Needle Pos Check");
 
             // 310 이식 — 머터리얼 / 레시피 Subset
-            A("recipe.binCode",       "빈 코드 매핑",         "Bin Code Map");
+            A("recipe.binCode",       "BIN CODE MAP",         "BIN CODE MAP");
             A("recipe.dieSubset",     "다이 사양",           "Die Spec");
             A("recipe.moduleSubset",  "모듈 옵션",           "Module Options");
             A("recipe.outputSubset",  "출력 옵션",           "Output Options");
@@ -259,8 +259,8 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.tapeFrameSubset","웨이퍼 사양",         "Wafer (Tape Frame) Spec");
             A("recipe.loadFrame",     "로드 웨이퍼",          "Load Frame");
             A("recipe.unloadFrame",   "언로드 웨이퍼",         "Unload Frame");
-            A("material.bin",         "빈 코드 매핑",         "Bin Code Map");
-            A("material.diemap",      "다이 맵",             "Die Map");
+            A("material.bin",         "BIN CODE MAP",         "BIN CODE MAP");
+            A("material.diemap",      "DIE MAP",             "DIE MAP");
 
             // SelfTest 5 신규 (텍스트는 영문 통일 — Self-Test 행 그대로)
             A("selftest.binCode",     "BinCodeMap",          "BinCodeMap");
