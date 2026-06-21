@@ -20,10 +20,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void WireEvents()
         {
-            btnInputLoad.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.InputLoader, "INPUT LOAD").ConfigureAwait(true); };
-            btnInputUnload.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.InputLoader, "INPUT UNLOAD").ConfigureAwait(true); };
-            btnOutputLoad.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.OutputUnloader, "OUTPUT LOAD").ConfigureAwait(true); };
-            btnOutputUnload.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.OutputUnloader, "OUTPUT UNLOAD").ConfigureAwait(true); };
+            btnInputStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.InputLoader, "INPUT STEP").ConfigureAwait(true); };
+            btnOutputStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.OutputUnloader, "OUTPUT STEP").ConfigureAwait(true); };
             btnPickUp.Click += async delegate { await RunPickerProcessAsync("PickUp", "PICK UP").ConfigureAwait(true); };
             btnBottom.Click += async delegate { await RunPickerProcessAsync("Bottom", "BOTTOM").ConfigureAwait(true); };
             btnSide.Click += async delegate { await RunPickerProcessAsync("Side", "SIDE").ConfigureAwait(true); };
