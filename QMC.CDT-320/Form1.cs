@@ -1161,7 +1161,7 @@ namespace QMC.CDT_320
         private void RefreshStateBig()
         {
             var ms = Controller?.Status ?? QMC.CDT320.EquipmentStatus.Idle;
-            SetTextIfChanged(lblStateBig, ms.ToString().ToUpper());
+            SetTextIfChanged(lblStateBig, FormatEquipmentStatus(ms));
             System.Drawing.Color c;
             switch (ms)
             {
@@ -1180,6 +1180,21 @@ namespace QMC.CDT_320
                 default:                                   c = System.Drawing.Color.White;       break;
             }
             SetForeColorIfChanged(lblStateBig, c);
+        }
+
+        private static string FormatEquipmentStatus(QMC.CDT320.EquipmentStatus status)
+        {
+            switch (status)
+            {
+                case QMC.CDT320.EquipmentStatus.AutoRunning:
+                    return "AUTO RUN";
+                case QMC.CDT320.EquipmentStatus.ManualRunning:
+                    return "MANUAL";
+                case QMC.CDT320.EquipmentStatus.CycleStopped:
+                    return "CYCLE STOP";
+                default:
+                    return status.ToString().ToUpper();
+            }
         }
 
         private void TimerClock_Tick(object sender, EventArgs e) => UpdateClock();
