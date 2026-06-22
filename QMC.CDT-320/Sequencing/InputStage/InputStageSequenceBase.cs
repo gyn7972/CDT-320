@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -35,6 +36,16 @@ namespace QMC.CDT320.Sequencing
         protected InputStageUnit Stage
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null; }
+        }
+
+        protected PickerFrontUnit FrontPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null; }
+        }
+
+        protected PickerRearUnit RearPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
         }
 
         public async Task<int> RunAsync(CancellationToken ct, InputStageSequenceOptions options)
@@ -99,10 +110,14 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        protected async Task<int> MoveLoadPositionAsync()
+        protected async Task<int> MoveLoadPositionAsync(CancellationToken ct)
         {
             if (Options.EnableMotion)
             {
+                int pickerReady = await WaitPickersClearForInputTransportAsync("InputStage Load 준비", ct).ConfigureAwait(false);
+                if (pickerReady != 0)
+                    return pickerReady;
+
                 int result = await Stage.LoadAndPrepareWaferAsync(Options.WaferId, Options.RequireMapData, Options.FineMove).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-STAGE-LOAD-PREP", Stage.Name, "Input stage load prepare failed. result=" + result + BuildStageMoveFailureDetail());
@@ -134,10 +149,14 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        protected async Task<int> MoveUnloadPositionAsync()
+        protected async Task<int> MoveUnloadPositionAsync(CancellationToken ct)
         {
             if (Options.EnableMotion)
             {
+                int pickerReady = await WaitPickersClearForInputTransportAsync("InputStage Unload 준비", ct).ConfigureAwait(false);
+                if (pickerReady != 0)
+                    return pickerReady;
+
                 int result = await Stage.PrepareUnloadWaferAsync(Options.FineMove).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-STAGE-UNLOAD-PREP", Stage.Name, "Input stage unload prepare failed. result=" + result);
@@ -205,6 +224,83 @@ namespace QMC.CDT320.Sequencing
             }
 
             return -1;
+        }
+
+        protected async Task<int> WaitPickersClearForInputTransportAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                if (FrontPicker == null)
+                    return Fail("IN-STAGE-PICKER-MISSING", "FrontPicker", description + " 전 FrontPicker 유닛을 확인할 수 없습니다.");
+
+                if (RearPicker == null)
+                    return Fail("IN-STAGE-PICKER-MISSING", "RearPicker", description + " 전 RearPicker 유닛을 확인할 수 없습니다.");
+
+                int timeoutMs = ResolveTimeout();
+                DateTime startTime = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string frontDetail;
+                    string rearDetail;
+                    bool frontBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        true,
+                        PickerWorkZone.Input,
+                        out frontDetail);
+                    bool rearBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        false,
+                        PickerWorkZone.Input,
+                        out rearDetail);
+
+                    if (!frontBlocking && !rearBlocking)
+                        return 0;
+
+                    string alarmState = BuildPickerAlarmState();
+                    if (!string.IsNullOrEmpty(alarmState))
+                    {
+                        return Fail("IN-STAGE-PICKER-ALARM", Name,
+                            description + " 대기 불가: Picker 축 알람 상태입니다. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail + ", " + alarmState);
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("IN-STAGE-PICKER-INPUT-ZONE-TIMEOUT", Name,
+                            description + " 대기 시간 초과: Picker가 Input zone에서 벗어나지 않았습니다. " +
+                            "timeoutMs=" + timeoutMs + ", " +
+                            "front=" + frontDetail + ", rear=" + rearDetail + ", " + BuildPickerMotionState());
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog(Name,
+                            description + " 전 Picker Input zone 해제 대기. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail +
+                            ", timeoutMs=" + timeoutMs + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-PICKER-INPUT-ZONE-WAIT-EX", Name,
+                    description + " 전 Picker Input zone 해제 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis axis, double target)
@@ -313,6 +409,85 @@ namespace QMC.CDT320.Sequencing
                 ", target=" + target +
                 ", tolerance=" + tolerance +
                 "]";
+        }
+
+        private string BuildPickerAlarmState()
+        {
+            string reason = string.Empty;
+            AppendPickerAxisAlarm(ref reason, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerT0", FrontPicker != null ? FrontPicker.PickerT0 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerT1", FrontPicker != null ? FrontPicker.PickerT1 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerT2", FrontPicker != null ? FrontPicker.PickerT2 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerT3", FrontPicker != null ? FrontPicker.PickerT3 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerZ0", FrontPicker != null ? FrontPicker.PickerZ0 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerZ1", FrontPicker != null ? FrontPicker.PickerZ1 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerZ2", FrontPicker != null ? FrontPicker.PickerZ2 : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerZ3", FrontPicker != null ? FrontPicker.PickerZ3 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerT0", RearPicker != null ? RearPicker.PickerT0 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerT1", RearPicker != null ? RearPicker.PickerT1 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerT2", RearPicker != null ? RearPicker.PickerT2 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerT3", RearPicker != null ? RearPicker.PickerT3 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerZ0", RearPicker != null ? RearPicker.PickerZ0 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerZ1", RearPicker != null ? RearPicker.PickerZ1 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerZ2", RearPicker != null ? RearPicker.PickerZ2 : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerZ3", RearPicker != null ? RearPicker.PickerZ3 : null);
+            return reason;
+        }
+
+        private string BuildPickerMotionState()
+        {
+            string state = string.Empty;
+            AppendPickerAxisMotion(ref state, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerT0", FrontPicker != null ? FrontPicker.PickerT0 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerT1", FrontPicker != null ? FrontPicker.PickerT1 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerT2", FrontPicker != null ? FrontPicker.PickerT2 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerT3", FrontPicker != null ? FrontPicker.PickerT3 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerZ0", FrontPicker != null ? FrontPicker.PickerZ0 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerZ1", FrontPicker != null ? FrontPicker.PickerZ1 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerZ2", FrontPicker != null ? FrontPicker.PickerZ2 : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerZ3", FrontPicker != null ? FrontPicker.PickerZ3 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            AppendPickerAxisMotion(ref state, "RearPickerT0", RearPicker != null ? RearPicker.PickerT0 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerT1", RearPicker != null ? RearPicker.PickerT1 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerT2", RearPicker != null ? RearPicker.PickerT2 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerT3", RearPicker != null ? RearPicker.PickerT3 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerZ0", RearPicker != null ? RearPicker.PickerZ0 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerZ1", RearPicker != null ? RearPicker.PickerZ1 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerZ2", RearPicker != null ? RearPicker.PickerZ2 : null);
+            AppendPickerAxisMotion(ref state, "RearPickerZ3", RearPicker != null ? RearPicker.PickerZ3 : null);
+            return state;
+        }
+
+        private static void AppendPickerAxisAlarm(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+
+            reason += BuildAxisState(label, axis, axis.ActualPosition) + ";";
+        }
+
+        private static void AppendPickerAxisMotion(ref string state, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            if (state.Length > 0)
+                state += " ";
+
+            state += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
         }
 
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)

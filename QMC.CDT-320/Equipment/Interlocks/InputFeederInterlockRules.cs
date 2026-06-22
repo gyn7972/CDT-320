@@ -81,16 +81,17 @@ namespace QMC.CDT320.Interlocks
                         out reason);
             }
 
-            if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
+            string pickerDetail;
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
-                    "InputFeederY move blocked. FrontPicker must be at Avoid position.",
+                    "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
                     out reason);
 
-            if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
-                    "InputFeederY move blocked. RearPicker must be at Avoid position.",
+                    "InputFeederY 이동 차단. RearPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
                     out reason);
 
             InputFeederUnit feeder = machine.InputFeederUnit;

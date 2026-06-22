@@ -65,9 +65,9 @@ namespace QMC.CDT320.Sequencing
                     // 스테이지 로드 위치 이동
                     case InputFeederLoadFromCassetteStep.MoveStageToLoadPosition:
                         return MoveStageToLoadPositionAsync(ct);
-                    // 피커 어보이드 위치 확인
+                    // 피커 Input zone 해제 확인
                     case InputFeederLoadFromCassetteStep.CheckPickerAvoidPosition:
-                        return CheckPickerAvoidPositionAsync(ct);
+                        return WaitPickersClearForInputTransportAsync(ct);
                     // 피더 언클램프 준비
                     case InputFeederLoadFromCassetteStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
@@ -255,32 +255,136 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> CheckPickerAvoidPositionAsync(CancellationToken ct)
+        private async Task<int> WaitPickersClearForInputTransportAsync(CancellationToken ct)
         {
-            ct.ThrowIfCancellationRequested();
-
-            PickerFrontUnit front = Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
-            if (front != null && !front.IsFrontPickerInAvoidPosition())
+            try
             {
-                int result = await AwaitStepWithCancellationAsync(front.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0 || !front.IsFrontPickerInAvoidPosition())
-                    return Fail("IN-FEEDER-FRONT-PICKER-AVOID", front.Name,
-                        "FrontPickerX/FrontPicker avoid position check failed. result=" + result +
-                        ", pickerX=" + BuildPickerXAxisState(front.PickerX));
-            }
+                int timeoutMs = ResolveTimeout();
+                DateTime startTime = DateTime.UtcNow;
+                bool waitLogged = false;
 
-            PickerRearUnit rear = Context.Machine != null ? Context.Machine.PickerRearUnit : null;
-            if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string frontDetail;
+                    string rearDetail;
+                    bool frontBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        true,
+                        PickerWorkZone.Input,
+                        out frontDetail);
+                    bool rearBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        false,
+                        PickerWorkZone.Input,
+                        out rearDetail);
+
+                    if (!frontBlocking && !rearBlocking)
+                    {
+                        CurrentStep = InputFeederLoadFromCassetteStep.PrepareFeederUnclamp;
+                        return 0;
+                    }
+
+                    string alarmState = BuildPickerAlarmState();
+                    if (!string.IsNullOrEmpty(alarmState))
+                    {
+                        return Fail("IN-FEEDER-PICKER-ALARM", Name,
+                            "InputFeeder 로드 준비 대기 불가: Picker 축 알람 상태입니다. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail + ", " + alarmState);
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("IN-FEEDER-PICKER-INPUT-ZONE-TIMEOUT", Name,
+                            "InputFeeder 로드 준비 대기 시간 초과: Picker가 Input zone에서 벗어나지 않았습니다. " +
+                            "timeoutMs=" + timeoutMs + ", front=" + frontDetail +
+                            ", rear=" + rearDetail + ", " + BuildPickerMotionState());
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog(Name,
+                            "InputFeeder 로드 준비 전 Picker Input zone 해제 대기. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail +
+                            ", timeoutMs=" + timeoutMs + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
             {
-                int result = await AwaitStepWithCancellationAsync(rear.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0 || !rear.IsRearPickerInAvoidPosition())
-                    return Fail("IN-FEEDER-REAR-PICKER-AVOID", rear.Name,
-                        "RearPickerX/RearPicker avoid position check failed. result=" + result +
-                        ", pickerX=" + BuildPickerXAxisState(rear.PickerX));
+                throw;
             }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-PICKER-INPUT-ZONE-WAIT-EX", Name,
+                    "InputFeeder 로드 준비 전 Picker Input zone 해제 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
 
-            CurrentStep = InputFeederLoadFromCassetteStep.PrepareFeederUnclamp;
-            return 0;
+        private string BuildPickerAlarmState()
+        {
+            PickerFrontUnit front = Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
+            PickerRearUnit rear = Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null;
+
+            string reason = string.Empty;
+            AppendPickerAxisAlarm(ref reason, "FrontPickerX", front != null ? front.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerY", front != null ? front.PickerY : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerX", rear != null ? rear.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerY", rear != null ? rear.PickerY : null);
+            return reason;
+        }
+
+        private string BuildPickerMotionState()
+        {
+            PickerFrontUnit front = Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
+            PickerRearUnit rear = Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null;
+
+            string state = string.Empty;
+            AppendPickerAxisMotion(ref state, "FrontPickerX", front != null ? front.PickerX : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerY", front != null ? front.PickerY : null);
+            AppendPickerAxisMotion(ref state, "RearPickerX", rear != null ? rear.PickerX : null);
+            AppendPickerAxisMotion(ref state, "RearPickerY", rear != null ? rear.PickerY : null);
+            return state;
+        }
+
+        private static void AppendPickerAxisAlarm(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+
+            reason += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
+        }
+
+        private static void AppendPickerAxisMotion(ref string state, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            if (state.Length > 0)
+                state += " ";
+
+            state += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
         }
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)

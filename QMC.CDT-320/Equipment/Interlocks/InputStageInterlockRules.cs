@@ -521,7 +521,9 @@ namespace QMC.CDT320.Interlocks
             if (stage == null)
                 return true;
 
-            if (IsMovingExcept(stage.StageY, movingName, "WaferStageY", "StageY", "WaferY"))
+            // PickUp 보정 이동에서는 WaferY와 NeedleX가 같은 목표 다이에 대해 동시에 이동한다.
+            if (!IsNeedleXMove(movingName) &&
+                IsMovingExcept(stage.StageY, movingName, "WaferStageY", "StageY", "WaferY"))
                 return MotionGuardRuleHelpers.Block(movingName, "WaferStageY is moving.", out reason);
             if (IsMovingExcept(stage.StageT, movingName, "WaferStageT", "StageT", "WaferT"))
                 return MotionGuardRuleHelpers.Block(movingName, "WaferStageT is moving.", out reason);
@@ -531,6 +533,7 @@ namespace QMC.CDT320.Interlocks
                 IsMovingExcept(stage.CameraX, movingName, "InputVisionX", "CameraX"))
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
             if (!IsInputVisionXMove(movingName) &&
+                !IsWaferStageYMove(movingName) &&
                 IsMovingExcept(stage.NeedleBlockX, movingName, "NeedleX", "NeedleBlockX"))
                 return MotionGuardRuleHelpers.Block(movingName, "NeedleX is moving.", out reason);
 
@@ -553,6 +556,13 @@ namespace QMC.CDT320.Interlocks
         {
             return string.Equals(movingName, "NeedleX", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "NeedleBlockX", System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsWaferStageYMove(string movingName)
+        {
+            return string.Equals(movingName, "WaferStageY", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "StageY", System.StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(movingName, "WaferY", System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsExpanderZPositiveMove(MotionGuardRuleContext request, InputStageUnit stage)
@@ -626,18 +636,15 @@ namespace QMC.CDT320.Interlocks
                 if (picker == null)
                     return true;
 
+                PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                    machine,
+                    true,
+                    PickerWorkZone.Input,
+                    null,
+                    string.Empty);
                 return VerifyPickerClearForExpanderZ(
                     "FrontPicker",
-                    ResolvePickerEncoderZone(machine, true),
-                    picker.PickerX,
-                    picker.PickerY,
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "BottomPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "SidePosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PlacePosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"),
+                    state,
                     positiveMove,
                     out reason);
             }
@@ -663,18 +670,15 @@ namespace QMC.CDT320.Interlocks
                 if (picker == null)
                     return true;
 
+                PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                    machine,
+                    false,
+                    PickerWorkZone.Input,
+                    null,
+                    string.Empty);
                 return VerifyPickerClearForExpanderZ(
                     "RearPicker",
-                    ResolvePickerEncoderZone(machine, false),
-                    picker.PickerX,
-                    picker.PickerY,
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "BottomPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "SidePosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PlacePosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
-                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"),
+                    state,
                     positiveMove,
                     out reason);
             }
@@ -693,20 +697,14 @@ namespace QMC.CDT320.Interlocks
 
         private static bool VerifyPickerClearForExpanderZ(
             string pickerName,
-            string encoderZone,
-            BaseAxis pickerX,
-            BaseAxis pickerY,
-            bool pickerXAtInputZone,
-            bool pickerXAtBottomZone,
-            bool pickerXAtSideZone,
-            bool pickerXAtOutputZone,
-            bool pickerXAtInputAvoid,
-            bool pickerXAtMainAvoid,
-            bool pickerXAtOutputAvoid,
+            PickerZoneTransportState state,
             bool blockInputZone,
             out string reason)
         {
             reason = string.Empty;
+            BaseAxis pickerX = state != null ? state.PickerX : null;
+            BaseAxis pickerY = state != null ? state.PickerY : null;
+            string stateText = state != null ? state.Describe() : pickerName + " state unavailable.";
 
             if (MotionGuardRuleHelpers.IsAxisMoving(pickerX))
                 return MotionGuardRuleHelpers.Block(
@@ -720,33 +718,20 @@ namespace QMC.CDT320.Interlocks
                     "ExpanderZ move blocked. " + pickerName + "Y is moving.",
                     out reason);
 
-            bool pickerXAtSafeZone =
-                pickerXAtBottomZone ||
-                pickerXAtSideZone ||
-                pickerXAtOutputZone ||
-                pickerXAtInputAvoid ||
-                pickerXAtMainAvoid ||
-                pickerXAtOutputAvoid;
-
-            if (pickerXAtSafeZone)
-                return true;
-
-            if (!pickerXAtInputZone)
+            if (state == null)
                 return MotionGuardRuleHelpers.Block(
                     "ExpanderZ",
-                    "ExpanderZ move blocked. " + pickerName + " X zone is unknown. " +
-                    BuildPickerZoneState(
-                        pickerName,
-                        encoderZone,
-                        pickerX,
-                        pickerY,
-                        pickerXAtInputZone,
-                        pickerXAtBottomZone,
-                        pickerXAtSideZone,
-                        pickerXAtOutputZone,
-                        pickerXAtInputAvoid,
-                        pickerXAtMainAvoid,
-                        pickerXAtOutputAvoid),
+                    "ExpanderZ move blocked. " + pickerName + " zone state is unavailable.",
+                    out reason);
+
+            if (!state.IsRequestedZoneActive && !state.UnknownUnsafe)
+                return true;
+
+            if (state.UnknownUnsafe && !state.IsRequestedZoneActive)
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ move blocked. " + pickerName + " zone is unknown while PickerY is not safe. " +
+                    stateText,
                     out reason);
 
             if (!blockInputZone)
@@ -755,18 +740,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block(
                 "ExpanderZ",
                 "ExpanderZ positive move blocked. " + pickerName + " is in Input zone. " +
-                BuildPickerZoneState(
-                    pickerName,
-                    encoderZone,
-                    pickerX,
-                    pickerY,
-                    pickerXAtInputZone,
-                    pickerXAtBottomZone,
-                    pickerXAtSideZone,
-                    pickerXAtOutputZone,
-                    pickerXAtInputAvoid,
-                    pickerXAtMainAvoid,
-                    pickerXAtOutputAvoid) +
+                stateText +
                 ", positiveMove=" + blockInputZone,
                 out reason);
         }

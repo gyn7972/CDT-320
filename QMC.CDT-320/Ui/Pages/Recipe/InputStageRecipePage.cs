@@ -1100,10 +1100,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
-                items.Add(AxisDouble("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v));
-                items.Add(AxisDouble("PICK UP EJECT PIN SPEED", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v), "/s"));
-                items.Add(AxisDouble("PICK UP EJECT PIN ACC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v), "/s2"));
-                items.Add(AxisDouble("PICK UP EJECT PIN DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v), "/s2"));
+                AddNeedlePickUpSettingItems(items, unit);
                 items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 return items;
@@ -1115,6 +1112,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void AddNeedlePickUpSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "NEEDLE_PICKUP_SETTING";
+            unit.Config.EnsurePickUpMotionDefaults();
+            items.Add(ParameterGridItem.Header("NEEDLE PICKUP SETTING", groupKey));
+            items.Add(InGroup(AxisDouble("EJECT PIN PICK OFFSET", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v), groupKey));
+            items.Add(InGroup(AxisDouble("EJECT PIN PICK VELOCITY", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v), "/s"), groupKey));
+            items.Add(InGroup(AxisDouble("EJECT PIN PICK ACC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v), "/s2"), groupKey));
+            items.Add(InGroup(AxisDouble("EJECT PIN PICK DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v), "/s2"), groupKey));
+            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftDistance, v => unit.Config.PickUpNeedleSyncLiftDistance = Math.Max(0.0, v)), groupKey));
+            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT VELOCITY", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftVelocity, v => unit.Config.PickUpNeedleSyncLiftVelocity = Math.Max(0.0, v), "/s"), groupKey));
+            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT ACC", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftAcc, v => unit.Config.PickUpNeedleSyncLiftAcc = Math.Max(0.0, v), "/s2"), groupKey));
+            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT DEC", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftDec, v => unit.Config.PickUpNeedleSyncLiftDec = Math.Max(0.0, v), "/s2"), groupKey));
+            items.Add(InGroup(AxisDouble("NEEDLE SEPARATE DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSeparateDistance, v => unit.Config.PickUpNeedleSeparateDistance = Math.Max(0.0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("NEEDLE SEPARATE SPEED", "%", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSeparateSpeedPercent, v => unit.Config.PickUpNeedleSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
+        }
+
+        private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)
+        {
+            item.GroupKey = groupKey;
+            return item;
         }
 
         private static readonly StagePositionKind[] OptionKindOrder =

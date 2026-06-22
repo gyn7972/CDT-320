@@ -218,15 +218,15 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
+        private async Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int pickerClear = CheckPickersNotInOutputZone("before stage unload");
+            int pickerClear = await WaitPickersClearForOutputTransportAsync("OutputStage Unload 준비", ct).ConfigureAwait(false);
             if (pickerClear != 0)
-                return Task.FromResult(pickerClear);
+                return pickerClear;
 
             CurrentStep = OutputFeederUnloadFromStageStep.EnsureStageMutualInterlock;
-            return Task.FromResult(0);
+            return 0;
         }
 
         private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)

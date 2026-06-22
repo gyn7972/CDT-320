@@ -15,6 +15,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _controller = controller ?? throw new ArgumentNullException(nameof(controller));
             InitializeComponent();
+            cmbPickerNo.SelectedIndex = 0;
             WireEvents();
         }
 
@@ -28,6 +29,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnBottom.Click += async delegate { await RunPickerProcessAsync("Bottom", "BOTTOM").ConfigureAwait(true); };
             btnSide.Click += async delegate { await RunPickerProcessAsync("Side", "SIDE").ConfigureAwait(true); };
             btnPlace.Click += async delegate { await RunPickerProcessAsync("Place", "PLACE").ConfigureAwait(true); };
+            btnPickUpZTest.Click += async delegate { await RunPickerPickUpZMotionTestAsync().ConfigureAwait(true); };
             btnAllStep.Click += async delegate { await RunUnitStepAsync(SequenceUnitKind.All, "ALL STEP").ConfigureAwait(true); };
             btnClose.Click += delegate { Close(); };
         }
@@ -133,6 +135,52 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _busy = false;
                 SetButtonsEnabled(true);
             }
+        }
+
+        private async Task RunPickerPickUpZMotionTestAsync()
+        {
+            if (_busy)
+                return;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+                PickerSequenceSide side = rbRearPicker.Checked ? PickerSequenceSide.Rear : PickerSequenceSide.Front;
+                int pickerNo = ResolveSelectedPickerNo();
+                string label = side + " PICK Z TEST #" + pickerNo;
+                statusLabel.Text = label + " 실행 중...";
+
+                int result = await _controller.RunManualPickerPickUpZMotionTestAsync(side, pickerNo).ConfigureAwait(true);
+                if (result == 0)
+                {
+                    statusLabel.Text = label + " 완료.";
+                    return;
+                }
+
+                ShowFailure(string.IsNullOrWhiteSpace(_controller.LastActionFailureMessage)
+                    ? "PickUp Z 단독 테스트 실패"
+                    : _controller.LastActionFailureMessage);
+            }
+            catch (Exception ex)
+            {
+                ShowError("PickUp Z 단독 테스트 중 예외가 발생했습니다. " + ex.Message);
+            }
+            finally
+            {
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
+
+        private int ResolveSelectedPickerNo()
+        {
+            int pickerNo;
+            if (cmbPickerNo.SelectedItem != null &&
+                int.TryParse(cmbPickerNo.SelectedItem.ToString(), out pickerNo))
+                return pickerNo;
+
+            return 1;
         }
 
         private void ShowFailure(string message)

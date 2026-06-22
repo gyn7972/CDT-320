@@ -31,7 +31,7 @@ namespace QMC.CDT320.Sequencing
                         .RunAsync(ct, options)
                         .ConfigureAwait(false);
                     if (result != 0)
-                        throw new System.InvalidOperationException(
+                        throw new InvalidOperationException(
                             SequenceFailureStore.AppendRecentDetail(
                                 "RearPicker 자동 시퀀스 실패. result=" + result,
                                 "RearPicker",
@@ -40,7 +40,7 @@ namespace QMC.CDT320.Sequencing
                     Context.StopIfCycleStopRequested("RearPickerSequence.ProcessComplete");
                 }
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 WriteLog("ExecuteAutoAsync", "RearPicker 자동 시퀀스가 취소되었습니다. - Failed");
                 throw;
@@ -49,7 +49,7 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("ExecuteAutoAsync", "RearPicker 자동 시퀀스 예외 발생: " + ex.Message + " - Failed");
                 throw;
@@ -69,7 +69,7 @@ namespace QMC.CDT320.Sequencing
                 PickerSequenceOptions options = BuildSequenceOptions();
                 await RunStepSequenceAsync(ct, options).ConfigureAwait(false);
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 WriteLog("ExecuteStepAsync", "RearPicker 수동/스텝 시퀀스가 취소되었습니다. - Failed");
                 throw;
@@ -78,7 +78,7 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("ExecuteStepAsync", "RearPicker 수동/스텝 시퀀스 예외 발생: " + ex.Message + " - Failed");
                 throw;
@@ -123,7 +123,7 @@ namespace QMC.CDT320.Sequencing
 
                 return false;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("IsSimulationOrDryRun", "RearPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
                 return false;
@@ -139,7 +139,7 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
                 if (result != 0)
-                    throw new System.InvalidOperationException(
+                    throw new InvalidOperationException(
                         SequenceFailureStore.AppendRecentDetail(
                             "RearPicker 수동/스텝 시퀀스 실패. result=" + result,
                             "RearPicker",
@@ -148,7 +148,7 @@ namespace QMC.CDT320.Sequencing
                 if (_stepSequence.IsComplete)
                     _stepSequence = null;
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 throw;
             }
@@ -170,10 +170,11 @@ namespace QMC.CDT320.Sequencing
                     ct.ThrowIfCancellationRequested();
                     Context.StopIfCycleStopRequested("RearPickerSequence.WaitForWork");
 
+                    await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
                     await Task.Delay(200, ct).ConfigureAwait(false);
                 }
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 WriteLog("WaitForPickerWorkAsync", "RearPicker 작업 대기가 취소되었습니다. - Failed");
                 throw;
@@ -182,9 +183,51 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("WaitForPickerWorkAsync", "RearPicker 작업 대기 중 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task EnsureIdlePickerAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Mode != SequenceRunMode.Auto || HasLoadedDieOnPicker() || !IsRearPickerEnabled())
+                    return;
+
+                PickerRearUnit rear = Context != null && Context.Machine != null
+                    ? Context.Machine.PickerRearUnit
+                    : null;
+                if (rear == null || rear.IsRearPickerInAvoidPosition())
+                    return;
+
+                WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
+                int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
+                if (result != 0 || !rear.IsRearPickerInAvoidPosition())
+                    throw new InvalidOperationException(
+                        "RearPicker 작업 대기 중 Avoid 이동 실패. result=" + result +
+                        ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
+
+                WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 위치 이동 완료. - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 이동 예외 발생: " + ex.Message + " - Failed");
                 throw;
             }
             finally
@@ -211,7 +254,7 @@ namespace QMC.CDT320.Sequencing
 
                 return MaterialStateService.HasReadyInputStagePickTarget();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("HasPickerWork", "RearPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
                 return false;
@@ -229,34 +272,26 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 if (HasLoadedDieOnPicker())
-                {
                     return false;
-                }
 
                 if (!IsFrontPickerEnabled())
-                {
                     return false;
-                }
 
                 if (HasLoadedDieOnFrontPicker())
-                {
                     return false;
-                }
 
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
                 if (!inputStageReady || !MaterialStateService.HasReadyInputStagePickTarget())
-                {
                     return false;
-                }
 
                 WriteFrontPickupYieldWaitLog();
 
                 await Task.Delay(300, ct).ConfigureAwait(false);
                 return true;
             }
-            catch (System.OperationCanceledException)
+            catch (OperationCanceledException)
             {
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker Front 우선순위 양보 대기가 취소되었습니다. - Failed");
@@ -266,7 +301,7 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker Front 우선순위 양보 확인 중 예외 발생: " + ex.Message + " - Failed");
@@ -290,7 +325,7 @@ namespace QMC.CDT320.Sequencing
                     "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
                     "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("YieldInputPickupPriorityToFrontAsync",
                     "RearPicker Front 우선권 대기 로그 처리 중 예외 발생: " + ex.Message + " - Failed");
@@ -310,7 +345,7 @@ namespace QMC.CDT320.Sequencing
                        Context.Machine.PickerRearUnit.Config != null &&
                        Context.Machine.PickerRearUnit.Config.UseUnit;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("IsRearPickerEnabled",
                     "RearPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
@@ -328,6 +363,7 @@ namespace QMC.CDT320.Sequencing
                 if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerRear, pickerNo) != null)
                     return true;
             }
+
             return false;
         }
 
@@ -341,7 +377,7 @@ namespace QMC.CDT320.Sequencing
                        Context.Machine.PickerFrontUnit.Config != null &&
                        Context.Machine.PickerFrontUnit.Config.UseUnit;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 WriteLog("IsFrontPickerEnabled",
                     "FrontPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
@@ -359,6 +395,7 @@ namespace QMC.CDT320.Sequencing
                 if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerFront, pickerNo) != null)
                     return true;
             }
+
             return false;
         }
 
