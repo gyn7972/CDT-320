@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
@@ -32,6 +33,16 @@ namespace QMC.CDT320.Sequencing
         protected OutputStageUnit Stage
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null; }
+        }
+
+        protected PickerFrontUnit FrontPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null; }
+        }
+
+        protected PickerRearUnit RearPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
         }
 
         public async Task<int> RunAsync(CancellationToken ct, OutputStageSequenceOptions options)
@@ -206,6 +217,135 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
+        protected async Task<int> WaitPickersClearForOutputTransportAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                if (FrontPicker == null)
+                    return Fail("OUT-STAGE-PICKER-MISSING", "FrontPicker", description + " 전 FrontPicker 유닛을 확인할 수 없습니다.");
+
+                if (RearPicker == null)
+                    return Fail("OUT-STAGE-PICKER-MISSING", "RearPicker", description + " 전 RearPicker 유닛을 확인할 수 없습니다.");
+
+                int timeoutMs = ResolveTimeout();
+                DateTime startTime = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string frontDetail;
+                    string rearDetail;
+                    bool frontBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        true,
+                        PickerWorkZone.Output,
+                        out frontDetail);
+                    bool rearBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        false,
+                        PickerWorkZone.Output,
+                        out rearDetail);
+
+                    if (!frontBlocking && !rearBlocking)
+                        return 0;
+
+                    string alarmState = BuildPickerTransportAlarmState();
+                    if (!string.IsNullOrEmpty(alarmState))
+                    {
+                        return Fail("OUT-STAGE-PICKER-ALARM", Name,
+                            description + " 대기 불가: Picker 축 알람 상태입니다. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail + ", " + alarmState);
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("OUT-STAGE-PICKER-OUTPUT-ZONE-TIMEOUT", Name,
+                            description + " 대기 시간 초과: Picker가 Output zone에서 벗어나지 않았습니다. " +
+                            "timeoutMs=" + timeoutMs + ", front=" + frontDetail +
+                            ", rear=" + rearDetail + ", " + BuildPickerTransportMotionState());
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog(Name,
+                            description + " 전 Picker Output zone 해제 대기. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail +
+                            ", timeoutMs=" + timeoutMs + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-PICKER-OUTPUT-ZONE-WAIT-EX", Name,
+                    description + " 전 Picker Output zone 해제 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildPickerTransportAlarmState()
+        {
+            string reason = string.Empty;
+            AppendPickerAxisAlarm(ref reason, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            return reason;
+        }
+
+        private string BuildPickerTransportMotionState()
+        {
+            string state = string.Empty;
+            AppendPickerAxisMotion(ref state, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisMotion(ref state, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            return state;
+        }
+
+        private static void AppendPickerAxisAlarm(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+
+            reason += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
+        }
+
+        private static void AppendPickerAxisMotion(ref string state, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            if (state.Length > 0)
+                state += " ";
+
+            state += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
+        }
+
         protected async Task<int> MoveAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
         {
             try
@@ -221,6 +361,13 @@ namespace QMC.CDT320.Sequencing
 
                     return Fail("OUT-STAGE-AXIS-MISSING", Stage.Name,
                         description + " axis does not exist. axis=" + axis);
+                }
+
+                if (axis == BinStageAxis.NgBinY)
+                {
+                    int clearResult = await EnsureNgStageYMoveClearAsync(description, ct).ConfigureAwait(false);
+                    if (clearResult != 0)
+                        return clearResult;
                 }
 
                 int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
@@ -253,6 +400,67 @@ namespace QMC.CDT320.Sequencing
                     description + " 이동 처리 중 예외가 발생했습니다. axis=" + axis +
                     ", target=" + target +
                     ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureNgStageYMoveClearAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Stage == null)
+                    return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available.");
+
+                int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                        description + " 전 NG Clamp Lift 상승 명령 실패. result=" + result + ", " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
+                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
+                        description + " 전 NG Clamp Lift 상승 확인 실패. " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
+                result = await Stage.EnsureBinGuideDownAsync(BinSide.Good, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
+                        description + " 전 Good Guide Down 명령 실패. result=" + result + ", " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!Stage.IsBinGuideDown(BinSide.Good))
+                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
+                        description + " 전 Good Guide Down 확인 실패. " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!Stage.IsGoodStageZInAvoidPosition())
+                {
+                    result = await Stage.MoveGoodStageZToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name,
+                            description + " 전 Good Stage Z 안전 위치 이동 실패. result=" + result + ", " +
+                            Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+                }
+
+                if (!Stage.IsGoodStageZInAvoidPosition())
+                    return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name,
+                        description + " 전 Good Stage Z 안전 위치 확인 실패. " +
+                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-NG-Y-CLEAR-EX", Stage != null ? Stage.Name : "OutputStage",
+                    description + " 전 NG Stage Y 이동 조건 확보 중 예외가 발생했습니다: " + ex.Message);
             }
             finally
             {

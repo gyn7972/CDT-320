@@ -5,6 +5,8 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -48,10 +50,15 @@ namespace QMC.Vision.Ui.Pages
 
         // 페이지네이션 + Log/Alarm 전체 캐시·정렬 상태
         private PaginationBar _pagerData, _pagerLog, _pagerAlarm;
-        private List<EventRow>    _logRowsAll;
+        private List<EventRow>    _logRaw;       // 파일 원본(필터 전) — 검색 시 재읽기 방지용 캐시
+        private List<EventRow>    _logRowsAll;   // 현재 뷰(필터+정렬 적용)
         private List<AlarmRecord> _alarmRowsAll;
         private string _logSortProp;   private bool _logSortAsc   = true;
         private string _alarmSortProp; private bool _alarmSortAsc = true;
+
+        // 대량 데이터 비동기 로드 취소 토큰(마지막 요청만 반영) — 클릭 즉시 반응 + UI 멈춤 방지
+        private CancellationTokenSource _dataCts;
+        private CancellationTokenSource _logCts;
 
         public DataLogPage()
         {
@@ -93,37 +100,70 @@ namespace QMC.Vision.Ui.Pages
                 bool isDesc = string.Equals(key, "Description", StringComparison.OrdinalIgnoreCase)
                            || string.Equals(key, "Message", StringComparison.OrdinalIgnoreCase);
                 c.AutoSizeMode = isDesc ? DataGridViewAutoSizeColumnMode.Fill
-                                        : DataGridViewAutoSizeColumnMode.AllCells;
+                                        : DataGridViewAutoSizeColumnMode.DisplayedCells;   // 보이는 행만 측정(버벅임 방지)
             }
         }
 
-        /// <summary>객체의 모든 공개 속성 문자열에 검색어가 포함되는지(대소문자 무시).</summary>
-        private static bool ObjMatches(object o, string q)
+        /// <summary>문자열에 검색어가 포함되는지(대소문자 무시).</summary>
+        private static bool Contains(string s, string q)
+            => !string.IsNullOrEmpty(s) && s.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        // ── EventRow 타입 검색/정렬(리플렉션 제거 — 대량 정렬 성능) ──
+        private static bool EventMatches(EventRow r, string q)
         {
-            if (o == null) return false;
-            foreach (var p in o.GetType().GetProperties())
-            {
-                try { var v = p.GetValue(o); if (v != null && v.ToString().IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0) return true; }
-                catch { }
-            }
-            return false;
+            if (r == null) return false;
+            return Contains(r.When.ToString("yyyy-MM-dd HH:mm:ss"), q)
+                || Contains(r.Kind.ToString(), q)
+                || Contains(r.User, q)
+                || Contains(r.Code, q)
+                || Contains(r.Source, q)
+                || Contains(r.Description, q);
         }
 
-        /// <summary>리스트를 속성명 기준 전역 정렬(페이지 무관). 동형 IComparable 우선, 그 외 문자열 비교.</summary>
-        private static void SortByProp<T>(List<T> list, string prop, bool asc)
+        private static int CompareEvent(EventRow a, EventRow b, string prop, bool asc)
         {
-            if (list == null || string.IsNullOrEmpty(prop)) return;
-            var pi = typeof(T).GetProperty(prop);
-            if (pi == null) return;
-            list.Sort((a, b) =>
+            int cmp;
+            switch (prop)
             {
-                object va = null, vb = null;
-                try { va = pi.GetValue(a); vb = pi.GetValue(b); } catch { }
-                int cmp;
-                if (va is IComparable ca && vb != null && va.GetType() == vb.GetType()) cmp = ca.CompareTo(vb);
-                else cmp = string.Compare(va?.ToString(), vb?.ToString(), StringComparison.OrdinalIgnoreCase);
-                return asc ? cmp : -cmp;
-            });
+                case "When":        cmp = a.When.CompareTo(b.When); break;
+                case "Kind":        cmp = string.Compare(a.Kind.ToString(), b.Kind.ToString(), StringComparison.OrdinalIgnoreCase); break;
+                case "User":        cmp = string.Compare(a.User, b.User, StringComparison.OrdinalIgnoreCase); break;
+                case "Code":        cmp = string.Compare(a.Code, b.Code, StringComparison.OrdinalIgnoreCase); break;
+                case "Source":      cmp = string.Compare(a.Source, b.Source, StringComparison.OrdinalIgnoreCase); break;
+                case "Description": cmp = string.Compare(a.Description, b.Description, StringComparison.OrdinalIgnoreCase); break;
+                default:            cmp = 0; break;
+            }
+            return asc ? cmp : -cmp;
+        }
+
+        // ── AlarmRecord 타입 검색/정렬 ──
+        private static bool AlarmMatches(AlarmRecord r, string q)
+        {
+            if (r == null) return false;
+            return Contains(r.Code, q)
+                || Contains(r.Source, q)
+                || Contains(r.Message, q)
+                || Contains(r.Severity.ToString(), q)
+                || Contains(r.Raised.ToString("yyyy-MM-dd HH:mm:ss"), q)
+                || Contains(r.Id.ToString(), q);
+        }
+
+        private static int CompareAlarm(AlarmRecord a, AlarmRecord b, string prop, bool asc)
+        {
+            int cmp;
+            switch (prop)
+            {
+                case "Id":       cmp = a.Id.CompareTo(b.Id); break;
+                case "Raised":   cmp = a.Raised.CompareTo(b.Raised); break;
+                case "Cleared":  cmp = Nullable.Compare(a.Cleared, b.Cleared); break;
+                case "Severity": cmp = ((int)a.Severity).CompareTo((int)b.Severity); break;
+                case "Code":     cmp = string.Compare(a.Code, b.Code, StringComparison.OrdinalIgnoreCase); break;
+                case "Source":   cmp = string.Compare(a.Source, b.Source, StringComparison.OrdinalIgnoreCase); break;
+                case "Message":  cmp = string.Compare(a.Message, b.Message, StringComparison.OrdinalIgnoreCase); break;
+                case "IsActive": cmp = a.IsActive.CompareTo(b.IsActive); break;
+                default:         cmp = 0; break;
+            }
+            return asc ? cmp : -cmp;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -145,6 +185,8 @@ namespace QMC.Vision.Ui.Pages
         protected override void OnHandleDestroyed(EventArgs e)
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            try { _logCts?.Cancel(); _dataCts?.Cancel(); }   // 진행 중 비동기 로드 취소(폐기 후 콜백 방지)
+            catch (Exception ex) { Debug.WriteLine("[DataLogPage] OnHandleDestroyed 취소 실패: " + ex.Message); }
             base.OnHandleDestroyed(e);
         }
 
@@ -202,17 +244,30 @@ namespace QMC.Vision.Ui.Pages
             LoadAlarms();
         }
 
-        // ── 날짜 선택기 범위 = 실제 로그가 있는 일자 [최소~최대(또는 오늘)] ──
+        // ── 날짜 선택기 = 실제 로그가 있는 일자만 선택 가능(굵게 표시 + 최근일 기본 선택) ──
         private void SetDatePickerRanges()
         {
             try
             {
                 var cfg = VisionConfigStore.Load();
                 string dataDir = (cfg == null || string.IsNullOrEmpty(cfg.DataLogPath)) ? @".\Log\Data" : cfg.DataLogPath;
-                ApplyRange(_dtData, CollectDates(dataDir, "vision_*.csv"));
-                ApplyRange(_dtLog,  CollectDates(EventLogger.LogDir, "*"));
+
+                var dataDates = CollectDates(dataDir, "vision_*.csv");       // 검사 데이터: vision_yyyyMMdd.csv
+                var logDates  = CollectDates(EventLogger.LogDir, "*.csv");   // 이벤트 로그: yyyy-MM-dd.csv
+
+                _dtData.SetAvailableDates(dataDates);
+                _dtLog.SetAvailableDates(logDates);
+
+                // 로그가 있는 가장 최근 날짜를 기본 선택(없으면 오늘 유지) → 첫 화면 빈 그리드 방지.
+                var latestData = _dtData.GetLatestAvailable();
+                if (latestData.HasValue) _dtData.SetValueSilent(latestData.Value);
+                var latestLog = _dtLog.GetLatestAvailable();
+                if (latestLog.HasValue) _dtLog.SetValueSilent(latestLog.Value);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[DataLogPage] SetDatePickerRanges 실패: " + ex.Message);
+            }
         }
 
         private static List<DateTime> CollectDates(string dir, string pattern)
@@ -231,10 +286,18 @@ namespace QMC.Vision.Ui.Pages
             return dates;
         }
 
-        /// <summary>파일명에서 yyyyMMdd 8자리를 찾아 날짜로 해석.</summary>
+        /// <summary>파일명에서 날짜를 해석. yyyy-MM-dd(이벤트 로그) 우선, 없으면 yyyyMMdd 8자리(데이터 로그).</summary>
         private static DateTime? ExtractDate(string name)
         {
             if (string.IsNullOrEmpty(name)) return null;
+
+            // 1) yyyy-MM-dd : 이벤트 로그(예: 2026-06-22.csv)
+            var m = System.Text.RegularExpressions.Regex.Match(name, @"\d{4}-\d{2}-\d{2}");
+            if (m.Success &&
+                DateTime.TryParseExact(m.Value, "yyyy-MM-dd", null, System.Globalization.DateTimeStyles.None, out var dDash))
+                return dDash;
+
+            // 2) yyyyMMdd : 데이터 로그(예: vision_20260622.csv)
             for (int i = 0; i + 8 <= name.Length; i++)
             {
                 string sub = name.Substring(i, 8);
@@ -245,96 +308,134 @@ namespace QMC.Vision.Ui.Pages
             return null;
         }
 
-        private static void ApplyRange(DateTimePicker dtp, List<DateTime> dates)
-        {
-            try
-            {
-                DateTime max = DateTime.Today;
-                DateTime min = dates.Count > 0 ? dates.Min() : DateTime.Today;
-                if (dates.Count > 0) { var dmax = dates.Max(); if (dmax > max) max = dmax; }
-                if (min > max) min = max;
-                dtp.MinDate = min;
-                dtp.MaxDate = max;
-            }
-            catch { }
-        }
-
         private void _tabs_SelectedIndexChanged(object sender, EventArgs e)
         {
             UpdateHeader();
         }
 
-        // ── Data Log (vision_yyyyMMdd.csv) ──
-        private void LoadDataLog()
+        // ── Data Log (vision_yyyyMMdd.csv) — 비동기 파싱(취소 토큰) + 캐시 렌더 ──
+        private async void LoadDataLog()
         {
+            string file = DataLogFilePath(_dtData.Value);
+            _dataCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _dataCts = cts;
+            var token = cts.Token;
+            SetDataLoading(true);
             try
             {
-                string file = DataLogFilePath(_dtData.Value);
-                ParseCsv(file);        // _dataHeaders / _dataRowsAll 채움
-                RenderDataGrid();      // 검색 필터 + 정렬 적용해 그리드 채움
+                var parsed = await Task.Run(() => ParseCsvCore(file), token);   // 파일 읽기/파싱(백그라운드)
+                if (token.IsCancellationRequested || IsDisposed) return;
+                _dataHeaders = parsed.Item1;
+                _dataRowsAll = parsed.Item2;
+                RenderDataGrid();              // 검색 필터 + 정렬 적용해 그리드 채움
                 _lblUtilInfo.Text = "Data Log: " + file + Environment.NewLine + "Event Log: " + EventLogger.LogDir;
             }
-            catch (Exception ex) { ShowGridError(_gridData, ex); }
-            UpdateEmpty(_gridData, _emptyData);
+            catch (OperationCanceledException) { /* 새 요청으로 대체됨 — 무시 */ }
+            catch (Exception ex)
+            {
+                if (!IsDisposed && !token.IsCancellationRequested) ShowGridError(_gridData, ex);
+            }
+            finally
+            {
+                if (!IsDisposed && _dataCts == cts) { SetDataLoading(false); UpdateEmpty(_gridData, _emptyData); }
+            }
         }
 
-        /// <summary>CSV → 헤더/행 캐시(_dataHeaders/_dataRowsAll). 파일 없으면 고정 칼럼.</summary>
-        private void ParseCsv(string file)
+        /// <summary>CSV → (헤더, 행) 파싱. 파일 없으면 고정 칼럼. UI 비의존 → 백그라운드 스레드 호출 안전.</summary>
+        private static Tuple<List<string>, List<string[]>> ParseCsvCore(string file)
         {
             string[] lines = File.Exists(file) ? File.ReadAllLines(file, Encoding.UTF8) : null;
-            _dataHeaders = (lines != null && lines.Length > 0) ? SplitCsv(lines[0]) : new List<string>(DataLogColumns);
-            if (_dataHeaders.Count == 0) _dataHeaders = new List<string>(DataLogColumns);
-            _dataRowsAll = new List<string[]>();
+            List<string> headers = (lines != null && lines.Length > 0) ? SplitCsv(lines[0]) : new List<string>(DataLogColumns);
+            if (headers.Count == 0) headers = new List<string>(DataLogColumns);
+            var rowsAll = new List<string[]>();
             if (lines != null)
                 for (int i = 1; i < lines.Length; i++)
                 {
                     if (string.IsNullOrWhiteSpace(lines[i])) continue;
                     var cells = SplitCsv(lines[i]);
-                    var arr = new string[_dataHeaders.Count];
-                    for (int c = 0; c < _dataHeaders.Count; c++) arr[c] = c < cells.Count ? cells[c] : "";
-                    _dataRowsAll.Add(arr);
+                    var arr = new string[headers.Count];
+                    for (int c = 0; c < headers.Count; c++) arr[c] = c < cells.Count ? cells[c] : "";
+                    rowsAll.Add(arr);
                 }
+            return Tuple.Create(headers, rowsAll);
+        }
+
+        /// <summary>Data Log 로딩 중 표시(하단 안내 띠 + 대기 커서 + 새로고침 버튼 비활성).</summary>
+        private void SetDataLoading(bool on)
+        {
+            try
+            {
+                if (_btnDataReload != null) _btnDataReload.Enabled = !on;
+                this.Cursor = on ? Cursors.WaitCursor : Cursors.Default;
+                if (_emptyData == null) return;
+                if (on) { _gridData.Rows.Clear(); _emptyData.Text = Lang.T("hist.loading"); _emptyData.Visible = true; }
+                else    { _emptyData.Text = Lang.T("hist.empty"); }
+            }
+            catch (Exception ex) { Debug.WriteLine("[DataLogPage] SetDataLoading 실패: " + ex.Message); }
         }
 
         /// <summary>캐시 → 검색 필터 + 정렬 → 그리드 렌더(언바운드).</summary>
         private void RenderDataGrid()
         {
             var g = _gridData;
-            g.DataSource = null; g.Columns.Clear(); g.Rows.Clear();
-            if (_dataHeaders == null) return;
+            if (_dataHeaders == null) { g.DataSource = null; g.Columns.Clear(); g.Rows.Clear(); return; }
 
-            g.ColumnCount = _dataHeaders.Count;
-            for (int c = 0; c < _dataHeaders.Count; c++)
+            // SuspendLayout + 페이지 단위 렌더로 대량 데이터 버벅임 방지.
+            g.SuspendLayout();
+            try
             {
-                g.Columns[c].Name = "col" + c;
-                g.Columns[c].HeaderText = _dataHeaders[c];
-                g.Columns[c].SortMode = DataGridViewColumnSortMode.Programmatic;
-            }
-            if (g.ColumnCount > 0) g.Columns[0].Frozen = true;
+                g.DataSource = null; g.Columns.Clear(); g.Rows.Clear();
 
-            string q = _txtDataSearch?.Text?.Trim();
-            IEnumerable<string[]> rows = _dataRowsAll;
-            if (!string.IsNullOrEmpty(q))
-                rows = rows.Where(r => r.Any(cell => cell != null && cell.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0));
-            var list = rows.ToList();
-
-            if (_dataSortCol >= 0 && _dataSortCol < _dataHeaders.Count)
-                list.Sort((a, b) =>
+                g.ColumnCount = _dataHeaders.Count;
+                for (int c = 0; c < _dataHeaders.Count; c++)
                 {
-                    string sa = _dataSortCol < a.Length ? a[_dataSortCol] : "";
-                    string sb = _dataSortCol < b.Length ? b[_dataSortCol] : "";
-                    int cmp = (double.TryParse(sa, out var da) && double.TryParse(sb, out var db))
-                        ? da.CompareTo(db) : string.Compare(sa, sb, StringComparison.OrdinalIgnoreCase);
-                    return _dataSortAsc ? cmp : -cmp;
-                });
+                    g.Columns[c].Name = "col" + c;
+                    g.Columns[c].HeaderText = _dataHeaders[c];
+                    g.Columns[c].SortMode = DataGridViewColumnSortMode.Programmatic;
+                }
+                if (g.ColumnCount > 0) g.Columns[0].Frozen = true;
 
-            _pagerData?.SetTotal(list.Count);
-            foreach (var r in (_pagerData != null ? _pagerData.PageSlice(list) : list))
-                g.Rows.Add(r.Cast<object>().ToArray());
+                string q = _txtDataSearch?.Text?.Trim();
+                bool hasFilter = !string.IsNullOrEmpty(q);
+                bool hasSort = _dataSortCol >= 0 && _dataSortCol < _dataHeaders.Count;
 
-            for (int c = 0; c < g.Columns.Count; c++)
-                g.Columns[c].HeaderCell.SortGlyphDirection =
-                    (c == _dataSortCol) ? (_dataSortAsc ? SortOrder.Ascending : SortOrder.Descending) : SortOrder.None;
+                // 무필터·무정렬이면 원본을 그대로 사용(전체 ToList 복사 제거 — 페이지 이동 시 대량 복사 방지).
+                IList<string[]> list;
+                if (!hasFilter && !hasSort)
+                {
+                    list = _dataRowsAll;
+                }
+                else
+                {
+                    IEnumerable<string[]> rows = _dataRowsAll;
+                    if (hasFilter)
+                        rows = rows.Where(r => r.Any(cell => cell != null && cell.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0));
+                    var l = rows.ToList();
+                    if (hasSort)
+                        l.Sort((a, b) =>
+                        {
+                            string sa = _dataSortCol < a.Length ? a[_dataSortCol] : "";
+                            string sb = _dataSortCol < b.Length ? b[_dataSortCol] : "";
+                            int cmp = (double.TryParse(sa, out var da) && double.TryParse(sb, out var db))
+                                ? da.CompareTo(db) : string.Compare(sa, sb, StringComparison.OrdinalIgnoreCase);
+                            return _dataSortAsc ? cmp : -cmp;
+                        });
+                    list = l;
+                }
+
+                _pagerData?.SetTotal(list.Count);
+                foreach (var r in (_pagerData != null ? _pagerData.PageSlice(list) : list))
+                    g.Rows.Add(r.Cast<object>().ToArray());
+
+                for (int c = 0; c < g.Columns.Count; c++)
+                    g.Columns[c].HeaderCell.SortGlyphDirection =
+                        (c == _dataSortCol) ? (_dataSortAsc ? SortOrder.Ascending : SortOrder.Descending) : SortOrder.None;
+            }
+            finally { g.ResumeLayout(); }
+
+            // 전체 행이 아닌 "현재 보이는 행"만 측정해 칼럼 폭 조정(AllCells 대비 대폭 경량).
+            g.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.DisplayedCells);
         }
 
         private void GridData_HeaderClick(object sender, DataGridViewCellMouseEventArgs e)
@@ -418,52 +519,113 @@ namespace QMC.Vision.Ui.Pages
             return list;
         }
 
-        // ── Log (EventLogger) — 전체 캐시 + 전역 정렬/검색 + 페이지 단위 렌더 ──
-        private void LoadEventLog()
+        // ── Log (EventLogger) — 원본 캐시(_logRaw) + 뷰(_logRowsAll) 분리, 비동기 로드/정렬 ──
+        /// <summary>일자 변경/새로고침: 파일을 백그라운드로 읽어 _logRaw 캐시에 담은 뒤 현재 필터/정렬 뷰를 적용한다.</summary>
+        private async void LoadEventLog()
         {
+            DateTime date = _dtLog.Value.Date;
+            var cts = NewLogCts();
+            var token = cts.Token;
+            SetLogLoading(true);
             try
             {
-                IEnumerable<EventRow> rows = EventLogger.Read(_dtLog.Value.Date);
-                string q = _txtLogSearch?.Text?.Trim();
-                if (!string.IsNullOrEmpty(q)) rows = rows.Where(r => ObjMatches(r, q));
-                _logRowsAll = rows.ToList();
-                SortByProp(_logRowsAll, _logSortProp, _logSortAsc);
-                _pagerLog?.Reset();
-                _pagerLog?.SetTotal(_logRowsAll.Count);
-                RenderLogPage();
+                List<EventRow> raw = await Task.Run(() => EventLogger.Read(date), token);
+                if (token.IsCancellationRequested || IsDisposed) return;
+                _logRaw = raw;
+                await ApplyLogViewCore(token);
             }
-            catch (Exception ex) { _logRowsAll = null; ShowGridError(_gridLog, ex); UpdateEmpty(_gridLog, _emptyLog); }
+            catch (OperationCanceledException) { /* 새 요청으로 대체됨 — 무시 */ }
+            catch (Exception ex)
+            {
+                if (!IsDisposed && !token.IsCancellationRequested)
+                {
+                    _logRaw = null; _logRowsAll = null;
+                    ShowGridError(_gridLog, ex);
+                    UpdateEmpty(_gridLog, _emptyLog);
+                }
+            }
+            finally { if (!IsDisposed && _logCts == cts) SetLogLoading(false); }
+        }
+
+        /// <summary>검색/정렬만 변경: 재읽기 없이 _logRaw 캐시에서 필터+정렬해 뷰를 재구성한다.</summary>
+        private async void ApplyLogView()
+        {
+            if (_logRaw == null) { LoadEventLog(); return; }
+            var cts = NewLogCts();
+            var token = cts.Token;
+            SetLogLoading(true);
+            try { await ApplyLogViewCore(token); }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                if (!IsDisposed && !token.IsCancellationRequested)
+                {
+                    _logRowsAll = null; ShowGridError(_gridLog, ex); UpdateEmpty(_gridLog, _emptyLog);
+                }
+            }
+            finally { if (!IsDisposed && _logCts == cts) SetLogLoading(false); }
+        }
+
+        /// <summary>_logRaw → (검색 필터 + 타입 정렬)을 백그라운드에서 수행 후 UI 스레드에서 렌더.</summary>
+        private async Task ApplyLogViewCore(CancellationToken token)
+        {
+            string q = _txtLogSearch?.Text?.Trim();
+            string sortProp = _logSortProp; bool sortAsc = _logSortAsc;
+            List<EventRow> src = _logRaw;
+
+            List<EventRow> view = await Task.Run(() =>
+            {
+                IEnumerable<EventRow> rows = src;
+                if (!string.IsNullOrEmpty(q)) rows = rows.Where(r => EventMatches(r, q));
+                var list = rows.ToList();
+                token.ThrowIfCancellationRequested();
+                if (!string.IsNullOrEmpty(sortProp)) list.Sort((a, b) => CompareEvent(a, b, sortProp, sortAsc));
+                return list;
+            }, token);
+
+            if (token.IsCancellationRequested || IsDisposed) return;
+            _logRowsAll = view;
+            _pagerLog?.Reset();
+            _pagerLog?.SetTotal(_logRowsAll.Count);
+            RenderLogPage();
+        }
+
+        /// <summary>이전 Log 작업을 취소하고 새 토큰 소스를 만든다(마지막 클릭만 반영).</summary>
+        private CancellationTokenSource NewLogCts()
+        {
+            _logCts?.Cancel();
+            _logCts = new CancellationTokenSource();
+            return _logCts;
         }
 
         /// <summary>현재 페이지 구간만 Log 그리드에 바인딩(전체 캐시=_logRowsAll).</summary>
         private void RenderLogPage()
         {
             if (_logRowsAll == null) { _gridLog.DataSource = null; UpdateEmpty(_gridLog, _emptyLog); return; }
-            _gridLog.DataSource = (_pagerLog != null ? _pagerLog.PageSlice(_logRowsAll) : _logRowsAll).ToList();
+            _gridLog.DataSource = (_pagerLog != null ? _pagerLog.PageSlice(_logRowsAll) : (IEnumerable<EventRow>)_logRowsAll).ToList();
             UpdateEmpty(_gridLog, _emptyLog);
         }
 
         private void GridLog_HeaderClick(object sender, DataGridViewCellMouseEventArgs e)
         {
-            if (e.ColumnIndex < 0 || _logRowsAll == null) return;
+            if (e.ColumnIndex < 0 || _logRaw == null) return;
             string prop = _gridLog.Columns[e.ColumnIndex].DataPropertyName;
             if (string.IsNullOrEmpty(prop)) prop = _gridLog.Columns[e.ColumnIndex].Name;
             if (_logSortProp == prop) _logSortAsc = !_logSortAsc; else { _logSortProp = prop; _logSortAsc = true; }
-            SortByProp(_logRowsAll, _logSortProp, _logSortAsc);
-            _pagerLog?.Reset();
-            RenderLogPage();
+            ApplyLogView();   // 캐시에서 정렬만 재적용(재읽기 없음, 백그라운드)
         }
 
-        // ── Alarm (AlarmManager) — 전체 캐시 + 전역 정렬/검색 + 페이지 단위 렌더 ──
+        // ── Alarm (AlarmManager) — 메모리 데이터 + 타입 정렬/검색 + 페이지 단위 렌더 ──
         private void LoadAlarms()
         {
             try
             {
                 IEnumerable<AlarmRecord> src = _chkActiveOnly.Checked ? AlarmManager.Active : AlarmManager.History;
                 string q = _txtAlarmSearch?.Text?.Trim();
-                if (!string.IsNullOrEmpty(q)) src = src.Where(r => ObjMatches(r, q));
+                if (!string.IsNullOrEmpty(q)) src = src.Where(r => AlarmMatches(r, q));
                 _alarmRowsAll = src.ToList();
-                SortByProp(_alarmRowsAll, _alarmSortProp, _alarmSortAsc);
+                if (!string.IsNullOrEmpty(_alarmSortProp))
+                    _alarmRowsAll.Sort((a, b) => CompareAlarm(a, b, _alarmSortProp, _alarmSortAsc));
                 _pagerAlarm?.Reset();
                 _pagerAlarm?.SetTotal(_alarmRowsAll.Count);
                 RenderAlarmPage();
@@ -475,7 +637,7 @@ namespace QMC.Vision.Ui.Pages
         private void RenderAlarmPage()
         {
             if (_alarmRowsAll == null) { _gridAlarm.DataSource = null; UpdateEmpty(_gridAlarm, _emptyAlarm); return; }
-            _gridAlarm.DataSource = (_pagerAlarm != null ? _pagerAlarm.PageSlice(_alarmRowsAll) : _alarmRowsAll).ToList();
+            _gridAlarm.DataSource = (_pagerAlarm != null ? _pagerAlarm.PageSlice(_alarmRowsAll) : (IEnumerable<AlarmRecord>)_alarmRowsAll).ToList();
             UpdateEmpty(_gridAlarm, _emptyAlarm);
         }
 
@@ -485,9 +647,31 @@ namespace QMC.Vision.Ui.Pages
             string prop = _gridAlarm.Columns[e.ColumnIndex].DataPropertyName;
             if (string.IsNullOrEmpty(prop)) prop = _gridAlarm.Columns[e.ColumnIndex].Name;
             if (_alarmSortProp == prop) _alarmSortAsc = !_alarmSortAsc; else { _alarmSortProp = prop; _alarmSortAsc = true; }
-            SortByProp(_alarmRowsAll, _alarmSortProp, _alarmSortAsc);
+            _alarmRowsAll.Sort((a, b) => CompareAlarm(a, b, _alarmSortProp, _alarmSortAsc));
             _pagerAlarm?.Reset();
             RenderAlarmPage();
+        }
+
+        /// <summary>Log 로딩 중 표시(하단 안내 띠 + 대기 커서 + 새로고침 버튼 비활성).</summary>
+        private void SetLogLoading(bool on)
+        {
+            try
+            {
+                if (_btnLogReload != null) _btnLogReload.Enabled = !on;
+                this.Cursor = on ? Cursors.WaitCursor : Cursors.Default;
+                if (_emptyLog == null) return;
+                if (on)
+                {
+                    _gridLog.DataSource = null;
+                    _emptyLog.Text = Lang.T("hist.loading");
+                    _emptyLog.Visible = true;
+                }
+                else
+                {
+                    _emptyLog.Text = Lang.T("hist.empty");
+                }
+            }
+            catch (Exception ex) { Debug.WriteLine("[DataLogPage] SetLogLoading 실패: " + ex.Message); }
         }
 
         private static void ShowGridError(DataGridView g, Exception ex)

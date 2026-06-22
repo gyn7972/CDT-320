@@ -68,6 +68,10 @@ namespace QMC.Common.Recipes
         [DataMember] public double CalibChipWidthMm   { get; set; } = 0;
         [DataMember] public double CalibChipHeightMm  { get; set; } = 0;
 
+        // 모듈 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 사용할 저장 이미지(테스트)
+        [DataMember] public bool   SimUseSavedImage   { get; set; } = false;
+        [DataMember] public string SimSavedImagePath  { get; set; } = "";
+
         public bool IsRoiFull => RoiWidth <= 0 || RoiHeight <= 0;
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
@@ -87,7 +91,8 @@ namespace QMC.Common.Recipes
                 ScaleX = ScaleX, ScaleY = ScaleY,
                 IsRotated = IsRotated, InvertedX = InvertedX, InvertedY = InvertedY,
                 ReturnMmCoordinates = ReturnMmCoordinates,
-                CalibChipWidthMm = CalibChipWidthMm, CalibChipHeightMm = CalibChipHeightMm
+                CalibChipWidthMm = CalibChipWidthMm, CalibChipHeightMm = CalibChipHeightMm,
+                SimUseSavedImage = SimUseSavedImage, SimSavedImagePath = SimSavedImagePath
             };
     }
 

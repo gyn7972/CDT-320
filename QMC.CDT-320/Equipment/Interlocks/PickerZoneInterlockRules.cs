@@ -13,6 +13,59 @@ namespace QMC.CDT320.Interlocks
         Output
     }
 
+    internal sealed class PickerZoneTransportState
+    {
+        public bool IsFront { get; set; }
+        public PickerWorkZone RequestedZone { get; set; }
+        public PickerWorkZone CurrentZone { get; set; }
+        public PickerWorkZone TargetZone { get; set; }
+        public bool HasWorkArea { get; set; }
+        public PickerWorkZone WorkAreaZone { get; set; }
+        public string WorkAreaOwner { get; set; }
+        public bool YAvoid { get; set; }
+        public double? TargetX { get; set; }
+        public string TargetName { get; set; }
+        public BaseAxis PickerX { get; set; }
+        public BaseAxis PickerY { get; set; }
+        public bool UnknownUnsafe { get; set; }
+
+        public bool IsRequestedZoneActive
+        {
+            get
+            {
+                return CurrentZone == RequestedZone ||
+                       TargetZone == RequestedZone ||
+                       (HasWorkArea && WorkAreaZone == RequestedZone);
+            }
+        }
+
+        public bool BlocksTransport
+        {
+            get { return IsRequestedZoneActive || UnknownUnsafe; }
+        }
+
+        public string Describe()
+        {
+            return (IsFront ? "FrontPicker" : "RearPicker") +
+                " currentZone=" + CurrentZone +
+                ", targetZone=" + TargetZone +
+                ", requestedZone=" + RequestedZone +
+                ", workArea=" + (HasWorkArea ? WorkAreaZone.ToString() : "None") +
+                ", owner=" + (HasWorkArea ? WorkAreaOwner : "-") +
+                ", yAvoid=" + YAvoid +
+                ", unknownUnsafe=" + UnknownUnsafe +
+                ", x=" + FormatAxis(PickerX) +
+                ", y=" + FormatAxis(PickerY) +
+                ", targetX=" + (TargetX.HasValue ? TargetX.Value.ToString("0.###") : "-") +
+                ", targetName=" + (string.IsNullOrWhiteSpace(TargetName) ? "-" : TargetName);
+        }
+
+        private static string FormatAxis(BaseAxis axis)
+        {
+            return axis != null ? axis.ActualPosition.ToString("0.###") : "<null>";
+        }
+    }
+
     internal static class PickerZoneInterlockRules
     {
         private const double DefaultTolerance = 0.05;
@@ -124,11 +177,111 @@ namespace QMC.CDT320.Interlocks
             return GetActivePickerYTargetZone(isFront);
         }
 
+        public static PickerWorkZone GetPickerCurrentXZone(CDT320_Machine machine, bool isFront)
+        {
+            return ResolveCurrentXZoneWithContext(machine, isFront);
+        }
+
+        public static PickerWorkZone GetPickerXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
+        {
+            return ResolveXZoneByPosition(machine, isFront, position);
+        }
+
+        public static bool IsPickerBlockingZoneTransport(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerWorkZone zone,
+            out string detail)
+        {
+            return IsPickerBlockingZoneTransport(machine, isFront, zone, null, string.Empty, out detail);
+        }
+
+        public static bool IsPickerBlockingZoneTransport(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerWorkZone zone,
+            double? targetX,
+            string targetName,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                PickerZoneTransportState state = ResolvePickerZoneTransportState(machine, isFront, zone, targetX, targetName);
+                detail = state.Describe();
+                return state.BlocksTransport;
+            }
+            catch (Exception ex)
+            {
+                detail = (isFront ? "FrontPicker" : "RearPicker") +
+                    " zone transport check failed. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        public static PickerZoneTransportState ResolvePickerZoneTransportState(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerWorkZone zone,
+            double? targetX,
+            string targetName)
+        {
+            var state = new PickerZoneTransportState
+            {
+                IsFront = isFront,
+                RequestedZone = zone,
+                CurrentZone = PickerWorkZone.Unknown,
+                TargetZone = PickerWorkZone.Unknown,
+                WorkAreaZone = PickerWorkZone.Unknown,
+                WorkAreaOwner = string.Empty,
+                YAvoid = true,
+                TargetX = targetX,
+                TargetName = targetName ?? string.Empty
+            };
+
+            try
+            {
+                if (machine == null || zone == PickerWorkZone.Unknown || zone == PickerWorkZone.Avoid)
+                    return state;
+
+                state.PickerX = GetPickerX(machine, isFront);
+                state.PickerY = GetPickerY(machine, isFront);
+                state.CurrentZone = ResolveCurrentXZoneWithContext(machine, isFront);
+                state.TargetZone = ResolveTargetXZoneWithContext(machine, isFront, targetX, targetName);
+                if (state.TargetZone == PickerWorkZone.Unknown && !targetX.HasValue)
+                    state.TargetZone = state.CurrentZone;
+
+                string owner;
+                PickerWorkZone resourceZone;
+                state.HasWorkArea = TryGetPickerWorkArea(isFront, out resourceZone, out owner);
+                state.WorkAreaZone = resourceZone;
+                state.WorkAreaOwner = owner;
+                state.YAvoid = IsPickerYAtAvoid(machine, isFront);
+                state.UnknownUnsafe =
+                    (state.CurrentZone == PickerWorkZone.Unknown || state.TargetZone == PickerWorkZone.Unknown) &&
+                    !state.YAvoid;
+            }
+            catch (Exception ex)
+            {
+                state.WorkAreaOwner = "zone transport state failed. error=" + ex.Message;
+                state.UnknownUnsafe = true;
+            }
+            finally
+            {
+            }
+
+            return state;
+        }
+
         public static string ResolvePickerPhysicalZoneName(CDT320_Machine machine, bool isFront)
         {
             try
             {
-                return ToDisplayName(ResolveCurrentXZone(machine, isFront));
+                return ToDisplayName(ResolveCurrentXZoneWithContext(machine, isFront));
             }
             catch
             {
@@ -190,8 +343,12 @@ namespace QMC.CDT320.Interlocks
 
                 BaseAxis ownX = GetPickerX(request.Machine, isFront);
                 BaseAxis ownY = GetPickerY(request.Machine, isFront);
-                PickerWorkZone currentZone = ResolveCurrentXZone(request.Machine, isFront);
-                PickerWorkZone targetZone = ResolveTargetXZone(request, isFront);
+                PickerWorkZone currentZone = ResolveCurrentXZoneWithContext(request.Machine, isFront);
+                PickerWorkZone targetZone = ResolveTargetXZoneWithContext(
+                    request.Machine,
+                    isFront,
+                    request.TargetValue,
+                    request.TargetName);
                 if (currentZone == PickerWorkZone.Unknown && targetZone != PickerWorkZone.Unknown)
                 {
                     PickerWorkZone currentYZone = ResolveCurrentYZone(request.Machine, isFront);
@@ -299,7 +456,7 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 PickerWorkZone targetZone = ResolveTargetYZone(request, isFront);
-                PickerWorkZone currentXZone = ResolveCurrentXZone(request.Machine, isFront);
+                PickerWorkZone currentXZone = ResolveCurrentXZoneWithContext(request.Machine, isFront);
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
                     movingName,
@@ -379,7 +536,7 @@ namespace QMC.CDT320.Interlocks
                 if (IsPickerYAtAvoid(request.Machine, otherFront))
                     return true;
 
-                PickerWorkZone otherZone = ResolveCurrentXZone(request.Machine, otherFront);
+                PickerWorkZone otherZone = ResolveCurrentXZoneWithContext(request.Machine, otherFront);
                 string otherName = isFront ? "RearPicker" : "FrontPicker";
                 return MotionGuardRuleHelpers.Block(
                     movingName,
@@ -587,14 +744,27 @@ namespace QMC.CDT320.Interlocks
 
         private static PickerWorkZone ResolveTargetXZone(MotionGuardRuleContext request, bool isFront)
         {
-            PickerWorkZone byName = ParseZone(request != null ? request.TargetName : string.Empty);
+            return ResolveTargetXZoneWithContext(
+                request != null ? request.Machine : null,
+                isFront,
+                request != null ? (double?)request.TargetValue : null,
+                request != null ? request.TargetName : string.Empty);
+        }
+
+        private static PickerWorkZone ResolveTargetXZoneWithContext(
+            CDT320_Machine machine,
+            bool isFront,
+            double? targetX,
+            string targetName)
+        {
+            PickerWorkZone byName = ParseZone(targetName);
             if (byName != PickerWorkZone.Unknown)
                 return byName;
 
-            return ResolveXZoneByPosition(
-                request != null ? request.Machine : null,
-                isFront,
-                request != null ? request.TargetValue : 0.0);
+            if (targetX.HasValue)
+                return ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
+
+            return PickerWorkZone.Unknown;
         }
 
         private static PickerWorkZone ResolveTargetYZone(MotionGuardRuleContext request, bool isFront)
@@ -610,7 +780,7 @@ namespace QMC.CDT320.Interlocks
             if (byPosition != PickerWorkZone.Unknown)
                 return byPosition;
 
-            PickerWorkZone currentXZone = ResolveCurrentXZone(request != null ? request.Machine : null, isFront);
+            PickerWorkZone currentXZone = ResolveCurrentXZoneWithContext(request != null ? request.Machine : null, isFront);
             if (currentXZone != PickerWorkZone.Unknown && !IsAvoidZone(currentXZone))
                 return currentXZone;
 
@@ -624,6 +794,68 @@ namespace QMC.CDT320.Interlocks
                 return PickerWorkZone.Unknown;
 
             return ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
+        }
+
+        private static PickerWorkZone ResolveCurrentXZoneWithContext(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                PickerWorkZone resourceZone;
+                string owner;
+                if (TryGetPickerWorkArea(isFront, out resourceZone, out owner) &&
+                    resourceZone != PickerWorkZone.Unknown &&
+                    resourceZone != PickerWorkZone.Avoid)
+                {
+                    return resourceZone;
+                }
+
+                PickerWorkZone activeYZone = GetActivePickerYTargetZone(isFront);
+                if (activeYZone != PickerWorkZone.Unknown && activeYZone != PickerWorkZone.Avoid)
+                    return activeYZone;
+
+                PickerWorkZone yZone = ResolveCurrentYZone(machine, isFront);
+                if (yZone != PickerWorkZone.Unknown && yZone != PickerWorkZone.Avoid)
+                    return yZone;
+
+                BaseAxis x = GetPickerX(machine, isFront);
+                if (x == null)
+                    return PickerWorkZone.Unknown;
+
+                return ResolveXZoneByPositionWithContext(machine, isFront, x.ActualPosition);
+            }
+            catch
+            {
+                return ResolveCurrentXZone(machine, isFront);
+            }
+            finally
+            {
+            }
+        }
+
+        private static PickerWorkZone ResolveXZoneByPositionWithContext(CDT320_Machine machine, bool isFront, double position)
+        {
+            PickerWorkZone zone = ResolveXZoneByPosition(machine, isFront, position);
+            if (zone != PickerWorkZone.Unknown)
+                return zone;
+
+            PickerWorkZone yZone = ResolveCurrentYZone(machine, isFront);
+            if (yZone != PickerWorkZone.Unknown && yZone != PickerWorkZone.Avoid)
+                return yZone;
+
+            PickerWorkZone activeYZone = GetActivePickerYTargetZone(isFront);
+            if (activeYZone != PickerWorkZone.Unknown && activeYZone != PickerWorkZone.Avoid)
+                return activeYZone;
+
+            PickerWorkZone resourceZone;
+            string owner;
+            if (TryGetPickerWorkArea(isFront, out resourceZone, out owner) &&
+                resourceZone != PickerWorkZone.Unknown &&
+                resourceZone != PickerWorkZone.Avoid)
+            {
+                return resourceZone;
+            }
+
+            return PickerWorkZone.Unknown;
         }
 
         private static PickerWorkZone ResolveCurrentYZone(CDT320_Machine machine, bool isFront)

@@ -8,6 +8,19 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
+    public enum PickerPickUpZManualStep
+    {
+        PrepareNeedlePinZ = 0,
+        VacuumOnBeforePick = 1,
+        MovePickerZPrePick = 2,
+        MovePickerZSlowToContact = 3,
+        MoveNeedlePickerZSyncLift = 4,
+        SeparateNeedlePickerZ = 5,
+        VerifyDiePicked = 6,
+        MoveZToSafeAfterPick = 7,
+        UpdateMaterialToPicker = 8
+    }
+
     internal sealed class PickerPickUpSequence : PickerSequenceBase<PickerPickUpStep>
     {
         private static readonly object SimVisionRandomLock = new object();
@@ -34,6 +47,7 @@ namespace QMC.CDT320.Sequencing
         private bool _diePicked;
         private SequenceResourceLease _inputStageLease;
         private PickUpBatchItem _currentBatchItem;
+        private PickUpZTargets _lastPickUpZTargets;
 
         private sealed class PickUpBatchItem
         {
@@ -51,6 +65,13 @@ namespace QMC.CDT320.Sequencing
             public double TargetNeedleZ;
             public double TargetEjectPinZ;
             public bool DiePicked;
+        }
+
+        private sealed class PickUpZTargets
+        {
+            public double PickerZ;
+            public double NeedleZ;
+            public double EjectPinZ;
         }
 
         public PickerPickUpSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -1163,15 +1184,1312 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MovePickerZPickAsync(CancellationToken ct)
         {
-            int result = await MovePickerNeedleEjectZToPickAsync(ct).ConfigureAwait(false);
-            if (result != 0)
+            try
             {
-                await TryMovePickerNeedleAndEjectPinZToAvoidAsync("Pick Z 동기 이동 실패 후 Z축 안전 복귀", ct).ConfigureAwait(false);
-                return result;
+                int result = await RunPickupZMotionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    await TryMovePickerNeedleAndEjectPinZToAvoidAsync("PickUp Z 세부 모션 실패 후 Z축 안전 복귀", ct).ConfigureAwait(false);
+                    return result;
+                }
+
+                CurrentStep = PickerPickUpStep.UpdateMaterialToPicker;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-MOTION-EX", Name,
+                    "PickUp Z 세부 모션 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        internal async Task<int> RunPickupZMotionAsync(CancellationToken ct)
+        {
+            return await RunPickupZMotionAsync(true, ct).ConfigureAwait(false);
+        }
+
+        internal async Task<int> RunManualZMotionOnlyAsync(int pickerNo, CancellationToken ct, PickerSequenceOptions options)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOptionsForManualOperation(options);
+
+                InputStageUnit stage = ResolveInputStage();
+                if (stage == null)
+                    return Fail("PICKER-PICKUP-Z-TEST-STAGE", "InputStageUnit", "PickUp Z 단독 테스트 실패. InputStageUnit is null.");
+
+                int normalizedPickerNo = pickerNo;
+                if (normalizedPickerNo < 1)
+                    normalizedPickerNo = 1;
+                if (normalizedPickerNo > 4)
+                    normalizedPickerNo = 4;
+
+                _currentPickerNo = normalizedPickerNo;
+                _currentPickerIndex = normalizedPickerNo - 1;
+                _currentDieId = "ManualPickUpZTest";
+                _pickTarget = null;
+                _visionOffset = null;
+                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
+                _targetNeedleZ = stage.Recipe != null && stage.Recipe.NeedleZ != null
+                    ? stage.Recipe.NeedleZ.ProcessPosition
+                    : 0.0;
+                _targetEjectPinZ = ResolveEjectPinZPickTarget();
+                _lastPickUpZTargets = null;
+
+                int result = await RunPickupZMotionAsync(false, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp Z 단독 테스트 완료. pickerNo=" + _currentPickerNo + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-TEST-EX", Name,
+                    "PickUp Z 단독 테스트 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        internal async Task<int> RunManualSelectedDiePickUpAsync(
+            string dieId,
+            int pickerNo,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            bool picked = false;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOptionsForManualOperation(options);
+                ClearCurrentPickContext();
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+
+                if (string.IsNullOrWhiteSpace(dieId))
+                    return Fail("PICKER-PICKUP-SELECT-DIE", "Material", "PickUp 테스트 대상 Die가 선택되지 않았습니다.");
+
+                int normalizedPickerNo = pickerNo;
+                if (normalizedPickerNo < 1)
+                    normalizedPickerNo = 1;
+                if (normalizedPickerNo > 4)
+                    normalizedPickerNo = 4;
+
+                InputStageUnit stage = ResolveInputStage();
+                if (stage == null)
+                    return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+                string finishReason;
+                if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    return Fail("PICKER-PICKUP-STAGE-NOT-FINISH", "InputStage",
+                        "선택 Die PickUp 테스트 전에 InputStage Align/DieMapping/Finish가 완료되어야 합니다. " + finishReason);
+
+                DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, normalizedPickerNo);
+                if (loadedDie != null)
+                {
+                    return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
+                        "선택 Die PickUp 테스트 불가: Picker가 이미 Die를 가지고 있습니다. " +
+                        "pickerNo=" + normalizedPickerNo +
+                        ", loadedDie=" + loadedDie.DieId +
+                        ", selectedDie=" + dieId +
+                        ", side=" + Side);
+                }
+
+                int acquireResult = await AcquireInputStageAreaForPickUpAsync(ct).ConfigureAwait(false);
+                if (acquireResult != 0)
+                    return acquireResult;
+
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "ManualSelectedPickUp");
+
+                InputStagePickTarget target = MaterialStateService.ReserveInputStagePickTargetByDieId(
+                    PickerLocationKind,
+                    normalizedPickerNo,
+                    dieId);
+                if (target == null)
+                    return Fail("PICKER-PICKUP-SELECT-DIE-RESERVE", "Material",
+                        "선택한 Die를 PickUp 대상으로 예약할 수 없습니다. die=" + dieId +
+                        ", pickerNo=" + normalizedPickerNo +
+                        ", side=" + Side);
+
+                var item = new PickUpBatchItem
+                {
+                    PickerIndex = normalizedPickerNo - 1,
+                    PickerNo = normalizedPickerNo,
+                    DieId = target.DieId,
+                    PickTarget = target
+                };
+
+                _pickBatchItems.Add(item);
+                SetCurrentBatchItem(item);
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " 선택 Die PickUp 테스트 시작. die=" + dieId +
+                    ", pickerNo=" + normalizedPickerNo +
+                    ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
+                    ", inputVisionX=" + target.TargetX +
+                    ", inputStageY=" + target.TargetY + " - Start");
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync("선택 Die PickUp 테스트 전 Picker Z Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = VerifyReservedInputDie();
+                if (result != 0)
+                    return result;
+
+                result = await MovePickersToAvoidForInputVisionMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAndVisionToDieAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await RequestInputDieVisionInspectionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = ApplyInputDieVisionOffset();
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputVisionToAvoidForPickerMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = CalculatePickTargets();
+                if (result != 0)
+                    return result;
+
+                result = SelectNextPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await MoveOppositePickerToAvoidForPickerMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerXStageYPickerTAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = VerifyPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZPickAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = UpdateMaterialToPicker();
+                if (result != 0)
+                    return result;
+
+                picked = true;
+                WriteLog("PickerPickUpSequence",
+                    Name + " 선택 Die PickUp 테스트 완료. die=" + dieId +
+                    ", pickerNo=" + normalizedPickerNo + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-SELECT-DIE-EX", Name,
+                    "선택 Die PickUp 테스트 중 예외가 발생했습니다. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                if (!picked)
+                    ReleaseInputReservationIfNeeded();
+
+                ReleasePickerWorkArea();
+                ReleaseInputStageArea();
+            }
+        }
+
+        internal async Task<int> RunManualSelectedDiePrepareAsync(
+            string dieId,
+            int pickerNo,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            bool prepared = false;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOptionsForManualOperation(options);
+                ClearCurrentPickContext();
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+
+                int result = PrepareManualSelectedDieContext(dieId, pickerNo, true);
+                if (result != 0)
+                    return result;
+
+                result = await AcquireInputStageAreaForPickUpAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAllPickerZToAvoidAndVerifyAsync("선택 Die PickUp 준비 전 Picker Z Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = VerifyReservedInputDie();
+                if (result != 0)
+                    return result;
+
+                result = await MovePickersToAvoidForInputVisionMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAndVisionToDieAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await RequestInputDieVisionInspectionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = ApplyInputDieVisionOffset();
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputVisionToAvoidForPickerMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = CalculatePickTargets();
+                if (result != 0)
+                    return result;
+
+                result = SelectNextPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await MoveOppositePickerToAvoidForPickerMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerXStageYPickerTAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = VerifyPickTarget();
+                if (result != 0)
+                    return result;
+
+                prepared = true;
+                WriteLog("PickerPickUpSequence",
+                    Name + " 선택 Die PickUp 준비 완료. die=" + dieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", stageY=" + _targetStageY +
+                    ", pickerX=" + _targetPickerX +
+                    ", pickerY=" + _targetPickerY +
+                    ", pickerT=" + _targetPickerT + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PREPARE-EX", Name,
+                    "선택 Die PickUp 준비 중 예외가 발생했습니다. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                if (!prepared)
+                    ReleaseInputReservationIfNeeded();
+
+                ReleasePickerWorkArea();
+                ReleaseInputStageArea();
+            }
+        }
+
+        internal async Task<int> RunManualPreparedDiePickZAsync(
+            string dieId,
+            int pickerNo,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            bool picked = false;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOptionsForManualOperation(options);
+                ClearCurrentPickContext();
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+
+                int result = PrepareManualSelectedDieContext(dieId, pickerNo, false);
+                if (result != 0)
+                    return result;
+
+                result = await AcquireInputStageAreaForPickUpAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                VisionOffset offset;
+                if (!MaterialStateService.TryGetLatestInputPickVisionOffset(dieId, out offset) || offset == null || !offset.IsValid)
+                {
+                    return Fail("PICKER-PICKUP-PREPARED-OFFSET", "Material",
+                        "선택 Die Pick Z 테스트 전에 Input Vision 검사/Align 준비가 필요합니다. die=" + dieId +
+                        ", pickerNo=" + pickerNo);
+                }
+
+                _visionOffset = new VisionAlignResult
+                {
+                    DeltaX = offset.X,
+                    DeltaY = offset.Y,
+                    DeltaTheta = offset.R
+                };
+                SaveCurrentStateToBatchItem();
+
+                result = CalculatePickTargets();
+                if (result != 0)
+                    return result;
+
+                result = SelectNextPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = VerifyPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZPickAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = UpdateMaterialToPicker();
+                if (result != 0)
+                    return result;
+
+                picked = true;
+                WriteLog("PickerPickUpSequence",
+                    Name + " 준비 Die Pick Z 테스트 완료. die=" + dieId +
+                    ", pickerNo=" + pickerNo + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PREPARED-Z-EX", Name,
+                    "준비 Die Pick Z 테스트 중 예외가 발생했습니다. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                if (!picked)
+                    ReleaseInputReservationIfNeeded();
+
+                ReleasePickerWorkArea();
+                ReleaseInputStageArea();
+            }
+        }
+
+        internal async Task<int> RunManualPreparedDiePickZStepAsync(
+            string dieId,
+            int pickerNo,
+            PickerPickUpZManualStep step,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetOptionsForManualOperation(options);
+                ClearCurrentPickContext();
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+
+                int result = PrepareManualSelectedDieContext(dieId, pickerNo, false);
+                if (result != 0)
+                    return result;
+
+                result = await AcquireInputStageAreaForPickUpAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                VisionOffset offset;
+                if (!MaterialStateService.TryGetLatestInputPickVisionOffset(dieId, out offset) || offset == null || !offset.IsValid)
+                {
+                    return Fail("PICKER-PICKUP-MANUAL-STEP-OFFSET", "Material",
+                        "Pick Z Step 테스트 전에 Input Vision 검사/Align 준비가 필요합니다. die=" + dieId +
+                        ", pickerNo=" + pickerNo +
+                        ", step=" + step);
+                }
+
+                _visionOffset = new VisionAlignResult
+                {
+                    DeltaX = offset.X,
+                    DeltaY = offset.Y,
+                    DeltaTheta = offset.R
+                };
+                SaveCurrentStateToBatchItem();
+
+                result = CalculatePickTargets();
+                if (result != 0)
+                    return result;
+
+                result = SelectNextPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = VerifyPickTarget();
+                if (result != 0)
+                    return result;
+
+                result = await RunPickupZManualStepAsync(step, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " 준비 Die Pick Z Step 테스트 완료. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", step=" + step + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-MANUAL-STEP-EX", Name,
+                    "Pick Z Step 테스트 중 예외가 발생했습니다. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", step=" + step +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                ReleasePickerWorkArea();
+                ReleaseInputStageArea();
+            }
+        }
+
+        private int PrepareManualSelectedDieContext(string dieId, int pickerNo, bool reserveIfNeeded)
+        {
+            if (string.IsNullOrWhiteSpace(dieId))
+                return Fail("PICKER-PICKUP-SELECT-DIE", "Material", "PickUp 테스트 대상 Die가 선택되지 않았습니다.");
+
+            int normalizedPickerNo = pickerNo;
+            if (normalizedPickerNo < 1)
+                normalizedPickerNo = 1;
+            if (normalizedPickerNo > 4)
+                normalizedPickerNo = 4;
+
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            string finishReason;
+            if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                return Fail("PICKER-PICKUP-STAGE-NOT-FINISH", "InputStage",
+                    "선택 Die PickUp 테스트 전에 InputStage Align/DieMapping/Finish가 완료되어야 합니다. " + finishReason);
+
+            DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, normalizedPickerNo);
+            if (loadedDie != null)
+            {
+                return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
+                    "선택 Die PickUp 테스트 불가: Picker가 이미 Die를 가지고 있습니다. " +
+                    "pickerNo=" + normalizedPickerNo +
+                    ", loadedDie=" + loadedDie.DieId +
+                    ", selectedDie=" + dieId +
+                    ", side=" + Side);
             }
 
-            CurrentStep = PickerPickUpStep.VacuumOn;
+            InputStagePickTarget target = reserveIfNeeded
+                ? MaterialStateService.ReserveInputStagePickTargetByDieId(PickerLocationKind, normalizedPickerNo, dieId)
+                : MaterialStateService.GetReservedInputStagePickTarget(PickerLocationKind, normalizedPickerNo, dieId);
+            if (target == null)
+            {
+                return Fail("PICKER-PICKUP-SELECT-DIE-RESERVE", "Material",
+                    "선택한 Die를 PickUp 대상으로 확인할 수 없습니다. die=" + dieId +
+                    ", pickerNo=" + normalizedPickerNo +
+                    ", side=" + Side +
+                    ", reserveIfNeeded=" + reserveIfNeeded);
+            }
+
+            var item = new PickUpBatchItem
+            {
+                PickerIndex = normalizedPickerNo - 1,
+                PickerNo = normalizedPickerNo,
+                DieId = target.DieId,
+                PickTarget = target
+            };
+
+            _pickBatchItems.Add(item);
+            SetCurrentBatchItem(item);
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Input, reserveIfNeeded ? "ManualSelectedPickUpPrepare" : "ManualPreparedPickZ");
+
+            WriteLog("PickerPickUpSequence",
+                Name + " 선택 Die PickUp 테스트 Context 설정. die=" + dieId +
+                ", pickerNo=" + normalizedPickerNo +
+                ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
+                ", inputVisionX=" + target.TargetX +
+                ", inputStageY=" + target.TargetY +
+                ", reserveIfNeeded=" + reserveIfNeeded + " - Ok");
             return 0;
+        }
+
+        private async Task<int> RunPickupZMotionAsync(bool updateMaterialInspection, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
+                PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
+                double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
+
+                int result = await PrepareNeedlePinZForPickAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await VacuumOnBeforePickAsync(config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZPrePickAsync(pickerZ, pickerZAvoid, config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZSlowToContactAsync(pickerZ, config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveNeedlePickerZSyncLiftAsync(pickerZ, pickerZAvoid, config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (config.PickSettleMs > 0)
+                    await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
+
+                result = await VerifyDiePickedAfterZMotionAsync(updateMaterialInspection, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await MoveZToSafeAfterPickAsync(pickerZ, pickerZAvoid, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-RUN-EX", Name,
+                    "PickUp Z 세부 모션 실행 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> RunPickupZManualStepAsync(PickerPickUpZManualStep step, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PickerPickUpMotionConfig config = ResolvePickUpMotionConfig();
+                PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
+                double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
+
+                switch (step)
+                {
+                    case PickerPickUpZManualStep.PrepareNeedlePinZ:
+                        return await PrepareNeedlePinZForPickAsync(ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.VacuumOnBeforePick:
+                        return await VacuumOnBeforePickAsync(config, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.MovePickerZPrePick:
+                        return await MovePickerZPrePickAsync(pickerZ, pickerZAvoid, config, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.MovePickerZSlowToContact:
+                        return await MovePickerZSlowToContactAsync(pickerZ, config, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.MoveNeedlePickerZSyncLift:
+                        return await MoveNeedlePickerZSyncLiftAsync(pickerZ, pickerZAvoid, config, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.SeparateNeedlePickerZ:
+                        return await SeparateNeedlePickerZAsync(pickerZ, pickerZAvoid, _lastPickUpZTargets, config, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.VerifyDiePicked:
+                        return await VerifyDiePickedAfterZMotionAsync(true, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.MoveZToSafeAfterPick:
+                        return await MoveZToSafeAfterPickAsync(pickerZ, pickerZAvoid, ct).ConfigureAwait(false);
+                    case PickerPickUpZManualStep.UpdateMaterialToPicker:
+                        return UpdateMaterialToPicker();
+                    default:
+                        return Fail("PICKER-PICKUP-MANUAL-STEP-UNKNOWN", Name,
+                            "알 수 없는 Pick Z Step입니다. step=" + step);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-MANUAL-STEP-RUN-EX", Name,
+                    "Pick Z Step 실행 중 예외가 발생했습니다. step=" + step +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareNeedlePinZForPickAsync(CancellationToken ct)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task<int> needleZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    _targetNeedleZ,
+                    "PickUp NeedleZ 픽업 준비 위치",
+                    ct);
+                Task<int> ejectPinZMove = MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    _targetEjectPinZ,
+                    "PickUp EjectPinZ 픽업 준비 위치",
+                    ct);
+
+                int[] results = await Task.WhenAll(needleZMove, ejectPinZMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail("PICKER-PICKUP-NEEDLE-PIN-READY", Name,
+                        "PickUp Needle/EjectPin 준비 위치 이동 실패. " +
+                        "needleZResult=" + results[0] +
+                        ", ejectPinZResult=" + results[1] +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, _targetNeedleZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ));
+                }
+
+                int check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, _targetNeedleZ, "PickUp NeedleZ 픽업 준비 위치");
+                if (check != 0)
+                    return check;
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ, "PickUp EjectPinZ 픽업 준비 위치");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-NEEDLE-PIN-READY-EX", Name,
+                    "PickUp Needle/EjectPin 준비 위치 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> VacuumOnBeforePickAsync(PickerPickUpMotionConfig config, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                SetPickerVacuum(_currentPickerNo, true);
+
+                int delayMs = Math.Max(ResolveVacuumSettleMs(), config.VacuumOnBeforePickDelayMs);
+                if (delayMs > 0)
+                    await Task.Delay(delayMs, ct).ConfigureAwait(false);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VACUUM-BEFORE-EX", Name,
+                    "PickUp 하강 전 Vacuum ON 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerZPrePickAsync(
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (config.PickerZPrePickDistance <= 0.0)
+                    return 0;
+
+                double target = ResolveTargetToward(_targetPickerZ, pickerZAvoid, config.PickerZPrePickDistance);
+                return await MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    target,
+                    "PickUp PickerZ PrePick 위치",
+                    ct,
+                    "PickUpPrePick").ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PRE-PICK-EX", Name,
+                    "PickUp PickerZ PrePick 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerZSlowToContactAsync(
+            PickerAxis pickerZ,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double velocity = ResolvePickerAxisVelocityByPercent(pickerZ, config.PickerZSlowApproachSpeedPercent);
+                double acceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSlowApproachSpeedPercent, true);
+                double deceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSlowApproachSpeedPercent, false);
+                return await MovePickerAxisWithMotionAndVerifyAsync(
+                    pickerZ,
+                    _targetPickerZ,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    "PickUp PickerZ 저속 Contact 위치",
+                    "DiePickPosition[" + _currentPickerIndex + "]",
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-SLOW-CONTACT-EX", Name,
+                    "PickUp PickerZ 저속 Contact 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedlePickerZSyncLiftAsync(
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            PickUpZTargets syncTargets = new PickUpZTargets();
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                stage.Config.EnsurePickUpMotionDefaults();
+                double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
+                double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                syncTargets.PickerZ = ResolveTargetToward(_targetPickerZ, pickerZAvoid, config.PickerZSyncLiftDistance);
+                syncTargets.NeedleZ = ResolveTargetToward(_targetNeedleZ, needleZAvoid, stage.Config.PickUpNeedleSyncLiftDistance);
+                syncTargets.EjectPinZ = ResolveTargetToward(_targetEjectPinZ, ejectPinZAvoid, stage.Config.PickUpNeedleSyncLiftDistance);
+                _lastPickUpZTargets = syncTargets;
+
+                if (config.PickerZSyncLiftDistance <= 0.0 && stage.Config.PickUpNeedleSyncLiftDistance <= 0.0)
+                    return 0;
+
+                Task<int> pickerMove = MovePickerAxisWithMotionAndVerifyAsync(
+                    pickerZ,
+                    syncTargets.PickerZ,
+                    config.PickerZSyncLiftVelocity,
+                    config.PickerZSyncLiftAcceleration,
+                    config.PickerZSyncLiftDeceleration,
+                    "PickUp PickerZ/NeedlePinZ 동기 상승 PickerZ",
+                    "PickUpSyncLift",
+                    ct);
+                Task<int> needleMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    syncTargets.NeedleZ,
+                    stage.Config.PickUpNeedleSyncLiftVelocity,
+                    stage.Config.PickUpNeedleSyncLiftAcc,
+                    stage.Config.PickUpNeedleSyncLiftDec,
+                    "PickUp PickerZ/NeedlePinZ 동기 상승 NeedleZ",
+                    ct);
+                Task<int> ejectMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    syncTargets.EjectPinZ,
+                    stage.Config.PickUpNeedleSyncLiftVelocity,
+                    stage.Config.PickUpNeedleSyncLiftAcc,
+                    stage.Config.PickUpNeedleSyncLiftDec,
+                    "PickUp PickerZ/NeedlePinZ 동기 상승 EjectPinZ",
+                    ct);
+
+                int[] results = await Task.WhenAll(pickerMove, needleMove, ejectMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0 || results[2] != 0)
+                {
+                    return Fail("PICKER-PICKUP-Z-SYNC-LIFT", Name,
+                        "PickUp PickerZ/NeedlePinZ 동기 상승 실패. " +
+                        "pickerZResult=" + results[0] +
+                        ", needleZResult=" + results[1] +
+                        ", ejectPinZResult=" + results[2] +
+                        ", " + BuildPickerAxisState(pickerZ, syncTargets.PickerZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, syncTargets.NeedleZ) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, syncTargets.EjectPinZ));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-SYNC-LIFT-EX", Name,
+                    "PickUp PickerZ/NeedlePinZ 동기 상승 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> SeparateNeedlePickerZAsync(
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            PickUpZTargets syncTargets,
+            PickerPickUpMotionConfig config,
+            CancellationToken ct)
+        {
+            InputStageUnit stage = ResolveInputStage();
+            if (stage == null)
+                return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                stage.Config.EnsurePickUpMotionDefaults();
+                if (config.PickerZSeparateDistance <= 0.0 && stage.Config.PickUpNeedleSeparateDistance <= 0.0)
+                    return 0;
+
+                if (syncTargets == null)
+                {
+                    syncTargets = new PickUpZTargets
+                    {
+                        PickerZ = _targetPickerZ,
+                        NeedleZ = _targetNeedleZ,
+                        EjectPinZ = _targetEjectPinZ
+                    };
+                }
+
+                double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
+                double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                double pickerTarget = ResolveTargetToward(syncTargets.PickerZ, pickerZAvoid, config.PickerZSeparateDistance);
+                double needleTarget = ResolveTargetToward(syncTargets.NeedleZ, needleZAvoid, stage.Config.PickUpNeedleSeparateDistance);
+                double ejectTarget = ResolveTargetToward(syncTargets.EjectPinZ, ejectPinZAvoid, stage.Config.PickUpNeedleSeparateDistance);
+                double pickerVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, config.PickerZSeparateSpeedPercent);
+                double pickerAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSeparateSpeedPercent, true);
+                double pickerDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSeparateSpeedPercent, false);
+
+                if (config.SeparateMode == PickerPickUpSeparateMode.NeedleFirst)
+                {
+                    int needleResult = await MoveNeedlePinZSeparateAsync(stage, needleTarget, ejectTarget, ct).ConfigureAwait(false);
+                    if (needleResult != 0)
+                        return needleResult;
+
+                    return await MovePickerAxisWithMotionAndVerifyAsync(
+                        pickerZ,
+                        pickerTarget,
+                        pickerVelocity,
+                        pickerAcceleration,
+                        pickerDeceleration,
+                        "PickUp 분리 PickerZ 상승",
+                        "PickUpSeparate",
+                        ct).ConfigureAwait(false);
+                }
+
+                if (config.SeparateMode == PickerPickUpSeparateMode.PickerFirst)
+                {
+                    int pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
+                        pickerZ,
+                        pickerTarget,
+                        pickerVelocity,
+                        pickerAcceleration,
+                        pickerDeceleration,
+                        "PickUp 분리 PickerZ 상승",
+                        "PickUpSeparate",
+                        ct).ConfigureAwait(false);
+                    if (pickerResult != 0)
+                        return pickerResult;
+
+                    return await MoveNeedlePinZSeparateAsync(stage, needleTarget, ejectTarget, ct).ConfigureAwait(false);
+                }
+
+                Task<int> pickerMove = MovePickerAxisWithMotionAndVerifyAsync(
+                    pickerZ,
+                    pickerTarget,
+                    pickerVelocity,
+                    pickerAcceleration,
+                    pickerDeceleration,
+                    "PickUp 동시 분리 PickerZ 상승",
+                    "PickUpSeparate",
+                    ct);
+                Task<int> needleMove = MoveNeedlePinZSeparateAsync(stage, needleTarget, ejectTarget, ct);
+                int[] results = await Task.WhenAll(pickerMove, needleMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail("PICKER-PICKUP-Z-SEPARATE", Name,
+                        "PickUp PickerZ/NeedlePinZ 분리 이동 실패. " +
+                        "pickerZResult=" + results[0] +
+                        ", needlePinResult=" + results[1] +
+                        ", " + BuildPickerAxisState(pickerZ, pickerTarget) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, needleTarget) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectTarget));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Z-SEPARATE-EX", Name,
+                    "PickUp PickerZ/NeedlePinZ 분리 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedlePinZSeparateAsync(
+            InputStageUnit stage,
+            double needleTarget,
+            double ejectTarget,
+            CancellationToken ct)
+        {
+            try
+            {
+                double needleVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent);
+                double needleAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent, true);
+                double needleDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.NeedleZ, stage.Config.PickUpNeedleSeparateSpeedPercent, false);
+                double ejectVelocity = ResolveInputStageAxisVelocityByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent);
+                double ejectAcceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent, true);
+                double ejectDeceleration = ResolveInputStageAxisAccelerationByPercent(stage, WaferStageAxis.EjectPinZ, stage.Config.PickUpNeedleSeparateSpeedPercent, false);
+                Task<int> needleMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    needleTarget,
+                    needleVelocity,
+                    needleAcceleration,
+                    needleDeceleration,
+                    "PickUp 분리 NeedleZ 하강",
+                    ct);
+                Task<int> ejectMove = MoveInputStageAxisWithMotionAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.EjectPinZ,
+                    ejectTarget,
+                    ejectVelocity,
+                    ejectAcceleration,
+                    ejectDeceleration,
+                    "PickUp 분리 EjectPinZ 하강",
+                    ct);
+
+                int[] results = await Task.WhenAll(needleMove, ejectMove).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail("PICKER-PICKUP-NEEDLE-PIN-SEPARATE", Name,
+                        "PickUp Needle/EjectPin 분리 이동 실패. " +
+                        "needleZResult=" + results[0] +
+                        ", ejectPinZResult=" + results[1] +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.NeedleZ, needleTarget) +
+                        ", " + BuildInputStageAxisState(stage, WaferStageAxis.EjectPinZ, ejectTarget));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-NEEDLE-PIN-SEPARATE-EX", Name,
+                    "PickUp Needle/EjectPin 분리 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> VerifyDiePickedAfterZMotionAsync(bool updateMaterialInspection, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int flowResult = await VerifyPickerFlowStateAsync(
+                    _currentPickerNo,
+                    true,
+                    "PickUp Z 모션 완료 후 흡착 Flow 확인",
+                    ct).ConfigureAwait(false);
+                if (flowResult != 0)
+                    return flowResult;
+
+                if (!updateMaterialInspection)
+                    return 0;
+
+                return VerifyDiePicked();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VERIFY-PICKED-EX", Name,
+                    "PickUp 흡착 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveZToSafeAfterPickAsync(
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            CancellationToken ct)
+        {
+            return await MovePickerNeedleEjectZToAvoidAsync(
+                pickerZ,
+                pickerZAvoid,
+                "PickUp 완료 후 PickerZ/NeedleZ/EjectPinZ 안전 복귀",
+                ct).ConfigureAwait(false);
+        }
+
+        private PickerPickUpMotionConfig ResolvePickUpMotionConfig()
+        {
+            PickerPickUpMotionConfig config = null;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                config = FrontPicker.Config.PickUp;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                config = RearPicker.Config.PickUp;
+
+            if (config == null)
+                config = new PickerPickUpMotionConfig();
+
+            config.Ensure();
+            return config;
+        }
+
+        private async Task<int> MovePickerAxisWithMotionAndVerifyAsync(
+            PickerAxis axis,
+            double target,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string description,
+            string targetName,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int commandResult = await MovePickerAxisCommandWithMotionAsync(axis, target, velocity, acceleration, deceleration, targetName).ConfigureAwait(false);
+                if (commandResult != 0)
+                    return Fail("PICKER-PICKUP-MOVE-CMD", Name,
+                        description + " 이동 명령 실패. result=" + commandResult +
+                        ", velocity=" + velocity +
+                        ", acc=" + acceleration +
+                        ", dec=" + deceleration +
+                        ", " + BuildPickerAxisState(axis, target));
+
+                int waitResult = await WaitPickerAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
+                if (waitResult != 0)
+                    return waitResult;
+
+                return CheckPickerAxisInPosition(axis, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-MOVE-VEL-EX", Name,
+                    description + " 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputStageAxisWithMotionAndVerifyAsync(
+            InputStageUnit stage,
+            WaferStageAxis axis,
+            double target,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int commandResult = await AwaitStepWithCancellationAsync(
+                    stage.MoveInputStageAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration),
+                    ct).ConfigureAwait(false);
+                if (commandResult != 0)
+                {
+                    return Fail("PICKER-PICKUP-STAGE-MOVE", stage.Name,
+                        description + " 이동 명령 실패. result=" + commandResult +
+                        ", velocity=" + velocity +
+                        ", acc=" + acceleration +
+                        ", dec=" + deceleration +
+                        ", " + BuildInputStageAxisState(stage, axis, target) +
+                        PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
+                }
+
+                int waitResult = await WaitInputStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+                if (waitResult != 0)
+                    return waitResult;
+
+                return CheckInputStageAxisInPosition(stage, axis, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-STAGE-MOVE-VEL-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolvePickerAxisVelocityByPercent(PickerAxis axis, double percent)
+        {
+            QMC.Common.Motion.BaseAxis item = GetPickerAxis(axis);
+            return ResolveAxisVelocityByPercent(item, percent);
+        }
+
+        private double ResolvePickerAxisAccelerationByPercent(PickerAxis axis, double percent, bool acceleration)
+        {
+            QMC.Common.Motion.BaseAxis item = GetPickerAxis(axis);
+            return ResolveAxisAccelerationByPercent(item, percent, acceleration);
+        }
+
+        private static double ResolveInputStageAxisVelocityByPercent(InputStageUnit stage, WaferStageAxis axis, double percent)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveInputStageAxis(stage, axis);
+            return ResolveAxisVelocityByPercent(item, percent);
+        }
+
+        private static double ResolveInputStageAxisAccelerationByPercent(InputStageUnit stage, WaferStageAxis axis, double percent, bool acceleration)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveInputStageAxis(stage, axis);
+            return ResolveAxisAccelerationByPercent(item, percent, acceleration);
+        }
+
+        private static double ResolveAxisVelocityByPercent(QMC.Common.Motion.BaseAxis axis, double percent)
+        {
+            double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 1.0);
+            double baseVelocity = 1.0;
+            if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
+                baseVelocity = axis.Config.DefaultVelocity;
+
+            return Math.Max(0.001, baseVelocity * normalizedPercent / 100.0);
+        }
+
+        private static double ResolveAxisAccelerationByPercent(QMC.Common.Motion.BaseAxis axis, double percent, bool acceleration)
+        {
+            double normalizedPercent = PickerPickUpMotionConfig.NormalizePercent(percent, 1.0);
+            double baseAcceleration = 1.0;
+            if (axis != null && axis.Config != null)
+            {
+                double configured = acceleration ? axis.Config.Acceleration : axis.Config.Deceleration;
+                if (configured > 0.0)
+                    baseAcceleration = configured;
+            }
+
+            return Math.Max(0.001, baseAcceleration * normalizedPercent / 100.0);
+        }
+
+        private static double ResolveTargetToward(double fromTarget, double towardTarget, double distance)
+        {
+            if (distance <= 0.0)
+                return fromTarget;
+
+            double delta = towardTarget - fromTarget;
+            if (Math.Abs(delta) <= distance)
+                return towardTarget;
+
+            return fromTarget + Math.Sign(delta) * distance;
         }
 
         private async Task<int> MovePickerNeedleEjectZToPickAsync(CancellationToken ct)

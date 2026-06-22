@@ -29,9 +29,10 @@ namespace QMC.Vision.Backends.Cognex
         public Assembly BlobAssembly             { get; private set; }
         public Assembly CaliperAssembly          { get; private set; }
         public Assembly ImageProcessingAssembly  { get; private set; }
+        public Assembly ImageFileAssembly        { get; private set; }   // CogImageFileBMP(Bitmap→ICogImage 변환) 보유
 
         public Assembly[] LoadedAssemblies =>
-            new[] { VisionProAssembly, PMAlignAssembly, BlobAssembly, CaliperAssembly, ImageProcessingAssembly };
+            new[] { VisionProAssembly, PMAlignAssembly, BlobAssembly, CaliperAssembly, ImageProcessingAssembly, ImageFileAssembly };
 
         // ─── DLL 검색 경로 ────────────────────────────────
         /// <summary>
@@ -117,6 +118,7 @@ namespace QMC.Vision.Backends.Cognex
             ("Cognex.VisionPro.Blob.dll",           "Blob",            false),
             ("Cognex.VisionPro.Caliper.dll",        "Caliper",         false),
             ("Cognex.VisionPro.ImageProcessing.dll","ImageProcessing", false),
+            ("Cognex.VisionPro.ImageFile.dll",      "ImageFile",       false),   // CogImageFileBMP — Bitmap→ICogImage 변환에 필요
         };
 
         private static bool _resolverHooked;
@@ -170,6 +172,7 @@ namespace QMC.Vision.Backends.Cognex
                     case "Blob":            BlobAssembly            = asm; break;
                     case "Caliper":        CaliperAssembly         = asm; break;
                     case "ImageProcessing": ImageProcessingAssembly = asm; break;
+                    case "ImageFile":       ImageFileAssembly       = asm; break;
                 }
                 if (asm != null)
                 {

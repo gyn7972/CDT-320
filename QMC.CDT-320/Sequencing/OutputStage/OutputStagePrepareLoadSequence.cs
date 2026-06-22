@@ -11,6 +11,7 @@ namespace QMC.CDT320.Sequencing
         CheckTargetSide,
         MoveOppositeStageZToAvoid,
         CheckOppositeStageZAvoid,
+        EnsureGoodGuideDownBeforeNgYMove,
         MoveTargetStageYToLoad,
         CheckTargetStageYLoad,
         MoveTargetStageZToLoad,
@@ -45,7 +46,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 대상 사이드 확인
                     case OutputStagePrepareLoadStep.CheckTargetSide:
-                        return Task.FromResult(CheckTargetSide());
+                        return CheckTargetSideAsync(ct);
 
                     // 반대쪽 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid:
@@ -54,6 +55,10 @@ namespace QMC.CDT320.Sequencing
                     // 반대쪽 스테이지 Z 어보이드 확인
                     case OutputStagePrepareLoadStep.CheckOppositeStageZAvoid:
                         return Task.FromResult(CheckOppositeStageZAvoid());
+
+                    // NG Y 이동 전 Good Guide Down 확보
+                    case OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove:
+                        return EnsureGoodGuideDownBeforeNgYMoveAsync(ct);
 
                     // 대상 스테이지 Y로 로드 이동
                     case OutputStagePrepareLoadStep.MoveTargetStageYToLoad:
@@ -84,12 +89,18 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CheckTargetSide()
+        private async Task<int> CheckTargetSideAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (Options.Side != BinSide.Good && Options.Side != BinSide.Ng)
                     return Fail("OUT-STAGE-SIDE", Name, "Invalid output stage side: " + Options.Side);
+
+                int pickerReady = await WaitPickersClearForOutputTransportAsync("OutputStage Load 준비", ct).ConfigureAwait(false);
+                if (pickerReady != 0)
+                    return pickerReady;
 
                 CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
                 return 0;
@@ -110,7 +121,7 @@ namespace QMC.CDT320.Sequencing
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
                 if (SkipMissingSideZAxis(opposite, opposite + " Z avoid before load"))
                 {
-                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;
                     return 0;
                 }
 
@@ -142,7 +153,7 @@ namespace QMC.CDT320.Sequencing
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
                 if (SkipMissingSideZAxis(opposite, opposite + " Z avoid final check before load"))
                 {
-                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;
                     return 0;
                 }
 
@@ -154,12 +165,52 @@ namespace QMC.CDT320.Sequencing
                         opposite + " Z avoid final check failed. target=" + target + ". " +
                         BuildAxisState(axis, target));
 
-                CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                CurrentStep = OutputStagePrepareLoadStep.EnsureGoodGuideDownBeforeNgYMove;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-OPP-Z-CHECK-EX", Name, "Opposite stage Z avoid check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureGoodGuideDownBeforeNgYMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options.Side != BinSide.Ng)
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    return 0;
+                }
+
+                int result = await Stage.EnsureBinGuideDownAsync(BinSide.Good, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
+                        "NG Y 이동 전 Good Bin Guide Down 명령 실패. result=" + result + ", " +
+                        Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                if (!Stage.IsBinGuideDown(BinSide.Good))
+                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
+                        "NG Y 이동 전 Good Bin Guide Down 확인 실패. " +
+                        Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-GOOD-GUIDE-DOWN-EX", Name,
+                    "NG Y 이동 전 Good Bin Guide Down 확보 중 예외가 발생했습니다: " + ex.Message);
             }
             finally
             {

@@ -37,7 +37,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckUnit(InputStagePrepareLoadStep.MoveLoadPosition));
                     // 로드 위치 이동
                     case InputStagePrepareLoadStep.MoveLoadPosition:
-                        return MoveLoadPositionAsync();
+                        return MoveLoadPositionAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }

@@ -68,13 +68,16 @@ namespace QMC.CDT320.Motion.SharedRailX
                     return created;
                 }
 
+                SharedRailXConfigDocument document;
                 using (FileStream fs = File.OpenRead(Path_))
                 {
                     var serializer = new DataContractJsonSerializer(typeof(SharedRailXConfigDocument));
-                    SharedRailXConfigDocument document = serializer.ReadObject(fs) as SharedRailXConfigDocument;
-                    Normalize(document);
-                    return document ?? CreateDefaultDocument();
+                    document = serializer.ReadObject(fs) as SharedRailXConfigDocument;
                 }
+
+                Normalize(document);
+                SaveDocument(document);
+                return document ?? CreateDefaultDocument();
             }
             catch
             {
@@ -173,8 +176,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             document.Axes.Add(CreateRow(SharedRailXAxis.OutputVisionX, 0.0, 5.0));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX, 19.0, 1, -1, 10.0));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX, 19.0, 1, -1, 10.0));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX, 500.0, -1, 1, 10.0));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX, 500.0, -1, 1, 10.0));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX, 390.0, 1, -1, 10.0));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX, 390.0, 1, -1, 10.0));
             return document;
         }
 
@@ -227,9 +230,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (MatchesPair(axisA, axisB, SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX))
                 return CreatePairRow(axisA, axisB, 19.0, SignForAxis(axisA, SharedRailXAxis.InputVisionX, 1, -1), SignForAxis(axisB, SharedRailXAxis.InputVisionX, 1, -1), 10.0);
             if (MatchesPair(axisA, axisB, SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX))
-                return CreatePairRow(axisA, axisB, 500.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, -1, 1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, -1, 1), 10.0);
+                return CreatePairRow(axisA, axisB, 390.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, 1, -1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, 1, -1), 10.0);
             if (MatchesPair(axisA, axisB, SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX))
-                return CreatePairRow(axisA, axisB, 500.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, -1, 1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, -1, 1), 10.0);
+                return CreatePairRow(axisA, axisB, 390.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, 1, -1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, 1, -1), 10.0);
 
             return null;
         }

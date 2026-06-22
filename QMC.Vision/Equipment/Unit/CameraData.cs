@@ -48,6 +48,13 @@ namespace QMC.Vision.Modules
         /// <summary>칩 실제 세로(mm). 스케일 자동계산 입력.</summary>
         [DataMember] public double CalibChipHeightMm { get; set; }
 
+        // ── 모듈(카메라) 레벨 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 이 이미지를 그랩(테스트용) ──
+        /// <summary>true 면 모듈 GRAB(<c>VisionModule.Grab</c>) 시 카메라 대신 <see cref="SimSavedImagePath"/> 저장 이미지를 사용.
+        /// 도구별(Finder) SimUseSavedImage 와 독립 — GRAB 한 장으로 모든 finder 가 같은 프레임을 공유한다.</summary>
+        [DataMember] public bool   SimUseSavedImage  { get; set; }
+        /// <summary>모듈 GRAB 시 사용할 저장 이미지 경로(<see cref="SimUseSavedImage"/>=true 일 때).</summary>
+        [DataMember] public string SimSavedImagePath { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
         private void SetDefaults()
         {
@@ -62,6 +69,7 @@ namespace QMC.Vision.Modules
             IsRotated = false; InvertedX = false; InvertedY = false;
             ReturnMmCoordinates = false;
             CalibChipWidthMm = 0; CalibChipHeightMm = 0;
+            SimUseSavedImage = false; SimSavedImagePath = string.Empty;
         }
 
         public CameraConfig() { SetDefaults(); }

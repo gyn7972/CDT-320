@@ -69,16 +69,17 @@ namespace QMC.CDT320.Interlocks
                     "OutputVisionX가 Avoid 위치가 아니라 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
-            if (IsFrontPickerInOutputZone(machine.PickerFrontUnit))
+            string pickerDetail;
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Output, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "FrontPicker가 Output zone에 있어 OutputFeederY 이동이 차단되었습니다.",
+                    "OutputFeederY 이동 차단. FrontPicker가 Output zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
                     out reason);
 
-            if (IsRearPickerInOutputZone(machine.PickerRearUnit))
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Output, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "RearPicker가 Output zone에 있어 OutputFeederY 이동이 차단되었습니다.",
+                    "OutputFeederY 이동 차단. RearPicker가 Output zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
                     out reason);
 
             OutputFeederUnit feeder = machine.OutputFeederUnit;

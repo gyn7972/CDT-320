@@ -295,7 +295,12 @@ namespace QMC.CDT320.Sequencing
             {
                 cassette.UpdateWaferCassetteSlotState(ResolveUnloadSlotIndex(), SlotPresence.Exist, ProcessState.Done);
                 if (cassette.IsInputCassetteProcessComplete())
+                {
                     cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                    Context.RequestOperatorMessage(
+                        "입력 카세트 교체",
+                        "입력 카세트의 모든 웨이퍼 작업이 완료되었습니다.\r\n카세트를 교체한 뒤 필요한 작업을 진행하세요.");
+                }
             }
 
             CurrentStep = InputFeederUnloadToCassetteStep.MoveFeederPostUnloadPosition;

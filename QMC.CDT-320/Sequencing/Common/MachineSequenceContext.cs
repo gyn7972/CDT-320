@@ -83,6 +83,11 @@ namespace QMC.CDT320.Sequencing
         {
             Controller.LogPublic(message);
         }
+
+        public void RequestOperatorMessage(string title, string message)
+        {
+            Controller.RequestOperatorMessage(title, message);
+        }
     }
 }
 

@@ -72,6 +72,23 @@ namespace QMC.CDT320
 
         [DataMember] public double PickUpEjectPinDec { get; set; }
 
+        [DataMember] public double PickUpNeedleSyncLiftDistance { get; set; } = 0.5;
+
+        [DataMember] public double PickUpNeedleSyncLiftVelocity { get; set; } = 5.0;
+
+        [DataMember] public double PickUpNeedleSyncLiftAcc { get; set; } = 100.0;
+
+        [DataMember] public double PickUpNeedleSyncLiftDec { get; set; } = 100.0;
+
+        [DataMember] public double PickUpNeedleSeparateDistance { get; set; } = 1.0;
+
+        [DataMember] public double PickUpNeedleSeparateSpeedPercent { get; set; } = 1.0;
+
+        // Legacy values are kept only for reading old config files.
+        [DataMember] public double PickUpNeedleSeparateVelocity { get; set; }
+        [DataMember] public double PickUpNeedleSeparateAcc { get; set; } = 100.0;
+        [DataMember] public double PickUpNeedleSeparateDec { get; set; } = 100.0;
+
         public bool IsSimulationMode
         {
             get { return bDryRun; }
@@ -85,6 +102,30 @@ namespace QMC.CDT320
         [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
 
         [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsurePickUpMotionDefaults();
+        }
+
+        public void EnsurePickUpMotionDefaults()
+        {
+            if (PickUpNeedleSyncLiftDistance <= 0.0)
+                PickUpNeedleSyncLiftDistance = 0.5;
+            if (PickUpNeedleSyncLiftVelocity <= 0.0)
+                PickUpNeedleSyncLiftVelocity = 5.0;
+            if (PickUpNeedleSyncLiftAcc <= 0.0)
+                PickUpNeedleSyncLiftAcc = 100.0;
+            if (PickUpNeedleSyncLiftDec <= 0.0)
+                PickUpNeedleSyncLiftDec = 100.0;
+            if (PickUpNeedleSeparateDistance <= 0.0)
+                PickUpNeedleSeparateDistance = 1.0;
+            if (PickUpNeedleSeparateSpeedPercent <= 0.0 && PickUpNeedleSeparateVelocity > 0.0)
+                PickUpNeedleSeparateSpeedPercent = 1.0;
+            if (PickUpNeedleSeparateSpeedPercent <= 0.0)
+                PickUpNeedleSeparateSpeedPercent = 1.0;
+        }
     }
 
     /// <summary>
@@ -590,6 +631,27 @@ namespace QMC.CDT320
             return true;
         }
 
+        public bool IsWaferYNonProcessTravelTeachingTarget(double target)
+        {
+            if (Recipe == null)
+                return false;
+
+            Recipe.EnsurePositionObjects();
+            return IsStageTravelTeachingTarget(WaferStageAxis.WaferY, target) &&
+                   !IsProcessTeachingTarget(WaferStageAxis.WaferY, target);
+        }
+
+        public bool VerifyNeedleZSafeForWaferYNonProcessTravel(double target, out string reason)
+        {
+            if (!IsWaferYNonProcessTravelTeachingTarget(target))
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            return VerifyNeedleZSafeForNonProcessTarget(WaferStageAxis.WaferY, target, out reason);
+        }
+
         public bool IsInputStageJogAllowedInWorkArea(WaferStageAxis axis, Direction direction, out string reason)
         {
             reason = string.Empty;
@@ -975,7 +1037,7 @@ namespace QMC.CDT320
             if (IsNeedleZInSafePosition())
                 return true;
 
-            reason = "NeedleZ must be at Avoid position before moving to non-process position. " +
+            reason = "비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
                 "axis=" + axis +
                 ", target=" + target.ToString("F3") +
                 ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
@@ -1167,13 +1229,6 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
                 }
 
-                double tolerance = ResolveAxisPositionTolerance(item);
-                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
-                {
-                    LastStageMoveFailureMessage = string.Empty;
-                    return 0;
-                }
-
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
                 {
@@ -1184,6 +1239,13 @@ namespace QMC.CDT320
                         "IN-STAGE-MOVE-INTERLOCK",
                         Name,
                         message);
+                }
+
+                double tolerance = ResolveAxisPositionTolerance(item);
+                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
                 }
 
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
@@ -1224,6 +1286,91 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 LastStageMoveFailureMessage = axis + " move exception. target=" + targetPos + ". " + ex.Message;
+                return RaiseStageAlarm(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveInputStageAxisCommandWithVelocity(WaferStageAxis axis, double targetPos, double velocity)
+        {
+            return await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, 0.0, 0.0).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveInputStageAxisCommandWithMotion(WaferStageAxis axis, double targetPos, double velocity, double acceleration, double deceleration)
+        {
+            try
+            {
+                BaseAxis item = ResolveInputStageAxis(axis);
+                if (item == null)
+                {
+                    LastStageMoveFailureMessage = axis + " move command failed. axis is null. target=" + targetPos;
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+                }
+
+                double tolerance = ResolveAxisPositionTolerance(item);
+                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
+                }
+
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
+                {
+                    string message = axis + " move command blocked by interlock. target=" + targetPos + ". " + interlockReason;
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(
+                        AlarmSeverity.Error,
+                        "IN-STAGE-MOVE-INTERLOCK",
+                        Name,
+                        message);
+                }
+
+                double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
+                double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
+                bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                int result;
+                try
+                {
+                    if (useCustomAccel)
+                    {
+                        item.Config.Acceleration = acceleration;
+                        item.Config.Deceleration = deceleration;
+                    }
+
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (useCustomAccel)
+                    {
+                        item.Config.Acceleration = oldAcceleration;
+                        item.Config.Deceleration = oldDeceleration;
+                    }
+                }
+
+                if (result != 0 || item.IsAlarm)
+                {
+                    string message = axis + " move command failed. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        ", alarmCode=" + item.AlarmCode +
+                        ", servo=" + item.IsServoOn +
+                        ", moving=" + item.IsMoving +
+                        ", actual=" + item.ActualPosition +
+                        ", target=" + targetPos +
+                        FormatAxisLastMotionFailure(item);
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, message);
+                }
+
+                LastStageMoveFailureMessage = string.Empty;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastStageMoveFailureMessage = axis + " move command exception. target=" + targetPos + ". " + ex.Message;
                 return RaiseStageAlarm(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
             }
             finally
@@ -1508,7 +1655,11 @@ namespace QMC.CDT320
         //  §6. 핵심 시퀀스 로직
         // ??????????????????????????????????????????????????????????????????????
 
-        public async Task<int> LoadAndPrepareWaferAsync(string waferId, bool requireMapData, bool bFine = false)
+        public async Task<int> LoadAndPrepareWaferAsync(
+            string waferId,
+            bool requireMapData,
+            bool bFine = false,
+            Func<Task<int>> beforeExpanderZMoveAsync = null)
         {
             try
             {
@@ -1526,6 +1677,13 @@ namespace QMC.CDT320
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (beforeExpanderZMoveAsync != null)
+                {
+                    result = await beforeExpanderZMoveAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
@@ -1684,7 +1842,9 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<int> PrepareUnloadWaferAsync(bool bFine = false)
+        public async Task<int> PrepareUnloadWaferAsync(
+            bool bFine = false,
+            Func<Task<int>> beforeExpanderZMoveAsync = null)
         {
             try
             {
@@ -1702,6 +1862,13 @@ namespace QMC.CDT320
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (beforeExpanderZMoveAsync != null)
+                {
+                    result = await beforeExpanderZMoveAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)

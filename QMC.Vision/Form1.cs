@@ -242,6 +242,9 @@ namespace QMC.Vision
             // 머신 루트 — 5개 모듈을 Units 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
             Machine = new VisionMachine(WaferMod, BinMod, BottomMod, TopSideVisionMod, BottomSideVisionMod);
 
+            // 정적 로그 저장부가 레시피별 토글(LogEnable)/이미지 저장 모드(ImageSaveMode)를 읽도록 활성 레시피 provider 등록.
+            QMC.Vision.Core.ActiveRecipeContext.SetProvider(() => Machine?.Recipe);
+
             // Sim 자동 시퀀스 호스트(핸들러 TCP 없이 자체 순차 실행). 시작/정지는 RUN 버튼·GENERAL 설정·종료 훅에서.
             // 로그 싱크 연결 — 시퀀스 시작/정지/단계/실패가 이력(EventLogger "SEQ")에 남는다.
             _autoSeqHost = new QMC.Vision.Sequencing.VisionAutoSequenceHost(Machine, SeqLog);
@@ -273,6 +276,37 @@ namespace QMC.Vision
 
         /// <summary>핸들러(MainComm 5104) 가 접속돼 있는가.</summary>
         internal bool IsHandlerConnected => _svrMain != null && _svrMain.HasClient;
+
+        /// <summary>통신 페이지 상태 표시용 — 채널별 listen/접속 상태 스냅샷.</summary>
+        internal struct CommChannelStatus
+        {
+            public string   Name;
+            public int      Port;
+            public bool     Listening;
+            public bool     Connected;
+            public DateTime LastRxUtc;   // default = 미수신
+        }
+
+        /// <summary>6 채널(Wafer/Inspection/Bin/Main/TopSide/BottomSide) 의 현재 listen·접속 상태를 반환한다.</summary>
+        internal System.Collections.Generic.List<CommChannelStatus> GetVisionCommStatus()
+        {
+            var list = new System.Collections.Generic.List<CommChannelStatus>();
+            void AddSvr(string name, VisionTcpServer s)
+            {
+                list.Add(s == null
+                    ? new CommChannelStatus { Name = name, Port = 0, Listening = false, Connected = false, LastRxUtc = default(DateTime) }
+                    : new CommChannelStatus { Name = name, Port = s.Port, Listening = s.IsRunning, Connected = s.HasClient, LastRxUtc = s.LastRxUtc });
+            }
+            AddSvr("WaferVision",      _svrWafer);
+            AddSvr("BottomInspection", _svrBottom);
+            AddSvr("BinVision",        _svrBin);
+            list.Add(_svrMain == null
+                ? new CommChannelStatus { Name = "MainComm", Port = 0, Listening = false, Connected = false, LastRxUtc = default(DateTime) }
+                : new CommChannelStatus { Name = "MainComm", Port = _svrMain.Port, Listening = _svrMain.IsRunning, Connected = _svrMain.HasClient, LastRxUtc = _svrMain.LastRxUtc });
+            AddSvr("TopSideVision",    _svrTopSideVision);
+            AddSvr("BottomSideVision", _svrBottomSideVision);
+            return list;
+        }
 
         /// <summary>RUN 전환 가능 여부 — Sim 자체 실행이면 항상, 아니면 핸들러 접속 시.</summary>
         internal bool CanRun => IsSelfRunMode || IsHandlerConnected;
@@ -308,9 +342,12 @@ namespace QMC.Vision
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
             _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.TopSideVisionPort);
             _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.BottomSideVisionPort);
-            // RUN 게이트 — RUN 상태에서만 핸들러 명령 수락(PING 제외).
+            // RUN 게이트 — RUN 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
             foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrTopSideVision, _svrBottomSideVision })
+            {
                 s.IsCommandAllowed = () => IsRunActive;
+                s.Log += QMC.Vision.Comm.VisionCommLog.Add;
+            }
             try { _svrWafer            .Start(); } catch { }
             try { _svrBin              .Start(); } catch { }
             try { _svrBottom           .Start(); } catch { }
@@ -318,7 +355,7 @@ namespace QMC.Vision
             try { _svrBottomSideVision .Start(); } catch { }
 
             // 전역 통신(MainComm 5104) — 핸들러 레시피 변경 수신 → 전 모듈 LoadRecipe cascade.
-            try { _svrMain = new MainCommServer(Machine, cfg.MainCommPort); _svrMain.Start(); } catch { }
+            try { _svrMain = new MainCommServer(Machine, cfg.MainCommPort); _svrMain.Log += QMC.Vision.Comm.VisionCommLog.Add; _svrMain.Start(); } catch { }
 
             // 원격 뷰어(모듈별 그랩 영상 송출).
             if (cfg.RemoteViewerEnable)

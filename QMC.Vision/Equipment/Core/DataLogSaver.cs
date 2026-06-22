@@ -56,6 +56,9 @@ namespace QMC.Vision.Core
         public static void SaveIfDieGapComplete(VisionSettings cfg, string chipUid)
         {
             if (cfg == null || !cfg.DataLogEnable) return;
+            // 레시피별 로그 토글 — 활성 레시피 LogEnable=false 면 데이터 로그도 남기지 않는다(미등록 시 통과).
+            var recipe = ActiveRecipeContext.Current;
+            if (recipe != null && !recipe.LogEnable) return;
             if (string.IsNullOrEmpty(chipUid)) return;
             var rec = MaterialTracker.Get(chipUid);
             if (rec == null) return;

@@ -46,10 +46,10 @@ namespace QMC.Vision.Core
                     VisionScale.ConvertPosition(scale, vec, g.Width, g.Height, b.CenterX, b.CenterY, out xOut, out yOut);
                 }
 
-                // θ 산출 모드 — AverageAll 이면 격자 전체 평균각으로 r 대체(Single=최근접 매칭 각도 b.AngleDeg).
+                // θ 산출 모드 — Multi 이면 격자 전체 평균각으로 r 대체(Single=최근접 매칭 각도 b.AngleDeg).
                 double rOut = b.AngleDeg;
                 var node = m.GetAlgorithm(finderId);
-                if (node?.Recipe is FinderAlgoRecipe fr && fr.AngleMode == DieAngleMode.AverageAll)
+                if (node?.Recipe is FinderAlgoRecipe fr && fr.AngleMode == DieAngleMode.Multi)
                 {
                     if (AlignAngleEstimator.TryEstimate(g.Image, out double avgDeg))
                         rOut = avgDeg;
@@ -68,6 +68,15 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(inspId)) return "fail:no inspector";
             if (!m.Inspectors.TryGetValue(inspId, out var ins)) return "fail:inspector not found";
+
+            // 검사기별 '검사 사용' 게이트 — 검사기 레시피(InspectorAlgoRecipe.UseInspection)=false 면 이 검사를 건너뛴다(PASS 처리).
+            // 측면 Surface 검사기에서는 '오염검사 사용' 역할. 핸들러(TCP)·셀프 시퀀서가 공유하는 단일 지점이라 양쪽에 동일 적용된다.
+            if (m.GetAlgorithm(inspId)?.Recipe is InspectorAlgoRecipe insRecipe && !insRecipe.UseInspection)
+            {
+                ModuleResultStore.Record(m.Name, inspId, true, "inspection=skip");
+                return "PASS;inspection=skip";
+            }
+
             using (var g = m.GrabForTool(inspId))
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
@@ -92,7 +101,7 @@ namespace QMC.Vision.Core
                               || inspId.IndexOf("Bin",       StringComparison.OrdinalIgnoreCase) >= 0)
                             MaterialTracker.ApplyDieGap(chipUid, r);
 
-                        ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, g.Image);
+                        ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, g.Image, r.IsPass);
                         DataLogSaver.SaveIfDieGapComplete(cfg, chipUid);
                     }
                     catch { }

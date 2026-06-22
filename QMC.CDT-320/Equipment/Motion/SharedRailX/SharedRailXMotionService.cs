@@ -75,7 +75,9 @@ namespace QMC.CDT320.Motion.SharedRailX
                 Velocity = axis.Config != null ? axis.Config.DefaultVelocity : 0.0
             };
             plan.Add(railAxis, targetPosition);
-            SharedRailXValidationResult result = _validator.Validate(GetAxisSettings(), plan);
+            IReadOnlyList<SharedRailXAxisSetting> settings = GetAxisSettings();
+            SharedRailXConfig effectiveConfig = ResolveEffectiveConfig(plan, settings);
+            SharedRailXValidationResult result = new SharedRailXCollisionValidator(effectiveConfig).Validate(settings, plan);
             reason = result.Reason;
             return result.Allowed;
         }
@@ -114,7 +116,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (!motionGuard.Allowed)
                 return RaiseBlocked(motionGuard.Reason);
 
-            SharedRailXValidationResult validation = _validator.Validate(settings, plan);
+            SharedRailXConfig effectiveConfig = ResolveEffectiveConfig(plan, settings);
+            SharedRailXValidationResult validation = new SharedRailXCollisionValidator(effectiveConfig).Validate(settings, plan);
             if (!validation.Allowed)
                 return RaiseBlocked(validation.Reason);
 
@@ -122,7 +125,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (targets.Count == 0)
                 return RaiseBlocked("SharedRailX move target is empty.");
 
-            SharedRailXAutoMoveGuard moveGuard = StartAutoMoveGuard(plan, targets, settings);
+            SharedRailXAutoMoveGuard moveGuard = StartAutoMoveGuard(plan, targets, settings, effectiveConfig);
             try
             {
                 int result = await DispatchMoveAsync(plan, targets, settings).ConfigureAwait(false);
@@ -303,6 +306,95 @@ namespace QMC.CDT320.Motion.SharedRailX
             });
         }
 
+        private SharedRailXConfig ResolveEffectiveConfig(
+            SharedRailXMovePlan plan,
+            IReadOnlyList<SharedRailXAxisSetting> settings)
+        {
+            try
+            {
+                if (_config == null || _config.CollisionPairs == null || _config.CollisionPairs.Count == 0)
+                    return _config;
+
+                var pairs = new List<SharedRailXAxisPair>();
+                foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+                {
+                    if (ShouldUseCollisionPair(pair, plan, settings))
+                        pairs.Add(pair);
+                }
+
+                if (pairs.Count == _config.CollisionPairs.Count)
+                    return _config;
+
+                return new SharedRailXConfig
+                {
+                    DefaultSafetyDistance = _config.DefaultSafetyDistance,
+                    RequireSameVelocityForGroupMove = _config.RequireSameVelocityForGroupMove
+                }.SetCollisionPairs(pairs);
+            }
+            catch
+            {
+                return _config;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldUseCollisionPair(
+            SharedRailXAxisPair pair,
+            SharedRailXMovePlan plan,
+            IReadOnlyList<SharedRailXAxisSetting> settings)
+        {
+            if (IsOutputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
+                return IsOutputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true, plan, settings);
+
+            if (IsOutputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
+                return IsOutputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false, plan, settings);
+
+            return true;
+        }
+
+        private static bool IsOutputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
+        {
+            return pair.Matches(SharedRailXAxis.OutputVisionX, pickerAxis);
+        }
+
+        private bool IsOutputVisionPickerPairRequired(
+            SharedRailXAxis pickerAxis,
+            bool isFront,
+            SharedRailXMovePlan plan,
+            IReadOnlyList<SharedRailXAxisSetting> settings)
+        {
+            try
+            {
+                SharedRailXAxisSetting picker = settings != null
+                    ? settings.FirstOrDefault(x => x != null && x.RailAxis == pickerAxis && x.Axis != null)
+                    : null;
+                if (picker == null || picker.Axis == null)
+                    return true;
+
+                double target;
+                if (plan == null || !plan.TryGetTarget(pickerAxis, out target))
+                    target = picker.Axis.ActualPosition;
+
+                string detail;
+                return PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                    _machine,
+                    isFront,
+                    PickerWorkZone.Output,
+                    target,
+                    "SharedRailXTarget",
+                    out detail);
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
         private SharedRailXValidationResult ValidateJogCurrentDistance(
             IReadOnlyList<SharedRailXAxisSetting> settings,
             SharedRailXAxis movingRailAxis,
@@ -417,7 +509,8 @@ namespace QMC.CDT320.Motion.SharedRailX
         private SharedRailXAutoMoveGuard StartAutoMoveGuard(
             SharedRailXMovePlan plan,
             IReadOnlyList<SharedRailXTarget> targets,
-            IReadOnlyList<SharedRailXAxisSetting> settings)
+            IReadOnlyList<SharedRailXAxisSetting> settings,
+            SharedRailXConfig effectiveConfig)
         {
             if (plan == null || targets == null || settings == null)
                 return null;
@@ -430,7 +523,11 @@ namespace QMC.CDT320.Motion.SharedRailX
                 .ToDictionary(x => x.Key, x => x.Last().TargetPosition);
 
             var guardPairs = new List<SharedRailXGuardPair>();
-            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            SharedRailXConfig guardConfig = effectiveConfig ?? _config;
+            if (guardConfig == null || guardConfig.CollisionPairs == null)
+                return null;
+
+            foreach (SharedRailXAxisPair pair in guardConfig.CollisionPairs)
             {
                 if (!targetMap.ContainsKey(pair.AxisA) && !targetMap.ContainsKey(pair.AxisB))
                     continue;

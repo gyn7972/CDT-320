@@ -37,6 +37,9 @@ namespace QMC.Vision.Comm
         /// <summary>핸들러 등 클라이언트가 1개 이상 접속해 있으면 true(작업 탭 RUN 가능 판정용).</summary>
         public bool HasClient { get { lock (_clients) { return _clients.Count > 0; } } }
 
+        /// <summary>마지막으로 명령 라인을 수신한 시각(UTC). 워치독/최근수신 표시용. 미수신 시 default.</summary>
+        public DateTime LastRxUtc { get; private set; }
+
         public MainCommServer(VisionMachine machine, int port = 5104)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
@@ -120,6 +123,7 @@ namespace QMC.Vision.Comm
 
         private void ProcessLine(NetworkStream stream, string line)
         {
+            LastRxUtc = DateTime.UtcNow;
             LogMsg($"[{ModuleKey}] RX: {line}");
             var parts = line.Split('|');
             string mod = parts.Length > 0 ? parts[0] : "";

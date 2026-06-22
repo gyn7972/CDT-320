@@ -29,6 +29,9 @@ namespace QMC.Vision.Modules
             SecondReference = AddFinder<FinderAlgoSetup, FinderAlgoConfig, FinderAlgoRecipe>("SecondReferenceFinder");
             Die             = AddFinder<FinderAlgoSetup, FinderAlgoConfig, FinderAlgoRecipe>("DieFinder");
             Scale           = AddFinder<FinderAlgoSetup, FinderAlgoConfig, FinderAlgoRecipe>("ScaleFinder");
+
+            // 검출 모드 기본 Single(센터 최근접) — 레시피 로드(ApplyToRuntime)가 AngleMode 로 최종 결정.
+            foreach (var f in Finders.Values) f.PreferNearestCenter = true;
         }
     }
 }

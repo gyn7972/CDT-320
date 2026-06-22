@@ -439,9 +439,8 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Double("Max Chipping Depth",  "mm", sc, () => r.MaxChippingDepthMm,  v => r.MaxChippingDepthMm = v),
                 ParameterGridItem.Double("Max Chipping Length", "mm", sc, () => r.MaxChippingLengthMm, v => r.MaxChippingLengthMm = v),
                 ParameterGridItem.Double("Max Foreign Size",    "mm", sc, () => r.MaxForeignSizeMm,    v => r.MaxForeignSizeMm = v),
-                ParameterGridItem.Bool(Lang.T("rec.saveGoodImg"), sc, () => r.SaveGoodImage,             v => r.SaveGoodImage = v),
-                ParameterGridItem.Bool(Lang.T("rec.useContam"),    sc, () => r.UseContaminationInspection, v => r.UseContaminationInspection = v),
-                ParameterGridItem.Text(Lang.T("rec.imageSavePath"), sc, () => r.ImageSavePath, v => r.ImageSavePath = v),
+                ParameterGridItem.Bool(Lang.T("rec.logEnable"), sc, () => r.LogEnable, v => r.LogEnable = v),
+                ParameterGridItem.Selection<ImageSaveMode>(Lang.T("rec.imageSaveMode"), "", sc, () => r.ImageSaveMode, v => r.ImageSaveMode = v),
             };
             _commonGrid.SetItems(items);
         }

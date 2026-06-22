@@ -166,6 +166,7 @@ namespace QMC.CDT320.Sequencing
                     ct.ThrowIfCancellationRequested();
                     Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
+                    await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
                     await Task.Delay(200, ct).ConfigureAwait(false);
                 }
             }
@@ -181,6 +182,48 @@ namespace QMC.CDT320.Sequencing
             catch (System.Exception ex)
             {
                 WriteLog("WaitForPickerWorkAsync", "FrontPicker 작업 대기 중 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task EnsureIdlePickerAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Mode != SequenceRunMode.Auto || HasLoadedDieOnPicker() || !IsFrontPickerEnabled())
+                    return;
+
+                PickerFrontUnit front = Context != null && Context.Machine != null
+                    ? Context.Machine.PickerFrontUnit
+                    : null;
+                if (front == null || front.IsFrontPickerInAvoidPosition())
+                    return;
+
+                WriteLog("EnsureIdlePickerAvoidAsync", "FrontPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
+                int result = await front.MoveToFrontPickerAvoidPosition(false).ConfigureAwait(false);
+                if (result != 0 || !front.IsFrontPickerInAvoidPosition())
+                    throw new InvalidOperationException(
+                        "FrontPicker 작업 대기 중 Avoid 이동 실패. result=" + result +
+                        ", finalAvoid=" + front.IsFrontPickerInAvoidPosition());
+
+                WriteLog("EnsureIdlePickerAvoidAsync", "FrontPicker 작업 대기 중 Avoid 위치 이동 완료. - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("EnsureIdlePickerAvoidAsync", "FrontPicker 작업 대기 중 Avoid 이동 예외 발생: " + ex.Message + " - Failed");
                 throw;
             }
             finally

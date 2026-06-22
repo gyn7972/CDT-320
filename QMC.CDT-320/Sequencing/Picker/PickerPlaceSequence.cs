@@ -234,9 +234,51 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            string unknownReason;
+            if (HasUnknownResultDieBeforePlace(out unknownReason))
+                return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material", unknownReason);
+
             BeginOutputPostPlaceInspectionBatch();
             CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
             return 0;
+        }
+
+        private bool HasUnknownResultDieBeforePlace(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                var unknownItems = new List<string>();
+                for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                {
+                    int pickerIndex = _pickedPickerIndexes[i];
+                    int pickerNo = ToPickerNo(pickerIndex);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    if (die.Result == DieResult.Good || die.Result == DieResult.NG)
+                        continue;
+
+                    unknownItems.Add("pickerNo=" + pickerNo + ", pickerIndex=" + pickerIndex + ", die=" + die.DieId);
+                }
+
+                if (unknownItems.Count == 0)
+                    return false;
+
+                reason = "Place 전에 검사 결과가 없는 Die가 있습니다. Bottom/Side 검사 또는 수동 Good/NG 판정 후 Place를 실행하세요. " +
+                         string.Join("; ", unknownItems);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Place 전 Die 검사 결과 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
@@ -1022,54 +1064,87 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MovePickerToAvoidAfterPlaceFastAsync(string description, CancellationToken ct)
         {
-            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                description + " Z축 Avoid",
-                ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
-            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
-            targets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
-            targets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
-            targets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
-            targets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
-
-            result = await MovePickerAxesAndVerifyAsync(
-                targets,
-                description + " X/Y/T축 동시 Avoid",
-                ct,
-                "AvoidPosition;PickerPhase=PlaceDoneFastAvoid").ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            PickerAxis[] finalAxes =
+            try
             {
-                PickerAxis.PickerX,
-                PickerAxis.PickerY,
-                PickerAxis.PickerT0,
-                PickerAxis.PickerT1,
-                PickerAxis.PickerT2,
-                PickerAxis.PickerT3,
-                PickerAxis.PickerZ0,
-                PickerAxis.PickerZ1,
-                PickerAxis.PickerZ2,
-                PickerAxis.PickerZ3
-            };
+                ct.ThrowIfCancellationRequested();
 
-            foreach (PickerAxis axis in finalAxes)
-            {
-                double target = GetPickerTeachingPosition(axis, "AvoidPosition");
-                if (!IsPickerAxisInPosition(axis, target))
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    description + " Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    description + " Y축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=PlaceDoneSafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                var tTargets = new Dictionary<PickerAxis, double>();
+                tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                tTargets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                tTargets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                tTargets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+
+                result = await MovePickerAxesAndVerifyAsync(
+                    tTargets,
+                    description + " T축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=PlaceDoneSafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                    description + " X축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=PlaceDoneSafeX").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                PickerAxis[] finalAxes =
                 {
-                    return Fail("PICKER-PLACE-AVOID-FINAL-POS", Name,
-                        description + " 최종 Avoid 위치 확인 실패. " +
-                        BuildPickerAxisState(axis, target));
-                }
-            }
+                    PickerAxis.PickerX,
+                    PickerAxis.PickerY,
+                    PickerAxis.PickerT0,
+                    PickerAxis.PickerT1,
+                    PickerAxis.PickerT2,
+                    PickerAxis.PickerT3,
+                    PickerAxis.PickerZ0,
+                    PickerAxis.PickerZ1,
+                    PickerAxis.PickerZ2,
+                    PickerAxis.PickerZ3
+                };
 
-            return 0;
+                foreach (PickerAxis axis in finalAxes)
+                {
+                    double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                    if (!IsPickerAxisInPosition(axis, target))
+                    {
+                        return Fail("PICKER-PLACE-AVOID-FINAL-POS", Name,
+                            description + " 최종 Avoid 위치 확인 실패. " +
+                            BuildPickerAxisState(axis, target));
+                    }
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-AVOID-SEQ-EX", Name,
+                    description + " 안전 순서 Avoid 복귀 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveOutputStageAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)

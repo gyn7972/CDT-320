@@ -125,7 +125,16 @@ namespace QMC.CDT320.VisionComm
         {
             var c = new VisionTcpClient(module, host, port);
             c.ConnectionChanged += _ => RaiseChanged();
-            c.Log += s => EventLogger.Write(EventKind.Event, "SYS", "VISION-" + module, s);
+            // 라인 단위 TX/RX 는 고빈도(6채널 × Vision 트래픽)라 파일 로그에 그대로 적재하면
+            // 연결 후 디스크 I/O 폭주로 UI 가 느려진다. TX/RX 는 제외하고 연결/해제/오류만 기록한다.
+            c.Log += s =>
+            {
+                if (s != null &&
+                    (s.IndexOf("] TX: ", StringComparison.Ordinal) >= 0 ||
+                     s.IndexOf("] RX: ", StringComparison.Ordinal) >= 0))
+                    return;
+                EventLogger.Write(EventKind.Event, "SYS", "VISION-" + module, s);
+            };
             return c;
         }
 

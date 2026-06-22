@@ -48,8 +48,8 @@ namespace QMC.CDT320.Sequencing
             {
                 new ReadyStep("Input/Output VisionX Avoid", ct => MoveInputOutputVisionXOnlyAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker Z Avoid", ct => MoveFrontRearPickerZAxesAvoidAsync(ct)),
-                new ReadyStep("Front/Rear Picker T Avoid", ct => MoveFrontRearPickerTAxesAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker Y Avoid", ct => MoveFrontRearPickerYAxesAvoidAsync(ct)),
+                new ReadyStep("Front/Rear Picker T Avoid", ct => MoveFrontRearPickerTAxesAvoidAsync(ct)),
                 new ReadyStep("Front/Rear Picker X Avoid", ct => MoveFrontRearPickerXAxesAvoidAsync(ct)),
 
                 // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
