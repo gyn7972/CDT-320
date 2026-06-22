@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Windows.Forms;
+using QMC.Vision.Ui.Controls;   // LogDatePicker
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -18,7 +19,7 @@ namespace QMC.Vision.Ui.Pages
         // Data Log (검사 CSV)
         private FlowLayoutPanel _barData;
         private Label           _lblDataDate;
-        private DateTimePicker  _dtData;
+        private LogDatePicker   _dtData;
         private Button          _btnDataReload;
         private Button          _btnDataExport;
         private TextBox         _txtDataSearch;
@@ -27,7 +28,7 @@ namespace QMC.Vision.Ui.Pages
         // Log (EventLogger)
         private FlowLayoutPanel _barLog;
         private Label           _lblLogDate;
-        private DateTimePicker  _dtLog;
+        private LogDatePicker   _dtLog;
         private Button          _btnLogReload;
         private TextBox         _txtLogSearch;
         private DataGridView    _gridLog;
@@ -143,7 +144,7 @@ namespace QMC.Vision.Ui.Pages
             this._barLog.Controls.Add(this._dtLog);
             this._barLog.Controls.Add(this._btnLogReload);
             this._barLog.Controls.Add(this._txtLogSearch);
-            this._txtLogSearch.TextChanged += (s, e) => LoadEventLog();
+            this._txtLogSearch.TextChanged += (s, e) => ApplyLogView();   // 재읽기 없이 캐시에서 필터(대량 데이터 버벅임 방지)
             this._tpLog.Controls.Add(this._gridLog);
             this._tpLog.Controls.Add(this._emptyLog);
             this._tpLog.Controls.Add(this._barLog);
@@ -204,8 +205,8 @@ namespace QMC.Vision.Ui.Pages
         private static Label NewBarLabel(string text)
             => new Label { Text = text, AutoSize = true, Margin = new Padding(2, 8, 6, 0) };
 
-        private static DateTimePicker NewDatePicker()
-            => new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 130, Margin = new Padding(2, 3, 12, 3) };
+        private static LogDatePicker NewDatePicker()
+            => new LogDatePicker { Width = 130, Height = 23, Margin = new Padding(2, 5, 12, 3) };
 
         /// <summary>검색 입력 박스(플레이스홀더 비슷한 안내는 PlaceholderText 미지원 .NET FW → 빈 칸).</summary>
         private static TextBox NewSearchBox()
@@ -239,7 +240,7 @@ namespace QMC.Vision.Ui.Pages
                 RowHeadersVisible = false,
                 MultiSelect = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,   // 전체 행 측정 방지(버벅임) — 렌더 후 보이는 행만 측정
                 AllowUserToResizeRows = false,
                 BorderStyle = BorderStyle.None
             };

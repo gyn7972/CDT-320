@@ -1,6 +1,9 @@
-﻿using System.Windows.Forms;
+﻿using System;
+using System.Windows.Forms;
 using QMC.CDT320.Sequencing;
+using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Dialogs;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -47,6 +50,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnPickZTest,
                 btnStop,
                 actionPanel.Controls);
+
+            VisionModuleTestDialog.AddLaunchers(
+                actionPanel.Controls, this, btnStop,
+                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM INSP", () => VisionHub.Inspection, "Bottom Inspection"),
+                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: TOP SIDE",    () => VisionHub.TopSide,    "Top Side Vision"),
+                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM SIDE", () => VisionHub.BottomSide, "Bottom Side Vision"));
         }
 
         private Form1 GetHost()

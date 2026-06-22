@@ -345,9 +345,9 @@ namespace QMC.Vision.Ui.Pages
             this._g5.Name = "_g5";
             this._g5.Size = new System.Drawing.Size(1076, 51);
             this._g5.TabIndex = 9;
-            // 
+            //
             // _toolbar
-            // 
+            //
             this._toolbar.ColumnCount = 3;
             this._toolbar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this._toolbar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 128F));

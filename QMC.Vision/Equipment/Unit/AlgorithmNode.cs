@@ -71,7 +71,19 @@ namespace QMC.Vision.Modules
                 _finder.AcceptThreshold = r.AcceptThreshold;
             }
             if (Config is FinderAlgoConfig c)
-                _finder.MaxInstances = c.MaxInstances;
+            {
+                _finder.MaxInstances      = c.MaxInstances;
+                _finder.AngleEnabled      = c.AngleEnabled;
+                _finder.AngleToleranceDeg = c.AngleToleranceDeg;
+                _finder.AngleStepDeg      = c.AngleStepDeg;
+            }
+            // 검출 모드(레시피 AngleMode) → finder: Single=센터 최근접 1개 / Multi=전체(점수 상위 다수).
+            if (Recipe is FinderAlgoRecipe rm)
+            {
+                bool single = (rm.AngleMode == DieAngleMode.Single);
+                _finder.PreferNearestCenter = single;
+                _finder.MaxInstances = single ? 1 : System.Math.Max(_finder.MaxInstances, 64);
+            }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_finder is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
         }
@@ -86,8 +98,93 @@ namespace QMC.Vision.Modules
                 r.AcceptThreshold = _finder.AcceptThreshold;
             }
             if (Config is FinderAlgoConfig c)
-                c.MaxInstances = _finder.MaxInstances;
+            {
+                c.MaxInstances      = _finder.MaxInstances;
+                c.AngleEnabled      = _finder.AngleEnabled;
+                c.AngleToleranceDeg = _finder.AngleToleranceDeg;
+                c.AngleStepDeg      = _finder.AngleStepDeg;
+            }
             if (_finder is IAlgoParamSync s) s.CollectParams(Recipe, Config, Setup);
+        }
+
+        // ── 학습 패턴(PNG) 영속화 — 레시피 폴더에 co-locate(<StorageKey>.train.png).
+        //    레시피 로드/저장 때 런타임 finder 의 TrainImage 를 복원/보존한다.
+        //    (기존엔 UI 페이지에서만 복원 → 재시작 후 런타임/TCP/시퀀서 finder 는 패턴이 비어 MATCH 실패. 노드 레벨로 이동해 항상 복원.)
+        public override void LoadRecipe(string recipeName)
+        {
+            base.LoadRecipe(recipeName);     // POCO 로드 + ApplyToRuntime
+            LoadTrainPattern(recipeName);    // 학습 패턴 복원(런타임 finder 주입)
+        }
+
+        public override bool SaveRecipe(string recipeName)
+        {
+            bool ok = base.SaveRecipe(recipeName);
+            SaveTrainPattern(recipeName);
+            return ok;
+        }
+
+        private string TrainPatternPath(string recipeName)
+            => System.IO.Path.Combine(
+                QMC.Common.Data.Store.RecipeDataStore.DirOf(recipeName),
+                QMC.Common.Data.Store.StorageName.Safe(StorageKey) + ".train.png");
+
+        private void LoadTrainPattern(string recipeName)
+        {
+            if (_finder == null) return;
+            try
+            {
+                string path = TrainPatternPath(recipeName);
+                if (!System.IO.File.Exists(path))
+                {
+                    _finder.LoadTrainImage(null);
+                    LogTrain("LoadTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 없음(" + path + ") → 패턴 비움(Match 불가)");
+                    return;
+                }
+                // 작동하는 그랩(LoadImageAsGrab)과 동일하게: 바이트→MemoryStream→FromStream(기본 검증).
+                // (FromStream(fs,false,false)=검증 생략 조합은 일부 PNG 에서 "GDI+ 일반 오류" 유발.)
+                byte[] bytes = System.IO.File.ReadAllBytes(path);
+                using (var ms = new System.IO.MemoryStream(bytes))
+                using (var src = System.Drawing.Image.FromStream(ms))
+                    _finder.LoadTrainImage((System.Drawing.Bitmap)src);   // 내부에서 new Bitmap 깊은 복사
+                LogTrain("LoadTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 로드(" + path + "), 복원=" + (_finder.TrainImage != null));
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FinderAlgorithm] train pattern load fail (" + StorageKey + "): " + ex.Message);
+                LogTrain("LoadTrainPattern 실패 recipe='" + recipeName + "' key='" + StorageKey + "': " + ex.Message);
+            }
+        }
+
+        private void SaveTrainPattern(string recipeName)
+        {
+            if (_finder == null) return;
+            try
+            {
+                string path = TrainPatternPath(recipeName);
+                var ti = _finder.TrainImage;
+                if (ti == null)
+                {
+                    if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                    LogTrain("SaveTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → TrainImage=null → PNG 삭제/미저장(" + path + ")");
+                    return;
+                }
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+                using (var bmp = new System.Drawing.Bitmap(ti))
+                    bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+                LogTrain("SaveTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 저장(" + path + ")");
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FinderAlgorithm] train pattern save fail (" + StorageKey + "): " + ex.Message);
+                LogTrain("SaveTrainPattern 실패 recipe='" + recipeName + "' key='" + StorageKey + "': " + ex.Message);
+            }
+        }
+
+        /// <summary>학습 패턴 저장/복원 진단 로그 — Vision DataLog(EventLogger User=VISION, Code=TrainPattern).</summary>
+        private void LogTrain(string message)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "TrainPattern", message); }
+            catch { }
         }
     }
 

@@ -30,6 +30,11 @@ namespace QMC.Vision.Ui.Pages
         private Modules.IVisionModule Module()
             => string.IsNullOrEmpty(_algorithm) ? null : (FindForm() as Form1)?.ResolveModule(_algorithm);
 
+        /// <summary>현재 활성 레시피명(Machine.CurrentRecipeName). 미해결 시 "default".
+        /// 카메라 Recipe(노출 등 품목별)는 이 레시피로 저장/로드한다. 설비 고정 Config 는 SaveSettings 로 전역 1벌.</summary>
+        private string ActiveRecipeName()
+            => (FindForm() as Form1)?.Machine?.CurrentRecipeName ?? "default";
+
         // ── 연결 상태 ──
         private ICamera _activeCam;
         private bool _activeCamOwned;
@@ -149,6 +154,13 @@ namespace QMC.Vision.Ui.Pages
                     () => m.CalibChipWidthMm, v => m.CalibChipWidthMm = v), 0, 1000),
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
+
+                // 모듈 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 이 이미지를 그랩(테스트용)
+                ParameterGridItem.Bool("시뮬 이미지 사용(GRAB)", ParameterGridScope.Config,
+                    () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
+                ParameterGridItem.FilePath("시뮬 이미지 경로(GRAB)", ParameterGridScope.Config,
+                    () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
+                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
             };
         }
 
@@ -547,7 +559,7 @@ namespace QMC.Vision.Ui.Pages
             var msetup = mod.Setup as Modules.VisionModuleSetupBase;
             if (msetup != null) { msetup.LightPages = CollectLightPages(); lightCount = msetup.LightPages.Count; }
             mod.SaveSettings();
-            mod.SaveRecipe("default");
+            mod.SaveRecipe(ActiveRecipeName());   // 카메라 Recipe(노출 등 품목별) = 활성 레시피에 저장(구 "default" 하드코딩 수정)
             OnMilFieldChanged();
             VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
 
@@ -580,7 +592,7 @@ namespace QMC.Vision.Ui.Pages
                 if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "불러오기 불가 — 운영 모듈 미해결"; }
                 return;
             }
-            try { mod.LoadSettings(); mod.LoadRecipe("default"); } catch { }
+            try { mod.LoadSettings(); mod.LoadRecipe(ActiveRecipeName()); } catch { }   // 활성 레시피 카메라 Recipe 로드(구 "default" 수정)
             _buffer = null;       // 디스크에서 재로드된 모듈 Config/Recipe 로 버퍼 재생성
             BindFields();
             BindLightAssign();

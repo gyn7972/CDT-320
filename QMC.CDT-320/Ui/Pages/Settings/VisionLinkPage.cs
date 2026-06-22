@@ -8,7 +8,7 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
-    /// <summary>Settings - QMC.Vision TCP link.</summary>
+    /// <summary>Settings - QMC.Vision TCP link. 6 채널(Wafer/BottomInspection/Bin/Main/TopSide/BottomSide) 연결·Ping·상태.</summary>
     public partial class VisionLinkPage : PageBase
     {
         public VisionLinkPage()
@@ -37,8 +37,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var cfg = AppSettingsStore.Current;
             _tbHost.Text = cfg.VisionHost;
             _tbWafer.Text = cfg.VisionWaferPort.ToString();
-            _tbInsp.Text = cfg.VisionInspectionPort.ToString();
-            _tbBin.Text = cfg.VisionBinPort.ToString();
+            _tbInsp.Text  = cfg.VisionInspectionPort.ToString();
+            _tbBin.Text   = cfg.VisionBinPort.ToString();
+            _tbMain.Text  = cfg.VisionMainPort.ToString();
+            _tbTop.Text   = cfg.VisionTopSidePort.ToString();
+            _tbBot.Text   = cfg.VisionBottomSidePort.ToString();
             _cbAuto.Checked = cfg.VisionAutoConnect;
         }
 
@@ -61,19 +64,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private async Task DoConnect()
         {
-            AppSettingsStore.Current.VisionHost = _tbHost.Text.Trim();
-            int.TryParse(_tbWafer.Text, out var pW);
-            int.TryParse(_tbInsp.Text, out var pI);
-            int.TryParse(_tbBin.Text, out var pB);
-            AppSettingsStore.Current.VisionWaferPort = pW;
-            AppSettingsStore.Current.VisionInspectionPort = pI;
-            AppSettingsStore.Current.VisionBinPort = pB;
+            var cfg = AppSettingsStore.Current;
+            cfg.VisionHost = _tbHost.Text.Trim();
+            cfg.VisionWaferPort      = ParsePort(_tbWafer, cfg.VisionWaferPort);
+            cfg.VisionInspectionPort = ParsePort(_tbInsp,  cfg.VisionInspectionPort);
+            cfg.VisionBinPort        = ParsePort(_tbBin,   cfg.VisionBinPort);
+            cfg.VisionMainPort       = ParsePort(_tbMain,  cfg.VisionMainPort);
+            cfg.VisionTopSidePort    = ParsePort(_tbTop,   cfg.VisionTopSidePort);
+            cfg.VisionBottomSidePort = ParsePort(_tbBot,   cfg.VisionBottomSidePort);
             AppSettingsStore.Save();
 
             _btnConnect.Enabled = false;
             try
             {
-                await VisionHub.ConnectAllAsync(AppSettingsStore.Current.VisionHost, pW, pI, pB);
+                await VisionHub.ConnectAllAsync(cfg.VisionHost,
+                    cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
+                    cfg.VisionMainPort, cfg.VisionTopSidePort, cfg.VisionBottomSidePort);
             }
             catch { }
             finally
@@ -84,12 +90,24 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             OnConnChanged();
         }
 
+        private static int ParsePort(TextBox tb, int fallback)
+            => int.TryParse(tb.Text, out var p) && p > 0 && p < 65536 ? p : fallback;
+
         private async Task DoPing()
         {
-            if (VisionHub.Wafer != null) await VisionHub.Wafer.PingAsync();
-            if (VisionHub.Inspection != null) await VisionHub.Inspection.PingAsync();
-            if (VisionHub.Bin != null) await VisionHub.Bin.PingAsync();
+            await PingOne(VisionHub.Wafer);
+            await PingOne(VisionHub.Inspection);
+            await PingOne(VisionHub.Bin);
+            await PingOne(VisionHub.Main);
+            await PingOne(VisionHub.TopSide);
+            await PingOne(VisionHub.BottomSide);
             OnConnChanged();
+        }
+
+        private static async Task PingOne(VisionTcpClient c)
+        {
+            if (c == null) return;
+            try { await c.PingAsync(); } catch { }
         }
 
         private void OnConnChanged()
@@ -100,11 +118,20 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 return;
             }
 
-            Color onColor = Color.LimeGreen;
-            Color offColor = Color.Gray;
-            _lblWafer.ForeColor = VisionHub.Wafer?.IsConnected == true ? onColor : offColor;
-            _lblInsp.ForeColor = VisionHub.Inspection?.IsConnected == true ? onColor : offColor;
-            _lblBin.ForeColor = VisionHub.Bin?.IsConnected == true ? onColor : offColor;
+            SetLamp(_lblWafer, VisionHub.Wafer);
+            SetLamp(_lblInsp,  VisionHub.Inspection);
+            SetLamp(_lblBin,   VisionHub.Bin);
+            SetLamp(_lblMain,  VisionHub.Main);
+            SetLamp(_lblTop,   VisionHub.TopSide);
+            SetLamp(_lblBot,   VisionHub.BottomSide);
+        }
+
+        /// <summary>연결됨(초록) / 미연결(회색). 채널별 1:1 매핑.</summary>
+        private static void SetLamp(Label lamp, VisionTcpClient c)
+        {
+            bool on = c != null && c.IsConnected;
+            lamp.ForeColor = on ? Color.LimeGreen : Color.Gray;
+            lamp.Text = on ? "● 연결" : "● 미연결";
         }
     }
 }

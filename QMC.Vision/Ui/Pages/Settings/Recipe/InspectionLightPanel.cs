@@ -117,8 +117,25 @@ namespace QMC.Vision.Ui.Pages
                 _lblHeader.Text = Lang.T("rec.inspLight");
         }
 
-        /// <summary>R2e — 통합 저장 진입점(타깃 상단바 저장이 호출). 독립 Save 와 동일.</summary>
-        public void PersistLight() => Save();
+        /// <summary>독립(비편입) Save 버튼이 저장할 대상 레시피명. 호스트 타깃 페이지가 주입(미주입 시 default).
+        /// 편입 모드(EmbeddedMode)에서는 호스트 SaveTarget 이 활성 레시피명으로 일괄 저장하므로 사용하지 않는다.</summary>
+        public string RecipeName { get; set; } = "default";
+
+        /// <summary>R2e — 통합 저장 진입점(타깃 상단바 저장이 호출).
+        /// 편입 모드: 조명 레벨을 노드 Recipe.LightSettings POCO 에 반영만 하고, 실제 파일 저장은 호스트 SaveTarget 의
+        /// SaveRecipe(활성 레시피명)가 일괄 수행한다(조명이 활성 레시피가 아닌 "default"로 새던 문제 수정).
+        /// 비편입(독립) 모드: 자체 RecipeName 으로 즉시 저장.</summary>
+        public void PersistLight()
+        {
+            if (!CollectIntoRecipe()) return;
+            if (_embedded)
+            {
+                var recipe = _node?.Recipe as AlgoRecipeBase;
+                SetStatus(string.Format(Lang.T("rec.lightSavedFmt"), _node?.StorageKey ?? "?", recipe?.LightSettings.Count(s => s.Level > 0) ?? 0), false);
+                return;   // 저장은 호스트가 SaveRecipe(활성 레시피)로 수행
+            }
+            SaveToRecipeFile(string.IsNullOrWhiteSpace(RecipeName) ? "default" : RecipeName);
+        }
 
         public void SelectInspection(string algorithm, string inspectionId)
         {
@@ -280,18 +297,33 @@ namespace QMC.Vision.Ui.Pages
             return list;
         }
 
+        /// <summary>비편입(독립) 모드 자체 저장 버튼 — 주입된 RecipeName(미주입 시 default)으로 즉시 저장.</summary>
         private void Save()
         {
-            // C3b-3 — 레벨만 저장(노드 Recipe). 컨트롤러/페이지 지정(Setup.LightPages)은 [설정>검사]에서 별도 편집.
+            if (!CollectIntoRecipe()) return;
+            SaveToRecipeFile(string.IsNullOrWhiteSpace(RecipeName) ? "default" : RecipeName);
+        }
+
+        /// <summary>UI 그리드 → 노드 Recipe.LightSettings POCO 반영(파일 저장 없음). 노드 미해결 시 false.
+        /// C3b-3 — 레벨만 반영. 컨트롤러/페이지 지정(Setup.LightPages)은 [설정>검사]에서 별도 편집.</summary>
+        private bool CollectIntoRecipe()
+        {
             var recipe = _node?.Recipe as AlgoRecipeBase;
-            if (recipe == null) { SetStatus(Lang.T("rec.lightSaveNoNode"), true); return; }
+            if (recipe == null) { SetStatus(Lang.T("rec.lightSaveNoNode"), true); return false; }
 
             var settings = Collect();
             settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);   // 미사용(0) 정리
             recipe.LightSettings = settings;
-            try { _node.SaveRecipe("default"); }
+            return true;
+        }
+
+        /// <summary>현재 recipe POCO 를 지정 레시피명 파일로 저장.</summary>
+        private void SaveToRecipeFile(string recipeName)
+        {
+            try { _node.SaveRecipe(recipeName); }
             catch (System.Exception ex) { SetStatus(Lang.T("rec.lightSaveExc") + ex.Message, true); return; }
-            SetStatus(string.Format(Lang.T("rec.lightSavedFmt"), _node.StorageKey, settings.Count(s => s.Level > 0)), false);
+            var recipe = _node.Recipe as AlgoRecipeBase;
+            SetStatus(string.Format(Lang.T("rec.lightSavedFmt"), _node.StorageKey, recipe?.LightSettings.Count(s => s.Level > 0) ?? 0), false);
         }
 
         private async void Apply()
@@ -305,6 +337,7 @@ namespace QMC.Vision.Ui.Pages
             var settings = Collect();
             try
             {
+                LogLight("Apply 시작 — 등록 LightHub 포트=[" + string.Join(",", LightHub.Ports) + "], 적용 채널수=" + settings.Count);
                 // Stage 81 — 컨트롤러별 group → 각 컨트롤러 batch Task → Task.WhenAll 병렬(독립 시리얼 포트).
                 var tasks = new List<Task<bool>>();
                 var ports = new List<string>();
@@ -313,19 +346,30 @@ namespace QMC.Vision.Ui.Pages
                     var ctrl = LightHub.Get(grp.Key);
                     if (ctrl == null)
                     {
+                        LogLight("포트 '" + grp.Key + "' LightHub 미등록 → 건너뜀(실제 조명 미적용). [설정>조명]에서 컨트롤러/포트 확인.");
                         AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-MAP-INVALID", "Light/" + _algorithm, $"{grp.Key} not in LightHub");
                         continue;
                     }
+                    LogLight("포트 '" + grp.Key + "' 컨트롤러=" + ctrl.GetType().Name + " (Sim 이면 실제 조명 변화 없음), 채널 " + grp.Count() + "개 적용");
                     ports.Add(grp.Key);
                     tasks.Add(ApplyControllerAsync(ctrl, grp.ToList()));
                 }
-                if (tasks.Count == 0) { SetStatus(Lang.T("rec.lightApplyNoCtrl"), true); return; }
+                if (tasks.Count == 0) { LogLight("적용할 컨트롤러 없음(전 포트 미등록)."); SetStatus(Lang.T("rec.lightApplyNoCtrl"), true); return; }
 
                 var results = await Task.WhenAll(tasks);
                 int okCtrl = results.Count(r => r);
+                LogLight("Apply 완료 — 성공 " + okCtrl + "/" + tasks.Count + " 포트=[" + string.Join(",", ports) + "]" + (okCtrl != tasks.Count ? " (일부 배치 실패 — 시리얼 미연결 가능)" : ""));
                 SetStatus(string.Format(Lang.T("rec.lightAppliedFmt"), okCtrl, tasks.Count, string.Join(", ", ports)), okCtrl != tasks.Count);
             }
-            catch (Exception ex) { SetStatus(Lang.T("rec.lightApplyExc") + ex.Message, true); }
+            catch (Exception ex) { LogLight("Apply 예외: " + ex.Message); SetStatus(Lang.T("rec.lightApplyExc") + ex.Message, true); }
+        }
+
+        /// <summary>조명 적용 진단 로그 — Vision DataLog(EventLogger User=VISION, Code=LightApply).</summary>
+        private void LogLight(string message)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "LightApply",
+                (_algorithm ?? "?") + "/" + (_inspectionId ?? "?") + ": " + message); }
+            catch { }
         }
 
         /// <summary>한 컨트롤러의 settings 를 Page 별 batch 로 적용 (Level 0 = OFF=미사용). 모두 성공 시 true.</summary>
@@ -342,7 +386,9 @@ namespace QMC.Vision.Ui.Pages
                     if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
                         times[s.Channel - 1] = s.On ? s.Level : 0;
                 }
-                allOk &= await ctrl.SetChannelBatchAsync(pgrp.Key, times);
+                bool ok = await ctrl.SetChannelBatchAsync(pgrp.Key, times);
+                LogLight("배치 송신 page=" + pgrp.Key + " 값=[" + string.Join(",", times) + "] 결과=" + ok);
+                allOk &= ok;
             }
             return allOk;
         }

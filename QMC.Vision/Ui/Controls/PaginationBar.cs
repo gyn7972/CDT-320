@@ -39,7 +39,7 @@ namespace QMC.Vision.Ui.Controls
             _cmbSize.Width = 90;
             _cmbSize.Margin = new Padding(2, 2, 12, 2);
             _cmbSize.Items.AddRange(new object[] { "100행", "200행", "500행", "1000행" });
-            _cmbSize.SelectedIndex = 1;   // 기본 200행
+            _cmbSize.SelectedIndex = 0;   // 기본 100행(대량 로드 버벅임 방지) — 필요 시 드롭다운으로 확대
             _cmbSize.SelectedIndexChanged += (s, e) => { CurrentPage = 1; Raise(); };
 
             InitButton(_btnFirst, "◀◀", () => { CurrentPage = 1; Raise(); });
@@ -108,10 +108,26 @@ namespace QMC.Vision.Ui.Controls
             UpdateView();
         }
 
-        /// <summary>현재 페이지 구간만 잘라 반환.</summary>
+        /// <summary>현재 페이지 구간만 잘라 반환. IList면 인덱스로 직접 잘라 O(PageSize)로 처리(대량 데이터 페이지 이동 버벅임 방지).</summary>
         public IEnumerable<T> PageSlice<T>(IEnumerable<T> all)
-            => all == null ? Enumerable.Empty<T>()
-                           : all.Skip((CurrentPage - 1) * PageSize).Take(PageSize);
+        {
+            if (all == null) return Enumerable.Empty<T>();
+
+            int start = (CurrentPage - 1) * PageSize;
+            if (start < 0) start = 0;
+
+            // IList<T>(예: List<T>)는 Skip 전체 순회 없이 인덱스로 바로 잘라낸다.
+            if (all is IList<T> list)
+            {
+                if (start >= list.Count) return new List<T>(0);
+                int count = Math.Min(PageSize, list.Count - start);
+                var page = new List<T>(count);
+                for (int i = 0; i < count; i++) page.Add(list[start + i]);
+                return page;
+            }
+
+            return all.Skip(start).Take(PageSize);
+        }
 
         private void GoToTyped()
         {

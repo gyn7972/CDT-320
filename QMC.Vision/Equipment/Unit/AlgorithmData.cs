@@ -21,13 +21,14 @@ namespace QMC.Vision.Modules
     //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
     //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
 
-    /// <summary>다이/마크 각도(θ) 산출 모드.</summary>
+    /// <summary>검출 모드 — Single(센터 최근접 1개) / Multi(검색ROI 내 전체 패턴 검출).
+    /// (구 "각도 모드". int 직렬화 유지: Single=0, Multi=1.)</summary>
     public enum DieAngleMode
     {
-        /// <summary>화면 내 가장 근접한(매칭된) 다이/마크 1개의 각도.</summary>
+        /// <summary>이미지 센터에 가장 가까운 1개만 검출(위치/각).</summary>
         Single = 0,
-        /// <summary>화면 내 다이 격자를 모두 검출해 각도 평균.</summary>
-        AverageAll = 1,
+        /// <summary>검색ROI 내 모든 패턴 검출(멀티 서치). AlignDie 는 전체로 평균각 산출.</summary>
+        Multi = 1,
     }
 
     /// <summary>알고리즘 Setup 공통 base — 검사 노드 고정 설정. (조명 컨트롤러/페이지 지정은 모듈 Setup 으로 이전)</summary>
@@ -74,11 +75,17 @@ namespace QMC.Vision.Modules
         /// <summary>최대 인스턴스 수.</summary>
         [DataMember] public int MaxInstances { get; set; }
 
-        /// <summary>각도 탐색 사용 여부.</summary>
+        /// <summary>각도(회전) 탐색 사용 여부. true 면 [-AngleToleranceDeg, +AngleToleranceDeg] 범위를 탐색해 회전된 패턴도 매칭한다.</summary>
         [DataMember] public bool AngleEnabled { get; set; }
 
+        /// <summary>회전 탐색 허용각(± deg) — Train 대비 이 범위 안의 회전까지 매칭 성공. 0 이하이면 회전 미탐색(평행이동).</summary>
+        [DataMember] public double AngleToleranceDeg { get; set; }
+
+        /// <summary>회전 탐색 각도 스텝(deg) — 작을수록 정밀·느림(기본 1°).</summary>
+        [DataMember] public double AngleStepDeg { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { MaxInstances = 1; AngleEnabled = false; }
+        private void SetDefaults() { MaxInstances = 1; AngleEnabled = false; AngleToleranceDeg = 10.0; AngleStepDeg = 1.0; }
     }
 
     /// <summary>Finder Recipe — 제품/공정별 탐색·학습 파라미터(학습 ROI/모델 포함, 2026-06-09) + 조명 레벨(base).</summary>
@@ -97,7 +104,8 @@ namespace QMC.Vision.Modules
         /// <summary>학습된 패턴 모델 파일 경로(향후 백엔드 모델 직렬화 연동용, 현재 POCO-only). 비어있으면 미학습. 제품별이므로 Recipe.</summary>
         [DataMember] public string TrainModelPath { get; set; }
 
-        /// <summary>각도(θ) 산출 모드 — Single(최근접 1개) / AverageAll(격자 전체 평균). 주로 AlignDie 에 사용.</summary>
+        /// <summary>검출 모드 — Single(센터 최근접 1개) / Multi(전체 패턴 검출). 웨이퍼 finder 공통.
+        /// (필드명은 호환 위해 AngleMode 유지. AlignDie 는 Multi 일 때 전체로 평균각 산출.)</summary>
         [DataMember] public DieAngleMode AngleMode { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
@@ -132,6 +140,10 @@ namespace QMC.Vision.Modules
     [DataContract]
     public class InspectorAlgoRecipe : AlgoRecipeBase
     {
+        /// <summary>이 검사기를 품목별로 사용할지 여부. false 면 시퀀스·핸들러 모두에서 이 검사를 건너뛴다(PASS 처리).
+        /// 측면 Surface 검사기에서는 '오염검사 사용' 역할. 기본 true(검사 수행). (POCO-only — 런타임 백킹 없음, Collect/Apply 불간섭)</summary>
+        [DataMember] public bool UseInspection { get; set; } = true;
+
         /// <summary>검사 ROI.</summary>
         [DataMember] public Roi InspectionRoi { get; set; }
 
@@ -157,6 +169,6 @@ namespace QMC.Vision.Modules
         [DataMember] public double OutlierSigma { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { Threshold = 128.0; GapLowerLimit = 0.0; GapUpperLimit = 50.0; GapOffset = 0.0; PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0; }
+        private void SetDefaults() { UseInspection = true; Threshold = 128.0; GapLowerLimit = 0.0; GapUpperLimit = 50.0; GapOffset = 0.0; PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0; }
     }
 }

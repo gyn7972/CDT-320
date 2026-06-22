@@ -5,7 +5,7 @@ using System.Drawing.Imaging;
 namespace QMC.Vision.Core
 {
     /// <summary>
-    /// 다이 격자 전체의 평균 회전각(θ) 추정기 — AlignDie 의 AverageAll 모드용.
+    /// 다이 격자 전체의 평균 회전각(θ) 추정기 — AlignDie 의 Multi(전체) 검출 모드용.
     /// 격자는 90° 대칭(수평·수직 변)이므로 에지 그라디언트 방향을 4배각(4θ) 위상으로 누적해
     /// 두 변 군집이 같은 위상으로 보강되게 한 뒤 평균을 4로 나눠 [-45°,45°) 대표각을 얻는다.
     /// 작은 웨이퍼 정렬각(±수 도) 추정에 적합. 외부 라이브러리 불요(Bitmap LockBits + Sobel).

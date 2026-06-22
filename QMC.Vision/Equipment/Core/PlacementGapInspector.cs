@@ -347,6 +347,11 @@ namespace QMC.Vision.Core
             {
                 var cfg = QMC.Vision.Config.VisionConfigStore.Current;
                 if (cfg == null || !cfg.ImageLogEnable || string.IsNullOrWhiteSpace(cfg.ImageLogPath)) return;
+                // 레시피별 로그 토글 + OK/NG/ALL 필터 (활성 레시피 미등록 시 안전 기본값으로 통과).
+                var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
+                if (recipe != null && !recipe.LogEnable) return;
+                if (!QMC.Vision.Core.ImageLogSaver.ShouldSaveForMode(
+                        recipe?.ImageSaveMode ?? QMC.Vision.Modules.ImageSaveMode.ALL, pass)) return;
                 string dir = System.IO.Path.Combine(cfg.ImageLogPath, "Detect");
                 System.IO.Directory.CreateDirectory(dir);
 

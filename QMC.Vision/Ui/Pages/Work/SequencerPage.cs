@@ -23,7 +23,8 @@ namespace QMC.Vision.Ui.Pages
             SequenceModuleKind.BinVision,
             SequenceModuleKind.BottomInspection,
             SequenceModuleKind.TopSideVision,
-            SequenceModuleKind.BottomSideVision
+            SequenceModuleKind.BottomSideVision,
+            SequenceModuleKind.SideVision        // 앞+뒤 측면 동시(묶음)
         };
 
         private bool _subscribed;
@@ -54,7 +55,7 @@ namespace QMC.Vision.Ui.Pages
             if (IsDesignerMode()) return;
 
             _cbModule.Items.AddRange(new object[]
-            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면" });
+            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면", "측면(앞+뒤) 동시" });
             _cbModule.SelectedIndex = 0;
             _cbModule.SelectedIndexChanged += (s, e) => { PopulateTools(); BuildMetricsGrid(); };
 
@@ -110,7 +111,8 @@ namespace QMC.Vision.Ui.Pages
             for (int i = 0; i < _metricKinds.Length; i++)
             {
                 var kind = _metricKinds[i];
-                if (sel != SequenceModuleKind.All && sel != kind) continue;
+                // 합성 선택(측면 동시 등)도 비트마스크로 포함 판정 — All 이면 전부.
+                if (sel != SequenceModuleKind.All && (sel & kind) == 0) continue;
                 if (!SequenceToolCatalog.Has(kind)) continue;
                 foreach (var t in SequenceToolCatalog.Tools(kind))
                 {
@@ -240,8 +242,9 @@ namespace QMC.Vision.Ui.Pages
             if (toolId == null)
             {
                 // 도구 미선택 — 모듈 순서상 '다음 도구'를 한 단계.
-                if (kind == SequenceModuleKind.All)
-                { Append("[UI] '한 단계'는 특정 모듈을 선택하세요(전체는 도구 순서 진행 불가)."); return; }
+                // 단일 모듈만 가능(전체·측면 동시 등 합성 선택은 도구 순서 정의가 없으므로 모듈 지정 필요).
+                if (!SequenceToolCatalog.Has(kind))
+                { Append("[UI] '한 단계'는 단일 모듈을 선택하세요(전체·측면 동시는 도구 순서 진행 불가)."); return; }
                 host.AutoSeq.StepNextTool(kind, Interval());
             }
             else

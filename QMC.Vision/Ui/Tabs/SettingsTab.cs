@@ -18,6 +18,7 @@ namespace QMC.Vision.Ui.Tabs
         private ConfigurationPage    _configPanel;     // GENERAL — 환경설정 흡수
         private CameraMappingPanel   _camPanel;         // 카메라 셋업(모듈)
         private LightSystemSetupPage _lightSetupPage;   // 조명 셋업
+        private CommLinkPage         _commPage;         // 통신(TCP) — 포트 편집 + 접속 상태
         private Control              _currentEditor;
 
         private readonly List<SidebarButton> _sideButtons = new List<SidebarButton>();
@@ -40,6 +41,9 @@ namespace QMC.Vision.Ui.Tabs
 
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
             PnlContent.Controls.Add(_lightSetupPage);
+
+            _commPage = new CommLinkPage { Dock = DockStyle.Fill, Visible = false };
+            PnlContent.Controls.Add(_commPage);
         }
 
         private void BuildSidebar()
@@ -54,6 +58,8 @@ namespace QMC.Vision.Ui.Tabs
             }
 
             AddButton("조명 셋업", (s, e) => { Select((SidebarButton)s); SwapEditor(_lightSetupPage); });
+
+            AddButton("통신", (s, e) => { Select((SidebarButton)s); SwapEditor(_commPage); });
 
             if (_sideButtons.Count > 0)
             {

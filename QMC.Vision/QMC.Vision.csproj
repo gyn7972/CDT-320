@@ -98,6 +98,7 @@
     <Compile Include="Equipment\Core\ModuleResultStore.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />
     <Compile Include="Equipment\Core\PlacementGapInspector.cs" />
+    <Compile Include="Equipment\Core\ActiveRecipeContext.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
     <Compile Include="Equipment\Core\DataLogSaver.cs" />
     <Compile Include="Equipment\Cameras\Sim\SimCamera.cs" />
@@ -137,6 +138,7 @@
     <Compile Include="Equipment\Unit\BottomSideVisionModule.cs" />
     <Compile Include="Equipment\Comm\VisionTcpServer.cs" />
     <Compile Include="Equipment\Comm\MainCommServer.cs" />
+    <Compile Include="Equipment\Comm\VisionCommLog.cs" />
     <Compile Include="Equipment\Comm\GrabStreamServer.cs" />
     <Compile Include="Equipment\Tools\UiOverlapAuditor.cs" />
     <Compile Include="Equipment\Tools\CameraConnectTest.cs" />
@@ -224,6 +226,12 @@
     <Compile Include="Ui\Controls\PaginationBar.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\LogDatePicker.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\LogDatePicker.Designer.cs">
+      <DependentUpon>LogDatePicker.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
       <SubType>UserControl</SubType>
@@ -285,6 +293,12 @@
     </Compile>
     <Compile Include="Ui\Pages\Settings\ConfigurationPage.Designer.cs">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\CommLinkPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\CommLinkPage.Designer.cs">
+      <DependentUpon>CommLinkPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\RecipePage.cs">
       <SubType>UserControl</SubType>
