@@ -30,6 +30,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _cbVisionModule.Items.AddRange(new object[] { "Wafer", "Inspection", "Bin", "TopSide", "BottomSide" });
             _cbVisionModule.SelectedIndex = 0;
             _btnGrab.Click += async (s, e) => await RunGrab();
+            _btnMatch.Click += async (s, e) => await RunMatch();
+            _btnInspect.Click += async (s, e) => await RunInspect();
         }
 
         /// <summary>선택한 Vision 모듈 채널.</summary>
@@ -87,6 +89,105 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 _btnGrab.Enabled = true;
+            }
+        }
+
+        /// <summary>선택 모듈에 MATCH(finder) 요청 → 좌표/각도/score 데이터 파싱·표시.</summary>
+        private async Task RunMatch()
+        {
+            var c = SelectedVisionModule();
+            string name = _cbVisionModule.SelectedItem?.ToString() ?? "Vision";
+            string finder = (_txtFinder.Text ?? "").Trim();
+            if (c == null || !c.IsConnected)
+            {
+                _lblMatchResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblMatchResult.Text = $"{name}: 미연결 — 먼저 연결하세요";
+                return;
+            }
+            if (finder.Length == 0)
+            {
+                _lblMatchResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblMatchResult.Text = "finder 이름을 입력하세요";
+                return;
+            }
+
+            _btnMatch.Enabled = false;
+            _lblMatchResult.ForeColor = System.Drawing.Color.DimGray;
+            _lblMatchResult.Text = $"{name} MATCH({finder}) 중...";
+            try
+            {
+                MatchResultDto r = await c.MatchAsync(finder);
+                if (r.Success)
+                {
+                    _lblMatchResult.ForeColor = System.Drawing.Color.SeaGreen;
+                    _lblMatchResult.Text = $"{c.ModuleName} MATCH OK  x={r.X:F2}  y={r.Y:F2}  θ={r.AngleDeg:F3}  score={r.Score:F3}";
+                }
+                else
+                {
+                    _lblMatchResult.ForeColor = System.Drawing.Color.Firebrick;
+                    _lblMatchResult.Text = $"{c.ModuleName} MATCH 실패: {(string.IsNullOrEmpty(r.RawError) ? "no match" : r.RawError)}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblMatchResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblMatchResult.Text = name + " MATCH 실패: " + ex.Message;
+                MessageBox.Show(name + " MATCH 실패: " + ex.Message, "VISION 동작 테스트",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _btnMatch.Enabled = true;
+            }
+        }
+
+        /// <summary>선택 모듈에 INSPECT(inspector) 요청 → PASS/FAIL 판정 데이터 파싱·표시.</summary>
+        private async Task RunInspect()
+        {
+            var c = SelectedVisionModule();
+            string name = _cbVisionModule.SelectedItem?.ToString() ?? "Vision";
+            string inspector = (_txtInspector.Text ?? "").Trim();
+            if (c == null || !c.IsConnected)
+            {
+                _lblInspectResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblInspectResult.Text = $"{name}: 미연결 — 먼저 연결하세요";
+                return;
+            }
+            if (inspector.Length == 0)
+            {
+                _lblInspectResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblInspectResult.Text = "inspector 이름을 입력하세요";
+                return;
+            }
+
+            _btnInspect.Enabled = false;
+            _lblInspectResult.ForeColor = System.Drawing.Color.DimGray;
+            _lblInspectResult.Text = $"{name} INSPECT({inspector}) 중...";
+            try
+            {
+                InspectionResultDto r = await c.InspectAsync(inspector);
+                bool acked = r.Raw != null && r.Raw.StartsWith("ACK|");
+                if (acked)
+                {
+                    _lblInspectResult.ForeColor = r.IsPass ? System.Drawing.Color.SeaGreen : System.Drawing.Color.Firebrick;
+                    _lblInspectResult.Text = $"{c.ModuleName} INSPECT: {(r.IsPass ? "PASS" : "FAIL")}   ({r.Raw})";
+                }
+                else
+                {
+                    _lblInspectResult.ForeColor = System.Drawing.Color.Firebrick;
+                    _lblInspectResult.Text = $"{c.ModuleName} INSPECT 실패: {r.Raw}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblInspectResult.ForeColor = System.Drawing.Color.Firebrick;
+                _lblInspectResult.Text = name + " INSPECT 실패: " + ex.Message;
+                MessageBox.Show(name + " INSPECT 실패: " + ex.Message, "VISION 동작 테스트",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _btnInspect.Enabled = true;
             }
         }
 

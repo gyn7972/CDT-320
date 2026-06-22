@@ -146,23 +146,26 @@ namespace QMC.Vision.Config
         [DataMember] public string BottomInspectionCameraId { get; set; } = "Sim/BottomInspection";
 
         // ── 좌표 변환 / 카메라 벡터 (310 이식) ──
-        /// <summary>스케일 X (mm/pixel). VisionScale 명령으로 자동 캘리브레이션 가능.</summary>
+        // [DEPRECATED/LEGACY] 아래 스케일/회전/반전/ReturnMmCoordinates 전역 필드는 더 이상 런타임에서 읽지 않는다.
+        // 좌표 변환 SSOT = 모듈별 CameraConfig(ExportCameraMapping). 런타임 변환은 VisionCommandCore.Match 가
+        // m.ExportCameraMapping() 값만 사용한다. 이 필드들은 구 json 호환을 위해 남겨둘 뿐(신규 사용 금지).
+        /// <summary>[LEGACY 미사용] 스케일 X (mm/pixel). SSOT=모듈 CameraConfig.ScaleX.</summary>
         [DataMember] public double ScaleX                   { get; set; } = 1.0;
-        /// <summary>스케일 Y (mm/pixel).</summary>
+        /// <summary>[LEGACY 미사용] 스케일 Y (mm/pixel). SSOT=모듈 CameraConfig.ScaleY.</summary>
         [DataMember] public double ScaleY                   { get; set; } = 1.0;
-        /// <summary>카메라 90° 회전 장착 — 결과 X↔Y 스왑.</summary>
+        /// <summary>[LEGACY 미사용] 카메라 90° 회전. SSOT=모듈 CameraConfig.IsRotated.</summary>
         [DataMember] public bool   IsRotated                { get; set; } = false;
-        /// <summary>X 부호 반전.</summary>
+        /// <summary>[LEGACY 미사용] X 부호 반전. SSOT=모듈 CameraConfig.InvertedX.</summary>
         [DataMember] public bool   InvertedX                { get; set; } = false;
-        /// <summary>Y 부호 반전.</summary>
+        /// <summary>[LEGACY 미사용] Y 부호 반전. SSOT=모듈 CameraConfig.InvertedY.</summary>
         [DataMember] public bool   InvertedY                { get; set; } = false;
-        /// <summary>그랩 직전 지연(ms). 일시적 진동 회피용.</summary>
+        /// <summary>[LEGACY 미사용] 그랩 직전 지연(ms). SSOT=모듈 CameraConfig.DelayBeforeGrabMs([설정>카메라]에서 모듈별 설정).</summary>
         [DataMember] public int    DelayBeforeGrabMs        { get; set; } = 0;
         /// <summary>측면검사 위치 (None/Front/Back). SideInspection 결과 매핑에 사용.</summary>
         [DataMember] public string SideLocation             { get; set; } = "None";
         /// <summary>오토포커스 그랩 후 조명 자동 OFF.</summary>
         [DataMember] public bool   OffAfterGrabWhenAutoFocus{ get; set; } = false;
-        /// <summary>응답에 픽셀→mm 변환 좌표를 포함할지.</summary>
+        /// <summary>[LEGACY 미사용] 응답 픽셀→mm 변환 포함 여부. SSOT=모듈 CameraConfig.ReturnMmCoordinates.</summary>
         [DataMember] public bool   ReturnMmCoordinates      { get; set; } = false;
 
         // ── 데이터 로그 ──

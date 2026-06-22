@@ -59,7 +59,7 @@ namespace QMC.Vision.Comm
             module.Alarmed      += OnAlarmed;
 
             _cfg = VisionConfigStore.Current ?? new VisionSettings();
-            module.DelayBeforeGrabMs = _cfg.DelayBeforeGrabMs;
+            // DelayBeforeGrabMs SSOT = 모듈 CameraConfig(ApplyCameraSettings 가 설정). 전역 vision.json 덮어쓰기 제거.
         }
 
         public void Start()

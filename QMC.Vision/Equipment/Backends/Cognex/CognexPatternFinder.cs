@@ -109,7 +109,13 @@ namespace QMC.Vision.Backends.Cognex
                 patt.Train();
                 _trainSucceeded = true;
             }
-            catch { _trainSucceeded = false; _pma = null; }
+            catch (Exception ex)
+            {
+                // 재학습 실패 → Cognex 미사용, fallback(OpenCv) 으로 매칭. 사유를 Log 에 남겨 진단.
+                _trainSucceeded = false; _pma = null;
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
+                    Id + " LoadTrainImage Cognex 재학습 실패 → fallback: " + ex.GetType().Name + ": " + ex.Message); } catch { }
+            }
         }
 
         public MatchResult Match(Bitmap image)
