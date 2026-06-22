@@ -132,6 +132,8 @@
     <Compile Include="Equipment\Vision\InspectionResultInfoBase.cs" />
     <Compile Include="Equipment\Vision\SideInspectionResult.cs" />
     <Compile Include="Equipment\Vision\WaferVisionInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\WaferVisionResultStore.cs" />
+    <Compile Include="Equipment\Vision\VisionViewerPorts.cs" />
     <Compile Include="Ui\Controls\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -446,6 +448,15 @@
     </Compile>
     <Compile Include="Ui\Dialogs\VisionMonitorDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionModuleTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferVisionTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\VisionViewerPanel.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.Designer.cs">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
