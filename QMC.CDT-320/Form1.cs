@@ -586,6 +586,7 @@ namespace QMC.CDT_320
                     Machine.OutputFeederUnit);
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
+            Controller.OperatorMessageRequested += OnOperatorMessageRequested;
             Controller.LogMessage    += s =>
             {
                 // 시퀀스 실행 중이면 그 종류(InputSeq/OutputSeq/FrontHeadSeq/RearHeadSeq)·유닛(SOURCE)·스텝(CODE)으로 분류한다.
@@ -1144,6 +1145,27 @@ namespace QMC.CDT_320
         {
             if (InvokeRequired) { BeginInvoke(new Action<QMC.CDT320.EquipmentStatus>(OnEquipmentStatusChanged), status); return; }
             RefreshStateBig();
+        }
+
+        private void OnOperatorMessageRequested(string title, string message)
+        {
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action<string, string>(OnOperatorMessageRequested), title, message);
+                    return;
+                }
+
+                QMC.Common.MessageDialog.Show(this, message, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Operator message display failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void OnVisionHubChanged()
@@ -1767,6 +1789,7 @@ namespace QMC.CDT_320
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }
             try { QMC.Common.Logging.EventLogger.FlushPending(1000); } catch { }
+            if (Controller != null) Controller.OperatorMessageRequested -= OnOperatorMessageRequested;
             Lang.LanguageChanged    -= OnLocalizationChanged;
             UserSession.UserChanged -= OnUserChanged;
             base.OnFormClosing(e);

@@ -42,6 +42,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnBottom,
                 btnSide,
                 btnOutput,
+                btnPickUpTest,
+                cmbPickZTestPickerNo,
+                btnPickZTest,
                 btnStop,
                 actionPanel.Controls);
         }

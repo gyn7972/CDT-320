@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -17,6 +18,79 @@ namespace QMC.CDT320.Sequencing
         SupplyNgCassetteToStage,
         WaitOutputStageReceiveComplete,
         StopNoOutputBinWork
+    }
+
+    internal static class OutputCassetteOperatorMessageHelper
+    {
+        private static readonly object _messageLock = new object();
+        private static readonly Dictionary<string, DateTime> _lastMessageTimeUtcByTitle = new Dictionary<string, DateTime>();
+
+        public static void RequestReplacement(MachineSequenceContext context, BinSide side, CassetteMaterialRole cassetteRole, string detail)
+        {
+            RequestReplacement(context, side, FormatCassetteLabel(side, cassetteRole), detail);
+        }
+
+        public static void RequestReplacement(MachineSequenceContext context, BinSide side, string cassetteLabel, string detail)
+        {
+            try
+            {
+                if (context == null)
+                    return;
+
+                string sideName = FormatSideName(side);
+                string label = string.IsNullOrWhiteSpace(cassetteLabel) ? sideName + " 출력 카세트" : cassetteLabel;
+                string message = sideName + " 출력 카세트(" + label + ") 작업이 완료되었습니다.\r\n" +
+                                 "카세트를 교체한 뒤 필요한 작업을 진행하세요.";
+                if (!string.IsNullOrWhiteSpace(detail))
+                    message += "\r\n" + detail;
+
+                string title = "출력 카세트 교체 - " + sideName;
+                if (ShouldSuppressDuplicate(title))
+                    return;
+
+                context.RequestOperatorMessage(title, message);
+                Log.Write("Main", "SYSTEM", "OutputCassette",
+                    message.Replace("\r\n", " ") + " - Notice");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputCassette",
+                    "출력 카세트 교체 안내 메시지 요청 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatSideName(BinSide side)
+        {
+            return side == BinSide.Ng ? "NG" : "OK";
+        }
+
+        private static bool ShouldSuppressDuplicate(string title)
+        {
+            lock (_messageLock)
+            {
+                DateTime now = DateTime.UtcNow;
+                DateTime lastTime;
+                if (_lastMessageTimeUtcByTitle.TryGetValue(title, out lastTime) &&
+                    (now - lastTime).TotalSeconds < 5.0)
+                    return true;
+
+                _lastMessageTimeUtcByTitle[title] = now;
+                return false;
+            }
+        }
+
+        private static string FormatCassetteLabel(BinSide side, CassetteMaterialRole cassetteRole)
+        {
+            if (cassetteRole == CassetteMaterialRole.Good1 ||
+                cassetteRole == CassetteMaterialRole.Good2 ||
+                cassetteRole == CassetteMaterialRole.Ng1)
+                return cassetteRole.ToString();
+
+            return side == BinSide.Ng ? "Ng1" : "Good";
+        }
     }
 
     public class OutputSequence : UnitSequenceBase
@@ -436,7 +510,8 @@ namespace QMC.CDT320.Sequencing
                 ResetOutputStageReadySignals();
 
                 string reason = BuildOutputNoBinWorkReason();
-                AlarmManager.Raise(AlarmSeverity.Warning, "OUTPUT-BIN-COMPLETE", "OutputSequence", reason);
+                OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Good, "OK 출력 카세트 전체", reason);
+                OutputCassetteOperatorMessageHelper.RequestReplacement(Context, BinSide.Ng, "NG 출력 카세트", reason);
                 Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Stopped");
 
                 return StopAutoSequence(reason);
@@ -555,24 +630,72 @@ namespace QMC.CDT320.Sequencing
 
         private void SetOutputStageReadySignals()
         {
-            if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good))
+            if (EnsureOutputStageReadyForPlace(BinSide.Good))
                 Context.Bus.Set("OutputGoodStageReady");
             else
                 Context.Bus.Reset("OutputGoodStageReady");
 
-            if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng))
+            if (EnsureOutputStageReadyForPlace(BinSide.Ng))
                 Context.Bus.Set("OutputNgStageReady");
             else
                 Context.Bus.Reset("OutputNgStageReady");
 
-            if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good) ||
-                MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng))
+            if (Context.Bus.IsSet("OutputGoodStageReady") ||
+                Context.Bus.IsSet("OutputNgStageReady"))
             {
                 Context.Bus.Set("OutputStageReady");
             }
             else
             {
                 Context.Bus.Reset("OutputStageReady");
+            }
+        }
+
+        private bool EnsureOutputStageReadyForPlace(BinSide side)
+        {
+            try
+            {
+                string reason;
+                if (MaterialStateService.IsOutputStageReceiveAvailable(side, out reason))
+                    return true;
+
+                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(
+                    side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood);
+                if (stageWafer == null)
+                    return false;
+
+                if (stageWafer.OutputReceiveTotalCount <= 0)
+                {
+                    bool initialized = MaterialStateService.InitializeOutputStageReceivePlan(side);
+                    WriteLog("EnsureOutputStageReadyForPlace",
+                        "OutputStage 수령 계획이 없어 재초기화를 시도했습니다. side=" + side +
+                        ", wafer=" + stageWafer.WaferId +
+                        ", initialized=" + initialized +
+                        ", reason=" + reason + " - Check");
+                    if (!initialized)
+                        return false;
+                }
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    WriteLog("EnsureOutputStageReadyForPlace",
+                        "OutputFeeder에 진행 중인 자재가 있어 OutputStageReady를 보류합니다. side=" + side +
+                        ", feederWafer=" + feederWafer.WaferId + " - Check");
+                    return false;
+                }
+
+                return MaterialStateService.IsOutputStageReceiveAvailable(side, out reason);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("EnsureOutputStageReadyForPlace",
+                    "OutputStage Ready 상태 확인 중 예외가 발생했습니다. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
             }
         }
 

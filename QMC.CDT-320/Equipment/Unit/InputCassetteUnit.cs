@@ -1156,9 +1156,8 @@ namespace QMC.CDT320
         public void RaiseInputCassetteCompleteAlarm(string source)
         {
             const string code = "IN-CST-CHANGE";
-            const string message = "Input cassette processing is complete. Replace input cassette.";
-            AlarmManager.Raise(AlarmSeverity.Warning, code, string.IsNullOrWhiteSpace(source) ? Name : source, message);
-            Log.Write("Main", "ALARM", code, message + " - Check");
+            const string message = "입력 카세트의 모든 웨이퍼 작업이 완료되었습니다. 카세트를 교체하세요.";
+            Log.Write("Main", "SYSTEM", string.IsNullOrWhiteSpace(source) ? code : source, message + " - Check");
         }
 
         public bool IsHaveMoreProcessWafer()

@@ -118,7 +118,11 @@ namespace QMC.CDT320.Sequencing
                 if (pickerReady != 0)
                     return pickerReady;
 
-                int result = await Stage.LoadAndPrepareWaferAsync(Options.WaferId, Options.RequireMapData, Options.FineMove).ConfigureAwait(false);
+                int result = await Stage.LoadAndPrepareWaferAsync(
+                    Options.WaferId,
+                    Options.RequireMapData,
+                    Options.FineMove,
+                    () => WaitPickersClearForInputTransportAsync("InputStage Load Z 이동 직전", ct)).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-STAGE-LOAD-PREP", Stage.Name, "Input stage load prepare failed. result=" + result + BuildStageMoveFailureDetail());
             }
@@ -157,7 +161,9 @@ namespace QMC.CDT320.Sequencing
                 if (pickerReady != 0)
                     return pickerReady;
 
-                int result = await Stage.PrepareUnloadWaferAsync(Options.FineMove).ConfigureAwait(false);
+                int result = await Stage.PrepareUnloadWaferAsync(
+                    Options.FineMove,
+                    () => WaitPickersClearForInputTransportAsync("InputStage Unload Z 이동 직전", ct)).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-STAGE-UNLOAD-PREP", Stage.Name, "Input stage unload prepare failed. result=" + result);
             }
@@ -257,7 +263,8 @@ namespace QMC.CDT320.Sequencing
                         PickerWorkZone.Input,
                         out rearDetail);
 
-                    if (!frontBlocking && !rearBlocking)
+                    bool pickerTransportMoving = IsPickerTransportAxisMoving();
+                    if (!frontBlocking && !rearBlocking && !pickerTransportMoving)
                         return 0;
 
                     string alarmState = BuildPickerAlarmState();
@@ -272,7 +279,7 @@ namespace QMC.CDT320.Sequencing
                     if (elapsedMs >= timeoutMs)
                     {
                         return Fail("IN-STAGE-PICKER-INPUT-ZONE-TIMEOUT", Name,
-                            description + " 대기 시간 초과: Picker가 Input zone에서 벗어나지 않았습니다. " +
+                            description + " 대기 시간 초과: Picker가 Input zone에서 벗어나지 않았거나 X/Y 이동 중입니다. " +
                             "timeoutMs=" + timeoutMs + ", " +
                             "front=" + frontDetail + ", rear=" + rearDetail + ", " + BuildPickerMotionState());
                     }
@@ -282,6 +289,7 @@ namespace QMC.CDT320.Sequencing
                         WriteLog(Name,
                             description + " 전 Picker Input zone 해제 대기. " +
                             "front=" + frontDetail + ", rear=" + rearDetail +
+                            ", pickerTransportMoving=" + pickerTransportMoving +
                             ", timeoutMs=" + timeoutMs + " - Wait");
                         waitLogged = true;
                     }
@@ -435,6 +443,19 @@ namespace QMC.CDT320.Sequencing
             AppendPickerAxisAlarm(ref reason, "RearPickerZ2", RearPicker != null ? RearPicker.PickerZ2 : null);
             AppendPickerAxisAlarm(ref reason, "RearPickerZ3", RearPicker != null ? RearPicker.PickerZ3 : null);
             return reason;
+        }
+
+        private bool IsPickerTransportAxisMoving()
+        {
+            return IsAxisMoving(FrontPicker != null ? FrontPicker.PickerX : null) ||
+                   IsAxisMoving(FrontPicker != null ? FrontPicker.PickerY : null) ||
+                   IsAxisMoving(RearPicker != null ? RearPicker.PickerX : null) ||
+                   IsAxisMoving(RearPicker != null ? RearPicker.PickerY : null);
+        }
+
+        private static bool IsAxisMoving(QMC.Common.Motion.BaseAxis axis)
+        {
+            return axis != null && axis.IsMoving;
         }
 
         private string BuildPickerMotionState()

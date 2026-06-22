@@ -440,6 +440,16 @@ namespace QMC.CDT320.Interlocks
                 TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
             {
                 double targetY = request != null ? request.TargetValue : 0.0;
+                if (!stage.VerifyNeedleZSafeForWaferYNonProcessTravel(targetY, out areaReason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: InputStageY 비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
+                        areaReason +
+                        ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
+                        out reason);
+                }
+
                 if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason))
                 {
                     if (stage.IsNeedleZInSafePosition())

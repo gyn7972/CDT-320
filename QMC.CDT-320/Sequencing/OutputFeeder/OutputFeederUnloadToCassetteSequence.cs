@@ -313,8 +313,59 @@ namespace QMC.CDT320.Sequencing
 
             Context.Bus.Set("OutputFeederEmpty");
             Context.Bus.Set("OutputCassetteSlotUpdated");
+            NotifyOutputCassetteReplacementIfComplete();
             CurrentStep = OutputFeederUnloadToCassetteStep.Complete;
             return 0;
+        }
+
+        private void NotifyOutputCassetteReplacementIfComplete()
+        {
+            try
+            {
+                if (!IsOutputSideCassetteComplete())
+                    return;
+
+                OutputCassetteOperatorMessageHelper.RequestReplacement(
+                    Context,
+                    Options.Side,
+                    ResolveOutputCassetteRole(),
+                    "side=" + Options.Side + ", cassette=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("OutputFeederUnloadToCassetteSequence",
+                    "출력 카세트 교체 안내 상태 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOutputSideCassetteComplete()
+        {
+            try
+            {
+                OutputSlotPlan plan;
+                if (OutputSlotPlanner.TryResolveNextSupplySlot(Options.Side, out plan))
+                    return false;
+
+                if (ResolveFeederWafer() != null)
+                    return false;
+
+                if (MaterialStateService.GetWaferAtLocation(ResolveOutputStageLocation()) != null)
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("OutputFeederUnloadToCassetteSequence",
+                    "출력 카세트 완료 상태 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
     }
 }

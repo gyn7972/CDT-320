@@ -770,6 +770,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerWorkInfoPageRuntime.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\Common\InputPickTargetSelectDialog.Designer.cs">
+      <DependentUpon>InputPickTargetSelectDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\InputPickTargetSelectDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.Designer.cs">
       <DependentUpon>PickerHeadDieDialog.cs</DependentUpon>
     </Compile>
