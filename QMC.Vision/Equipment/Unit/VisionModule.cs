@@ -297,21 +297,49 @@ namespace QMC.Vision.Modules
             if (saved != null)
             {
                 if (saved.IsSuccess && saved.Image != null) TapFrame(saved.Image);
-                if (saved.IsSuccess) { try { ExposureDone?.Invoke(Name); } catch { } }
-                else try { Alarmed?.Invoke(Name, saved.ErrorMessage); } catch { }
+                if (saved.IsSuccess) { LogGrab("저장이미지 그랩 성공 (" + saved.Width + "x" + saved.Height + ") toolId='" + toolId + "'"); try { ExposureDone?.Invoke(Name); } catch { } }
+                else { LogGrab("저장이미지 로드 실패 → " + saved.ErrorMessage); try { Alarmed?.Invoke(Name, saved.ErrorMessage); } catch { } }
                 return saved;
             }
+            LogGrab("저장이미지 미사용 → 카메라 그랩 (toolId='" + (toolId ?? "(null)") + "')");
             return Grab(timeoutMs);
         }
 
-        /// <summary>도구 노드 Setup.SimUseSavedImage=true 면 그 도구 전용 저장 이미지를 로드. 아니면 null(카메라로 위임).</summary>
+        /// <summary>도구 노드 Setup.SimUseSavedImage=true 면 그 도구 전용 저장 이미지를 로드. 아니면 null(카메라로 위임).
+        /// 폴백 사유는 EventLogger("VISION"/"GrabForTool")로 남겨 진단 가능.</summary>
         private GrabResult TryGrabSavedImageForTool(string toolId)
         {
-            if (string.IsNullOrEmpty(toolId)) return null;
+            if (string.IsNullOrEmpty(toolId))
+            {
+                LogGrab("toolId 비어있음 → 폴백");
+                return null;
+            }
             var node = GetAlgorithm(toolId);
-            var s = node?.Setup as AlgoSetupBase;
-            if (s == null || !s.SimUseSavedImage) return null;
+            if (node == null)
+            {
+                LogGrab("GetAlgorithm('" + toolId + "') = null (등록 키 불일치) → 폴백");
+                return null;
+            }
+            var s = node.Setup as AlgoSetupBase;
+            if (s == null)
+            {
+                LogGrab("toolId='" + toolId + "' Setup=" + (node.Setup?.GetType().Name ?? "null") + " (AlgoSetupBase 아님) → 폴백");
+                return null;
+            }
+            if (!s.SimUseSavedImage)
+            {
+                LogGrab("toolId='" + toolId + "' SimUseSavedImage=false → 폴백");
+                return null;
+            }
+            LogGrab("toolId='" + toolId + "' SimUseSavedImage=true, 경로='" + (s.SimSavedImagePath ?? "") + "' → 저장이미지 로드 시도");
             return LoadImageAsGrab(s.SimSavedImagePath);
+        }
+
+        /// <summary>그랩(도구 저장이미지/폴백) 진단 로그 — Vision DataLog(EventLogger)로 남긴다.</summary>
+        private void LogGrab(string message)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "GrabForTool", Name + ": " + message); }
+            catch { }
         }
 
         /// <summary>지정 경로의 이미지를 GrabResult 로 로드(파일 잠금 방지 위해 복제본 생성). 경로/파일 문제는 실패 GrabResult.</summary>

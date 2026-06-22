@@ -72,6 +72,8 @@ namespace QMC.Vision.Ui.Pages
             _cam.FrameChanged += OnCamFrameChanged;
             // 공용 CameraView 내장 툴바 — 모듈 지정 한 줄.
             _cam.AttachModule(_module);
+            // 툴바 Grab 이 이 Inspector 전용 시뮬 저장이미지(GrabForTool)를 쓰도록 활성 도구 id 지정.
+            _cam.SetActiveTool(ResolveToolId());
             _cam.ShowToolbar = true;
         }
 
@@ -254,7 +256,7 @@ namespace QMC.Vision.Ui.Pages
         //    레벨+점등 = InspectionLightPanel(Apply), 실물 확인 = Settings 라이브/그랩. ──
         private void BuildChildPanels()
         {
-            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true, RecipeName = RecipeName };
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
@@ -340,6 +342,31 @@ namespace QMC.Vision.Ui.Pages
         /// 전용필드 추가 시 아래 패턴 1줄. (인프라: 현재 케이스 0 — 현 동작 불변.)</summary>
         private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
         {
+            if (_node == null) return;
+
+            // 검사기별 '검사 사용'(품목별) — false 면 시퀀스/핸들러에서 이 검사를 건너뛴다(PASS 처리).
+            // 측면 Surface 검사기에서는 '오염검사 사용' 역할. 로드 시 Recipe POCO 가 교체될 수 있어 람다에서 매번 _node 로 읽는다.
+            if (_node.Recipe is QMC.Vision.Modules.InspectorAlgoRecipe)
+            {
+                items.Add(ParameterGridItem.Bool("검사 사용", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.InspectorAlgoRecipe)?.UseInspection ?? true,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.InspectorAlgoRecipe r) { r.UseInspection = v; MarkDirty(); } }));
+            }
+
+            // 도구별 시뮬 저장이미지 — Inspector 마다 다른 시뮬 이미지를 사용/경로 지정(Finder 와 동일).
+            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
+            // 로드 시 Setup POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
+            if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
+            {
+                items.Add(ParameterGridItem.Bool("시뮬 저장이미지 사용", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
+                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
+            }
+
             // 예) if (_node?.Recipe is SurfaceInspectorRecipe r)
             //         items.Add(ParameterGridItem.Double("Min Blob Area", "px²", ParameterGridScope.Recipe,
             //                   () => r.MinBlobArea, v => { r.MinBlobArea = v; MarkDirty(); }));
@@ -371,8 +398,8 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 _node.SaveSettings();
+                _lightPanel?.PersistLight();   // 조명 레벨을 recipe POCO 에 반영(저장은 아래 SaveRecipe 가 활성 레시피로 일괄)
                 _node.SaveRecipe(RecipeName);
-                _lightPanel?.PersistLight();   // R2e — 조명(별도 저장소) 유지
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
                 Status(Lang.T("rec.targetSaved") + TargetPath());
@@ -446,7 +473,20 @@ namespace QMC.Vision.Ui.Pages
             if (_module == null) { Status("ERR: module not bound"); return; }
             _lastGrab?.Dispose(); _lastGrab = null;
             _loadedImage?.Dispose(); _loadedImage = null;
-            _lastGrab = _module.Grab();
+            // 도구(Inspector) 전용 시뮬 저장이미지 우선 — SimUseSavedImage=true 면 SimSavedImagePath 로드,
+            // 아니면(또는 경로 미지정) GrabForTool 내부에서 카메라 Grab 으로 폴백.
+            // 주의: GrabForTool/GetAlgorithm 은 등록 id(Inspectors 딕셔너리 키)를 받는다.
+            //       _inspector.Id 는 "모듈명/등록id" 전체이름이라 키와 다르므로 ResolveToolId 로 등록 키를 구한다.
+            string toolId = ResolveToolId();
+            try
+            {
+                var sb = _node?.Setup as QMC.Vision.Modules.AlgoSetupBase;
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "RecipeGrab",
+                    "Inspector DoGrab — resolvedKey='" + (toolId ?? "(null)") + "', inspector.Id='" + (_inspector?.Id ?? "") +
+                    "', page.SimUse=" + (sb?.SimUseSavedImage.ToString() ?? "null") + ", page.Path='" + (sb?.SimSavedImagePath ?? "") + "'");
+            }
+            catch { }
+            _lastGrab = _module.GrabForTool(toolId);
             if (_lastGrab.IsSuccess)
             {
                 _cam.SetFrame(_lastGrab);
@@ -454,6 +494,16 @@ namespace QMC.Vision.Ui.Pages
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
             }
             else Status("GRAB FAIL: " + _lastGrab.ErrorMessage);
+        }
+
+        /// <summary>현재 inspector 의 등록 id(Inspectors 딕셔너리 키 = _algoById 키) 반환. GrabForTool/GetAlgorithm 용.
+        /// _inspector.Id("모듈명/등록id" 전체이름)와 다르므로 dict 역참조로 키를 찾는다. 못 찾으면 null(카메라 폴백).</summary>
+        private string ResolveToolId()
+        {
+            if (_module == null || _inspector == null) return null;
+            foreach (var kv in _module.Inspectors)
+                if (ReferenceEquals(kv.Value, _inspector)) return kv.Key;
+            return null;
         }
 
         private void DoLoad()

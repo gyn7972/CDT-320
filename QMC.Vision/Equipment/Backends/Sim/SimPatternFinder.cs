@@ -13,6 +13,9 @@ namespace QMC.Vision.Backends.Sim
         public Bitmap TrainImage { get; private set; }
         public double AcceptThreshold { get; set; } = 0.5;
         public int    MaxInstances    { get; set; } = 1;
+        public bool   AngleEnabled      { get; set; } = false;
+        public double AngleToleranceDeg { get; set; } = 10.0;
+        public double AngleStepDeg      { get; set; } = 1.0;
 
         private readonly Random _rnd = new Random();
 
@@ -36,7 +39,8 @@ namespace QMC.Vision.Backends.Sim
         public void LoadTrainImage(Bitmap pattern)
         {
             TrainImage?.Dispose();
-            TrainImage = pattern != null ? (Bitmap)pattern.Clone() : null;   // null = 학습 패턴 제거
+            // 깊은 복사 — ICloneable.Clone() 의 지연 공유(스트림 해제 후 GDI+ 오류) 회피.
+            TrainImage = pattern != null ? new Bitmap(pattern) : null;   // null = 학습 패턴 제거
         }
 
         public MatchResult Match(Bitmap image)

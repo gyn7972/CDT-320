@@ -20,6 +20,9 @@ namespace QMC.Vision.Backends.Cognex
         public Bitmap TrainImage { get; private set; }
         public double AcceptThreshold { get; set; } = 0.7;
         public int    MaxInstances    { get; set; } = 1;
+        public bool   AngleEnabled      { get; set; } = false;
+        public double AngleToleranceDeg { get; set; } = 10.0;
+        public double AngleStepDeg      { get; set; } = 1.0;
 
         private readonly CognexBackend _be;
         private readonly OpenCv.OpenCvPatternFinder _fallback;
@@ -85,7 +88,8 @@ namespace QMC.Vision.Backends.Cognex
         public void LoadTrainImage(Bitmap pattern)
         {
             TrainImage?.Dispose();
-            TrainImage = pattern != null ? (Bitmap)pattern.Clone() : null;   // null = 학습 패턴 제거
+            // 깊은 복사 — ICloneable.Clone() 의 지연 공유(스트림 해제 후 GDI+ 오류) 회피.
+            TrainImage = pattern != null ? new Bitmap(pattern) : null;   // null = 학습 패턴 제거
             _fallback.LoadTrainImage(pattern);   // OpenCV fallback 도 동기화
             if (pattern == null) { _trainSucceeded = false; _pma = null; return; }
 
@@ -112,6 +116,12 @@ namespace QMC.Vision.Backends.Cognex
         {
             // Cognex 학습 성공 시에만 Cognex 사용, 그 외엔 fallback
             if (image == null) return MatchResult.Fail(Id, "no image");
+            // OpenCv fallback 으로 각도 탐색 설정 동기화(Cognex 미로드/미학습 시에도 회전 매칭 일관).
+            _fallback.AngleEnabled      = AngleEnabled;
+            _fallback.AngleToleranceDeg = AngleToleranceDeg;
+            _fallback.AngleStepDeg      = AngleStepDeg;
+            _fallback.MaxInstances      = MaxInstances;
+            _fallback.AcceptThreshold   = AcceptThreshold;
             if (!_be.CognexLoaded || !_trainSucceeded || _pma == null)
                 return _fallback.Match(image);
 
@@ -130,6 +140,22 @@ namespace QMC.Vision.Backends.Cognex
                 // RunParams.AcceptThreshold / NumToFind 설정
                 try { _pma.RunParams.AcceptThreshold = AcceptThreshold; } catch { }
                 try { _pma.RunParams.ApproximateNumberToFind = MaxInstances; } catch { }
+                // 회전 탐색 — PatMax 는 AngleStart/AngleExtent(라디안). AngleEnabled 시 [-tol,+tol] 탐색.
+                try
+                {
+                    if (AngleEnabled && AngleToleranceDeg > 0.0)
+                    {
+                        double tolRad = AngleToleranceDeg * Math.PI / 180.0;
+                        _pma.RunParams.AngleStart  = -tolRad;
+                        _pma.RunParams.AngleExtent = 2.0 * tolRad;
+                    }
+                    else
+                    {
+                        _pma.RunParams.AngleStart  = 0.0;
+                        _pma.RunParams.AngleExtent = 0.0;
+                    }
+                }
+                catch { }
 
                 _pma.Run();
 

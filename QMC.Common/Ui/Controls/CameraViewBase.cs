@@ -582,6 +582,23 @@ namespace QMC.Common.Ui.Controls
                     {
                         int cx = dst.Left + (int)(m.CenterX * sx);
                         int cy = dst.Top  + (int)(m.CenterY * sy);
+                        // 매칭 박스(검출 각도로 회전) — 크기 지정 시 표시. 위치+회전 시각화.
+                        if (m.BoxW > 0 && m.BoxH > 0)
+                        {
+                            double rad = m.AngleDeg * System.Math.PI / 180.0;
+                            double ca = System.Math.Cos(rad), sa = System.Math.Sin(rad);
+                            double hw = m.BoxW / 2.0, hh = m.BoxH / 2.0;
+                            double[,] o = { { -hw, -hh }, { hw, -hh }, { hw, hh }, { -hw, hh } };
+                            var corners = new PointF[4];
+                            for (int k = 0; k < 4; k++)
+                            {
+                                double ox = o[k, 0], oy = o[k, 1];
+                                double ix = m.CenterX + (ox * ca - oy * sa);
+                                double iy = m.CenterY + (ox * sa + oy * ca);
+                                corners[k] = new PointF((float)(dst.Left + ix * sx), (float)(dst.Top + iy * sy));
+                            }
+                            g.DrawPolygon(p, corners);
+                        }
                         g.DrawEllipse(p, cx - 8, cy - 8, 16, 16);
                         g.DrawLine   (p, cx - 10, cy, cx + 10, cy);
                         g.DrawLine   (p, cx, cy - 10, cx, cy + 10);

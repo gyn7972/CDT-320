@@ -159,6 +159,7 @@ namespace QMC.Vision.Ui.Localization
             A("hist.activeOnly",      "활성 알람만",        "Active alarms only");
             A("hist.empty",           "표시할 데이터가 없습니다 — 검사·이벤트·알람이 누적되면 표시됩니다.",
                                       "No data to display — inspection, event, and alarm records appear here as they accumulate.");
+            A("hist.loading",         "불러오는 중…",      "Loading…");
             A("hist.openDataFolder",  "Data Log 폴더 열기", "Open Data Log Folder");
             A("hist.openLogFolder",   "Event Log 폴더 열기","Open Event Log Folder");
             A("hist.refreshAll",      "전체 새로고침",      "Refresh All");
@@ -209,8 +210,8 @@ namespace QMC.Vision.Ui.Localization
             // 공통 그리드 라벨
             A("rec.partId",           "품목 (Part ID)",    "Part (Part ID)");
             A("rec.saveGoodImg",      "양품 이미지 저장",   "Save Good Image");
-            A("rec.useContam",        "오염검사 사용",      "Use Contamination Inspection");
-            A("rec.imageSavePath",    "이미지 저장 경로",   "Image Save Path");
+            A("rec.logEnable",        "로그 기록",          "Log Enable");
+            A("rec.imageSaveMode",    "이미지 저장 (OK/NG/ALL)", "Image Save (OK/NG/ALL)");
             // CRUD / 다이얼로그
             A("rec.newName",          "새 레시피(품목) 이름","New recipe (part) name");
             A("rec.copyNoCurrent",    "복사할 현재 레시피가 없습니다.", "No current recipe to copy.");
@@ -415,8 +416,8 @@ namespace QMC.Vision.Ui.Localization
             Z("rec.commonSaved",      "通用已保存");
             Z("rec.partId",           "品目 (Part ID)");
             Z("rec.saveGoodImg",      "保存良品图像");
-            Z("rec.useContam",        "使用污染检查");
-            Z("rec.imageSavePath",    "图像保存路径");
+            Z("rec.logEnable",        "记录日志");
+            Z("rec.imageSaveMode",    "图像保存 (OK/NG/ALL)");
             Z("rec.roiCtrl",          "ROI 控制");
             Z("rec.inspLight",        "检查照明");
             Z("rec.inspResult",       "检查结果");
@@ -438,6 +439,7 @@ namespace QMC.Vision.Ui.Localization
             Z("hist.csvExport",       "导出 CSV");
             Z("hist.activeOnly",      "仅活动报警");
             Z("hist.empty",           "暂无数据 — 检查、事件、报警记录累积后将在此显示。");
+            Z("hist.loading",         "加载中…");
             Z("hist.openDataFolder",  "打开数据日志文件夹");
             Z("hist.openLogFolder",   "打开事件日志文件夹");
             Z("hist.refreshAll",      "全部刷新");
@@ -540,8 +542,8 @@ namespace QMC.Vision.Ui.Localization
             J("rec.commonSaved",      "共通保存済み");
             J("rec.partId",           "品目 (Part ID)");
             J("rec.saveGoodImg",      "良品画像保存");
-            J("rec.useContam",        "汚染検査を使用");
-            J("rec.imageSavePath",    "画像保存パス");
+            J("rec.logEnable",        "ログ記録");
+            J("rec.imageSaveMode",    "画像保存 (OK/NG/ALL)");
             J("rec.roiCtrl",          "ROI 制御");
             J("rec.inspLight",        "検査照明");
             J("rec.inspResult",       "検査結果");
@@ -563,6 +565,7 @@ namespace QMC.Vision.Ui.Localization
             J("hist.csvExport",       "CSV エクスポート");
             J("hist.activeOnly",      "アクティブアラームのみ");
             J("hist.empty",           "表示するデータがありません — 検査・イベント・アラームが蓄積されると表示されます。");
+            J("hist.loading",         "読み込み中…");
             J("hist.openDataFolder",  "データログフォルダを開く");
             J("hist.openLogFolder",   "イベントログフォルダを開く");
             J("hist.refreshAll",      "全て更新");

@@ -68,6 +68,15 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(inspId)) return "fail:no inspector";
             if (!m.Inspectors.TryGetValue(inspId, out var ins)) return "fail:inspector not found";
+
+            // 검사기별 '검사 사용' 게이트 — 검사기 레시피(InspectorAlgoRecipe.UseInspection)=false 면 이 검사를 건너뛴다(PASS 처리).
+            // 측면 Surface 검사기에서는 '오염검사 사용' 역할. 핸들러(TCP)·셀프 시퀀서가 공유하는 단일 지점이라 양쪽에 동일 적용된다.
+            if (m.GetAlgorithm(inspId)?.Recipe is InspectorAlgoRecipe insRecipe && !insRecipe.UseInspection)
+            {
+                ModuleResultStore.Record(m.Name, inspId, true, "inspection=skip");
+                return "PASS;inspection=skip";
+            }
+
             using (var g = m.GrabForTool(inspId))
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
@@ -92,7 +101,7 @@ namespace QMC.Vision.Core
                               || inspId.IndexOf("Bin",       StringComparison.OrdinalIgnoreCase) >= 0)
                             MaterialTracker.ApplyDieGap(chipUid, r);
 
-                        ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, g.Image);
+                        ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, g.Image, r.IsPass);
                         DataLogSaver.SaveIfDieGapComplete(cfg, chipUid);
                     }
                     catch { }

@@ -16,6 +16,7 @@ namespace QMC.Vision.Ui.Controls
     public partial class CameraView : CameraViewBase
     {
         private IVisionModule _module;
+        private VisionModuleSource _source;   // 툴바 Grab/Live 소스(활성 도구 id 전달용)
         private double _editAngle;   // ROI 드래그 시 보존할 각도(원본 Roi)
 
         public CameraView()
@@ -44,17 +45,32 @@ namespace QMC.Vision.Ui.Controls
         /// <summary>그랩 결과 표시(기존 API).</summary>
         public void SetFrame(GrabResult r) { if (r != null && r.Image != null) SetImage(r.Image); }
 
-        /// <summary>ROI 사각형 + 매칭 결과 오버레이(기존 API).</summary>
+        /// <summary>ROI 사각형 + 매칭 결과 오버레이(기존 API — 점+점수만).</summary>
         public void SetOverlay(Roi roi, MatchResult result)
         {
             base.SetOverlay(RectOf(roi), MarksFrom(result));
+        }
+
+        /// <summary>ROI 사각형 + 매칭 결과 오버레이(매칭 박스 표시) — boxW/boxH(이미지 px)는 보통 Train ROI 크기.
+        /// 각 검출 인스턴스를 검출 각도로 회전한 박스 + 중심 + 점수로 그린다.</summary>
+        public void SetOverlay(Roi roi, MatchResult result, double boxW, double boxH)
+        {
+            base.SetOverlay(RectOf(roi), MarksFrom(result, boxW, boxH));
         }
 
         /// <summary>Grab/Live 대상 모듈 지정(기존 API) — 내부적으로 ICameraViewSource 어댑터로 연결.</summary>
         public void AttachModule(IVisionModule module)
         {
             _module = module;
-            AttachSource(module == null ? null : new VisionModuleSource(module));
+            _source = module == null ? null : new VisionModuleSource(module);
+            AttachSource(_source);
+        }
+
+        /// <summary>툴바 Grab 이 사용할 활성 도구(Finder/Inspector) 등록 id 지정.
+        /// 설정 시 툴바 Grab 이 그 도구 전용 시뮬 저장이미지(GrabForTool)를 우선 사용한다. null/빈값이면 모듈 Grab.</summary>
+        public void SetActiveTool(string toolId)
+        {
+            if (_source != null) _source.ActiveToolId = toolId;
         }
 
         /// <summary>ROI 드래그 편집 진입(기존 API, Roi).</summary>
@@ -188,6 +204,15 @@ namespace QMC.Vision.Ui.Controls
             if (mr?.Instances == null) return null;
             var list = new List<OverlayMark>();
             foreach (var i in mr.Instances) list.Add(new OverlayMark(i.CenterX, i.CenterY, i.Score));
+            return list;
+        }
+
+        private static List<OverlayMark> MarksFrom(MatchResult mr, double boxW, double boxH)
+        {
+            if (mr?.Instances == null) return null;
+            var list = new List<OverlayMark>();
+            foreach (var i in mr.Instances)
+                list.Add(new OverlayMark(i.CenterX, i.CenterY, i.Score, i.AngleDeg, boxW, boxH));
             return list;
         }
     }

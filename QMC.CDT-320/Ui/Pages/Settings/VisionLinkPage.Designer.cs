@@ -1,4 +1,4 @@
-﻿namespace QMC.CDT_320.Ui.Pages.Settings
+namespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class VisionLinkPage
     {
@@ -61,9 +61,9 @@
             this.linkLayout.SuspendLayout();
             this.buttonLayout.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // rootLayout
-            // 
+            //
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -78,9 +78,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1416, 980);
             this.rootLayout.TabIndex = 0;
-            // 
+            //
             // lblHeader
-            // 
+            //
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.Location = new System.Drawing.Point(8, 8);
@@ -91,9 +91,9 @@
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "VISION LINK";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // grpLink
-            // 
+            //
             this.grpLink.Controls.Add(this.linkLayout);
             this.grpLink.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLink.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
@@ -105,9 +105,9 @@
             this.grpLink.TabIndex = 1;
             this.grpLink.TabStop = false;
             this.grpLink.Text = "QMC.Vision TCP Link";
-            // 
+            //
             // linkLayout
-            // 
+            //
             this.linkLayout.ColumnCount = 3;
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this.linkLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
@@ -139,9 +139,9 @@
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.linkLayout.Size = new System.Drawing.Size(1380, 319);
             this.linkLayout.TabIndex = 0;
-            // 
+            //
             // lblHost
-            // 
+            //
             this.lblHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHost.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblHost.Location = new System.Drawing.Point(3, 0);
@@ -150,18 +150,18 @@
             this.lblHost.TabIndex = 0;
             this.lblHost.Text = "Host";
             this.lblHost.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // _tbHost
-            // 
+            //
             this._tbHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbHost.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbHost.Location = new System.Drawing.Point(133, 3);
             this._tbHost.Name = "_tbHost";
             this._tbHost.Size = new System.Drawing.Size(174, 27);
             this._tbHost.TabIndex = 1;
-            // 
+            //
             // lblWaferPort
-            // 
+            //
             this.lblWaferPort.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferPort.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblWaferPort.Location = new System.Drawing.Point(3, 36);
@@ -170,18 +170,18 @@
             this.lblWaferPort.TabIndex = 2;
             this.lblWaferPort.Text = "Wafer Port";
             this.lblWaferPort.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // _tbWafer
-            // 
+            //
             this._tbWafer.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbWafer.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbWafer.Location = new System.Drawing.Point(133, 39);
             this._tbWafer.Name = "_tbWafer";
             this._tbWafer.Size = new System.Drawing.Size(174, 27);
             this._tbWafer.TabIndex = 3;
-            // 
+            //
             // _lblWafer
-            // 
+            //
             this._lblWafer.AutoSize = true;
             this._lblWafer.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblWafer.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
@@ -191,9 +191,9 @@
             this._lblWafer.Size = new System.Drawing.Size(1064, 36);
             this._lblWafer.TabIndex = 4;
             this._lblWafer.Text = "●";
-            // 
+            //
             // lblInspectionPort
-            // 
+            //
             this.lblInspectionPort.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblInspectionPort.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblInspectionPort.Location = new System.Drawing.Point(3, 72);
@@ -202,18 +202,18 @@
             this.lblInspectionPort.TabIndex = 5;
             this.lblInspectionPort.Text = "Inspection Port";
             this.lblInspectionPort.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // _tbInsp
-            // 
+            //
             this._tbInsp.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbInsp.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbInsp.Location = new System.Drawing.Point(133, 75);
             this._tbInsp.Name = "_tbInsp";
             this._tbInsp.Size = new System.Drawing.Size(174, 27);
             this._tbInsp.TabIndex = 6;
-            // 
+            //
             // _lblInsp
-            // 
+            //
             this._lblInsp.AutoSize = true;
             this._lblInsp.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblInsp.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
@@ -223,9 +223,9 @@
             this._lblInsp.Size = new System.Drawing.Size(1064, 36);
             this._lblInsp.TabIndex = 7;
             this._lblInsp.Text = "●";
-            // 
+            //
             // lblBinPort
-            // 
+            //
             this.lblBinPort.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinPort.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.lblBinPort.Location = new System.Drawing.Point(3, 108);
@@ -234,18 +234,18 @@
             this.lblBinPort.TabIndex = 8;
             this.lblBinPort.Text = "Bin Port";
             this.lblBinPort.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // _tbBin
-            // 
+            //
             this._tbBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbBin.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbBin.Location = new System.Drawing.Point(133, 111);
             this._tbBin.Name = "_tbBin";
             this._tbBin.Size = new System.Drawing.Size(174, 27);
             this._tbBin.TabIndex = 9;
-            // 
+            //
             // _lblBin
-            // 
+            //
             this._lblBin.AutoSize = true;
             this._lblBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblBin.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
@@ -255,9 +255,9 @@
             this._lblBin.Size = new System.Drawing.Size(1064, 36);
             this._lblBin.TabIndex = 10;
             this._lblBin.Text = "●";
-            // 
+            //
             // _cbAuto
-            // 
+            //
             this._cbAuto.AutoSize = true;
             this.linkLayout.SetColumnSpan(this._cbAuto, 3);
             this._cbAuto.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -268,9 +268,9 @@
             this._cbAuto.TabIndex = 11;
             this._cbAuto.Text = "Auto connect on app start";
             this._cbAuto.UseVisualStyleBackColor = true;
-            // 
+            //
             // buttonLayout
-            // 
+            //
             this.buttonLayout.ColumnCount = 4;
             this.linkLayout.SetColumnSpan(this.buttonLayout, 3);
             this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
@@ -287,9 +287,9 @@
             this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.buttonLayout.Size = new System.Drawing.Size(1374, 42);
             this.buttonLayout.TabIndex = 12;
-            // 
+            //
             // _btnConnect
-            // 
+            //
             this._btnConnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnConnect.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
@@ -298,9 +298,9 @@
             this._btnConnect.Size = new System.Drawing.Size(144, 36);
             this._btnConnect.TabIndex = 0;
             this._btnConnect.Text = "CONNECT";
-            // 
+            //
             // _btnDisconnect
-            // 
+            //
             this._btnDisconnect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnDisconnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnDisconnect.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
@@ -309,9 +309,9 @@
             this._btnDisconnect.Size = new System.Drawing.Size(144, 36);
             this._btnDisconnect.TabIndex = 1;
             this._btnDisconnect.Text = "DISCONNECT";
-            // 
+            //
             // _btnPing
-            // 
+            //
             this._btnPing.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnPing.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnPing.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
@@ -320,9 +320,9 @@
             this._btnPing.Size = new System.Drawing.Size(144, 36);
             this._btnPing.TabIndex = 2;
             this._btnPing.Text = "PING ALL";
-            // 
+            //
             // lblHint
-            // 
+            //
             this.linkLayout.SetColumnSpan(this.lblHint, 3);
             this.lblHint.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHint.Font = new System.Drawing.Font("Segoe UI", 9F);
@@ -334,9 +334,9 @@
             this.lblHint.TabIndex = 13;
             this.lblHint.Text = "Run QMC.Vision.exe before connecting.\r\nDefault ports: Wafer=5100, Inspection=5101" +
     ", Bin=5103.";
-            // 
+            //
             // VisionLinkPage
-            // 
+            //
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);

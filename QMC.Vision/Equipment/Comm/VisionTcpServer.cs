@@ -57,6 +57,12 @@ namespace QMC.Vision.Comm
         public string ModuleName { get; }
         public IVisionModule Module { get; }
 
+        /// <summary>핸들러 등 클라이언트가 1개 이상 접속해 있으면 true(통신 상태 표시용).</summary>
+        public bool HasClient { get { lock (_clients) { return _clients.Count > 0; } } }
+
+        /// <summary>마지막으로 명령 라인을 수신한 시각(UTC). 워치독/최근수신 표시용. 미수신 시 default.</summary>
+        public DateTime LastRxUtc { get; private set; }
+
         /// <summary>1 포트 = 1 모듈 전담 (매뉴얼 기준).</summary>
         public VisionTcpServer(IVisionModule module, int port)
         {
@@ -143,6 +149,7 @@ namespace QMC.Vision.Comm
 
         private void ProcessLine(NetworkStream stream, string line)
         {
+            LastRxUtc = DateTime.UtcNow;
             LogMsg($"[{ModuleName}] RX: {line}");
             var parts = line.Split('|');
             string mod = parts.Length > 0 ? parts[0] : "";

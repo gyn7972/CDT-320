@@ -18,12 +18,49 @@ namespace QMC.Vision.Ui.Controls
 
         public VisionModuleSource(IVisionModule m) { _m = m; }
 
+        /// <summary>현재 편집 중인 도구(Finder/Inspector)의 등록 id. 설정되면 툴바 Grab 이 GrabForTool 로
+        /// 도구 전용 시뮬 저장이미지를 우선 사용한다. 비어있으면 모듈 Grab(카메라/모듈 저장이미지).</summary>
+        public string ActiveToolId { get; set; }
+
         public Bitmap GrabFrame()
         {
             try
             {
-                using (var g = _m.Grab())
-                    return (g != null && g.IsSuccess && g.Image != null) ? (Bitmap)g.Image.Clone() : null;
+                // 활성 도구의 '시뮬 저장이미지 사용' 여부 확인.
+                //  - true  : 도구 전용 저장이미지 사용(GrabForTool). 경로에 이미지가 없으면 실패 → 팝업.
+                //  - false : 라이브/카메라 그랩만 사용(_m.Grab()).
+                var setup = string.IsNullOrEmpty(ActiveToolId)
+                    ? null
+                    : _m.GetAlgorithm(ActiveToolId)?.Setup as AlgoSetupBase;
+                bool useSaved = setup != null && setup.SimUseSavedImage;
+
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ToolbarGrab",
+                    (_m?.Name ?? "?") + ": 툴바 Grab, ActiveToolId='" + (ActiveToolId ?? "(null)") + "', 시뮬저장이미지=" + useSaved); } catch { }
+
+                using (var g = useSaved ? _m.GrabForTool(ActiveToolId) : _m.Grab())
+                {
+                    if (g != null && g.IsSuccess && g.Image != null)
+                        return (Bitmap)g.Image.Clone();
+
+                    // 시뮬 저장이미지 사용인데 실패 — 대개 경로에 이미지가 없는 경우. 사용자에게 팝업으로 원인 안내.
+                    if (useSaved)
+                    {
+                        string path = setup.SimSavedImagePath ?? "";
+                        string detail = (g != null && !string.IsNullOrEmpty(g.ErrorMessage))
+                            ? g.ErrorMessage
+                            : ("경로: " + path);
+                        try
+                        {
+                            QMC.Common.MessageDialog.Show(
+                                "시뮬 저장이미지를 불러올 수 없습니다.\r\n" + detail,
+                                "시뮬 이미지",
+                                System.Windows.Forms.MessageBoxButtons.OK,
+                                System.Windows.Forms.MessageBoxIcon.Warning);
+                        }
+                        catch { }
+                    }
+                    return null;
+                }
             }
             catch { return null; }
         }

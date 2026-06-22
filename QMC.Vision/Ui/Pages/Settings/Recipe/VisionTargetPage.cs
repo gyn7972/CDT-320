@@ -71,6 +71,8 @@ namespace QMC.Vision.Ui.Pages
             _cam.FrameChanged += OnCamFrameChanged;
             // 공용 CameraView 내장 툴바(Grab/Live/Stop/Save/Load/측정/맞춤) 사용 — 모듈 지정 한 줄.
             _cam.AttachModule(_module);
+            // 툴바 Grab 이 이 Finder 전용 시뮬 저장이미지(GrabForTool)를 쓰도록 활성 도구 id 지정.
+            _cam.SetActiveTool(ResolveToolId());
             _cam.ShowToolbar = true;
         }
 
@@ -111,7 +113,7 @@ namespace QMC.Vision.Ui.Pages
         //    레벨+점등 = InspectionLightPanel(Apply), 실물 확인 = Settings 라이브/그랩. ──
         private void BuildChildPanels()
         {
-            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true, RecipeName = RecipeName };
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _finder?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
@@ -180,6 +182,9 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Double("Train H", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Height,  v => { _finder.TrainRoi.Height = v;  }),
                 ParameterGridItem.Double("Accept Threshold", "", ParameterGridScope.Recipe, () => _finder.AcceptThreshold, v => { _finder.AcceptThreshold = v; }),
                 ParameterGridItem.Int("Max Instances", "", ParameterGridScope.Config, () => _finder.MaxInstances, v => { _finder.MaxInstances = v; }),
+                ParameterGridItem.Bool("Angle Search", ParameterGridScope.Config, () => _finder.AngleEnabled, v => { _finder.AngleEnabled = v; }),
+                ParameterGridItem.Double("Angle Tol (±deg)", "deg", ParameterGridScope.Config, () => _finder.AngleToleranceDeg, v => { _finder.AngleToleranceDeg = v; }),
+                ParameterGridItem.Double("Angle Step", "deg", ParameterGridScope.Config, () => _finder.AngleStepDeg, v => { _finder.AngleStepDeg = v; }),
             };
             AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
@@ -193,7 +198,7 @@ namespace QMC.Vision.Ui.Pages
             if (_node == null) return;
 
             // 도구별 시뮬 저장이미지 — 웨이퍼 2점 정렬의 이미지1/이미지2처럼 Finder 마다 다른 이미지 지정.
-            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 경로는 입력/붙여넣기.)
+            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
             // 로드 시 Setup/Recipe POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
@@ -206,8 +211,13 @@ namespace QMC.Vision.Ui.Pages
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
             }
 
-            // AlignDie 등 각도 산출 모드 — Single(최근접) / AverageAll(격자 전체 평균).
-            if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe)
+            // 각도(θ) 산출 모드 — 웨이퍼 비전의 'AlignDie'(얼라인 다이) 도구에서만 노출.
+            //   Single     = 다이 하나만 얼라인(최근접 매칭 각도)
+            //   AverageAll = 화면 내 다이 격자 전체를 얼라인해 평균각 사용
+            // 다른 모듈/도구(Reticle·Die·DieEdge 등)는 각도 평균 개념이 없으므로 표시하지 않는다.
+            if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe
+                && _module is QMC.Vision.Modules.WaferVisionModule wm
+                && ReferenceEquals(_finder, wm.AlignDie))
             {
                 items.Add(ParameterGridItem.Selection<QMC.Vision.Modules.DieAngleMode>(
                     "각도(θ) 모드", "", ParameterGridScope.Recipe,
@@ -243,9 +253,9 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 _node.SaveSettings();
+                _lightPanel?.PersistLight();   // 조명 레벨을 recipe POCO 에 반영(저장은 아래 SaveRecipe 가 활성 레시피로 일괄)
                 _node.SaveRecipe(RecipeName);
                 SaveTrainImageFile();          // 학습 패턴 PNG 영속화(레시피와 co-locate)
-                _lightPanel?.PersistLight();   // R2e — 조명(별도 저장소) 유지
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
                 Status(Lang.T("rec.targetSaved") + TargetPath());
@@ -339,7 +349,11 @@ namespace QMC.Vision.Ui.Pages
             if (_module == null) { Status("ERR: module not bound"); return; }
             _lastGrab?.Dispose(); _lastGrab = null;
             _loadedImage?.Dispose(); _loadedImage = null;
-            _lastGrab = _module.Grab();
+            // 도구(Finder) 전용 시뮬 저장이미지 우선 — SimUseSavedImage=true 면 SimSavedImagePath 로드,
+            // 아니면(또는 경로 미지정) GrabForTool 내부에서 카메라 Grab 으로 폴백.
+            // 주의: GrabForTool/GetAlgorithm 은 등록 id(Finders 딕셔너리 키)를 받는다.
+            //       _finder.Id 는 "모듈명/등록id" 전체이름이라 키와 다르므로 ResolveToolId 로 등록 키를 구한다.
+            _lastGrab = _module.GrabForTool(ResolveToolId());
             if (_lastGrab.IsSuccess)
             {
                 _cam.SetFrame(_lastGrab);
@@ -347,6 +361,16 @@ namespace QMC.Vision.Ui.Pages
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
             }
             else Status("GRAB FAIL: " + _lastGrab.ErrorMessage);
+        }
+
+        /// <summary>현재 finder 의 등록 id(Finders 딕셔너리 키 = _algoById 키) 반환. GrabForTool/GetAlgorithm 용.
+        /// _finder.Id("모듈명/등록id" 전체이름)와 다르므로 dict 역참조로 키를 찾는다. 못 찾으면 null(카메라 폴백).</summary>
+        private string ResolveToolId()
+        {
+            if (_module == null || _finder == null) return null;
+            foreach (var kv in _module.Finders)
+                if (ReferenceEquals(kv.Value, _finder)) return kv.Key;
+            return null;
         }
 
         private void DoLoad()
@@ -616,12 +640,15 @@ namespace QMC.Vision.Ui.Pages
                 $"[{(_roiTrainTarget ? "Train" : "Search")}]  Center ({r.CenterX:F0}, {r.CenterY:F0})\r\nSize ({r.Width:F0} x {r.Height:F0})";
         }
 
+        private bool _matchBusy;
         private void DoMatch()
         {
+            if (_matchBusy) { Status("MATCH 진행 중…"); return; }   // 연타 재진입 무시(프리즈/중복 방지)
             if (_finder == null) { Status("ERR: finder not bound"); return; }
             var img = CurrentImage;
             if (img == null) { DoGrab(); img = CurrentImage; }
             if (img == null) { Status("MATCH: no image"); return; }
+            _matchBusy = true;
             try
             {
                 var r = _finder.Match(img);
@@ -637,6 +664,7 @@ namespace QMC.Vision.Ui.Pages
                 ShowDetectionResult(r, "MATCH");
             }
             catch (Exception ex) { Status("MATCH FAIL: " + ex.Message); }
+            finally { _matchBusy = false; }
         }
 
         /// <summary>현재 이미지에서 패턴 검출을 실행해 OK/NG 오버레이를 표시한다(학습 직후 검증용).</summary>
@@ -651,7 +679,10 @@ namespace QMC.Vision.Ui.Pages
         /// AcceptThreshold 가 0 이하이면 게이트 없이 '검출되면 OK'로 본다.</summary>
         private void ShowDetectionResult(MatchResult r, string tag)
         {
-            if (_cam != null) _cam.SetOverlay(_finder?.SearchRoi, r);
+            // 매칭 박스(검출 각도로 회전) 크기 = Train ROI(학습 패턴 크기). 없으면 점+점수만.
+            double boxW = _finder?.TrainRoi?.Width  ?? 0.0;
+            double boxH = _finder?.TrainRoi?.Height ?? 0.0;
+            if (_cam != null) _cam.SetOverlay(_finder?.SearchRoi, r, boxW, boxH);
 
             bool   found = r != null && r.Success && r.Best != null;
             double thr   = _finder?.AcceptThreshold ?? 0.0;
@@ -659,7 +690,7 @@ namespace QMC.Vision.Ui.Pages
             bool   ok    = found && (thr <= 0.0 || score >= thr);
 
             string label = !found
-                ? "검출 NG (no match)"
+                ? "검출 NG — " + (string.IsNullOrEmpty(r?.ErrorMessage) ? "no match" : r.ErrorMessage)
                 : ok
                     ? "검출 OK  score=" + score.ToString("F3") + (thr > 0 ? " (>= " + thr.ToString("F2") + ")" : " (threshold 0)")
                     : "검출 NG  score=" + score.ToString("F3") + " (< " + thr.ToString("F2") + ")";
