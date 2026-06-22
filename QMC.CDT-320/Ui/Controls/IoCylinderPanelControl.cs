@@ -103,7 +103,7 @@ namespace QMC.CDT_320.Ui.Controls
                 label.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
                 label.BackColor = Color.FromArgb(205, 205, 205);
                 label.BorderStyle = BorderStyle.FixedSingle;
-                label.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+                label.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
                 label.ForeColor = Color.FromArgb(20, 24, 28);
                 label.Location = new Point(32, 0);
                 label.Size = new Size(Math.Max(40, rowPanel.Width - 32), 30);

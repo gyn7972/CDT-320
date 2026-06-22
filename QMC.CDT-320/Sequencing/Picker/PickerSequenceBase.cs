@@ -292,6 +292,14 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                    axis,
+                    targetName,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (yReadyResult != 0)
+                    return yReadyResult;
+
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
@@ -337,6 +345,14 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 ct.ThrowIfCancellationRequested();
+
+                int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                    targets,
+                    targetName,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (yReadyResult != 0)
+                    return yReadyResult;
 
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
@@ -399,6 +415,215 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-MOVE-EX", Name, description + " parallel move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+            IDictionary<PickerAxis, double> targets,
+            string targetName,
+            string description,
+            CancellationToken ct)
+        {
+            if (targets == null || !targets.ContainsKey(PickerAxis.PickerY))
+                return 0;
+
+            double target = targets[PickerAxis.PickerY];
+            if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
+                return 0;
+
+            return await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+                PickerAxis.PickerY,
+                targetName,
+                description,
+                ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
+            PickerAxis axis,
+            string targetName,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (axis != PickerAxis.PickerY)
+                    return 0;
+
+                if (!IsForwardPickerYMoveTarget(targetName))
+                    return 0;
+
+                bool waitLogged = false;
+                while (!IsOppositePickerYReadyForForwardMove())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerYAvoid");
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("PickerYMoveGate",
+                            Name + " Auto Y축 전진 이동 대기. 상대 PickerY가 Avoid 위치이고 이동 타깃이 정리될 때까지 기다립니다. " +
+                            "side=" + Side +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", description=" + description +
+                            ", opposite=" + BuildOppositePickerYState() + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerYMoveGate",
+                        Name + " Auto Y축 전진 이동 대기 완료. 상대 PickerY Avoid 및 이동 타깃 해제 확인. " +
+                        "side=" + Side +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", description=" + description + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-Y-MOVE-GATE-EX", Name,
+                    "Auto Y축 전진 이동 전 상대 PickerY Avoid 대기 중 예외가 발생했습니다. " +
+                    "side=" + Side +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsForwardPickerYMoveTarget(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                return true;
+
+            if (targetName.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("PickerPhase=SafeY", StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
+
+            return true;
+        }
+
+        private bool IsOppositePickerYReadyForForwardMove()
+        {
+            try
+            {
+                bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+                PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
+                return activeTargetZone == PickerWorkZone.Unknown && IsOppositePickerYAtAvoidPosition();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerYAtAvoidPosition()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (RearPicker == null)
+                        return true;
+
+                    return RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
+                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
+                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                }
+
+                if (FrontPicker == null)
+                    return true;
+
+                return FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
+                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
+                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildOppositePickerYState()
+        {
+            try
+            {
+                BaseAxis axis = ResolveOppositePickerYAxis();
+
+                if (axis == null)
+                    return "PickerY=null";
+
+                return "name=" + axis.Name +
+                       ", actual=" + axis.ActualPosition +
+                       ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                       ", activeTargetZone=" + PickerZoneInterlockRules.GetPickerYActiveTargetZone(Side == PickerSequenceSide.Rear) +
+                       ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                       ", alarm=" + (axis.IsAlarm ? "ON" : "OFF");
+            }
+            catch (Exception ex)
+            {
+                return "stateError=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private BaseAxis ResolveOppositePickerYAxis()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    BaseAxis axis;
+                    if (RearPicker != null &&
+                        RearPicker.Axes != null &&
+                        RearPicker.Axes.TryGetValue(PickerAxis.PickerY, out axis))
+                        return axis;
+
+                    return null;
+                }
+
+                BaseAxis frontAxis;
+                if (FrontPicker != null &&
+                    FrontPicker.Axes != null &&
+                    FrontPicker.Axes.TryGetValue(PickerAxis.PickerY, out frontAxis))
+                    return frontAxis;
+
+                return null;
+            }
+            catch
+            {
+                return null;
             }
             finally
             {
@@ -805,7 +1030,15 @@ namespace QMC.CDT320.Sequencing
                 RearPicker.SetPickerVacuum(pickerNo, on);
         }
 
-        protected async Task PickerBlowAsync(int pickerNo, CancellationToken ct)
+        protected void SetPickerBlow(int pickerNo, bool on)
+        {
+            if (Side == PickerSequenceSide.Front)
+                FrontPicker.SetPickerBlow(pickerNo, on);
+            else
+                RearPicker.SetPickerBlow(pickerNo, on);
+        }
+
+        protected async Task<int> PickerBlowAsync(int pickerNo, CancellationToken ct)
         {
             try
             {
@@ -817,20 +1050,159 @@ namespace QMC.CDT320.Sequencing
                 if (Side == PickerSequenceSide.Rear && RearPicker != null)
                     waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
 
-                if (Side == PickerSequenceSide.Front)
-                    await FrontPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
-                else
-                    await RearPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+                SetPickerBlow(pickerNo, true);
+                if (waitMs > 0)
+                    await Task.Delay(waitMs, ct).ConfigureAwait(false);
 
                 ct.ThrowIfCancellationRequested();
+                return 0;
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BLOW", Name,
+                    "Picker Blow 동작 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                try
+                {
+                    SetPickerBlow(pickerNo, false);
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("PickerBlow",
+                        Name + " Picker Blow OFF 정리 실패. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", error=" + ex.Message + " - Failed");
+                }
+            }
+        }
+
+        protected async Task<int> VerifyPickerFlowStateAsync(int pickerNo, bool expected, string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsPickerSimulationOrDryRun())
+                {
+                    WriteLog("PickerFlowCheck",
+                        Name + " Flow Check 확인은 Simulation/DryRun 조건으로 통과합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", expected=" + (expected ? "ON" : "OFF") +
+                        ", description=" + description + " - Bypass");
+                    return 0;
+                }
+
+                int timeoutMs = ResolvePickerIoTimeoutMs(pickerNo);
+                DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
+                bool actual = ReadPickerFlowState(pickerNo);
+
+                while (DateTime.Now <= deadline)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    actual = ReadPickerFlowState(pickerNo);
+                    if (actual == expected)
+                        return 0;
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+
+                actual = ReadPickerFlowState(pickerNo);
+                return Fail("PICKER-FLOW-CHECK", Name,
+                    "Flow Check 확인 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", expected=" + (expected ? "ON" : "OFF") +
+                    ", actual=" + (actual ? "ON" : "OFF") +
+                    ", timeoutMs=" + timeoutMs +
+                    ", description=" + description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-FLOW-CHECK-EX", Name,
+                    "Flow Check 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", expected=" + (expected ? "ON" : "OFF") +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
             finally
             {
             }
+        }
+
+        protected int ResolvePickerIoTimeoutMs(int pickerNo)
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    return FrontPicker.ResolvePickerIoTimeoutMs(pickerNo);
+
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    return RearPicker.ResolvePickerIoTimeoutMs(pickerNo);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerFlowCheck",
+                    Name + " Picker I/O timeout 조회 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return 5000;
+        }
+
+        protected bool ReadPickerFlowState(int pickerNo)
+        {
+            try
+            {
+                int index = ToPickerIndex(pickerNo);
+                if (Side == PickerSequenceSide.Front &&
+                    FrontPicker != null &&
+                    FrontPicker.FlowChecks != null &&
+                    index >= 0 &&
+                    index < FrontPicker.FlowChecks.Length &&
+                    FrontPicker.FlowChecks[index] != null)
+                {
+                    return FrontPicker.FlowChecks[index].IsOn;
+                }
+
+                if (Side == PickerSequenceSide.Rear &&
+                    RearPicker != null &&
+                    RearPicker.FlowChecks != null &&
+                    index >= 0 &&
+                    index < RearPicker.FlowChecks.Length &&
+                    RearPicker.FlowChecks[index] != null)
+                {
+                    return RearPicker.FlowChecks[index].IsOn;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerFlowCheck",
+                    Name + " Picker Flow 신호 읽기 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return false;
         }
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
@@ -1097,7 +1469,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(pickerIndex) +
+                   ResolvePickerPitchXOffset(positionArrayName, pickerIndex) +
                    ResolvePickerAlignOffsetX(pickerIndex);
         }
 
@@ -1162,10 +1534,13 @@ namespace QMC.CDT320.Sequencing
             return offset != null ? offset.AlignOffsetX : 0.0;
         }
 
-        protected double ResolvePickerPitchXOffset(int index)
+        protected double ResolvePickerPitchXOffset(string positionArrayName, int index)
         {
             if (index <= 0)
-                return 0.0;
+            {
+                if (!IsReversePickerPitchZone(positionArrayName))
+                    return 0.0;
+            }
 
             double pitch = 0.0;
             if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
@@ -1173,7 +1548,17 @@ namespace QMC.CDT320.Sequencing
             else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
                 pitch = RearPicker.Setup.PickerPitchX;
 
-            return Math.Abs(pitch) * index;
+            int pitchIndex = IsReversePickerPitchZone(positionArrayName)
+                ? Math.Max(0, 3 - index)
+                : index;
+
+            return Math.Abs(pitch) * pitchIndex;
+        }
+
+        protected static bool IsReversePickerPitchZone(string positionArrayName)
+        {
+            return string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase);
         }
 
         protected double ResolvePickerAlignOffsetY(int index)

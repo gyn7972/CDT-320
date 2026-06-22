@@ -38,6 +38,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private bool _gridLoading;
         private QMC.CDT_320.Ui.Dialogs.SharedRailXSetupDialog _sharedRailXDialog;
         private QMC.CDT_320.Ui.Dialogs.PickerZoneSetupDialog _pickerZoneDialog;
+        private Form1 Host => FindForm() as Form1;
 
         public AxisSetupPage()
         {
@@ -67,6 +68,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblSubHeader.Font = UiTheme.SectionFont;
 
             actionsPanel.BackColor = UiTheme.OptionPanelBg;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.MultiSelect = false;
         }
 
         // ── Button click handlers (Designer 에서 연결) ────────────────
@@ -326,7 +329,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 int applied = ApplyRowsToAxes();
                 AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
-                QMC.Common.MessageDialog.Show("저장 완료.\n" + MotionAxisStore.DefaultPath + "\n적용 축: " + applied);
+                bool unitSaved = true;
+                if (Host != null && Host.Machine != null)
+                    unitSaved = Host.Machine.SaveSettings();
+
+                QMC.Common.MessageDialog.Show(unitSaved
+                    ? "저장 완료.\n" + MotionAxisStore.DefaultPath + "\n적용 축: " + applied
+                    : "축 설정은 적용되었지만 일부 Unit 설정 저장에 실패했습니다.\nAlarm/Event Log를 확인하세요.");
             }
             catch (Exception ex) { QMC.Common.MessageDialog.Show("실패: " + ex.Message); }
         }
@@ -938,10 +947,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 axis.Config.IsSimulationMode = row.SimulationMode;
 
-                // 모델 → 보드 동기화: AjinAxis 인 경우 즉시 보드에 setup 을 기록한다.
-                QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
-                if (ajin != null)
-                    ajin.WriteSetupToBoard();
+                // 보드 Write는 현재 테스트 중 전면 금지한다.
+                // 축 Setup/Config 값은 메모리와 motion_axes.json에만 반영하고,
+                // Ajin 보드 파라미터 적용은 별도 검증 후 명시적으로 다시 열어야 한다.
+                // QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
+                // if (ajin != null)
+                //     ajin.WriteSetupToBoard();
             }
             catch (Exception ex)
             {

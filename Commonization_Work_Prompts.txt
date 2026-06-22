@@ -1,0 +1,726 @@
+CDT-320 공통 프레임워크 분리 작업 프롬프트 모음
+작성 목적:
+- D:\Source\CDT-320 프로젝트에서 현재 만들어진 장비 제어 구조를 다음 프로젝트에서도 재사용할 수 있게 공통화한다.
+- 한 번에 크게 옮기지 말고, 반드시 아래 순서대로 작게 나누어 작업한다.
+- 각 단계는 Debug build를 반드시 수행하고, 실장비 안전 로직/인터락/알람/로그 동작을 깨지 않는지 검증한다.
+
+공통 규칙:
+- 실장비 안전 로직은 삭제하지 않는다.
+- 인터락은 약화하지 않는다.
+- 신규 알람/원인/사용자 메시지는 한글로 작성한다.
+- 기존 시퀀스 동작 순서와 인터락 조건을 임의로 바꾸지 않는다.
+- 먼저 분석하고, 그 다음 최소 변경만 한다.
+- 각 단계마다 Debug build를 수행한다.
+- 빌드 경로 예:
+  "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe" "D:\Source\CDT-320\QMC.CDT-320\QMC.CDT-320.csproj" /p:Configuration=Debug /p:Platform="AnyCPU" /p:OutDir="D:\Source\CDT-320\_codex_build\" /m /v:minimal
+- 작업 후 변경 파일, 변경 목적, 남은 위험, 테스트 결과를 요약한다.
+
+
+===============================================================================
+PROMPT 01 - 공통화 대상 전체 의존성 맵 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 공통 프레임워크 분리를 시작하기 전에 전체 의존성 맵을 작성한다.
+코드 수정은 하지 말고 분석만 한다.
+
+목표:
+- QMC.Common에 이미 있는 공통 요소를 정리한다.
+- QMC.CDT-320 안에 있지만 공통으로 분리 가능한 요소를 정리한다.
+- CDT-320 장비 전용으로 남겨야 하는 요소를 정리한다.
+- 각 요소의 의존성을 표로 만든다.
+
+분석 대상:
+- QMC.Common\BaseEquipmentNode.cs
+- QMC.Common\Machine.cs
+- QMC.Common\BaseUnit.cs
+- QMC.Common\Motion
+- QMC.Common\IO
+- QMC.Common\Alarms
+- QMC.Common\Logging
+- QMC.Common\Data\Store
+- QMC.CDT-320\Sequencing\Common
+- QMC.CDT-320\Equipment\Interlocks\Common
+- QMC.CDT-320\Equipment\Unit\Common\UnitDefined.cs
+- QMC.CDT-320\Equipment\Ajin
+- QMC.CDT-320\Equipment\Alarms
+
+산출물:
+- docs/Commonization_Dependency_Map.md 파일 생성
+- 공통화 후보 / 프로젝트 종속 / 분리 전 선행 작업을 표로 정리
+- 코드 수정 없음
+- Debug build 불필요
+
+
+===============================================================================
+PROMPT 02 - SequenceCore 분리 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 QMC.CDT-320\Sequencing\Common 폴더를 분석해서
+장비 공통 SequenceCore로 분리하기 위한 설계안을 작성한다.
+코드 수정은 하지 말고 분석만 한다.
+
+중점 분석:
+- MachineSequenceContext
+- UnitSequenceBase
+- AutoSequenceCoordinator
+- SequenceSignalBus
+- SequenceResourceManager
+- SequenceActivityMonitor
+- SequenceFailureStore
+- SequenceResumeStore
+- SequenceRunOptions
+- SequenceUnitKind
+- SequenceResourceKind
+
+반드시 확인:
+- CDT320_Machine 직접 의존
+- MachineController 직접 의존
+- INPUT/FRONT/REAR/OUTPUT 4유닛 고정 의존
+- PickerPhaseCoordinator / OutputPostPlaceInspectionQueue 같은 장비 전용 의존
+- EquipmentStatus 직접 의존
+- AlarmManager / Log 직접 의존
+
+산출물:
+- docs/SequenceCore_Extraction_Plan.md
+- 어떤 파일을 공통으로 옮길지
+- 어떤 타입은 인터페이스화해야 하는지
+- 어떤 타입은 CDT-320에 남겨야 하는지
+- 분리 순서
+- 예상 위험
+- 코드 수정 없음
+
+
+===============================================================================
+PROMPT 03 - SequenceCore 인터페이스 정의만 추가
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 SequenceCore 공통화를 위한 인터페이스만 추가한다.
+기존 동작 코드는 바꾸지 않는다.
+
+목표:
+- 기존 시퀀스 코드를 바로 옮기지 않는다.
+- 먼저 공통화에 필요한 인터페이스만 만든다.
+
+추가 후보:
+- ISequenceController
+  - LogPublic(string message)
+  - Stop/Alarm 상태 확인에 필요한 최소 API
+- ISequenceMachineContext
+  - Controller
+  - Machine object 접근은 object 또는 generic으로 검토
+- ISequenceActivityLayout
+  - 표시 유닛 목록과 표시명 제공
+- ISequenceLogger
+  - Public log / Event log 추상화
+- ISequenceFailureReporter
+  - 실패 정보 저장/조회 추상화
+
+위치:
+- 가능하면 QMC.Common\Sequencing 또는 새 프로젝트/폴더를 만든다.
+- 기존 CDT-320 시퀀스 동작은 그대로 유지한다.
+
+검증:
+- Debug build 수행
+- 기존 시퀀스 파일 수정이 없다면 더 좋다.
+
+주의:
+- 인터페이스 추가만 한다.
+- 기존 SequenceContext를 아직 바꾸지 않는다.
+- 장비 동작 변경 금지.
+
+
+===============================================================================
+PROMPT 04 - SequenceActivityMonitor의 4유닛 고정 제거
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 SequenceActivityMonitor를 공통화 가능하도록 수정한다.
+기능은 기존과 동일해야 한다.
+
+현재 문제:
+- SequenceActivityMonitor가 INPUT/FRONT/REAR/OUTPUT 4개 유닛을 고정 DisplayOrder로 가지고 있다.
+- 다음 프로젝트에서는 유닛 수와 이름이 달라질 수 있다.
+
+목표:
+- 기존 CDT-320에서는 동일하게 INPUT/FRONT/REAR/OUTPUT이 보이게 유지한다.
+- 내부적으로는 표시 유닛 목록을 생성자 또는 layout 객체로 주입 가능하게 만든다.
+
+작업:
+- 기본 생성자는 기존 동작 유지
+- 새 생성자로 표시 유닛 목록/표시명 주입 가능하게 추가
+- 기존 호출부가 깨지지 않게 한다.
+- UI 표시 결과가 기존과 같아야 한다.
+
+검증:
+- Debug build
+- Work main 작업상태 표시가 기존과 동일한지 코드상 확인
+
+주의:
+- 시퀀스 상태 이름이나 enum 값을 임의로 바꾸지 않는다.
+- 기존 UI 깨지지 않게 한다.
+
+
+===============================================================================
+PROMPT 05 - MachineSequenceContext 장비 전용 의존 분리 1차
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 MachineSequenceContext의 장비 전용 의존을 줄인다.
+한 번에 완전 분리하지 말고, 외부 동작이 바뀌지 않는 선에서 1차 정리만 한다.
+
+현재 문제:
+- MachineSequenceContext가 MachineController, CDT320_Machine을 직접 참조한다.
+- PickerPhaseCoordinator, OutputPostPlaceInspectionQueue를 직접 생성한다.
+
+목표:
+- 기존 CDT-320 동작 유지
+- 공통 SequenceContext로 분리하기 위한 기반 마련
+
+작업 방향:
+- MachineController 직접 참조를 유지하되, 필요한 기능을 인터페이스로 감쌀 수 있는 구조를 추가
+- PickerPhaseCoordinator / OutputPostPlaceInspectionQueue는 CDT-320 전용 확장으로 분리할 수 있게 주입 가능성 검토
+- 기존 생성자 유지
+- 새 생성자 또는 optional dependency 추가 가능
+
+검증:
+- Debug build
+- Start/Stop/Manual sequence 컴파일 경로 확인
+
+주의:
+- 실제 시퀀스 동작 순서 변경 금지
+- Context 내 CycleStop 동작 변경 금지
+
+
+===============================================================================
+PROMPT 06 - SequenceResourceManager 공통화 준비
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 SequenceResourceManager와 SequenceResourceKind를 공통화 가능한 구조로 정리한다.
+
+현재 문제:
+- ResourceManager 자체는 공통 구조지만 SequenceResourceKind enum은 CDT-320 리소스에 묶일 수 있다.
+
+목표:
+- ResourceManager는 공통으로 쓸 수 있게 유지
+- 프로젝트별 ResourceKind를 쓸 수 있는 방향 검토/수정
+
+작업 방향:
+- 가능하면 enum 직접 의존 대신 string key 또는 generic resource key 구조 검토
+- 기존 CDT-320 코드는 그대로 동작해야 한다.
+- 한 번에 전체 시퀀스 수정하지 말고 adapter 또는 overload 추가부터 진행한다.
+
+검증:
+- Debug build
+- 리소스 acquire/release 로그가 기존과 동일한지 확인
+
+주의:
+- 리소스 락은 간섭 방지의 핵심이므로 약화 금지
+- timeout 알람/로그 메시지는 한글화 가능 여부 확인
+
+
+===============================================================================
+PROMPT 07 - InterlockCore 분리 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 인터락 구조를 공통 엔진과 CDT-320 전용 룰로 나누는 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- MotionGuardRuntime
+- MotionGuardService
+- MotionGuardRuleRegistry
+- MotionGuardRuleContext
+- MotionGuardRuleHelpers
+- InterlockCheckMatrix
+- InterlockCheckMatrixStore
+- SharedRailXInterlockRules
+- Input/Output/Picker/Vision InterlockRules
+
+반드시 구분:
+- 공통 엔진
+- 공통 helper
+- 공통 matrix 구조
+- 프로젝트별 룰
+- 프로젝트별 위치/존/축 이름 의존
+
+산출물:
+- docs/InterlockCore_Extraction_Plan.md
+- 인터락 호출 흐름도
+- Axis Move / Axis Home / Teaching Move / Cylinder Move / Initialize Move 별 체크 흐름
+- Sequence PreCheck와 MotionGuard Final Check의 역할 구분
+- 코드 수정 없음
+
+
+===============================================================================
+PROMPT 08 - InterlockCore 인터페이스 추가
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 인터락 공통화를 위한 인터페이스/모델만 추가한다.
+기존 인터락 동작은 바꾸지 않는다.
+
+목표:
+- MotionGuard 엔진을 프로젝트 독립적으로 만들기 위한 타입 기반 마련
+
+추가 후보:
+- IMotionGuardContext
+  - Axes
+  - Cylinders
+  - MachineObject 또는 Services
+- IMotionGuardRule
+  - bool Verify(MotionGuardRuleContext context, out string reason)
+- IMotionGuardRuleRegistry
+- IInterlockAlarmReporter
+- IInterlockLogger
+
+주의:
+- 기존 MotionGuardRuntime 호출부 변경 금지
+- BaseAxis / BaseCylinder 최종 방어 구조 유지
+- Debug build 수행
+
+
+===============================================================================
+PROMPT 09 - MotionGuard 메시지 한글 포맷터 분리
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 MotionGuard / 인터락 실패 메시지를 한글 포맷터로 분리한다.
+안전 로직은 변경하지 않는다.
+
+현재 문제:
+- 일부 MotionGuard 메시지가 영어로 출력된다.
+- 사용자 규칙상 알람/원인 메시지는 한글이어야 한다.
+
+목표:
+- 인터락 실패 메시지 생성 부분을 별도 formatter로 분리
+- 기존 차단 조건은 변경하지 않는다.
+
+작업:
+- MotionGuardResult.Message 생성 경로 분석
+- Matrix check required / No matrix check required / Motion guard exception 등 메시지 한글화
+- 장비별 rule reason은 가능한 기존 의미 유지하며 한글화
+
+검증:
+- Debug build
+- 인터락 차단 시 알람 메시지가 한글인지 코드상 확인
+
+주의:
+- 메시지만 바꾼다.
+- Allowed/Blocked 판단 변경 금지.
+
+
+===============================================================================
+PROMPT 10 - UnitDefined<TAxis> 공통화 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 UnitDefined<TAxis>를 분석해서 공통 UnitBase로 분리하는 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- RegisterAxis
+- RegisterInput
+- RegisterOutput
+- MoveAxisAsync
+- MoveAxesAsync
+- WaitAxisMoveDoneInPosition
+- TeachingPosition
+- JogStep / JogContinuous / StopJog
+- Input wait / Output set
+
+현재 문제:
+- AjinFactory 직접 참조
+- AjinIoCatalog 직접 참조
+- QMC.CDT320 namespace에 있음
+- Unit enum들이 CDT-320 전용
+
+산출물:
+- docs/UnitDefined_Extraction_Plan.md
+- 필요한 인터페이스:
+  - IAxisFactory
+  - IIoFactory
+  - ITeachingPositionProvider
+  - IUnitMotionService
+- 어떤 코드를 공통으로 옮길지
+- 어떤 코드는 프로젝트별 Unit에 남길지
+
+
+===============================================================================
+PROMPT 11 - UnitDefined 의존성 주입 1차
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 UnitDefined<TAxis>가 AjinFactory를 직접 참조하는 부분을 줄이기 위한 1차 작업을 한다.
+
+목표:
+- 기존 동작 유지
+- Factory 인터페이스만 추가하고 기본 구현은 AjinFactory를 사용
+
+작업:
+- IEquipmentComponentFactory 또는 IUnitComponentFactory 추가
+- CreateAxis / CreateDigitalInput / CreateDigitalOutput 메서드 정의
+- UnitDefined<TAxis>가 기본 생성 시 기존 AjinFactory adapter를 사용하게 한다.
+- 기존 Unit 생성자 수정 최소화
+
+검증:
+- Debug build
+- 기존 Unit 축/I/O 생성 경로가 동일한지 확인
+
+주의:
+- Axis 이름, IO 이름 매핑 변경 금지
+- 실린더/IO 시뮬레이션 정책 변경 금지
+
+
+===============================================================================
+PROMPT 12 - Ajin 하드웨어 계층 분리 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 Equipment\Ajin 폴더를 분석해서 QMC.Hardware.Ajin으로 분리하기 위한 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- AjinFactory
+- AjinAxis
+- AjinDigitalInput
+- AjinDigitalOutput
+- AjinCylinder
+- AjinSystem
+- AjinConfigStore
+- AjinIoCatalog
+- IoSettingsStore
+- CylinderSettingsStore
+- IoRuntimePolicy
+
+반드시 확인:
+- CDT-320 고정 경로
+- CDT-320 축 이름/IO 이름 의존
+- AppSettingsStore 의존
+- DryRun/Simulation/RealBoard 정책
+- MotionAxisStore와의 관계
+
+산출물:
+- docs/AjinHardware_Extraction_Plan.md
+- 공통으로 뺄 파일
+- 프로젝트별로 남길 Catalog
+- 설정 경로를 어떻게 주입할지
+- DryRun 정책을 어떻게 프로젝트별로 확장할지
+
+
+===============================================================================
+PROMPT 13 - RuntimeModePolicy 공통화 설계
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 Simulation / DryRun / RealBoard 모드 처리를 분석해서 공통 RuntimeModePolicy 설계안을 만든다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- AppSettings
+- AjinFactory.IsApplicationDryRunMode
+- IoRuntimePolicy
+- CylinderSettingsStore.Apply
+- IoSettingsStore
+- Form1 또는 시작 시 모드 적용 경로
+
+목표:
+- 다음 프로젝트에서도 DryRun에서 실린더 센서는 실장비를 보고, 제품 감지류는 bypass할 수 있는 구조 설계
+- 이름 토큰 기반 정책의 위험 정리
+- 프로젝트별 override 가능한 정책 구조 설계
+
+산출물:
+- docs/RuntimeModePolicy_Plan.md
+- Simulation / DryRun / RealBoard 모드별 DI/DO/Cylinder/Axis 동작 표
+- 공통 정책과 프로젝트별 정책 구분
+
+
+===============================================================================
+PROMPT 14 - AlarmResponse 공통화 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 알람 응답 구조를 분석해서 공통 AlarmResponseCore로 분리하는 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- QMC.Common\Alarms
+- Equipment\Alarms\AlarmResponseService.cs
+- AlarmResponsePolicy
+- AlarmStopScope
+- AxisInterferenceMap
+- MachineController.StopSequenceForAlarmAsync
+- MachineController.StopAllAxesAsync / StopAxesAsync
+
+목표:
+- 알람 발생 시 축 정지 범위 정책 공통화
+- 일반 STOP과 ALARM STOP 구분 유지
+- 프로젝트별 axis group/interference map은 분리
+
+산출물:
+- docs/AlarmResponseCore_Extraction_Plan.md
+- 공통 인터페이스:
+  - IAlarmStopController
+  - IAxisStopService
+  - IAlarmPolicyStore
+- 공통/프로젝트별 요소 구분
+
+
+===============================================================================
+PROMPT 15 - MachineController 역할 분해 설계안 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 MachineController를 분석해서 다음 프로젝트용 Controller 구조 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- StartAsync
+- StopAsync
+- EmergencyStopAsync
+- ResetAlarmAsync
+- Ready sequence
+- Manual operation scope
+- AutoSequenceCoordinator 생성/등록
+- Axis enumerate
+- Alarm response 연동
+- Runtime state 저장
+- Material/Lot/DieMap 관리
+
+목표:
+- 공통 Controller Base로 뺄 수 있는 것과 CDT-320 전용으로 남길 것을 구분
+
+산출물:
+- docs/MachineController_Decomposition_Plan.md
+- 추천 분리:
+  - MachineControllerBase
+  - SequenceControllerService
+  - AlarmControlService
+  - ManualOperationService
+  - ReadyInitializeService
+  - RuntimeStateService
+  - ProjectProcessController
+
+
+===============================================================================
+PROMPT 16 - DataStore 경로/저장 규칙 통합 설계
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 설정/레시피/런타임 저장 경로를 분석해서 통합 설계안을 작성한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- UnitDataStore
+- EquipmentDataStore
+- RecipeDataStore
+- MotionAxisStore
+- AppSettingsStore
+- IoSettingsStore
+- CylinderSettingsStore
+- SharedRailXConfigStore
+- MaterialSnapshotStore
+- LotStorage
+- RecipeStore
+
+목표:
+- 다음 프로젝트에서 저장 경로가 흩어지지 않게 표준 구조 설계
+- Setup / Config / Recipe / Runtime / Log 구분
+
+산출물:
+- docs/DataStore_Unification_Plan.md
+- 현재 저장 파일 목록
+- 중복/혼선 가능성
+- 권장 폴더 구조
+- 마이그레이션 주의사항
+
+
+===============================================================================
+PROMPT 17 - 공통 UI 후보 분석
+===============================================================================
+
+D:\Source\CDT-320 프로젝트의 UI 중 다음 프로젝트에서 재사용 가능한 공통 UI 후보를 분석한다.
+코드 수정은 하지 않는다.
+
+분석 대상:
+- ProgressDialog
+- StopProgressDialog
+- ReadyProgressDialog
+- InitializationMonitorDialog
+- MotionPage
+- IoList/Cylinder 페이지
+- AxisJogControl
+- ParameterGrid
+- NumericKeypad
+- AlarmBanner
+- ManualSequenceDialog
+
+구분:
+- 바로 공통화 가능
+- 약간 수정 후 공통화 가능
+- CDT-320 전용
+
+산출물:
+- docs/CommonUI_Extraction_Plan.md
+- 각 UI의 데이터 의존성
+- 공통화 시 필요한 인터페이스
+- 우선순위
+
+
+===============================================================================
+PROMPT 18 - SequenceCore 실제 이동 1단계
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 SequenceCore 일부를 실제로 공통 namespace 또는 공통 폴더로 이동하는 1단계 작업을 한다.
+이전 PROMPT 01~06의 설계 문서를 먼저 읽고 진행한다.
+
+대상:
+- SequenceSignalBus
+- SequenceStopException
+- SequenceRunMode
+- SequenceRunOptions
+- UnitSequenceBase
+- AutoSequenceCoordinator
+
+조건:
+- 한 번에 모든 파일을 옮기지 않는다.
+- CDT-320 동작이 깨지지 않도록 namespace alias 또는 wrapper를 사용해도 된다.
+- MachineSequenceContext처럼 장비 의존성이 큰 파일은 아직 옮기지 않는다.
+
+검증:
+- Debug build
+- 기존 자동 시퀀스 생성/컴파일 경로 확인
+
+주의:
+- 시퀀스 동작 순서 변경 금지
+- 인터락/알람 동작 변경 금지
+
+
+===============================================================================
+PROMPT 19 - InterlockCore 실제 이동 1단계
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 InterlockCore 일부를 실제로 공통 namespace 또는 공통 폴더로 이동하는 1단계 작업을 한다.
+이전 PROMPT 07~09의 설계 문서를 먼저 읽고 진행한다.
+
+대상 후보:
+- MotionGuardMoveKind
+- MotionGuardResult
+- MotionGuardContext 또는 인터페이스 버전
+- InterlockCheckMatrix
+- InterlockCheckMatrixStore
+- MotionGuardRuleContext
+- MotionGuardRuleHelpers 중 장비 비의존 부분
+
+아직 옮기지 말 것:
+- InputStageInterlockRules
+- OutputStageInterlockRules
+- PickerZoneInterlockRules
+- VisionInterlockRules
+- SharedRailXInterlockRules
+
+검증:
+- Debug build
+- 축 이동 전 MotionGuard 호출 경로 유지 확인
+
+주의:
+- 차단 조건 변경 금지
+- 메시지 한글화 외 판단 로직 변경 금지
+
+
+===============================================================================
+PROMPT 20 - UnitBase 실제 이동 1단계
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 UnitDefined<TAxis> 공통화 1단계를 진행한다.
+이전 PROMPT 10~11의 설계 문서를 먼저 읽고 진행한다.
+
+목표:
+- UnitDefined<TAxis> 자체를 바로 이동하지 말고, 공통 UnitBase 후보를 새로 만든다.
+- 기존 UnitDefined<TAxis>는 새 공통 Base를 상속하거나 내부에서 사용하게 한다.
+
+조건:
+- 기존 Unit 동작 변경 금지
+- Axis/IO 생성 경로 변경 시 반드시 adapter로 기존 AjinFactory와 동일하게 동작하게 한다.
+
+검증:
+- Debug build
+- 모든 Unit 생성 컴파일 확인
+- MotionPage / CylinderPage / WorkInfo 페이지 컴파일 확인
+
+
+===============================================================================
+PROMPT 21 - 공통화 후 회귀 검증 체크리스트 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 공통화 작업 후 반드시 확인해야 할 회귀 테스트 체크리스트를 작성한다.
+코드 수정은 하지 않는다.
+
+체크리스트 항목:
+- 프로그램 실행
+- 설정 로드
+- 축 목록 표시
+- IO 목록 표시
+- 실린더 설정/제어
+- Motion speed 저장/로드
+- Home/Ready
+- Start/Stop
+- OP Start/Stop/Reset 버튼
+- Alarm 발생 시 즉시 축 정지
+- 일반 Stop 시 현재 동작 완료 후 정지
+- Manual Sequence Dialog
+- Interlock 차단
+- DryRun DI/DO/Cylinder 정책
+- Simulation mode
+- RealBoard mode
+- Recipe save/load
+- Setup/Config save/load
+- Material/Lot/DieMap 유지
+
+산출물:
+- docs/Commonization_Regression_Checklist.md
+
+
+===============================================================================
+PROMPT 22 - 다음 프로젝트 템플릿 구조 작성
+===============================================================================
+
+D:\Source\CDT-320 프로젝트 분석 결과를 바탕으로 다음 장비 프로젝트를 만들 때 사용할 템플릿 구조를 작성한다.
+코드 수정은 하지 않는다.
+
+산출물:
+- docs/NextProject_Template_Structure.md
+
+포함 내용:
+- 새 프로젝트 생성 시 폴더 구조
+- 반드시 작성해야 하는 파일 목록
+- 축 Catalog 작성 방법
+- IO Catalog 작성 방법
+- Unit 작성 방법
+- Sequence 작성 방법
+- Interlock Rule 작성 방법
+- Recipe/Setup/Config 작성 방법
+- UI 작성 방법
+- Debug build와 시뮬레이션 검증 순서
+
+
+===============================================================================
+PROMPT 23 - 최종 공통화 로드맵 재검토
+===============================================================================
+
+D:\Source\CDT-320 프로젝트에서 지금까지 작성된 공통화 문서를 모두 읽고 최종 로드맵을 재정리한다.
+코드 수정은 하지 않는다.
+
+읽을 문서:
+- docs/Commonization_Dependency_Map.md
+- docs/SequenceCore_Extraction_Plan.md
+- docs/InterlockCore_Extraction_Plan.md
+- docs/UnitDefined_Extraction_Plan.md
+- docs/AjinHardware_Extraction_Plan.md
+- docs/RuntimeModePolicy_Plan.md
+- docs/AlarmResponseCore_Extraction_Plan.md
+- docs/MachineController_Decomposition_Plan.md
+- docs/DataStore_Unification_Plan.md
+- docs/CommonUI_Extraction_Plan.md
+- docs/Commonization_Regression_Checklist.md
+- docs/NextProject_Template_Structure.md
+
+산출물:
+- docs/Commonization_Final_Roadmap.md
+
+포함 내용:
+- 실제 작업 순서
+- 각 단계별 위험도
+- 반드시 빌드해야 하는 시점
+- 실장비 테스트가 필요한 시점
+- 다음 프로젝트에서 바로 재사용 가능한 항목
+- 아직 CDT-320에 남겨야 하는 항목
+

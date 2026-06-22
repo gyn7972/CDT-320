@@ -181,6 +181,97 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public async Task<int> ExecuteNextOutputLoadAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null)
+                {
+                    if (IsOutputBinReceiveComplete(feederWafer))
+                        return Fail("OUT-MANUAL-LOAD-FEEDER-COMPLETE", "OutputSequence", "OutputFeeder에 완료된 Bin이 있습니다. OUTPUT UNLOAD를 먼저 실행하세요.");
+
+                    return await ExecuteOccupiedFeederActionAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+                }
+
+                bool canSupplyGood = CanSupplyOutputStage(BinSide.Good);
+                bool canSupplyNg = CanSupplyOutputStage(BinSide.Ng);
+
+                if (canSupplyNg && (!canSupplyGood || AreBothOutputStagesEmpty()))
+                    return await ExecuteSupplyCassetteToStageAsync(ct, BinSide.Ng, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+
+                if (canSupplyGood)
+                    return await ExecuteSupplyCassetteToStageAsync(ct, BinSide.Good, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+
+                if (canSupplyNg)
+                    return await ExecuteSupplyCassetteToStageAsync(ct, BinSide.Ng, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+
+                return Fail("OUT-MANUAL-LOAD-NO-SLOT", "OutputSequence", "OUTPUT LOAD 가능한 Bin이 없습니다. OutputStage 빈 상태와 Output Cassette 매핑/슬롯 상태를 확인하세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteNextOutputLoadAsync", "Output Manual LOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-LOAD-EX", "OutputSequence", "Output Manual LOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ExecuteNextOutputUnloadAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsStageReceiveComplete(BinSide.Ng))
+                    return await ExecuteCompletedStageStoreAsync(ct, BinSide.Ng, DieGrade.Ng, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+
+                if (IsStageReceiveComplete(BinSide.Good))
+                    return await ExecuteCompletedStageStoreAsync(ct, BinSide.Good, DieGrade.Good, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (feederWafer != null && IsOutputBinReceiveComplete(feederWafer))
+                    return await ExecuteOccupiedFeederActionAsync(
+                        ct,
+                        bFine,
+                        moveTimeoutMs,
+                        startMode).ConfigureAwait(false);
+
+                return Fail("OUT-MANUAL-UNLOAD-NO-BIN", "OutputSequence", "OUTPUT UNLOAD 가능한 완료 Bin이 없습니다. OutputStage 수령 완료 상태 또는 OutputFeeder 보유 Bin 상태를 확인하세요.");
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteNextOutputUnloadAsync", "Output Manual UNLOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-MANUAL-UNLOAD-EX", "OutputSequence", "Output Manual UNLOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private OutputSequenceAutoAction ResolveNextOutputAction()
         {
             if (IsStageReceiveComplete(BinSide.Ng))

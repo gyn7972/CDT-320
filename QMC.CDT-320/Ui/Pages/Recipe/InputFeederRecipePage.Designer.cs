@@ -203,7 +203,7 @@
             // 
             // lblHeader
             // 
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
@@ -223,7 +223,7 @@
             this.contentLayout.ColumnCount = 3;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 296F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 680F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 521F));
             this.contentLayout.Controls.Add(this.leftLayout, 0, 0);
             this.contentLayout.Controls.Add(this.centerLayout, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
@@ -265,7 +265,7 @@
             this.grpActions.Size = new System.Drawing.Size(290, 489);
             this.grpActions.TabIndex = 0;
             this.grpActions.TabStop = false;
-            this.grpActions.Text = "ACTION";
+            this.grpActions.Text = "MANUAL ACTION";
             // 
             // actionLayout
             // 
@@ -523,8 +523,8 @@
             // rightLayout
             // 
             this.rightLayout.ColumnCount = 2;
-            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 93F));
             this.rightLayout.Controls.Add(this.grpJog, 0, 0);
             this.rightLayout.Controls.Add(this.grpSpeed, 1, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -548,7 +548,7 @@
             this.grpJog.Size = new System.Drawing.Size(554, 868);
             this.grpJog.TabIndex = 0;
             this.grpJog.TabStop = false;
-            this.grpJog.Text = "JOG";
+            this.grpJog.Text = "JOG OPERATION";
             // 
             // jogCompositeLayout
             // 
@@ -602,6 +602,7 @@
             this.grpSpeed.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpSpeed.Location = new System.Drawing.Point(560, 0);
             this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
+            this.grpSpeed.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpSpeed.Name = "grpSpeed";
             this.grpSpeed.Size = new System.Drawing.Size(120, 868);
             this.grpSpeed.TabIndex = 1;
@@ -611,8 +612,9 @@
             // jogSpeedControl
             // 
             this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.jogSpeedControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogSpeedControl.Location = new System.Drawing.Point(3, 26);
-            this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
             this.jogSpeedControl.Name = "jogSpeedControl";
             this.jogSpeedControl.Size = new System.Drawing.Size(114, 578);
             this.jogSpeedControl.SpeedPercent = 50;

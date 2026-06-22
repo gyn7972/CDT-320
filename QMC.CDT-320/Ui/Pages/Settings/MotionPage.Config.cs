@@ -304,7 +304,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     }
                 }
 
-                AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                SaveMotionAxisSettings();
                 RefreshConfigForSelected();
 
                 QMC.Common.Logging.EventLogger.Write(

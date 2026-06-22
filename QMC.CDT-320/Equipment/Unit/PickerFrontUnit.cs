@@ -658,18 +658,6 @@ namespace QMC.CDT320
                 return Task.FromResult(-1);
 
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
-            double guardTarget = ResolveContinuousJogGuardTarget(axis, direction);
-            string interlockReason;
-            if (!MotionGuardRuntime.VerifyAxisMove(axis, guardTarget, out interlockReason))
-            {
-                return Task.FromResult(RaisePickerAlarm(
-                    "PK-JOG-INTERLOCK",
-                    "Front picker continuous jog blocked. axis=" + axis.Name +
-                    ", direction=" + direction +
-                    ", guardTarget=" + guardTarget.ToString("0.###") +
-                    ", reason=" + interlockReason));
-            }
-
             string zoneTargetName = BuildContinuousJogZoneTargetName(pickerAxis);
             if (pickerAxis == PickerAxis.PickerY)
                 ClearContinuousJogZoneScope();
@@ -677,16 +665,6 @@ namespace QMC.CDT320
             ManualMovePickerAxisJog(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
             StartContinuousJogZoneScope(pickerAxis, zoneTargetName);
             return Task.FromResult(0);
-        }
-
-        private double ResolveContinuousJogGuardTarget(BaseAxis axis, int direction)
-        {
-            if (axis == null)
-                return 0.0;
-            if (axis.Setup == null)
-                return axis.ActualPosition;
-
-            return direction > 0 ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus;
         }
 
         public Task<int> StopJogAsync(BaseAxis axis)
@@ -1421,9 +1399,11 @@ namespace QMC.CDT320
         public double ResolvePickerAxisVelocity(PickerAxis axis)
         {
             BaseAxis item = GetAxis(axis);
-            return item != null && item.Config != null && item.Config.DefaultVelocity > 0.0
-                ? item.Config.DefaultVelocity
-                : 1000.0;
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
+            return MotionSpeedScale.ApplyDefaultVelocityScale(
+                item != null && item.Config != null && item.Config.DefaultVelocity > 0.0
+                    ? item.Config.DefaultVelocity
+                    : 1000.0);
         }
 
         public int ResolvePickerAxisMoveTimeoutMs(PickerAxis axis)
@@ -1643,9 +1623,10 @@ namespace QMC.CDT320
 
         private double ResolveMoveVelocity(BaseAxis axis, bool bFine)
         {
+            // Fine ABS 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
-            return axis.Config.DefaultVelocity;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
         }
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)
@@ -1757,16 +1738,29 @@ namespace QMC.CDT320
         {
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(index) +
+                   ResolvePickerPitchXOffset(positionArrayName, index) +
                    offset.AlignOffsetX;
         }
 
-        private double ResolvePickerPitchXOffset(int index)
+        private double ResolvePickerPitchXOffset(string positionArrayName, int index)
         {
             if (index <= 0 || Setup == null)
-                return 0.0;
+            {
+                if (!IsReversePickerPitchZone(positionArrayName) || Setup == null)
+                    return 0.0;
+            }
 
-            return Math.Abs(Setup.PickerPitchX) * index;
+            int pitchIndex = IsReversePickerPitchZone(positionArrayName)
+                ? Math.Max(0, MaxPickerCount - 1 - index)
+                : index;
+
+            return Math.Abs(Setup.PickerPitchX) * pitchIndex;
+        }
+
+        private static bool IsReversePickerPitchZone(string positionArrayName)
+        {
+            return string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase);
         }
 
         private double ResolvePickerZoneY(string positionArrayName, int index)

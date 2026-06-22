@@ -16,8 +16,26 @@ namespace QMC.CDT320
         private bool _prevStart;
         private bool _prevStop;
         private bool _prevReset;
+        private bool _rawStart;
+        private bool _rawStop;
+        private bool _rawReset;
+        private bool _stableStart;
+        private bool _stableStop;
+        private bool _stableReset;
+        private bool _buttonStatesInitialized;
+        private bool _startReleaseRequired;
+        private bool _stopReleaseRequired;
+        private bool _resetReleaseRequired;
+        private long _startChangedTick;
+        private long _stopChangedTick;
+        private long _resetChangedTick;
+        private bool _prevEmgFront;
+        private long _lastLampRefreshTick;
         private int _commandBusy;
         private int _buzzerMuted;
+        private const int MonitorPollIntervalMs = 20;
+        private const int ButtonDebounceMs = 50;
+        private const int LampRefreshIntervalMs = 100;
 
         public OperationPanelMonitorService(CDT320_Machine machine, MachineController controller)
         {
@@ -28,6 +46,8 @@ namespace QMC.CDT320
         public void Start()
         {
             Stop();
+            ResetButtonMonitorState();
+            ResetSimulatedCommandInputs();
             _cts = new CancellationTokenSource();
             _loopTask = Task.Run(() => LoopAsync(_cts.Token));
         }
@@ -60,7 +80,7 @@ namespace QMC.CDT320
                     // Keep the monitor alive; UI/manual operation should not die from one I/O read/write failure.
                 }
 
-                await Task.Delay(100, token).ConfigureAwait(false);
+                await Task.Delay(MonitorPollIntervalMs, token).ConfigureAwait(false);
             }
         }
 
@@ -72,22 +92,206 @@ namespace QMC.CDT320
 
             UpdateInputs(op);
 
-            bool start = IsOn(op.StartButton);
-            bool stop = IsOn(op.StopButton);
-            bool reset = IsOn(op.ResetButton);
+            // EMG FRONT 신호의 하강 엣지(ON→OFF)에서 등록된 전 서보 축을 ServoOff + MoveStop 한다.
+            // 안전 동작이므로 RunCommand의 busy 가드를 거치지 않고 즉시 동기 실행한다.
+            bool emgFront = IsOn(op.EmgFront);
+            if (_prevEmgFront && !emgFront)
+                HandleEmgFrontEdge(emgFront);
+            _prevEmgFront = emgFront;
 
-            if (start && !_prevStart)
-                RunCommand(HandleStartAsync);
-            if (stop && !_prevStop)
-                RunCommand(HandleStopAsync);
-            if (reset && !_prevReset)
-                RunCommand(HandleResetAsync);
+            bool forceCommandInputsOff = ShouldForceCommandInputsOff();
+            bool rawStart = forceCommandInputsOff ? false : IsOn(op.StartButton);
+            bool rawStop = forceCommandInputsOff ? false : IsOn(op.StopButton);
+            bool rawReset = forceCommandInputsOff ? false : IsOn(op.ResetButton);
+            if (!_buttonStatesInitialized)
+            {
+                InitializeButtonStates(rawStart, rawStop, rawReset);
+                ApplyLampState(op, _stableStart, _stableReset, true);
+                return;
+            }
+
+            bool start = ReadDebouncedButton(rawStart, ref _rawStart, ref _stableStart, ref _startChangedTick);
+            bool stop = ReadDebouncedButton(rawStop, ref _rawStop, ref _stableStop, ref _stopChangedTick);
+            bool reset = ReadDebouncedButton(rawReset, ref _rawReset, ref _stableReset, ref _resetChangedTick);
+
+            if (!start)
+                _startReleaseRequired = false;
+            if (!stop)
+                _stopReleaseRequired = false;
+            if (!reset)
+                _resetReleaseRequired = false;
+
+            if (start && !_prevStart && !_startReleaseRequired)
+            {
+                _startReleaseRequired = true;
+                if (CanAcceptStartCommand())
+                    RunCommand(HandleStartAsync);
+            }
+
+            if (stop && !_prevStop && !_stopReleaseRequired)
+            {
+                _stopReleaseRequired = true;
+                RunPriorityCommand(HandleStopAsync);
+            }
+
+            if (reset && !_prevReset && !_resetReleaseRequired)
+            {
+                _resetReleaseRequired = true;
+                RunPriorityCommand(HandleResetAsync);
+            }
+
+            bool buttonStateChanged = start != _prevStart || stop != _prevStop || reset != _prevReset;
+            ApplyLampState(op, start, reset, buttonStateChanged);
 
             _prevStart = start;
             _prevStop = stop;
             _prevReset = reset;
+        }
 
-            ApplyLampState(op, start, reset);
+        private void ResetButtonMonitorState()
+        {
+            _prevStart = false;
+            _prevStop = false;
+            _prevReset = false;
+            _rawStart = false;
+            _rawStop = false;
+            _rawReset = false;
+            _stableStart = false;
+            _stableStop = false;
+            _stableReset = false;
+            _startReleaseRequired = false;
+            _stopReleaseRequired = false;
+            _resetReleaseRequired = false;
+            _startChangedTick = 0;
+            _stopChangedTick = 0;
+            _resetChangedTick = 0;
+            _lastLampRefreshTick = 0;
+            _buttonStatesInitialized = false;
+        }
+
+        private void ResetSimulatedCommandInputs()
+        {
+            try
+            {
+                var op = _machine != null ? _machine.OpPanelUnit : null;
+                if (op == null)
+                    return;
+
+                SimulateOffIfAllowed(op.StartButton);
+                SimulateOffIfAllowed(op.StopButton);
+                SimulateOffIfAllowed(op.ResetButton);
+            }
+            catch
+            {
+            }
+        }
+
+        private static void SimulateOffIfAllowed(BaseDigitalInput input)
+        {
+            try
+            {
+                if (input != null && input.Config != null && input.Config.IsSimulationMode)
+                    input.SimulateInput(false);
+            }
+            catch
+            {
+            }
+        }
+
+        private void InitializeButtonStates(bool start, bool stop, bool reset)
+        {
+            long now = Environment.TickCount;
+            _rawStart = _stableStart = _prevStart = start;
+            _rawStop = _stableStop = _prevStop = stop;
+            _rawReset = _stableReset = _prevReset = reset;
+            _startChangedTick = now;
+            _stopChangedTick = now;
+            _resetChangedTick = now;
+            _buttonStatesInitialized = true;
+        }
+
+        private static bool ReadDebouncedButton(
+            bool current,
+            ref bool raw,
+            ref bool stable,
+            ref long changedTick)
+        {
+            long now = Environment.TickCount;
+            if (current != raw)
+            {
+                raw = current;
+                changedTick = now;
+            }
+
+            if (stable != raw && ElapsedMs(changedTick, now) >= ButtonDebounceMs)
+                stable = raw;
+
+            return stable;
+        }
+
+        private static int ElapsedMs(long startTick, long nowTick)
+        {
+            return unchecked((int)(nowTick - startTick));
+        }
+
+        private bool CanAcceptStartCommand()
+        {
+            if (IsAlarmActive())
+                return false;
+
+            if (_controller.IsSequenceRunning ||
+                _controller.IsManualBusy ||
+                _controller.Status == EquipmentStatus.AutoRunning ||
+                _controller.Status == EquipmentStatus.ManualRunning)
+                return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// EMG FRONT 신호의 상승/하강 엣지에서 등록된 전 서보 축을 검색해 ServoOff 한 뒤 MoveStop(정지)한다.
+        /// </summary>
+        private void HandleEmgFrontEdge(bool isOn)
+        {
+            try
+            {
+                var axes = QMC.CDT320.Ajin.AjinFactory.AxisManager.GetAll();
+                if (axes == null)
+                    return;
+
+                int count = 0;
+                foreach (var axis in axes)
+                {
+                    if (axis == null)
+                        continue;
+
+                    try
+                    {
+                      axis.Stop();
+                      Thread.Sleep(100);
+                      axis.ServoOff();
+                    }
+                    catch // 전축 move stop
+                    {
+                    }        
+
+                    count++;
+                }
+
+                QMC.Common.Log.Write("Main", "SAFETY", "OperationPanelMonitor",
+                    "EMG FRONT " + (isOn ? "ON" : "OFF") + " edge: servo off + move stop applied. axes=" + count + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    QMC.Common.Log.Write("Main", "SAFETY", "OperationPanelMonitor",
+                        "EMG FRONT edge handling failed: " + ex.Message + " - Failed");
+                }
+                catch
+                {
+                }
+            }
         }
 
         public void StopBuzzer()
@@ -100,6 +304,15 @@ namespace QMC.CDT320
 
         private static void UpdateInputs(OperationPanelUnit op)
         {
+            if (ShouldForceCommandInputsOff())
+            {
+                TryUpdate(op.EmgFront);
+                TryUpdate(op.EmgLeft);
+                TryUpdate(op.EmgRear);
+                TryUpdate(op.OpEmgOn);
+                return;
+            }
+
             TryUpdate(op.StartButton);
             TryUpdate(op.StopButton);
             TryUpdate(op.ResetButton);
@@ -109,8 +322,20 @@ namespace QMC.CDT320
             TryUpdate(op.OpEmgOn);
         }
 
-        private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed)
+        private static bool ShouldForceCommandInputsOff()
         {
+            var settings = AppSettingsStore.Current;
+            return settings != null && (settings.BypassHardware || settings.SimulationMode);
+        }
+
+        private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed, bool force = false)
+        {
+            long now = Environment.TickCount;
+            if (!force && ElapsedMs(_lastLampRefreshTick, now) < LampRefreshIntervalMs)
+                return;
+
+            _lastLampRefreshTick = now;
+
             bool alarm = IsAlarmActive();
             bool autoRunning = IsAutoRunning();
             bool manualRunning = IsManualRunning();
@@ -196,9 +421,23 @@ namespace QMC.CDT320
             });
         }
 
+        private void RunPriorityCommand(Func<Task> action)
+        {
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await action().ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+            });
+        }
+
         private async Task HandleStartAsync()
         {
-            if (IsAlarmActive())
+            if (!CanAcceptStartCommand())
                 return;
 
             await _controller.StartAsync().ConfigureAwait(false);
@@ -206,7 +445,6 @@ namespace QMC.CDT320
 
         private async Task HandleStopAsync()
         {
-            await _controller.StopSequenceAsync().ConfigureAwait(false);
             await _controller.StopAsync().ConfigureAwait(false);
         }
 
@@ -238,6 +476,9 @@ namespace QMC.CDT320
 
             try
             {
+                if (output.IsOn == on)
+                    return;
+
                 if (on)
                     output.On();
                 else

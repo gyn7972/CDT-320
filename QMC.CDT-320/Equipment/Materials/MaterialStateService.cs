@@ -16,11 +16,16 @@ namespace QMC.CDT320.Materials
         private static readonly object _saveRequestSync = new object();
         private static readonly object _saveIoSync = new object();
         private static readonly object _stateChangedSync = new object();
-        private const int MaterialSaveQuietMs = 300;
+        // Material snapshot is large during auto run. Keep UI/state events responsive,
+        // but throttle full JSON disk saves so every die/inspection update does not
+        // serialize/validate/replace the 10MB+ state file.
+        private const int MaterialSaveQuietMs = 1000;
+        private const int MaterialSaveMinimumIntervalMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
         private static bool _saveWorkerRunning;
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
+        private static DateTime _lastSaveCompletedUtc = DateTime.MinValue;
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
@@ -171,6 +176,232 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        public static bool UpdatePickerDieManualState(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            DieResult result,
+            bool isInputTarget,
+            string ngCode,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            string dieId = string.Empty;
+            try
+            {
+                if (!IsPickerLocation(pickerLocation))
+                {
+                    message = "Picker 위치가 올바르지 않습니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    message = "Picker 번호가 올바르지 않습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    DieMaterial die = FindDieAtPickerNoLock(pickerLocation, pickerNo);
+                    if (die == null)
+                    {
+                        message = "Picker에 Die 정보가 없습니다. location=" + pickerLocation + ", pickerNo=" + pickerNo;
+                        return false;
+                    }
+
+                    dieId = die.DieId;
+                    die.Result = result;
+                    die.IsInputTarget = isInputTarget;
+                    die.UpdatedAt = DateTime.Now;
+
+                    if (die.NgCodes == null)
+                        die.NgCodes = new List<string>();
+
+                    if (result == DieResult.NG)
+                    {
+                        string code = string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim();
+                        if (!die.NgCodes.Contains(code))
+                            die.NgCodes.Add(code);
+                    }
+                    else
+                    {
+                        die.NgCodes.Clear();
+                    }
+
+                    UpsertManualPickerInspectionNoLock(die, result, ngCode, reason);
+                }
+
+                NotifyAndSave("ManualPickerDieStateUpdate:" + dieId);
+                Log.Write("Main", "MATERIAL", "ManualPickerDieStateUpdate",
+                    "Picker die state updated. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", result=" + result +
+                    ", isInputTarget=" + isInputTarget +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Die 상태를 변경했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Picker Die 상태 변경 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualPickerDieStateUpdate",
+                    "Picker die state update failed. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool ClearPickerDieMaterial(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            string dieId = string.Empty;
+            try
+            {
+                if (!IsPickerLocation(pickerLocation))
+                {
+                    message = "Picker 위치가 올바르지 않습니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    message = "Picker 번호가 올바르지 않습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    DieMaterial die = FindDieAtPickerNoLock(pickerLocation, pickerNo);
+                    if (die == null)
+                    {
+                        message = "Picker에 제거할 Die 정보가 없습니다. location=" + pickerLocation + ", pickerNo=" + pickerNo;
+                        return false;
+                    }
+
+                    dieId = die.DieId;
+                    die.CurrentLocation = MaterialLocation.Unknown();
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
+                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                    die.PickedPickerNo = -1;
+                    die.PickedAt = DateTime.MinValue;
+                    die.UpdatedAt = DateTime.Now;
+                    UpsertManualPickerInspectionNoLock(die, die.Result, string.Empty, reason);
+                }
+
+                NotifyAndSave("ManualPickerDieClear:" + dieId);
+                Log.Write("Main", "MATERIAL", "ManualPickerDieClear",
+                    "Picker die cleared manually. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Picker Die 정보를 제거했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Picker Die 정보 제거 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualPickerDieClear",
+                    "Picker die clear failed. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPickerLocation(MaterialLocationKind pickerLocation)
+        {
+            return pickerLocation == MaterialLocationKind.PickerFront ||
+                   pickerLocation == MaterialLocationKind.PickerRear;
+        }
+
+        private static DieMaterial FindDieAtPickerNoLock(MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            return State.Dies
+                .Where(d =>
+                    d != null &&
+                    d.CurrentLocation != null &&
+                    d.CurrentLocation.Kind == pickerLocation &&
+                    d.CurrentLocation.PickerNo == pickerNo)
+                .OrderByDescending(GetPickerDieSortTime)
+                .ThenByDescending(d => d.InputSequenceNo)
+                .FirstOrDefault();
+        }
+
+        private static void UpsertManualPickerInspectionNoLock(
+            DieMaterial die,
+            DieResult result,
+            string ngCode,
+            string reason)
+        {
+            if (die == null)
+                return;
+
+            if (die.Inspections == null)
+                die.Inspections = new List<DieInspectionRecord>();
+
+            DieInspectionRecord old = die.Inspections.FirstOrDefault(x =>
+                x != null &&
+                string.Equals(x.InspectionType, "ManualPickerHeadEdit", StringComparison.OrdinalIgnoreCase));
+            if (old != null)
+                die.Inspections.Remove(old);
+
+            DieInspectionRecord record = new DieInspectionRecord();
+            record.InspectionType = "ManualPickerHeadEdit";
+            record.Result = ToMaterialInspectionResult(result);
+            record.CreatedAt = DateTime.Now;
+            record.UpdatedAt = DateTime.Now;
+            record.Measurements = new List<InspectionMeasurement>();
+            record.NgCodes = new List<string>();
+
+            if (result == DieResult.NG)
+                record.NgCodes.Add(string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim());
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                record.Measurements.Add(new InspectionMeasurement
+                {
+                    Name = "ManualEdit",
+                    Value = 1,
+                    Unit = "",
+                    RawValue = reason.Trim(),
+                    Result = record.Result
+                });
+            }
+
+            die.Inspections.Add(record);
+        }
+
+        private static MaterialInspectionResult ToMaterialInspectionResult(DieResult result)
+        {
+            switch (result)
+            {
+                case DieResult.Good:
+                    return MaterialInspectionResult.Ok;
+                case DieResult.NG:
+                    return MaterialInspectionResult.Ng;
+                default:
+                    return MaterialInspectionResult.Unknown;
             }
         }
 
@@ -950,6 +1181,112 @@ namespace QMC.CDT320.Materials
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Output stage receive complete check failed: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static void UpdateOutputStageDieInspection(
+            string dieId,
+            QMC.CDT320.BinSide side,
+            OutputStageReceiveTarget receiveTarget,
+            bool inspectionOk,
+            VisionOffset offset,
+            string raw)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return;
+
+                    MaterialLocationKind stageLocation = ResolveOutputStageLocation(side);
+                    WaferMaterial outputWafer = GetWaferAtLocation(stageLocation);
+                    DieMaterial die = GetOrCreateDieMaterial(dieId);
+
+                    if (offset == null)
+                        offset = new VisionOffset();
+
+                    die.BinOffset = offset;
+                    if (die.Inspections == null)
+                        die.Inspections = new List<DieInspectionRecord>();
+
+                    DieInspectionRecord record = die.Inspections.FirstOrDefault(x =>
+                        x != null &&
+                        string.Equals(x.InspectionType, "OutputPlaceVision", StringComparison.OrdinalIgnoreCase));
+                    if (record == null)
+                    {
+                        record = new DieInspectionRecord { InspectionType = "OutputPlaceVision" };
+                        die.Inspections.Add(record);
+                    }
+
+                    record.Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+                    record.Offset = offset;
+                    record.UpdatedAt = DateTime.Now;
+                    record.Measurements = new List<InspectionMeasurement>
+                    {
+                        new InspectionMeasurement
+                        {
+                            Name = "OutputVisionResult",
+                            Value = inspectionOk ? 1.0 : 0.0,
+                            Unit = "bool",
+                            RawValue = inspectionOk ? "OK" : "NG",
+                            Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                        },
+                        new InspectionMeasurement
+                        {
+                            Name = "OutputVisionRaw",
+                            RawValue = raw ?? "",
+                            Result = inspectionOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                        }
+                    };
+
+                    if (outputWafer != null && outputWafer.OutputReceiveSlots != null)
+                    {
+                        OutputReceiveSlotMaterial slot = null;
+                        if (receiveTarget != null)
+                        {
+                            slot = outputWafer.OutputReceiveSlots.FirstOrDefault(s =>
+                                s != null && s.OrderIndex == receiveTarget.OrderIndex);
+                        }
+
+                        if (slot == null)
+                        {
+                            slot = outputWafer.OutputReceiveSlots.FirstOrDefault(s =>
+                                s != null &&
+                                string.Equals(s.DieUid, dieId, StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        if (slot != null)
+                        {
+                            slot.DieUid = dieId;
+                            slot.IsOutputInspectionDone = true;
+                            slot.IsOutputInspectionOk = inspectionOk;
+                            slot.OutputInspectionOffsetX = offset.X;
+                            slot.OutputInspectionOffsetY = offset.Y;
+                            slot.OutputInspectionOffsetT = offset.R;
+                            slot.OutputInspectionRaw = raw ?? "";
+                            outputWafer.UpdatedAt = DateTime.Now;
+                        }
+                    }
+
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("OutputStageDieInspection");
+                    Log.Write("Main", "MATERIAL", "OutputStageDieInspection",
+                        "Output stage die inspection updated. die=" + dieId +
+                        ", side=" + side +
+                        ", ok=" + inspectionOk +
+                        ", offsetX=" + offset.X +
+                        ", offsetY=" + offset.Y +
+                        ", offsetT=" + offset.R + " - Ok");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output stage die inspection update failed: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -2299,6 +2636,7 @@ namespace QMC.CDT320.Materials
                     await Task.Delay(MaterialSaveQuietMs).ConfigureAwait(false);
 
                     string reason;
+                    int waitMs;
                     lock (_saveRequestSync)
                     {
                         if (!_saveRequested)
@@ -2308,7 +2646,18 @@ namespace QMC.CDT320.Materials
                         }
 
                         reason = _pendingSaveReason;
-                        _saveRequested = false;
+                        waitMs = ResolveBackgroundSaveWaitMs(reason);
+                        if (waitMs <= 0)
+                        {
+                            _saveRequested = false;
+                            _pendingSaveReason = "";
+                        }
+                    }
+
+                    if (waitMs > 0)
+                    {
+                        await Task.Delay(waitMs).ConfigureAwait(false);
+                        continue;
                     }
 
                     SaveCurrentSnapshot(reason);
@@ -2327,6 +2676,53 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static int ResolveBackgroundSaveWaitMs(string reason)
+        {
+            try
+            {
+                if (IsImmediateBackgroundSaveReason(reason))
+                    return 0;
+
+                if (_lastSaveCompletedUtc == DateTime.MinValue)
+                    return 0;
+
+                double elapsedMs = (DateTime.UtcNow - _lastSaveCompletedUtc).TotalMilliseconds;
+                if (elapsedMs >= MaterialSaveMinimumIntervalMs)
+                    return 0;
+
+                int waitMs = MaterialSaveMinimumIntervalMs - (int)elapsedMs;
+                return waitMs < 0 ? 0 : waitMs;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsImmediateBackgroundSaveReason(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return false;
+
+            if (reason.IndexOf("Initialize", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Manual", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Clear", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Mapping", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("MapTransfer", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+            if (reason.IndexOf("Dialog", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return false;
+        }
+
         private static bool SaveCurrentSnapshot(string reason)
         {
             bool saved = false;
@@ -2343,6 +2739,9 @@ namespace QMC.CDT320.Materials
                 {
                     saved = MaterialSnapshotStore.Save(State);
                 }
+
+                if (saved)
+                    _lastSaveCompletedUtc = DateTime.UtcNow;
 
                 if (!saved)
                 {

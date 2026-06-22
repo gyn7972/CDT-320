@@ -56,7 +56,7 @@ namespace QMC.CDT320.Ui.Controls
             if (_map == null || _map.DieMapX <= 0 || _map.DieMapY <= 0)
             {
                 using (var br = new SolidBrush(Color.Gray))
-                using (var f  = new Font("Segoe UI", 14F))
+                using (var f  = new Font("맑은 고딕", 14F))
                     g.DrawString("(no map)", f, br,
                         (Width - 100) / 2.0f, (Height - 30) / 2.0f);
                 return;

@@ -165,7 +165,7 @@
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
@@ -213,7 +213,7 @@
             // 
             this.lblMapTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblMapTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblMapTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblMapTitle.ForeColor = System.Drawing.Color.White;
             this.lblMapTitle.Location = new System.Drawing.Point(0, 0);
             this.lblMapTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -293,7 +293,7 @@
             this._btnMapLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
             this._btnMapLoad.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnMapLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapLoad.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapLoad.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapLoad.ForeColor = System.Drawing.Color.Black;
             this._btnMapLoad.Location = new System.Drawing.Point(940, 4);
             this._btnMapLoad.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -308,7 +308,7 @@
             this._btnMapNew.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
             this._btnMapNew.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnMapNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapNew.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapNew.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapNew.ForeColor = System.Drawing.Color.Black;
             this._btnMapNew.Location = new System.Drawing.Point(1010, 4);
             this._btnMapNew.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -323,7 +323,7 @@
             this._btnMapRename.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
             this._btnMapRename.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnMapRename.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapRename.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapRename.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapRename.ForeColor = System.Drawing.Color.Black;
             this._btnMapRename.Location = new System.Drawing.Point(1080, 4);
             this._btnMapRename.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -338,7 +338,7 @@
             this._btnMapDelete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
             this._btnMapDelete.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnMapDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapDelete.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapDelete.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapDelete.ForeColor = System.Drawing.Color.Black;
             this._btnMapDelete.Location = new System.Drawing.Point(1160, 4);
             this._btnMapDelete.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
@@ -431,7 +431,7 @@
             this.lblSettingTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.settingSection.SetColumnSpan(this.lblSettingTitle, 2);
             this.lblSettingTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSettingTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblSettingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSettingTitle.ForeColor = System.Drawing.Color.White;
             this.lblSettingTitle.Location = new System.Drawing.Point(0, 0);
             this.lblSettingTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
@@ -447,7 +447,7 @@
             this.lblChipCountXKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblChipCountXKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipCountXKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipCountXKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblChipCountXKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblChipCountXKey.Location = new System.Drawing.Point(1, 27);
             this.lblChipCountXKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipCountXKey.Name = "lblChipCountXKey";
@@ -474,7 +474,7 @@
             this.lblChipCountYKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblChipCountYKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipCountYKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipCountYKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblChipCountYKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblChipCountYKey.Location = new System.Drawing.Point(1, 57);
             this.lblChipCountYKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipCountYKey.Name = "lblChipCountYKey";
@@ -519,7 +519,7 @@
             this.lblChipPitchXKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblChipPitchXKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipPitchXKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipPitchXKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblChipPitchXKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblChipPitchXKey.Location = new System.Drawing.Point(1, 87);
             this.lblChipPitchXKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipPitchXKey.Name = "lblChipPitchXKey";
@@ -564,7 +564,7 @@
             this.lblChipPitchYKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblChipPitchYKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipPitchYKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipPitchYKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblChipPitchYKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblChipPitchYKey.Location = new System.Drawing.Point(1, 117);
             this.lblChipPitchYKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblChipPitchYKey.Name = "lblChipPitchYKey";
@@ -610,7 +610,7 @@
             this.lblWaferDiameterKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblWaferDiameterKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaferDiameterKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferDiameterKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblWaferDiameterKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblWaferDiameterKey.Location = new System.Drawing.Point(1, 147);
             this.lblWaferDiameterKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblWaferDiameterKey.Name = "lblWaferDiameterKey";
@@ -656,7 +656,7 @@
             this.lblAxisXKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblAxisXKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisXKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisXKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblAxisXKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblAxisXKey.Location = new System.Drawing.Point(1, 177);
             this.lblAxisXKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisXKey.Name = "lblAxisXKey";
@@ -702,7 +702,7 @@
             this.lblAxisYKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblAxisYKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisYKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisYKey.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblAxisYKey.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblAxisYKey.Location = new System.Drawing.Point(1, 207);
             this.lblAxisYKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisYKey.Name = "lblAxisYKey";
@@ -805,7 +805,7 @@
             // 
             this.lblModeTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblModeTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblModeTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblModeTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblModeTitle.ForeColor = System.Drawing.Color.White;
             this.lblModeTitle.Location = new System.Drawing.Point(0, 0);
             this.lblModeTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
@@ -821,7 +821,7 @@
             this.chkCircularMap.Checked = true;
             this.chkCircularMap.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkCircularMap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.chkCircularMap.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.chkCircularMap.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.chkCircularMap.Location = new System.Drawing.Point(12, 26);
             this.chkCircularMap.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.chkCircularMap.Name = "chkCircularMap";
@@ -833,7 +833,7 @@
             // rbStandard
             // 
             this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStandard.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbStandard.Location = new System.Drawing.Point(12, 62);
             this.rbStandard.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStandard.Name = "rbStandard";
@@ -845,7 +845,7 @@
             // rbStartIndex
             // 
             this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStartIndex.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbStartIndex.Location = new System.Drawing.Point(12, 98);
             this.rbStartIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStartIndex.Name = "rbStartIndex";
@@ -856,7 +856,7 @@
             // rbReference1
             // 
             this.rbReference1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbReference1.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbReference1.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbReference1.Location = new System.Drawing.Point(12, 134);
             this.rbReference1.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference1.Name = "rbReference1";
@@ -867,7 +867,7 @@
             // rbReference2
             // 
             this.rbReference2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbReference2.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbReference2.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbReference2.Location = new System.Drawing.Point(12, 170);
             this.rbReference2.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference2.Name = "rbReference2";
@@ -889,7 +889,7 @@
             // rbBinGood
             //
             this.rbBinGood.Dock = System.Windows.Forms.DockStyle.Left;
-            this.rbBinGood.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinGood.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.rbBinGood.Location = new System.Drawing.Point(0, 0);
             this.rbBinGood.Name = "rbBinGood";
             this.rbBinGood.Size = new System.Drawing.Size(204, 36);
@@ -900,7 +900,7 @@
             // rbBinNg
             //
             this.rbBinNg.Dock = System.Windows.Forms.DockStyle.Right;
-            this.rbBinNg.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.rbBinNg.Location = new System.Drawing.Point(204, 0);
             this.rbBinNg.Name = "rbBinNg";
             this.rbBinNg.Size = new System.Drawing.Size(204, 36);
@@ -911,7 +911,7 @@
             // rbManualSelectPick
             // 
             this.rbManualSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbManualSelectPick.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbManualSelectPick.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbManualSelectPick.Location = new System.Drawing.Point(12, 206);
             this.rbManualSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbManualSelectPick.Name = "rbManualSelectPick";
@@ -922,7 +922,7 @@
             // rbAlignCheckIndex
             // 
             this.rbAlignCheckIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbAlignCheckIndex.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbAlignCheckIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbAlignCheckIndex.Location = new System.Drawing.Point(12, 242);
             this.rbAlignCheckIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbAlignCheckIndex.Name = "rbAlignCheckIndex";
@@ -933,7 +933,7 @@
             // rbDragSelectPick
             // 
             this.rbDragSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbDragSelectPick.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.rbDragSelectPick.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.rbDragSelectPick.Location = new System.Drawing.Point(12, 278);
             this.rbDragSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbDragSelectPick.Name = "rbDragSelectPick";
@@ -971,7 +971,7 @@
             this.lblActionTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.actionSection.SetColumnSpan(this.lblActionTitle, 2);
             this.lblActionTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblActionTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblActionTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblActionTitle.ForeColor = System.Drawing.Color.White;
             this.lblActionTitle.Location = new System.Drawing.Point(0, 0);
             this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);

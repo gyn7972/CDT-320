@@ -161,8 +161,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Tag = "i18n:tab.workInfo";
-            this.lblHeader.Text = "WORK INFO";
+            this.lblHeader.Tag = "i18n:wi.inputStage";
+            this.lblHeader.Text = "INPUT STAGE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // contentLayout
@@ -185,8 +185,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.leftLayout.ColumnCount = 3;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 27.65957F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 39.41236F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 27F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.leftLayout.Controls.Add(this.grpState, 0, 0);
             this.leftLayout.Controls.Add(this.grpCounters, 1, 0);
             this.leftLayout.Controls.Add(this.grpCylinder, 2, 0);
@@ -216,8 +216,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // stateLayout
             // 
             this.stateLayout.ColumnCount = 2;
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.86159F));
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.13841F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.stateLayout.Controls.Add(this.lblStageExistTitle, 0, 0);
             this.stateLayout.Controls.Add(this.lblStageExistValue, 1, 0);
             this.stateLayout.Controls.Add(this.lblStageAlignTitle, 0, 1);
@@ -306,7 +306,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblStageAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblStageAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblStageAlignOffsetTitle.Location = new System.Drawing.Point(15, 82);
             this.lblStageAlignOffsetTitle.Name = "lblStageAlignOffsetTitle";
             this.lblStageAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -320,7 +320,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignOffsetValue.BackColor = System.Drawing.Color.White;
             this.lblStageAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 8.5F);
+            this.lblStageAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 7.5F);
             this.lblStageAlignOffsetValue.Location = new System.Drawing.Point(188, 82);
             this.lblStageAlignOffsetValue.Name = "lblStageAlignOffsetValue";
             this.lblStageAlignOffsetValue.Size = new System.Drawing.Size(110, 32);
@@ -387,7 +387,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblStageChipAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageChipAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblStageChipAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblStageChipAlignOffsetTitle.Location = new System.Drawing.Point(15, 178);
             this.lblStageChipAlignOffsetTitle.Name = "lblStageChipAlignOffsetTitle";
             this.lblStageChipAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -401,7 +401,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignOffsetValue.BackColor = System.Drawing.Color.White;
             this.lblStageChipAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageChipAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 8.5F);
+            this.lblStageChipAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 7.5F);
             this.lblStageChipAlignOffsetValue.Location = new System.Drawing.Point(188, 178);
             this.lblStageChipAlignOffsetValue.Name = "lblStageChipAlignOffsetValue";
             this.lblStageChipAlignOffsetValue.Size = new System.Drawing.Size(110, 32);
@@ -632,11 +632,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // infoLayout
             // 
-            this.infoLayout.ColumnCount = 4;
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.infoLayout.ColumnCount = 3;
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
             this.infoLayout.Controls.Add(this.stageAxisYPanel, 0, 0);
             this.infoLayout.Controls.Add(this.needleVacuumPanel, 2, 0);
             this.infoLayout.Controls.Add(this.stageAxisTPanel, 1, 0);
@@ -649,16 +648,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
             this.infoLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
-            this.infoLayout.RowCount = 9;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.infoLayout.RowCount = 5;
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.infoLayout.Size = new System.Drawing.Size(975, 500);
             this.infoLayout.TabIndex = 0;
             // 

@@ -141,6 +141,22 @@ namespace QMC.Common.Motion
                 StartStatusUpdateTask();
         }
 
+        /// <summary>
+        /// Axis setup/config is persisted only through MotionAxisStore.
+        /// Machine/Unit settings must not create another EquipmentData axis config source.
+        /// </summary>
+        public override bool SaveSettings()
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// Axis setup/config is loaded by the motion axis registry/store, not UnitDataStore.
+        /// </summary>
+        public override void LoadSettings()
+        {
+        }
+
         // ─────────────────────────────────────────────
         //  §1. 기본 제어 메서드
         // ─────────────────────────────────────────────
@@ -317,7 +333,7 @@ namespace QMC.Common.Motion
         /// 이동 완료(InPosition) 또는 알람 발생 시점까지 대기합니다.
         /// </summary>
         /// <param name="targetPos">목표 절대 위치</param>
-        /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
+        /// <param name="velocity">이동 속도 (0 이하이면 AxisConfig.DefaultVelocity 에 전체 퍼센트 스케일을 적용한 값 사용)</param>
         /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
         public virtual async Task<int> MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
@@ -345,7 +361,8 @@ namespace QMC.Common.Motion
 
                 ClearMotionFailure();
 
-                double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
+                // 명시 velocity 가 있으면 그대로 사용하고, 없으면 DefaultVelocity 에 전체 퍼센트 스케일을 적용한다.
+                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
                 CurrentVelocity = vel;
@@ -403,7 +420,7 @@ namespace QMC.Common.Motion
         /// 현재 위치에서 상대 거리만큼 비동기 이동합니다.
         /// </summary>
         /// <param name="distance">이동 거리 (음수이면 반대 방향 이동)</param>
-        /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
+        /// <param name="velocity">이동 속도 (0 이하이면 AxisConfig.DefaultVelocity 에 전체 퍼센트 스케일을 적용한 값 사용)</param>
         /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
         public virtual async Task<int> MoveRelativeAsync(double distance, double velocity = 0)
         {

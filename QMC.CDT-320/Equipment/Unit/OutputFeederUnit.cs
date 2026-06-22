@@ -919,9 +919,10 @@ namespace QMC.CDT320
         private bool ShouldUseVirtualDryRunDefaults(BaseCylinder cylinder)
         {
             AppSettings settings = AppSettingsStore.Current;
-            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode || settings.DryRunMode);
             bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
-            return appVirtual || cylinderSimulation || !AjinFactory.IsRealBoardReady;
+            bool inputWaitIgnored = cylinder != null && cylinder.Config != null && cylinder.Config.IgnoreInputWaits;
+            return appVirtual || cylinderSimulation || inputWaitIgnored || !AjinFactory.IsRealBoardReady;
         }
 
         private static bool CanSimulateInput(BaseDigitalInput input)
@@ -1665,9 +1666,10 @@ namespace QMC.CDT320
 
         private double ResolveBinFeederYMoveVelocity(bool bFine)
         {
+            // Fine 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && FeederY.Config.JogFineVelocity > 0.0)
                 return FeederY.Config.JogFineVelocity;
-            return FeederY.Config.DefaultVelocity;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(FeederY.Config.DefaultVelocity);
         }
 
         private int ResolveBinFeederYMoveTimeoutMs()

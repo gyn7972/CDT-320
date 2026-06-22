@@ -51,7 +51,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grpMaterialDetail.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpMaterialDetail.Controls.Add(this.materialLayout);
             this.grpMaterialDetail.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMaterialDetail.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.grpMaterialDetail.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpMaterialDetail.Location = new System.Drawing.Point(0, 0);
             this.grpMaterialDetail.Name = "grpMaterialDetail";
             this.grpMaterialDetail.Padding = new System.Windows.Forms.Padding(8);
@@ -121,7 +121,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnCreateData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCreateData.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCreateData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCreateData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCreateData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnCreateData.ForeColor = System.Drawing.Color.White;
             this.btnCreateData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnCreateData.Name = "btnCreateData";
@@ -136,7 +136,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnClearData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(48)))), ((int)(((byte)(48)))));
             this.btnClearData.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnClearData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClearData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnClearData.ForeColor = System.Drawing.Color.White;
             this.btnClearData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnClearData.Name = "btnClearData";
@@ -151,7 +151,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnClearAllData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
             this.btnClearAllData.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnClearAllData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClearAllData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearAllData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnClearAllData.ForeColor = System.Drawing.Color.White;
             this.btnClearAllData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.btnClearAllData.Name = "btnClearAllData";
@@ -167,7 +167,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.colName.Name = "colName";
             this.colName.ReadOnly = true;
             this.colName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colName.Width = 130;
+            this.colName.Width = 170;
             // 
             // colValue
             // 

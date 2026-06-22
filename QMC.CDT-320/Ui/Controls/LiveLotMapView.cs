@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
@@ -11,16 +12,31 @@ using QMC.CDT_320.Ui.Pages;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// Stage 58 — 작업 메인 화면의 우상단 "작업 맵" 셀에 들어가는 라이브 다이맵 뷰.
-    /// LotStorage.ActiveInputDieMap 을 1초마다 폴링해 작업 중인 Input Die Map 상태를 시각화한다.
-    /// 활성 맵이 없으면 InputStage 자재 상태에서 복원 가능한 맵을 사용하고, 그래도 없으면 기본 격자를 표시한다.
+    /// 작업 메인 화면 우상단 "Input Wafer Map" 라이브 뷰.
+    /// <list type="bullet">
+    ///   <item><description>표시 기준은 LotStorage.ActiveInputDieMap → 없으면 InputStage Wafer 복원.</description></item>
+    ///   <item><description>OnPaint 는 캐시된 맵만 그린다. 무거운 복원/Normalize/전역 쓰기를 Paint 에서 하지 않는다.</description></item>
+    ///   <item><description>MaterialStateService.StateChanged / LotStorage.ActiveLotChanged 로 dirty flag 만 세우고,
+    ///   100ms UI Timer 가 signature 비교 후 변경분만 Invalidate 한다.</description></item>
+    /// </list>
     /// </summary>
     public class LiveLotMapView : Control
     {
+        private const int RefreshIntervalMs = 100;
+
         private System.Windows.Forms.Timer _refresh;
-        // 그리드 캐시 — Lot 의 처리 카운트만큼 칸을 채운 가상 wafer
         private int _gridX = 5;
         private int _gridY = 5;
+
+        // 이벤트(비-UI 스레드)는 이 플래그만 세운다. 실제 반영은 UI Timer 에서 수행.
+        private int _dirty = 1;
+        private bool _eventsHooked;
+
+        // UI Timer 가 갱신하는 표시 캐시 (OnPaint 는 이 값만 사용).
+        private DieMap _displayMap;
+        private MapStats _stats;
+        private string _lotText = "(no active lot)";
+        private long _signature = long.MinValue;
 
         public LiveLotMapView()
         {
@@ -33,56 +49,206 @@ namespace QMC.CDT_320.Ui.Controls
 
             if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
-                _refresh = new System.Windows.Forms.Timer { Interval = 1000 };
-                _refresh.Tick += (s, e) =>
-                {
-                    if (!PageBase.ShouldRefreshVisible(this))
-                        return;
+                HookStateEvents();
 
-                    Invalidate();
-                };
-                _refresh.Start();
+                _refresh = new System.Windows.Forms.Timer { Interval = RefreshIntervalMs };
+                _refresh.Tick += OnRefreshTick;
             }
         }
 
         /// <summary>그리드 크기 — 외부에서 Recipe.Frame.GridX 로 설정 가능.</summary>
-        public int GridX { get { return _gridX; } set { _gridX = Math.Max(1, value); Invalidate(); } }
-        public int GridY { get { return _gridY; } set { _gridY = Math.Max(1, value); Invalidate(); } }
+        public int GridX { get { return _gridX; } set { _gridX = Math.Max(1, value); MarkDirty(); } }
+        public int GridY { get { return _gridY; } set { _gridY = Math.Max(1, value); MarkDirty(); } }
+
+        private void HookStateEvents()
+        {
+            if (_eventsHooked)
+                return;
+
+            MaterialStateService.StateChanged += OnMaterialStateChanged;
+            LotStorage.ActiveLotChanged += OnActiveLotChanged;
+            _eventsHooked = true;
+        }
+
+        private void UnhookStateEvents()
+        {
+            if (!_eventsHooked)
+                return;
+
+            MaterialStateService.StateChanged -= OnMaterialStateChanged;
+            LotStorage.ActiveLotChanged -= OnActiveLotChanged;
+            _eventsHooked = false;
+        }
+
+        // ─── 이벤트: 비-UI 스레드에서 호출될 수 있으므로 dirty flag 만 세운다. UI 접근 금지. ───
+        private void OnMaterialStateChanged(MaterialSnapshot snapshot)
+        {
+            MarkDirty();
+        }
+
+        private void OnActiveLotChanged(Lot lot)
+        {
+            MarkDirty();
+        }
+
+        private void MarkDirty()
+        {
+            Interlocked.Exchange(ref _dirty, 1);
+        }
+
+        private void OnRefreshTick(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!PageBase.ShouldRefreshVisible(this))
+                    return;
+
+                // 변경 이벤트(Material/Lot)가 없으면 아무 일도 하지 않는다. (idle tick 비용 0)
+                // → 큰 다이맵(수천 개)을 매 100ms 마다 스캔/재계산하던 UI 스레드 부하 제거.
+                bool dirtyEvent = Interlocked.Exchange(ref _dirty, 0) == 1;
+                if (!dirtyEvent)
+                    return;
+
+                EnsureDisplayMap(true);
+
+                long sig = ComputeSignature(_displayMap);
+                if (sig == _signature)
+                    return;
+
+                _signature = sig;
+                _stats = CalculateMapStats(_displayMap);
+                Lot lot = LotStorage.ActiveLot;
+                _lotText = lot != null ? lot.LotID : "(no active lot)";
+                Invalidate();
+            }
+            catch
+            {
+                // 표시 갱신 중 일시적 실패는 무시한다.
+            }
+        }
+
+        /// <summary>
+        /// 표시용 맵 참조를 필요할 때만 갱신한다.<br/>
+        /// ActiveInputDieMap 이 있으면 그것을 쓰고(새 참조일 때만 1회 Normalize),
+        /// 없으면 이벤트/최초 1회에 한해 InputStage Wafer 에서 복원한다(매 Tick 재구성 금지).
+        /// </summary>
+        private void EnsureDisplayMap(bool dirtyEvent)
+        {
+            DieMap active = LotStorage.ActiveInputDieMap;
+            if (active != null)
+            {
+                if (!ReferenceEquals(active, _displayMap))
+                {
+                    DieMapGenerator.Normalize(active);
+                    _displayMap = active;
+                }
+                return;
+            }
+
+            if (dirtyEvent || _displayMap == null)
+            {
+                try
+                {
+                    DieMap built = MaterialStateService.BuildInputDieMapFromStageWafer();
+                    if (built != null)
+                    {
+                        DieMapGenerator.Normalize(built);
+                        LotStorage.ActiveInputDieMap = built;
+                        _displayMap = built;
+                    }
+                    else
+                    {
+                        _displayMap = null;
+                    }
+                }
+                catch
+                {
+                    _displayMap = null;
+                }
+            }
+        }
+
+        private static long ComputeSignature(DieMap map)
+        {
+            unchecked
+            {
+                long h = 17;
+                Lot lot = LotStorage.ActiveLot;
+                h = h * 31 + (lot != null ? lot.ProcessedDies : 0);
+                h = h * 31 + (lot != null ? lot.GoodCount : 0);
+                h = h * 31 + (lot != null ? lot.TotalDies : 0);
+
+                if (map != null && map.Entries != null)
+                {
+                    h = h * 31 + map.DieMapX;
+                    h = h * 31 + map.DieMapY;
+                    foreach (var entry in map.Entries)
+                    {
+                        if (entry == null)
+                            continue;
+                        // 표시 색(ResolveEntryColor)은 IsTarget/Result/BinCode 로 결정되므로
+                        // 이 세 값만으로 변경을 감지한다. (값당 ResolveInputDieDisplayState 호출 제거 → 비용 대폭 감소)
+                        h = h * 31 + (entry.IsTarget ? 1 : 0);
+                        h = h * 31 + (int)entry.Result;
+                        h = h * 31 + entry.BinCode;
+                        h = h * 31 + StableHash(MaterialStateService.ResolveInputDieDisplayState(entry));
+                    }
+                }
+                else
+                {
+                    h = h * 31 - 1;
+                }
+
+                return h;
+            }
+        }
+
+        private static int StableHash(string text)
+        {
+            unchecked
+            {
+                int hash = 23;
+                if (!string.IsNullOrEmpty(text))
+                {
+                    for (int i = 0; i < text.Length; i++)
+                        hash = hash * 31 + text[i];
+                }
+
+                return hash;
+            }
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            // OnPaint 는 캐시된 표시 값만 그린다. (복원/Normalize/저장/전역 쓰기 금지)
             var g = e.Graphics;
             g.Clear(BackColor);
 
-            var lot = LotStorage.ActiveLot;
-            var dmap = ResolveDisplayMap();
-            MapStats stats = CalculateMapStats(dmap);
-            // 헤더 텍스트
+            DieMap dmap = _displayMap;
+            MapStats stats = _stats;
+
             using (var bf = new SolidBrush(Color.FromArgb(0x33, 0x33, 0x33)))
-            using (var f  = new Font("Consolas", 9F, FontStyle.Bold))
+            using (var f = new Font("Consolas", 9F, FontStyle.Bold))
             {
-                string lotText = lot != null ? lot.LotID : "(no active lot)";
                 string head = dmap != null
-                    ? string.Format("LOT {0}  target={1}  done={2}  good={3}  ng={4}",
-                                    lotText, stats.Target, stats.Done, stats.Good, stats.Ng)
-                    : string.Format("LOT {0}  (no input die map)", lotText);
+                    ? string.Format("INPUT WAFER MAP   LOT {0}  target={1}  done={2}  good={3}  ng={4}",
+                                    _lotText, stats.Target, stats.Done, stats.Good, stats.Ng)
+                    : string.Format("INPUT WAFER MAP   LOT {0}  (no input die map)", _lotText);
                 g.DrawString(head, f, bf, 8, 4);
             }
 
-            // 격자 크기 — 다이맵이 있으면 그 grid 사용, 없으면 default 5x5
             int gx = Math.Max(1, (dmap != null) ? dmap.DieMapX : _gridX);
             int gy = Math.Max(1, (dmap != null) ? dmap.DieMapY : _gridY);
             int margin = 8;
-            int top    = 22;
-            int availW = Math.Max(50, Width  - margin * 2);
+            int top = 22;
+            int availW = Math.Max(50, Width - margin * 2);
             int availH = Math.Max(50, Height - top - margin);
-            int cell   = Math.Max(1, Math.Min(availW / gx, availH / gy));
+            int cell = Math.Max(1, Math.Min(availW / gx, availH / gy));
             int totalW = cell * gx;
             int totalH = cell * gy;
             int x0 = (Width - totalW) / 2;
             int y0 = top + (availH - totalH) / 2;
 
-            // 다이맵 모드: Input Die Map의 실제 셀 상태(Result/BinCode)를 그대로 표시한다.
             if (dmap != null)
             {
                 if (dmap.Entries != null)
@@ -106,15 +272,15 @@ namespace QMC.CDT_320.Ui.Controls
                     }
                 }
 
-                // 원형 윤곽 표시 (참고용)
                 using (var pen = new Pen(Color.FromArgb(0x44, 0x88, 0xCC), 1.5f))
                     g.DrawEllipse(pen, x0, y0, totalW, totalH);
             }
             else
             {
-                // 레거시 5x5 사각 격자 (다이맵 없을 때)
+                // 입력 다이맵이 아직 없을 때만 Lot 카운트 기반 5x5 격자(레거시 fallback) 표시.
                 int filled = 0;
                 int goodFilled = 0;
+                Lot lot = LotStorage.ActiveLot;
                 int processed = lot != null ? lot.ProcessedDies : 0;
                 int good = lot != null ? lot.GoodCount : 0;
                 for (int j = 0; j < gy; j++)
@@ -153,13 +319,12 @@ namespace QMC.CDT_320.Ui.Controls
                     g.DrawRectangle(pen, x0 - 1, y0 - 1, totalW + 1, totalH + 1);
             }
 
-            // 우하단 진행률
-            int percentDone = dmap != null ? stats.Target : (lot != null ? lot.TotalDies : 0);
-            int percentProcessed = dmap != null ? stats.Done : (lot != null ? lot.ProcessedDies : 0);
+            int percentDone = dmap != null ? stats.Target : (LotStorage.ActiveLot != null ? LotStorage.ActiveLot.TotalDies : 0);
+            int percentProcessed = dmap != null ? stats.Done : (LotStorage.ActiveLot != null ? LotStorage.ActiveLot.ProcessedDies : 0);
             if (percentDone > 0)
             {
                 using (var bf = new SolidBrush(Color.FromArgb(0x33, 0x33, 0x33)))
-                using (var f  = new Font("Consolas", 9F))
+                using (var f = new Font("Consolas", 9F))
                 {
                     string pct = string.Format("{0:F1} %", percentProcessed * 100.0 / percentDone);
                     var sz = g.MeasureString(pct, f);
@@ -168,35 +333,28 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private static DieMap ResolveDisplayMap()
-        {
-            DieMap map = LotStorage.ActiveInputDieMap;
-            if (map != null)
-            {
-                DieMapGenerator.Normalize(map);
-                return map;
-            }
-
-            try
-            {
-                map = MaterialStateService.BuildInputDieMapFromStageWafer();
-                if (map != null)
-                {
-                    DieMapGenerator.Normalize(map);
-                    LotStorage.ActiveInputDieMap = map;
-                }
-            }
-            catch
-            {
-            }
-
-            return map;
-        }
-
         private static Color ResolveEntryColor(DieMapEntry entry)
         {
             if (entry == null || !entry.IsTarget)
                 return Color.FromArgb(0x66, 0x66, 0x66);
+
+            string displayState = MaterialStateService.ResolveInputDieDisplayState(entry);
+            if (!string.IsNullOrWhiteSpace(displayState))
+            {
+                if (displayState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase))
+                    return Color.FromArgb(0xF5, 0xC5, 0x18);
+
+                if (displayState.StartsWith("RESERVE", StringComparison.OrdinalIgnoreCase))
+                    return Color.FromArgb(0x00, 0xBC, 0xD4);
+
+                if (displayState.Equals("GOOD STAGE", StringComparison.OrdinalIgnoreCase) ||
+                    displayState.Equals("FINISH", StringComparison.OrdinalIgnoreCase))
+                    return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
+
+                if (displayState.Equals("NG STAGE", StringComparison.OrdinalIgnoreCase) ||
+                    displayState.Equals("REJECT", StringComparison.OrdinalIgnoreCase))
+                    return Color.IndianRed;
+            }
 
             if (entry.Result == DieResult.Good)
                 return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
@@ -251,8 +409,55 @@ namespace QMC.CDT_320.Ui.Controls
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
-            try { _refresh?.Stop(); _refresh?.Dispose(); } catch { }
+            try
+            {
+                UnhookStateEvents();
+                _refresh?.Stop();
+                _refresh?.Dispose();
+            }
+            catch { }
             base.OnHandleDestroyed(e);
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        protected override void OnParentChanged(EventArgs e)
+        {
+            base.OnParentChanged(e);
+            UpdateRefreshTimer();
+        }
+
+        private void UpdateRefreshTimer()
+        {
+            try
+            {
+                if (_refresh == null || IsDisposed)
+                    return;
+
+                if (PageBase.ShouldRefreshVisible(this))
+                {
+                    MarkDirty();
+                    if (!_refresh.Enabled)
+                        _refresh.Start();
+                }
+                else if (_refresh.Enabled)
+                {
+                    _refresh.Stop();
+                }
+            }
+            catch
+            {
+            }
         }
     }
 }

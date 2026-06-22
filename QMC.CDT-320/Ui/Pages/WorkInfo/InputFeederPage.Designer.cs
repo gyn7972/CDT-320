@@ -121,7 +121,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             this.lblHeader.ForeColor = Color.White;
             this.lblHeader.Padding = new Padding(10, 0, 0, 0);
-            this.lblHeader.Text = "INFO";
+            this.lblHeader.Tag = "i18n:wi.inputFeeder";
+            this.lblHeader.Text = "INPUT FEEDER";
             this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
             this.topLayout.ColumnCount = 3;
@@ -217,7 +218,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlWork.Controls.Add(this.workLayout);
             this.pnlWork.Dock = DockStyle.Fill;
             this.pnlWork.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.pnlWork.Text = "작업 정보";
+            this.pnlWork.Text = "WORK INFO";
             this.workLayout.ColumnCount = 2;
             this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
             this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -248,7 +249,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlCylinder.Controls.Add(this.cylinderLayout);
             this.pnlCylinder.Dock = DockStyle.Fill;
             this.pnlCylinder.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.pnlCylinder.Text = "FEEDER 실린더 정보";
+            this.pnlCylinder.Text = "FEEDER CYLINDER INFO";
             this.cylinderLayout.ColumnCount = 2;
             this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
             this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -295,7 +296,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlInfo.Controls.Add(this.infoLayout);
             this.pnlInfo.Dock = DockStyle.Fill;
             this.pnlInfo.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.pnlInfo.Text = "정보";
+            this.pnlInfo.Text = "INFO";
             this.infoLayout.ColumnCount = 1;
             this.infoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             this.infoLayout.Controls.Add(this.btnRefreshMaterial, 0, 0);

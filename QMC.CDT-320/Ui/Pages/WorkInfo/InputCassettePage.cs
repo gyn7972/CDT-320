@@ -42,7 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                     RefreshFromMachine();
                 };
-                HandleCreated += (s, e) => _refreshTimer.Start();
+                VisibleChanged += (s, e) => { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); };
                 HandleDestroyed += (s, e) => _refreshTimer.Stop();
             }
             catch (Exception ex)

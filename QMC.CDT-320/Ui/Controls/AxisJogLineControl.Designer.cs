@@ -51,7 +51,7 @@ namespace QMC.CDT_320.Ui.Controls
             this._lblAxisName.BackColor = System.Drawing.Color.White;
             this._lblAxisName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this._lblAxisName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblAxisName.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this._lblAxisName.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._lblAxisName.Location = new System.Drawing.Point(4, 4);
             this._lblAxisName.Margin = new System.Windows.Forms.Padding(4);
             this._lblAxisName.Name = "_lblAxisName";

@@ -19,8 +19,11 @@ namespace QMC.CDT320.Sequencing
         VacuumOff,
         BlowOff,
         MovePickerZToAvoid,
+        VerifyFlowOff,
         UpdateMaterialToOutputStage,
+        RecoverOutputStageAfterPlace,
         SelectNextPickerOrComplete,
+        MovePickerToAvoidAfterPlace,
         Complete,
         Error
     }

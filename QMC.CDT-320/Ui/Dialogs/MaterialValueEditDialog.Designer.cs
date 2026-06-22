@@ -69,7 +69,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.rootLayout.SetColumnSpan(this.lblTitle, 2);
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Location = new System.Drawing.Point(15, 12);
             this.lblTitle.Name = "lblTitle";
@@ -82,7 +82,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // lblFieldTitle
             // 
             this.lblFieldTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFieldTitle.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFieldTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblFieldTitle.Location = new System.Drawing.Point(15, 54);
             this.lblFieldTitle.Name = "lblFieldTitle";
             this.lblFieldTitle.Size = new System.Drawing.Size(104, 34);
@@ -129,7 +129,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // btnCancel
             // 
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCancel.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCancel.Location = new System.Drawing.Point(287, 11);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(100, 38);
@@ -140,7 +140,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             // btnOk
             // 
-            this.btnOk.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnOk.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOk.Location = new System.Drawing.Point(181, 11);
             this.btnOk.Name = "btnOk";
             this.btnOk.Size = new System.Drawing.Size(100, 38);
@@ -155,7 +155,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.CancelButton = this.btnCancel;
             this.ClientSize = new System.Drawing.Size(420, 210);
             this.Controls.Add(this.rootLayout);
-            this.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;

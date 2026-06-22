@@ -65,6 +65,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             refreshTimer.Start();
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (Visible) refreshTimer.Start(); else refreshTimer.Stop(); } catch { }
+        }
+
         protected override void OnHandleDestroyed(EventArgs e)
         {
             try

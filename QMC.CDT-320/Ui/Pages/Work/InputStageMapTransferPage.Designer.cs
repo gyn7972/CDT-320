@@ -142,7 +142,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 3;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
@@ -157,7 +157,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1672, 26);
+            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:work.page.inputMap";
             this.lblHeader.Text = "INPUT STAGE DIE MAP";
@@ -327,7 +327,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.AllowUserToResizeRows = false;
             this.gridDieList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.gridDieList.BackgroundColor = System.Drawing.Color.White;
-            this.gridDieList.ColumnHeadersHeight = 25;
+            this.gridDieList.ColumnHeadersHeight = 32;
             this.gridDieList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridDieList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colIndex,

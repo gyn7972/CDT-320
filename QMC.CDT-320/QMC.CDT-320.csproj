@@ -23,6 +23,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -42,6 +43,7 @@
     <LangVersion>7.3</LangVersion>
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>..\..\CDT-320\</OutputPath>
@@ -77,6 +79,7 @@
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
+    <Compile Include="Equipment\MachineReadyProgress.cs" />
     <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
@@ -308,6 +311,9 @@
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
     <Compile Include="Sequencing\Common\SequenceUnitKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivityState.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivitySnapshot.cs" />
+    <Compile Include="Sequencing\Common\SequenceActivityMonitor.cs" />
     <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
     <Compile Include="Sequencing\Common\SequenceRunOptions.cs" />
     <Compile Include="Sequencing\Common\SequenceAwaiter.cs" />
@@ -346,6 +352,7 @@
     <Compile Include="Sequencing\InputStage\InputStageDieMappingSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
+    <Compile Include="Sequencing\MachineReadySequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputSlotPlanner.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceKind.cs" />
@@ -363,6 +370,7 @@
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageReceiveDieSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageInspectBinSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputPostPlaceInspectionQueue.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
@@ -510,6 +518,7 @@
     <Compile Include="Equipment\Ajin\AjinSystem.cs" />
     <Compile Include="Equipment\Ajin\CylinderManager.cs" />
     <Compile Include="Equipment\Ajin\CylinderSettingsStore.cs" />
+    <Compile Include="Equipment\Ajin\IoRuntimePolicy.cs" />
     <Compile Include="Equipment\Ajin\IoSettingsStore.cs" />
     <!-- Equipment / Vision (Vision ?�로?�스 ?�신) -->
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
@@ -582,6 +591,18 @@
     </Compile>
     <Compile Include="Ui\Dialogs\CstStatusDialog.Designer.cs">
       <DependentUpon>CstStatusDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ReadyProgressDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\StopProgressDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ManualSequenceDialog.Designer.cs">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.cs">
       <SubType>Form</SubType>
@@ -676,6 +697,7 @@
     </Compile>
     <!-- UI / Util -->
     <Compile Include="Ui\Util\UiClickAuditor.cs" />
+    <Compile Include="Ui\Util\UiDoubleBuffer.cs" />
     <!-- UI / Pages 공용 -->
     <Compile Include="Ui\Pages\PageBase.cs">
       <SubType>UserControl</SubType>
@@ -691,11 +713,14 @@
     <Compile Include="Sequencing\Common\SequenceResourceKind.cs" />
     <Compile Include="Sequencing\Common\SequenceResourceLease.cs" />
     <Compile Include="Sequencing\Common\SequenceResourceManager.cs" />
+    <Compile Include="Sequencing\Common\PickerProcessPhase.cs" />
+    <Compile Include="Sequencing\Common\PickerPhaseCoordinator.cs" />
     <!-- Sequencing / Picker -->
     <Compile Include="Sequencing\Picker\PickerSequenceSide.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceKind.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceOptions.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpStep.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPrepareStep.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
@@ -703,6 +728,8 @@
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
+    <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
@@ -743,6 +770,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerWorkInfoPageRuntime.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.Designer.cs">
+      <DependentUpon>PickerHeadDieDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\FrontPickerPage.Designer.cs">
       <DependentUpon>FrontPickerPage.cs</DependentUpon>
     </Compile>
@@ -961,6 +994,9 @@
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
+      <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -1045,6 +1081,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\IoListPage.resx">
       <DependentUpon>IoListPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.resx">
+      <DependentUpon>MotionPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>

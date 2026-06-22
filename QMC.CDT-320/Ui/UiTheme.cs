@@ -55,13 +55,13 @@ namespace QMC.CDT_320.Ui
 
         // 폰트
         public static readonly Font TitleFont       = new Font("Segoe UI Light", 28F, FontStyle.Regular);
-        public static readonly Font TitleSmallFont  = new Font("Segoe UI", 11F);
+        public static readonly Font TitleSmallFont  = new Font("맑은 고딕", 11F);
         public static readonly Font HeaderInfoFont  = new Font("맑은 고딕", 9F);
         public static readonly Font StatusBarFont   = new Font("맑은 고딕", 10F, FontStyle.Bold);
         public static readonly Font SectionFont     = new Font("맑은 고딕", 11F, FontStyle.Bold);
         public static readonly Font ButtonFont      = new Font("맑은 고딕", 11F);
         public static readonly Font ValueFont       = new Font("Consolas", 10F);
-        public static readonly Font MenuLabelFont   = new Font("Segoe UI", 8F);
+        public static readonly Font MenuLabelFont   = new Font("맑은 고딕", 8F);
         public static readonly Font BottomBtnFont   = new Font("맑은 고딕", 10F);
         public static readonly Font ModeOverlayFont = new Font("맑은 고딕", 42F, FontStyle.Bold);
     }

@@ -94,7 +94,7 @@
             // 
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 13F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
             this.lblTitle.Name = "lblTitle";
@@ -191,7 +191,7 @@
             // lblId
             // 
             this.lblId.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblId.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblId.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblId.Location = new System.Drawing.Point(3, 0);
             this.lblId.Name = "lblId";
             this.lblId.Size = new System.Drawing.Size(86, 40);
@@ -202,7 +202,7 @@
             // tbId
             // 
             this.tbId.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbId.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.tbId.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.tbId.Location = new System.Drawing.Point(95, 6);
             this.tbId.Margin = new System.Windows.Forms.Padding(3, 6, 3, 6);
             this.tbId.Name = "tbId";
@@ -212,7 +212,7 @@
             // lblPassword
             // 
             this.lblPassword.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPassword.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblPassword.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPassword.Location = new System.Drawing.Point(3, 40);
             this.lblPassword.Name = "lblPassword";
             this.lblPassword.Size = new System.Drawing.Size(86, 40);
@@ -223,7 +223,7 @@
             // tbPassword
             // 
             this.tbPassword.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tbPassword.Font = new System.Drawing.Font("Segoe UI", 10F);
+            this.tbPassword.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.tbPassword.Location = new System.Drawing.Point(95, 46);
             this.tbPassword.Margin = new System.Windows.Forms.Padding(3, 6, 3, 6);
             this.tbPassword.Name = "tbPassword";
@@ -250,7 +250,7 @@
             // 
             this.btnLogout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLogout.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnLogout.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnLogout.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnLogout.Location = new System.Drawing.Point(0, 6);
             this.btnLogout.Margin = new System.Windows.Forms.Padding(0, 6, 6, 6);
             this.btnLogout.Name = "btnLogout";
@@ -262,7 +262,7 @@
             // 
             this.btnEnter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnEnter.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnEnter.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnEnter.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnEnter.Location = new System.Drawing.Point(130, 6);
             this.btnEnter.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
             this.btnEnter.Name = "btnEnter";
@@ -274,7 +274,7 @@
             // 
             this.grpAddUpdate.Controls.Add(this.adminLayout);
             this.grpAddUpdate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpAddUpdate.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.grpAddUpdate.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpAddUpdate.Location = new System.Drawing.Point(3, 155);
             this.grpAddUpdate.Name = "grpAddUpdate";
             this.grpAddUpdate.Size = new System.Drawing.Size(248, 166);
@@ -412,7 +412,7 @@
             this.BackColor = System.Drawing.Color.WhiteSmoke;
             this.ClientSize = new System.Drawing.Size(560, 400);
             this.Controls.Add(this.rootLayout);
-            this.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;

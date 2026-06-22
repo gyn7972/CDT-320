@@ -80,6 +80,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             grid.AllowUserToResizeColumns = true;
             grid.AllowUserToResizeRows = false;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            grid.MultiSelect = false;
             foreach (DataGridViewColumn col in grid.Columns)
             {
                 col.SortMode = DataGridViewColumnSortMode.NotSortable;
@@ -297,8 +299,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 return FormatAxisValue(nativeValue, AxisUnitConverter.DisplayUnitFor(axis), format);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Write("Main", "SYSTEM", "MotionPageFormatAxisValue",
+                    "Axis display unit format failed: " + ex.Message + " - Failed");
                 return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
             finally
@@ -313,8 +317,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 double displayValue = AxisUnitConverter.ToDisplay(nativeValue, displayUnit);
                 return displayValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Write("Main", "SYSTEM", "MotionPageFormatAxisValue",
+                    "Axis display value format failed: " + ex.Message + " - Failed");
                 return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
             finally
@@ -554,6 +560,36 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (grid.CurrentRow == null || grid.CurrentRow.Index < 0 || grid.CurrentRow.Index >= _rows.Count)
                 return null;
             return _rows[grid.CurrentRow.Index].Axis;
+        }
+
+        private bool SaveMotionAxisSettings()
+        {
+            bool ok = true;
+
+            try
+            {
+                QMC.CDT320.Ajin.AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionPageSave",
+                    "Motion axis store save failed: " + ex.Message + " - Failed");
+            }
+
+            try
+            {
+                if (Host != null && Host.Machine != null)
+                    ok &= Host.Machine.SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionPageSave",
+                    "Machine unit settings save failed: " + ex.Message + " - Failed");
+            }
+
+            return ok;
         }
 
         private void ShowBoardScan()

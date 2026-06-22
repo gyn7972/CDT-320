@@ -13,11 +13,25 @@ namespace QMC.CDT_320.Ui.Controls
     {
         private bool _selected;
         private bool _hover;
+        private Color? _stateBackColor;
+        private Color? _stateForeColor;
 
         public bool Selected
         {
             get => _selected;
             set { _selected = value; Invalidate(); }
+        }
+
+        public Color? StateBackColor
+        {
+            get { return _stateBackColor; }
+            set { _stateBackColor = value; Invalidate(); }
+        }
+
+        public Color? StateForeColor
+        {
+            get { return _stateForeColor; }
+            set { _stateForeColor = value; Invalidate(); }
         }
 
         public SidebarButton()
@@ -33,6 +47,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         protected override void OnMouseEnter(EventArgs e) { _hover = true;  Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+        protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -41,8 +56,15 @@ namespace QMC.CDT_320.Ui.Controls
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
 
             Color bg = _selected ? UiTheme.SidebarBtnSelBg
-                                 : (_hover ? Color.FromArgb(0x70, 0x70, 0x70) : UiTheme.SidebarBtnBg);
-            Color fg = _selected ? UiTheme.SidebarBtnSelFg : UiTheme.SidebarBtnFg;
+                                 : (_stateBackColor.HasValue ? _stateBackColor.Value
+                                                             : (_hover ? Color.FromArgb(0x70, 0x70, 0x70) : UiTheme.SidebarBtnBg));
+            Color fg = _selected ? UiTheme.SidebarBtnSelFg
+                                 : (_stateForeColor.HasValue ? _stateForeColor.Value : UiTheme.SidebarBtnFg);
+            if (!Enabled)
+            {
+                bg = Color.FromArgb(0x46, 0x46, 0x46);
+                fg = Color.FromArgb(0xA8, 0xA8, 0xA8);
+            }
 
             using (var b = new SolidBrush(bg))
                 g.FillRectangle(b, ClientRectangle);

@@ -31,8 +31,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 new Label[] { lblCollet1UseValue, lblCollet2UseValue, lblCollet3UseValue, lblCollet4UseValue },
                 new IndicatorDot[] { dotHeadVacuum1, dotHeadVacuum2, dotHeadVacuum3, dotHeadVacuum4 },
                 new IndicatorDot[] { dotHeadBlow1, dotHeadBlow2, dotHeadBlow3, dotHeadBlow4 },
+                new IndicatorDot[] { dotHeadFlow1, dotHeadFlow2, dotHeadFlow3, dotHeadFlow4 },
                 new Label[] { lblHeadVacuum1, lblHeadVacuum2, lblHeadVacuum3, lblHeadVacuum4 },
                 new Label[] { lblHeadBlow1, lblHeadBlow2, lblHeadBlow3, lblHeadBlow4 },
+                new Label[] { lblHeadFlow1, lblHeadFlow2, lblHeadFlow3, lblHeadFlow4 },
                 axisGrid,
                 btnCountClear,
                 btnInput,
@@ -47,6 +49,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Form1 GetHost()
         {
             return FindForm() as Form1;
+        }
+
+        private void lblHead1Value_Click(object sender, System.EventArgs e)
+        {
+            _runtime.ShowHeadDieDialog(1);
+        }
+
+        private void lblHead2Value_Click(object sender, System.EventArgs e)
+        {
+            _runtime.ShowHeadDieDialog(2);
+        }
+
+        private void lblHead3Value_Click(object sender, System.EventArgs e)
+        {
+            _runtime.ShowHeadDieDialog(3);
+        }
+
+        private void lblHead4Value_Click(object sender, System.EventArgs e)
+        {
+            _runtime.ShowHeadDieDialog(4);
         }
     }
 }

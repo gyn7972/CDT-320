@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                     RefreshAll();
                 };
-                _refresh.Start();
+                VisibleChanged += (s, e) => { if (Visible) _refresh.Start(); else _refresh.Stop(); };
                 RefreshAll();
             }
         }
@@ -74,7 +74,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (lot == null || lot.BinDistribution.Count == 0)
             {
                 using (var br = new SolidBrush(Color.Gray))
-                using (var f = new Font("Segoe UI", 14F))
+                using (var f = new Font("맑은 고딕", 14F))
                 {
                     g.DrawString("(no bin data)", f, br, _binPanel.Width / 2f - 80, _binPanel.Height / 2f - 16);
                 }

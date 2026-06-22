@@ -95,10 +95,13 @@ namespace QMC.CDT320.Alarms
                     "Alarm response start. code=" + alarm.Code + ", source=" + alarm.Source +
                     ", severity=" + alarm.Severity + ", scope=" + policy.StopScope + " - Start");
 
-                if (policy.StopSequence)
-                    await _controller.StopSequenceForAlarmAsync(alarm.Code).ConfigureAwait(false);
-
+                // 알람은 일반 정지와 다르다. 축 정지 명령을 먼저 내린 뒤 시퀀스를 정리한다.
                 int stopResult = await StopAxesByPolicyAsync(alarm, policy).ConfigureAwait(false);
+                int sequenceResult = policy.StopSequence
+                    ? await _controller.StopSequenceForAlarmAsync(alarm.Code).ConfigureAwait(false)
+                    : 0;
+                if (sequenceResult != 0 && stopResult == 0)
+                    stopResult = sequenceResult;
 
                 if (policy.SetMachineAlarmStatus)
                     _controller.SetAlarmStateFromAlarmResponse(alarm.Code);

@@ -147,15 +147,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // contentLayout
             // 
-            this.contentLayout.ColumnCount = 4;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.94741F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.05259F));
+            this.contentLayout.ColumnCount = 3;
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 93F));
             this.contentLayout.Controls.Add(this.centerLayout, 0, 0);
-            this.contentLayout.Controls.Add(this.leftLayout, 1, 0);
+            this.contentLayout.Controls.Add(this.grpJog, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
-            this.contentLayout.Controls.Add(this.grpSpeed, 3, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -168,10 +166,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // centerLayout
             // 
-            this.centerLayout.ColumnCount = 1;
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.centerLayout.ColumnCount = 2;
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.centerLayout.Controls.Add(this.grpVision, 0, 0);
             this.centerLayout.Controls.Add(this.grpManual, 0, 1);
+            this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
+            this.centerLayout.SetRowSpan(this.leftLayout, 2);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.centerLayout.Location = new System.Drawing.Point(8, 8);
             this.centerLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -195,7 +196,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Size = new System.Drawing.Size(675, 470);
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
-            this.grpVision.Text = "VISION VIEW";
+            this.grpVision.Text = "VISION";
             // 
             // tabVision
             // 
@@ -326,6 +327,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.manualLayout.AutoSize = true;
             this.manualLayout.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.manualLayout.AutoScroll = true;
             this.manualLayout.ColumnCount = 2;
             this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -356,9 +358,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnAvoidPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAvoidPosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAvoidPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAvoidPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnAvoidPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnAvoidPosition.ForeColor = System.Drawing.Color.White;
-            this.btnAvoidPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnAvoidPosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnAvoidPosition.Name = "btnAvoidPosition";
             this.btnAvoidPosition.TabIndex = 0;
             this.btnAvoidPosition.Text = "AVOID POSITION";
@@ -369,9 +371,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnPickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPickPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPickPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnPickPosition.ForeColor = System.Drawing.Color.White;
-            this.btnPickPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnPickPosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnPickPosition.Name = "btnPickPosition";
             this.btnPickPosition.TabIndex = 1;
             this.btnPickPosition.Text = "PICK POSITION";
@@ -382,9 +384,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnBottomPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnBottomPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnBottomPosition.ForeColor = System.Drawing.Color.White;
-            this.btnBottomPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnBottomPosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnBottomPosition.Name = "btnBottomPosition";
             this.btnBottomPosition.TabIndex = 2;
             this.btnBottomPosition.Text = "BOTTOM POSITION";
@@ -395,9 +397,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSidePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSidePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnSidePosition.ForeColor = System.Drawing.Color.White;
-            this.btnSidePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnSidePosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnSidePosition.Name = "btnSidePosition";
             this.btnSidePosition.TabIndex = 3;
             this.btnSidePosition.Text = "SIDE POSITION";
@@ -408,9 +410,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnPlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnPlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPlacePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPlacePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnPlacePosition.ForeColor = System.Drawing.Color.White;
-            this.btnPlacePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnPlacePosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnPlacePosition.Name = "btnPlacePosition";
             this.btnPlacePosition.TabIndex = 4;
             this.btnPlacePosition.Text = "PLACE POSITION";
@@ -421,9 +423,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnDiePickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnDiePickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDiePickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDiePickPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDiePickPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDiePickPosition.ForeColor = System.Drawing.Color.White;
-            this.btnDiePickPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDiePickPosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnDiePickPosition.Name = "btnDiePickPosition";
             this.btnDiePickPosition.TabIndex = 5;
             this.btnDiePickPosition.Text = "DIE PICK POSITION";
@@ -434,9 +436,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnDieBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnDieBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDieBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDieBottomPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDieBottomPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDieBottomPosition.ForeColor = System.Drawing.Color.White;
-            this.btnDieBottomPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDieBottomPosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnDieBottomPosition.Name = "btnDieBottomPosition";
             this.btnDieBottomPosition.TabIndex = 6;
             this.btnDieBottomPosition.Text = "DIE BOTTOM POSITION";
@@ -447,9 +449,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnDieSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnDieSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDieSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDieSidePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDieSidePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDieSidePosition.ForeColor = System.Drawing.Color.White;
-            this.btnDieSidePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDieSidePosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnDieSidePosition.Name = "btnDieSidePosition";
             this.btnDieSidePosition.TabIndex = 7;
             this.btnDieSidePosition.Text = "DIE SIDE POSITION";
@@ -460,9 +462,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnDiePlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnDiePlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDiePlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDiePlacePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDiePlacePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnDiePlacePosition.ForeColor = System.Drawing.Color.White;
-            this.btnDiePlacePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDiePlacePosition.Margin = new System.Windows.Forms.Padding(4);
             this.btnDiePlacePosition.Name = "btnDiePlacePosition";
             this.btnDiePlacePosition.TabIndex = 8;
             this.btnDiePlacePosition.Text = "DIE PLACE POSITION";
@@ -480,8 +482,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.leftLayout.Margin = new System.Windows.Forms.Padding(0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 3;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 478F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 153F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 400F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 160F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(457, 854);
             this.leftLayout.TabIndex = 1;
@@ -524,7 +526,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpWait.Size = new System.Drawing.Size(449, 145);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
-            this.grpWait.Text = "WAIT TIME / SPEED";
+            this.grpWait.Text = "WAIT TIME";
             // 
             // waitParameterGrid
             // 
@@ -549,7 +551,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpIo.Size = new System.Drawing.Size(449, 215);
             this.grpIo.TabIndex = 2;
             this.grpIo.TabStop = false;
-            this.grpIo.Text = "I/O";
+            this.grpIo.Text = "CYLINDER && I/O";
             // 
             // ioCylinderPanel
             // 
@@ -565,7 +567,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.rightLayout.ColumnCount = 1;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Controls.Add(this.grpJog, 0, 0);
+            this.rightLayout.Controls.Add(this.grpSpeed, 0, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(1148, 8);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);

@@ -46,7 +46,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                     RefreshAll();
                 };
-                _refresh.Start();
+                VisibleChanged += (s, e) => { if (Visible) _refresh.Start(); else _refresh.Stop(); };
                 RefreshAll();
             }
         }
@@ -206,7 +206,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
             }
 
-            using (var font = new Font("Segoe UI", 9F))
+            using (var font = new Font("맑은 고딕", 9F))
             {
                 for (int i = 0; i < UnitNames.Length; i++)
                     graphics.DrawString(UnitNames[i], font, Brushes.Black, 4, 20 + i * 40);

@@ -465,7 +465,7 @@ namespace QMC.CDT320.Sequencing
         {
             if (Feeder.IsFeederDown())
             {
-                CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+                CurrentStep = ResolveAfterFeederAvoidStep();
                 return 0;
             }
 
@@ -476,8 +476,15 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.IsFeederDown())
                 return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift is not down after feeder avoid. side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
 
-            CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+            CurrentStep = ResolveAfterFeederAvoidStep();
             return 0;
+        }
+
+        private OutputFeederLoadToStageStep ResolveAfterFeederAvoidStep()
+        {
+            return Options.Side == BinSide.Ng
+                ? OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad
+                : OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
         }
 
         private async Task<int> MoveNgStageAvoidAfterLoadAsync(CancellationToken ct)
@@ -519,7 +526,9 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-FEEDER-STAGE-RING", Feeder.Name, "Output feeder ring remained after stage load. waferId=" + wafer.WaferId);
             }
 
-            CurrentStep = OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess;
+            CurrentStep = Options.Side == BinSide.Ng
+                ? OutputFeederLoadToStageStep.UpdateFeederData
+                : OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess;
             return 0;
         }
 
@@ -548,7 +557,7 @@ namespace QMC.CDT320.Sequencing
             stageOptions.FineMove = Options.FineMove;
             stageOptions.MoveTimeoutMs = ResolveTimeout();
             stageOptions.RunMode = Options.RunMode;
-            stageOptions.StartMode = Options.StartMode;
+            stageOptions.StartMode = SequenceStartMode.Restart;
 
             int result = await new OutputStageSequence(Context)
                 .RunMoveProcessAsync(ct, stageOptions)

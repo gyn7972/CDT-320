@@ -37,7 +37,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this._layout);
-            this.Font = new System.Drawing.Font("?? ??", 9F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.Name = "ParamGrid";
             this.Padding = new System.Windows.Forms.Padding(6);
             this.Size = new System.Drawing.Size(400, 200);

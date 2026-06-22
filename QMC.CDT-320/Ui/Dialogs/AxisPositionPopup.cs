@@ -11,19 +11,22 @@ namespace QMC.CDT_320.Ui.Dialogs
     public partial class AxisPositionPopup : Form
     {
         private const int DefaultTargetRows = 26;
+        private const int RefreshIntervalMs = 500;
 
         private readonly List<BaseAxis> _axes;
         private readonly List<AxisRow> _rows = new List<AxisRow>();
         private readonly Timer _timer = new Timer();
+        private readonly MotionMonitorService _monitor;
 
-        private readonly Font _headerFont = new Font("Segoe UI", 11F, FontStyle.Bold);
-        private readonly Font _rowFont = new Font("Segoe UI", 11F, FontStyle.Bold);
+        private readonly Font _headerFont = new Font("맑은 고딕", 11F, FontStyle.Bold);
+        private readonly Font _rowFont = new Font("맑은 고딕", 11F, FontStyle.Bold);
         private readonly Brush _headerBack = new SolidBrush(Color.White);
         private readonly Pen _borderPen = new Pen(Color.FromArgb(0, 90, 180), 2);
 
         public AxisPositionPopup(IEnumerable<BaseAxis> axes, MotionMonitorService monitor)
         {
             _axes = SortAxes(axes).ToList();
+            _monitor = monitor;
 
             InitializeComponent();
             EnableDoubleBuffer(listViewAxis);
@@ -34,9 +37,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             listViewAxis.DrawItem += ListViewAxis_DrawItem;
             listViewAxis.DrawSubItem += ListViewAxis_DrawSubItem;
 
-            _timer.Interval = 200;
+            _timer.Interval = RefreshIntervalMs;
             _timer.Tick += (s, e) => RefreshPositions();
-            Load += (s, e) => _timer.Start();
+            Load += (s, e) => UpdateRefreshTimer();
+            VisibleChanged += (s, e) => UpdateRefreshTimer();
             FormClosed += (s, e) =>
             {
                 _timer.Stop();
@@ -102,19 +106,34 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void RefreshPositions()
         {
             if (IsDisposed) return;
-            foreach (var row in _rows)
+            // 축 상태는 MotionMonitorService 백그라운드 폴링이 갱신한다.
+            // UI 스레드에서 UpdateStatus(보드 I/O + 축 lock)를 호출하지 않고 캐시 값만 읽어 표시한다.
+            // (CYCLING 중 시퀀스 모션과의 lock 경합으로 UI 가 멈추는 것을 방지)
+            listViewAxis.BeginUpdate();
+            try
             {
-                try
+                foreach (var row in _rows)
                 {
-                    row.Axis.UpdateStatus();
-                    ApplySnapshot(row.Item, AxisStatusSnapshot.FromAxis(row.Axis));
+                    try
+                    {
+                        AxisStatusSnapshot snapshot = _monitor != null
+                            ? _monitor.GetLatest(row.Axis)
+                            : AxisStatusSnapshot.FromAxis(row.Axis);
+
+                        if (snapshot != null)
+                            ApplySnapshot(row.Item, snapshot);
+                    }
+                    catch
+                    {
+                    }
+                    finally
+                    {
+                    }
                 }
-                catch
-                {
-                }
-                finally
-                {
-                }
+            }
+            finally
+            {
+                listViewAxis.EndUpdate();
             }
         }
 
@@ -176,6 +195,29 @@ namespace QMC.CDT_320.Ui.Dialogs
             var prop = typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             if (prop != null)
                 prop.SetValue(control, true, null);
+        }
+
+        private void UpdateRefreshTimer()
+        {
+            try
+            {
+                if (IsDisposed || _timer == null)
+                    return;
+
+                if (Visible)
+                {
+                    RefreshPositions();
+                    if (!_timer.Enabled)
+                        _timer.Start();
+                }
+                else if (_timer.Enabled)
+                {
+                    _timer.Stop();
+                }
+            }
+            catch
+            {
+            }
         }
 
         protected override void Dispose(bool disposing)

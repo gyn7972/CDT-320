@@ -15,6 +15,7 @@ using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Tabs;
+using QMC.CDT_320.Ui.Util;
 
 namespace QMC.CDT_320
 {
@@ -54,9 +55,9 @@ namespace QMC.CDT_320
                 if (string.IsNullOrEmpty(fileName)) fileName = "-";
                 CurrentRecipeName = NormalizeRecipeName(fileName);
                 if (lblProjectValue.InvokeRequired)
-                    lblProjectValue.Invoke((Action)(() => lblProjectValue.Text = fileName));
+                    lblProjectValue.Invoke((Action)(() => SetTextIfChanged(lblProjectValue, fileName)));
                 else
-                    lblProjectValue.Text = fileName;
+                    SetTextIfChanged(lblProjectValue, fileName);
             }
             catch { }
         }
@@ -127,6 +128,7 @@ namespace QMC.CDT_320
                     ApplyUnitDryRunMode(Machine, dataBypass);
 
                     List<BaseAxis> axes = CurrentAxes();
+                    AjinFactory.ApplyPersistedAxisValues(axes);
                     if (forceSimulation)
                     {
                         foreach (BaseAxis axis in axes)
@@ -134,10 +136,6 @@ namespace QMC.CDT_320
                             if (axis == null || axis.Config == null) continue;
                             axis.Config.IsSimulationMode = true;
                         }
-                    }
-                    else
-                    {
-                        AjinFactory.ApplyPersistedAxisValues(axes);
                     }
 
                     foreach (BaseDigitalInput input in EnumerateInputs(Machine))
@@ -147,7 +145,7 @@ namespace QMC.CDT_320
                         else if (dryRun)
                             AjinFactory.ApplyInputDryRun(input, true);
                         else
-                            AjinFactory.ApplyInputPersistedSimulation(input);
+                            AjinFactory.ApplyInputSimulation(input, false);
                     }
 
                     foreach (BaseDigitalOutput output in EnumerateOutputs(Machine))
@@ -155,7 +153,7 @@ namespace QMC.CDT_320
                         if (forceSimulation || dryRun)
                             AjinFactory.ApplyOutputSimulation(output, forceSimulation);
                         else
-                            AjinFactory.ApplyOutputPersistedSimulation(output);
+                            AjinFactory.ApplyOutputSimulation(output, false);
                     }
 
                     foreach (BaseCylinder cylinder in EnumerateCylinders(Machine))
@@ -368,10 +366,12 @@ namespace QMC.CDT_320
         private AxisPositionPopup _axisPositionPopup;
 
         private MainTab _currentTab = MainTab.Work;
+        private bool _mainTabShown;
 
         public Form1()
         {
             InitializeComponent();
+            UiDoubleBuffer.Enable(this);
             WireShellNavigationEvents();
         }
 
@@ -1011,21 +1011,25 @@ namespace QMC.CDT_320
         /// <summary>선택한 메인 탭을 화면에 표시합니다.</summary>
         public void ShowTab(MainTab tab)
         {
+            bool sameTab = _currentTab == tab;
             _currentTab = tab;
 
-            _workTab    .Visible = tab == MainTab.Work;
-            _workInfoTab.Visible = tab == MainTab.WorkInfo;
-            _historyTab .Visible = tab == MainTab.History;
-            _recipeTab  .Visible = tab == MainTab.Recipe;
-            _settingsTab.Visible = tab == MainTab.Settings;
-            _userTab    .Visible = tab == MainTab.User;
+            SetVisibleIfChanged(_workTab,     tab == MainTab.Work);
+            SetVisibleIfChanged(_workInfoTab, tab == MainTab.WorkInfo);
+            SetVisibleIfChanged(_historyTab,  tab == MainTab.History);
+            SetVisibleIfChanged(_recipeTab,   tab == MainTab.Recipe);
+            SetVisibleIfChanged(_settingsTab, tab == MainTab.Settings);
+            SetVisibleIfChanged(_userTab,     tab == MainTab.User);
 
-            btnTabWork    .Selected = tab == MainTab.Work;
-            btnTabWorkInfo.Selected = tab == MainTab.WorkInfo;
-            btnTabHistory .Selected = tab == MainTab.History;
-            btnTabRecipe  .Selected = tab == MainTab.Recipe;
-            btnTabSettings.Selected = tab == MainTab.Settings;
-            btnTabUser    .Selected = tab == MainTab.User;
+            SetSelectedIfChanged(btnTabWork,     tab == MainTab.Work);
+            SetSelectedIfChanged(btnTabWorkInfo, tab == MainTab.WorkInfo);
+            SetSelectedIfChanged(btnTabHistory,  tab == MainTab.History);
+            SetSelectedIfChanged(btnTabRecipe,   tab == MainTab.Recipe);
+            SetSelectedIfChanged(btnTabSettings, tab == MainTab.Settings);
+            SetSelectedIfChanged(btnTabUser,     tab == MainTab.User);
+
+            if (sameTab && _mainTabShown)
+                return;
 
             // Apply focus, permission, and localization to the selected tab.
             Control active = null;
@@ -1049,6 +1053,19 @@ namespace QMC.CDT_320
                 Lang.Apply(active);
                 AccessControl.Apply(active);
             }
+            _mainTabShown = true;
+        }
+
+        private static void SetVisibleIfChanged(Control control, bool visible)
+        {
+            if (control != null && control.Visible != visible)
+                control.Visible = visible;
+        }
+
+        private static void SetSelectedIfChanged(QMC.CDT_320.Ui.Controls.BottomMenuButton button, bool selected)
+        {
+            if (button != null && button.Selected != selected)
+                button.Selected = selected;
         }
 
         private void RequestApplicationExit()
@@ -1134,16 +1151,17 @@ namespace QMC.CDT_320
             if (InvokeRequired) { BeginInvoke(new Action(OnVisionHubChanged)); return; }
             // VisionHub 연결 상태를 상단 VIS 표시로 반영합니다.
             var h = QMC.CDT320.VisionComm.VisionHub.AllConnected ? "O" : "X";
-            lblBarcodeValue.Text = "VIS " + h;
-            lblBarcodeValue.ForeColor = QMC.CDT320.VisionComm.VisionHub.AllConnected
-                                            ? System.Drawing.Color.LightGreen
-                                            : System.Drawing.Color.White;
+            SetTextIfChanged(lblBarcodeValue, "VIS " + h);
+            SetForeColorIfChanged(lblBarcodeValue,
+                QMC.CDT320.VisionComm.VisionHub.AllConnected
+                    ? System.Drawing.Color.LightGreen
+                    : System.Drawing.Color.White);
         }
 
         private void RefreshStateBig()
         {
             var ms = Controller?.Status ?? QMC.CDT320.EquipmentStatus.Idle;
-            lblStateBig.Text = ms.ToString().ToUpper();
+            SetTextIfChanged(lblStateBig, FormatEquipmentStatus(ms));
             System.Drawing.Color c;
             switch (ms)
             {
@@ -1161,13 +1179,44 @@ namespace QMC.CDT_320
                 case QMC.CDT320.EquipmentStatus.Stopped:     c = System.Drawing.Color.Silver;      break;
                 default:                                   c = System.Drawing.Color.White;       break;
             }
-            lblStateBig.ForeColor = c;
+            SetForeColorIfChanged(lblStateBig, c);
+        }
+
+        private static string FormatEquipmentStatus(QMC.CDT320.EquipmentStatus status)
+        {
+            switch (status)
+            {
+                case QMC.CDT320.EquipmentStatus.AutoRunning:
+                    return "AUTO RUN";
+                case QMC.CDT320.EquipmentStatus.ManualRunning:
+                    return "MANUAL";
+                case QMC.CDT320.EquipmentStatus.CycleStopped:
+                    return "CYCLE STOP";
+                default:
+                    return status.ToString().ToUpper();
+            }
         }
 
         private void TimerClock_Tick(object sender, EventArgs e) => UpdateClock();
         private void UpdateClock()
         {
-            lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss");
+            SetTextIfChanged(lblTimeValue, DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss"));
+        }
+
+        private static void SetTextIfChanged(Control control, string text)
+        {
+            if (control == null)
+                return;
+
+            text = text ?? string.Empty;
+            if (!string.Equals(control.Text, text, StringComparison.Ordinal))
+                control.Text = text;
+        }
+
+        private static void SetForeColorIfChanged(Control control, System.Drawing.Color color)
+        {
+            if (control != null && control.ForeColor != color)
+                control.ForeColor = color;
         }
 
         private void ShowOrRestoreJogPopup(IWin32Window owner)
@@ -1251,7 +1300,8 @@ namespace QMC.CDT_320
             try
             {
                 if (Machine == null) return;
-                QMC.CDT320.Ajin.AjinAxisRegistry.GetOrderedAxes(Machine);
+                List<BaseAxis> axes = QMC.CDT320.Ajin.AjinAxisRegistry.GetOrderedAxes(Machine);
+                QMC.CDT320.Ajin.AjinFactory.ApplyPersistedAxisValues(axes);
             }
             catch (Exception ex)
             {
@@ -1323,6 +1373,8 @@ namespace QMC.CDT_320
                     AjinFactory.ApplyInputSimulation(input, true);
                 else if (dryRun)
                     AjinFactory.ApplyInputDryRun(input, true);
+                else
+                    AjinFactory.ApplyInputSimulation(input, false);
                 return;
             }
 
@@ -1332,6 +1384,8 @@ namespace QMC.CDT_320
                 if (simulation)
                     AjinFactory.ApplyOutputSimulation(output, true);
                 else if (dryRun)
+                    AjinFactory.ApplyOutputSimulation(output, false);
+                else
                     AjinFactory.ApplyOutputSimulation(output, false);
                 return;
             }
@@ -1343,6 +1397,8 @@ namespace QMC.CDT_320
                     AjinFactory.ApplyCylinderSimulation(cylinder, true);
                 else if (dryRun)
                     AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                else
+                    QMC.CDT320.Ajin.CylinderSettingsStore.Apply(cylinder);
                 return;
             }
 

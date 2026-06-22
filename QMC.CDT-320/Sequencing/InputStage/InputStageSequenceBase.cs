@@ -105,7 +105,7 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await Stage.LoadAndPrepareWaferAsync(Options.WaferId, Options.RequireMapData, Options.FineMove).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-STAGE-LOAD-PREP", Stage.Name, "Input stage load prepare failed. result=" + result);
+                    return Fail("IN-STAGE-LOAD-PREP", Stage.Name, "Input stage load prepare failed. result=" + result + BuildStageMoveFailureDetail());
             }
 
             Context.Bus.Set("InputStageLoadPrepared");
@@ -214,6 +214,24 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-STAGE-MOVE", Stage.Name, "Input stage axis move failed. axis=" + axis + ", target=" + target + ", result=" + result);
 
             return 0;
+        }
+
+        private string BuildStageMoveFailureDetail()
+        {
+            try
+            {
+                if (Stage == null || string.IsNullOrWhiteSpace(Stage.LastStageMoveFailureMessage))
+                    return string.Empty;
+
+                return ", lastStageMoveFailure=" + Stage.LastStageMoveFailureMessage;
+            }
+            catch (Exception ex)
+            {
+                return ", lastStageMoveFailure read failed. error=" + ex.Message;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target, CancellationToken ct)

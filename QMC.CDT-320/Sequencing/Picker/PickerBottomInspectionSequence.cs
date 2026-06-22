@@ -11,6 +11,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private const int VisionInspectionSettleDelayMs = 100;
 
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
@@ -24,7 +25,6 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private bool _inspectionYPositionReady;
         private SequenceResourceLease _inspectionAreaLease;
-        private SequenceResourceLease _outputPlaceAreaLease;
 
         public PickerBottomInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerBottomInspectionSequence" : "RearPickerBottomInspectionSequence")
@@ -260,16 +260,10 @@ namespace QMC.CDT320.Sequencing
                         return -1;
                 }
 
-                if (_outputPlaceAreaLease == null)
-                {
-                    _outputPlaceAreaLease = await AcquireResourceAsync(
-                        SequenceResourceKind.OutputPlaceArea,
-                        Name + ":BottomSharedRailX",
-                        ct).ConfigureAwait(false);
-                    if (_outputPlaceAreaLease == null)
-                        return -1;
-                }
-
+                // Bottom 검사는 InspectionArea만 점유한다.
+                // Output Place와는 다른 작업 존이므로 OutputPlaceArea를 함께 잡으면
+                // Rear Place 중 Front Bottom 진입 같은 정상 병렬 동작이 막힌다.
+                // 실제 축 간섭은 Picker phase gate, Picker Y zone gate, SharedRailX/Encoder 인터락이 최종 방어한다.
                 return 0;
             }
             catch (OperationCanceledException)
@@ -285,7 +279,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail(
                     "PICKER-BOTTOM-RESOURCE",
                     Name,
-                    "바텀 검사 리소스 점유 실패. InspectionArea와 OutputPlaceArea를 확인하세요. error=" + ex.Message);
+                    "바텀 검사 리소스 점유 실패. InspectionArea를 확인하세요. error=" + ex.Message);
             }
             finally
             {
@@ -350,8 +344,11 @@ namespace QMC.CDT320.Sequencing
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
+            bool wasInInspectionZone = _inspectionYPositionReady;
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
             if (!_inspectionYPositionReady &&
+                !wasInInspectionZone &&
                 !IsPickerAxisInPosition(PickerAxis.PickerY, GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
             {
                 CurrentStep = PickerBottomInspectionStep.MoveBottomYToAvoidBeforeInspection;
@@ -380,23 +377,23 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomXToInspectionAsync(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(
-                PickerAxis.PickerX,
-                _targetPickerX,
-                "bottom inspection X",
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = _targetPickerX;
+            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+                targets[PickerAxis.PickerY] = _targetPickerY;
+
+            int result = await MovePickerAxesAndVerifyAsync(
+                targets,
+                "bottom inspection X/Y",
                 ct,
                 "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
-            {
-                CurrentStep = PickerBottomInspectionStep.MoveBottomZ;
-                return 0;
-            }
-
-            // 피커 간 이동에서는 Y Avoid 복귀 없이 현재 피커의 AlignOffsetY가 반영된 Y 위치만 보정한다.
-            CurrentStep = PickerBottomInspectionStep.MoveBottomYToInspection;
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
+            CurrentStep = _inspectionYPositionReady
+                ? PickerBottomInspectionStep.MoveBottomZ
+                : PickerBottomInspectionStep.MoveBottomYToInspection;
             return 0;
         }
 
@@ -625,6 +622,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<BottomVisionOffset> RequestBottomResultAsync(CancellationToken ct)
         {
+            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
+
             if (IsSimulationOrDryRun())
                 return SimulateBottomResult();
 
@@ -670,13 +669,12 @@ namespace QMC.CDT320.Sequencing
         {
             lock (SimVisionRandomLock)
             {
-                bool ok = !Options.SimulateVisionResult || SimVisionRandom.Next(0, 20) != 0;
                 return new BottomVisionOffset
                 {
                     PickerNo = _currentPickerNo,
                     OffsetX = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
                     OffsetY = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
-                    IsOk = ok
+                    IsOk = true
                 };
             }
         }
@@ -694,12 +692,6 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ReleasePickerWorkArea();
-
-                if (_outputPlaceAreaLease != null)
-                {
-                    _outputPlaceAreaLease.Dispose();
-                    _outputPlaceAreaLease = null;
-                }
 
                 if (_inspectionAreaLease == null)
                     return;

@@ -70,6 +70,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
+        }
+
         protected override void OnHandleDestroyed(EventArgs e)
         {
             try
@@ -643,33 +649,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpSensor)),
                     IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownSensor)),
                     IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good),
-                        on => WritePairOut(unit.GoodBinGuideUpOut, unit.GoodBinGuideDownOut, on), "UP", "DOWN"),
+                        on => SetBinGuideAsync(BinSide.Good, on), "UP", "DOWN"),
 
                     // ===== GOOD BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
                     IoCylinderItem.Input("GOOD BIN CLAMP LIFT UP", () => IsOn(unit.GoodBinClampUpSensor)),
                     IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good),
-                        on => WritePairOut(unit.GoodBinClampUpOut, unit.GoodBinClampDownOut, on), "UP", "DOWN"),
+                        on => SetBinClampLiftAsync(BinSide.Good, on), "UP", "DOWN"),
 
                     // ===== GOOD BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
-                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampSensor)),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => IsOn(unit.GoodBinClampOut),
-                        on => WritePairOut(unit.GoodBinClampOut, unit.GoodBinUnclampOut, on), "CLAMP", "UNCLAMP"),
+                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => unit.IsBinGuideUnclamped(BinSide.Good)),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Good),
+                        on => SetBinClampAsync(BinSide.Good, on), "CLAMP", "UNCLAMP"),
 
                     // ===== NG BIN : SET GUIDE (Up/Down 체크 센서 + Up/Down 출력 통합) =====
                     IoCylinderItem.Input("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpSensor)),
                     IoCylinderItem.Input("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownSensor)),
                     IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng),
-                        on => WritePairOut(unit.NgBinGuideUpOut, unit.NgBinGuideDownOut, on), "UP", "DOWN"),
+                        on => SetBinGuideAsync(BinSide.Ng, on), "UP", "DOWN"),
 
                     // ===== NG BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
                     IoCylinderItem.Input("NG BIN CLAMP LIFT UP", () => IsOn(unit.NgBinClampUpSensor)),
                     IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng),
-                        on => WritePairOut(unit.NgBinClampUpOut, unit.NgBinClampDownOut, on), "UP", "DOWN"),
+                        on => SetBinClampLiftAsync(BinSide.Ng, on), "UP", "DOWN"),
 
                     // ===== NG BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
-                    IoCylinderItem.Input("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampSensor)),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => IsOn(unit.NgBinClampOut),
-                        on => WritePairOut(unit.NgBinClampOut, unit.NgBinUnclampOut, on), "CLAMP", "UNCLAMP"),
+                    IoCylinderItem.Input("NG BIN UNCLAMP", () => unit.IsBinGuideUnclamped(BinSide.Ng)),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Ng),
+                        on => SetBinClampAsync(BinSide.Ng, on), "CLAMP", "UNCLAMP"),
 
                     // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
                     IoCylinderItem.Output("BOTTOM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),

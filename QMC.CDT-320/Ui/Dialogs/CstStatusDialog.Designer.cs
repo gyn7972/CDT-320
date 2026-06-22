@@ -123,7 +123,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.lblTitle.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 14F, System.Drawing.FontStyle.Bold);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
             this.lblTitle.Text = "CASSETTE STATUS";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -173,11 +173,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.legendWorkingText.Dock = System.Windows.Forms.DockStyle.Fill;
             this.legendFinishText.Dock = System.Windows.Forms.DockStyle.Fill;
             this.legendWorkReadyText.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.legendReadyText.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.legendEmptyText.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.legendWorkingText.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.legendFinishText.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.legendWorkReadyText.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.legendReadyText.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.legendEmptyText.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.legendWorkingText.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.legendFinishText.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.legendWorkReadyText.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.legendReadyText.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.legendEmptyText.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.legendWorkingText.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -445,7 +445,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnClose.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClose.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnClose.Tag = "i18n:common.ok";
             this.btnClose.Text = "OK";
             // 

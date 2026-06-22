@@ -79,9 +79,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.SetColumnSpan(this.lblHeader, 2);
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(217, 119, 6);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
@@ -137,7 +137,7 @@
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.lblActionHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblActionHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblActionHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblActionHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblActionHeader.ForeColor = System.Drawing.Color.White;
             this.lblActionHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblActionHeader.Text = "ACTION";
@@ -168,7 +168,7 @@
             this.btnClose.Text = "CLOSE";
             this.lblResultHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblResultHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblResultHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblResultHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblResultHeader.ForeColor = System.Drawing.Color.White;
             this.lblResultHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblResultHeader.Text = "RESULT";
@@ -193,7 +193,7 @@
             this.lblDeltaXCaption.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblDeltaXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDeltaXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDeltaXCaption.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDeltaXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDeltaXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDeltaXCaption.Text = "Delta X";
             this.lblDeltaXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -207,7 +207,7 @@
             this.lblDeltaYCaption.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblDeltaYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDeltaYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDeltaYCaption.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDeltaYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDeltaYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDeltaYCaption.Text = "Delta Y";
             this.lblDeltaYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -221,7 +221,7 @@
             this.lblDeltaThetaCaption.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblDeltaThetaCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDeltaThetaCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDeltaThetaCaption.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblDeltaThetaCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblDeltaThetaCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblDeltaThetaCaption.Text = "Delta Theta";
             this.lblDeltaThetaCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -235,7 +235,7 @@
             this.lblScoreCaption.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
             this.lblScoreCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblScoreCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblScoreCaption.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.lblScoreCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblScoreCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblScoreCaption.Text = "Score";
             this.lblScoreCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -301,9 +301,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.SetColumnSpan(this.lblHeader, 2);
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(217, 119, 6);
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
@@ -311,7 +311,7 @@
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.lblListHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblListHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblListHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblListHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblListHeader.ForeColor = System.Drawing.Color.White;
             this.lblListHeader.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
             this.lblListHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
@@ -322,7 +322,7 @@
             this.lbMapFiles.Margin = new System.Windows.Forms.Padding(0, 0, 12, 0);
             this.lblMapHeader.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
             this.lblMapHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapHeader.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.lblMapHeader.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblMapHeader.ForeColor = System.Drawing.Color.White;
             this.lblMapHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblMapHeader.Text = "MAP VIEW";

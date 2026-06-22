@@ -419,7 +419,7 @@
             // btnTMinus
             // 
             this.btnTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnTMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnTMinus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnTMinus.Location = new System.Drawing.Point(7, 7);
             this.btnTMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnTMinus.Name = "btnTMinus";
@@ -431,7 +431,7 @@
             // btnYPlus
             // 
             this.btnYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnYPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnYPlus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnYPlus.Location = new System.Drawing.Point(77, 7);
             this.btnYPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnYPlus.Name = "btnYPlus";
@@ -443,7 +443,7 @@
             // btnTPlus
             // 
             this.btnTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnTPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnTPlus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnTPlus.Location = new System.Drawing.Point(147, 7);
             this.btnTPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnTPlus.Name = "btnTPlus";
@@ -455,7 +455,7 @@
             // btnZPlus
             // 
             this.btnZPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnZPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnZPlus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnZPlus.Location = new System.Drawing.Point(217, 7);
             this.btnZPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnZPlus.Name = "btnZPlus";
@@ -467,7 +467,7 @@
             // btnXMinus
             // 
             this.btnXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnXMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnXMinus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnXMinus.Location = new System.Drawing.Point(7, 75);
             this.btnXMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnXMinus.Name = "btnXMinus";
@@ -479,7 +479,7 @@
             // btnStop
             // 
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnStop.Location = new System.Drawing.Point(77, 75);
             this.btnStop.Margin = new System.Windows.Forms.Padding(4);
             this.btnStop.Name = "btnStop";
@@ -491,7 +491,7 @@
             // btnXPlus
             // 
             this.btnXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnXPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnXPlus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnXPlus.Location = new System.Drawing.Point(147, 75);
             this.btnXPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnXPlus.Name = "btnXPlus";
@@ -503,7 +503,7 @@
             // btnZMinus
             // 
             this.btnZMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnZMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnZMinus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnZMinus.Location = new System.Drawing.Point(217, 75);
             this.btnZMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnZMinus.Name = "btnZMinus";
@@ -515,7 +515,7 @@
             // btnPrevIndex
             // 
             this.btnPrevIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPrevIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnPrevIndex.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPrevIndex.Location = new System.Drawing.Point(7, 143);
             this.btnPrevIndex.Margin = new System.Windows.Forms.Padding(4);
             this.btnPrevIndex.Name = "btnPrevIndex";
@@ -527,7 +527,7 @@
             // btnYMinus
             // 
             this.btnYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnYMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnYMinus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnYMinus.Location = new System.Drawing.Point(77, 143);
             this.btnYMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnYMinus.Name = "btnYMinus";
@@ -540,7 +540,7 @@
             // 
             this.jogLayout.SetColumnSpan(this.btnNextIndex, 2);
             this.btnNextIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNextIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnNextIndex.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnNextIndex.Location = new System.Drawing.Point(147, 143);
             this.btnNextIndex.Margin = new System.Windows.Forms.Padding(4);
             this.btnNextIndex.Name = "btnNextIndex";
@@ -554,7 +554,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.ClientSize = new System.Drawing.Size(544, 361);
             this.Controls.Add(this.rootLayout);
-            this.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MinimumSize = new System.Drawing.Size(560, 400);
             this.Name = "AxisJogPopup";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;

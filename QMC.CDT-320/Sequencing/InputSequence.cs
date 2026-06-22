@@ -983,6 +983,49 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public async Task<int> ExecuteCurrentWaferUnloadingAsync(
+            CancellationToken ct,
+            bool bFine = false,
+            int moveTimeoutMs = 0,
+            SequenceStartMode startMode = SequenceStartMode.Resume)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                int slotIndex = ResolveSlotIndexFromWafer(stageWafer);
+                if (slotIndex < 0)
+                    slotIndex = ResolveProcessingInputSlot();
+
+                if (slotIndex < 0)
+                    return Fail("SEQ-IN-MANUAL-UNLOAD-SLOT", "InputSequence", "Input UNLOAD 대상 슬롯을 확인할 수 없습니다. InputStage 자재와 카세트 Processing 슬롯 상태를 확인하세요.");
+
+                return await ExecuteWaferUnloadingAsync(
+                    ct,
+                    slotIndex,
+                    bFine,
+                    moveTimeoutMs,
+                    startMode).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteCurrentWaferUnloadingAsync", "Input Manual UNLOAD가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-MANUAL-UNLOAD-EX", "InputSequence", "Input Manual UNLOAD 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> ExecuteWaferAlignAsync(
             CancellationToken ct,
             bool bFine = false,

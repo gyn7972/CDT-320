@@ -10,6 +10,16 @@ namespace QMC.CDT_320.Ui.Pages.History
 {
     public partial class AlarmHistoryPage : PageBase
     {
+        private const int MaxRows = 500;
+        private const int LiveFlushIntervalMs = 250;
+        private const int MaxLiveFlushRows = 50;
+        private const int MaxPendingLiveRows = 500;
+
+        private readonly object _pendingAlarmRowsLock = new object();
+        private readonly Queue<AlarmRecord> _pendingAlarmRows = new Queue<AlarmRecord>();
+        private readonly Timer _liveFlushTimer = new Timer();
+        private bool _alarmEventSubscribed;
+
         public AlarmHistoryPage()
         {
             InitializeComponent();
@@ -17,8 +27,6 @@ namespace QMC.CDT_320.Ui.Pages.History
 
             if (!IsDesignerMode())
             {
-                // 2초 폴링(전체 재생성) 대신 알람 발생 이벤트로 증분 갱신한다 → 선택 유지, 부하·깜빡임 제거.
-                AlarmManager.AlarmRaised += OnRaise;
                 LoadGrid();
             }
         }
@@ -31,6 +39,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             _cbSeverity.SelectedIndexChanged += (s, e) => LoadGrid();
             _tbFilter.TextChanged += (s, e) => LoadGrid();
             btnClear.Click += (s, e) => { AlarmManager.ClearAll(); LoadGrid(); };
+            _liveFlushTimer.Interval = LiveFlushIntervalMs;
+            _liveFlushTimer.Tick += (s, e) => FlushPendingAlarmRows();
         }
 
         // 전체 재생성 — 초기 로드 / 필터 변경 / Clear 같은 사용자 액션에서만 호출한다.
@@ -39,7 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             try
             {
                 var rows = new List<DataGridViewRow>();
-                foreach (var a in AlarmManager.History.Reverse().Take(500)) // 최신순
+                foreach (var a in AlarmManager.History.Reverse().Take(MaxRows)) // 최신순
                 {
                     if (!PassesFilter(a)) continue;
                     rows.Add(BuildRow(a));
@@ -115,28 +125,122 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 새 알람은 전체 재생성 없이 맨 위에 1행만 끼워넣는다 → 사용자의 선택이 유지된다.
         private void OnRaise(AlarmRecord r)
         {
-            if (InvokeRequired)
-            {
-                try { BeginInvoke(new Action<AlarmRecord>(OnRaise), r); } catch { }
+            if (r == null)
                 return;
-            }
 
+            lock (_pendingAlarmRowsLock)
+            {
+                _pendingAlarmRows.Enqueue(r);
+                while (_pendingAlarmRows.Count > MaxPendingLiveRows)
+                    _pendingAlarmRows.Dequeue();
+            }
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            UpdateAlarmEventSubscription();
+        }
+
+        private void UpdateAlarmEventSubscription()
+        {
+            if (ShouldRefreshVisible(this))
+            {
+                SubscribeAlarmEvents();
+                if (!_liveFlushTimer.Enabled)
+                    _liveFlushTimer.Start();
+            }
+            else
+            {
+                UnsubscribeAlarmEvents();
+                _liveFlushTimer.Stop();
+                ClearPendingAlarmRows();
+            }
+        }
+
+        private void SubscribeAlarmEvents()
+        {
+            if (_alarmEventSubscribed)
+                return;
+
+            AlarmManager.AlarmRaised += OnRaise;
+            _alarmEventSubscribed = true;
+        }
+
+        private void UnsubscribeAlarmEvents()
+        {
+            if (!_alarmEventSubscribed)
+                return;
+
+            AlarmManager.AlarmRaised -= OnRaise;
+            _alarmEventSubscribed = false;
+        }
+
+        private void FlushPendingAlarmRows()
+        {
+            if (!ShouldRefreshVisible(this))
+                return;
+
+            List<AlarmRecord> rows = DequeuePendingAlarmRows();
+            if (rows.Count == 0)
+                return;
+
+            var prevAutoSize = _grid.AutoSizeColumnsMode;
+            _grid.SuspendLayout();
             try
             {
-                if (!PassesFilter(r)) return;
-                _grid.Rows.Insert(0, BuildRow(r));                 // 최신이 맨 위
-                while (_grid.Rows.Count > 500)                     // 상한 유지
-                    _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+                _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                foreach (AlarmRecord row in rows)
+                {
+                    if (!PassesFilter(row))
+                        continue;
+
+                    _grid.Rows.Insert(0, BuildRow(row));           // 최신이 맨 위
+                    while (_grid.Rows.Count > MaxRows)             // 상한 유지
+                        _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+                }
+
                 UpdateCount();
             }
             catch
             {
             }
+            finally
+            {
+                _grid.AutoSizeColumnsMode = prevAutoSize;
+                _grid.ResumeLayout();
+            }
+        }
+
+        private List<AlarmRecord> DequeuePendingAlarmRows()
+        {
+            var rows = new List<AlarmRecord>();
+            lock (_pendingAlarmRowsLock)
+            {
+                while (_pendingAlarmRows.Count > 0 && rows.Count < MaxLiveFlushRows)
+                    rows.Add(_pendingAlarmRows.Dequeue());
+            }
+
+            return rows;
+        }
+
+        private void ClearPendingAlarmRows()
+        {
+            lock (_pendingAlarmRowsLock)
+            {
+                _pendingAlarmRows.Clear();
+            }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
-            try { AlarmManager.AlarmRaised -= OnRaise; } catch { }
+            try
+            {
+                UnsubscribeAlarmEvents();
+                _liveFlushTimer.Stop();
+                _liveFlushTimer.Dispose();
+            }
+            catch { }
             base.OnHandleDestroyed(e);
         }
     }

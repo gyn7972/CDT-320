@@ -66,7 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
-            this.lblHeader.Text = "계정 관리";
+            this.lblHeader.Text = "USER ACCOUNT";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // grid
@@ -79,7 +79,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.grid.BackgroundColor = System.Drawing.Color.White;
             this.gridHeaderStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             this.gridHeaderStyle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            this.gridHeaderStyle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.gridHeaderStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.gridHeaderStyle.ForeColor = System.Drawing.Color.White;
             this.grid.ColumnHeadersDefaultCellStyle = this.gridHeaderStyle;
             this.grid.ColumnHeadersHeight = 29;

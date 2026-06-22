@@ -197,16 +197,20 @@ namespace QMC.CDT320.VisionComm
     /// 여기서는 VisionHub 의 Bin 클라이언트를 활용한 "PlacementInspector" 호출 헬퍼만 제공.
     public static class BinVisionHelper
     {
-        public static async Task<bool> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
+        public static async Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
         {
             var c = VisionHub.Bin;
-            if (c == null || !c.IsConnected) return true; // 연결 안 된 경우 skip
+            if (c == null || !c.IsConnected)
+                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:BinVisionNotConnected" };
+
             try
             {
-                var r = await c.InspectAsync("PlacementInspector", slotIndex, timeoutMs);
-                return r.IsPass;
+                return await c.InspectAsync("PlacementInspector", slotIndex, timeoutMs);
             }
-            catch { return true; }
+            catch (Exception ex)
+            {
+                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:" + ex.Message };
+            }
         }
     }
 }

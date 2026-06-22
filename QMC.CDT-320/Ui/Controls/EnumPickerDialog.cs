@@ -22,7 +22,7 @@ namespace QMC.CDT_320.Ui.Controls
             MaximizeBox = false;
             ShowInTaskbar = false;
             ClientSize = new Size(360, 320);
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
 
             var list = options != null ? new List<string>(options) : new List<string>();
             SelectedValue = current ?? string.Empty;
@@ -42,7 +42,7 @@ namespace QMC.CDT_320.Ui.Controls
             var listBox = new ListBox
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+                Font = new Font("맑은 고딕", 11F, FontStyle.Bold),
                 ItemHeight = 32,
                 IntegralHeight = false,
             };

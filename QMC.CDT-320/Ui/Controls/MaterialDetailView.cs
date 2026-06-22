@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
@@ -29,6 +30,9 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler ClearDataRequested;
         public event EventHandler ClearAllDataRequested;
 
+        // 직전에 표시한 내용의 signature. 동일하면 그리드 전체 재구성을 생략한다.
+        private string _lastSignature;
+
         public MaterialDetailView()
         {
             InitializeComponent();
@@ -42,7 +46,27 @@ namespace QMC.CDT_320.Ui.Controls
 
         public void SetRows(string title, IEnumerable<MaterialDetailRow> rows)
         {
-            grpMaterialDetail.Text = string.IsNullOrEmpty(title) ? "MATERIAL" : title;
+            string normalizedTitle = string.IsNullOrEmpty(title) ? "MATERIAL" : title;
+
+            // 표시 내용이 직전과 같으면(주기적 Refresh 시 대부분) 전체 재구성을 생략한다.
+            // → 매 Tick Rows.Clear/Add 로 인한 깜빡임과 CPU 부하 제거. (값이 바뀐 경우에만 재구성)
+            List<MaterialDetailRow> rowList = null;
+            if (rows != null)
+            {
+                rowList = new List<MaterialDetailRow>();
+                foreach (var r in rows)
+                {
+                    if (r != null)
+                        rowList.Add(r);
+                }
+            }
+
+            string signature = BuildSignature(normalizedTitle, rowList);
+            if (string.Equals(signature, _lastSignature, StringComparison.Ordinal))
+                return;
+            _lastSignature = signature;
+
+            grpMaterialDetail.Text = normalizedTitle;
 
             string selectedKey = "";
             string selectedName = "";
@@ -72,10 +96,10 @@ namespace QMC.CDT_320.Ui.Controls
 
             gridMaterial.Rows.Clear();
 
-            if (rows == null)
+            if (rowList == null)
                 return;
 
-            foreach (var row in rows)
+            foreach (var row in rowList)
             {
                 if (row == null)
                     continue;
@@ -129,6 +153,26 @@ namespace QMC.CDT_320.Ui.Controls
         private static string Normalize(string value)
         {
             return string.IsNullOrEmpty(value) ? "-" : value;
+        }
+
+        /// <summary>제목 + 모든 행(Name/Value/Editable)으로 표시 내용 signature 를 만든다.</summary>
+        private static string BuildSignature(string title, List<MaterialDetailRow> rows)
+        {
+            var sb = new StringBuilder();
+            sb.Append(title ?? string.Empty).Append((char)1);
+            if (rows != null)
+            {
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    MaterialDetailRow row = rows[i];
+                    if (row == null)
+                        continue;
+                    sb.Append(Normalize(row.Name)).Append((char)2)
+                      .Append(Normalize(row.Value)).Append((char)2)
+                      .Append(row.Editable ? '1' : '0').Append((char)3);
+                }
+            }
+            return sb.ToString();
         }
 
         private void RestoreSelection(string key, string name, int columnIndex, int firstDisplayedRow)

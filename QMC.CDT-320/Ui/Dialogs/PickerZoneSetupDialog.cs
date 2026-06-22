@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -173,13 +173,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                string validationMessage;
-                if (!ValidateGridRanges(out validationMessage))
-                {
-                    MessageDialog.Show(validationMessage, "Picker Zone",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
+                // Ranges가 겹친다. 어쩔수없다.
+                //string validationMessage;
+                //if (!ValidateGridRanges(out validationMessage))
+                //{
+                //    MessageDialog.Show(validationMessage, "Picker Zone",
+                //        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                //    return;
+                //}
 
                 ApplyGridToSetup(setup);
 

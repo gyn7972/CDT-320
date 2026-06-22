@@ -64,6 +64,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
+        }
+
         /// <summary>핸들이 해제될 때 타이머와 조그 동작을 정지합니다.</summary>
         protected override void OnHandleDestroyed(EventArgs e)
         {
@@ -94,6 +100,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
                 BindParameterGridMenus();
+                BindTeachingMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
                 grpIo.ContextMenuStrip.Items.Add("Output cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
@@ -562,10 +569,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                AttachTeachMenu(lblRecipeLoadingVal, "Loading");
-                AttachTeachMenu(lblRecipeUnloadingVal, "Unloading");
+                AttachTeachMenu(lblRecipeLoadingVal, "GoodLoading");
+                AttachTeachMenu(lblRecipeUnloadingVal, "GoodUnloading");
                 AttachTeachMenu(lblRecipeAvoidVal, "Avoid");
-                AttachTeachMenu(lblRecipeFirstSlotVal, "FirstSlot");
+                AttachTeachMenu(lblRecipeFirstSlotVal, "GoodFirstSlot");
                 AttachTeachMenu(lblRecipeMappingStartVal, "MappingStart");
                 AttachTeachMenu(lblRecipeMappingEndVal, "MappingEnd");
             }
