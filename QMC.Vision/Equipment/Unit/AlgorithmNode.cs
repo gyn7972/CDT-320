@@ -127,15 +127,24 @@ namespace QMC.Vision.Modules
             try
             {
                 string path = TrainPatternPath(recipeName);
-                if (!System.IO.File.Exists(path)) { _finder.LoadTrainImage(null); return; }
-                // 고속 로드(컬러매니지먼트/검증 생략) — 학습 패턴 원본 픽셀 보존.
-                using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read))
-                using (var src = (System.Drawing.Bitmap)System.Drawing.Image.FromStream(fs, false, false))
-                    _finder.LoadTrainImage(src);   // 내부에서 clone
+                if (!System.IO.File.Exists(path))
+                {
+                    _finder.LoadTrainImage(null);
+                    LogTrain("LoadTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 없음(" + path + ") → 패턴 비움(Match 불가)");
+                    return;
+                }
+                // 작동하는 그랩(LoadImageAsGrab)과 동일하게: 바이트→MemoryStream→FromStream(기본 검증).
+                // (FromStream(fs,false,false)=검증 생략 조합은 일부 PNG 에서 "GDI+ 일반 오류" 유발.)
+                byte[] bytes = System.IO.File.ReadAllBytes(path);
+                using (var ms = new System.IO.MemoryStream(bytes))
+                using (var src = System.Drawing.Image.FromStream(ms))
+                    _finder.LoadTrainImage((System.Drawing.Bitmap)src);   // 내부에서 new Bitmap 깊은 복사
+                LogTrain("LoadTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 로드(" + path + "), 복원=" + (_finder.TrainImage != null));
             }
             catch (System.Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[FinderAlgorithm] train pattern load fail (" + StorageKey + "): " + ex.Message);
+                LogTrain("LoadTrainPattern 실패 recipe='" + recipeName + "' key='" + StorageKey + "': " + ex.Message);
             }
         }
 
@@ -146,15 +155,29 @@ namespace QMC.Vision.Modules
             {
                 string path = TrainPatternPath(recipeName);
                 var ti = _finder.TrainImage;
-                if (ti == null) { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); return; }
+                if (ti == null)
+                {
+                    if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+                    LogTrain("SaveTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → TrainImage=null → PNG 삭제/미저장(" + path + ")");
+                    return;
+                }
                 System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
                 using (var bmp = new System.Drawing.Bitmap(ti))
                     bmp.Save(path, System.Drawing.Imaging.ImageFormat.Png);
+                LogTrain("SaveTrainPattern recipe='" + recipeName + "' key='" + StorageKey + "' → PNG 저장(" + path + ")");
             }
             catch (System.Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[FinderAlgorithm] train pattern save fail (" + StorageKey + "): " + ex.Message);
+                LogTrain("SaveTrainPattern 실패 recipe='" + recipeName + "' key='" + StorageKey + "': " + ex.Message);
             }
+        }
+
+        /// <summary>학습 패턴 저장/복원 진단 로그 — Vision DataLog(EventLogger User=VISION, Code=TrainPattern).</summary>
+        private void LogTrain(string message)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "TrainPattern", message); }
+            catch { }
         }
     }
 

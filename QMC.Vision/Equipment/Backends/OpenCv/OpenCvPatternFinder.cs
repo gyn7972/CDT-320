@@ -118,8 +118,10 @@ namespace QMC.Vision.Backends.OpenCv
             int sw, sh, tw, th;
             byte[] S = ToGray(src, sr, out sw, out sh);
             byte[] T = ToGray(TrainImage, new Rectangle(0, 0, TrainImage.Width, TrainImage.Height), out tw, out th);
-            if (tw < 2 || th < 2) return MatchResult.Fail(Id, "template too small");
-            if (sw < tw || sh < th) return MatchResult.Fail(Id, "search ROI smaller than template");
+            if (tw < 2 || th < 2) return MatchResult.Fail(Id, "template too small (" + tw + "x" + th + ")");
+            if (sw < tw || sh < th) return MatchResult.Fail(Id,
+                "search " + sw + "x" + sh + " < template " + tw + "x" + th +
+                " (img " + src.Width + "x" + src.Height + ", roi @" + sr.X + "," + sr.Y + " " + sr.Width + "x" + sr.Height + ")");
 
             // 템플릿 서브샘플(속도) — 중심 기준 오프셋(ox,oy)으로 보관해 회전 샘플링에 사용.
             int tstep = Math.Max(1, Math.Min(tw, th) / 40);

@@ -59,6 +59,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblVac3;
         private Label lblVac4;
         private Label lblIonizer;
+        private GroupBox grpComm;
+        private TableLayoutPanel commLayout;
+        private Button _btnCommTest;
+        private Label _lblCommResult;
+        private ComboBox _cbVisionModule;
+        private Button _btnGrab;
+        private Label _lblGrabResult;
 
         private void InitializeComponent()
         {
@@ -115,6 +122,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.ionizerLayout = new System.Windows.Forms.TableLayoutPanel();
             this._dotIonizer = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblIonizer = new System.Windows.Forms.Label();
+            this.grpComm = new System.Windows.Forms.GroupBox();
+            this.commLayout = new System.Windows.Forms.TableLayoutPanel();
+            this._btnCommTest = new System.Windows.Forms.Button();
+            this._lblCommResult = new System.Windows.Forms.Label();
+            this._cbVisionModule = new System.Windows.Forms.ComboBox();
+            this._btnGrab = new System.Windows.Forms.Button();
+            this._lblGrabResult = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.grpButtons.SuspendLayout();
@@ -127,6 +141,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.towerLayout.SuspendLayout();
             this.grpIonizer.SuspendLayout();
             this.ionizerLayout.SuspendLayout();
+            this.grpComm.SuspendLayout();
+            this.commLayout.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -135,11 +151,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.contentLayout, 0, 1);
+            this.rootLayout.Controls.Add(this.grpComm, 0, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 2;
+            this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 360F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 160F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1400, 900);
             this.rootLayout.TabIndex = 0;
@@ -844,9 +863,105 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblIonizer.TabIndex = 1;
             this.lblIonizer.Text = "IONIZER OK";
             this.lblIonizer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // grpComm
+            //
+            this.grpComm.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpComm.Controls.Add(this.commLayout);
+            this.grpComm.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpComm.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpComm.Location = new System.Drawing.Point(11, 396);
+            this.grpComm.Margin = new System.Windows.Forms.Padding(8, 3, 8, 8);
+            this.grpComm.Name = "grpComm";
+            this.grpComm.Size = new System.Drawing.Size(1378, 149);
+            this.grpComm.TabIndex = 2;
+            this.grpComm.TabStop = false;
+            this.grpComm.Text = "VISION 통신 / 동작 테스트";
+            //
+            // commLayout
+            //
+            this.commLayout.ColumnCount = 4;
+            this.commLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 210F));
+            this.commLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
+            this.commLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
+            this.commLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.commLayout.Controls.Add(this._btnCommTest, 0, 0);
+            this.commLayout.Controls.Add(this._lblCommResult, 1, 0);
+            this.commLayout.SetColumnSpan(this._lblCommResult, 3);
+            this.commLayout.Controls.Add(this._cbVisionModule, 0, 1);
+            this.commLayout.Controls.Add(this._btnGrab, 1, 1);
+            this.commLayout.Controls.Add(this._lblGrabResult, 2, 1);
+            this.commLayout.SetColumnSpan(this._lblGrabResult, 2);
+            this.commLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.commLayout.Location = new System.Drawing.Point(3, 28);
+            this.commLayout.Name = "commLayout";
+            this.commLayout.Padding = new System.Windows.Forms.Padding(12, 10, 12, 10);
+            this.commLayout.RowCount = 2;
+            this.commLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.commLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.commLayout.Size = new System.Drawing.Size(1372, 118);
+            this.commLayout.TabIndex = 0;
+            //
+            // _btnCommTest
+            //
+            this._btnCommTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
+            this._btnCommTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnCommTest.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnCommTest.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnCommTest.ForeColor = System.Drawing.Color.White;
+            this._btnCommTest.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
+            this._btnCommTest.Name = "_btnCommTest";
+            this._btnCommTest.Size = new System.Drawing.Size(225, 44);
+            this._btnCommTest.TabIndex = 0;
+            this._btnCommTest.Text = "통신 테스트 (PING ALL)";
+            this._btnCommTest.UseVisualStyleBackColor = false;
+            //
+            // _lblCommResult
+            //
+            this._lblCommResult.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblCommResult.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblCommResult.ForeColor = System.Drawing.Color.DimGray;
+            this._lblCommResult.Location = new System.Drawing.Point(255, 12);
+            this._lblCommResult.Name = "_lblCommResult";
+            this._lblCommResult.Size = new System.Drawing.Size(1105, 56);
+            this._lblCommResult.TabIndex = 1;
+            this._lblCommResult.Text = "대기 — 버튼을 눌러 6채널 PING 테스트";
+            this._lblCommResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // _cbVisionModule
+            //
+            this._cbVisionModule.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbVisionModule.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbVisionModule.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._cbVisionModule.Margin = new System.Windows.Forms.Padding(3, 8, 12, 8);
+            this._cbVisionModule.Name = "_cbVisionModule";
+            this._cbVisionModule.TabIndex = 2;
+            //
+            // _btnGrab
+            //
+            this._btnGrab.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this._btnGrab.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnGrab.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnGrab.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnGrab.ForeColor = System.Drawing.Color.White;
+            this._btnGrab.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
+            this._btnGrab.Name = "_btnGrab";
+            this._btnGrab.TabIndex = 3;
+            this._btnGrab.Text = "GRAB";
+            this._btnGrab.UseVisualStyleBackColor = false;
+            //
+            // _lblGrabResult
+            //
+            this._lblGrabResult.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblGrabResult.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblGrabResult.ForeColor = System.Drawing.Color.DimGray;
+            this._lblGrabResult.Name = "_lblGrabResult";
+            this._lblGrabResult.TabIndex = 4;
+            this._lblGrabResult.Text = "대기 — 모듈 선택 후 GRAB(1장 그랩 요청)";
+            this._lblGrabResult.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // OperationPanelStatusPage
-            // 
+            //
             this.Controls.Add(this.rootLayout);
             this.Name = "OperationPanelStatusPage";
             this.Size = new System.Drawing.Size(1678, 900);
@@ -862,6 +977,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.towerLayout.ResumeLayout(false);
             this.grpIonizer.ResumeLayout(false);
             this.ionizerLayout.ResumeLayout(false);
+            this.grpComm.ResumeLayout(false);
+            this.commLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

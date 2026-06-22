@@ -651,6 +651,18 @@ namespace QMC.Vision.Ui.Pages
             _matchBusy = true;
             try
             {
+                // 진단 — MATCH 직전 finder 가 실제로 들고 있는 SearchRoi/이미지 크기를 Log 에 기록.
+                try
+                {
+                    var sroi = _finder.SearchRoi;
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Match",
+                        "PRE-MATCH " + (_finder.Id ?? "") +
+                        " SearchRoi center(" + (sroi?.CenterX ?? -1) + "," + (sroi?.CenterY ?? -1) + ") " +
+                        (sroi?.Width ?? -1) + "x" + (sroi?.Height ?? -1) +
+                        " | img " + img.Width + "x" + img.Height +
+                        " | TrainImage " + (_finder.TrainImage?.Width ?? -1) + "x" + (_finder.TrainImage?.Height ?? -1));
+                }
+                catch { }
                 var r = _finder.Match(img);
                 if (r.Success)
                 {
@@ -697,6 +709,10 @@ namespace QMC.Vision.Ui.Pages
 
             if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label;
             Status("[" + tag + "] " + label);
+            // NG 사유(크기 등)를 Log 탭(EventLogger)에도 남겨 진단 용이.
+            if (!ok)
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Match",
+                          (_finder?.Id ?? "") + " " + label); } catch { }
         }
 
         /// <summary>결과 그리드 Idx 재번호 — 맨 위(최신)=0, 아래로 증가.</summary>

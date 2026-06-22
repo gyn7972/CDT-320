@@ -116,7 +116,11 @@ namespace QMC.Vision.Backends.Cognex
         {
             // Cognex 학습 성공 시에만 Cognex 사용, 그 외엔 fallback
             if (image == null) return MatchResult.Fail(Id, "no image");
-            // OpenCv fallback 으로 각도 탐색 설정 동기화(Cognex 미로드/미학습 시에도 회전 매칭 일관).
+            // OpenCv fallback 으로 매칭 파라미터 동기화(Cognex 미로드/미학습 시 fallback 이 동일 설정으로 매칭).
+            // ★ SearchRoi/TrainRoi 도 반드시 동기화 — 레시피 로드는 CognexPatternFinder.SearchRoi 만 채우고
+            //    fallback.SearchRoi 는 기본값(400x300)으로 남아, 누락 시 fallback 이 엉뚱한 ROI 로 매칭(재시작 후 검출 실패).
+            _fallback.SearchRoi         = SearchRoi;
+            _fallback.TrainRoi          = TrainRoi;
             _fallback.AngleEnabled      = AngleEnabled;
             _fallback.AngleToleranceDeg = AngleToleranceDeg;
             _fallback.AngleStepDeg      = AngleStepDeg;
