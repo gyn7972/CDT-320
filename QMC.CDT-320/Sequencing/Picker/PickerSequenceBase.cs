@@ -283,6 +283,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                if (IsAlarmStopActive())
+                    return StopPickerMoveBecauseAlarmActive(description);
 
                 if (IsPickerAxisAlreadyInPosition(axis, target))
                 {
@@ -299,6 +301,10 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (yReadyResult != 0)
                     return yReadyResult;
+
+                ct.ThrowIfCancellationRequested();
+                if (IsAlarmStopActive())
+                    return StopPickerMoveBecauseAlarmActive(description);
 
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
@@ -345,6 +351,8 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 ct.ThrowIfCancellationRequested();
+                if (IsAlarmStopActive())
+                    return StopPickerMoveBecauseAlarmActive(description);
 
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     targets,
@@ -354,10 +362,18 @@ namespace QMC.CDT320.Sequencing
                 if (yReadyResult != 0)
                     return yReadyResult;
 
+                ct.ThrowIfCancellationRequested();
+                if (IsAlarmStopActive())
+                    return StopPickerMoveBecauseAlarmActive(description);
+
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
+                    ct.ThrowIfCancellationRequested();
+                    if (IsAlarmStopActive())
+                        return StopPickerMoveBecauseAlarmActive(description);
+
                     if (IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
                     {
                         WriteLog("PickerMove",
@@ -1881,7 +1897,16 @@ namespace QMC.CDT320.Sequencing
             {
                 SequenceFailureStore.Record(Name, Kind.ToString(), CurrentStep.ToString(), alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                if (IsAlarmStopActive())
+                {
+                    WriteLog(source,
+                        "이미 활성 알람이 있어 피커 후속 알람 발생을 생략합니다. code=" +
+                        alarmCode + ", message=" + message + " - Suppressed");
+                }
+                else
+                {
+                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                }
                 Context.LogPublic("[" + Name + "] FAIL " + alarmCode + " - " + message);
             }
             catch (Exception ex)
@@ -1892,6 +1917,34 @@ namespace QMC.CDT320.Sequencing
             {
             }
 
+            return -1;
+        }
+
+        private bool IsAlarmStopActive()
+        {
+            try
+            {
+                if (AlarmManager.HasActive)
+                    return true;
+
+                return Context != null &&
+                       Context.Controller != null &&
+                       Context.Controller.Status == EquipmentStatus.Alarm;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private int StopPickerMoveBecauseAlarmActive(string description)
+        {
+            WriteLog("PickerMove",
+                Name + " " + description +
+                " 이동 명령을 중단합니다. 이미 활성 알람 상태입니다. - Stopped");
             return -1;
         }
 

@@ -70,6 +70,20 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
 
+            // OutputFeederY가 Avoid 위치여야 이동 가능.
+            if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageY", out reason))
+                return false;
+
+            // OutputFeeder 상태 — 세 조건 개별 확인.
+            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                return false;
+
+            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
+                return false;
+
+            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                return false;
+
             if (stage != null &&
                 stage.GoodStage != null &&
                 !stage.IsGoodStageZInAvoidOrProcessPosition())
@@ -93,6 +107,130 @@ namespace QMC.CDT320.Interlocks
                     out reason);
 
             return VerifyOutputStageNotBusy(stage, "OutputGoodStageY", out reason);
+        }
+
+        // OutputGoodStageY 이동 전제: OutputFeederY가 Avoid 위치가 아니면 차단/알람.
+        private static bool VerifyOutputFeederYAvoidForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return true;
+
+                if (!feeder.IsBinFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying OutputFeederY avoid for " + movingName + ": " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // OutputGoodStageY 이동 전제 ①: OutputFeeder Ring Check 센서가 감지되면 차단/알람.
+        private static bool VerifyOutputFeederRingClearForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return true;
+
+                if (feeder.IsBinFeederRingCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: OutputFeeder Ring Check 센서가 감지되었습니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying OutputFeeder Ring Check for " + movingName + ": " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // OutputGoodStageY 이동 전제 ②: OutputFeeder가 Unclamp 상태가 아니면 차단/알람.
+        private static bool VerifyOutputFeederUnclampForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return true;
+
+                if (!feeder.IsBinFeederUnclamp())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: OutputFeeder가 Unclamp 상태가 아닙니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying OutputFeeder Unclamp for " + movingName + ": " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // OutputGoodStageY 이동 전제 ③: OutputFeeder Overload 센서가 감지되면 차단/알람.
+        private static bool VerifyOutputFeederOverloadClearForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return true;
+
+                if (feeder.IsFeederOverload())
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: OutputFeeder Overload 센서가 감지되었습니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying OutputFeeder Overload for " + movingName + ": " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
         }
 
         private static bool VerifyBinGoodZ(MotionGuardRuleContext request, out string reason)
@@ -120,6 +258,16 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
+            // OutputFeeder 상태 — 세 조건 개별 확인.
+            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
             return true;
         }
 
@@ -130,6 +278,20 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            // OutputFeederY가 Avoid 위치여야 이동 가능.
+            if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            // OutputFeeder 상태 — 세 조건 개별 확인.
+            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
@@ -175,6 +337,20 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             if (!VerifyOutputTransportClear(machine, "OutputNGStageY", out reason))
+                return false;
+
+            // OutputFeederY가 Avoid 위치여야 이동 가능.
+            if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputNGStageY", out reason))
+                return false;
+
+            // OutputFeeder 상태 — 세 조건 개별 확인.
+            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                return false;
+
+            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
+                return false;
+
+            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
                 return false;
 
             if (stage != null &&
@@ -270,6 +446,20 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
+                // OutputFeederY가 Avoid 위치여야 이동 가능.
+                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                // OutputFeeder 상태 — 세 조건 개별 확인.
+                if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
                 return true;
             }
             catch (System.Exception ex)
@@ -320,6 +510,20 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY",
                         "OutputNGStageY HOME blocked. NG Bin Clamp cylinder must be up.",
                         out reason);
+
+                // OutputFeederY가 Avoid 위치여야 이동 가능.
+                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                // OutputFeeder 상태 — 세 조건 개별 확인.
+                if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
 
                 return true;
             }

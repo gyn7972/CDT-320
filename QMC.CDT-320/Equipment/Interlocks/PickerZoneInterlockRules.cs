@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -519,7 +519,7 @@ namespace QMC.CDT320.Interlocks
             if (stage == null)
                 return true;
 
-            if (IsInputStageZAtAvoidOrProcess(stage))
+            if (IsInputStageZAtAvoidProcessOrReady(stage))
                 return true;
 
             return MotionGuardRuleHelpers.Block(
@@ -534,7 +534,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
-        private static bool IsInputStageZAtAvoidOrProcess(InputStageUnit stage)
+        private static bool IsInputStageZAtAvoidProcessOrReady(InputStageUnit stage)
         {
             if (stage == null || stage.ExpanderZ == null || stage.Recipe == null || stage.Recipe.WaferZ == null)
                 return false;
@@ -544,7 +544,8 @@ namespace QMC.CDT320.Interlocks
             StageAxisPositions waferZ = stage.Recipe.WaferZ;
 
             return Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
-                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance;
+                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
+                   Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
         }
 
         private static string BuildInputStageZState(InputStageUnit stage)
