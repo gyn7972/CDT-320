@@ -211,11 +211,18 @@ namespace QMC.Vision.Ui.Pages
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
             }
 
-            // 검출 모드 — 모든 웨이퍼 비전 finder 에 노출(기본 Single).
+            // 검출 모드 — AlignDie 전용 노출. 나머지 웨이퍼 finder 는 항상 Single(센터 최근접).
             //   Single = 이미지 센터 최근접 1개 검출(위치/각)
             //   Multi  = 검색ROI 내 모든 패턴 검출(멀티 서치). AlignDie 는 전체로 평균각 산출.
+            //
+            // [보류] Multi 는 현재 AlignDie 에서만 사용. 다른 finder 의 Multi 노출은 주석 처리해 둔다
+            //        (나중에 살릴 수 있음). 활성화하려면 아래 조건을 다시
+            //        "_module is WaferVisionModule" 로 넓히면 된다.
+            // if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe
+            //     && _module is QMC.Vision.Modules.WaferVisionModule)
             if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe
-                && _module is QMC.Vision.Modules.WaferVisionModule)
+                && _module is QMC.Vision.Modules.WaferVisionModule wvMod
+                && object.ReferenceEquals(_finder, wvMod.AlignDie))
             {
                 items.Add(ParameterGridItem.Selection<QMC.Vision.Modules.DieAngleMode>(
                     "검출 모드", "", ParameterGridScope.Recipe,
@@ -475,9 +482,9 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── ROI 미세조정 (기존 ROI/Finder 그대로 사용, UI 편의 추가) ──
-        private bool _roiTrainTarget = true;
-        private int  _moveStepPx = 10;
-        private int  _sizeStepPx = 10;
+        private bool   _roiTrainTarget = true;
+        private double _moveStepPx = 10.0;   // 소수 허용(미세 조정)
+        private double _sizeStepPx = 10.0;
         private Button _btnTgtTrain, _btnTgtSearch;
         private TextBox _txtMoveStep, _txtSizeStep;
         private Label  _roiInfo;
@@ -520,8 +527,8 @@ namespace QMC.Vision.Ui.Pages
 
             _txtMoveStep = new TextBox { Width = 44, Text = _moveStepPx.ToString() };
             _txtSizeStep = new TextBox { Width = 44, Text = _sizeStepPx.ToString() };
-            _txtMoveStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v; };
-            _txtSizeStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v; };
+            _txtMoveStep.TextChanged += (s, e) => { double v; if (double.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v; };
+            _txtSizeStep.TextChanged += (s, e) => { double v; if (double.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v; };
             var steps = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0, 4, 0, 0) };
             steps.Controls.Add(new Label { Text = "Move", AutoSize = true, Margin = new Padding(0, 7, 2, 0) });
             steps.Controls.Add(_txtMoveStep);
@@ -651,7 +658,7 @@ namespace QMC.Vision.Ui.Pages
             if (_roiInfo == null) return;
             var r = ActiveRoi();
             _roiInfo.Text = (r == null) ? "" :
-                $"[{(_roiTrainTarget ? "Train" : "Search")}]  Center ({r.CenterX:F0}, {r.CenterY:F0})\r\nSize ({r.Width:F0} x {r.Height:F0})";
+                $"[{(_roiTrainTarget ? "Train" : "Search")}]  Center ({r.CenterX:F1}, {r.CenterY:F1})\r\nSize ({r.Width:F1} x {r.Height:F1})";
         }
 
         private bool _matchBusy;
@@ -687,7 +694,7 @@ namespace QMC.Vision.Ui.Pages
                                             m.AngleDeg.ToString("F3"), m.Score.ToString("F3"));
                     RenumberResults();
                 }
-                ShowDetectionResult(r, "MATCH");
+                ShowDetectionResult(r, "MATCH", img);
             }
             catch (Exception ex) { Status("MATCH FAIL: " + ex.Message); }
             finally { _matchBusy = false; }
@@ -697,13 +704,13 @@ namespace QMC.Vision.Ui.Pages
         private void TryShowDetection(Bitmap img, string tag)
         {
             if (_finder == null || img == null) return;
-            try { ShowDetectionResult(_finder.Match(img), tag); }
+            try { ShowDetectionResult(_finder.Match(img), tag, img); }
             catch (Exception ex) { Status(tag + " 검출 표시 실패: " + ex.Message); }
         }
 
         /// <summary>매칭 결과를 실제 이미지에 오버레이하고 AcceptThreshold 기준 OK/NG 를 표시한다.
         /// AcceptThreshold 가 0 이하이면 게이트 없이 '검출되면 OK'로 본다.</summary>
-        private void ShowDetectionResult(MatchResult r, string tag)
+        private void ShowDetectionResult(MatchResult r, string tag, Bitmap img = null)
         {
             // 매칭 박스(검출 각도로 회전) 크기 = Train ROI(학습 패턴 크기). 없으면 점+점수만.
             double boxW = _finder?.TrainRoi?.Width  ?? 0.0;
@@ -721,12 +728,62 @@ namespace QMC.Vision.Ui.Pages
                     ? "검출 OK  score=" + score.ToString("F3") + (thr > 0 ? " (>= " + thr.ToString("F2") + ")" : " (threshold 0)")
                     : "검출 NG  score=" + score.ToString("F3") + " (< " + thr.ToString("F2") + ")";
 
-            if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label;
+            // 총 검출 개수 + 전체 각도. 검출 OK 아래 줄에 표시.
+            //   AlignDie : 격자 4θ 누적 추정기(AlignAngleEstimator) — 동일 다이 반복에 강건.
+            //              실패 시(에지 부족 등) 검출 인스턴스 평균각으로 폴백.
+            //   그 외    : 검출 인스턴스 평균각.
+            string summary = "";
+            if (found && r.Instances != null && r.Instances.Count > 0)
+            {
+                int n = r.Instances.Count;
+                double sum = 0; foreach (var m in r.Instances) sum += m.AngleDeg;
+                double avg = sum / n;
+
+                double theta = avg;
+                string src = "평균";
+                bool isAlignDie = (_module is QMC.Vision.Modules.WaferVisionModule wvm)
+                                  && object.ReferenceEquals(_finder, wvm.AlignDie);
+                if (isAlignDie && img != null)
+                {
+                    using (var crop = CropRoiRegion(img, _finder?.SearchRoi))
+                    {
+                        if (crop != null && AlignAngleEstimator.TryEstimate(crop, out double gridDeg))
+                        { theta = gridDeg; src = "격자"; }
+                    }
+                }
+                summary = "\r\n검출 " + n + "개  전체각 θ=" + theta.ToString("F3") + "° (" + src + ")";
+            }
+
+            if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label + summary;
             Status("[" + tag + "] " + label);
             // NG 사유(크기 등)를 Log 탭(EventLogger)에도 남겨 진단 용이.
             if (!ok)
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Match",
                           (_finder?.Id ?? "") + " " + label); } catch { }
+        }
+
+        /// <summary>이미지에서 ROI(축정렬 바운딩 박스) 영역을 잘라 32bpp Bitmap 으로 반환.
+        /// AlignAngleEstimator 입력용. 영역이 너무 작거나 ROI 가 없으면 null.</summary>
+        private static Bitmap CropRoiRegion(Bitmap src, Roi roi)
+        {
+            if (src == null || roi == null) return null;
+            int x = (int)Math.Round(roi.CenterX - roi.Width  / 2.0);
+            int y = (int)Math.Round(roi.CenterY - roi.Height / 2.0);
+            int w = (int)Math.Round(roi.Width);
+            int h = (int)Math.Round(roi.Height);
+            if (x < 0) { w += x; x = 0; }
+            if (y < 0) { h += y; y = 0; }
+            if (x + w > src.Width)  w = src.Width  - x;
+            if (y + h > src.Height) h = src.Height - y;
+            if (w < 8 || h < 8) return null;
+            try
+            {
+                var crop = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(crop))
+                    g.DrawImage(src, new Rectangle(0, 0, w, h), x, y, w, h, GraphicsUnit.Pixel);
+                return crop;
+            }
+            catch { return null; }
         }
 
         /// <summary>결과 그리드 Idx 재번호 — 맨 위(최신)=0, 아래로 증가.</summary>
