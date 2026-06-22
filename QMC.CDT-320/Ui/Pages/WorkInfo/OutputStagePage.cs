@@ -7,6 +7,8 @@ using System.Windows.Forms;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -27,6 +29,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
+
+            VisionModuleTestDialog.AddLaunchers(
+                actionPanel.Controls, this, btnStop,
+                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BIN", () => VisionHub.Bin, "Bin Vision"));
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) =>

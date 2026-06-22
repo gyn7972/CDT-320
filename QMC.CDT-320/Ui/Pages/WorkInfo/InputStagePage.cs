@@ -9,6 +9,8 @@ using QMC.Common.Alarms;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using QMC.CDT_320.Ui.Controls;
+using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Ui.Dialogs;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -68,8 +70,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             PlaceDieMappingAfterAlign();
             if (btnStop != null)
                 actionsLayout.Controls.Add(btnStop);
+            AddWaferVisionLauncher();
             EnsureStopButtonLast();
             AlignStopButton();
+        }
+
+        private void AddWaferVisionLauncher()
+        {
+            try
+            {
+                if (actionsLayout == null)
+                    return;
+
+                var btn = CreateActionButton("VISION: WAFER");
+                btn.Click += (s, e) => WaferVisionTestDialog.Open(this);
+                actionsLayout.Controls.Add(btn);
+
+                if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
+                    actionsLayout.Controls.SetChildIndex(btnStop, actionsLayout.Controls.Count - 1);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-VISION-LAUNCHER", "Wafer vision launcher add failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private static void ConfigureActionButtonSize(ActionButton button, int width, int height)
