@@ -344,6 +344,10 @@ namespace QMC.Common.Ui.Controls
             double ix = (e.X - before.Left) / curScale;
             double iy = (e.Y - before.Top)  / curScale;
 
+            // 편집 중인 드래그 박스 모서리를 이미지 좌표로 보존(줌 후 화면좌표로 복원) → ROI 가 줌을 따라가게.
+            double ds_ix = (_dragStart.X - before.Left) / curScale, ds_iy = (_dragStart.Y - before.Top) / curScale;
+            double dn_ix = (_dragNow.X   - before.Left) / curScale, dn_iy = (_dragNow.Y   - before.Top) / curScale;
+
             double newScale = curScale * (e.Delta > 0 ? 1.25 : 1.0 / 1.25);
             if (newScale < 0.05) newScale = 0.05;
             if (newScale > 50)   newScale = 50;
@@ -354,6 +358,15 @@ namespace QMC.Common.Ui.Controls
             int centerX = (ClientSize.Width - w) / 2, centerY = top + (availH - h) / 2;
             _panX = (float)(e.X - ix * newScale - centerX);
             _panY = (float)(e.Y - iy * newScale - centerY);
+
+            if (_editing)
+            {
+                var after = DisplayRect();
+                double asc = (double)after.Width / _frame.Width;
+                _dragStart = new Point((int)(after.Left + ds_ix * asc), (int)(after.Top + ds_iy * asc));
+                _dragNow   = new Point((int)(after.Left + dn_ix * asc), (int)(after.Top + dn_iy * asc));
+            }
+
             UpdateMagLabel();
             Invalidate();
         }

@@ -35,6 +35,10 @@ namespace QMC.Vision.Core
         /// <summary>회전 탐색 각도 스텝(deg). 작을수록 정밀·느림.</summary>
         double AngleStepDeg { get; set; }
 
+        /// <summary>true 면 매칭 결과 중 '이미지 센터에 가장 가까운' 인스턴스를 선택(최고 점수 대신).
+        /// 웨이퍼 정렬: 카메라 센터의 마크/다이를 기준으로 잡아야 하므로 켠다.</summary>
+        bool PreferNearestCenter { get; set; }
+
         /// <summary>주어진 이미지의 TrainRoi 영역을 학습 패턴으로 저장.</summary>
         void Train(Bitmap image);
 

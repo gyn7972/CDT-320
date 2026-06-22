@@ -21,13 +21,14 @@ namespace QMC.Vision.Modules
     //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
     //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
 
-    /// <summary>다이/마크 각도(θ) 산출 모드.</summary>
+    /// <summary>검출 모드 — Single(센터 최근접 1개) / Multi(검색ROI 내 전체 패턴 검출).
+    /// (구 "각도 모드". int 직렬화 유지: Single=0, Multi=1.)</summary>
     public enum DieAngleMode
     {
-        /// <summary>화면 내 가장 근접한(매칭된) 다이/마크 1개의 각도.</summary>
+        /// <summary>이미지 센터에 가장 가까운 1개만 검출(위치/각).</summary>
         Single = 0,
-        /// <summary>화면 내 다이 격자를 모두 검출해 각도 평균.</summary>
-        AverageAll = 1,
+        /// <summary>검색ROI 내 모든 패턴 검출(멀티 서치). AlignDie 는 전체로 평균각 산출.</summary>
+        Multi = 1,
     }
 
     /// <summary>알고리즘 Setup 공통 base — 검사 노드 고정 설정. (조명 컨트롤러/페이지 지정은 모듈 Setup 으로 이전)</summary>
@@ -103,7 +104,8 @@ namespace QMC.Vision.Modules
         /// <summary>학습된 패턴 모델 파일 경로(향후 백엔드 모델 직렬화 연동용, 현재 POCO-only). 비어있으면 미학습. 제품별이므로 Recipe.</summary>
         [DataMember] public string TrainModelPath { get; set; }
 
-        /// <summary>각도(θ) 산출 모드 — Single(최근접 1개) / AverageAll(격자 전체 평균). 주로 AlignDie 에 사용.</summary>
+        /// <summary>검출 모드 — Single(센터 최근접 1개) / Multi(전체 패턴 검출). 웨이퍼 finder 공통.
+        /// (필드명은 호환 위해 AngleMode 유지. AlignDie 는 Multi 일 때 전체로 평균각 산출.)</summary>
         [DataMember] public DieAngleMode AngleMode { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();

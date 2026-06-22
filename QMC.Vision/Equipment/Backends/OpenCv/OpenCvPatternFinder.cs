@@ -26,6 +26,7 @@ namespace QMC.Vision.Backends.OpenCv
         public bool   AngleEnabled      { get; set; } = false;
         public double AngleToleranceDeg { get; set; } = 10.0;
         public double AngleStepDeg      { get; set; } = 1.0;
+        public bool   PreferNearestCenter { get; set; } = false;
 
         /// <summary>각도 동점 판정 epsilon — 두 각의 NCC 차이가 이 값 이내면 0°에 가까운 각을 선호(무회전 지터 억제).</summary>
         private const double AngleTieEps = 2e-3;
@@ -208,7 +209,8 @@ namespace QMC.Vision.Backends.OpenCv
             cand.Sort((a, b) => b.Score.CompareTo(a.Score));
             double minDist = Math.Max(tw, th) * 0.5;
             int want = Math.Max(1, MaxInstances);
-            int refineK = Math.Max(want, 8);
+            // 센터 최근접 모드는 더 많은 후보(센터 근처 다이가 최고점이 아닐 수 있음)를 정밀화 대상으로 확보.
+            int refineK = PreferNearestCenter ? Math.Max(want, 32) : Math.Max(want, 8);
             var picked = new List<MatchInstance>();
             foreach (var c in cand)
             {
@@ -262,9 +264,27 @@ namespace QMC.Vision.Backends.OpenCv
                 });
             }
 
-            // 정밀 점수 내림차순 → 상위 want 개 채택(정밀화로 정확 일치 패턴이 평민 후보를 역전).
-            refined.Sort((a, b) => b.Score.CompareTo(a.Score));
             var res = new MatchResult { RoiName = Id, Success = true };
+
+            // 센터 최근접: 임계 통과 후보 중 이미지 센터에 가장 가까운 1개 선택(웨이퍼 정렬).
+            if (PreferNearestCenter && refined.Count > 0)
+            {
+                double ccx = src.Width / 2.0, ccy = src.Height / 2.0;
+                MatchInstance pick = null; double bestD = double.MaxValue;
+                foreach (var m in refined)
+                {
+                    if (AcceptThreshold > 0.0 && m.Score < AcceptThreshold) continue;
+                    double dx = m.CenterX - ccx, dy = m.CenterY - ccy, d = dx * dx + dy * dy;
+                    if (d < bestD) { bestD = d; pick = m; }
+                }
+                if (pick == null) { refined.Sort((a, b) => b.Score.CompareTo(a.Score)); pick = refined[0]; }
+                pick.Index = 0;
+                res.Instances.Add(pick);
+                return res;
+            }
+
+            // 기본: 정밀 점수 내림차순 → 상위 want 개 채택(정밀화로 정확 일치 패턴이 평민 후보를 역전).
+            refined.Sort((a, b) => b.Score.CompareTo(a.Score));
             for (int i = 0; i < refined.Count && i < want; i++)
             {
                 var m = refined[i];

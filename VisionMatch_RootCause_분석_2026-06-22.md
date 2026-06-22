@@ -79,5 +79,50 @@ PRE-MATCH(1357×1200) ≠ 실제 매칭(400×300) → 표시값과 사용값이 
 
 ---
 
+---
+
+## 6. Cognex 미사용 확정 원인 + 조치 (추가)
+
+`CognexInterop.BitmapToICogImage`는 **이미 내부에서 임시 BMP로 저장 후 `CogImageFileBMP`로 읽는다**(CognexInterop.cs:73-83). 실패는 파일 포맷이 아니라 **`CogImageFileBMP` 타입을 못 찾음**이었다.
+
+원인 확정: `CognexBackend._dllSpec`는 Core/PMAlign/Blob/Caliper/**ImageProcessing**만 로드하고, `CogImageFileBMP`가 든 **`Cognex.VisionPro.ImageFile.dll`은 로드 목록에 없었다**. (백엔드 버전 문자열의 "Im…"은 ImageProcessing.) → `BitmapToICogImage`가 타입 못 찾음 → 모든 Cognex 변환/학습 실패 → 상시 OpenCv fallback.
+
+조치(적용): `_dllSpec`와 `LoadedAssemblies`에 **`Cognex.VisionPro.ImageFile.dll`("ImageFile") 추가**. 이제 `CogImageFileBMP` 타입을 찾아 Cognex PatMax가 동작한다. (해당 DLL이 설치 폴더에 있어야 하며, 없으면 `required:false`라 무해하게 fallback 유지.)
+
+→ "Cognex이면 BMP로 저장"이 아니라, **임시 BMP는 이미 저장 중이었고 그것을 읽을 ImageFile 어셈블리 로드가 빠졌던 것**.
+
+---
+
+## 7. Cognex PatMax 검출 실패 → 해결 (Origin) ★ 최종
+
+ImageFile.dll 로드 후 Cognex 변환·재학습은 성공했으나(`Cognex 재학습 OK`), **PatMax 매칭이 found=0**으로 검출을 못 했다(이때 fallback-on-empty 안전망으로 검출은 유지). 진단 결과 원인은 **재학습 시 `Pattern.Origin` 미설정**.
+
+- `Train()`은 학습영역 중심으로 `Origin`을 설정한다(CognexPatternFinder.cs:74).
+- 복원 경로 `LoadTrainImage`는 Origin을 빠뜨려, PatMax 모델 기준점이 어긋나 매칭이 성립하지 않았다.
+
+**조치**: `LoadTrainImage` 재학습에 `Origin = 패턴 중심` 설정(Train()과 parity). → **검출 OK, score 0.992, 각도 -7° 검출**(회전까지). 진짜 Cognex PatMax 동작 확정(`MATCH → Cognex PatMax 사용 (found=1)`).
+
+부가:
+- **fallback-on-empty 안전망**: Cognex PatMax가 0개면 OpenCv fallback로 재시도(둘 다 같은 SearchRoi/TrainImage) → Cognex가 특정 케이스 실패해도 검출 보장.
+- 진단 로그 추가: `PRE-MATCH`(SearchRoi/이미지/패턴 크기), `Engine`(어느 엔진·found 수·best score), `Cognex`(재학습 성공/실패 사유). 운영 전 토글/정리 권장.
+
+---
+
+## 8. 전체 수정 체인 (요약)
+
+| # | 결함 | 조치 | 파일 |
+|---|---|---|---|
+| 1 | 학습 패턴 복원 시 `ICloneable.Clone()` 얕은복사 → 스트림 해제 후 GDI+ 오류 | `new Bitmap(src)` 깊은복사 | OpenCv/Sim/Cognex PatternFinder |
+| 2 | `ToGray` 가 8bpp 인덱스(그레이 PNG)를 `LockBits(24bpp)` → GDI+ 오류 | 32bppArgb DrawImage 정규화 | OpenCvPatternFinder |
+| 3 | 회전탐색 마진이 가장자리 타깃 제외 | 마진 제거 + 경계 클램프 | OpenCvPatternFinder |
+| 4 | Cognex finder/fallback **SearchRoi 별도 객체** — 재시작 시 fallback ROI 미동기화(기본 400×300) | Match 에서 SearchRoi/TrainRoi 동기화 | CognexPatternFinder |
+| 5 | `Cognex.VisionPro.ImageFile.dll` 미로드 → `CogImageFileBMP` 타입 못찾음 → 변환 상시 실패 | 로드 목록에 ImageFile 추가 | CognexBackend |
+| 6 | 재학습 시 `Pattern.Origin` 미설정 → PatMax 검출 실패 | LoadTrainImage 에 Origin 설정 | CognexPatternFinder |
+| — | 학습 패턴 복원이 UI 페이지에만 있어 런타임/TCP 미복원 | 노드(`FinderAlgorithm`) LoadRecipe/SaveRecipe 로 영속화 이관 | AlgorithmNode |
+
+재발 방지: ① Cognex 도구의 fallback 동기화·Origin 설정을 공통 헬퍼로 일원화 ② silent catch 금지(로그 의무) ③ Provider 표시에 실효 backend 노출.
+
+---
+
 ### 한 줄 요약
-표시되는 SearchRoi(Cognex finder)와 실제 매칭에 쓰인 SearchRoi(OpenCv fallback)가 **다른 객체**였고, Cognex 변환이 상시 실패해 **줄곧 fallback**이었는데 그 fallback ROI만 재시작 시 동기화가 빠져 있었다. 동기화 한 줄로 해결.
+"표시 객체 ≠ 사용 객체"(Cognex/ fallback 이중 상태) + Cognex 어셈블리/Origin 누락이 겹쳐, 화면은 정상인데 매칭만 틀렸다. **SearchRoi 동기화 + ImageFile 로드 + 재학습 Origin** 세 줄로 Cognex PatMax 정상화(0.992 검출).

@@ -77,6 +77,13 @@ namespace QMC.Vision.Modules
                 _finder.AngleToleranceDeg = c.AngleToleranceDeg;
                 _finder.AngleStepDeg      = c.AngleStepDeg;
             }
+            // 검출 모드(레시피 AngleMode) → finder: Single=센터 최근접 1개 / Multi=전체(점수 상위 다수).
+            if (Recipe is FinderAlgoRecipe rm)
+            {
+                bool single = (rm.AngleMode == DieAngleMode.Single);
+                _finder.PreferNearestCenter = single;
+                _finder.MaxInstances = single ? 1 : System.Math.Max(_finder.MaxInstances, 64);
+            }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_finder is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
         }

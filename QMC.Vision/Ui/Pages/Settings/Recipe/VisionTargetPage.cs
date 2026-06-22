@@ -211,18 +211,30 @@ namespace QMC.Vision.Ui.Pages
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
             }
 
-            // 각도(θ) 산출 모드 — 웨이퍼 비전의 'AlignDie'(얼라인 다이) 도구에서만 노출.
-            //   Single     = 다이 하나만 얼라인(최근접 매칭 각도)
-            //   AverageAll = 화면 내 다이 격자 전체를 얼라인해 평균각 사용
-            // 다른 모듈/도구(Reticle·Die·DieEdge 등)는 각도 평균 개념이 없으므로 표시하지 않는다.
+            // 검출 모드 — 모든 웨이퍼 비전 finder 에 노출(기본 Single).
+            //   Single = 이미지 센터 최근접 1개 검출(위치/각)
+            //   Multi  = 검색ROI 내 모든 패턴 검출(멀티 서치). AlignDie 는 전체로 평균각 산출.
             if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe
-                && _module is QMC.Vision.Modules.WaferVisionModule wm
-                && ReferenceEquals(_finder, wm.AlignDie))
+                && _module is QMC.Vision.Modules.WaferVisionModule)
             {
                 items.Add(ParameterGridItem.Selection<QMC.Vision.Modules.DieAngleMode>(
-                    "각도(θ) 모드", "", ParameterGridScope.Recipe,
+                    "검출 모드", "", ParameterGridScope.Recipe,
                     () => (_node.Recipe as QMC.Vision.Modules.FinderAlgoRecipe)?.AngleMode ?? QMC.Vision.Modules.DieAngleMode.Single,
-                    v => { if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe fr) { fr.AngleMode = v; MarkDirty(); } }));
+                    v =>
+                    {
+                        if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe fr)
+                        {
+                            fr.AngleMode = v;
+                            // 런타임 finder 에 즉시 반영(Single=센터 1개 / Multi=전체 다수).
+                            if (_finder != null)
+                            {
+                                bool single = (v == QMC.Vision.Modules.DieAngleMode.Single);
+                                _finder.PreferNearestCenter = single;
+                                _finder.MaxInstances = single ? 1 : System.Math.Max(_finder.MaxInstances, 64);
+                            }
+                            MarkDirty();
+                        }
+                    }));
             }
         }
 
@@ -338,7 +350,9 @@ namespace QMC.Vision.Ui.Pages
             if (_finder == null) return;
             if (which == "Search") _finder.SearchRoi = roi;
             else if (which == "Train") _finder.TrainRoi = roi;
-            Status($"{which} ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}");
+            // 주의: Train ROI 변경은 영역만 바뀐다. 패턴(TrainImage/train.png)은 TRAIN 을 눌러야 갱신된다.
+            Status($"{which} ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}"
+                   + (which == "Train" ? "  (패턴 갱신은 TRAIN 필요)" : ""));
             _params.RefreshValues();
             SetTarget(which == "Train");   // ROI 패드 대상/표시/오버레이 동기화
             MarkDirty();
@@ -502,7 +516,7 @@ namespace QMC.Vision.Ui.Pages
             _btnTgtTrain  = RoiFlow("Train ROI",  (s, e) => SetTarget(true),  96);
             _btnTgtSearch = RoiFlow("Search ROI", (s, e) => SetTarget(false), 96);
             var tgt = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0) };
-            tgt.Controls.Add(_btnTgtTrain); tgt.Controls.Add(_btnTgtSearch);
+            tgt.Controls.Add(_btnTgtSearch); tgt.Controls.Add(_btnTgtTrain);   // 위치 교체: Search(좌) / Train(우)
 
             _txtMoveStep = new TextBox { Width = 44, Text = _moveStepPx.ToString() };
             _txtSizeStep = new TextBox { Width = 44, Text = _sizeStepPx.ToString() };
@@ -722,7 +736,17 @@ namespace QMC.Vision.Ui.Pages
                 _result.Rows[i].Cells[0].Value = i;
         }
 
-        private void OnClearResultClick(object sender, EventArgs e) => _result.Rows.Clear();
+        private void OnClearResultClick(object sender, EventArgs e)
+        {
+            _result.Rows.Clear();
+            // 그리드뿐 아니라 카메라 오버레이(노란 ROI 박스 + 매칭 마크 + 판정 텍스트)도 함께 제거.
+            if (_cam != null)
+            {
+                _cam.SetOverlay((Roi)null, (MatchResult)null);
+                try { _cam.ClearDetectOverlay(); } catch { }
+                _cam.InfoText = string.Empty;
+            }
+        }
 
         // ── 측정(Measure) — 토글 ──
         private bool _measureOn;
@@ -787,6 +811,9 @@ namespace QMC.Vision.Ui.Pages
         private void BeginEditRoi(bool isSearch)
         {
             if (_finder == null) { Status("ERR: finder not bound"); return; }
+            // ROI 제어 대상/표시(크기·nudge)도 편집 대상에 맞춘다 — EDIT SEARCH→Search, EDIT TRAIN→Train.
+            // (안 맞추면 직전 대상의 크기가 표시되는 불일치 발생.)
+            SetTarget(!isSearch);
             _cam.BeginRoiDrag(isSearch ? "Search" : "Train", isSearch ? _finder.SearchRoi : _finder.TrainRoi);
             Status($"Drag a rectangle on the image to set {(isSearch ? "SEARCH" : "TRAIN")} ROI…");
         }

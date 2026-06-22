@@ -16,6 +16,7 @@ namespace QMC.Vision.Backends.Sim
         public bool   AngleEnabled      { get; set; } = false;
         public double AngleToleranceDeg { get; set; } = 10.0;
         public double AngleStepDeg      { get; set; } = 1.0;
+        public bool   PreferNearestCenter { get; set; } = false;
 
         private readonly Random _rnd = new Random();
 

@@ -46,10 +46,10 @@ namespace QMC.Vision.Core
                     VisionScale.ConvertPosition(scale, vec, g.Width, g.Height, b.CenterX, b.CenterY, out xOut, out yOut);
                 }
 
-                // θ 산출 모드 — AverageAll 이면 격자 전체 평균각으로 r 대체(Single=최근접 매칭 각도 b.AngleDeg).
+                // θ 산출 모드 — Multi 이면 격자 전체 평균각으로 r 대체(Single=최근접 매칭 각도 b.AngleDeg).
                 double rOut = b.AngleDeg;
                 var node = m.GetAlgorithm(finderId);
-                if (node?.Recipe is FinderAlgoRecipe fr && fr.AngleMode == DieAngleMode.AverageAll)
+                if (node?.Recipe is FinderAlgoRecipe fr && fr.AngleMode == DieAngleMode.Multi)
                 {
                     if (AlignAngleEstimator.TryEstimate(g.Image, out double avgDeg))
                         rOut = avgDeg;
