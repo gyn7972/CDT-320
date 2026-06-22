@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;

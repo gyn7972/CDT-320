@@ -609,10 +609,7 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederRingCheck()
         {
-            if (IsWaferFeederSimulationOrDryRun())
-                return HasWaferOnFeeder();
-
-            return WaferFeederRingCheckSensor.IsOn;
+            return IsWaferFeederRingDetected(false);
         }
 
         public bool IsWaferFeederRingDetected(bool expected = true)
