@@ -375,7 +375,6 @@ namespace QMC.CDT320.Sequencing
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
 
-            bool wasInInspectionZone = _inspectionYPositionReady;
             bool xPositionReady = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
@@ -387,13 +386,7 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            if (_inspectionYPositionReady || wasInInspectionZone)
-            {
-                CurrentStep = PickerSideInspectionStep.MoveSideXToInspection;
-                return 0;
-            }
-
-            if (!IsPickerYAtAvoidPosition())
+            if (!IsCurrentPickerXInSideZone() && !IsPickerYAtXZoneMoveSafePosition())
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
                 return 0;
@@ -422,9 +415,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideXToInspectionAsync(CancellationToken ct)
         {
+            bool currentXInSideZone = IsCurrentPickerXInSideZone();
+            if (!currentXInSideZone && !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX) && !IsPickerYAtXZoneMoveSafePosition())
+                return await MoveSideEntryYToAvoidAsync(ct).ConfigureAwait(false);
+
+            bool canKeepInspectionY = currentXInSideZone || IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
-            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+            if (canKeepInspectionY && (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY)))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
             int result = await MovePickerAxesAndVerifyAsync(
@@ -470,6 +468,17 @@ namespace QMC.CDT320.Sequencing
         {
             double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
             return IsPickerAxisInPosition(PickerAxis.PickerY, target);
+        }
+
+        private bool IsPickerYAtXZoneMoveSafePosition()
+        {
+            return IsPickerYAtAvoidPosition() || IsPickerAxisInPosition(PickerAxis.PickerY, 0.0);
+        }
+
+        private bool IsCurrentPickerXInSideZone()
+        {
+            return PickerZoneInterlockRules.GetPickerCurrentXZone(Context != null ? Context.Machine : null, Side == PickerSequenceSide.Front) ==
+                PickerWorkZone.Side;
         }
 
         private async Task<int> MoveSideZAsync(CancellationToken ct)

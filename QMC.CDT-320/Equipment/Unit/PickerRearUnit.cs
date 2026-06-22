@@ -7,6 +7,7 @@ using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -57,6 +58,67 @@ namespace QMC.CDT320
         [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending;
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
+        [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig();
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ PrePick Distance")]
+        public double PickUpPickerZPrePickDistance { get { return EnsurePickUpConfig().PickerZPrePickDistance; } set { EnsurePickUpConfig().PickerZPrePickDistance = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Approach Velocity")]
+        public double PickUpPickerZApproachVelocity { get { return EnsurePickUpConfig().PickerZSlowApproachVelocity; } set { EnsurePickUpConfig().PickerZSlowApproachVelocity = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Approach Acc")]
+        public double PickUpPickerZApproachAcc { get { return EnsurePickUpConfig().PickerZSlowApproachAcceleration; } set { EnsurePickUpConfig().PickerZSlowApproachAcceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Approach Dec")]
+        public double PickUpPickerZApproachDec { get { return EnsurePickUpConfig().PickerZSlowApproachDeceleration; } set { EnsurePickUpConfig().PickerZSlowApproachDeceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Sync Lift Distance")]
+        public double PickUpPickerZSyncLiftDistance { get { return EnsurePickUpConfig().PickerZSyncLiftDistance; } set { EnsurePickUpConfig().PickerZSyncLiftDistance = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Sync Lift Velocity")]
+        public double PickUpPickerZSyncLiftVelocity { get { return EnsurePickUpConfig().PickerZSyncLiftVelocity; } set { EnsurePickUpConfig().PickerZSyncLiftVelocity = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Sync Lift Acc")]
+        public double PickUpPickerZSyncLiftAcc { get { return EnsurePickUpConfig().PickerZSyncLiftAcceleration; } set { EnsurePickUpConfig().PickerZSyncLiftAcceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Sync Lift Dec")]
+        public double PickUpPickerZSyncLiftDec { get { return EnsurePickUpConfig().PickerZSyncLiftDeceleration; } set { EnsurePickUpConfig().PickerZSyncLiftDeceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Separate Distance")]
+        public double PickUpPickerZSeparateDistance { get { return EnsurePickUpConfig().PickerZSeparateDistance; } set { EnsurePickUpConfig().PickerZSeparateDistance = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Separate Velocity")]
+        public double PickUpPickerZSeparateVelocity { get { return EnsurePickUpConfig().PickerZSeparateVelocity; } set { EnsurePickUpConfig().PickerZSeparateVelocity = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Separate Acc")]
+        public double PickUpPickerZSeparateAcc { get { return EnsurePickUpConfig().PickerZSeparateAcceleration; } set { EnsurePickUpConfig().PickerZSeparateAcceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp PickerZ Separate Dec")]
+        public double PickUpPickerZSeparateDec { get { return EnsurePickUpConfig().PickerZSeparateDeceleration; } set { EnsurePickUpConfig().PickerZSeparateDeceleration = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp Separate Mode")]
+        public PickerPickUpSeparateMode PickUpSeparateMode { get { return EnsurePickUpConfig().SeparateMode; } set { EnsurePickUpConfig().SeparateMode = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp Vacuum Before Pick Delay Ms")]
+        public int PickUpVacuumOnBeforePickDelayMs { get { return EnsurePickUpConfig().VacuumOnBeforePickDelayMs; } set { EnsurePickUpConfig().VacuumOnBeforePickDelayMs = value; } }
+
+        [Category("PickUp")]
+        [DisplayName("PickUp Settle Ms")]
+        public int PickUpSettleMs { get { return EnsurePickUpConfig().PickSettleMs; } set { EnsurePickUpConfig().PickSettleMs = value; } }
 
         public bool IsSimulationMode
         {
@@ -90,6 +152,17 @@ namespace QMC.CDT320
                 UsePicker = next;
             }
 
+            if (PickUp == null)
+                PickUp = new PickerPickUpMotionConfig();
+            PickUp.Ensure();
+        }
+
+        private PickerPickUpMotionConfig EnsurePickUpConfig()
+        {
+            if (PickUp == null)
+                PickUp = new PickerPickUpMotionConfig();
+            PickUp.Ensure();
+            return PickUp;
         }
     }
 
@@ -609,6 +682,16 @@ namespace QMC.CDT320
             return await MovePickerAxisCommandNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
         }
 
+        public async Task<int> MovePickerAxisCommandWithVelocity(PickerAxis axis, double targetPos, double velocity, string targetName)
+        {
+            return await MovePickerAxisCommandNamed(axis, targetPos, velocity, 0.0, 0.0, targetName).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxisCommandWithMotion(PickerAxis axis, double targetPos, double velocity, double acceleration, double deceleration, string targetName)
+        {
+            return await MovePickerAxisCommandNamed(axis, targetPos, velocity, acceleration, deceleration, targetName).ConfigureAwait(false);
+        }
+
         private async Task<int> MovePickerAxisCommandNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             try
@@ -632,6 +715,81 @@ namespace QMC.CDT320
                     else
                     {
                         result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                    }
+
+                    if (result != 0 || item.IsAlarm)
+                        return RaisePickerAlarm("PK-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-MOVE-EX", axis + " 이동 명령 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerAxisCommandNamed(PickerAxis axis, double targetPos, double velocity, double acceleration, double deceleration, string targetName)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                if (!CheckPickerAxisMoveReady(axis))
+                    return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
+
+                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos + ", velocity=" + velocity);
+                int result;
+                string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+                {
+                    double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
+                    double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
+                    bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                    if (!string.IsNullOrWhiteSpace(guardTargetName))
+                    {
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
+                        {
+                            try
+                            {
+                                if (useCustomAccel)
+                                {
+                                    item.Config.Acceleration = acceleration;
+                                    item.Config.Deceleration = deceleration;
+                                }
+                                result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                if (useCustomAccel)
+                                {
+                                    item.Config.Acceleration = oldAcceleration;
+                                    item.Config.Deceleration = oldDeceleration;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            if (useCustomAccel)
+                            {
+                                item.Config.Acceleration = acceleration;
+                                item.Config.Deceleration = deceleration;
+                            }
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            if (useCustomAccel)
+                            {
+                                item.Config.Acceleration = oldAcceleration;
+                                item.Config.Deceleration = oldDeceleration;
+                            }
+                        }
                     }
 
                     if (result != 0 || item.IsAlarm)
@@ -1499,17 +1657,6 @@ namespace QMC.CDT320
                         return result;
                 }
 
-                if (axes.ContainsKey(PickerAxis.PickerX))
-                {
-                    result = await MovePickerAxisNamed(
-                        PickerAxis.PickerX,
-                        GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
-                        bFine,
-                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
-
                 Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
                 AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT0);
                 AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT1);
@@ -1522,6 +1669,17 @@ namespace QMC.CDT320
                     "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 foreach (PickerAxis axis in axes.Keys)
                 {

@@ -581,16 +581,21 @@ namespace QMC.CDT320
             foreach (var ax in EnumerateAxes())
             {
                 try { ax.UpdateStatus(); } catch { }
+                bool ignoreAxisAlarmForRuntimeState =
+                    AppSettingsStore.Current != null &&
+                    AppSettingsStore.Current.SimulationMode &&
+                    ax.Config != null &&
+                    ax.Config.IsSimulationMode;
                 state.Axes.Add(new MachineAxisRuntimeState
                 {
                     Name = ax.Name,
                     IsServoOn = ax.IsServoOn,
-                    IsAlarm = ax.IsAlarm,
+                    IsAlarm = ignoreAxisAlarmForRuntimeState ? false : ax.IsAlarm,
                     IsHomeDone = ax.IsHomeDone,
-                    IsInPosition = ax.IsInPosition,
+                    IsInPosition = ignoreAxisAlarmForRuntimeState ? true : ax.IsInPosition,
                     ActualPosition = ax.ActualPosition,
                     CommandPosition = ax.CommandPosition,
-                    AlarmCode = ax.AlarmCode
+                    AlarmCode = ignoreAxisAlarmForRuntimeState ? 0 : ax.AlarmCode
                 });
             }
 
@@ -1061,6 +1066,9 @@ namespace QMC.CDT320
                 if (_isMachineInitialized)
                     return true;
 
+                if (TryRecoverMachineInitializedFromAxisState(source))
+                    return true;
+
                 LastActionFailureMessage = "장비 초기화가 완료되지 않았습니다. INIT 후 START를 수행하세요.";
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Run failed: machine is not initialized. - Failed");
@@ -1076,6 +1084,91 @@ namespace QMC.CDT320
                     "Run initialized check failed: " + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, "START-INIT-CHECK", "MachineController",
                     "장비 초기화 상태 확인 실패. " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryRecoverMachineInitializedFromAxisState(string reason)
+        {
+            try
+            {
+                if (_isMachineInitialized)
+                    return true;
+
+                string notReadyReason;
+                if (!AreAllAxesInitializedAndReady(out notReadyReason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineInitializedRecover",
+                        "Machine initialized state recover skipped. reason=" + reason +
+                        ", notReady=" + notReadyReason + " - Check");
+                    return false;
+                }
+
+                SetMachineInitialized(true, "RecoveredByAxisState:" + reason, true);
+                if (_status == EquipmentStatus.Stopped || _status == EquipmentStatus.Idle)
+                    SetStatus(EquipmentStatus.Ready);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineInitializedRecover",
+                    "Machine initialized state recovered by axis state. reason=" + reason + " - Ok");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineInitializedRecover",
+                    "Machine initialized state recover failed. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool AreAllAxesInitializedAndReady(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                foreach (var axis in EnumerateAxes())
+                {
+                    if (axis == null)
+                        continue;
+
+                    try { axis.UpdateStatus(); } catch { }
+
+                    if (!axis.IsServoOn)
+                    {
+                        reason = axis.Name + " Servo OFF";
+                        return false;
+                    }
+
+                    if (axis.IsAlarm)
+                    {
+                        reason = axis.Name + " Alarm ON";
+                        return false;
+                    }
+
+                    if (!axis.IsHomeDone)
+                    {
+                        reason = axis.Name + " Home 미완료";
+                        return false;
+                    }
+
+                    if (axis.IsMoving)
+                    {
+                        reason = axis.Name + " 이동 중";
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = ex.Message;
                 return false;
             }
             finally
@@ -1467,8 +1560,8 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>RESET ALARM ??紐⑤뱺 異??뚮엺 由ъ뀑 + AlarmManager ?쒖꽦 ?뚮엺 ?댁젣.
-        /// ?덉쟾 ?뺤씤 ???몄텧. ?뚮엺 ?곹깭???뚮쭔 ?섎? ?덉쓬.</summary>
+        /// <summary>RESET ALARM: 모든 축 알람 리셋 + AlarmManager 활성 알람 해제.
+        /// 알람 해제 후 전체 축이 정상 상태이면 총괄 초기화 상태를 복구한다.</summary>
         public Task ResetAlarmAsync()
         {
             Log("[RESET-ALARM] Alarm reset start...");
@@ -1487,6 +1580,8 @@ namespace QMC.CDT320
 
                 // 알람 해제 후에는 장비가 자동으로 대기/가동 상태가 된 것이 아니므로 Stopped로 둔다.
                 if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Stopped);
+
+                TryRecoverMachineInitializedFromAxisState("ResetAlarm");
 
                 // Tower Lamp OFF (?뚮엺 ?댁젣)
                 try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
@@ -1769,6 +1864,7 @@ namespace QMC.CDT320
                     return result;
                 }
 
+                TryRecoverMachineInitializedFromAxisState("InitializeAxis:" + axis.Name);
                 SaveMachineRuntimeState("InitializeAxis:" + axis.Name);
                 SetStatus(EquipmentStatus.Idle);
                 return 0;
@@ -1823,6 +1919,7 @@ namespace QMC.CDT320
                     return initResult;
                 }
 
+                TryRecoverMachineInitializedFromAxisState("InitializeAxisGroup:" + groupName);
                 SaveMachineRuntimeState("InitializeAxisGroup:" + groupName);
                 SetStatus(EquipmentStatus.Idle);
                 return 0;
@@ -5886,6 +5983,82 @@ namespace QMC.CDT320
             {
                 LastActionFailureMessage = "Picker Manual 공정 실행 중 예외가 발생했습니다. " + ex.Message;
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>Manual Sequence Dialog에서 PickUp Z 세부 모션만 단독 테스트합니다. Material/DieMap 상태는 변경하지 않습니다.</summary>
+        public async Task<int> RunManualPickerPickUpZMotionTestAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 PickUp Z 단독 테스트를 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-Z-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 PickUp Z 단독 테스트를 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 PickUp Z 단독 테스트를 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-Z-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunManualPickerPickUpZMotionTestAsync"))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (EnterManualOperation())
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+                    var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.PickerNo = pickerNo;
+
+                    int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
+                        .RunManualZMotionOnlyAsync(pickerNo, ManualOperationToken, options).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = "PickUp Z 단독 테스트 실패. side=" + side + ", pickerNo=" + pickerNo + ", result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState("ManualPickerPickUpZMotionTest:" + side + ":" + pickerNo);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "PickUp Z 단독 테스트가 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "PickUp Z 단독 테스트 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-Z-EX", "MachineController", LastActionFailureMessage);
                 SetStatus(EquipmentStatus.Alarm);
                 return -1;
             }

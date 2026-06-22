@@ -43,7 +43,7 @@ namespace QMC.CDT320.Sequencing
 
                     // 대상 사이드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetSide:
-                        return Task.FromResult(CheckTargetSide());
+                        return CheckTargetSideAsync(ct);
 
                     // 대상 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid:
@@ -74,12 +74,18 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CheckTargetSide()
+        private async Task<int> CheckTargetSideAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (Options.Side != BinSide.Good && Options.Side != BinSide.Ng)
                     return Fail("OUT-STAGE-SIDE", Name, "Invalid output stage side: " + Options.Side);
+
+                int pickerReady = await WaitPickersClearForOutputTransportAsync("OutputStage Unload 준비", ct).ConfigureAwait(false);
+                if (pickerReady != 0)
+                    return pickerReady;
 
                 CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid;
                 return 0;

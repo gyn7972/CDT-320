@@ -91,6 +91,11 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.ResourceTimeoutMs > 0 ? Options.ResourceTimeoutMs : 30000;
         }
 
+        protected void SetOptionsForManualOperation(PickerSequenceOptions options)
+        {
+            Options = options ?? PickerSequenceOptions.Default();
+        }
+
         protected void SaveRuntimeState(string reason)
         {
             try
@@ -1211,6 +1216,20 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName);
             return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName);
+        }
+
+        protected Task<int> MovePickerAxisCommandWithVelocityAsync(PickerAxis axis, double target, double velocity, string targetName = null)
+        {
+            if (Side == PickerSequenceSide.Front)
+                return FrontPicker.MovePickerAxisCommandWithVelocity(axis, target, velocity, targetName);
+            return RearPicker.MovePickerAxisCommandWithVelocity(axis, target, velocity, targetName);
+        }
+
+        protected Task<int> MovePickerAxisCommandWithMotionAsync(PickerAxis axis, double target, double velocity, double acceleration, double deceleration, string targetName = null)
+        {
+            if (Side == PickerSequenceSide.Front)
+                return FrontPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
+            return RearPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
         }
 
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)

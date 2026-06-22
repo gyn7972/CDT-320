@@ -201,21 +201,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     AddPositionItem(optionItems, tzKeys[i], tzNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], tzUnits[i], tzNames[i], gk);
             }
 
-            // ===== CONFIG (그룹 없이 펼친 상태로 표시) =====
-            optionItems.Add(ParameterGridItem.Bool("REAR PICKER USE", ParameterGridScope.Config, () => unit.Config.UseUnit, v => unit.Config.UseUnit = v));
-            optionItems.Add(ParameterGridItem.Selection("RUN ORDER MODE", "mode", ParameterGridScope.Config, () => unit.Config.RunOrderMode, v => unit.Config.RunOrderMode = v));
-            optionItems.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
-            AddPickerConfigItems(optionItems);
+            const string pickerSettingGroup = "K_PICKER_SETTING";
+            optionItems.Add(ParameterGridItem.Header("PICKER SETTING", pickerSettingGroup));
+            optionItems.Add(InGroup(ParameterGridItem.Bool("REAR PICKER USE", ParameterGridScope.Config, () => unit.Config.UseUnit, v => unit.Config.UseUnit = v), pickerSettingGroup));
+            optionItems.Add(InGroup(ParameterGridItem.Selection("RUN ORDER MODE", "mode", ParameterGridScope.Config, () => unit.Config.RunOrderMode, v => unit.Config.RunOrderMode = v), pickerSettingGroup));
+            optionItems.Add(InGroup(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v), pickerSettingGroup));
+            AddPickerConfigItems(optionItems, pickerSettingGroup);
 
-            // ===== SETUP (그룹 없이 펼친 상태로 표시) =====
-            optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
-            optionItems.Add(AxisDouble("INPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset, v => unit.Setup.InputSafetyOffset = v));
-            optionItems.Add(AxisDouble("OUTPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset, v => unit.Setup.OutputSafetyOffset = v));
-            optionItems.Add(AxisDouble("PICKER Y FACING X CLEARANCE", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerYFacingXClearance, v => unit.Setup.PickerYFacingXClearance = Math.Max(0.0, v)));
-            optionItems.Add(AxisDouble("PICKER PITCH X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchX, v => unit.Setup.PickerPitchX = v));
-            optionItems.Add(AxisDouble("PICKER PITCH Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchY, v => unit.Setup.PickerPitchY = v));
-            AddVisionPickerOffsetItems(optionItems, "INPUT VISION", unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY);
-            AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", unit.Setup.OutputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY);
+            const string pickUpSettingGroup = "K_PICKUP_SETTING";
+            optionItems.Add(ParameterGridItem.Header("PICKUP SETTING", pickUpSettingGroup));
+            AddPickUpSettingItems(optionItems, pickUpSettingGroup);
+
+            const string safetySettingGroup = "K_SAFETY_SETTING";
+            optionItems.Add(ParameterGridItem.Header("SAFETY SETTING", safetySettingGroup));
+            optionItems.Add(InGroup(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v), safetySettingGroup));
+            optionItems.Add(InGroup(AxisDouble("INPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset, v => unit.Setup.InputSafetyOffset = v), safetySettingGroup));
+            optionItems.Add(InGroup(AxisDouble("OUTPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset, v => unit.Setup.OutputSafetyOffset = v), safetySettingGroup));
+            optionItems.Add(InGroup(AxisDouble("PICKER Y FACING X CLEARANCE", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerYFacingXClearance, v => unit.Setup.PickerYFacingXClearance = Math.Max(0.0, v)), safetySettingGroup));
+            optionItems.Add(InGroup(AxisDouble("PICKER PITCH X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchX, v => unit.Setup.PickerPitchX = v), safetySettingGroup));
+            optionItems.Add(InGroup(AxisDouble("PICKER PITCH Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchY, v => unit.Setup.PickerPitchY = v), safetySettingGroup));
+
+            const string visionOffsetGroup = "K_VISION_OFFSET_SETTING";
+            optionItems.Add(ParameterGridItem.Header("VISION OFFSET SETTING", visionOffsetGroup));
+            AddVisionPickerOffsetItems(optionItems, "INPUT VISION", unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
+            AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", unit.Setup.OutputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY, visionOffsetGroup);
 
             optionParameterGrid.SetItems(optionItems);
 
@@ -227,14 +236,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             });
         }
 
-        private void AddPickerConfigItems(List<ParameterGridItem> items)
+        private void AddPickerConfigItems(List<ParameterGridItem> items, string groupKey)
         {
             for (int i = 0; i < 4; i++)
             {
                 int index = i;
                 string name = "PICKER " + (index + 1);
-                items.Add(ParameterGridItem.Bool(name + " USE", ParameterGridScope.Config, () => unit.Config.UsePicker[index], v => unit.Config.UsePicker[index] = v));
+                items.Add(InGroup(ParameterGridItem.Bool(name + " USE", ParameterGridScope.Config, () => unit.Config.UsePicker[index], v => unit.Config.UsePicker[index] = v), groupKey));
             }
+        }
+
+        private void AddPickUpSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            PickerPickUpMotionConfig pickUp = unit.Config.PickUp;
+            if (pickUp == null)
+                unit.Config.PickUp = pickUp = new PickerPickUpMotionConfig();
+
+            pickUp.Ensure();
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDistance, v => pickUp.PickerZSyncLiftDistance = Math.Max(0.0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT VELOCITY", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftVelocity, v => pickUp.PickerZSyncLiftVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftAcceleration, v => pickUp.PickerZSyncLiftAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 100.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDeceleration, v => pickUp.PickerZSyncLiftDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 100.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSeparateDistance, v => pickUp.PickerZSeparateDistance = Math.Max(0.0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(
@@ -242,7 +271,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string prefix,
             PickerVisionCoordinateOffsets offsets,
             PickerAxis xAxis,
-            PickerAxis yAxis)
+            PickerAxis yAxis,
+            string groupKey)
         {
             if (offsets == null)
                 return;
@@ -252,19 +282,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 int index = i;
                 string pickerName = "PICKER " + (index + 1);
-                items.Add(AxisDouble(prefix + " -> " + pickerName + " X OFFSET",
+                items.Add(InGroup(AxisDouble(prefix + " -> " + pickerName + " X OFFSET",
                     xAxis,
                     AxisUnitConverter.Millimeter,
                     ParameterGridScope.Setup,
                     () => offsets.OffsetX[index],
-                    v => offsets.OffsetX[index] = v));
-                items.Add(AxisDouble(prefix + " -> " + pickerName + " Y OFFSET",
+                    v => offsets.OffsetX[index] = v), groupKey));
+                items.Add(InGroup(AxisDouble(prefix + " -> " + pickerName + " Y OFFSET",
                     yAxis,
                     AxisUnitConverter.Millimeter,
                     ParameterGridScope.Setup,
                     () => offsets.OffsetY[index],
-                    v => offsets.OffsetY[index] = v));
+                    v => offsets.OffsetY[index] = v), groupKey));
             }
+        }
+
+        private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)
+        {
+            item.GroupKey = groupKey;
+            return item;
         }
 
         private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit, string memberDisplay, string groupKey)

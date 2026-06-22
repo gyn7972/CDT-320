@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -219,8 +220,8 @@ namespace QMC.CDT320.Sequencing
                 int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-FEEDER-Y-MOVE", Feeder != null ? Feeder.Name : "OutputFeeder",
-                    LocalizeFeederMoveDescription(description) + " 이동 명령이 실패했습니다. result=" + result + ", " +
-                    (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() + Feeder.DescribeBinFeederYLastMotionFailure() : "Feeder=null"));
+                        LocalizeFeederMoveDescription(description) + " 이동 명령이 실패했습니다. result=" + result + ", " +
+                        (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() + Feeder.DescribeBinFeederYLastMotionFailure() : "Feeder=null"));
 
                 return 0;
             }
@@ -347,6 +348,7 @@ namespace QMC.CDT320.Sequencing
             return Fail(alarmCode, Feeder.Name, description + " sensor=" + (Feeder.IsFeederRingDetected(true) ? "ON" : "OFF") + ", expected=" + (expected ? "ON" : "OFF"));
         }
 
+        [Obsolete("새 코드에서는 CheckPickersClearForOutputTransport 또는 WaitPickersClearForOutputTransportAsync를 사용하세요.", true)]
         protected int CheckPickersNotInOutputZone(string description)
         {
             if (IsAnyFrontPickerInOutputZone())
@@ -358,6 +360,37 @@ namespace QMC.CDT320.Sequencing
                     "RearPicker가 Output zone에 있습니다. " + LocalizeFeederMoveDescription(description) + " 전에는 OutputFeeder가 Picker를 자동 이동하지 않습니다.");
 
             return 0;
+        }
+
+        [Obsolete("새 코드에서는 Output zone 기준 WaitPickersClearForOutputTransportAsync를 사용하세요.", true)]
+        protected int CheckPickersInAvoidPosition(string description)
+        {
+            try
+            {
+                if (FrontPicker == null)
+                    return Fail("OUT-FEEDER-PICKER-MISSING", "FrontPicker", description + " 전 FrontPicker 유닛을 확인할 수 없습니다.");
+
+                if (RearPicker == null)
+                    return Fail("OUT-FEEDER-PICKER-MISSING", "RearPicker", description + " 전 RearPicker 유닛을 확인할 수 없습니다.");
+
+                if (!FrontPicker.IsFrontPickerInAvoidPosition())
+                    return Fail("OUT-FEEDER-FRONT-PICKER-NOT-AVOID", FrontPicker.Name,
+                        description + " 불가: FrontPicker가 Avoid 위치가 아닙니다. " + BuildPickerAvoidState());
+
+                if (!RearPicker.IsRearPickerInAvoidPosition())
+                    return Fail("OUT-FEEDER-REAR-PICKER-NOT-AVOID", RearPicker.Name,
+                        description + " 불가: RearPicker가 Avoid 위치가 아닙니다. " + BuildPickerAvoidState());
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-PICKER-AVOID-CHECK-EX", Name,
+                    description + " 전 Picker Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private static string LocalizeFeederMoveDescription(string description)
@@ -423,6 +456,190 @@ namespace QMC.CDT320.Sequencing
             }
 
             return false;
+        }
+
+        private string BuildPickerAvoidState()
+        {
+            return "frontAvoid=" + (FrontPicker != null && FrontPicker.IsFrontPickerInAvoidPosition()) +
+                   ", rearAvoid=" + (RearPicker != null && RearPicker.IsRearPickerInAvoidPosition());
+        }
+
+        protected int CheckPickersClearForOutputTransport(string description)
+        {
+            string frontDetail;
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                Context != null ? Context.Machine : null,
+                true,
+                PickerWorkZone.Output,
+                out frontDetail))
+            {
+                return Fail("OUT-FEEDER-FRONT-PICKER-OUTPUT-ZONE", FrontPicker != null ? FrontPicker.Name : "FrontPicker",
+                    "FrontPicker가 Output zone을 점유하거나 진입 중입니다. " +
+                    LocalizeOutputTransportDescription(description) + " 전 OutputFeeder 이동을 시작할 수 없습니다. " +
+                    frontDetail);
+            }
+
+            string rearDetail;
+            if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                Context != null ? Context.Machine : null,
+                false,
+                PickerWorkZone.Output,
+                out rearDetail))
+            {
+                return Fail("OUT-FEEDER-REAR-PICKER-OUTPUT-ZONE", RearPicker != null ? RearPicker.Name : "RearPicker",
+                    "RearPicker가 Output zone을 점유하거나 진입 중입니다. " +
+                    LocalizeOutputTransportDescription(description) + " 전 OutputFeeder 이동을 시작할 수 없습니다. " +
+                    rearDetail);
+            }
+
+            return 0;
+        }
+
+        private static string LocalizeOutputTransportDescription(string description)
+        {
+            switch (description)
+            {
+                case "before cassette to feeder load":
+                    return "카세트에서 OutputFeeder로 로드";
+                case "before feeder to stage load":
+                    return "OutputFeeder에서 OutputStage로 로드";
+                case "before stage unload":
+                    return "OutputStage에서 OutputFeeder로 언로드";
+                case "OutputStage Load 준비":
+                case "OutputStage Unload 준비":
+                    return description;
+                default:
+                    return string.IsNullOrWhiteSpace(description) ? "OutputFeederY" : description;
+            }
+        }
+
+        protected async Task<int> WaitPickersClearForOutputTransportAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                if (FrontPicker == null)
+                    return Fail("OUT-FEEDER-PICKER-MISSING", "FrontPicker", description + " 전 FrontPicker 유닛을 확인할 수 없습니다.");
+
+                if (RearPicker == null)
+                    return Fail("OUT-FEEDER-PICKER-MISSING", "RearPicker", description + " 전 RearPicker 유닛을 확인할 수 없습니다.");
+
+                int timeoutMs = ResolveTimeout();
+                DateTime startTime = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string frontDetail;
+                    string rearDetail;
+                    bool frontBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        true,
+                        PickerWorkZone.Output,
+                        out frontDetail);
+                    bool rearBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        false,
+                        PickerWorkZone.Output,
+                        out rearDetail);
+
+                    if (!frontBlocking && !rearBlocking)
+                        return 0;
+
+                    string alarmState = BuildPickerTransportAlarmState();
+                    if (!string.IsNullOrEmpty(alarmState))
+                    {
+                        return Fail("OUT-FEEDER-PICKER-ALARM", Name,
+                            description + " 대기 불가: Picker 축 알람 상태입니다. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail + ", " + alarmState);
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("OUT-FEEDER-PICKER-OUTPUT-ZONE-TIMEOUT", Name,
+                            description + " 대기 시간 초과: Picker가 Output zone에서 벗어나지 않았습니다. " +
+                            "timeoutMs=" + timeoutMs + ", front=" + frontDetail +
+                            ", rear=" + rearDetail + ", " + BuildPickerTransportMotionState());
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog(Name,
+                            description + " 전 Picker Output zone 해제 대기. " +
+                            "front=" + frontDetail + ", rear=" + rearDetail +
+                            ", timeoutMs=" + timeoutMs + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-PICKER-OUTPUT-ZONE-WAIT-EX", Name,
+                    description + " 전 Picker Output zone 해제 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildPickerTransportAlarmState()
+        {
+            string reason = string.Empty;
+            AppendPickerAxisAlarm(ref reason, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisAlarm(ref reason, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            return reason;
+        }
+
+        private string BuildPickerTransportMotionState()
+        {
+            string state = string.Empty;
+            AppendPickerAxisMotion(ref state, "FrontPickerX", FrontPicker != null ? FrontPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "FrontPickerY", FrontPicker != null ? FrontPicker.PickerY : null);
+            AppendPickerAxisMotion(ref state, "RearPickerX", RearPicker != null ? RearPicker.PickerX : null);
+            AppendPickerAxisMotion(ref state, "RearPickerY", RearPicker != null ? RearPicker.PickerY : null);
+            return state;
+        }
+
+        private static void AppendPickerAxisAlarm(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+
+            reason += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
+        }
+
+        private static void AppendPickerAxisMotion(ref string state, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            if (state.Length > 0)
+                state += " ";
+
+            state += label +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition +
+                ");";
         }
 
         protected int FailUnsupportedStep()
