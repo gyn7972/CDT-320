@@ -37,6 +37,14 @@ namespace QMC.CDT320
         [DataMember] public int    VisionTopSidePort    { get; set; } = 5105;
         /// <summary>Stage 43 — 매뉴얼 추가: BottomSide Inspection Vision (5106).</summary>
         [DataMember] public int    VisionBottomSidePort { get; set; } = 5106;
+
+        // ── Vision 뷰어(이미지 스트림) 포트 — 명령 채널과 별개. Vision측 GrabStreamServer가 listen. ──
+        [DataMember] public int    VisionWaferViewerPort      { get; set; } = 5200;
+        [DataMember] public int    VisionInspectionViewerPort { get; set; } = 5201; // Bottom
+        [DataMember] public int    VisionBinViewerPort        { get; set; } = 5203;
+        [DataMember] public int    VisionTopSideViewerPort    { get; set; } = 5205;
+        [DataMember] public int    VisionBottomSideViewerPort { get; set; } = 5206;
+
         /// <summary>앱 시작 시 자동 연결 시도 여부.</summary>
         [DataMember] public bool   VisionAutoConnect    { get; set; } = true;
 

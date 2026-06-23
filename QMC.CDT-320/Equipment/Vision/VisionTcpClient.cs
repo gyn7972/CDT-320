@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net.Sockets;
@@ -20,7 +20,13 @@ namespace QMC.CDT320.VisionComm
         public int    Port       { get; }
         public string ModuleName { get; }
 
-        public bool IsConnected => _client != null && _client.Connected;
+        /// <summary>마지막으로 라인을 수신한 UTC 시각(워치독/RX 표시용). 미수신이면 default.</summary>
+        public DateTime LastRxUtc { get; private set; }
+
+        // TcpClient.Connected 는 내부 소켓 상태 접근 시 폐기 경쟁으로 예외를 던질 수 있어, 자체 플래그로 관리한다.
+        // 연결 성공 시 true, Disconnect/오류 시 false. (ReceiveLoop 가 끊김 감지 시 Disconnect 호출)
+        private volatile bool _connected;
+        public bool IsConnected => _connected;
 
         public event Action<bool>   ConnectionChanged;
         public event Action<string> Log;
@@ -56,17 +62,28 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _client = new TcpClient();
-                var task = _client.ConnectAsync(Host, Port);
+                // 로컬 변수로 다뤄, 연결 도중 Disconnect/Dispose 가 _client 를 null 로 바꿔도 NRE 가 나지 않게 한다.
+                var client = new TcpClient();
+                _client = client;
+                var task = client.ConnectAsync(Host, Port);
                 if (await Task.WhenAny(task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != task)
                 {
-                    _client.Close(); _client = null;
+                    try { client.Close(); } catch { }
+                    if (ReferenceEquals(_client, client)) _client = null;
                     LogMsg("connect timeout");
                     return false;
                 }
                 ct.ThrowIfCancellationRequested();
-                _stream = _client.GetStream();
+                // 대기 중 동시 Disconnect/Dispose 로 교체·해제됐으면 중단(이 연결은 폐기).
+                if (!ReferenceEquals(_client, client) || !client.Connected)
+                {
+                    try { client.Close(); } catch { }
+                    LogMsg("connect aborted (disposed)");
+                    return false;
+                }
+                _stream = client.GetStream();
                 _rxCts  = new CancellationTokenSource();
+                _connected = true;
                 _ = Task.Run(() => ReceiveLoop(_rxCts.Token));
                 LogMsg($"connected to {Host}:{Port}");
                 RaiseConn(true);
@@ -84,6 +101,7 @@ namespace QMC.CDT320.VisionComm
 
         public void Disconnect()
         {
+            _connected = false;
             try { _rxCts?.Cancel(); } catch { }
             try { _stream?.Close(); } catch { }
             try { _client?.Close(); } catch { }
@@ -212,9 +230,11 @@ namespace QMC.CDT320.VisionComm
             var buf = new byte[4096];
             try
             {
-                while (!ct.IsCancellationRequested && _client != null && _client.Connected)
+                while (!ct.IsCancellationRequested && IsConnected)
                 {
-                    int n = await _stream.ReadAsync(buf, 0, buf.Length, ct);
+                    var stream = _stream;
+                    if (stream == null) break;   // 동시 Disconnect 로 스트림이 사라지면 종료
+                    int n = await stream.ReadAsync(buf, 0, buf.Length, ct);
                     if (n == 0) break;
                     _rxBuf.Append(Encoding.UTF8.GetString(buf, 0, n));
                     string all = _rxBuf.ToString();
@@ -225,6 +245,7 @@ namespace QMC.CDT320.VisionComm
                         all = all.Substring(idx + 1);
                         if (line.Length > 0)
                         {
+                            LastRxUtc = DateTime.UtcNow;
                             LogMsg("RX: " + line);
                             // 비동기 푸시 — EPD/ARM 은 응답 큐와 무관.
                             if (line.StartsWith("EPD|"))
