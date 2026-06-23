@@ -49,8 +49,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 var b = new QMC.CDT_320.Ui.Controls.ActionButton
                 {
                     Text   = m.Item1,
-                    Width  = 180,
-                    Height = 64,
+                    Width  = 132,
+                    Height = 60,
                     Margin = new Padding(6),
                     Font   = new Font("맑은 고딕", 11F)
                 };

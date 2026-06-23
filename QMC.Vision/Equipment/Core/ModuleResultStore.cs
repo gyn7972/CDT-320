@@ -11,10 +11,14 @@ namespace QMC.Vision.Core
     public static class ModuleResultStore
     {
         private class R { public bool Pass; public string Items; public DateTime Time; }
+        private class Mk { public double X; public double Y; public double Score; }
 
         private static readonly object _lock = new object();
         private static readonly Dictionary<string, Dictionary<string, R>> _map =
             new Dictionary<string, Dictionary<string, R>>(StringComparer.OrdinalIgnoreCase);
+        // 모듈 → (finder/inspector 키 → 최근 검출 마크). 오버레이로 핸들러에 전송.
+        private static readonly Dictionary<string, Dictionary<string, Mk>> _marks =
+            new Dictionary<string, Dictionary<string, Mk>>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>검사 결과 기록(module, inspectorId, 합부, 항목문자열).</summary>
         public static void Record(string module, string inspId, bool pass, string items)
@@ -51,11 +55,41 @@ namespace QMC.Vision.Core
             return true;
         }
 
+        /// <summary>검출 마크 1개 기록(module, finder/inspector 키, 이미지 좌표 x/y, score). 오버레이 표시용.</summary>
+        public static void RecordMark(string module, string key, double x, double y, double score)
+        {
+            if (string.IsNullOrEmpty(module)) return;
+            lock (_lock)
+            {
+                if (!_marks.TryGetValue(module, out var d))
+                {
+                    d = new Dictionary<string, Mk>(StringComparer.OrdinalIgnoreCase);
+                    _marks[module] = d;
+                }
+                d[key ?? ""] = new Mk { X = x, Y = y, Score = score };
+            }
+        }
+
+        /// <summary>모듈의 최근 검출 마크들(이미지 좌표). 없으면 null.</summary>
+        public static QMC.Common.Ui.Controls.FrameMark[] GetMarks(string module)
+        {
+            if (string.IsNullOrEmpty(module)) return null;
+            lock (_lock)
+            {
+                if (!_marks.TryGetValue(module, out var d) || d.Count == 0) return null;
+                var arr = new QMC.Common.Ui.Controls.FrameMark[d.Count];
+                int i = 0;
+                foreach (var v in d.Values)
+                    arr[i++] = new QMC.Common.Ui.Controls.FrameMark { X = v.X, Y = v.Y, Score = v.Score };
+                return arr;
+            }
+        }
+
         /// <summary>모듈 결과 초기화.</summary>
         public static void Clear(string module)
         {
             if (string.IsNullOrEmpty(module)) return;
-            lock (_lock) { _map.Remove(module); }
+            lock (_lock) { _map.Remove(module); _marks.Remove(module); }
         }
     }
 }

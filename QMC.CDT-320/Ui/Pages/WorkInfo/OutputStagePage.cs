@@ -31,7 +31,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
 
             VisionModuleTestDialog.AddLaunchers(
-                actionPanel.Controls, this, btnStop,
+                actionRightPanel.Controls, this, btnStop,
                 Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BIN", () => VisionHub.Bin, "Bin Vision"));
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
@@ -304,22 +304,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void AlignStopButton()
         {
-            if (actionPanel == null || btnStop == null)
-                return;
-
-            EnsureStopButtonLast();
-
-            int usedWidth = actionPanel.Padding.Left + actionPanel.Padding.Right;
-            foreach (Control control in actionPanel.Controls)
-            {
-                if (ReferenceEquals(control, btnStop))
-                    continue;
-                usedWidth += control.Width + control.Margin.Left + control.Margin.Right;
-            }
-
-            int stopWidth = btnStop.Width + 6;
-            int leftMargin = Math.Max(6, actionPanel.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
-            btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
+            // STOP은 actionRightPanel(우측 고정존)에 위치하므로 별도 정렬이 필요 없다.
         }
 
         private void EnsureStopButtonLast()

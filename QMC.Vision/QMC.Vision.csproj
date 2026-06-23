@@ -83,6 +83,7 @@
     <Compile Include="Equipment\Core\GrabResult.cs" />
     <Compile Include="Equipment\Core\Roi.cs" />
     <Compile Include="Equipment\Core\MatchResult.cs" />
+    <Compile Include="Equipment\Core\MatchOverlayStore.cs" />
     <Compile Include="Equipment\Core\IPatternFinder.cs" />
     <Compile Include="Equipment\Core\IInspector.cs" />
     <Compile Include="Equipment\Core\IVisionBackend.cs" />

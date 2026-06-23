@@ -256,6 +256,27 @@ namespace QMC.Vision.Ui.Pages
                 }
                 catch { }
 
+                // MATCH 결과 오버레이(찾은 위치/각/박스 + 검색 ROI) — 시퀀서/핸들러 MATCH 결과 반영.
+                try
+                {
+                    if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null &&
+                        QMC.Vision.Core.MatchOverlayStore.TryGet(m.Name, out var ov))
+                    {
+                        var roi = (ov.RoiW > 0 && ov.RoiH > 0)
+                            ? new RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
+                            : RectangleF.Empty;
+                        System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
+                        if (ov.Marks != null && ov.Marks.Length > 0)
+                        {
+                            marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
+                            foreach (var k in ov.Marks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
+                        }
+                        _viewByMod[i].SetOverlay(roi, marks);
+                    }
+                }
+                catch { }
+
                 UpdateCardState(i, now);
             }
 

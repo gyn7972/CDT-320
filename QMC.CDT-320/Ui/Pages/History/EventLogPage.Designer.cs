@@ -118,9 +118,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
             this._dp.Value = new System.DateTime(2026, 5, 28, 0, 0, 0, 0);
-            //
+            // 
             // btnRefresh
-            //
+            // 
             this.btnRefresh.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.btnRefresh.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
             this.btnRefresh.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -130,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnRefresh.ForeColor = System.Drawing.Color.White;
-            this.btnRefresh.Location = new System.Drawing.Point(417, 9);
+            this.btnRefresh.Location = new System.Drawing.Point(239, 9);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(104, 26);
             this.btnRefresh.TabIndex = 2;
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnOpenFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOpenFile.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOpenFile.ForeColor = System.Drawing.Color.White;
-            this.btnOpenFile.Location = new System.Drawing.Point(527, 9);
+            this.btnOpenFile.Location = new System.Drawing.Point(349, 9);
             this.btnOpenFile.Name = "btnOpenFile";
             this.btnOpenFile.Size = new System.Drawing.Size(134, 26);
             this.btnOpenFile.TabIndex = 3;
