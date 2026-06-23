@@ -1796,6 +1796,9 @@ namespace QMC.CDT320
         {
             if (motorPts == null || motorPts.Length < 3)
             { Log("[ALIGN] need 3 motor points"); return false; }
+            // 비전 미사용(UseVision=false) — 정렬은 비전 작업이므로 수행하지 않고 건너뛴다(기존 좌표맵 유지).
+            if (AppSettingsStore.Current != null && !AppSettingsStore.Current.UseVision)
+            { Log("[ALIGN] vision disabled (UseVision=false) - skip wafer align"); return true; }
             if (VisionComm.VisionHub.Wafer == null || !VisionComm.VisionHub.Wafer.IsConnected)
             { Log("[ALIGN] Wafer Vision not connected"); return false; }
 
@@ -7682,7 +7685,10 @@ namespace QMC.CDT320
             //   - 媛?picker Z????Bottom 吏곸쟾, Z????Side ?앹뿉??諛쒖깮.
             BottomVisionOffset[] bottomResults = null;
             SideVisionResult[] sideResults = null;
-            bool visionConnected = VisionComm.VisionHub.Inspection != null
+            // 비전 미사용(UseVision=false) 이면 Bottom/Side 검사를 수행하지 않고 PASS 처리(아래 else 분기로).
+            bool visionUse = AppSettingsStore.Current == null || AppSettingsStore.Current.UseVision;
+            bool visionConnected = visionUse
+                                && VisionComm.VisionHub.Inspection != null
                                 && VisionComm.VisionHub.Inspection.IsConnected;
             try
             {

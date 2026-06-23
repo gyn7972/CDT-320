@@ -651,7 +651,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun())
+                if (IsPickerSimulationOrDryRun() || IsVisionBypassed())
                     return SimulateSideInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -1665,16 +1665,6 @@ namespace QMC.CDT320
             AppSettings settings = AppSettingsStore.Current;
             return (settings != null && (settings.BypassHardware || settings.DryRunMode)) ||
                    (Config != null && Config.IsSimulationMode) ||
-                   (Setup != null && Setup.IsSimulationMode);
-        }
-
-        private bool ShouldUseSimulatedVisionResult()
-        {
-            AppSettings settings = AppSettingsStore.Current;
-            if (settings != null && (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
-                return true;
-
-            return (Config != null && Config.IsSimulationMode) ||
                    (Setup != null && Setup.IsSimulationMode);
         }
 

@@ -644,7 +644,7 @@ namespace QMC.CDT320.Sequencing
         {
             await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
 
-            if (ShouldUseSimulatedBottomVision())
+            if (IsVisionBypassed())
                 return SimulateBottomResult();
 
             ct.ThrowIfCancellationRequested();
@@ -733,6 +733,12 @@ namespace QMC.CDT320.Sequencing
                    ", dryRunMode=" + (settings != null && settings.DryRunMode) +
                    ", useAjin=" + (settings != null && settings.UseAjin) +
                    ", optionSimulate=" + (Options != null && Options.SimulateVisionResult);
+        }
+
+        private bool IsVisionBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
         }
 
         private void ReleaseInspectionArea()

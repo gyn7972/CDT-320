@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblDryRunMode.Text = "DRY RUN MODE";
             lblDeveloperMode.Text = "DEVELOPER MODE";
             lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
+            lblUseVision.Text = "VISION USE";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -53,6 +54,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ResetEnableDisableItems(_cbDryRunMode);
             ResetEnableDisableItems(_cbDeveloperMode);
             ResetEnableDisableItems(_cbPickerMotionOnlyTestMode);
+            ResetEnableDisableItems(_cbUseVision);
 
             _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
             _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
@@ -60,6 +62,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _cbDryRunMode.SelectedIndex = cfg.DryRunMode ? 0 : 1;
             _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
             _cbPickerMotionOnlyTestMode.SelectedIndex = cfg.PickerMotionOnlyTestMode ? 0 : 1;
+            _cbUseVision.SelectedIndex = cfg.UseVision ? 0 : 1;
             _cbAjin.Checked = cfg.UseAjin;
             _tbIrq.Text = cfg.AjinIrqNo.ToString();
         }
@@ -111,6 +114,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 AppSettingsStore.Current.PickerMotionOnlyTestMode = _cbPickerMotionOnlyTestMode.SelectedIndex == 0;
                 AppSettingsStore.Save();
+            };
+
+            _cbUseVision.SelectedIndexChanged += (s, e) =>
+            {
+                bool use = _cbUseVision.SelectedIndex == 0;
+                AppSettingsStore.Current.UseVision = use;
+                AppSettingsStore.Save();
+                // 비전 미사용 → 기존 연결을 끊어 미연결 상태로 동작(자동 시퀀스는 바이패스로 통과).
+                if (!use)
+                    QMC.CDT320.VisionComm.VisionHub.DisconnectAll();
             };
 
             _cbAjin.CheckedChanged += (s, e) =>

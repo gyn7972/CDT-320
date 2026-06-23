@@ -35,8 +35,9 @@ namespace QMC.Vision.Comm
             if (!string.Equals(mod, moduleName, StringComparison.OrdinalIgnoreCase) || m == null)
                 return $"ERR|{mod}|{cmd}|unknown module";
 
-            // RUN 게이트 — RUN 상태가 아니면 PING 외 명령 거부.
-            if (cmd != "PING" && isCommandAllowed != null && !isCommandAllowed())
+            // RUN 게이트 — RUN 상태가 아니면 명령 거부. 단, PING(상태확인)과 단발 그랩(EXPOSE/GRAB)은 면제:
+            // 단발 그랩은 모션을 유발하지 않는 카메라 촬상이라 셋업/수동 테스트를 위해 RUN 아닐 때도 허용한다.
+            if (!IsGateExemptCommand(cmd) && isCommandAllowed != null && !isCommandAllowed())
                 return $"ERR|{mod}|{cmd}|not running (press RUN)";
 
             try
@@ -67,6 +68,10 @@ namespace QMC.Vision.Comm
         }
 
         // ── 명령 핸들러 (구 VisionTcpServer 와 동일) ───────────
+
+        /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
+        private static bool IsGateExemptCommand(string cmd)
+            => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB";
 
         private static string DoMatch(IVisionModule m, VisionSettings cfg, string[] parts)
         {

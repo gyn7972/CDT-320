@@ -23,10 +23,11 @@ namespace QMC.CDT320.VisionComm
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsSimulationVisionBypassed())
+                // 주의: DryRun 은 여기서 바이패스하지 않는다(아래에서 실제 그랩 수행). Sim/Bypass/비전미사용만 생략.
+                if (IsSimulationVisionBypassed() || IsVisionDisabled())
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-BYPASS",
-                        "시뮬레이션 모드라 Vision GRAB 요청을 생략합니다. channel=" + channel + ", index=" + index);
+                        BypassReason() + " Vision GRAB 요청을 생략합니다. channel=" + channel + ", index=" + index);
                     return Task.FromResult(true);
                 }
 
@@ -300,15 +301,31 @@ namespace QMC.CDT320.VisionComm
             return settings != null && settings.DryRunMode;
         }
 
+        /// <summary>비전 미사용 설정(UseVision=false) — 연결/요청 없이 통과 처리.</summary>
+        private static bool IsVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
+        }
+
         private static bool ShouldBypassVisionResultRequests()
         {
-            return IsSimulationVisionBypassed() || IsDryRunMode();
+            return IsSimulationVisionBypassed() || IsDryRunMode() || IsVisionDisabled();
+        }
+
+        /// <summary>바이패스 로그용 사유 문자열(정확한 원인 표기).</summary>
+        private static string BypassReason()
+        {
+            if (IsVisionDisabled())          return "비전 미사용 설정이라";
+            if (IsSimulationVisionBypassed()) return "시뮬레이션 모드라";
+            if (IsDryRunMode())              return "DryRun 모드라";
+            return "바이패스 설정이라";
         }
 
         private static MatchResultDto BuildBypassMatchResult(AutoVisionChannel channel, string finder, int index)
         {
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
-                "시뮬레이션/DryRun 모드라 Vision MATCH 결과 요청을 생략합니다. channel=" + channel +
+                BypassReason() + " Vision MATCH 결과 요청을 생략합니다. channel=" + channel +
                 ", finder=" + finder +
                 ", index=" + index);
 
@@ -326,7 +343,7 @@ namespace QMC.CDT320.VisionComm
         private static InspectionResultDto BuildBypassInspectionResult(AutoVisionChannel channel, string inspector, int index)
         {
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-BYPASS",
-                "시뮬레이션/DryRun 모드라 Vision INSPECT 결과 요청을 생략합니다. channel=" + channel +
+                BypassReason() + " Vision INSPECT 결과 요청을 생략합니다. channel=" + channel +
                 ", inspector=" + inspector +
                 ", index=" + index);
 
