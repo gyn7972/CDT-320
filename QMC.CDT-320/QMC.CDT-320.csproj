@@ -455,17 +455,41 @@
     <Compile Include="Ui\Dialogs\VisionModuleTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\VisionModuleTestDialog.Designer.cs">
+      <DependentUpon>VisionModuleTestDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\WaferVisionTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WaferVisionTestDialog.Designer.cs">
+      <DependentUpon>WaferVisionTestDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\TpuVisionTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Controls\VisionViewerPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\VisionViewerPanel.Designer.cs">
+      <DependentUpon>VisionViewerPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\SideVisionViewerControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\SideVisionViewerControl.Designer.cs">
+      <DependentUpon>SideVisionViewerControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\VisionViewDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionViewDialog.Designer.cs">
+      <DependentUpon>VisionViewDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SideVisionViewerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SideVisionViewerDialog.Designer.cs">
+      <DependentUpon>SideVisionViewerDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.Designer.cs">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>

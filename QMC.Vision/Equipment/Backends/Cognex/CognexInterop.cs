@@ -101,6 +101,18 @@ namespace QMC.Vision.Backends.Cognex
             return r;
         }
 
+        /// <summary>CogTransform2DLinear 생성(평행이동만, 회전/스케일 없음) — PMAlign Pattern.Origin 지정용.
+        /// Origin 을 학습영역 중심으로 두면 결과 Pose.Translation 이 '찾은 위치'의 절대 이미지 좌표가 된다.</summary>
+        public static dynamic NewTransform2D(double tx, double ty, params Assembly[] preferred)
+        {
+            var t = FindAny(preferred, "Cognex.VisionPro.CogTransform2DLinear");
+            if (t == null) throw new InvalidOperationException("CogTransform2DLinear 타입을 찾지 못함");
+            dynamic xf = Activator.CreateInstance(t);
+            xf.TranslationX = tx;
+            xf.TranslationY = ty;
+            return xf;
+        }
+
         /// <summary>property 가 존재할 때만 set (안전한 dynamic).</summary>
         public static void TrySet(object target, string prop, object value)
         {

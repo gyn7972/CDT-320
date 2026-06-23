@@ -122,6 +122,9 @@ namespace QMC.Vision.Ui.Pages
             // _body
             // 
             this._body.AutoScroll = true;
+            // 창이 작아져 세로 공간이 부족하면 좌측 설정(스케일·조명 등)이 잘리지 않도록 최소 가상 높이 지정.
+            // 뷰포트가 이보다 작아지면 자동 세로 스크롤이 생기고, 충분히 크면 기존처럼 프리뷰가 채운다.
+            this._body.AutoScrollMinSize = new System.Drawing.Size(0, 600);
             this._body.Controls.Add(this._main);
             this._body.Dock = System.Windows.Forms.DockStyle.Fill;
             this._body.Location = new System.Drawing.Point(12, 40);

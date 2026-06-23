@@ -15,14 +15,15 @@ namespace QMC.Vision.Ui.Pages
         private Button           _btnReady;      // READY — RUN 왼쪽, 핸들러 VISION 사용 승인
         private TableLayoutPanel _cardsHost;   // 5열 — 모듈 상태카드(런타임 채움, 비클릭)
 
-        // 모니터링: 메인(Bottom) 1개 크게 + 나머지 4개 2×2
+        // 모니터링: 상단(메인 Bottom 크게 + Wafer/Bin) / 하단(TopSide·BottomSide 전체폭 가로 띠, 위아래 스택)
         private TableLayoutPanel _monitor;
         private CameraView       _camBig;       // 메인(Bottom Inspection)
-        private TableLayoutPanel _smallHost;    // 2×2
+        private TableLayoutPanel _smallHost;    // Wafer/Bin (상단 우측 2열)
+        private TableLayoutPanel _sideHost;     // TopSide/BottomSide (하단 전체폭, 위아래 스택)
         private CameraView       _camS1;        // Wafer
         private CameraView       _camS2;        // Bin
-        private CameraView       _camS3;        // TopSide
-        private CameraView       _camS4;        // BottomSide
+        private CameraView       _camS3;        // TopSide (4000×700 가로 띠)
+        private CameraView       _camS4;        // BottomSide (4000×700 가로 띠)
 
         protected override void Dispose(bool disposing)
         {
@@ -44,6 +45,7 @@ namespace QMC.Vision.Ui.Pages
             this._monitor = new System.Windows.Forms.TableLayoutPanel();
             this._camBig = new QMC.Vision.Ui.Controls.CameraView();
             this._smallHost = new System.Windows.Forms.TableLayoutPanel();
+            this._sideHost = new System.Windows.Forms.TableLayoutPanel();
             this._camS1 = new QMC.Vision.Ui.Controls.CameraView();
             this._camS2 = new QMC.Vision.Ui.Controls.CameraView();
             this._camS3 = new QMC.Vision.Ui.Controls.CameraView();
@@ -52,6 +54,7 @@ namespace QMC.Vision.Ui.Pages
             this._hdr.SuspendLayout();
             this._monitor.SuspendLayout();
             this._smallHost.SuspendLayout();
+            this._sideHost.SuspendLayout();
             this.SuspendLayout();
             // 
             // _root
@@ -184,17 +187,32 @@ namespace QMC.Vision.Ui.Pages
             this._smallHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this._smallHost.Controls.Add(this._camS1, 0, 0);
             this._smallHost.Controls.Add(this._camS2, 1, 0);
-            this._smallHost.Controls.Add(this._camS3, 0, 1);
-            this._smallHost.Controls.Add(this._camS4, 1, 1);
+            this._smallHost.Controls.Add(this._sideHost, 0, 1);
+            this._smallHost.SetColumnSpan(this._sideHost, 2);   // TopSide/BottomSide 스택을 우측 영역 전체폭으로
             this._smallHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this._smallHost.Location = new System.Drawing.Point(799, 4);
             this._smallHost.Margin = new System.Windows.Forms.Padding(0);
             this._smallHost.Name = "_smallHost";
             this._smallHost.RowCount = 2;
-            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 60F));
             this._smallHost.Size = new System.Drawing.Size(576, 735);
             this._smallHost.TabIndex = 1;
+            //
+            // _sideHost — TopSide/BottomSide 전체폭 가로 띠(위아래 스택, 4000×700 대응)
+            //
+            this._sideHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this._sideHost.ColumnCount = 1;
+            this._sideHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._sideHost.Controls.Add(this._camS3, 0, 0);
+            this._sideHost.Controls.Add(this._camS4, 0, 1);
+            this._sideHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._sideHost.Margin = new System.Windows.Forms.Padding(0);
+            this._sideHost.Name = "_sideHost";
+            this._sideHost.RowCount = 2;
+            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._sideHost.TabIndex = 2;
             // 
             // _camS1
             // 
@@ -265,6 +283,7 @@ namespace QMC.Vision.Ui.Pages
             this._hdr.ResumeLayout(false);
             this._monitor.ResumeLayout(false);
             this._smallHost.ResumeLayout(false);
+            this._sideHost.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

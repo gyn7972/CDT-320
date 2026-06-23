@@ -583,7 +583,21 @@ namespace QMC.Vision.Ui.Pages
                 if (_inspector is QMC.Vision.Core.PlacementGapInspector pgv && pgv.LastValid)
                     _cam.SetDetectOverlay(_inspector.InspectionRoi, pgv.LastCorners, pgv.LastCenter, pgv.LastPass, pgv.LastGapText);
                 else
-                    _cam.SetOverlay(_inspector.InspectionRoi, null);
+                {
+                    // 검출된 모든 결함을 박스로 오버레이(인덱스 + 박스). ROI 는 노란 박스.
+                    var roi = _inspector.InspectionRoi;
+                    var rrect = (roi != null && roi.Width > 0 && roi.Height > 0)
+                        ? new System.Drawing.RectangleF((float)(roi.CenterX - roi.Width / 2.0), (float)(roi.CenterY - roi.Height / 2.0), (float)roi.Width, (float)roi.Height)
+                        : System.Drawing.RectangleF.Empty;
+                    System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
+                    if (r.Defects != null && r.Defects.Count > 0)
+                    {
+                        marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(r.Defects.Count);
+                        foreach (var d in r.Defects)
+                            marks.Add(new QMC.Common.Ui.Controls.OverlayMark(d.X, d.Y, d.Area, 0, d.Width, d.Height));
+                    }
+                    _cam.SetOverlay(rrect, marks);
+                }
             }
             catch (Exception ex) { Status("INSPECT FAIL: " + ex.Message); }
         }

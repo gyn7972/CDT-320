@@ -8,39 +8,42 @@ using QMC.CDT320.VisionComm;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// Vision 뷰어(이미지 스트림) 1개를 표시하는 재사용 패널 — Vision PC 카메라 UI와 동일 구성(별도 버튼 없음).
+    /// Vision 뷰어(이미지 스트림) 1개를 표시하는 재사용 패널 — Vision PC 카메라 UI와 동일 구성.
     /// <para>
-    /// 뷰어 포트에 <see cref="VisionViewerSource"/>를 <see cref="CameraViewBase.AttachSource"/>로 연결한다.
-    /// 카메라 컨트롤의 네이티브 툴바(Grab/Live/Stop/Save/Load/측정/맞춤/CrossLine/Mag)가 그대로 동작하며,
-    /// <b>툴바 Grab</b>은 명령 채널로 Vision 에 촬상(EXPOSE)을 보내고(있으면) 그 결과 프레임을 표시한다.
-    /// 허용/거부는 Vision 게이트가 결정: <b>READY(O) armed 면 거부</b>, 해제 상태면 촬상 가능(거부 시 상태줄에 표시).
-    /// 프레임 메타(스케일/판정/결과/마크)는 오버레이로 표시. 수신/표시 전용 — 모션 무관. 코드 전용 컨트롤.
+    /// UI(카메라뷰 + 제목/상태 바)는 Designer(.Designer.cs)에 있고, 여기에는 런타임 로직만 둔다.
+    /// 사용 시 <see cref="Configure"/>로 host/포트/명령 채널을 주입한다(생성자는 매개변수 없음 — VS 디자이너 호환).
+    /// 툴바 Grab 은 명령 채널로 Vision 에 촬상(EXPOSE)을 보내고(있으면) 결과 프레임을 표시한다(READY 게이트는 Vision 측).
+    /// 메타(스케일/판정/결과/마크)는 오버레이로 표시. 수신/표시 전용 — 모션 무관.
     /// </para>
     /// </summary>
-    public sealed class VisionViewerPanel : UserControl
+    public sealed partial class VisionViewerPanel : UserControl
     {
-        private readonly CameraViewBase _cam = new CameraViewBase { Dock = DockStyle.Fill, ShowToolbar = true };
-        private readonly Label _lblTitle = new Label { AutoSize = true, Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold), Margin = new Padding(6, 7, 8, 0) };
-        private readonly Label _lblStat  = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "idle", Margin = new Padding(8, 7, 0, 0) };
-
-        private readonly int _port;
+        private int _port;
+        private VisionTcpClient _cmd;   // 툴바 Grab 시 Vision 에 촬상(EXPOSE) 명령. null 이면 수동 수신만.
         private VisionViewerSource _source;
 
-        /// <param name="commandClient">툴바 Grab 시 Vision 에 촬상(EXPOSE)을 보내는 명령 채널. null 이면 수동 수신만.</param>
-        public VisionViewerPanel(string host, int viewerPort, string title, VisionTcpClient commandClient = null)
+        public VisionViewerPanel()
+        {
+            InitializeComponent();
+        }
+
+        /// <summary>편의 생성자 — UI 는 Designer(InitializeComponent)가 만들고, 런타임 인자는 즉시 Configure 한다. (기존 호출부 호환)</summary>
+        public VisionViewerPanel(string host, int viewerPort, string title, VisionTcpClient commandClient = null) : this()
+        {
+            Configure(host, viewerPort, title, commandClient);
+        }
+
+        /// <summary>런타임 주입 — 뷰어 포트/제목/명령 채널 설정 후 소스 연결.</summary>
+        public void Configure(string host, int viewerPort, string title, VisionTcpClient commandClient)
         {
             string h = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
             _port = viewerPort;
+            _cmd = commandClient;
             _lblTitle.Text = (string.IsNullOrWhiteSpace(title) ? "이미지" : title) +
                              (viewerPort > 0 ? "  (뷰어 " + viewerPort + ")" : "  (뷰어 없음)");
 
-            var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, WrapContents = false, Padding = new Padding(4, 2, 4, 2) };
-            bar.Controls.Add(_lblTitle);
-            bar.Controls.Add(_lblStat);
-
-            // Fill(_cam)을 먼저 추가해 뒤쪽 z-order, Top(bar)을 나중에.
-            Controls.Add(_cam);
-            Controls.Add(bar);
+            StopLive();
+            try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); _source = null; } } catch { }
 
             if (_port > 0)
             {
@@ -54,14 +57,17 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 _lblStat.Text = "뷰어 포트 없음";
             }
-
-            // 자동 연결하지 않는다. 사용자가 툴바 Grab/Live를 누를 때 접속한다.
         }
 
         /// <summary>외부에서 LIVE 시작(툴바 Live와 동일).</summary>
         public void StartLive() { if (_port > 0) { try { _cam.StartLive(); } catch { } } }
         /// <summary>외부에서 LIVE 정지(툴바 Stop과 동일).</summary>
         public void StopLive()  { try { _cam.StopLive(); } catch { } }
+
+        /// <summary>오버레이 판정 텍스트 직접 설정(우상단 OK/NG). 메타와 별개로 호출부가 직접 그릴 때 사용.</summary>
+        public void SetVerdictText(string text, bool pass) { try { _cam.SetVerdict(text, pass); } catch { } }
+        /// <summary>오버레이 결과 라인 직접 설정(우하단).</summary>
+        public void SetResultLines(string[] lines) { try { _cam.SetResultLines(lines); } catch { } }
 
         // ── 소스 상태 메시지(촬상 OK / READY 거부 등) → 상태줄 ──
         private void OnStatus(string s)
@@ -87,36 +93,24 @@ namespace QMC.CDT_320.Ui.Controls
                 _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
                 _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
                 _cam.SetResultLines(meta.ResultLines);
-                _cam.SetOverlay(RoiOf(meta), MarksOf(meta));
+                _cam.SetOverlay(System.Drawing.RectangleF.Empty, MarksOf(meta));
             }
             catch { }
-        }
-
-        /// <summary>검색 ROI(이미지 px, 좌상단 기준) → 노란 박스 사각형. W/H 0 이면 Empty(미표시).</summary>
-        private static System.Drawing.RectangleF RoiOf(VisionFrameMeta meta)
-        {
-            if (meta == null || meta.RoiW <= 0 || meta.RoiH <= 0) return System.Drawing.RectangleF.Empty;
-            return new System.Drawing.RectangleF((float)meta.RoiX, (float)meta.RoiY, (float)meta.RoiW, (float)meta.RoiH);
         }
 
         private static List<OverlayMark> MarksOf(VisionFrameMeta meta)
         {
             if (meta?.Marks == null || meta.Marks.Length == 0) return null;
             var list = new List<OverlayMark>(meta.Marks.Length);
-            foreach (var m in meta.Marks)
-                list.Add(new OverlayMark(m.X, m.Y, m.Score, m.Angle, m.BoxW, m.BoxH));
+            foreach (var m in meta.Marks) list.Add(new OverlayMark(m.X, m.Y, m.Score));
             return list;
         }
 
-        protected override void Dispose(bool disposing)
+        protected override void OnHandleDestroyed(EventArgs e)
         {
-            if (disposing)
-            {
-                try { _cam.StopLive(); } catch { }
-                try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); } } catch { }
-                _source = null;
-            }
-            base.Dispose(disposing);
+            try { StopLive(); } catch { }
+            try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); _source = null; } } catch { }
+            base.OnHandleDestroyed(e);
         }
     }
 }

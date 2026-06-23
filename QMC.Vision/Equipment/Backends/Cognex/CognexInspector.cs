@@ -87,7 +87,7 @@ namespace QMC.Vision.Backends.Cognex
                 blob.Run();
 
                 // 결과 수집
-                var defects = new List<(double area, double cx, double cy)>();
+                var defects = new List<(double area, double cx, double cy, double w, double h)>();
                 double totalArea = 0;
                 try
                 {
@@ -101,7 +101,11 @@ namespace QMC.Vision.Backends.Cognex
                             if (a < MinDefectArea) continue;
                             double cx = (double)CognexInterop.TryGet(b, "CenterOfMassX", 0.0);
                             double cy = (double)CognexInterop.TryGet(b, "CenterOfMassY", 0.0);
-                            defects.Add((a, cx, cy));
+                            // 바운딩 박스(버전에 있으면) — 없으면 면적 기반 정사각으로 추정.
+                            double bw = (double)CognexInterop.TryGet(b, "BoundingBoxWidth", 0.0);
+                            double bh = (double)CognexInterop.TryGet(b, "BoundingBoxHeight", 0.0);
+                            if (bw <= 0 || bh <= 0) { double s = System.Math.Sqrt(a > 1 ? a : 1); bw = s; bh = s; }
+                            defects.Add((a, cx, cy, bw, bh));
                             totalArea += a;
                         }
                     }
@@ -113,6 +117,9 @@ namespace QMC.Vision.Backends.Cognex
                 inspResult.Items.Add(new InspectionItem { Name = "DefectCount",     Value = defects.Count.ToString(),    IsPass = pass });
                 inspResult.Items.Add(new InspectionItem { Name = "TotalDefectArea", Value = totalArea.ToString("F1"),    IsPass = pass });
                 inspResult.Items.Add(new InspectionItem { Name = "Threshold",       Value = Threshold.ToString(), IsPass = true });
+                // 검출된 모든 결함 → Defects(영상 오버레이용) + 면적 큰 순 일부는 Items 에도 표기.
+                foreach (var d in defects)
+                    inspResult.Defects.Add(new DefectMark { X = d.cx, Y = d.cy, Width = d.w, Height = d.h, Area = d.area });
                 if (defects.Count > 0)
                 {
                     var biggest = defects[0];

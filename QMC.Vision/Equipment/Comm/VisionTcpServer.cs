@@ -175,7 +175,11 @@ namespace QMC.Vision.Comm
                     case "EXPOSE":
                     case "GRAB":       resp = DoExpose(m);       break;
                     case "MATCH":      resp = DoMatch(m, parts); break;
+                    case "MATCHASYNC": resp = DoMatchAsync(m, parts); break;   // 1차 ACK(STARTED) 후 백그라운드 알고리즘
+                    case "MATCHRESULT":resp = DoMatchResult(m, parts); break;  // 폴링: 0/1;data/ERR
                     case "INSPECT":    resp = DoInspect(m, parts); break;
+                    case "INSPECTASYNC": resp = DoInspectAsync(m, parts); break;   // 1차 ACK(STARTED) 후 백그라운드 검사
+                    case "INSPECTRESULT":resp = DoInspectResult(m, parts); break;  // 폴링: 0/1;PASS|FAIL../ERR
                     case "TRAIN":      resp = DoTrain(m, parts); break;
                     case "SCALE":      resp = DoScale(m, parts); break;
                     case "ROT_CENTER": resp = DoRotCenter(m);    break;
@@ -185,7 +189,17 @@ namespace QMC.Vision.Comm
                     default:           resp = null;              break;
                 }
                 if (resp == null) Send(stream, $"ERR|{mod}|{cmd}|unknown command");
-                else                Send(stream, $"ACK|{mod}|{cmd}|{resp}");
+                else
+                {
+                    // MATCH(ASYNC/RESULT)/INSPECT/TRAIN 은 대상(finder/inspector)을 응답에 echo → 핸들러가 어떤 도구 결과인지 식별.
+                    //   예: ACK|WaferVision|MATCH|AlignDieFinder|OK;x=...;y=...;r=...;score=...
+                    string target = (cmd == "MATCH" || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
+                                     || cmd == "INSPECT" || cmd == "INSPECTASYNC" || cmd == "INSPECTRESULT"
+                                     || cmd == "TRAIN") && parts.Length > 2 ? parts[2] : null;
+                    Send(stream, string.IsNullOrEmpty(target)
+                        ? $"ACK|{mod}|{cmd}|{resp}"
+                        : $"ACK|{mod}|{cmd}|{target}|{resp}");
+                }
             }
             catch (Exception ex)
             {
@@ -205,11 +219,110 @@ namespace QMC.Vision.Comm
             return VisionCommandCore.Match(m, _cfg, finder, chipUid);
         }
 
+        /// <summary>비동기 매칭 시작 — 그랩(동기) 후 즉시 "STARTED"(1차 ACK), 알고리즘은 백그라운드.
+        /// 완료 결과는 <see cref="AsyncMatchStore"/> 에 저장되고 핸들러는 MATCHRESULT 로 폴링한다.</summary>
+        private string DoMatchAsync(IVisionModule m, string[] parts)
+        {
+            string finder  = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
+            if (string.IsNullOrEmpty(finder)) return "fail:no finder";
+            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
+
+            // 그랩은 동기 — 1차 ACK(STARTED) 전에 영상이 확보돼야 핸들러가 안전하게 다음 스텝 진행.
+            var g = m.GrabForTool(finder);
+            if (g == null || !g.IsSuccess) { try { g?.Dispose(); } catch { } return "fail:" + (g?.ErrorMessage ?? "grab"); }
+
+            AsyncMatchStore.Start(m.Name, finder);
+            var cfg = _cfg;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    string res = VisionCommandCore.MatchOnImage(m, cfg, finder, f, g.Image, chipUid);
+                    if (res != null && res.StartsWith("OK;"))
+                        AsyncMatchStore.Complete(m.Name, finder, res.Substring(3));   // 'OK;' 제거 → x=..;y=..;r=..;score=..
+                    else
+                        AsyncMatchStore.Fail(m.Name, finder, res ?? "no result");
+                }
+                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, finder, ex.Message); }
+                finally { try { g.Dispose(); } catch { } }
+            });
+            return "STARTED";
+        }
+
+        /// <summary>비동기 매칭 결과 폴링 — "0"(진행)/"1;x=..;y=..;r=..;score=.."(완료)/"ERR;사유"(실패)/"0"(미시작).</summary>
+        private string DoMatchResult(IVisionModule m, string[] parts)
+        {
+            string finder = parts.Length > 2 ? parts[2] : "";
+            if (string.IsNullOrEmpty(finder)) return "fail:no finder";
+            var st = AsyncMatchStore.TryGet(m.Name, finder, out string payload);
+            switch (st)
+            {
+                case AsyncMatchStore.State.Done:    return "1;" + payload;
+                case AsyncMatchStore.State.Error:   return "ERR;" + payload;
+                case AsyncMatchStore.State.Running: return "0";
+                default:                            return "0";   // 미시작/없음
+            }
+        }
+
         private string DoInspect(IVisionModule m, string[] parts)
         {
             string insp    = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
             return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
+        }
+
+        /// <summary>비동기 검사 시작 — 그랩(동기) 후 즉시 "STARTED"(1차 ACK), 검사 알고리즘은 백그라운드.
+        /// 검사 사용 OFF(게이트)면 그랩 없이 즉시 완료. 결과는 <see cref="AsyncMatchStore"/> 에 저장.</summary>
+        private string DoInspectAsync(IVisionModule m, string[] parts)
+        {
+            string insp    = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
+            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            if (!m.Inspectors.TryGetValue(insp, out var ins)) return "fail:inspector not found";
+
+            // 검사 사용 게이트 OFF → 그랩 없이 즉시 완료(스킵).
+            if (VisionCommandCore.IsInspectionSkipped(m, insp))
+            {
+                ModuleResultStore.Record(m.Name, insp, true, "inspection=skip");
+                AsyncMatchStore.Complete(m.Name, insp, "PASS;inspection=skip");
+                return "STARTED";
+            }
+
+            var g = m.GrabForTool(insp);
+            if (g == null || !g.IsSuccess) { try { g?.Dispose(); } catch { } return "fail:" + (g?.ErrorMessage ?? "grab"); }
+
+            AsyncMatchStore.Start(m.Name, insp);
+            var cfg = _cfg;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    string res = VisionCommandCore.InspectOnImage(m, cfg, insp, ins, g.Image, chipUid);
+                    if (res != null && (res.StartsWith("PASS") || res.StartsWith("FAIL")))
+                        AsyncMatchStore.Complete(m.Name, insp, res);   // payload = PASS;.. / FAIL;..
+                    else
+                        AsyncMatchStore.Fail(m.Name, insp, res ?? "no result");
+                }
+                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, insp, ex.Message); }
+                finally { try { g.Dispose(); } catch { } }
+            });
+            return "STARTED";
+        }
+
+        /// <summary>비동기 검사 결과 폴링 — "0"(진행)/"1;PASS|FAIL;.."(완료)/"ERR;사유"(실패)/"0"(미시작).</summary>
+        private string DoInspectResult(IVisionModule m, string[] parts)
+        {
+            string insp = parts.Length > 2 ? parts[2] : "";
+            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
+            var st = AsyncMatchStore.TryGet(m.Name, insp, out string payload);
+            switch (st)
+            {
+                case AsyncMatchStore.State.Done:    return "1;" + payload;
+                case AsyncMatchStore.State.Error:   return "ERR;" + payload;
+                case AsyncMatchStore.State.Running: return "0";
+                default:                            return "0";
+            }
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)

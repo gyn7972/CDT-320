@@ -617,13 +617,15 @@ namespace QMC.Vision
             }
             else
             {
-                // GrabImage: 새 그랩(테스트 그랩/실제 운행/라이브)이 들어왔을 때만 프레임 제공. 변화 없으면 null → 송출 안 함.
-                long lastSeq = -1;
+                // GrabImage: 새 그랩이 들어왔거나(seq) 결과/마크가 갱신됐을 때(rev) 프레임 제공.
+                // rev 도 보는 이유: MATCH 가 그랩(seq++) 후에 마크를 기록하므로, seq 만 보면 마크가 다음 그랩까지 한 박자 늦게 전송됨.
+                long lastSeq = -1; long lastRev = -1;
                 provider = () =>
                 {
-                    long s = mod.ViewerFrameSeq;
-                    if (s == lastSeq) return null;
-                    lastSeq = s;
+                    long s  = mod.ViewerFrameSeq;
+                    long rv = QMC.Vision.Core.ModuleResultStore.Revision(mod.Name);
+                    if (s == lastSeq && rv == lastRev) return null;
+                    lastSeq = s; lastRev = rv;
                     return mod.AcquireViewerFrame();
                 };
             }
