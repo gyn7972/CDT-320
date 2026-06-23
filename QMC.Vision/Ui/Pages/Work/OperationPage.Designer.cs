@@ -45,9 +45,9 @@ namespace QMC.Vision.Ui.Pages
             this._monitor = new System.Windows.Forms.TableLayoutPanel();
             this._camBig = new QMC.Vision.Ui.Controls.CameraView();
             this._smallHost = new System.Windows.Forms.TableLayoutPanel();
-            this._sideHost = new System.Windows.Forms.TableLayoutPanel();
             this._camS1 = new QMC.Vision.Ui.Controls.CameraView();
             this._camS2 = new QMC.Vision.Ui.Controls.CameraView();
+            this._sideHost = new System.Windows.Forms.TableLayoutPanel();
             this._camS3 = new QMC.Vision.Ui.Controls.CameraView();
             this._camS4 = new QMC.Vision.Ui.Controls.CameraView();
             this._root.SuspendLayout();
@@ -78,11 +78,8 @@ namespace QMC.Vision.Ui.Pages
             // _hdr
             // 
             this._hdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this._hdr.Controls.Add(this._btnRun);
             this._hdr.Controls.Add(this._btnReady);
-            // Dock=Right 적층: 자식 인덱스가 높을수록 우측 끝. RUN 이 우측 끝, READY 는 그 왼쪽이 되도록 순서 보정.
-            this._hdr.Controls.SetChildIndex(this._btnReady, 0);
-            this._hdr.Controls.SetChildIndex(this._btnRun, 1);
+            this._hdr.Controls.Add(this._btnRun);
             this._hdr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._hdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this._hdr.ForeColor = System.Drawing.Color.White;
@@ -110,9 +107,9 @@ namespace QMC.Vision.Ui.Pages
             this._btnRun.Text = "RUN";
             this._btnRun.UseVisualStyleBackColor = false;
             this._btnRun.Click += new System.EventHandler(this.OnRunToggleClick);
-            //
+            // 
             // _btnReady
-            //
+            // 
             this._btnReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._btnReady.Dock = System.Windows.Forms.DockStyle.Right;
             this._btnReady.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -166,14 +163,16 @@ namespace QMC.Vision.Ui.Pages
             // 
             // _camBig
             // 
-            this._camBig.BackColor = System.Drawing.Color.Black;
+            this._camBig.BackColor = System.Drawing.Color.DimGray;
             this._camBig.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camBig.InfoForeColor = System.Drawing.Color.LightGreen;
             this._camBig.InfoText = "BOTTOM INSPECTION (MAIN)\r\nGrab 대기";
             this._camBig.Location = new System.Drawing.Point(7, 7);
             this._camBig.MmPerPixelX = 0D;
             this._camBig.MmPerPixelY = 0D;
             this._camBig.Name = "_camBig";
             this._camBig.ShowCrosshair = true;
+            this._camBig.ShowCursorReadout = false;
             this._camBig.ShowLiveLabel = true;
             this._camBig.ShowToolbar = false;
             this._camBig.Size = new System.Drawing.Size(789, 729);
@@ -188,7 +187,6 @@ namespace QMC.Vision.Ui.Pages
             this._smallHost.Controls.Add(this._camS1, 0, 0);
             this._smallHost.Controls.Add(this._camS2, 1, 0);
             this._smallHost.Controls.Add(this._sideHost, 0, 1);
-            this._smallHost.SetColumnSpan(this._sideHost, 2);   // TopSide/BottomSide 스택을 우측 영역 전체폭으로
             this._smallHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this._smallHost.Location = new System.Drawing.Point(799, 4);
             this._smallHost.Margin = new System.Windows.Forms.Padding(0);
@@ -198,80 +196,91 @@ namespace QMC.Vision.Ui.Pages
             this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 60F));
             this._smallHost.Size = new System.Drawing.Size(576, 735);
             this._smallHost.TabIndex = 1;
-            //
-            // _sideHost — TopSide/BottomSide 전체폭 가로 띠(위아래 스택, 4000×700 대응)
-            //
-            this._sideHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this._sideHost.ColumnCount = 1;
-            this._sideHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._sideHost.Controls.Add(this._camS3, 0, 0);
-            this._sideHost.Controls.Add(this._camS4, 0, 1);
-            this._sideHost.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._sideHost.Margin = new System.Windows.Forms.Padding(0);
-            this._sideHost.Name = "_sideHost";
-            this._sideHost.RowCount = 2;
-            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this._sideHost.TabIndex = 2;
             // 
             // _camS1
             // 
-            this._camS1.BackColor = System.Drawing.Color.Black;
+            this._camS1.BackColor = System.Drawing.Color.DimGray;
             this._camS1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS1.InfoForeColor = System.Drawing.Color.LightGreen;
             this._camS1.InfoText = "WAFER VISION\r\nGrab 대기";
             this._camS1.Location = new System.Drawing.Point(3, 3);
             this._camS1.MmPerPixelX = 0D;
             this._camS1.MmPerPixelY = 0D;
             this._camS1.Name = "_camS1";
             this._camS1.ShowCrosshair = false;
+            this._camS1.ShowCursorReadout = false;
             this._camS1.ShowLiveLabel = false;
             this._camS1.ShowToolbar = false;
-            this._camS1.Size = new System.Drawing.Size(282, 361);
+            this._camS1.Size = new System.Drawing.Size(282, 288);
             this._camS1.TabIndex = 0;
             // 
             // _camS2
             // 
-            this._camS2.BackColor = System.Drawing.Color.Black;
+            this._camS2.BackColor = System.Drawing.Color.DimGray;
             this._camS2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS2.InfoForeColor = System.Drawing.Color.LightGreen;
             this._camS2.InfoText = "BIN VISION\r\nGrab 대기";
             this._camS2.Location = new System.Drawing.Point(291, 3);
             this._camS2.MmPerPixelX = 0D;
             this._camS2.MmPerPixelY = 0D;
             this._camS2.Name = "_camS2";
             this._camS2.ShowCrosshair = false;
+            this._camS2.ShowCursorReadout = false;
             this._camS2.ShowLiveLabel = false;
             this._camS2.ShowToolbar = false;
-            this._camS2.Size = new System.Drawing.Size(282, 361);
+            this._camS2.Size = new System.Drawing.Size(282, 288);
             this._camS2.TabIndex = 1;
+            // 
+            // _sideHost
+            // 
+            this._sideHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this._sideHost.ColumnCount = 1;
+            this._smallHost.SetColumnSpan(this._sideHost, 2);
+            this._sideHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._sideHost.Controls.Add(this._camS3, 0, 0);
+            this._sideHost.Controls.Add(this._camS4, 0, 1);
+            this._sideHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._sideHost.Location = new System.Drawing.Point(0, 294);
+            this._sideHost.Margin = new System.Windows.Forms.Padding(0);
+            this._sideHost.Name = "_sideHost";
+            this._sideHost.RowCount = 2;
+            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._sideHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._sideHost.Size = new System.Drawing.Size(576, 441);
+            this._sideHost.TabIndex = 2;
             // 
             // _camS3
             // 
-            this._camS3.BackColor = System.Drawing.Color.Black;
+            this._camS3.BackColor = System.Drawing.Color.DimGray;
             this._camS3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS3.InfoForeColor = System.Drawing.Color.LightGreen;
             this._camS3.InfoText = "TOP SIDE\r\nGrab 대기";
-            this._camS3.Location = new System.Drawing.Point(3, 370);
+            this._camS3.Location = new System.Drawing.Point(3, 3);
             this._camS3.MmPerPixelX = 0D;
             this._camS3.MmPerPixelY = 0D;
             this._camS3.Name = "_camS3";
             this._camS3.ShowCrosshair = false;
+            this._camS3.ShowCursorReadout = false;
             this._camS3.ShowLiveLabel = false;
             this._camS3.ShowToolbar = false;
-            this._camS3.Size = new System.Drawing.Size(282, 362);
+            this._camS3.Size = new System.Drawing.Size(570, 214);
             this._camS3.TabIndex = 2;
             // 
             // _camS4
             // 
-            this._camS4.BackColor = System.Drawing.Color.Black;
+            this._camS4.BackColor = System.Drawing.Color.DimGray;
             this._camS4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS4.InfoForeColor = System.Drawing.Color.LightGreen;
             this._camS4.InfoText = "BOTTOM SIDE\r\nGrab 대기";
-            this._camS4.Location = new System.Drawing.Point(291, 370);
+            this._camS4.Location = new System.Drawing.Point(3, 223);
             this._camS4.MmPerPixelX = 0D;
             this._camS4.MmPerPixelY = 0D;
             this._camS4.Name = "_camS4";
             this._camS4.ShowCrosshair = false;
+            this._camS4.ShowCursorReadout = false;
             this._camS4.ShowLiveLabel = false;
             this._camS4.ShowToolbar = false;
-            this._camS4.Size = new System.Drawing.Size(282, 362);
+            this._camS4.Size = new System.Drawing.Size(570, 215);
             this._camS4.TabIndex = 3;
             // 
             // OperationPage
