@@ -1438,11 +1438,22 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SequenceStopException.IsCycleStopMessage(message))
+                {
+                    WriteLog(source, message + " - Stopped");
+                    LogPublic("[UNIT-INPUT-LOADER] STOP " + message);
+                    throw new SequenceStopException(message);
+                }
+
                 message = SequenceFailureStore.AppendRecentDetail(message, "InputSequence", alarmCode);
                 SequenceFailureStore.Record("InputSequence", Kind.ToString(), "", alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 LogPublic("[UNIT-INPUT-LOADER] FAIL " + alarmCode + " - " + message);
+            }
+            catch (SequenceStopException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

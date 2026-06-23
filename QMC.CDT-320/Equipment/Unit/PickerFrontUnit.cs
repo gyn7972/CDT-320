@@ -971,12 +971,12 @@ namespace QMC.CDT320
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
 
                 double velocity = ResolveMoveVelocity(item, bFine);
-                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD",
-                    Name + " " + axis +
-                    " target=" + targetPos +
-                    ", targetName=" + (targetName ?? string.Empty) +
-                    ", fine=" + bFine +
-                    ", velocity=" + velocity);
+                //EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD",
+                //    Name + " " + axis +
+                //    " target=" + targetPos +
+                //    ", targetName=" + (targetName ?? string.Empty) +
+                //    ", fine=" + bFine +
+                //    ", velocity=" + velocity);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
@@ -1020,7 +1020,7 @@ namespace QMC.CDT320
                 if (!CheckPickerAxisMoveReady(axis))
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
 
-                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos + ", velocity=" + velocity);
+                //EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos + ", velocity=" + velocity);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
@@ -1103,7 +1103,7 @@ namespace QMC.CDT320
                 if (!CheckPickerAxisMoveReady(axis))
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " is not ready to move.");
 
-                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
+                //EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
                 double startPos = item.ActualPosition;
@@ -1128,7 +1128,7 @@ namespace QMC.CDT320
 
                     if (result != 0 || item.IsAlarm)
                     {
-                        WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
+                        //WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
                         return RaisePickerAlarm(
                             "PK-MOVE",
                             axis + " 이동 명령 실패. result=" + result +
@@ -1141,7 +1141,7 @@ namespace QMC.CDT320
                         axis,
                         targetPos).ConfigureAwait(false);
                     verifyMs = verifyWatch.ElapsedMilliseconds;
-                    WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    //WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
                     if (!waitResult.Success)
                         return RaisePickerAlarm(
                             AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
@@ -1184,7 +1184,7 @@ namespace QMC.CDT320
             safeZMs = safeWatch.ElapsedMilliseconds;
             if (safeResult != 0)
             {
-                WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, safeResult, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
+                //WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, safeResult, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                 return safeResult;
             }
 
@@ -1205,7 +1205,7 @@ namespace QMC.CDT320
             {
                 if (results[i] != 0)
                 {
-                    WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
+                    //WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                     return results[i];
                 }
             }
@@ -1227,12 +1227,12 @@ namespace QMC.CDT320
             {
                 if (results[i] != 0)
                 {
-                    WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
+                    //WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                     return results[i];
                 }
             }
 
-            WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, 0, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
+            //WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, 0, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
             return 0;
         }
 

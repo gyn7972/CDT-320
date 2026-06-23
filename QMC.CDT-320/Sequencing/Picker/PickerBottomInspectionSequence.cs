@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -104,68 +105,85 @@ namespace QMC.CDT320.Sequencing
             {
                 // 유닛 확인
                 case PickerBottomInspectionStep.CheckUnit:
+                    Log.Write("PickerBottomInspectionSequence", Name + " checking unit for bottom inspection. side=" + Side + " - Check");
                     return Task.FromResult(CheckUnit());
 
                 // 픽업 피커 목록 생성
                 case PickerBottomInspectionStep.BuildPickedPickerList:
+                    Log.Write("PickerBottomInspectionSequence", Name + " building picked picker list for bottom inspection. side=" + Side + " - Check");
                     return Task.FromResult(BuildPickedPickerList());
 
                 // 전체 피커 Z로 어보이드 이동
                 case PickerBottomInspectionStep.MoveAllPickerZToAvoid:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving all picker Z to avoid for bottom inspection. side=" + Side + " - Check");
                     return MoveAllPickerZToAvoidAsync(ct);
 
                 // Bottom 검사 진입 전 상대 피커 간섭 상태 확인
                 case PickerBottomInspectionStep.MoveOppositePickerToAvoidBeforeInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving opposite picker to avoid before bottom inspection. side=" + Side + " - Check"); 
                     return MoveOppositePickerToAvoidBeforeInspectionAsync(ct);
 
                 // 다음 피커 선택
                 case PickerBottomInspectionStep.SelectNextPicker:
+                    Log.Write("PickerBottomInspectionSequence", Name + " selecting next picker for bottom inspection. side=" + Side + " - Check");  
                     return Task.FromResult(SelectNextPicker());
 
                 // Bottom 검사 영역 진입 전 Y축 어보이드 확인
                 case PickerBottomInspectionStep.MoveBottomYToAvoidBeforeInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom Y to avoid before bottom inspection. side=" + Side + " - Check");   
                     return MoveBottomYToAvoidBeforeInspectionAsync(ct);
 
                 // 하단 XY 이동
                 case PickerBottomInspectionStep.MoveBottomXToInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom X to inspection. side=" + Side + " - Check");
                     return MoveBottomXToInspectionAsync(ct);
 
                 case PickerBottomInspectionStep.MoveBottomYToInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom Y to inspection. side=" + Side + " - Check");
                     return MoveBottomYToInspectionAsync(ct);
 
                 // 하단 Z 이동
                 case PickerBottomInspectionStep.MoveBottomZ:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom Z to inspection. side=" + Side + " - Check");
                     return MoveBottomZAsync(ct);
 
                 // 하단 T 이동
                 case PickerBottomInspectionStep.MoveBottomT:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom T to inspection. side=" + Side + " - Check");
                     return MoveBottomTAsync(ct);
 
                 // 하단 검사 요청
                 case PickerBottomInspectionStep.RequestBottomInspection:
+                    Log.Write("PickerBottomInspectionSequence", Name + " requesting bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return RequestBottomInspectionAsync(ct);
 
                 // 하단 검사 결과 적용
                 case PickerBottomInspectionStep.ApplyBottomInspectionResult:
+                    Log.Write("PickerBottomInspectionSequence", Name + " applying bottom inspection result. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return Task.FromResult(ApplyBottomInspectionResult());
 
                 // 하단 Z로 어보이드 이동
                 case PickerBottomInspectionStep.MoveBottomZToAvoid:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom Z to avoid after bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return MoveBottomZToAvoidAsync(ct);
 
                 // 하단 T로 안전 이동
                 case PickerBottomInspectionStep.MoveBottomTToSafe:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom T to safe after bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return MoveBottomTToSafeAsync(ct);
 
                 // 하단 XY로 어보이드 이동
                 case PickerBottomInspectionStep.MoveBottomYToAvoid:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom Y to avoid after bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return MoveBottomYToAvoidAsync(ct);
 
                 case PickerBottomInspectionStep.MoveBottomXToAvoid:
+                    Log.Write("PickerBottomInspectionSequence", Name + " moving bottom X to avoid after bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return MoveBottomXToAvoidAsync(ct);
 
                 // 다음 피커 또는 완료 선택
                 case PickerBottomInspectionStep.SelectNextPickerOrComplete:
+                    Log.Write("PickerBottomInspectionSequence", Name + " selecting next picker or complete after bottom inspection. side=" + Side + ", die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo + " - Check");
                     return Task.FromResult(SelectNextPickerOrComplete());
 
                 default:
