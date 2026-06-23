@@ -35,6 +35,9 @@ namespace QMC.Vision.Ui.Pages
             this._cam = new QMC.Vision.Ui.Controls.CameraView();
             this._jog = new QMC.Vision.Ui.Controls.JogBox();
             this._result = new System.Windows.Forms.DataGridView();
+            this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this._lblVerdict = new System.Windows.Forms.Label();
             this._btnGrab = new System.Windows.Forms.Button();
             this._btnLoad = new System.Windows.Forms.Button();
@@ -42,9 +45,6 @@ namespace QMC.Vision.Ui.Pages
             this._btnInspect = new System.Windows.Forms.Button();
             this._btnEditRoi = new System.Windows.Forms.Button();
             this._lblStatus = new System.Windows.Forms.Label();
-            this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this._result)).BeginInit();
             this.SuspendLayout();
             // 
@@ -57,18 +57,23 @@ namespace QMC.Vision.Ui.Pages
             this._title.Location = new System.Drawing.Point(0, 0);
             this._title.Name = "_title";
             this._title.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this._title.Size = new System.Drawing.Size(1300, 26);
+            this._title.Size = new System.Drawing.Size(1283, 26);
             this._title.TabIndex = 0;
             this._title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _cam
             // 
-            this._cam.BackColor = System.Drawing.Color.Black;
+            this._cam.BackColor = System.Drawing.Color.DimGray;
+            this._cam.InfoForeColor = System.Drawing.Color.LightGreen;
             this._cam.InfoText = "STAGE\r\nW:640 H:480";
             this._cam.Location = new System.Drawing.Point(6, 34);
+            this._cam.MmPerPixelX = 0D;
+            this._cam.MmPerPixelY = 0D;
             this._cam.Name = "_cam";
             this._cam.ShowCrosshair = true;
+            this._cam.ShowCursorReadout = false;
             this._cam.ShowLiveLabel = true;
+            this._cam.ShowToolbar = false;
             this._cam.Size = new System.Drawing.Size(700, 500);
             this._cam.TabIndex = 1;
             this._cam.RoiEdited += new System.Action<string, QMC.Vision.Core.Roi>(this.OnCamRoiEdited);
@@ -89,7 +94,7 @@ namespace QMC.Vision.Ui.Pages
             this._result.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("Consolas", 10F);
             dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -107,6 +112,24 @@ namespace QMC.Vision.Ui.Pages
             this._result.RowHeadersVisible = false;
             this._result.Size = new System.Drawing.Size(540, 270);
             this._result.TabIndex = 3;
+            // 
+            // dataGridViewTextBoxColumn1
+            // 
+            this.dataGridViewTextBoxColumn1.HeaderText = "Item";
+            this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
+            this.dataGridViewTextBoxColumn1.ReadOnly = true;
+            // 
+            // dataGridViewTextBoxColumn2
+            // 
+            this.dataGridViewTextBoxColumn2.HeaderText = "Value";
+            this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
+            this.dataGridViewTextBoxColumn2.ReadOnly = true;
+            // 
+            // dataGridViewTextBoxColumn3
+            // 
+            this.dataGridViewTextBoxColumn3.HeaderText = "Pass";
+            this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
+            this.dataGridViewTextBoxColumn3.ReadOnly = true;
             // 
             // _lblVerdict
             // 
@@ -205,24 +228,6 @@ namespace QMC.Vision.Ui.Pages
             this._lblStatus.Text = "Ready.";
             this._lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // dataGridViewTextBoxColumn1
-            // 
-            this.dataGridViewTextBoxColumn1.HeaderText = "Item";
-            this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
-            this.dataGridViewTextBoxColumn1.ReadOnly = true;
-            // 
-            // dataGridViewTextBoxColumn2
-            // 
-            this.dataGridViewTextBoxColumn2.HeaderText = "Value";
-            this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
-            this.dataGridViewTextBoxColumn2.ReadOnly = true;
-            // 
-            // dataGridViewTextBoxColumn3
-            // 
-            this.dataGridViewTextBoxColumn3.HeaderText = "Pass";
-            this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
-            this.dataGridViewTextBoxColumn3.ReadOnly = true;
-            // 
             // InspectorPage
             // 
             this.Controls.Add(this._title);
@@ -237,7 +242,7 @@ namespace QMC.Vision.Ui.Pages
             this.Controls.Add(this._btnEditRoi);
             this.Controls.Add(this._lblStatus);
             this.Name = "InspectorPage";
-            this.Size = new System.Drawing.Size(1300, 747);
+            this.Size = new System.Drawing.Size(1283, 747);
             ((System.ComponentModel.ISupportInitialize)(this._result)).EndInit();
             this.ResumeLayout(false);
 

@@ -393,6 +393,9 @@
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.LightSystemSetupPage.resources</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.resx">
+      <DependentUpon>InspectorTargetPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\Recipe\RecipePage.resx">
       <DependentUpon>RecipePage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.RecipePage.resources</LogicalName>
