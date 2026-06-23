@@ -185,15 +185,16 @@ namespace QMC.Common.Ui.Controls
                     catch { try { bmp.Dispose(); } catch { } }
                 });
                 _live = true;
+                if (_tbLive != null) _tbLive.Checked = true;   // 라이브 중 버튼 활성(눌림) 표시
             }
             catch { }
         }
 
         private void DoToolbarStop()
         {
-            if (_source == null) { _live = false; return; }
-            try { _source.StopLive(); } catch { }
+            try { _source?.StopLive(); } catch { }
             _live = false;
+            if (_tbLive != null) _tbLive.Checked = false;   // 라이브 종료 → 활성 표시 해제
         }
 
         /// <summary>컨트롤/폼 종료 시 라이브를 반드시 정지 — 종료 레이스 방지.</summary>

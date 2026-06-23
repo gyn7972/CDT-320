@@ -129,15 +129,21 @@ namespace QMC.Vision.Cameras.Mil
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
+            // 재진입 가드 — 이전 그랩이 아직 진행 중이면 겹치지 않게 즉시 반환(연속 클릭/다중 경로 겹침 멈춤 방지).
+            if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1)
+                return GrabResult.Fail("grab busy", Info.Id);
             try
             {
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
-                // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다. (기본 비동기면 완료 전 반환 → 연속 클릭 시 겹쳐 멈춤)
+                // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
+                // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 AcquisitionStart 가 깨끗이 재-arm
+                //   (직전 SingleFrame 획득이 정리되기 전에 연속으로 누르면 다음 MdigGrab 이 멈추는 문제 방지).
+                if (!_continuousOn)
+                    try { MIL.MdigHalt(_dig); } catch { }
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
                 //   (Intellicam 의 Single Frame + Acquisition Start 1회와 동일. 노출 Timed, 스트로브는 DCF.)
-                //   모드는 바뀔 때만 적용(캐시).
                 EnsureSingleFrameGrabMode();
                 MIL.MdigGrab(_dig, _buf);            // AcquisitionStart → 1프레임(+ 스트로브). 동기라 완료까지 블록.
 
@@ -146,9 +152,12 @@ namespace QMC.Vision.Cameras.Mil
                 return new GrabResult(bmp, 0, Info.Id);
             }
             catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
+            finally { System.Threading.Interlocked.Exchange(ref _grabBusy, 0); }
         }
 
         private volatile bool _continuousOn;
+        private int _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(연속 클릭/다중 경로 겹침 방지)
+        private long _liveFrameCount;   // 진단용 — 라이브 훅 호출 횟수
 
         // 획득 모드/트리거 캐시 — 매 Grab/Live 마다 GenICam feature 를 쓰면 카메라 왕복으로 버벅임/멈춤이
         // 생기므로, 실제 상태가 바뀔 때만 적용한다.
@@ -199,31 +208,43 @@ namespace QMC.Vision.Cameras.Mil
             // 프레임마다 MIL 내부 스레드가 호출하는 훅 — 우리 폴링 스레드를 만들지 않는다.
             //   델리게이트는 필드로 보관해야 콜백 중 GC 되지 않는다.
             _lastLiveTickMs = 0;
+            _liveFrameCount = 0;
             _liveHook = LiveGrabHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END, _liveHook, IntPtr.Zero); } catch { }
             try { MIL.MdigGrabContinuous(_dig, _buf); _continuousOn = true; }
-            catch { _continuousOn = false; }
+            catch (Exception ex) { _continuousOn = false; LiveLog("MdigGrabContinuous 실패: " + ex.Message); }
+            LiveLog("StartLive: continuousOn=" + _continuousOn + ", acqMode=" + _acqModeApplied);
+        }
+
+        private void LiveLog(string msg)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MilLive", Info.Id + " " + msg); } catch { }
         }
 
         public override void StopLive()
         {
             bool wasLive = _continuousOn || IsGrabbing;
+            LiveLog("StopLive enter: continuousOn=" + _continuousOn + ", frames=" + _liveFrameCount);
 
             // 순서 중요 — MdigHalt 보다 먼저: ① IsGrabbing=false 로 진행 중인 훅이 즉시 빠지게(RaiseFrame/UI 마샬링 차단),
             //   ② 훅 해제로 새 콜백 차단. 이렇게 해야 MdigHalt 가 무거운 콜백(144M 변환)·UI 마샬링과 데드락/멈춤하지 않는다.
             IsGrabbing = false;
             try { if (_liveHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END + MIL.M_UNHOOK, _liveHook, IntPtr.Zero); } catch { }
             _liveHook = null;
+            LiveLog("unhooked");
 
             if (_continuousOn)
             {
-                try { MIL.MdigHalt(_dig); } catch { }
+                LiveLog("before MdigHalt");
+                try { MIL.MdigHalt(_dig); } catch (Exception ex) { LiveLog("MdigHalt 예외: " + ex.Message); }
+                LiveLog("after MdigHalt");
                 _continuousOn = false;
             }
 
             // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브). (변경 시에만 적용)
             if (wasLive)
                 EnsureSingleFrameGrabMode();
+            LiveLog("StopLive done");
         }
 
         /// <summary>라이브 미리보기 최대 FPS(고해상도 센서 변환·표시 부하 완화). 0 이하면 무제한.</summary>
@@ -236,6 +257,9 @@ namespace QMC.Vision.Cameras.Mil
             try
             {
                 if (!IsGrabbing || !IsOpen) return 0;
+
+                long n = System.Threading.Interlocked.Increment(ref _liveFrameCount);
+                if (n == 1 || n % 30 == 0) LiveLog("hook frame #" + n);
 
                 // 미리보기 FPS 캡 — 고MP 변환 부하/적체 완화(초과 프레임은 건너뜀).
                 int fps = LivePreviewFps;
