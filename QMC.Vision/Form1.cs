@@ -643,6 +643,8 @@ namespace QMC.Vision
                     }
                 }
                 catch { }
+                // 검출 마크(이미지 좌표) → 핸들러 오버레이.
+                try { var mk = QMC.Vision.Core.ModuleResultStore.GetMarks(mod.Name); if (mk != null) meta.Marks = mk; } catch { }
                 return meta;
             };
 

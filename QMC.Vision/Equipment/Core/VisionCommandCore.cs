@@ -37,6 +37,9 @@ namespace QMC.Vision.Core
                 var b = r.Best;
                 if (b == null) return "fail:no match";
 
+                // 검출 마크(이미지 좌표) 저장 → 뷰어 메타로 핸들러 오버레이에 표시.
+                try { ModuleResultStore.RecordMark(m.Name, finderId, b.CenterX, b.CenterY, b.Score); } catch { }
+
                 double xOut = b.CenterX, yOut = b.CenterY;
                 var map = m.ExportCameraMapping();   // 모듈별 스케일/좌표변환(SSOT=모듈 CameraConfig)
                 if (map.ReturnMmCoordinates)
