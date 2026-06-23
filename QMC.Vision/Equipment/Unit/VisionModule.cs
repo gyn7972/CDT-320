@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using QMC.Common.Data.Store;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
@@ -293,13 +293,16 @@ namespace QMC.Vision.Modules
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
             _exposureEndFired = false;
+            
+            if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
+            
             var g = Camera.Grab(timeoutMs);
-            if (g.IsSuccess)
-            {
-                if (g.Image != null) TapFrame(g.Image);
-                if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
-            }
-            else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
+            //if (g.IsSuccess)
+            //{
+            //    if (g.Image != null) TapFrame(g.Image);
+            //    if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
+            //}
+            //else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
             return g;
         }
 
