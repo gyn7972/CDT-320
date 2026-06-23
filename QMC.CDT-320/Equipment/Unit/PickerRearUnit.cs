@@ -418,7 +418,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (ShouldUseSimulatedVisionResult())
+                if (IsVisionBypassed())
                     return SimulateBottomInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -480,7 +480,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun() || IsVisionBypassed())
+                if (IsVisionBypassed())
                     return SimulateSideInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -1489,6 +1489,12 @@ namespace QMC.CDT320
         public bool CheckPickerMoveReady()
         {
             return IsPickerCdaPressureOk();
+        }
+
+        private bool IsVisionBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
         }
 
         private bool IsPickerSimulationOrDryRun()
