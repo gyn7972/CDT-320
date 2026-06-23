@@ -162,6 +162,14 @@ namespace QMC.CDT320.Sequencing
                 if (completed.IsFaulted)
                 {
                     Exception ex = completed.Exception != null ? completed.Exception.GetBaseException() : null;
+                    if (SequenceStopException.IsSequenceStop(completed.Exception ?? ex))
+                    {
+                        string reason = SequenceStopException.ResolveReason(completed.Exception ?? ex);
+                        _ctx.LogPublic("[SEQ] Cycle Stop 경계에서 유닛 시퀀스가 정상 정지되었습니다. " + reason);
+                        await AwaitPendingAfterCycleStopAsync(pending).ConfigureAwait(false);
+                        throw new SequenceStopException(reason);
+                    }
+
                     if (HasCriticalActiveAlarm())
                     {
                         AbortChildren();
@@ -245,6 +253,16 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                if (SequenceStopException.IsSequenceStop(ex))
+                {
+                    _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스가 Cycle Stop 경계에서 정리되었습니다. " +
+                                   SequenceStopException.ResolveReason(ex));
+                    QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
+                        "Sequence abort pending wait ended by cycle stop. reason=" +
+                        SequenceStopException.ResolveReason(ex) + " - Stopped");
+                    return;
+                }
+
                 _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스 정리 중 예외가 발생했습니다. error=" + ex.Message);
                 QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
                     "Sequence abort pending wait failed. error=" + ex.Message + " - Failed");
@@ -295,6 +313,16 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                if (SequenceStopException.IsSequenceStop(ex))
+                {
+                    _ctx.LogPublic("[SEQ] Cycle Stop 대기 중 남은 시퀀스가 작업 경계에서 정리되었습니다. " +
+                                   SequenceStopException.ResolveReason(ex));
+                    QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                        "Sequence pending wait ended by cycle stop. reason=" +
+                        SequenceStopException.ResolveReason(ex) + " - Stopped");
+                    return;
+                }
+
                 _ctx.LogPublic("[SEQ] Cycle Stop 대기 중 추가 유닛 알람이 발생했습니다. error=" + ex.Message);
                 QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
                     "Sequence pending wait after unit alarm failed. error=" + ex.Message + " - Failed");

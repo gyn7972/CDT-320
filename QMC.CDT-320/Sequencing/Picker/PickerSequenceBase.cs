@@ -2019,6 +2019,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SequenceStopException.IsCycleStopMessage(message))
+                {
+                    WriteLog(source, message + " - Stopped");
+                    Context.LogPublic("[" + Name + "] STOP " + message);
+                    throw new SequenceStopException(message);
+                }
+
                 SequenceFailureStore.Record(Name, Kind.ToString(), CurrentStep.ToString(), alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
                 if (IsAlarmStopActive())
@@ -2032,6 +2039,10 @@ namespace QMC.CDT320.Sequencing
                     AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 }
                 Context.LogPublic("[" + Name + "] FAIL " + alarmCode + " - " + message);
+            }
+            catch (SequenceStopException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
