@@ -87,16 +87,24 @@ namespace QMC.CDT_320.Ui.Controls
                 _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
                 _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
                 _cam.SetResultLines(meta.ResultLines);
-                _cam.SetOverlay(System.Drawing.RectangleF.Empty, MarksOf(meta));
+                _cam.SetOverlay(RoiOf(meta), MarksOf(meta));
             }
             catch { }
+        }
+
+        /// <summary>검색 ROI(이미지 px, 좌상단 기준) → 노란 박스 사각형. W/H 0 이면 Empty(미표시).</summary>
+        private static System.Drawing.RectangleF RoiOf(VisionFrameMeta meta)
+        {
+            if (meta == null || meta.RoiW <= 0 || meta.RoiH <= 0) return System.Drawing.RectangleF.Empty;
+            return new System.Drawing.RectangleF((float)meta.RoiX, (float)meta.RoiY, (float)meta.RoiW, (float)meta.RoiH);
         }
 
         private static List<OverlayMark> MarksOf(VisionFrameMeta meta)
         {
             if (meta?.Marks == null || meta.Marks.Length == 0) return null;
             var list = new List<OverlayMark>(meta.Marks.Length);
-            foreach (var m in meta.Marks) list.Add(new OverlayMark(m.X, m.Y, m.Score));
+            foreach (var m in meta.Marks)
+                list.Add(new OverlayMark(m.X, m.Y, m.Score, m.Angle, m.BoxW, m.BoxH));
             return list;
         }
 

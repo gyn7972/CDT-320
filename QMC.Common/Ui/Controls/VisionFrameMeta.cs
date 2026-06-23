@@ -30,6 +30,12 @@ namespace QMC.Common.Ui.Controls
         /// <summary>매칭 결과 마크(이미지 좌표). 없으면 null.</summary>
         [DataMember] public FrameMark[] Marks { get; set; }
 
+        // ── 검색 ROI(이미지 px) — 노란 박스 오버레이. W/H 가 0 이면 미표시. ──
+        [DataMember] public double RoiX { get; set; }
+        [DataMember] public double RoiY { get; set; }
+        [DataMember] public double RoiW { get; set; }
+        [DataMember] public double RoiH { get; set; }
+
         public byte[] ToBytes()
         {
             using (var ms = new MemoryStream())
@@ -50,12 +56,18 @@ namespace QMC.Common.Ui.Controls
         }
     }
 
-    /// <summary>매칭 결과 1개(이미지 좌표 중심 + 점수).</summary>
+    /// <summary>매칭 결과 1개(이미지 좌표 중심 + 점수 + 각도 + 매칭 박스 크기).</summary>
     [DataContract]
     public class FrameMark
     {
         [DataMember] public double X     { get; set; }
         [DataMember] public double Y     { get; set; }
         [DataMember] public double Score { get; set; }
+        /// <summary>검출 회전각(deg). 매칭 박스 회전 표시.</summary>
+        [DataMember] public double Angle { get; set; }
+        /// <summary>매칭 박스 가로(이미지 px). 0 이면 박스 미표시(점+점수만).</summary>
+        [DataMember] public double BoxW  { get; set; }
+        /// <summary>매칭 박스 세로(이미지 px).</summary>
+        [DataMember] public double BoxH  { get; set; }
     }
 }

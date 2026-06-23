@@ -58,6 +58,28 @@ namespace QMC.Vision.Core
                 if (HasChip(chipUid))
                     try { ImageLogSaver.Save(cfg, m.Name, finderId, chipUid, g.Image); } catch { }
 
+                // 오버레이 저장 — 핸들러 뷰어가 '찾은 위치/각/박스 + 검색 ROI' 를 영상 위에 표시(메타로 송출).
+                try
+                {
+                    double bw = f.TrainRoi?.Width  ?? 0.0;
+                    double bh = f.TrainRoi?.Height ?? 0.0;
+                    var marks = new System.Collections.Generic.List<MatchOverlayStore.Mark>();
+                    if (r.Instances != null)
+                        foreach (var inst in r.Instances)
+                            marks.Add(new MatchOverlayStore.Mark
+                            {
+                                X = inst.CenterX, Y = inst.CenterY,
+                                Angle = inst.AngleDeg, Score = inst.Score,
+                                BoxW = bw, BoxH = bh
+                            });
+                    double rx = 0, ry = 0, rw = 0, rh = 0;
+                    var sr = f.SearchRoi;
+                    if (sr != null && sr.Width > 0 && sr.Height > 0)
+                    { rw = sr.Width; rh = sr.Height; rx = sr.CenterX - rw / 2.0; ry = sr.CenterY - rh / 2.0; }
+                    MatchOverlayStore.Record(m.Name, marks.ToArray(), rx, ry, rw, rh);
+                }
+                catch { }
+
                 return $"OK;x={xOut:F3};y={yOut:F3};r={rOut:F3};score={b.Score:F3}";
             }
         }
