@@ -132,16 +132,16 @@ namespace QMC.CDT_320.Ui.Controls
             if (IsDisposed || !IsHandleCreated || string.IsNullOrEmpty(message))
                 return;
 
-            try
-            {
-                BeginInvoke(new Action(() => { _lblStat.Text = message; }));
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
+        /// <summary>결과 라인(우측하단 텍스트) 오버레이 — 내부 카메라뷰로 위임.</summary>
+        public void SetResultLines(string[] lines) { if (IsDisposed) return; try { _cam.SetResultLines(lines); } catch { } }
+        /// <summary>판정(OK/NG, 우측상단) 오버레이 — 내부 카메라뷰로 위임.</summary>
+        public void SetVerdictText(string text, bool pass) { if (IsDisposed) return; try { _cam.SetVerdict(text, pass); } catch { } }
+
+        // ── 소스 상태 메시지(촬상 OK / READY 거부 등) → 상태줄 ──
+        private void OnStatus(string s)
+        {
+            if (IsDisposed || !IsHandleCreated || string.IsNullOrEmpty(s)) return;
+            try { BeginInvoke(new Action(() => { _lblStat.Text = s; })); } catch { }
         }
 
         private void OnMeta(VisionFrameMeta meta)
@@ -192,23 +192,21 @@ namespace QMC.CDT_320.Ui.Controls
                 (float)meta.RoiH);
         }
 
-        private static List<OverlayMark> GetMarks(VisionFrameMeta meta)
+        /// <summary>메타의 ROI(검색/검사 영역, 이미지 좌표 top-left) → RectangleF. 없으면 Empty.</summary>
+        private static System.Drawing.RectangleF RoiOf(VisionFrameMeta meta)
+        {
+            if (meta == null || meta.RoiW <= 0 || meta.RoiH <= 0) return System.Drawing.RectangleF.Empty;
+            return new System.Drawing.RectangleF((float)meta.RoiX, (float)meta.RoiY, (float)meta.RoiW, (float)meta.RoiH);
+        }
+
+        private static List<OverlayMark> MarksOf(VisionFrameMeta meta)
         {
             if (meta == null || meta.Marks == null || meta.Marks.Length == 0)
                 return null;
 
             var list = new List<OverlayMark>(meta.Marks.Length);
-            foreach (FrameMark mark in meta.Marks)
-            {
-                list.Add(new OverlayMark(
-                    mark.X,
-                    mark.Y,
-                    mark.Score,
-                    mark.Angle,
-                    mark.BoxW,
-                    mark.BoxH));
-            }
-
+            // 각도/박스 크기까지 전달 → 핸들러 뷰어가 회전 박스(매칭/측면 결함)를 그린다.
+            foreach (var m in meta.Marks) list.Add(new OverlayMark(m.X, m.Y, m.Score, m.Angle, m.BoxW, m.BoxH));
             return list;
         }
 
