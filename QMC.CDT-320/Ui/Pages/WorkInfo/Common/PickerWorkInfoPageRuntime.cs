@@ -913,9 +913,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 // 수동 플레이스 시퀀스 실행
                 case PickerManualSequenceKind.Place:
-                    return await new PickerPlaceSequence(context, _side)
-                        .RunAsync(ct, options)
-                        .ConfigureAwait(false);
+                    return await RunPlaceOrProcessFromLoadedPickerAsync(context, options, ct).ConfigureAwait(false);
 
                 // 수동 복구 시퀀스 실행
                 case PickerManualSequenceKind.Recover:
@@ -1036,6 +1034,58 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_placeStepSequence.IsComplete)
                 _placeStepSequence = null;
             return result;
+        }
+
+        private async Task<int> RunPlaceOrProcessFromLoadedPickerAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (HasLoadedPickerDie())
+                {
+                    return await new PickerProcessSequence(context, _side)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+                }
+
+                return await new PickerPlaceSequence(context, _side)
+                    .RunAsync(ct, options)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasLoadedPickerDie()
+        {
+            try
+            {
+                MaterialLocationKind location = _side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    if (MaterialStateService.GetDieAtPicker(location, pickerNo) != null)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> RunInspectionSequenceAsync(

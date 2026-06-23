@@ -210,6 +210,18 @@ namespace QMC.CDT320.Sequencing
                         continue;
                     }
 
+                    if (!IsPlaceResultReady(die))
+                    {
+                        sideRequiredCount++;
+                        WriteLog("PickerProcessSequence",
+                            Name + " Side 검사 record는 있으나 Die 최종 판정이 없어 Side 검사부터 재개합니다. " +
+                            "side=" + Side +
+                            ", pickerNo=" + pickerNo +
+                            ", die=" + die.DieId +
+                            ", result=" + die.Result + " - Check");
+                        continue;
+                    }
+
                     placeReadyCount++;
                 }
 
@@ -293,6 +305,12 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsPlaceResultReady(DieMaterial die)
+        {
+            return die != null &&
+                   (die.Result == DieResult.Good || die.Result == DieResult.NG);
         }
 
         private async Task<int> RunPickUpAsync(CancellationToken ct)

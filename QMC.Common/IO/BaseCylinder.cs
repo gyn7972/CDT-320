@@ -8,9 +8,9 @@ namespace QMC.Common.IO
         bool moveFwd,
         out string reason);
 
-    // ??????????????????????????????????????????????????????????????????????????
+    // ──────────────────────────────────────────────────────────────────────
     //  실린더 전용 데이터 클래스
-    // ??????????????????????????????????????????????????????????????????????????
+    // ──────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// 실린더의 기구적 설정값.<br/>
@@ -21,8 +21,8 @@ namespace QMC.Common.IO
         /// <summary>
         /// 편솔(Single Solenoid) 여부.<br/>
         /// <list type="bullet">
-        ///   <item><description>false (기본값) : 양솔 ? OutFwd / OutBwd 두 밸브를 각각 제어한다.</description></item>
-        ///   <item><description>true          : 편솔 ? OutFwd 하나만 제어한다 (OutFwd On = 전진, Off = 후진).</description></item>
+        ///   <item><description>false (기본값) : 양솔 - OutFwd / OutBwd 두 밸브를 각각 제어한다.</description></item>
+        ///   <item><description>true          : 편솔 - OutFwd 하나만 제어한다 (OutFwd On = 전진, Off = 후진).</description></item>
         /// </list>
         /// </summary>
         public bool IsSingleSolenoid { get; set; } = false;
@@ -48,6 +48,12 @@ namespace QMC.Common.IO
         /// true이면 밸브 DO는 실제로 제어하되 완료 DI 대기는 소프트 상태로 통과한다.
         /// </summary>
         public bool IgnoreInputWaits { get; set; } = false;
+
+        /// <summary>
+        /// 시뮬레이션 모드에서 밸브 출력 후 완료 센서를 강제 반영하기 전 대기 시간 [ms].
+        /// 실장비 I/O 대기에는 적용하지 않습니다.
+        /// </summary>
+        public int SimulationDelayMs { get; set; } = 75;
     }
 
     /// <summary>
@@ -63,9 +69,9 @@ namespace QMC.Common.IO
         public int BwdTimeoutMs { get; set; } = 3000;
     }
 
-    // ??????????????????????????????????????????????????????????????????????????
+    // ──────────────────────────────────────────────────────────────────────
     //  BaseCylinder
-    // ??????????????????????????????????????????????????????????????????????????
+    // ──────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// 공압 실린더의 추상 베이스 클래스.<br/>
@@ -91,11 +97,11 @@ namespace QMC.Common.IO
         //  시뮬레이션 모드 내부 상수
         // ──────────────────────────────────────────────────────────────────────
 
-        /// <summary>시뮬레이션 모드에서 밸브 출력 후 센서 강제 점등까지의 대기 시간 [ms].</summary>
-        private const int SimulationDelayMs = 500;
+        /// <summary>시뮬레이션 모드에서 설정값이 유효하지 않을 때 사용하는 기본 대기 시간 [ms].</summary>
+        private const int DefaultSimulationDelayMs = 75;
 
         // ──────────────────────────────────────────────────────────────────────
-        //  내부 컴포넌트 ? DO (밸브)
+        //  내부 컴포넌트 - DO (밸브)
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -114,7 +120,7 @@ namespace QMC.Common.IO
         public BaseDigitalOutput OutBwd { get; private set; }
 
         // ──────────────────────────────────────────────────────────────────────
-        //  내부 컴포넌트 ? DI (센서)
+        //  내부 컴포넌트 - DI (센서)
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -150,7 +156,7 @@ namespace QMC.Common.IO
         }
 
         // ──────────────────────────────────────────────────────────────────────
-        //  팩토리 메서드 ? 하위 클래스에서 구체 DI/DO 구현체를 주입
+        //  팩토리 메서드 - 하위 클래스에서 구체 DI/DO 구현체를 주입
         // ──────────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -222,7 +228,7 @@ namespace QMC.Common.IO
         /// <list type="bullet">
         ///   <item><description>양솔 : OutFwd ON, OutBwd OFF</description></item>
         ///   <item><description>편솔 : OutFwd ON (OutBwd 불사용)</description></item>
-        ///   <item><description>시뮬레이션 모드 : <see cref="SimulationDelayMs"/>ms 후 InBwd OFF, InFwd ON 강제 주입</description></item>
+        ///   <item><description>시뮬레이션 모드 : 설정된 지연 시간 후 InBwd OFF, InFwd ON 강제 주입</description></item>
         /// </list>
         /// </summary>
         /// <returns>전진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
@@ -247,7 +253,7 @@ namespace QMC.Common.IO
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
             if (Config.IsSimulationMode || Config.IgnoreInputWaits)
             {
-                await Task.Delay(SimulationDelayMs, ct);
+                await Task.Delay(GetSimulationDelayMs(), ct);
                 ct.ThrowIfCancellationRequested();
                 ForceInputState(InBwd, false);
                 ForceInputState(InFwd, true);
@@ -263,7 +269,7 @@ namespace QMC.Common.IO
                 result = true;
 
             if (!result)
-                Console.WriteLine($"[ALARM] '{Name}' ? 전진(Fwd) 타임아웃 ({Recipe.FwdTimeoutMs}ms 초과)");
+                Console.WriteLine($"[ALARM] '{Name}' 전진(Fwd) 타임아웃 ({Recipe.FwdTimeoutMs}ms 초과)");
 
             return result;
         }
@@ -273,7 +279,7 @@ namespace QMC.Common.IO
         /// <list type="bullet">
         ///   <item><description>양솔 : OutBwd ON, OutFwd OFF</description></item>
         ///   <item><description>편솔 : OutFwd OFF (스프링 복귀)</description></item>
-        ///   <item><description>시뮬레이션 모드 : <see cref="SimulationDelayMs"/>ms 후 InFwd OFF, InBwd ON 강제 주입</description></item>
+        ///   <item><description>시뮬레이션 모드 : 설정된 지연 시간 후 InFwd OFF, InBwd ON 강제 주입</description></item>
         /// </list>
         /// </summary>
         /// <returns>후진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
@@ -305,7 +311,7 @@ namespace QMC.Common.IO
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
             if (Config.IsSimulationMode || Config.IgnoreInputWaits)
             {
-                await Task.Delay(SimulationDelayMs, ct);
+                await Task.Delay(GetSimulationDelayMs(), ct);
                 ct.ThrowIfCancellationRequested();
                 ForceInputState(InFwd, false);
                 ForceInputState(InBwd, true);
@@ -321,7 +327,7 @@ namespace QMC.Common.IO
                 result = true;
 
             if (!result)
-                Console.WriteLine($"[ALARM] '{Name}' ? 후진(Bwd) 타임아웃 ({Recipe.BwdTimeoutMs}ms 초과)");
+                Console.WriteLine($"[ALARM] '{Name}' 후진(Bwd) 타임아웃 ({Recipe.BwdTimeoutMs}ms 초과)");
 
             return result;
         }
@@ -334,6 +340,16 @@ namespace QMC.Common.IO
 
             string reason;
             return guard(this, moveFwd, out reason);
+        }
+
+        private int GetSimulationDelayMs()
+        {
+            int delay = Config != null ? Config.SimulationDelayMs : DefaultSimulationDelayMs;
+            if (delay < 0)
+                return 0;
+            if (delay > 500)
+                return 500;
+            return delay;
         }
 
         private static void ForceInputState(BaseDigitalInput input, bool state)

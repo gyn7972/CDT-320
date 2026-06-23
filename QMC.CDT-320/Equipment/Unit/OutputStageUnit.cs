@@ -1323,23 +1323,28 @@ namespace QMC.CDT320
                 if (!HasStageAxis(BinStageAxis.GoodBinZ))
                     return 0;
 
-                if (!IsGoodStageZInAvoidPosition())
+                if (!IsGoodStageZInAvoidOrProcessPosition())
                 {
-                    int goodZResult = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    int goodZResult = await MoveStageAxisAndVerifyAsync(
+                        BinStageAxis.GoodBinZ,
+                        Recipe.GoodStageZ.ProcessPosition,
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
                     if (goodZResult != 0)
                     {
                         return RaiseOutputStageAlarm(
                             "OS-GOOD-Z-AVOID-BEFORE-NG-AVOID",
-                            motionName + " 전 GoodStageZ Avoid 이동 실패. result=" + goodZResult + ", " +
+                            motionName + " 전 GoodStageZ 안전 위치 이동 실패. result=" + goodZResult + ", " +
                             DescribeOutputStageInterlockState(BinSide.Good));
                     }
                 }
 
-                if (!IsGoodStageZInAvoidPosition())
+                if (!IsGoodStageZInAvoidOrProcessPosition())
                 {
                     return RaiseOutputStageAlarm(
                         "OS-GOOD-Z-AVOID-CHECK",
-                        motionName + " 전 GoodStageZ가 Avoid 위치가 아닙니다. " +
+                        motionName + " 전 GoodStageZ가 Avoid 또는 Process 위치가 아닙니다. " +
                         DescribeOutputStageInterlockState(BinSide.Good));
                 }
 
@@ -1477,9 +1482,14 @@ namespace QMC.CDT320
                 //if (!IsBinGuideDown(BinSide.Ng))
                 //    return RaiseOutputStageAlarm("OS-NG-GUIDE-DOWN", "NG Bin Guide must be down before output stage movement.");
 
-                if (!IsGoodStageZInAvoidPosition())
+                if (!IsGoodStageZInAvoidOrProcessPosition())
                 {
-                    result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    result = await MoveStageAxisAndVerifyAsync(
+                        BinStageAxis.GoodBinZ,
+                        Recipe.GoodStageZ.ProcessPosition,
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }

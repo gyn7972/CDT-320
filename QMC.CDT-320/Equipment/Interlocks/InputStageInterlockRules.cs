@@ -479,8 +479,8 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyFeederYAvoidAndDownForInputVisionX(machine, out reason))
                 return false;
 
-            // Front/Rear Picker의 X/Y 축이 모두 Avoid여야만 InputVisionX 이동 가능.
-            if (!VerifyFrontRearPickerXYAvoidForInputVisionX(machine, out reason))
+            // Picker 전체 Avoid를 강제하지 않는다. 실제 Input 존 점유/간섭만 차단한다.
+            if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(request, machine, out reason))
                 return false;
 
             if (!VerifyInputStageWorkArea(request, WaferStageAxis.VisionX, "InputVisionX", out reason))
@@ -526,17 +526,37 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // InputVisionX 이동 전제 ②: Front/Rear Picker의 X/Y 축이 모두 Avoid 위치여야 한다.
-        private static bool VerifyFrontRearPickerXYAvoidForInputVisionX(CDT320_Machine machine, out string reason)
+        // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하거나 간섭하면 안 된다.
+        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                if (!VerifyPickerXYAvoidForInputVisionX(machine != null ? machine.PickerFrontUnit : null, "Front", out reason))
+                if (IsPickerOwnedInputVisionMove(request))
+                {
+                    bool? activeFront = ResolveAutoInputDieVisionPrepareSide(request);
+                    if (activeFront.HasValue)
+                    {
+                        if (!VerifyPickerInputZoneClearForInputVisionX(machine, !activeFront.Value, activeFront.Value ? "Rear" : "Front", out reason))
+                            return false;
+
+                        return true;
+                    }
+
+                    if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
+                        return false;
+
+                    if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", out reason))
+                        return false;
+
+                    return true;
+                }
+
+                if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
                     return false;
 
-                if (!VerifyPickerXYAvoidForInputVisionX(machine != null ? machine.PickerRearUnit : null, "Rear", out reason))
+                if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", out reason))
                     return false;
 
                 return true;
@@ -545,7 +565,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputVisionX",
-                    "Exception occurred while verifying Front/Rear Picker X/Y avoid for InputVisionX: " + ex.Message,
+                    "InputVisionX 이동 전 Picker Input 영역 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
             finally
@@ -553,46 +573,48 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyPickerXYAvoidForInputVisionX(PickerFrontUnit picker, string prefix, out string reason)
+        private static bool IsPickerOwnedInputVisionMove(MotionGuardRuleContext request)
         {
-            reason = string.Empty;
-            if (picker == null)
-                return true;
-
-            if (!picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
-                return MotionGuardRuleHelpers.Block(
-                    "InputVisionX",
-                    "InputVisionX 이동 불가: " + prefix + "PickerX가 Avoid 위치가 아닙니다.",
-                    out reason);
-
-            if (!picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                return MotionGuardRuleHelpers.Block(
-                    "InputVisionX",
-                    "InputVisionX 이동 불가: " + prefix + "PickerY가 Avoid 위치가 아닙니다.",
-                    out reason);
-
-            return true;
+            return request != null &&
+                   !string.IsNullOrEmpty(request.TargetName) &&
+                   (request.TargetName.IndexOf("AutoInputDieVisionPrepare", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    request.TargetName.IndexOf("PickerPickUp", System.StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
-        private static bool VerifyPickerXYAvoidForInputVisionX(PickerRearUnit picker, string prefix, out string reason)
+        private static bool? ResolveAutoInputDieVisionPrepareSide(MotionGuardRuleContext request)
         {
-            reason = string.Empty;
-            if (picker == null)
+            if (request == null || string.IsNullOrEmpty(request.TargetName))
+                return null;
+
+            if (request.TargetName.IndexOf("Side=Front", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 return true;
 
-            if (!picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
-                return MotionGuardRuleHelpers.Block(
-                    "InputVisionX",
-                    "InputVisionX 이동 불가: " + prefix + "PickerX가 Avoid 위치가 아닙니다.",
-                    out reason);
+            if (request.TargetName.IndexOf("Side=Rear", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                return false;
 
-            if (!picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                return MotionGuardRuleHelpers.Block(
-                    "InputVisionX",
-                    "InputVisionX 이동 불가: " + prefix + "PickerY가 Avoid 위치가 아닙니다.",
-                    out reason);
+            return null;
+        }
 
-            return true;
+        private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null)
+                return true;
+
+            string detail;
+            bool blocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                machine,
+                isFront,
+                PickerWorkZone.Input,
+                out detail);
+
+            if (!blocking)
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                "InputVisionX",
+                "InputVisionX 이동 불가: " + prefix + "Picker가 Input 영역을 점유하거나 간섭 중입니다. " + detail,
+                out reason);
         }
 
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
