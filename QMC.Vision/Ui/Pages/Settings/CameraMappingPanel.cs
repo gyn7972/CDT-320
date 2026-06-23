@@ -455,6 +455,14 @@ namespace QMC.Vision.Ui.Pages
             {
                 _left.RowStyles[2].Height = _paramGrid.PreferredGridHeight;
                 _left.RowStyles[4].Height = _scaleGrid.PreferredGridHeight;
+
+                // 좌측 전체 내용 높이를 합산해 스크롤 가상 높이를 동적으로 지정한다.
+                // (고정 600 이면 그리드가 길어질 때 아래 항목 — DCF 경로·조명 컨트롤러 — 이 잘려 접근 불가)
+                float total = 0f;
+                foreach (System.Windows.Forms.RowStyle rs in _left.RowStyles)
+                    if (rs.SizeType == System.Windows.Forms.SizeType.Absolute) total += rs.Height;
+                if (_body != null)
+                    _body.AutoScrollMinSize = new System.Drawing.Size(0, (int)total + 24);
             }
             catch { }
         }

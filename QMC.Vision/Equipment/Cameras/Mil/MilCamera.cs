@@ -98,12 +98,19 @@ namespace QMC.Vision.Cameras.Mil
         /// <summary>현재 CameraBase 에 캐시된 설정값을 카메라(GenICam feature)에 재적용. Open 직후 호출.</summary>
         private void ApplyCurrentSettings()
         {
+            // Open 직후 — 카메라 실제 상태를 알 수 없으므로 모드 캐시를 무효화하고 기준 모드를 새로 적용한다.
+            _acqModeApplied = null;
+            _trigOffApplied = false;
+
             try { OnExposureChanged(ExposureUs); }              catch { }
             try { OnGainChanged(Gain); }                        catch { }
             try { OnFrameRateChanged(AcquisitionFrameRate); }   catch { }
             try { OnPixelFormatChanged(PixelFormat); }          catch { }
-            try { OnTriggerModeChanged(TriggerMode); }          catch { }
             try { if (Roi.Width > 0 && Roi.Height > 0) OnRoiChanged(Roi); } catch { }
+
+            // 기준 = 단발 그랩 모드(SingleFrame + TriggerMode Off). 라이브 진입 시에만 Continuous 로 전환.
+            //   (이 카메라는 AcquisitionStart 로 촬상하므로 TriggerMode 는 항상 Off 유지.)
+            try { EnsureSingleFrameGrabMode(); } catch { }
         }
 
         public override void Close()
@@ -127,11 +134,9 @@ namespace QMC.Vision.Cameras.Mil
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
-                //   (VIEWORKS/Rapixo: Intellicam 에서 Single Frame + Acquisition Start 1회와 동일 동작)
-                //   노출은 내부 Timed, 스트로브는 DCF(...strobe.dcf)에 묶여 노출 때 함께 출력 → 외부/소프트 트리거 불필요.
-                TryFeatureS("AcquisitionMode", "SingleFrame");
-                TryFeatureI("AcquisitionFrameCount", 1);
-                TryFeatureS("TriggerMode", "Off");   // AcquisitionStart 가 노출을 일으키도록(외부/소프트 트리거 미사용)
+                //   (Intellicam 의 Single Frame + Acquisition Start 1회와 동일. 노출 Timed, 스트로브는 DCF.)
+                //   모드는 바뀔 때만 적용(캐시) — 연속 그랩 시 재설정으로 인한 멈춤 방지.
+                EnsureSingleFrameGrabMode();
                 MIL.MdigGrab(_dig, _buf);            // AcquisitionStart → 1프레임(+ 스트로브)
 
                 var bmp = BufferToBitmap();
@@ -143,15 +148,51 @@ namespace QMC.Vision.Cameras.Mil
 
         private volatile bool _continuousOn;
 
+        // 획득 모드/트리거 캐시 — 매 Grab/Live 마다 GenICam feature 를 쓰면 카메라 왕복으로 버벅임/멈춤이
+        // 생기므로, 실제 상태가 바뀔 때만 적용한다.
+        private string _acqModeApplied;     // 마지막 적용 AcquisitionMode ("SingleFrame"/"Continuous")
+        private bool   _trigOffApplied;     // TriggerMode=Off 적용됨
+
+        /// <summary>단발 그랩 모드 보장 — AcquisitionMode SingleFrame(+FrameCount 1) + TriggerMode Off.
+        /// 이미 적용돼 있으면 카메라에 쓰지 않는다(연속 그랩 시 재설정/멈춤 방지).</summary>
+        private void EnsureSingleFrameGrabMode()
+        {
+            if (_acqModeApplied != "SingleFrame")
+            {
+                TryFeatureS("AcquisitionMode", "SingleFrame");
+                TryFeatureI("AcquisitionFrameCount", 1);
+                _acqModeApplied = "SingleFrame";
+            }
+            if (!_trigOffApplied)
+            {
+                TryFeatureS("TriggerMode", "Off");
+                _trigOffApplied = true;
+            }
+        }
+
+        /// <summary>라이브(연속) 모드 보장 — AcquisitionMode Continuous + TriggerMode Off. 변경 시에만 적용.</summary>
+        private void EnsureContinuousLiveMode()
+        {
+            if (_acqModeApplied != "Continuous")
+            {
+                TryFeatureS("AcquisitionMode", "Continuous");
+                _acqModeApplied = "Continuous";
+            }
+            if (!_trigOffApplied)
+            {
+                TryFeatureS("TriggerMode", "Off");
+                _trigOffApplied = true;
+            }
+        }
+
         public override void StartLive()
         {
             if (!IsOpen || IsGrabbing) return;
             IsGrabbing = true;
 
-            // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다.
-            //   (SingleFrame/트리거는 StopLive 에서 복원 → 이후 Grab 은 단발 트리거+스트로브.)
-            TryFeatureS("AcquisitionMode", "Continuous");
-            TryFeatureS("TriggerMode", "Off");
+            // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다. (모드는 변경 시에만 적용)
+            //   (SingleFrame 복원은 StopLive 에서.)
+            EnsureContinuousLiveMode();
 
             // 프레임마다 MIL 내부 스레드가 호출하는 훅 — 우리 폴링 스레드를 만들지 않는다.
             //   델리게이트는 필드로 보관해야 콜백 중 GC 되지 않는다.
@@ -174,13 +215,9 @@ namespace QMC.Vision.Cameras.Mil
             try { if (_liveHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END + MIL.M_UNHOOK, _liveHook, IntPtr.Zero); } catch { }
             _liveHook = null;
 
-            // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브).
+            // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브). (변경 시에만 적용)
             if (wasLive)
-            {
-                TryFeatureS("AcquisitionMode", "SingleFrame");
-                TryFeatureI("AcquisitionFrameCount", 1);
-                TryFeatureS("TriggerMode", "Off");
-            }
+                EnsureSingleFrameGrabMode();
 
             IsGrabbing = false;
         }
@@ -227,6 +264,7 @@ namespace QMC.Vision.Cameras.Mil
         /// <summary>Trigger Mode(On/Off) + Trigger Source 를 분리 적용 (MVS 노드와 동일).</summary>
         protected override void OnTriggerModeChanged(CameraTriggerMode mode)
         {
+            _trigOffApplied = false;   // 트리거 모드가 외부에서 바뀌면 캐시 무효화 → 다음 Grab/Live 가 TriggerMode 재적용
             switch (mode)
             {
                 case CameraTriggerMode.Continuous:
