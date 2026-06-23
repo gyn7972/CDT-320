@@ -121,15 +121,39 @@ namespace QMC.Vision.Cameras.Mil
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
+
+            // Software 트리거(SingleFrame) 모드: 동기 MdigGrab 은 트리거를 기다리며 블로킹되므로,
+            //   비동기로 arm → 소프트 트리거 발생 → 완료 대기 순서로 1장을 받는다.
+            //   (트리거가 실제 노출을 일으키므로 스트로브도 이때 발생한다.)
+            // Continuous(free-run)/Line(하드웨어 트리거) 은 종전대로 동기 단발 MdigGrab.
+            bool softwareTrig = TriggerMode == CameraTriggerMode.Software;
             try
             {
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
-                MIL.MdigGrab(_dig, _buf);
+
+                if (softwareTrig)
+                {
+                    MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_ASYNCHRONOUS); // 그랩을 비동기로 — arm 후 즉시 반환
+                    MIL.MdigGrab(_dig, _buf);                                           // 트리거 대기 상태로 arm
+                    TriggerSoftware();                                                  // 소프트 트리거 발생(스트로브 동반)
+                    MIL.MdigGrabWait(_dig, MIL.M_GRAB_END);                             // 프레임 수신 완료 대기
+                }
+                else
+                {
+                    MIL.MdigGrab(_dig, _buf);
+                }
+
                 var bmp = BufferToBitmap();
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
                 return new GrabResult(bmp, 0, Info.Id);
             }
             catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
+            finally
+            {
+                // 다른 경로(라이브 등)에 영향 없도록 그랩 모드를 동기로 원복.
+                if (softwareTrig)
+                    try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
+            }
         }
 
         private volatile bool _continuousOn;
