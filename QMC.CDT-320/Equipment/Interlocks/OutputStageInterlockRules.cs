@@ -78,8 +78,8 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                 return false;
 
-            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
-                return false;
+            // Feeder -> Stage Load 준비 중에는 OutputFeeder가 bin을 잡고 있어야 하므로
+            // FeederY가 Avoid 위치라면 clamp/unclamp 상태로 GoodStageY 이동을 막지 않는다.
 
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                 return false;
@@ -277,7 +277,7 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!CanHomeOutputGoodStageZ(machine, out reason))
+            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageZ", out reason))
@@ -291,8 +291,9 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
-            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
-                return false;
+            // Feeder -> Stage Load 준비 중 GoodStageZ는 FeederY가 Avoid 위치인 상태에서
+            // Load 높이로 이동한다. 이때 OutputFeeder는 bin을 잡고 있어야 하므로
+            // clamp/unclamp 상태를 GoodStageZ 일반 이동 인터락으로 강제하지 않는다.
 
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;

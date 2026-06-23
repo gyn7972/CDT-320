@@ -1229,7 +1229,7 @@ namespace QMC.CDT320.Sequencing
                 message = SequenceFailureStore.AppendRecentDetail(message, "OutputSequence", alarmCode);
                 SequenceFailureStore.Record("OutputSequence", Kind.ToString(), "", alarmCode, source, message);
                 Log.Write("Main", "SYSTEM", source, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 Context.LogPublic("[UNIT-OUTPUT] FAIL " + alarmCode + " - " + message);
             }
             catch (Exception ex)

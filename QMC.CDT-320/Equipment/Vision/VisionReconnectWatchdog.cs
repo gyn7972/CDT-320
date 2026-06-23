@@ -132,7 +132,7 @@ namespace QMC.CDT320.VisionComm
             _alarmActive = true;
             try
             {
-                _alarm = AlarmManager.Raise(AlarmSeverity.Warning, AlarmCode, Source,
+                _alarm = AlarmManager.Raise(AlarmSeverity.Error, AlarmCode, Source,
                     "Vision PC 연결 끊김 — 재연결 3회 실패. 네트워크/Vision 프로그램 확인 후 알람 해제 시 재시도합니다.");
             }
             catch { }

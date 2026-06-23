@@ -562,6 +562,7 @@ namespace QMC.CDT320.Sequencing
             stageOptions.MoveTimeoutMs = ResolveTimeout();
             stageOptions.RunMode = Options.RunMode;
             stageOptions.StartMode = SequenceStartMode.Restart;
+            stageOptions.KeepVisionXAvoidOnProcessMove = true;
 
             int result = await new OutputStageSequence(Context)
                 .RunMoveProcessAsync(ct, stageOptions)

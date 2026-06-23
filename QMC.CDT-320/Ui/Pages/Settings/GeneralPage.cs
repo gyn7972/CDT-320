@@ -33,6 +33,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblSimulationMode.Text = "SIMULATION MODE";
             lblDryRunMode.Text = "DRY RUN MODE";
             lblDeveloperMode.Text = "DEVELOPER MODE";
+            lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -51,12 +52,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ResetEnableDisableItems(_cbSimulationMode);
             ResetEnableDisableItems(_cbDryRunMode);
             ResetEnableDisableItems(_cbDeveloperMode);
+            ResetEnableDisableItems(_cbPickerMotionOnlyTestMode);
 
             _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
             _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
             _cbSimulationMode.SelectedIndex = cfg.SimulationMode ? 0 : 1;
             _cbDryRunMode.SelectedIndex = cfg.DryRunMode ? 0 : 1;
             _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
+            _cbPickerMotionOnlyTestMode.SelectedIndex = cfg.PickerMotionOnlyTestMode ? 0 : 1;
             _cbAjin.Checked = cfg.UseAjin;
             _tbIrq.Text = cfg.AjinIrqNo.ToString();
         }
@@ -101,6 +104,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _cbDeveloperMode.SelectedIndexChanged += (s, e) =>
             {
                 AppSettingsStore.Current.DeveloperMode = _cbDeveloperMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+            };
+
+            _cbPickerMotionOnlyTestMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.PickerMotionOnlyTestMode = _cbPickerMotionOnlyTestMode.SelectedIndex == 0;
                 AppSettingsStore.Save();
             };
 

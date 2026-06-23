@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using QMC.Common.Alarms;
 
@@ -78,11 +78,22 @@ namespace QMC.CDT320.Alarms
                 if (_byCode.TryGetValue(alarm.Code ?? "", out policy))
                     return policy;
 
+                if (IsCriticalMotionOrInterlockAlarm(alarm))
+                {
+                    return new AlarmResponsePolicy
+                    {
+                        StopScope = AlarmStopScope.InterferenceGroup,
+                        StopSequence = true,
+                        SetMachineAlarmStatus = true,
+                        UseEmergencyStop = true
+                    };
+                }
+
                 if (alarm.Severity == AlarmSeverity.Critical)
                 {
                     return new AlarmResponsePolicy
                     {
-                        StopScope = AlarmStopScope.Equipment,
+                        StopScope = AlarmStopScope.InterferenceGroup,
                         StopSequence = true,
                         SetMachineAlarmStatus = true,
                         UseEmergencyStop = true
@@ -93,12 +104,10 @@ namespace QMC.CDT320.Alarms
                 {
                     return new AlarmResponsePolicy
                     {
-                        // 알람 코드별 정지 범위가 안전 검토로 확정되기 전까지는 보수적으로 전체 축 EStop을 기본값으로 둔다.
-                        // 부분 정지가 검증된 알람만 CreateDefault()에서 명시 정책으로 낮춘다.
-                        StopScope = AlarmStopScope.Equipment,
+                        StopScope = AlarmStopScope.None,
                         StopSequence = true,
                         SetMachineAlarmStatus = true,
-                        UseEmergencyStop = true
+                        UseEmergencyStop = false
                     };
                 }
 
@@ -106,11 +115,10 @@ namespace QMC.CDT320.Alarms
                 {
                     return new AlarmResponsePolicy
                     {
-                        // AlarmManager에서 Warning을 Error로 승격하지만, 우회 유입에 대비해 Warning도 안전 정지로 처리한다.
-                        StopScope = AlarmStopScope.Equipment,
+                        StopScope = AlarmStopScope.None,
                         StopSequence = true,
                         SetMachineAlarmStatus = true,
-                        UseEmergencyStop = true
+                        UseEmergencyStop = false
                     };
                 }
 
@@ -123,6 +131,60 @@ namespace QMC.CDT320.Alarms
             finally
             {
             }
+        }
+
+        private static bool IsCriticalMotionOrInterlockAlarm(AlarmRecord alarm)
+        {
+            try
+            {
+                if (alarm == null)
+                    return false;
+
+                string code = alarm.Code ?? "";
+                string message = alarm.Message ?? "";
+
+                if (IsExactOrPrefix(code, "E-STOP") ||
+                    Contains(code, "INTERLOCK") ||
+                    Contains(code, "LIMIT"))
+                    return true;
+
+                if (code.StartsWith("AX-MOVE", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-HOME", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-JOG", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-SOFT-LIMIT", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("LIMIT-", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (Contains(code, "MOVE") &&
+                    (Contains(message, "alarm=True") ||
+                     Contains(message, "alarm=ON") ||
+                     Contains(message, "알람=ON") ||
+                     Contains(message, "Axis alarm is ON") ||
+                     Contains(message, "축 알람이 ON")))
+                    return true;
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool Contains(string value, string text)
+        {
+            return (value ?? "").IndexOf(text ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsExactOrPrefix(string value, string token)
+        {
+            value = value ?? "";
+            token = token ?? "";
+            return value.Equals(token, StringComparison.OrdinalIgnoreCase) ||
+                   value.StartsWith(token + "-", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

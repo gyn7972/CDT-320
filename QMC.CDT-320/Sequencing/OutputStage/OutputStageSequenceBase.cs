@@ -45,6 +45,11 @@ namespace QMC.CDT320.Sequencing
             get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
         }
 
+        protected OutputFeederUnit OutputFeeder
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputFeederUnit : null; }
+        }
+
         public async Task<int> RunAsync(CancellationToken ct, OutputStageSequenceOptions options)
         {
             using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString()))
@@ -202,7 +207,7 @@ namespace QMC.CDT320.Sequencing
                 SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
                 SequenceFailureStore.Record(SequenceStateName, Kind.ToString(), failedStep.ToString(), alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 Context.LogPublic("[OUTPUT-STAGE] FAIL " + alarmCode + " - " + message);
             }
             catch (Exception ex)

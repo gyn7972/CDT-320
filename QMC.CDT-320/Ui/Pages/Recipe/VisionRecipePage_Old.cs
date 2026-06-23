@@ -54,7 +54,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VisionActionBindFail", "VisionRecipePage_Old",
+                AlarmManager.Raise(AlarmSeverity.Error, "VisionActionBindFail", "VisionRecipePage_Old",
                     "Bind action command exception: " + ex.GetType().Name + ": " + ex.Message);
                 QMC.Common.MessageDialog.Show(ex.Message, "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VisionMatchFail", "VisionRecipePage_Old",
+                AlarmManager.Raise(AlarmSeverity.Error, "VisionMatchFail", "VisionRecipePage_Old",
                     actionName + " exception: " + ex.GetType().Name + ": " + ex.Message);
                 return -1;
             }

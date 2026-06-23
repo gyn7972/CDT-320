@@ -98,7 +98,7 @@ namespace QMC.CDT320.Alarms
                 // 알람은 일반 정지와 다르다. 축 정지 명령을 먼저 내린 뒤 시퀀스를 정리한다.
                 int stopResult = await StopAxesByPolicyAsync(alarm, policy).ConfigureAwait(false);
                 int sequenceResult = policy.StopSequence
-                    ? await _controller.StopSequenceForAlarmAsync(alarm.Code).ConfigureAwait(false)
+                    ? await StopSequenceByPolicyAsync(alarm, policy).ConfigureAwait(false)
                     : 0;
                 if (sequenceResult != 0 && stopResult == 0)
                     stopResult = sequenceResult;
@@ -114,6 +114,36 @@ namespace QMC.CDT320.Alarms
             {
                 Log.Write("Main", "SYSTEM", "AlarmResponseService",
                     "Alarm response failed. code=" + (alarm != null ? alarm.Code : "") + ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> StopSequenceByPolicyAsync(AlarmRecord alarm, AlarmResponsePolicy policy)
+        {
+            try
+            {
+                if (policy == null)
+                    return 0;
+
+                string code = alarm != null ? alarm.Code : "";
+                if (policy.StopScope == AlarmStopScope.None && !policy.UseEmergencyStop)
+                {
+                    await _controller.RequestCycleStopSequenceAsync().ConfigureAwait(false);
+                    Log.Write("Main", "SYSTEM", "AlarmResponseService",
+                        "Alarm response requested cycle stop. code=" + code + " - Requested");
+                    return 0;
+                }
+
+                return await _controller.StopSequenceForAlarmAsync(code).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "AlarmResponseService",
+                    "Alarm response sequence stop failed. code=" +
+                    (alarm != null ? alarm.Code : "") + ", error=" + ex.Message + " - Failed");
                 return -1;
             }
             finally

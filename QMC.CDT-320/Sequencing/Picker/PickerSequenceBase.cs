@@ -149,6 +149,13 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        protected bool IsPickerMotionOnlyTestMode()
+        {
+            return Options != null &&
+                   Options.RunMode == SequenceRunMode.Auto &&
+                   Options.PickerMotionOnlyTestMode;
+        }
+
         protected bool IsFrontPickerSimulationOrDryRun()
         {
             return FrontPicker != null &&
@@ -487,7 +494,8 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 bool waitLogged = false;
-                while (!IsOppositePickerYReadyForForwardMove())
+                PickerWorkZone targetZone = ResolvePickerYForwardTargetZone(targetName);
+                while (!IsOppositePickerYReadyForForwardMove(targetZone))
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
@@ -499,6 +507,7 @@ namespace QMC.CDT320.Sequencing
                             Name + " Auto Y축 전진 이동 대기. 상대 PickerY가 Avoid 위치이고 이동 타깃이 정리될 때까지 기다립니다. " +
                             "side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
+                            ", targetZone=" + targetZone +
                             ", description=" + description +
                             ", opposite=" + BuildOppositePickerYState() + " - Wait");
                         waitLogged = true;
@@ -513,6 +522,7 @@ namespace QMC.CDT320.Sequencing
                         Name + " Auto Y축 전진 이동 대기 완료. 상대 PickerY Avoid 및 이동 타깃 해제 확인. " +
                         "side=" + Side +
                         ", targetName=" + (targetName ?? "-") +
+                        ", targetZone=" + targetZone +
                         ", description=" + description + " - Ok");
                 }
 
@@ -554,13 +564,22 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
-        private bool IsOppositePickerYReadyForForwardMove()
+        private bool IsOppositePickerYReadyForForwardMove(PickerWorkZone targetZone)
         {
             try
             {
                 bool oppositeIsFront = Side == PickerSequenceSide.Rear;
                 PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
-                return activeTargetZone == PickerWorkZone.Unknown && IsOppositePickerYAtAvoidPosition();
+                if (activeTargetZone != PickerWorkZone.Unknown)
+                    return PickerZoneInterlockRules.CanShareForwardY(targetZone, activeTargetZone);
+
+                if (IsOppositePickerYAtAvoidPosition())
+                    return true;
+
+                PickerWorkZone oppositeZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
+                    Context != null ? Context.Machine : null,
+                    oppositeIsFront);
+                return PickerZoneInterlockRules.CanShareForwardY(targetZone, oppositeZone);
             }
             catch
             {
@@ -569,6 +588,38 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static PickerWorkZone ResolvePickerYForwardTargetZone(string targetName)
+        {
+            string name = (targetName ?? string.Empty).Replace(" ", string.Empty);
+            if (name.Length == 0)
+                return PickerWorkZone.Unknown;
+
+            if (name.IndexOf("PickerZone=Input", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("DiePick", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("PickPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return PickerWorkZone.Input;
+            if (name.IndexOf("PickerZone=Bottom", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("DieBottom", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("BottomPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return PickerWorkZone.Bottom;
+            if (name.IndexOf("PickerZone=Side", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("DieSide", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("SidePosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return PickerWorkZone.Side;
+            if (name.IndexOf("PickerZone=Output", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("DiePlace", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("PlacePosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return PickerWorkZone.Output;
+            if (name.IndexOf("PickerZone=Avoid", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("SafeRetreat", StringComparison.OrdinalIgnoreCase) >= 0)
+                return PickerWorkZone.Avoid;
+
+            return PickerWorkZone.Unknown;
         }
 
         private bool IsOppositePickerYAtAvoidPosition()
@@ -1931,7 +1982,7 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 }
                 Context.LogPublic("[" + Name + "] FAIL " + alarmCode + " - " + message);
             }

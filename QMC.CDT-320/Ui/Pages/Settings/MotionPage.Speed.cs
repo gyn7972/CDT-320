@@ -46,7 +46,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "InitializeSpeedTab failed: " + ex.Message);
@@ -88,7 +88,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "ApplyParametersFromBoard failed: " + ex.Message);
@@ -126,7 +126,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedCellDoubleClick failed: " + ex.Message);
@@ -166,7 +166,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedScaleClick failed: " + ex.Message);
@@ -201,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "ApplySpeedScalePercent failed: " + ex.Message);
@@ -269,7 +269,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "LoadSpeedRows failed: " + ex.Message);
@@ -322,7 +322,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedHeaderDoubleClick failed: " + ex.Message);

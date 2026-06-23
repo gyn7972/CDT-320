@@ -4,20 +4,17 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Equipment.Vision;
-using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
     /// <summary>
-    /// Vision 모듈 1개에 대한 동작 테스트 팝업 — 운전 패널 상태의 GRAB/MATCH/INSPECT 패널과 동일 구성.
-    /// 작업정보 각 페이지(INPUT STAGE/OUTPUT STAGE/FRONT·REAR HEAD) 하단 Action 버튼에서 모듈별로 띄운다.
-    /// 핸들러=명령 마스터: 선택 모듈에 EXPOSE/MATCH/INSPECT 전송 후 Vision 응답 데이터를 파싱·표시한다.
-    /// 코드 전용 폼(Designer 없음).
+    /// Vision 모듈 1개 동작 테스트 팝업 — GRAB/MATCH/INSPECT(좌) + 모듈 뷰어 이미지(우).
+    /// UI 배치는 Designer(.Designer.cs)에 있고, 여기에는 명령 호출/이벤트/뷰어 Configure 로직만 둔다.
+    /// 생성자는 매개변수 없음(VS 디자이너 호환). 사용 시 <see cref="Init"/>로 명령 클라이언트/표시명을 주입한다.
     /// </summary>
-    public sealed class VisionModuleTestDialog : Form
+    public sealed partial class VisionModuleTestDialog : Form
     {
-        private readonly VisionTcpClient _c;
-        private VisionViewerPanel _viewer;
+        private VisionTcpClient _c;
 
         private readonly Button  _btnGrab    = new Button { Text = "GRAB",    Dock = DockStyle.Fill };
         private readonly Label   _lblGrab    = new Label  { Text = "대기",    Dock = DockStyle.Fill };
@@ -27,24 +24,29 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly TextBox _txtInsp    = new TextBox { Dock = DockStyle.Fill };
         private readonly Button  _btnInspect = new Button { Text = "INSPECT", Dock = DockStyle.Fill };
         private readonly Label   _lblInsp    = new Label  { Text = "inspector 입력 후 INSPECT → PASS/FAIL", Dock = DockStyle.Fill };
-        // 비동기(2단계: 그랩 후 1차 ACK → 백그라운드 알고리즘 → 폴링) — finder/inspector 는 위 입력칸 공유.
-        private readonly Button  _btnMatchA  = new Button { Text = "ASYNC MATCH",   Dock = DockStyle.Fill };
-        private readonly Label   _lblMatchA  = new Label  { Text = "비동기 매칭: 시작(그랩)→폴링→결과 + 소요(ms)", Dock = DockStyle.Fill };
-        private readonly Label   _lblMatchARef = new Label { Text = "↑ finder 공유", Dock = DockStyle.Fill };
-        private readonly Button  _btnInspA   = new Button { Text = "ASYNC INSPECT", Dock = DockStyle.Fill };
-        private readonly Label   _lblInspA   = new Label  { Text = "비동기 검사: 시작(그랩)→폴링→PASS/FAIL + 소요(ms)", Dock = DockStyle.Fill };
-        private readonly Label   _lblInspARef = new Label { Text = "↑ inspector 공유", Dock = DockStyle.Fill };
+
+        /// <summary>런타임 주입 — 명령 채널/표시명 설정 후 뷰어 Configure.</summary>
+        public void Init(VisionTcpClient client, string displayName)
+        {
+            _c = client;
+            Text = $"VISION 동작 테스트 — {displayName}" + (client != null ? $"  (port {client.Port})" : "");
+            int viewerPort = client != null ? VisionViewerPorts.ResolveByModule(client.ModuleName) : 0;
+            _viewer.Configure(client != null ? client.Host : null, viewerPort, displayName + " 이미지", client);
+        }
 
         /// <summary>모듈 1개에 대한 테스트 팝업을 연다.</summary>
         public static void Open(IWin32Window owner, VisionTcpClient client, string displayName)
         {
-            using (var dlg = new VisionModuleTestDialog(client, displayName))
+            using (var dlg = new VisionModuleTestDialog())
+            {
+                dlg.Init(client, displayName);
                 dlg.ShowDialog(owner);
+            }
         }
 
         /// <summary>
-        /// 작업정보 페이지 하단 Action 컨테이너에 모듈별 'VISION: ...' 버튼을 추가한다.
-        /// 기존 ActionButton 과 동일 스타일. 클릭 시 해당 모듈로 <see cref="Open"/>. STOP 버튼은 맨 끝 유지.
+        /// 작업정보 페이지 하단 Action 컨테이너에 모듈별 'VISION: ...' 버튼을 추가한다(기존 ActionButton 스타일).
+        /// 클릭 시 해당 모듈로 <see cref="Open"/>. STOP 버튼은 맨 끝 유지.
         /// </summary>
         public static void AddLaunchers(
             Control.ControlCollection actions, IWin32Window owner, Control stopButton,
@@ -56,8 +58,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 var b = new QMC.CDT_320.Ui.Controls.ActionButton
                 {
                     Text   = m.Item1,
-                    Width  = 132,
-                    Height = 60,
+                    Width  = 180,
+                    Height = 64,
                     Margin = new Padding(6),
                     Font   = new Font("맑은 고딕", 11F)
                 };
@@ -79,16 +81,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true; MinimizeBox = false;
-            ClientSize = new Size(1080, 520);
+            ClientSize = new Size(1080, 420);
             BackColor = Color.White;
-            MinimumSize = new Size(900, 460);
+            MinimumSize = new Size(900, 360);
 
-            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 3, RowCount = 6 };
+            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 3, RowCount = 4 };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
@@ -97,15 +97,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             StyleCmd(_btnGrab);
             StyleCmd(_btnMatch);
             StyleCmd(_btnInspect);
-            StyleCmd(_btnMatchA);
-            StyleCmd(_btnInspA);
             StyleResult(_lblGrab);
             StyleResult(_lblMatch);
             StyleResult(_lblInsp);
-            StyleResult(_lblMatchA);
-            StyleResult(_lblInspA);
-            StyleResult(_lblMatchARef);
-            StyleResult(_lblInspARef);
             _txtFinder.Font = new Font("맑은 고딕", 10F); _txtFinder.Margin = new Padding(3, 8, 3, 8);
             _txtInsp.Font   = new Font("맑은 고딕", 10F); _txtInsp.Margin   = new Padding(3, 8, 3, 8);
 
@@ -114,15 +108,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Controls.Add(_txtFinder, 0, 1);
             grid.Controls.Add(_btnMatch, 1, 1);
             grid.Controls.Add(_lblMatch, 2, 1);
-            grid.Controls.Add(_lblMatchARef, 0, 2);
-            grid.Controls.Add(_btnMatchA, 1, 2);
-            grid.Controls.Add(_lblMatchA, 2, 2);
-            grid.Controls.Add(_txtInsp, 0, 3);
-            grid.Controls.Add(_btnInspect, 1, 3);
-            grid.Controls.Add(_lblInsp, 2, 3);
-            grid.Controls.Add(_lblInspARef, 0, 4);
-            grid.Controls.Add(_btnInspA, 1, 4);
-            grid.Controls.Add(_lblInspA, 2, 4);
+            grid.Controls.Add(_txtInsp, 0, 2);
+            grid.Controls.Add(_btnInspect, 1, 2);
+            grid.Controls.Add(_lblInsp, 2, 2);
 
             var hint = new Label
             {
@@ -130,9 +118,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ForeColor = Color.DimGray,
                 Font = new Font("맑은 고딕", 9F),
                 Padding = new Padding(0, 8, 0, 0),
-                Text = "Vision READY 상태에서만 명령 수락(PING 제외). ASYNC=그랩 후 1차 ACK→백그라운드 알고리즘→폴링 완료. finder/inspector 는 레시피 등록 도구명."
+                Text = "Vision RUN 상태에서만 명령 수락(PING 제외). finder/inspector 는 레시피 등록 도구명."
             };
-            grid.Controls.Add(hint, 0, 5); grid.SetColumnSpan(hint, 3);
+            grid.Controls.Add(hint, 0, 3); grid.SetColumnSpan(hint, 3);
 
             // 좌측 = 명령/결과 그리드, 우측 = 모듈별 뷰어(이미지). 명령 채널과 별개 포트.
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
@@ -151,15 +139,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             Controls.Add(root);
 
-            // 테스트 다이얼로그는 열리면 뷰어를 자동 Live 연결 — 좌측 버튼만으로 그랩/매칭/검사 영상이 바로 표시되게.
-            // (뷰어 툴바 Grab/Live 를 따로 누를 필요 없음. 스트림은 새 프레임이 있을 때만 송출되어 부하 없음.)
-            this.Shown += (s, e) => { try { _viewer?.StartLive(); } catch { } };
-
             _btnGrab.Click    += async (s, e) => await RunGrab();
             _btnMatch.Click   += async (s, e) => await RunMatch();
             _btnInspect.Click += async (s, e) => await RunInspect();
-            _btnMatchA.Click  += async (s, e) => await RunMatchAsync();
-            _btnInspA.Click   += async (s, e) => await RunInspectAsync();
         }
 
         private static void StyleCmd(Button b)

@@ -28,7 +28,7 @@ namespace QMC.Common.Alarms
     {
         [DataMember] public string         Code        { get; set; } = "";
         [DataMember] public AlarmCategory  Category    { get; set; } = AlarmCategory.System;
-        [DataMember] public AlarmSeverity  DefaultSeverity { get; set; } = AlarmSeverity.Warning;
+        [DataMember] public AlarmSeverity  DefaultSeverity { get; set; } = AlarmSeverity.Error;
         // Korean (default)
         [DataMember] public string         Title       { get; set; } = "";
         [DataMember] public string         Cause       { get; set; } = "";
@@ -135,20 +135,20 @@ namespace QMC.Common.Alarms
                 new AlarmDefinition { Code="MOVE-TIMEOUT", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="모션 타임아웃", Cause="목표 위치 미도달", Action="물리 간섭 확인, 서보 게인 조정",
                     ManualName="PositionMismatchedInMotionDone", ManualLocator="모든 Axis" },
-                new AlarmDefinition { Code="SERVO-OFF", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="SERVO-OFF", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="서보 OFF", Cause="EMG 또는 알람 트리거", Action="원인 해소 후 ServoOn 재시도" },
                 new AlarmDefinition { Code="LIMIT-HIT", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="리미트 센서 도달", Cause="기계 한계 또는 좌표 오류", Action="역방향 조그 후 좌표 재설정",
                     ManualName="PositivePositionExceed", ManualLocator="모든 Axis" },
-                new AlarmDefinition { Code="INTERLOCK", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="INTERLOCK", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Error,
                     Title="인터록 차단", Cause="다른 축의 위치/상태가 이동을 차단", Action="History → Alarm 에서 차단 사유 확인 후 안전 위치로 이동",
                     TitleEn="Interlock blocked", CauseEn="Other axis position/state blocks the move", ActionEn="Check History/Alarm for reason, move to safe position",
                     ManualName="InterlockDetected", ManualLocator="모든 Interlock" },
 
                 // ── Vision (비전) ──
-                new AlarmDefinition { Code="VISION-CONN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="VISION-CONN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="Vision 연결 변경", Cause="Vision PC 연결/해제", Action="자동 재연결 대기 또는 수동 connect" },
-                new AlarmDefinition { Code="VisionMatchFail", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="VisionMatchFail", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="Vision 매칭 실패", Cause="조명, 패턴 학습 부족, ROI 어긋남", Action="ROI 재설정 + 재학습, 조명 조정",
                     TitleEn="Vision match failed", CauseEn="Lighting / pattern training / ROI mismatch", ActionEn="Reset ROI, re-train, adjust lighting",
                     ManualName="OutOfTolerance", ManualLocator="DieTransfer/.../MachineVision/Services" },
@@ -157,20 +157,20 @@ namespace QMC.Common.Alarms
                     ManualName="ResultTimeOut", ManualLocator="DieTransfer/.../MachineVision/Services" },
 
                 // ── Material / Inspection ──
-                new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="Pick 실패", Cause="진공 부족, 콜렛 손상, 다이 미확인", Action="콜렛 청소, 진공 압력 확인, Pick Retry 재시도",
                     TitleEn="Pick failed", CauseEn="Vacuum low / collet damaged / die not detected", ActionEn="Clean collet, check vacuum, run Pick Retry",
                     ManualName="MaterialDoesNotExistAfterReceive", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/Tool/PickerN" },
-                new AlarmDefinition { Code="BottomInspFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="BottomInspFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="Bottom 검사 실패", Cause="다이 표면 결함 또는 임계값 초과", Action="레시피 임계값 조정 또는 다이 NG 처리",
                     ManualName="FailedInspection", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/BottomInspectionVision" },
-                new AlarmDefinition { Code="PlacementFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="PlacementFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="Placement 실패", Cause="Bin Vision 측정 NG", Action="배치 위치/각도 재조정" },
 
                 // ── Communication ──
-                new AlarmDefinition { Code="SECS-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="SECS-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="SECS Host 연결 끊김", Cause="네트워크 또는 Host 측 종료", Action="자동 재연결 대기" },
-                new AlarmDefinition { Code="SIM-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="SIM-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="시뮬레이터 연결 끊김", Cause="시뮬레이터 종료 또는 TCP 오류", Action="시뮬레이터 재기동" },
 
                 // ── IO / Safety ──
@@ -179,11 +179,11 @@ namespace QMC.Common.Alarms
                     Title="비상 정지", Cause="E-Stop 버튼 또는 Door 센서", Action="안전 확인 후 비상 정지 해제 + Reset",
                     TitleEn="Emergency Stop", CauseEn="E-Stop button or door sensor", ActionEn="Confirm safety, release E-Stop and Reset",
                     ManualName="InterlockDetected", ManualLocator="모든 Interlock" },
-                new AlarmDefinition { Code="VAC-LOW", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="VAC-LOW", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="진공 부족", Cause="진공 펌프 또는 라인 누설", Action="진공 게이지 확인, 호스 점검" },
                 new AlarmDefinition { Code="CDA-LOW", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="공압 부족", Cause="레귤레이터 또는 라인 누설", Action="공압 게이지 확인" },
-                new AlarmDefinition { Code="IONIZER", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IONIZER", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="이오나이저 알람", Cause="이오나이저 동작 이상 또는 전극 청소 필요", Action="전극 청소 후 reset" },
 
                 // ── System ──
@@ -191,15 +191,15 @@ namespace QMC.Common.Alarms
                     Title="사이클 예외", Cause="MachineController 내부 예외", Action="EventLog 확인 후 재기동" },
 
                 // ── InputStage (Stage B 추가 2026-04-30) ──
-                new AlarmDefinition { Code="IS-FEEDER", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IS-FEEDER", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="입력 피더 안전 위치 미확인", Cause="피더가 안전 위치 미도달", Action="피더 위치 확인 후 수동 후퇴" },
                 new AlarmDefinition { Code="IS-EXPZ", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="ExpanderZ 알람", Cause="ExpanderZ 축 알람 발생", Action="알람 리셋 후 수동 HOME" },
-                new AlarmDefinition { Code="IS-BARCODE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IS-BARCODE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="바코드 읽기 실패", Cause="바코드 리더 통신 또는 라벨 인식 실패", Action="라벨 청소, 시리얼 케이블 확인" },
-                new AlarmDefinition { Code="IS-MAP", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IS-MAP", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="웨이퍼 맵 파싱 실패", Cause="맵 파일 미존재 또는 형식 오류", Action="맵 파일 위치/형식 확인" },
-                new AlarmDefinition { Code="IS-ALIGN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IS-ALIGN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="비전 얼라인 실패", Cause="얼라인 비전 매칭/수렴 실패", Action="조명/패턴 학습 재조정" },
                 new AlarmDefinition { Code="IS-MOVE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="InputStage 이동 실패", Cause="이동 후 축 알람", Action="알람 리셋, 인터락 확인" },
@@ -212,7 +212,7 @@ namespace QMC.Common.Alarms
                     Title="OutputStage WorkZ 이동 실패", Cause="StageZ 작업 위치 이동 후 알람", Action="알람 리셋, 인터락 확인" },
                 new AlarmDefinition { Code="OS-MOVEY", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="OutputStage Y 이동 실패", Cause="StageY 이동 후 알람", Action="알람 리셋, 인터락 확인" },
-                new AlarmDefinition { Code="OS-PLACEDONE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="OS-PLACEDONE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="TPU Place 완료 대기 타임아웃", Cause="TPU 측 Place 완료 신호 미수신", Action="TPU 상태 확인, 타임아웃 늘리기" },
                 new AlarmDefinition { Code="OS-BINCAM", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="BinCamera X 이동 실패", Cause="BinCameraX 이동 후 알람", Action="알람 리셋, 인터락 확인" },
@@ -245,11 +245,11 @@ namespace QMC.Common.Alarms
                     ManualName="OutOfTolerance", ManualLocator="DieTransfer/WaferTransfer/WaferVision/MachineVision/Services/Aligner" },
 
                 // LOT (Cassette/Feeder lifecycle)
-                new AlarmDefinition { Code="LOT-NOCASS", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LOT-NOCASS", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="카세트 미감지", Cause="로드포트 카세트 안착 센서 OFF", Action="카세트 안착 후 재시도",
                     TitleEn="Cassette not detected", CauseEn="Load-port cassette sensor OFF", ActionEn="Place cassette and retry",
                     ManualName="MaterialDoesNotExist", ManualLocator="DieTransfer/WaferLifter" },
-                new AlarmDefinition { Code="LOT-SCAN", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LOT-SCAN", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="카세트 스캔 실패", Cause="LifterZ 이동 실패 (스캔 도중)", Action="알람 클리어 후 수동 HOME, 재스캔",
                     TitleEn="Cassette scan failed", CauseEn="LifterZ move failure during scan", ActionEn="Clear alarm, manual HOME, rescan",
                     ManualName="InvalidScanData", ManualLocator="DieTransfer/WaferLifter/SlotMapper" },
@@ -267,7 +267,7 @@ namespace QMC.Common.Alarms
                     ManualName="CannotMove", ManualLocator="DieTransfer/WaferFeeder/Arm" },
 
                 // InputStage extra
-                new AlarmDefinition { Code="IS-LOAD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="IS-LOAD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="InputStage 로드 실패", Cause="LoadAndPrepareWafer 단계 실패", Action="피더 위치 / 익스팬더 / 바코드 확인",
                     TitleEn="InputStage load failed", CauseEn="LoadAndPrepareWafer step failed", ActionEn="Check feeder/expander/barcode",
                     ManualName="MaterialDoesNotExistAfterReceive", ManualLocator="DieTransfer/WaferTransfer/Stage" },
@@ -276,14 +276,14 @@ namespace QMC.Common.Alarms
                     TitleEn="InputStage cycle exception", CauseEn="Internal exception in LoadInputStage", ActionEn="Check EventLog and restart" },
 
                 // OutputStage extra
-                new AlarmDefinition { Code="OS-RECEIVE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="OS-RECEIVE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="OutputStage 수신 실패", Cause="ReceiveDie 단계 실패 (Avoid/WorkZ/MoveY)", Action="OutputStage 수동 회피 후 재시도",
                     TitleEn="OutputStage receive failed", CauseEn="ReceiveDie step failed (Avoid/WorkZ/MoveY)", ActionEn="Manually avoid OutputStage and retry",
                     ManualName="MaterialDoesExistAfterInitialize", ManualLocator="DieTransfer/BinTransfer/GoodStage/Plate" },
                 new AlarmDefinition { Code="OS-EXCEPTION", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
                     Title="OutputStage 사이클 예외", Cause="MachineController.ReceiveDieAtOutputStage 내부 예외", Action="EventLog 확인 후 재기동",
                     TitleEn="OutputStage cycle exception", CauseEn="Internal exception in ReceiveDieAtOutputStage", ActionEn="Check EventLog and restart" },
-                new AlarmDefinition { Code="OS-BININSP", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="OS-BININSP", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="Bin 검사 실패", Cause="BinCamera 안착 검사 NG", Action="배치 위치 재조정, 비전 ROI 확인",
                     TitleEn="Bin inspection failed", CauseEn="BinCamera placement inspection NG", ActionEn="Re-adjust placement, check vision ROI",
                     ManualName="FailedInspection", ManualLocator="DieTransfer/BinTransfer/BinVision/MachineVision/Services/PlacementInspector" },
@@ -292,7 +292,7 @@ namespace QMC.Common.Alarms
                     TitleEn="Bin inspection exception", CauseEn="Internal exception in InspectBinPosition", ActionEn="Check EventLog and restart" },
 
                 // TransferPicker
-                new AlarmDefinition { Code="TPU-PLACE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="TPU-PLACE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="TPU Place 실패", Cause="TPU PlaceDies 단계 실패 (Place 위치 또는 배출)", Action="픽커 콜렛 / 진공 점검 후 재시도",
                     TitleEn="TPU Place failed", CauseEn="TPU PlaceDies step failed (Place pos or discharge)", ActionEn="Check picker collet/vacuum and retry",
                     ManualName="CannotMove", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/Tool/PickerN" },
@@ -301,10 +301,10 @@ namespace QMC.Common.Alarms
                 new AlarmDefinition { Code="VISION-CAMOPEN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="카메라 Open 실패", Cause="카메라 연결/드라이버 오류 또는 포트 점유", Action="카메라 케이블/전원 확인 후 앱 재기동",
                     TitleEn="Camera open failed", CauseEn="Camera connection/driver error or port in use", ActionEn="Check camera cable/power and restart app" },
-                new AlarmDefinition { Code="VISION-PARAMFAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="VISION-PARAMFAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="카메라 파라미터 적용 실패", Cause="Gain/Exposure/ROI 등 파라미터 설정 거부", Action="값 범위 확인 후 재적용",
                     TitleEn="Camera parameter apply failed", CauseEn="Gain/Exposure/ROI parameter rejected", ActionEn="Check value range and re-apply" },
-                new AlarmDefinition { Code="VISION-RECIPE", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="VISION-RECIPE", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="레시피 전송 실패", Cause="Vision PC 미연결 또는 레시피 전송/적용 실패", Action="Vision PC 연결 확인 후 레시피 재전송",
                     TitleEn="Recipe send failed", CauseEn="Vision PC not connected or recipe send/apply failed", ActionEn="Check Vision PC connection and resend recipe" },
 
@@ -312,25 +312,25 @@ namespace QMC.Common.Alarms
                 new AlarmDefinition { Code="LIGHT-OPEN-FAIL", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 컨트롤러 연결 실패", Cause="시리얼 포트 Open 실패 (포트 점유 또는 미연결)", Action="포트 번호/케이블 확인 후 [설정>조명 셋업]에서 재연결",
                     TitleEn="Light controller connect failed", CauseEn="Serial port open failed (in use or disconnected)", ActionEn="Check port/cable and reconnect in Settings>Light Setup" },
-                new AlarmDefinition { Code="LIGHT-TIMEOUT", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-TIMEOUT", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 응답 타임아웃", Cause="조명 컨트롤러 응답 미수신", Action="컨트롤러 전원/케이블 확인",
                     TitleEn="Light response timeout", CauseEn="No response from light controller", ActionEn="Check controller power/cable" },
-                new AlarmDefinition { Code="LIGHT-TX-FAIL", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-TX-FAIL", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 송신 실패", Cause="시리얼 쓰기 오류", Action="연결 상태 확인 후 재시도",
                     TitleEn="Light send failed", CauseEn="Serial write error", ActionEn="Check connection and retry" },
-                new AlarmDefinition { Code="LIGHT-NAK", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-NAK", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 NAK 응답", Cause="컨트롤러가 명령 거부 (NAK)", Action="명령/채널 설정 확인",
                     TitleEn="Light NAK response", CauseEn="Controller rejected command (NAK)", ActionEn="Check command/channel settings" },
-                new AlarmDefinition { Code="LIGHT-INVALID-RESP", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-INVALID-RESP", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 응답 형식 오류", Cause="예상치 못한 형식의 응답 수신", Action="펌웨어/프로토콜 호환 확인",
                     TitleEn="Light invalid response", CauseEn="Unexpected response format received", ActionEn="Check firmware/protocol compatibility" },
-                new AlarmDefinition { Code="LIGHT-MAP-INVALID", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-MAP-INVALID", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 매핑 오류", Cause="컨트롤러/페이지 매핑이 유효하지 않음", Action="[설정>조명 셋업]에서 매핑 재구성",
                     TitleEn="Light mapping invalid", CauseEn="Controller/page mapping is invalid", ActionEn="Reconfigure in Settings>Light Setup" },
-                new AlarmDefinition { Code="LIGHT-PAGE-MISS", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-PAGE-MISS", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 페이지 누락", Cause="지정한 조명 페이지를 찾을 수 없음", Action="조명 페이지 지정 확인",
                     TitleEn="Light page missing", CauseEn="Specified light page not found", ActionEn="Check light page assignment" },
-                new AlarmDefinition { Code="LIGHT-PWR-RANGE", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                new AlarmDefinition { Code="LIGHT-PWR-RANGE", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
                     Title="조명 밝기 범위 초과", Cause="설정 밝기가 허용 범위를 벗어남", Action="허용 범위(0~100)로 재설정",
                     TitleEn="Light power out of range", CauseEn="Brightness setting out of allowed range", ActionEn="Reset within allowed range (0-100)" },
             };

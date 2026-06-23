@@ -134,7 +134,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "InitializeConfigPanels failed: " + ex.Message);
@@ -214,7 +214,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "RefreshConfigForSelected failed: " + ex.Message);
@@ -240,7 +240,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "RefreshConfigDynamic failed: " + ex.Message);
@@ -266,7 +266,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "ClearAllConfig failed: " + ex.Message);
@@ -315,7 +315,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "OnConfigItemClicked failed [" + name + "]: " + ex.Message);

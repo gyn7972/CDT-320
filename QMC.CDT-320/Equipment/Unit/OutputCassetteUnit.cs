@@ -1328,7 +1328,7 @@ namespace QMC.CDT320
             try
             {
                 Log.Write("Main", "SYSTEM", "OutputCassetteMapping", message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, Name, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, Name, message);
             }
             catch
             {

@@ -6,35 +6,21 @@ namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
     /// 측면 비전 <b>Front + Rear 동시</b> 표시 컨트롤 — 위/아래 반반.
+    /// UI(2행 그리드 + 두 뷰어 패널)는 Designer 에 있고, 여기서는 <see cref="Configure"/>로 host 만 주입한다.
     /// Front=TopSideVision(뷰어 5205), Rear=BottomSideVision(뷰어 5206).
-    /// 두 모듈을 동시에 띄워 셋업이 편하도록 한다(실측 이미지 4000x700은 추후 분할 예정, 지금은 전체 표시).
-    /// 코드 전용 컨트롤(Designer 없음).
     /// </summary>
-    public sealed class SideVisionViewerControl : UserControl
+    public sealed partial class SideVisionViewerControl : UserControl
     {
-        private readonly VisionViewerPanel _front;
-        private readonly VisionViewerPanel _rear;
-
-        public SideVisionViewerControl(string host)
+        public SideVisionViewerControl()
         {
-            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            InitializeComponent();
+        }
 
-            _front = new VisionViewerPanel(host, VisionViewerPorts.TopSide, "FRONT SIDE", VisionHub.TopSide)
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 2)
-            };
-            _rear = new VisionViewerPanel(host, VisionViewerPorts.BottomSide, "REAR SIDE", VisionHub.BottomSide)
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 2, 0, 0)
-            };
-
-            grid.Controls.Add(_front, 0, 0);
-            grid.Controls.Add(_rear, 0, 1);
-            Controls.Add(grid);
+        /// <summary>런타임 주입 — 두 측면 뷰어를 각자 포트/명령 채널로 구성한다.</summary>
+        public void Configure(string host)
+        {
+            _front.Configure(host, VisionViewerPorts.TopSide,    "FRONT SIDE", VisionHub.TopSide);
+            _rear.Configure(host,  VisionViewerPorts.BottomSide, "REAR SIDE",  VisionHub.BottomSide);
         }
     }
 }

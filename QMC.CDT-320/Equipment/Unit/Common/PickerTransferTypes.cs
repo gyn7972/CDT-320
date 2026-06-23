@@ -13,9 +13,16 @@ namespace QMC.CDT320
         PickerFirst = 2
     }
 
+    public enum PickerPickUpZMotionMode
+    {
+        Detailed = 0,
+        SimpleZDownVacuumUp = 1
+    }
+
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
+        [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
         [DataMember] public double PickerZPrePickDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSlowApproachSpeedPercent { get; set; } = 1.0;
         [DataMember] public double PickerZSyncLiftDistance { get; set; } = 0.5;

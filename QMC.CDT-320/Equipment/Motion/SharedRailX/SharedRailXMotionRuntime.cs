@@ -61,7 +61,7 @@ namespace QMC.CDT320.Motion.SharedRailX
 
                 if (!service.VerifyJogMove(axis, direction, out reason))
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X", "SharedRailX", reason);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X", "SharedRailX", reason);
                     return;
                 }
             }
@@ -166,7 +166,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                         using (EnterInternalDispatch())
                             axis.StopJog();
 
-                        AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X-JOG-STOP", "SharedRailX", reason);
+                        AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X-JOG-STOP", "SharedRailX", reason);
                         break;
                     }
                 }
@@ -176,7 +176,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X-JOG-GUARD", "SharedRailX", ex.Message);
+                AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X-JOG-GUARD", "SharedRailX", ex.Message);
             }
             finally
             {

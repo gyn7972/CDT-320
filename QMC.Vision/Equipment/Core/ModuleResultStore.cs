@@ -19,6 +19,21 @@ namespace QMC.Vision.Core
         // 모듈 → (finder/inspector 키 → 최근 검출 마크). 오버레이로 핸들러에 전송.
         private static readonly Dictionary<string, Dictionary<string, Mk>> _marks =
             new Dictionary<string, Dictionary<string, Mk>>(StringComparer.OrdinalIgnoreCase);
+        // 모듈별 결과 리비전 — 결과/마크가 갱신되면 증가. 뷰어 provider 가 seq 미변경이어도 재전송하게 한다.
+        private static readonly Dictionary<string, long> _rev =
+            new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+
+        private static void Bump(string module) // _lock 안에서 호출
+        {
+            _rev[module] = (_rev.TryGetValue(module, out var v) ? v : 0) + 1;
+        }
+
+        /// <summary>모듈 결과/마크 리비전. 변경 시 뷰어 메타 재전송 트리거용.</summary>
+        public static long Revision(string module)
+        {
+            if (string.IsNullOrEmpty(module)) return 0;
+            lock (_lock) { return _rev.TryGetValue(module, out var v) ? v : 0; }
+        }
 
         /// <summary>검사 결과 기록(module, inspectorId, 합부, 항목문자열).</summary>
         public static void Record(string module, string inspId, bool pass, string items)
@@ -32,6 +47,7 @@ namespace QMC.Vision.Core
                     _map[module] = d;
                 }
                 d[inspId ?? ""] = new R { Pass = pass, Items = items ?? "", Time = DateTime.Now };
+                Bump(module);
             }
         }
 
@@ -67,6 +83,7 @@ namespace QMC.Vision.Core
                     _marks[module] = d;
                 }
                 d[key ?? ""] = new Mk { X = x, Y = y, Score = score };
+                Bump(module);
             }
         }
 
@@ -89,7 +106,7 @@ namespace QMC.Vision.Core
         public static void Clear(string module)
         {
             if (string.IsNullOrEmpty(module)) return;
-            lock (_lock) { _map.Remove(module); _marks.Remove(module); }
+            lock (_lock) { _map.Remove(module); _marks.Remove(module); Bump(module); }
         }
     }
 }

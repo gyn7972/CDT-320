@@ -46,7 +46,7 @@ namespace QMC.CDT320.Sensors
                     bool triggered = ActiveHigh ? state : !state;
                     if (triggered && !_lastTriggered)
                     {
-                        AlarmManager.Raise(AlarmSeverity.Warning, "IONIZER",
+                        AlarmManager.Raise(AlarmSeverity.Error, "IONIZER",
                             Name, "Ionizer alarm signal active");
                     }
                     // ?대━???쒖젏? ?뚮엺 ?꾩쟻??留됯린 ?꾪빐 蹂꾨룄 ?≪텧 ?덊븿 (AlarmManager ?먯껜?먯꽌 dedupe)

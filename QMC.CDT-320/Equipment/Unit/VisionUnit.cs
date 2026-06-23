@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 
 namespace QMC.CDT320
 {
@@ -35,11 +36,26 @@ namespace QMC.CDT320
     public sealed class VisionConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
 
         public bool IsSimulationMode
         {
             get { return bDryRun; }
             set { bDryRun = value; }
+        }
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsureCalibrationObjects();
+        }
+
+        public void EnsureCalibrationObjects()
+        {
+            if (CameraCalibration == null)
+                CameraCalibration = new VisionCameraCalibrationData();
+
+            CameraCalibration.EnsureObjects();
         }
     }
 
@@ -541,6 +557,81 @@ namespace QMC.CDT320
         public bool IsVisionReticleRearSideBackward() { return ReticleRearSideBwSensor.IsOn; }
         public bool IsVisionNeedleVacuumOk(bool expected = true) { return NeedleVacuumSensor.IsOn == expected || Config.IsSimulationMode || Setup.IsSimulationMode; }
 
+        public async Task<int> SetReticleLiftUpAsync(bool up, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                return await MoveReticleCylinderAsync(
+                    ReticleLift,
+                    up,
+                    up ? "Reticle Lift Up" : "Reticle Lift Down",
+                    up ? "Reticle Lift 상승 실패." : "Reticle Lift 하강 실패.",
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-RETICLE-LIFT-EX", "Reticle Lift 동작 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> SetReticleFrontSideForwardAsync(bool forward, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                return await MoveReticleCylinderAsync(
+                    ReticleFrontSideSlide,
+                    forward,
+                    forward ? "Reticle Front Slide Forward" : "Reticle Front Slide Backward",
+                    forward ? "Reticle Front Slide 전진 실패." : "Reticle Front Slide 후진 실패.",
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-RETICLE-FRONT-SLIDE-EX", "Reticle Front Slide 동작 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> SetReticleRearSideForwardAsync(bool forward, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                return await MoveReticleCylinderAsync(
+                    ReticleRearSideSlide,
+                    forward,
+                    forward ? "Reticle Rear Slide Forward" : "Reticle Rear Slide Backward",
+                    forward ? "Reticle Rear Slide 전진 실패." : "Reticle Rear Slide 후진 실패.",
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-RETICLE-REAR-SLIDE-EX", "Reticle Rear Slide 동작 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public Task<bool> WaitVisionReticleSafeState(VisionSide side, int timeoutMs)
         {
             return WaitVisionReticleSafeState(side, timeoutMs, CancellationToken.None);
@@ -851,6 +942,47 @@ namespace QMC.CDT320
         public string BuildVisionAlarmMessage(StageAlarmCode code)
         {
             return "Vision alarm: " + code;
+        }
+
+        private async Task<int> MoveReticleCylinderAsync(
+            BaseCylinder cylinder,
+            bool forward,
+            string label,
+            string failMessage,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (cylinder == null)
+                    return RaiseVisionAlarm("VS-RETICLE-CYL-MISSING", label + " 실린더 객체가 없습니다.");
+
+                EventLogger.Write(EventKind.Event, "QMC", "VS-RETICLE-CYL", label + " 동작 시작.");
+                bool commandOk = forward
+                    ? await cylinder.MoveFwdAsync(ct).ConfigureAwait(false)
+                    : await cylinder.MoveBwdAsync(ct).ConfigureAwait(false);
+                if (!commandOk)
+                    return RaiseVisionAlarm("VS-RETICLE-CYL-MOVE", failMessage + " cylinder=" + cylinder.Name);
+
+                ct.ThrowIfCancellationRequested();
+                bool finalOk = forward ? cylinder.IsFwd : cylinder.IsBwd;
+                if (!finalOk)
+                    return RaiseVisionAlarm("VS-RETICLE-CYL-CHECK", failMessage + " 최종 센서 확인 실패. cylinder=" + cylinder.Name);
+
+                EventLogger.Write(EventKind.Event, "QMC", "VS-RETICLE-CYL", label + " 동작 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-RETICLE-CYL-EX", label + " 동작 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private BaseAxis RegisterAxis(VisionAxis axis, string axisName)

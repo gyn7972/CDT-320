@@ -182,6 +182,10 @@ namespace QMC.CDT320
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig(); // PickUp Z축 세부 모션 조건입니다.
 
         [Category("PickUp")]
+        [DisplayName("PickUp Z Motion Mode")]
+        public PickerPickUpZMotionMode PickUpZMotionMode { get { return EnsurePickUpConfig().MotionMode; } set { EnsurePickUpConfig().MotionMode = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp PickerZ PrePick Distance")]
         public double PickUpPickerZPrePickDistance { get { return EnsurePickUpConfig().PickerZPrePickDistance; } set { EnsurePickUpConfig().PickerZPrePickDistance = value; } }
 
@@ -926,7 +930,11 @@ namespace QMC.CDT320
                     }
 
                     if (result != 0 || item.IsAlarm)
-                        return RaisePickerAlarm("PK-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+                        return RaisePickerAlarm(
+                            "PK-MOVE",
+                            axis + " 이동 명령 실패. result=" + result +
+                            ", alarm=" + item.IsAlarm +
+                            BuildAxisLastMotionFailure(item));
                 }
 
                 return 0;
@@ -1001,7 +1009,11 @@ namespace QMC.CDT320
                     }
 
                     if (result != 0 || item.IsAlarm)
-                        return RaisePickerAlarm("PK-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+                        return RaisePickerAlarm(
+                            "PK-MOVE",
+                            axis + " 이동 명령 실패. result=" + result +
+                            ", alarm=" + item.IsAlarm +
+                            BuildAxisLastMotionFailure(item));
                 }
 
                 return 0;
@@ -1041,7 +1053,11 @@ namespace QMC.CDT320
                     }
 
                     if (result != 0 || item.IsAlarm)
-                        return RaisePickerAlarm("PK-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                        return RaisePickerAlarm(
+                            "PK-MOVE",
+                            axis + " 이동 명령 실패. result=" + result +
+                            ", alarm=" + item.IsAlarm +
+                            BuildAxisLastMotionFailure(item));
 
                     AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
                         axis,
@@ -2171,6 +2187,14 @@ namespace QMC.CDT320
             }
 
             return 0;
+        }
+
+        private string BuildAxisLastMotionFailure(BaseAxis axis)
+        {
+            if (axis == null || string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", 마지막 이동 실패 원인=" + axis.LastMotionFailureMessage;
         }
 
         private string BuildPickerGuardTargetName(PickerAxis axis, string targetName)

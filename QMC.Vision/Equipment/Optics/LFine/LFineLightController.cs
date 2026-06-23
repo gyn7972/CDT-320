@@ -70,7 +70,7 @@ namespace QMC.Vision.Optics.LFine
             if (!IsValid(channel)) return Task.FromResult(false);
             if (power < 0 || power > _cfg.MaxPower)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PWR-RANGE",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-PWR-RANGE",
                     "Light/" + _cfg.PortName, $"Power 범위 초과 ch={channel} power={power} (max={_cfg.MaxPower})");
                 return Task.FromResult(false);
             }
@@ -85,7 +85,7 @@ namespace QMC.Vision.Optics.LFine
             if (!IsValid(channel)) return Task.FromResult(false);
             if (onTimeUs < 0 || onTimeUs > _cfg.MaxOnTimeUs)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PWR-RANGE",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-PWR-RANGE",
                     "Light/" + _cfg.PortName, $"StrobeTime 범위 초과 ch={channel} us={onTimeUs} (max={_cfg.MaxOnTimeUs})");
                 return Task.FromResult(false);
             }
@@ -176,7 +176,7 @@ namespace QMC.Vision.Optics.LFine
         {
             if (_port == null || !_port.IsOpen)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TX-FAIL",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TX-FAIL",
                     "Light/" + _cfg.PortName, "포트 미개방 상태에서 송신 시도");
                 return false;
             }
@@ -187,13 +187,13 @@ namespace QMC.Vision.Optics.LFine
             }
             catch (TimeoutException)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TIMEOUT",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TIMEOUT",
                     "Light/" + _cfg.PortName, "송신 타임아웃");
                 return false;
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TX-FAIL",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TX-FAIL",
                     "Light/" + _cfg.PortName, "시리얼 쓰기 예외: " + ex.Message);
                 return false;
             }
