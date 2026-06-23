@@ -503,7 +503,8 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 if (currentZone != targetZone &&
-                    !IsPickerYAtAvoid(request.Machine, isFront))
+                    !IsPickerYAtAvoid(request.Machine, isFront) &&
+                    !IsInspectionContinuousBottomSideMove(request, currentZone, targetZone))
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -520,6 +521,27 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 존 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
+        }
+
+        private static bool IsInspectionContinuousBottomSideMove(
+            MotionGuardRuleContext request,
+            PickerWorkZone currentZone,
+            PickerWorkZone targetZone)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                return false;
+
+            if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            bool bottomToSide =
+                (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom);
+
+            if (!bottomToSide)
+                return false;
+
+            return true;
         }
 
         private static bool VerifyPickerYMove(

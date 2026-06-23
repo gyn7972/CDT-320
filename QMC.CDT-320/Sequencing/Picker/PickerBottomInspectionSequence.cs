@@ -386,7 +386,7 @@ namespace QMC.CDT320.Sequencing
                 targets,
                 "bottom inspection X/Y",
                 ct,
-                "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                BuildBottomMoveTargetName()).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -404,7 +404,7 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerY,
                 "bottom inspection Y",
                 ct,
-                "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                BuildBottomMoveTargetName()).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -421,7 +421,7 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerZ,
                 "bottom inspection Z",
                 ct,
-                "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                BuildBottomMoveTargetName()).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -436,12 +436,21 @@ namespace QMC.CDT320.Sequencing
                 _targetPickerT,
                 "bottom inspection T",
                 ct,
-                "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                BuildBottomMoveTargetName()).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             CurrentStep = PickerBottomInspectionStep.RequestBottomInspection;
             return 0;
+        }
+
+        private string BuildBottomMoveTargetName()
+        {
+            string targetName = "DieBottomPosition[" + _currentPickerIndex + "]";
+            if (Options == null || !Options.KeepZAfterBottomInspection)
+                return targetName;
+
+            return targetName + ";PickerPhase=InspectionZHold";
         }
 
         private async Task<int> RequestBottomInspectionAsync(CancellationToken ct)
@@ -545,6 +554,16 @@ namespace QMC.CDT320.Sequencing
                 ", ok=" + _bottomResult.IsOk +
                 ", offsetX=" + _bottomResult.OffsetX +
                 ", offsetY=" + _bottomResult.OffsetY + " - Ok");
+
+            if (Options != null && Options.KeepZAfterBottomInspection)
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " Auto 연속 검사를 위해 Bottom 완료 후 PickerZ를 유지합니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", die=" + _currentDie.DieId + " - Ok");
+                CurrentStep = PickerBottomInspectionStep.SelectNextPickerOrComplete;
+                return 0;
+            }
 
             CurrentStep = PickerBottomInspectionStep.MoveBottomZToAvoid;
             return 0;

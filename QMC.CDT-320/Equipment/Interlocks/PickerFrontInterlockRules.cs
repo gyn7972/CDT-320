@@ -54,7 +54,7 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                if (!VerifyFrontPickerZAxesAvoidForMove(front, "FrontPickerX", out reason))
+                if (!VerifyFrontPickerZAxesAvoidForMove(front, "FrontPickerX", request, out reason))
                     return false;
                 
                 if (!PickerZoneInterlockRules.VerifyFrontPickerXMove(request, out reason))
@@ -111,10 +111,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyFrontPickerZAxesAvoidForMove(PickerFrontUnit picker, string movingName, out string reason)
+        private static bool VerifyFrontPickerZAxesAvoidForMove(PickerFrontUnit picker, string movingName, MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             if (picker == null)
+                return true;
+
+            if (IsInspectionZHoldMove(request))
                 return true;
 
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -129,6 +132,18 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool IsInspectionZHoldMove(MotionGuardRuleContext request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                return false;
+
+            if (request.TargetName.IndexOf("PickerPhase=InspectionZHold", System.StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            return request.TargetName.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
