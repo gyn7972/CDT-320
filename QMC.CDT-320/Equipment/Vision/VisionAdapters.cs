@@ -262,6 +262,9 @@ namespace QMC.CDT320.VisionComm
 
         public static async Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs, CancellationToken ct)
         {
+            // 비전 미사용(UseVision=false) — Bin 배치검사를 수행하지 않고 PASS 통과(연결 불필요).
+            if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
+                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:VisionDisabled" };
             if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
                 return new InspectionResultDto { IsPass = true, Raw = "BYPASS:BinVisionNotConnected" };
 

@@ -23,7 +23,7 @@ namespace QMC.CDT320.Sequencing
                 NextSlotIndex = 0,
                 Side = BinSide.Good,
                 CassetteRole = CassetteMaterialRole.Good1,
-                MoveTimeoutMs = 10000,
+                MoveTimeoutMs = 300000,
                 FineMove = false,
                 UseBarcode = false,
                 UseVacuum = true,

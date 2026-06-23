@@ -479,6 +479,9 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
+                result = VerifyNeedleXReadyForNeedleZProcess(stage);
+                if (result != 0) return result;
+
                 result = await MoveStageAxisAndVerifyAsync(
                     stage,
                     WaferStageAxis.NeedleZ,
@@ -510,6 +513,35 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int VerifyNeedleXReadyForNeedleZProcess(InputStageUnit stage)
+        {
+            if (stage == null)
+                return Fail("IN-FEEDER-STAGE-NEEDLE-X-CHECK", "InputStage",
+                    "NeedleZ Process 이동 전 InputStageUnit을 찾을 수 없습니다.");
+
+            if (stage.Recipe == null)
+                return Fail("IN-FEEDER-STAGE-NEEDLE-X-CHECK", stage.Name,
+                    "NeedleZ Process 이동 전 InputStage 레시피를 찾을 수 없습니다.");
+
+            if (stage.NeedleBlockX == null || stage.StageY == null)
+                return Fail("IN-FEEDER-STAGE-NEEDLE-X-CHECK", stage.Name,
+                    "NeedleZ Process 이동 전 NeedleX 또는 StageY 축을 찾을 수 없습니다.");
+
+            string areaReason;
+            double needleX = stage.NeedleBlockX.ActualPosition;
+            double stageY = stage.StageY.ActualPosition;
+            if (stage.IsNeedleWorkPointInArea(needleX, stageY, out areaReason))
+                return 0;
+
+            return Fail("IN-FEEDER-STAGE-NEEDLE-X-TEACH", stage.Name,
+                "NeedleZ Process 이동 전 NeedleX 위치가 작업 가능 영역을 벗어났습니다. " +
+                "NeedleX Process 위치 티칭을 확인하세요. " +
+                "needleX=" + needleX.ToString("F3") +
+                ", stageY=" + stageY.ToString("F3") +
+                ", needleXProcess=" + stage.Recipe.NeedleX.ProcessPosition.ToString("F3") +
+                ", reason=" + areaReason);
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)

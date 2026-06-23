@@ -711,7 +711,7 @@ namespace QMC.CDT320.Sequencing
 
         protected int ResolveTimeout()
         {
-            return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
+            return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 300000;
         }
 
         private string SequenceStateName

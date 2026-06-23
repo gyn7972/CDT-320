@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -396,6 +396,10 @@ namespace QMC.CDT320.Sequencing
                 if (stage == null)
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit이 없습니다.");
 
+                int pickerClearResult = await WaitFrontRearPickerInputZonesClearBeforeVisionAsync(ct).ConfigureAwait(false);
+                if (pickerClearResult != 0)
+                    return pickerClearResult;
+
                 if (_pickTarget == null)
                     return Fail("INPUT-DIE-VISION-PREPARE-DIE-TARGET", "Material",
                         "Input die vision 준비 대상 좌표가 없습니다. die=" + _currentDieId +
@@ -575,6 +579,129 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> WaitFrontRearPickerInputZonesClearBeforeVisionAsync(CancellationToken ct)
+        {
+            try
+            {
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".InputVisionPickerZoneWait");
+
+                    string frontDetail;
+                    bool frontBlocking = IsPickerInputZoneBusyForVision(true, out frontDetail);
+                    string rearDetail;
+                    bool rearBlocking = IsPickerInputZoneBusyForVision(false, out rearDetail);
+
+                    if (!frontBlocking && !rearBlocking)
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputVision 검사 전 Front/Rear Picker Input 영역 이탈 확인 완료. " +
+                                "die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputVision 검사 전 Picker Input 영역 이탈 대기. " +
+                            "die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", frontBlocking=" + frontBlocking +
+                            ", frontDetail=" + frontDetail +
+                            ", rearBlocking=" + rearBlocking +
+                            ", rearDetail=" + rearDetail + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-PICKER-INPUT-ZONE-TIMEOUT", Name,
+                            "InputVision 검사 전 Picker가 Input 영역에서 완전히 이탈하지 못했습니다. " +
+                            "die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", frontBlocking=" + frontBlocking +
+                            ", frontDetail=" + frontDetail +
+                            ", rearBlocking=" + rearBlocking +
+                            ", rearDetail=" + rearDetail);
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-PICKER-INPUT-ZONE-EX", Name,
+                    "InputVision 검사 전 Picker Input 영역 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsPickerInputZoneBusyForVision(bool isFront, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                    Context != null ? Context.Machine : null,
+                    isFront,
+                    PickerWorkZone.Input,
+                    null,
+                    "InputVision 검사 전 Picker Input 영역 확인");
+
+                bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
+                bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
+                bool inputRelated =
+                    state != null &&
+                    (state.CurrentZone == PickerWorkZone.Input ||
+                     state.TargetZone == PickerWorkZone.Input ||
+                     state.WorkAreaZone == PickerWorkZone.Input ||
+                     state.BlocksTransport ||
+                     state.UnknownUnsafe);
+
+                bool busy = inputRelated || ((xMoving || yMoving) && inputRelated);
+                detail = (isFront ? "FrontPicker" : "RearPicker") +
+                         ", busy=" + busy +
+                         ", movingX=" + xMoving +
+                         ", movingY=" + yMoving +
+                         ", " + (state != null ? state.Describe() : "state=null");
+
+                return busy;
+            }
+            catch (Exception ex)
+            {
+                detail = (isFront ? "FrontPicker" : "RearPicker") +
+                         " Input 영역 확인 실패. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> WaitPickerInputZonesClearForPreInspectionAsync(CancellationToken ct)
         {
             try
@@ -624,7 +751,7 @@ namespace QMC.CDT320.Sequencing
                         waitLogged = true;
                     }
 
-                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -699,7 +826,7 @@ namespace QMC.CDT320.Sequencing
                         waitLogged = true;
                     }
 
-                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 if (Side == PickerSequenceSide.Front)
@@ -1065,6 +1192,10 @@ namespace QMC.CDT320.Sequencing
 
         private bool IsSimulationOrDryRun(InputStageUnit stage)
         {
+            // 비전 미사용(UseVision=false) — Wafer/Input die 비전은 비전 작업이므로 합성 결과로 통과.
+            if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
+                return true;
+
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 

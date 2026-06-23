@@ -88,7 +88,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = Mode;
-            options.SimulateVisionResult = IsSimulationOrDryRun();
+            options.SimulateVisionResult = ShouldSimulateVisionResult();
             options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             options.RequireInputCameraMarkInspectionPermission = Mode == SequenceRunMode.Auto;
             return options;
@@ -111,37 +111,31 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSimulationOrDryRun()
+        private bool ShouldSimulateVisionResult()
         {
             try
             {
-                if (QMC.CDT320.AppSettingsStore.Current != null &&
-                    (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
-                     QMC.CDT320.AppSettingsStore.Current.DryRunMode))
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
                     return true;
 
                 if (Context != null && Context.Controller != null && Context.Controller.GlobalDryRun)
-                    return true;
-
-                if (Context != null &&
-                    Context.Machine != null &&
-                    Context.Machine.InputStageUnit != null &&
-                    Context.Machine.InputStageUnit.IsInputStageSimulationOrDryRun())
-                    return true;
+                    return false;
 
                 if (Context != null &&
                     Context.Machine != null &&
                     Context.Machine.PickerFrontUnit != null &&
-                    Context.Machine.PickerFrontUnit.Config != null &&
-                    Context.Machine.PickerFrontUnit.Config.bDryRun)
+                    ((Context.Machine.PickerFrontUnit.Setup != null && Context.Machine.PickerFrontUnit.Setup.IsSimulationMode) ||
+                     (Context.Machine.PickerFrontUnit.Config != null && Context.Machine.PickerFrontUnit.Config.IsSimulationMode)))
                     return true;
 
                 return false;
             }
             catch (System.Exception ex)
             {
-                WriteLog("IsSimulationOrDryRun", "FrontPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
-                return false;
+                WriteLog("ShouldSimulateVisionResult", "FrontPicker Vision 시뮬레이션 조건 확인 실패: " + ex.Message + " - Failed");
+                return true;
             }
             finally
             {
@@ -186,7 +180,7 @@ namespace QMC.CDT320.Sequencing
                     Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
                     await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
-                    await Task.Delay(200, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
             }
             catch (System.OperationCanceledException)
@@ -260,6 +254,12 @@ namespace QMC.CDT320.Sequencing
                 if (!IsFrontPickerEnabled())
                     return false;
 
+                if (!HasEnabledFrontPickerHead())
+                {
+                    ClearDisabledPickerReservations();
+                    return false;
+                }
+
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
@@ -293,6 +293,57 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("IsFrontPickerEnabled", "FrontPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasEnabledFrontPickerHead()
+        {
+            try
+            {
+                PickerFrontUnit front = Context != null && Context.Machine != null
+                    ? Context.Machine.PickerFrontUnit
+                    : null;
+                bool[] usePicker = front != null && front.Config != null ? front.Config.UsePicker : null;
+                if (usePicker == null || usePicker.Length == 0)
+                    return false;
+
+                for (int i = 0; i < usePicker.Length; i++)
+                {
+                    if (usePicker[i])
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("HasEnabledFrontPickerHead", "FrontPicker 사용 Head 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearDisabledPickerReservations()
+        {
+            try
+            {
+                InputCameraPickUpPermissionStore.Clear(PickerSequenceSide.Front);
+                int releaseCount = MaterialStateService.ReleaseInputStagePickReservationsForPickerLocation(
+                    MaterialLocationKind.PickerFront,
+                    "FrontPicker 사용 가능한 Head가 없습니다.");
+                if (releaseCount > 0)
+                    WriteLog("ClearDisabledPickerReservations",
+                        "FrontPicker 사용 가능한 Head가 없어 남은 Pick 예약을 해제했습니다. count=" + releaseCount + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ClearDisabledPickerReservations",
+                    "FrontPicker 사용 불가 예약 해제 중 예외 발생: " + ex.Message + " - Failed");
             }
             finally
             {

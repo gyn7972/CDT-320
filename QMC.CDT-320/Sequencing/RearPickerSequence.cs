@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -92,7 +92,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = Mode;
-            options.SimulateVisionResult = IsSimulationOrDryRun();
+            options.SimulateVisionResult = ShouldSimulateVisionResult();
             options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             options.RequireInputCameraMarkInspectionPermission = Mode == SequenceRunMode.Auto;
             return options;
@@ -115,37 +115,31 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSimulationOrDryRun()
+        private bool ShouldSimulateVisionResult()
         {
             try
             {
-                if (QMC.CDT320.AppSettingsStore.Current != null &&
-                    (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
-                     QMC.CDT320.AppSettingsStore.Current.DryRunMode))
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
                     return true;
 
                 if (Context != null && Context.Controller != null && Context.Controller.GlobalDryRun)
-                    return true;
-
-                if (Context != null &&
-                    Context.Machine != null &&
-                    Context.Machine.InputStageUnit != null &&
-                    Context.Machine.InputStageUnit.IsInputStageSimulationOrDryRun())
-                    return true;
+                    return false;
 
                 if (Context != null &&
                     Context.Machine != null &&
                     Context.Machine.PickerRearUnit != null &&
-                    Context.Machine.PickerRearUnit.Config != null &&
-                    Context.Machine.PickerRearUnit.Config.bDryRun)
+                    ((Context.Machine.PickerRearUnit.Setup != null && Context.Machine.PickerRearUnit.Setup.IsSimulationMode) ||
+                     (Context.Machine.PickerRearUnit.Config != null && Context.Machine.PickerRearUnit.Config.IsSimulationMode)))
                     return true;
 
                 return false;
             }
             catch (Exception ex)
             {
-                WriteLog("IsSimulationOrDryRun", "RearPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
-                return false;
+                WriteLog("ShouldSimulateVisionResult", "RearPicker Vision 시뮬레이션 조건 확인 실패: " + ex.Message + " - Failed");
+                return true;
             }
             finally
             {
@@ -190,7 +184,7 @@ namespace QMC.CDT320.Sequencing
                     Context.StopIfCycleStopRequested("RearPickerSequence.WaitForWork");
 
                     await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
-                    await Task.Delay(200, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -264,6 +258,12 @@ namespace QMC.CDT320.Sequencing
                 if (!IsRearPickerEnabled())
                     return false;
 
+                if (!HasEnabledRearPickerHead())
+                {
+                    ClearDisabledPickerReservations();
+                    return false;
+                }
+
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
@@ -277,6 +277,58 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("HasPickerWork", "RearPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasEnabledRearPickerHead()
+        {
+            try
+            {
+                PickerRearUnit rear = Context != null && Context.Machine != null
+                    ? Context.Machine.PickerRearUnit
+                    : null;
+                bool[] usePicker = rear != null && rear.Config != null ? rear.Config.UsePicker : null;
+                if (usePicker == null || usePicker.Length == 0)
+                    return false;
+
+                for (int i = 0; i < usePicker.Length; i++)
+                {
+                    if (usePicker[i])
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("HasEnabledRearPickerHead",
+                    "RearPicker 사용 Head 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearDisabledPickerReservations()
+        {
+            try
+            {
+                InputCameraPickUpPermissionStore.Clear(PickerSequenceSide.Rear);
+                int releaseCount = MaterialStateService.ReleaseInputStagePickReservationsForPickerLocation(
+                    MaterialLocationKind.PickerRear,
+                    "RearPicker 사용 가능한 Head가 없습니다.");
+                if (releaseCount > 0)
+                    WriteLog("ClearDisabledPickerReservations",
+                        "RearPicker 사용 가능한 Head가 없어 남은 Pick 예약을 해제했습니다. count=" + releaseCount + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ClearDisabledPickerReservations",
+                    "RearPicker 사용 불가 예약 해제 중 예외 발생: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -307,7 +359,7 @@ namespace QMC.CDT320.Sequencing
 
                 WriteFrontPickupYieldWaitLog();
 
-                await Task.Delay(300, ct).ConfigureAwait(false);
+                await Task.Delay(1, ct).ConfigureAwait(false);
                 return true;
             }
             catch (OperationCanceledException)

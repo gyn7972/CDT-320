@@ -49,8 +49,10 @@ namespace QMC.CDT320.VisionComm
             {
                 DisconnectAll();
                 Host = host;
+                AppSettings st = AppSettingsStore.Current;
+                string reason = (st != null && !st.UseVision) ? "비전 미사용 설정이라" : "시뮬레이션 모드라";
                 EventLogger.Write(EventKind.Event, "SYS", "VISION-CONN",
-                    "시뮬레이션 모드라 Vision PC 연결을 시도하지 않습니다.");
+                    reason + " Vision PC 연결을 시도하지 않습니다.");
                 return true;
             }
 
@@ -164,7 +166,7 @@ namespace QMC.CDT320.VisionComm
         private static bool IsVisionLinkBypassed()
         {
             AppSettings settings = AppSettingsStore.Current;
-            return settings != null && (settings.SimulationMode || settings.BypassHardware);
+            return settings != null && (settings.SimulationMode || settings.BypassHardware || !settings.UseVision);
         }
     }
 }

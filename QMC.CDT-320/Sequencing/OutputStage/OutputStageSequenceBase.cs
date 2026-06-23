@@ -264,8 +264,10 @@ namespace QMC.CDT320.Sequencing
                             "front=" + frontDetail + ", rear=" + rearDetail + ", " + alarmState);
                     }
 
+                    bool normalPlaceOccupancy = IsOutputZoneOccupiedByPickerPlace(true) ||
+                                                IsOutputZoneOccupiedByPickerPlace(false);
                     double elapsedMs = (DateTime.UtcNow - startTime).TotalMilliseconds;
-                    if (elapsedMs >= timeoutMs)
+                    if (!normalPlaceOccupancy && elapsedMs >= timeoutMs)
                     {
                         return Fail("OUT-STAGE-PICKER-OUTPUT-ZONE-TIMEOUT", Name,
                             description + " 대기 시간 초과: Picker가 Output zone에서 벗어나지 않았습니다. " +
@@ -278,7 +280,7 @@ namespace QMC.CDT320.Sequencing
                         WriteLog(Name,
                             description + " 전 Picker Output zone 해제 대기. " +
                             "front=" + frontDetail + ", rear=" + rearDetail +
-                            ", timeoutMs=" + timeoutMs + " - Wait");
+                            ", timeoutMs=" + (normalPlaceOccupancy ? "Place점유해제까지" : timeoutMs.ToString()) + " - Wait");
                         waitLogged = true;
                     }
 
@@ -293,6 +295,30 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("OUT-STAGE-PICKER-OUTPUT-ZONE-WAIT-EX", Name,
                     description + " 전 Picker Output zone 해제 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsOutputZoneOccupiedByPickerPlace(bool isFront)
+        {
+            try
+            {
+                PickerWorkZone zone;
+                string owner;
+                if (!PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out zone, out owner))
+                    return false;
+
+                if (zone != PickerWorkZone.Output || string.IsNullOrWhiteSpace(owner))
+                    return false;
+
+                return owner.IndexOf("PickerPlaceSequence", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       owner.IndexOf(":Place", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -609,7 +635,7 @@ namespace QMC.CDT320.Sequencing
 
         protected int ResolveTimeout()
         {
-            return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
+            return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 300000;
         }
 
         private TStep ResolveStartStep(TStep defaultStep)

@@ -772,7 +772,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                await Task.Delay(100, ct).ConfigureAwait(false);
+                await Task.Delay(1, ct).ConfigureAwait(false);
             }
         }
 
@@ -814,7 +814,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                await Task.Delay(100, ct).ConfigureAwait(false);
+                await Task.Delay(1, ct).ConfigureAwait(false);
             }
         }
 

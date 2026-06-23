@@ -105,11 +105,11 @@ namespace QMC.CDT320.Sequencing
 
                     // 아웃풋 스테이지 수령 준비 검증
                     case OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady:
-                        return Task.FromResult(VerifyOutputStageReceiveReady());
+                        return VerifyOutputStageReceiveReadyAsync(ct);
 
                     // 피더 보유 BIN 검증
                     case OutputFeederLoadToStageStep.VerifyFeederHoldingBin:
-                        return Task.FromResult(VerifyFeederHoldingBin());
+                        return VerifyFeederHoldingBinAsync(ct);
 
                     // 피더 스테이지 로드 위치 이동
                     case OutputFeederLoadToStageStep.MoveFeederStageLoadPosition:
@@ -324,37 +324,67 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int VerifyOutputStageReceiveReady()
+        private async Task<int> VerifyOutputStageReceiveReadyAsync(CancellationToken ct)
         {
+            int result = await Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
+                    "OutputStage Bin 수령 전 Guide Up 구동 실패. side=" + Options.Side +
+                    ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
             if (!Stage.IsBinGuideUp(Options.Side))
                 return Fail("OUT-STAGE-RECEIVE-GUIDE-UP", Stage.Name,
-                    "Output stage must have bin guide up before receiving bin. side=" + Options.Side + ", " +
+                    "OutputStage Bin 수령 전 Guide가 Up 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            result = await Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-RECEIVE-CLAMP-DOWN", Stage.Name,
+                    "OutputStage Bin 수령 전 Clamp Lift Down 구동 실패. side=" + Options.Side +
+                    ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
                 return Fail("OUT-STAGE-RECEIVE-CLAMP-DOWN", Stage.Name,
-                    "Output stage clamp lift must be down before receiving bin. side=" + Options.Side + ", " +
+                    "OutputStage Bin 수령 전 Clamp Lift가 Down 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            result = await Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
+                    "OutputStage Bin 수령 전 Unclamp 구동 실패. side=" + Options.Side +
+                    ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideUnclamped(Options.Side))
                 return Fail("OUT-STAGE-RECEIVE-UNCLAMP", Stage.Name,
-                    "Output stage must be unclamped before receiving bin. side=" + Options.Side + ", " +
+                    "OutputStage Bin 수령 전 Unclamp 상태가 아닙니다. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.VerifyFeederHoldingBin;
             return 0;
         }
 
-        private int VerifyFeederHoldingBin()
+        private async Task<int> VerifyFeederHoldingBinAsync(CancellationToken ct)
         {
+            int result = await Feeder.SetFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
+                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Clamp 구동에 실패했습니다. side=" + Options.Side +
+                    ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+
             if (Feeder.IsFeederUnclamped())
                 return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "Output feeder must already be clamped before feeder to stage load. side=" + Options.Side + ", " +
+                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Clamp 상태가 아닙니다. side=" + Options.Side + ", " +
                     Feeder.DescribeFeederCylinderState());
+
+            result = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
+                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Lift Down 구동에 실패했습니다. side=" + Options.Side +
+                    ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (!Feeder.IsFeederDown())
                 return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
-                    "Output feeder must already be down before feeder to stage load. side=" + Options.Side + ", " +
+                    "OutputFeeder가 BIN을 Stage로 이송하기 전 Down 상태가 아닙니다. side=" + Options.Side + ", " +
                     Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederLoadToStageStep.MoveFeederStageLoadPosition;

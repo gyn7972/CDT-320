@@ -399,7 +399,7 @@ namespace QMC.CDT320.Sequencing
                         .ConfigureAwait(false);
 
                     if (_inputStageLease == null)
-                        await Task.Delay(100, ct).ConfigureAwait(false);
+                        await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 if (waitLogged)
@@ -3257,6 +3257,10 @@ namespace QMC.CDT320.Sequencing
 
         private bool IsSimulationOrDryRun(InputStageUnit stage)
         {
+            // 비전 미사용(UseVision=false) — Wafer/Input die 비전은 비전 작업이므로 합성 결과로 통과.
+            if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
+                return true;
+
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 
@@ -3274,7 +3278,7 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Rear && RearPicker != null)
                 return RearPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
-            return 50;
+            return 5; //50
         }
 
         private void RecordColletUse(int pickerNo)

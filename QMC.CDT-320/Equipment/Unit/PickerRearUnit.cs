@@ -420,13 +420,13 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun())
+                if (IsVisionBypassed())
                     return SimulateBottomInspectionResult(pickerNo);
 
                 if (vision == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
-                        Name + " bottom vision client is null. pickerNo=" + pickerNo + " - Failed");
+                        Name + " Bottom VisionPC가 연결되어 있지 않습니다. pickerNo=" + pickerNo + " - Failed");
                     return null;
                 }
 
@@ -434,7 +434,7 @@ namespace QMC.CDT320
                 if (!triggered)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
-                        Name + " bottom vision trigger failed. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                        Name + " Bottom 검사 노출 요청 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
@@ -442,7 +442,7 @@ namespace QMC.CDT320
                 if (results == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
-                        Name + " bottom vision result is null. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                        Name + " Bottom 검사 결과 수신 실패. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
                     return null;
                 }
 
@@ -453,7 +453,7 @@ namespace QMC.CDT320
                 }
 
                 Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " bottom vision result missing picker. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
+                    Name + " Bottom 검사 결과에 현재 Picker 번호가 없습니다. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
                 return null;
             }
             catch (OperationCanceledException)
@@ -463,7 +463,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 Log.Write("Main", "VISION", "PickerBottomInspect",
-                    Name + " bottom vision exception. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                    Name + " Bottom 검사 중 예외가 발생했습니다. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
                 return null;
             }
             finally
@@ -482,7 +482,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun())
+                if (IsVisionBypassed())
                     return SimulateSideInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -1656,7 +1656,7 @@ namespace QMC.CDT320
             if (vacuum != null && vacuum.Recipe != null && vacuum.Recipe.SettleTimeMs > 0)
                 return vacuum.Recipe.SettleTimeMs;
 
-            return 50;
+            return 5; //50
         }
 
         public int ResolvePickerBlowTimeMs(int pickerNo)
@@ -1666,12 +1666,18 @@ namespace QMC.CDT320
             if (blow != null && blow.Recipe != null && blow.Recipe.SettleTimeMs > 0)
                 return blow.Recipe.SettleTimeMs;
 
-            return 100;
+            return 5; //100
         }
 
         public bool CheckPickerMoveReady()
         {
             return IsPickerCdaPressureOk();
+        }
+
+        private bool IsVisionBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
         }
 
         private bool IsPickerSimulationOrDryRun()
