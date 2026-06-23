@@ -60,9 +60,9 @@ namespace QMC.CDT320.Interlocks
             if (!CanHomeFrontSideVisionY(machine, out reason))
                 return false;
 
-            if (!VerifyInputStageClear(machine, "FrontSideVisionY", out reason))
-                return false;
-
+            // SideVisionY는 InputStage/InputVisionX와 기구 간섭이 없는 독립 검사축이다.
+            // Auto 병렬 운전에서는 Input die vision 준비와 Side 검사 카메라 위치 이동이 겹칠 수 있으므로
+            // InputStage/InputVisionX 이동 상태로 SideVisionY를 차단하지 않는다.
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "FrontSideVisionY", out reason);
         }
 
@@ -96,9 +96,9 @@ namespace QMC.CDT320.Interlocks
             if (!CanHomeRearSideVisionY(machine, out reason))
                 return false;
 
-            if (!VerifyInputStageClear(machine, "RearSideVisionY", out reason))
-                return false;
-
+            // SideVisionY는 InputStage/InputVisionX와 기구 간섭이 없는 독립 검사축이다.
+            // Auto 병렬 운전에서는 Input die vision 준비와 Side 검사 카메라 위치 이동이 겹칠 수 있으므로
+            // InputStage/InputVisionX 이동 상태로 SideVisionY를 차단하지 않는다.
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
         }
         

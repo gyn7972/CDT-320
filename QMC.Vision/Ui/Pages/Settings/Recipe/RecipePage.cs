@@ -312,6 +312,7 @@ namespace QMC.Vision.Ui.Pages
         // ── 상단바 SAVE = 타깃 레시피 저장 ──
         private void OnSaveRecipeClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             if (_curSetKey == null || !_settings.TryGetValue(_curSetKey, out var s)) return;
             try
             {
@@ -358,6 +359,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnRecipeApplyClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             if (!(_projList.SelectedItem is string name)) return;
             // 적용 = 해당 품목을 활성으로 로드 + 마지막 레시피로 영속화(재시작 복원) + 상단 표시.
             var host = FindForm() as Form1;
@@ -366,6 +368,27 @@ namespace QMC.Vision.Ui.Pages
             host?.SetRecipeStatus(name);
             RebuildForRecipe();
             LogRecipeEvent("레시피 적용", name);
+        }
+
+        /// <summary>READY(핸들러 VISION 사용 중 = 생산) 상태면 레시피 변경/생성/삭제/저장을 차단한다. 차단 시 true + 안내 메시지.
+        /// READY 해제 후에만 레시피 변경 허용(런 중 desync 방지). READY 아닐 때 핸들러와 동기는 Form1.CheckHandlerRecipeSync 가 처리.</summary>
+        private bool IsRecipeLockedByReady()
+        {
+            var host = FindForm() as Form1;
+            if (host != null && host.IsReady)
+            {
+                try
+                {
+                    QMC.Common.MessageDialog.Show(
+                        "READY(핸들러 사용 중) 상태에서는 레시피를 변경할 수 없습니다.\r\nREADY 해제 후 진행하세요.",
+                        "레시피 잠금",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Warning);
+                }
+                catch { }
+                return true;
+            }
+            return false;
         }
 
         /// <summary>마지막 적용 레시피명을 VisionSettings 에 저장 — 재시작 시 RestoreLastRecipe 가 복원.</summary>
@@ -447,6 +470,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnCommonSaveClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             var host = FindForm() as Form1;
             var m = host?.Machine;
             if (m == null) return;
@@ -477,6 +501,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnRecipeNewClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             string name = PromptText(Lang.T("rec.newName"), "");
             if (string.IsNullOrWhiteSpace(name)) return;
             var host = FindForm() as Form1;
@@ -519,6 +544,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnRecipeSaveAsClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             string name = PromptText(Lang.T("rec.saveAsName"), CurrentRecipeName());
             if (string.IsNullOrWhiteSpace(name)) return;
             var host = FindForm() as Form1;
@@ -535,6 +561,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnRecipeDeleteClick(object sender, EventArgs e)
         {
+            if (IsRecipeLockedByReady()) return;
             if (!(_projList.SelectedItem is string name)) return;
             if (string.Equals(name, "default", StringComparison.OrdinalIgnoreCase))
             { MessageBox.Show(Lang.T("rec.delDefault"), Lang.T("common.delete"), MessageBoxButtons.OK, MessageBoxIcon.Information); return; }

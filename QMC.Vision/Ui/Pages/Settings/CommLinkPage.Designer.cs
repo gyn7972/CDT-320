@@ -41,6 +41,21 @@ namespace QMC.Vision.Ui.Pages
 
         private System.Windows.Forms.Label lblHint;
 
+        // 뷰어 포트(5200대, 영상 스트림) 입력 — 명령 포트 우측 컬럼. Main 채널은 영상 없음(없음).
+        private System.Windows.Forms.TextBox _tbWaferV;
+        private System.Windows.Forms.TextBox _tbInspV;
+        private System.Windows.Forms.TextBox _tbBinV;
+        private System.Windows.Forms.TextBox _tbTopV;
+        private System.Windows.Forms.TextBox _tbBotV;
+        private System.Windows.Forms.Label   _hdrCmd;
+        private System.Windows.Forms.Label   _hdrView;
+        // 뷰어 포트 접속 상태 램프(영상 스트림). Main 은 영상 없음.
+        private System.Windows.Forms.Label   _vlampWafer;
+        private System.Windows.Forms.Label   _vlampInsp;
+        private System.Windows.Forms.Label   _vlampBin;
+        private System.Windows.Forms.Label   _vlampTop;
+        private System.Windows.Forms.Label   _vlampBot;
+
         private System.Windows.Forms.GroupBox grpLog;
         private System.Windows.Forms.TextBox _txtLog;
 
@@ -86,6 +101,18 @@ namespace QMC.Vision.Ui.Pages
             this._lampBot = new System.Windows.Forms.Label();
             this._rxBot = new System.Windows.Forms.Label();
             this.lblHint = new System.Windows.Forms.Label();
+            this._tbWaferV = new System.Windows.Forms.TextBox();
+            this._tbInspV = new System.Windows.Forms.TextBox();
+            this._tbBinV = new System.Windows.Forms.TextBox();
+            this._tbTopV = new System.Windows.Forms.TextBox();
+            this._tbBotV = new System.Windows.Forms.TextBox();
+            this._hdrCmd = new System.Windows.Forms.Label();
+            this._hdrView = new System.Windows.Forms.Label();
+            this._vlampWafer = new System.Windows.Forms.Label();
+            this._vlampInsp = new System.Windows.Forms.Label();
+            this._vlampBin = new System.Windows.Forms.Label();
+            this._vlampTop = new System.Windows.Forms.Label();
+            this._vlampBot = new System.Windows.Forms.Label();
             this.grpLog = new System.Windows.Forms.GroupBox();
             this._txtLog = new System.Windows.Forms.TextBox();
             this._toolbar = new System.Windows.Forms.TableLayoutPanel();
@@ -113,7 +140,7 @@ namespace QMC.Vision.Ui.Pages
             this.rootLayout.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
             this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 320F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 352F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.rootLayout.Size = new System.Drawing.Size(1100, 760);
@@ -146,39 +173,56 @@ namespace QMC.Vision.Ui.Pages
             //
             // portLayout
             //
-            this.portLayout.ColumnCount = 4;
-            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 200F));
-            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
-            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 160F));
+            this.portLayout.ColumnCount = 6;
+            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 105F));
+            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 105F));
+            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
+            this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 150F));
             this.portLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.portLayout.Controls.Add(this.lblWafer, 0, 0);
-            this.portLayout.Controls.Add(this._tbWafer, 1, 0);
-            this.portLayout.Controls.Add(this._lampWafer, 2, 0);
-            this.portLayout.Controls.Add(this._rxWafer, 3, 0);
-            this.portLayout.Controls.Add(this.lblInsp, 0, 1);
-            this.portLayout.Controls.Add(this._tbInsp, 1, 1);
-            this.portLayout.Controls.Add(this._lampInsp, 2, 1);
-            this.portLayout.Controls.Add(this._rxInsp, 3, 1);
-            this.portLayout.Controls.Add(this.lblBin, 0, 2);
-            this.portLayout.Controls.Add(this._tbBin, 1, 2);
-            this.portLayout.Controls.Add(this._lampBin, 2, 2);
-            this.portLayout.Controls.Add(this._rxBin, 3, 2);
-            this.portLayout.Controls.Add(this.lblMain, 0, 3);
-            this.portLayout.Controls.Add(this._tbMain, 1, 3);
-            this.portLayout.Controls.Add(this._lampMain, 2, 3);
-            this.portLayout.Controls.Add(this._rxMain, 3, 3);
-            this.portLayout.Controls.Add(this.lblTop, 0, 4);
-            this.portLayout.Controls.Add(this._tbTop, 1, 4);
-            this.portLayout.Controls.Add(this._lampTop, 2, 4);
-            this.portLayout.Controls.Add(this._rxTop, 3, 4);
-            this.portLayout.Controls.Add(this.lblBot, 0, 5);
-            this.portLayout.Controls.Add(this._tbBot, 1, 5);
-            this.portLayout.Controls.Add(this._lampBot, 2, 5);
-            this.portLayout.Controls.Add(this._rxBot, 3, 5);
-            this.portLayout.Controls.Add(this.lblHint, 0, 6);
+            // 헤더 행(row 0) — 두 입력 컬럼 의미 표시
+            this.portLayout.Controls.Add(this._hdrCmd, 1, 0);
+            this.portLayout.Controls.Add(this._hdrView, 2, 0);
+            // 채널 행(1~6): 라벨 / 명령포트 / 뷰어포트 / 명령상태 / 뷰어상태 / 최근수신
+            this.portLayout.Controls.Add(this.lblWafer, 0, 1);
+            this.portLayout.Controls.Add(this._tbWafer, 1, 1);
+            this.portLayout.Controls.Add(this._tbWaferV, 2, 1);
+            this.portLayout.Controls.Add(this._lampWafer, 3, 1);
+            this.portLayout.Controls.Add(this._vlampWafer, 4, 1);
+            this.portLayout.Controls.Add(this._rxWafer, 5, 1);
+            this.portLayout.Controls.Add(this.lblInsp, 0, 2);
+            this.portLayout.Controls.Add(this._tbInsp, 1, 2);
+            this.portLayout.Controls.Add(this._tbInspV, 2, 2);
+            this.portLayout.Controls.Add(this._lampInsp, 3, 2);
+            this.portLayout.Controls.Add(this._vlampInsp, 4, 2);
+            this.portLayout.Controls.Add(this._rxInsp, 5, 2);
+            this.portLayout.Controls.Add(this.lblBin, 0, 3);
+            this.portLayout.Controls.Add(this._tbBin, 1, 3);
+            this.portLayout.Controls.Add(this._tbBinV, 2, 3);
+            this.portLayout.Controls.Add(this._lampBin, 3, 3);
+            this.portLayout.Controls.Add(this._vlampBin, 4, 3);
+            this.portLayout.Controls.Add(this._rxBin, 5, 3);
+            this.portLayout.Controls.Add(this.lblMain, 0, 4);
+            this.portLayout.Controls.Add(this._tbMain, 1, 4);
+            this.portLayout.Controls.Add(this._lampMain, 3, 4);
+            this.portLayout.Controls.Add(this._rxMain, 5, 4);
+            this.portLayout.Controls.Add(this.lblTop, 0, 5);
+            this.portLayout.Controls.Add(this._tbTop, 1, 5);
+            this.portLayout.Controls.Add(this._tbTopV, 2, 5);
+            this.portLayout.Controls.Add(this._lampTop, 3, 5);
+            this.portLayout.Controls.Add(this._vlampTop, 4, 5);
+            this.portLayout.Controls.Add(this._rxTop, 5, 5);
+            this.portLayout.Controls.Add(this.lblBot, 0, 6);
+            this.portLayout.Controls.Add(this._tbBot, 1, 6);
+            this.portLayout.Controls.Add(this._tbBotV, 2, 6);
+            this.portLayout.Controls.Add(this._lampBot, 3, 6);
+            this.portLayout.Controls.Add(this._vlampBot, 4, 6);
+            this.portLayout.Controls.Add(this._rxBot, 5, 6);
+            this.portLayout.Controls.Add(this.lblHint, 0, 7);
             this.portLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.portLayout.Name = "portLayout";
-            this.portLayout.RowCount = 7;
+            this.portLayout.RowCount = 8;
+            this.portLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.portLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.portLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.portLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
@@ -189,25 +233,41 @@ namespace QMC.Vision.Ui.Pages
             this.portLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.portLayout.TabIndex = 0;
             //
+            // header labels
+            //
+            InitHeader(this._hdrCmd, "명령 포트");
+            InitHeader(this._hdrView, "뷰어 포트(5200)");
+            //
             // row controls
             //
             InitRow(this.lblWafer, "Wafer Vision", this._tbWafer, this._lampWafer, this._rxWafer, 0);
-            InitRow(this.lblInsp, "Bottom Inspection", this._tbInsp, this._lampInsp, this._rxInsp, 3);
-            InitRow(this.lblBin, "Bin Vision", this._tbBin, this._lampBin, this._rxBin, 6);
-            InitRow(this.lblMain, "Main Comm", this._tbMain, this._lampMain, this._rxMain, 9);
-            InitRow(this.lblTop, "Top Side Vision", this._tbTop, this._lampTop, this._rxTop, 12);
-            InitRow(this.lblBot, "Bottom Side Vision", this._tbBot, this._lampBot, this._rxBot, 15);
+            InitRow(this.lblInsp, "Bottom Inspection", this._tbInsp, this._lampInsp, this._rxInsp, 4);
+            InitRow(this.lblBin, "Bin Vision", this._tbBin, this._lampBin, this._rxBin, 8);
+            InitRow(this.lblMain, "Main Comm", this._tbMain, this._lampMain, this._rxMain, 12);
+            InitRow(this.lblTop, "Top Side Vision", this._tbTop, this._lampTop, this._rxTop, 16);
+            InitRow(this.lblBot, "Bottom Side Vision", this._tbBot, this._lampBot, this._rxBot, 20);
+            InitPortBox(this._tbWaferV, 2);
+            InitPortBox(this._tbInspV, 6);
+            InitPortBox(this._tbBinV, 10);
+            InitPortBox(this._tbTopV, 18);
+            InitPortBox(this._tbBotV, 22);
+            // 뷰어 상태 램프
+            InitLamp(this._vlampWafer);
+            InitLamp(this._vlampInsp);
+            InitLamp(this._vlampBin);
+            InitLamp(this._vlampTop);
+            InitLamp(this._vlampBot);
             //
             // lblHint
             //
-            this.portLayout.SetColumnSpan(this.lblHint, 4);
+            this.portLayout.SetColumnSpan(this.lblHint, 6);
             this.lblHint.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHint.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.lblHint.ForeColor = System.Drawing.Color.DimGray;
             this.lblHint.Name = "lblHint";
             this.lblHint.Padding = new System.Windows.Forms.Padding(0, 6, 0, 0);
             this.lblHint.TabIndex = 24;
-            this.lblHint.Text = "Vision 이 서버로 listen, 핸들러가 접속.  ● 중지/대기/접속됨.  RX=마지막 수신 경과(무통신 30s↑ 주황).";
+            this.lblHint.Text = "명령 포트=핸들러 명령(GRAB/MATCH 등) · 뷰어 포트(5200대)=영상 스트림.  램프 2개 = 명령/뷰어 각 접속 상태(● 중지/대기/접속됨, 뷰어는 :포트 ×N=클라이언트 수).  Main 은 영상 없음.  RX=마지막 수신 경과(무통신 30s↑ 주황).";
             //
             // grpLog
             //
@@ -301,6 +361,35 @@ namespace QMC.Vision.Ui.Pages
             this.grpLog.PerformLayout();
             this._toolbar.ResumeLayout(false);
             this.ResumeLayout(false);
+        }
+
+        // 컬럼 헤더 라벨(명령/뷰어) 공통 속성.
+        private void InitHeader(System.Windows.Forms.Label lbl, string text)
+        {
+            lbl.Dock = System.Windows.Forms.DockStyle.Fill;
+            lbl.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            lbl.ForeColor = System.Drawing.Color.DimGray;
+            lbl.Text = text;
+            lbl.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+        }
+
+        // 상태 램프(뷰어) 공통 속성 — 명령 램프와 동일 스타일.
+        private void InitLamp(System.Windows.Forms.Label lamp)
+        {
+            lamp.Dock = System.Windows.Forms.DockStyle.Fill;
+            lamp.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            lamp.ForeColor = System.Drawing.Color.Gray;
+            lamp.Text = "● 중지";
+            lamp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+        }
+
+        // 추가 포트 입력칸(뷰어 포트) 공통 속성.
+        private void InitPortBox(System.Windows.Forms.TextBox port, int tabIndex)
+        {
+            port.Dock = System.Windows.Forms.DockStyle.Fill;
+            port.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            port.Margin = new System.Windows.Forms.Padding(3, 6, 3, 6);
+            port.TabIndex = tabIndex;
         }
 
         // 한 행(라벨/포트입력/상태램프/최근수신)의 공통 속성 세팅.

@@ -67,6 +67,7 @@ namespace QMC.Vision
 
             timerClock.Start();
             UpdateClock();
+            StartResourceSampler();   // 리소스 샘플링/CSV 는 백그라운드(UI 버벅임 방지)
             ShowTab(Tab.Work);
 
             // 부팅 시 자동 실행하지 않음 — STOP 이 기준. Sim 자체 실행은 작업 화면 RUN 버튼으로 사용자가 시작.
@@ -205,6 +206,7 @@ namespace QMC.Vision
 
         // ── 리소스(CPU/메모리) 모니터 — 사양 산정용. 1초마다 샘플링(TimerClock). ──
         private readonly ResourceMonitor _resMon = new ResourceMonitor();
+        private System.Threading.Timer _resTimer;   // 리소스 샘플링/CSV 백그라운드 타이머(UI 스레드 부하 제거)
         private readonly ToolTip _resTip = new ToolTip();   // 상태바 hover 시 상세(스레드/핸들/GC/가동)
 
         /// <summary>레시피 적용/생성 시 상단 상태바 'Recipe:' 갱신 (RecipePage 가 호출).</summary>
@@ -268,7 +270,40 @@ namespace QMC.Vision
             catch { }
         }
 
-        private bool _runArmed;   // 실제(비Sim) 모드 RUN 상태 — Phase 2 핸들러 명령 게이트용.
+        private bool _runArmed;   // 실제(비Sim) 모드 RUN 상태 — RUN arming(핸들러 접속 시).
+        private bool _ready;      // READY 상태 — RUN 활성 후 작업자가 누름. 핸들러 VISION 사용 게이트.
+        private bool _prevHandlerConnected;   // 핸들러 접속 상승엣지 감지용(자동 RUN).
+        private string _handlerRecipeName;    // 핸들러가 RECIPE 명령으로 지시한 레시피명(SSOT). READY 아닐 때 실시간 동기 체크 기준.
+        private DateTime _lastRecipeReqUtc;   // 레시피 요청(RECIPEREQ) throttle — 미동기 시 과다 요청 방지.
+        private int _recipeReqCount;          // 무응답 시 요청 횟수 상한(접속 시 0으로 리셋).
+
+        /// <summary>MainComm 서버의 핸들러 접속/해제 이벤트 핸들러(수신 스레드) — UI 스레드로 마샬 후 자동 RUN 처리.
+        /// 핸들러 측 VisionHub.ConnectionChanged 와 동일한 이벤트 기반 패턴.</summary>
+        private void OnHandlerConnectionChanged(bool connected)
+        {
+            try
+            {
+                if (connected) _recipeReqCount = 0;   // 접속 시 레시피 요청 상한 리셋(재시도 허용).
+                if (IsHandleCreated) BeginInvoke((Action)(() => AutoArmRunOnConnect()));
+                else                 AutoArmRunOnConnect();
+            }
+            catch { }
+        }
+
+        /// <summary>핸들러 접속(상승엣지) 시 자동 RUN(arming) — 실제 모드 한정.
+        /// RUN 만 자동 진행하고 READY 는 작업자가 눌러야 핸들러 VISION 사용 가능(안전). 접속 이벤트에서 호출.</summary>
+        private void AutoArmRunOnConnect()
+        {
+            if (IsSelfRunMode) return;             // Sim 자체 실행은 자동 RUN 대상 아님
+            bool connected = IsHandlerConnected;
+            if (connected && !_prevHandlerConnected && !IsRunActive)
+            {
+                SetRun(true);                      // 접속 → 자동 RUN. READY 는 수동.
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Run",
+                          "핸들러 접속 → 자동 RUN(arming). READY 대기."); } catch { }
+            }
+            _prevHandlerConnected = connected;
+        }
 
         /// <summary>Sim 자체 실행 모드 여부 — GENERAL 의 'Sim 자동 실행'(핸들러 없이 자체 순차 실행) 설정.</summary>
         internal bool IsSelfRunMode =>
@@ -308,17 +343,59 @@ namespace QMC.Vision
             return list;
         }
 
+        /// <summary>뷰어(영상 스트림, 5200대) 채널 상태 표시용.</summary>
+        internal struct ViewerChannelStatus
+        {
+            public string Name;
+            public int    Port;
+            public bool   Listening;   // GrabStreamServer.IsRunning
+            public int    Clients;     // 접속 클라이언트(핸들러 뷰어) 수
+        }
+
+        /// <summary>뷰어 서버 상태 — 명령 채널 행 순서와 정렬(Wafer/BottomInsp/Bin/[Main 없음]/TopSide/BottomSide).
+        /// Main 은 영상 없음이라 목록에서 제외(5개). RemoteViewer 비활성 시 서버 null → 중지로 표시.</summary>
+        internal System.Collections.Generic.List<ViewerChannelStatus> GetVisionViewerStatus()
+        {
+            var list = new System.Collections.Generic.List<ViewerChannelStatus>();
+            void AddView(string name, QMC.Vision.Comm.GrabStreamServer v)
+            {
+                list.Add(v == null
+                    ? new ViewerChannelStatus { Name = name, Port = 0, Listening = false, Clients = 0 }
+                    : new ViewerChannelStatus { Name = name, Port = v.Port, Listening = v.IsRunning, Clients = v.ConnectedClients });
+            }
+            AddView("Wafer",      _viewWafer);
+            AddView("Bottom",     _viewBottom);
+            AddView("Bin",        _viewBin);
+            AddView("FrontSide",  _viewFrontSide);
+            AddView("RearSide",   _viewRearSide);
+            return list;
+        }
+
         /// <summary>RUN 전환 가능 여부 — Sim 자체 실행이면 항상, 아니면 핸들러 접속 시.</summary>
         internal bool CanRun => IsSelfRunMode || IsHandlerConnected;
 
         /// <summary>현재 RUN 중인가 — Sim 자체 실행은 시퀀서 가동, 실제 모드는 RUN arming 상태.</summary>
         internal bool IsRunActive => IsSelfRunMode ? (_autoSeqHost?.IsRunning ?? false) : _runArmed;
 
+        /// <summary>READY 전환 가능 여부 — RUN 활성 상태에서만 READY 를 누를 수 있다.</summary>
+        internal bool CanReady => IsRunActive;
+
+        /// <summary>핸들러가 VISION 을 사용할 수 있는 상태인가 — READY(작업자 승인) + RUN 활성.
+        /// 핸들러 명령(GRAB/MATCH 등) 게이트 조건. RUN 이 풀리면 자동 해제(<see cref="IsRunActive"/> 종속).</summary>
+        internal bool IsReady => _ready && IsRunActive;
+
+        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.</summary>
+        internal void SetReady(bool on)
+        {
+            _ready = on && IsRunActive;
+        }
+
         /// <summary>작업 탭 RUN/STOP 토글 — Sim 자체 실행은 시퀀서 시작/정지, 실제 모드는 RUN 상태 set(핸들러 접속 시).</summary>
         internal void SetRun(bool on)
         {
             try
             {
+                if (!on) _ready = false;        // STOP 시 READY 자동 해제 — 핸들러 VISION 사용 차단
                 if (on) _resMon.ResetPeaks();   // RUN 시작 시 피크 초기화 — 이번 가동 기준 최대 부하 측정
                 if (IsSelfRunMode)
                 {
@@ -334,6 +411,75 @@ namespace QMC.Vision
             catch { }
         }
 
+        /// <summary>핸들러에 "현재 레시피 알려줘" 요청(RECIPEREQ) 푸시 — 3초 throttle. 핸들러가 RECIPE 로 응답하면 _handlerRecipeName 기억.</summary>
+        private void RequestHandlerRecipeThrottled()
+        {
+            try
+            {
+                if (_svrMain == null) return;
+                if (_recipeReqCount >= 10) return;   // 핸들러 무응답 시 과다 요청 방지(재접속 시 리셋).
+                if ((DateTime.UtcNow - _lastRecipeReqUtc).TotalSeconds < 3.0) return;
+                _lastRecipeReqUtc = DateTime.UtcNow;
+                _recipeReqCount++;
+                _svrMain.RequestRecipe();
+                if (_recipeReqCount >= 10)
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "RecipeSync",
+                        "핸들러가 레시피 요청에 응답하지 않음 — 요청 중단(재접속 시 재시도). 핸들러 빌드/활성 레시피 확인 필요.");
+            }
+            catch { }
+        }
+
+        /// <summary>핸들러 RECIPE 명령 수신(MainComm 수신 스레드) → UI 스레드로 마샬 후 지시 레시피명 기억.</summary>
+        private void OnHandlerRecipeCommanded(int no, string name)
+        {
+            try
+            {
+                if (IsDisposed) return;
+                if (InvokeRequired) { try { BeginInvoke((Action)(() => OnHandlerRecipeCommanded(no, name))); } catch { } return; }
+                _handlerRecipeName = name;   // 지시 레시피 기억(DoRecipe 가 이미 적용함). 실시간 체크의 기준값.
+                SetRecipeStatus(name);       // 상단 상태바 'Recipe:' 를 핸들러 적용 레시피로 갱신(통신 스레드 DoRecipe 는 UI 미접근).
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "RecipeSync",
+                    "핸들러 레시피 수신/적용 → 상태바 갱신: no=" + no + " name=" + name);
+            }
+            catch { }
+        }
+
+        /// <summary>실시간 레시피 동기 체크 — READY 아닐 때만, 핸들러 접속 중 활성 레시피가 핸들러 지시와 다르면 핸들러 레시피로 재적용.
+        /// READY(생산 사용 중)면 변경 금지(스킵). 같으면 아무것도 안 함(diff only). TimerClock_Tick(UI 스레드)에서 주기 호출.</summary>
+        private void CheckHandlerRecipeSync()
+        {
+            try
+            {
+                if (Machine == null) return;
+                if (!IsHandlerConnected) return;                            // 핸들러 비접속 시 강제 안 함(오프라인 편집 허용)
+                if (string.IsNullOrWhiteSpace(_handlerRecipeName))
+                {
+                    RequestHandlerRecipeThrottled();                        // 지시 이력 없음 → 핸들러에 현재 레시피 능동 요청(throttle)
+                    return;
+                }
+                if (IsReady) return;                                        // READY(생산 사용 중) — 변경 금지
+
+                string active = Machine.CurrentRecipeName;
+                if (string.Equals(active, _handlerRecipeName, StringComparison.OrdinalIgnoreCase)) return;  // 동일 → 변경 불필요
+
+                // 다름 → 핸들러 지시 레시피로 재셋팅(없으면 SetRecipe 내부에서 생성/기본값 로드).
+                Machine.SetRecipe(_handlerRecipeName);
+                try
+                {
+                    var cfg = QMC.Vision.Config.VisionConfigStore.Current;
+                    if (cfg != null) { cfg.LastRecipeName = _handlerRecipeName; QMC.Vision.Config.VisionConfigStore.Save(); }
+                }
+                catch { }
+                SetRecipeStatus(_handlerRecipeName);
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "RecipeSync",
+                    "READY 아님 — 활성('" + active + "') ≠ 핸들러('" + _handlerRecipeName + "') → 핸들러 레시피로 재적용");
+            }
+            catch (Exception ex)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "RecipeSync", "동기 체크 실패: " + ex.Message); } catch { }
+            }
+        }
+
         /// <summary>모듈별 TCP 서버 + 전역 MainComm(5104) 서버 + 원격 뷰어 생성·시작.</summary>
         private void InitializeServers(VisionSettings cfg)
         {
@@ -342,10 +488,10 @@ namespace QMC.Vision
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
             _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.TopSideVisionPort);
             _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.BottomSideVisionPort);
-            // RUN 게이트 — RUN 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
+            // READY 게이트 — READY(작업자 승인 + RUN 활성) 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
             foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrTopSideVision, _svrBottomSideVision })
             {
-                s.IsCommandAllowed = () => IsRunActive;
+                s.IsCommandAllowed = () => IsReady;
                 s.Log += QMC.Vision.Comm.VisionCommLog.Add;
             }
             try { _svrWafer            .Start(); } catch { }
@@ -355,7 +501,15 @@ namespace QMC.Vision
             try { _svrBottomSideVision .Start(); } catch { }
 
             // 전역 통신(MainComm 5104) — 핸들러 레시피 변경 수신 → 전 모듈 LoadRecipe cascade.
-            try { _svrMain = new MainCommServer(Machine, cfg.MainCommPort); _svrMain.Log += QMC.Vision.Comm.VisionCommLog.Add; _svrMain.Start(); } catch { }
+            try
+            {
+                _svrMain = new MainCommServer(Machine, cfg.MainCommPort);
+                _svrMain.Log += QMC.Vision.Comm.VisionCommLog.Add;
+                _svrMain.ConnectionChanged += OnHandlerConnectionChanged;   // 핸들러 접속 이벤트 → 자동 RUN(핸들러 패턴 정렬)
+                _svrMain.RecipeCommanded += OnHandlerRecipeCommanded;       // 핸들러 지시 레시피 기억(실시간 동기 체크 기준)
+                _svrMain.Start();
+            }
+            catch { }
 
             // 원격 뷰어(모듈별 그랩 영상 송출).
             if (cfg.RemoteViewerEnable)
@@ -625,16 +779,37 @@ namespace QMC.Vision
 
         private void TimerClock_Tick(object sender, EventArgs e)
         {
+            // UI 스레드 틱은 시계만(가벼움). 무거운 리소스 샘플링/CSV/상태바는 백그라운드(StartResourceSampler).
             UpdateClock();
+            CheckHandlerRecipeSync();   // 실시간 레시피 동기 — READY 아닐 때 활성≠핸들러면 핸들러 레시피로 재적용(diff only)
+        }
+
+        /// <summary>리소스 샘플링 + CSV(디스크 IO) 를 백그라운드 스레드에서 1초 주기로 수행한다.
+        /// Process/GPU 카운터 조회와 파일 쓰기를 UI 스레드에서 빼 버벅임을 방지. UI 갱신만 마샬.
+        /// 콜백 재진입 방지를 위해 주기 타이머 대신 매 콜백 끝에서 재무장한다.</summary>
+        private void StartResourceSampler()
+        {
+            if (_resTimer != null) return;
+            _resTimer = new System.Threading.Timer(ResSampleTick, null, 1000, System.Threading.Timeout.Infinite);
+        }
+
+        private void ResSampleTick(object state)
+        {
             try
             {
                 _resMon.Sample();
-                RefreshStatusBar();   // 상태바에 CPU/MEM 갱신
-                try { _resTip.SetToolTip(lblStatusL, _resMon.DetailText()); } catch { }
                 if (QMC.Vision.Config.VisionConfigStore.Current?.ResourceLogEnable == true)
-                    AppendResourceCsv();
+                    AppendResourceCsv();   // 디스크 IO — 백그라운드에서
+                // 가벼운 UI 갱신(상태바 텍스트/툴팁)만 UI 스레드로 마샬.
+                if (IsHandleCreated)
+                    BeginInvoke((Action)(() =>
+                    {
+                        RefreshStatusBar();
+                        try { _resTip.SetToolTip(lblStatusL, _resMon.DetailText()); } catch { }
+                    }));
             }
             catch { }
+            finally { try { _resTimer?.Change(1000, System.Threading.Timeout.Infinite); } catch { } }
         }
         private void UpdateClock() => lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
@@ -657,6 +832,7 @@ namespace QMC.Vision
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            try { _resTimer?.Dispose(); _resTimer = null; } catch { }
             try { _autoSeqHost?.Stop(); }      catch { }
             try { _viewWafer?.Dispose(); }     catch { }
             try { _viewBin?.Dispose(); }       catch { }

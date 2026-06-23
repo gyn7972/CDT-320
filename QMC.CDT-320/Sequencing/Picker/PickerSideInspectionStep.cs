@@ -19,6 +19,7 @@ namespace QMC.CDT320.Sequencing
         ApplySideInspectionResult,
         MoveSideZToAvoid,
         MoveSideTToSafe,
+        MoveAllPickerZToAvoidAfterInspection,
         MoveSideYToAvoid,
         MoveSideXToAvoid,
         SelectNextPickerOrComplete,

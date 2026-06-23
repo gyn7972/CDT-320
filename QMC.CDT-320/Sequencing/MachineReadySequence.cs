@@ -48,12 +48,11 @@ namespace QMC.CDT320.Sequencing
         {
             var steps = new List<ReadyStep>();
 
-            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Output VisionX Avoid", MoveOutputStageVisionXOnlyAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerTAvoid, "Front/Rear Picker T Avoid", MoveFrontRearPickerTAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerXAvoid, "Front/Rear Picker X Avoid", MoveFrontRearPickerXAxesAvoidAsync);
-            AddReadyStep(steps, ReadyStepId.InputVisionXAvoid, "Input VisionX Avoid", MoveInputStageVisionXOnlyAvoidAsync);
 
             // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
             //AddReadyStep(steps, ReadyStepId.OutputStageAvoid, "OutputStage Avoid", MoveOutputStageAvoidAsync);
@@ -370,6 +369,10 @@ namespace QMC.CDT320.Sequencing
                 var frontUnit = _machine != null ? _machine.PickerFrontUnit : null;
                 var rearUnit = _machine != null ? _machine.PickerRearUnit : null;
 
+                int visionCheck = CheckInputVisionXAvoidBeforeReadyPickerX();
+                if (visionCheck != 0)
+                    return visionCheck;
+
                 LogStep("Front/Rear PickerX 동시 Avoid 이동 시작.");
 
                 Task<int> frontTask = frontUnit != null
@@ -400,6 +403,42 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private int CheckInputVisionXAvoidBeforeReadyPickerX()
+        {
+            try
+            {
+                InputStageUnit stage = _machine != null ? _machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null)
+                    return 0;
+
+                if (stage.CameraX.IsMoving)
+                {
+                    return Fail(
+                        "READY-PICKER-X-INPUT-VISION",
+                        "InputStageUnit",
+                        "Ready PickerX 이동 전 InputVisionX Avoid 확인 실패. InputVisionX가 아직 이동 중입니다.");
+                }
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return 0;
+
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return Fail(
+                    "READY-PICKER-X-INPUT-VISION",
+                    "InputStageUnit",
+                    "Ready PickerX 이동 전 InputVisionX Avoid 확인 실패. InputVisionX가 Avoid 위치가 아닙니다. actual=" +
+                    stage.CameraX.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3"));
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "READY-PICKER-X-INPUT-VISION-EX",
+                    "MachineReadySequence",
+                    "Ready PickerX 이동 전 InputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }
         }
 

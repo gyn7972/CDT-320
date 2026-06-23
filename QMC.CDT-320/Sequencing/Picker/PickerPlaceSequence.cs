@@ -1088,21 +1088,13 @@ namespace QMC.CDT320.Sequencing
                 tTargets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
                 tTargets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
                 tTargets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+                tTargets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
 
                 result = await MovePickerAxesAndVerifyAsync(
                     tTargets,
-                    description + " T축 Avoid",
+                    description + " X/T축 병렬 Avoid",
                     ct,
-                    "AvoidPosition;PickerPhase=PlaceDoneSafeT").ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MovePickerAxisAndVerifyAsync(
-                    PickerAxis.PickerX,
-                    GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
-                    description + " X축 Avoid",
-                    ct,
-                    "AvoidPosition;PickerPhase=PlaceDoneSafeX").ConfigureAwait(false);
+                    "AvoidPosition;PickerPhase=PlaceDoneSafeXT").ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
