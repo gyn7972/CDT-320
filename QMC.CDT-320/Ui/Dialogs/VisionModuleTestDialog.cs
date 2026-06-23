@@ -121,7 +121,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             root.Controls.Add(grid, 0, 0);
 
             int viewerPort = client != null ? VisionViewerPorts.ResolveByModule(client.ModuleName) : 0;
-            _viewer = new VisionViewerPanel(client != null ? client.Host : null, viewerPort, displayName + " 이미지")
+            _viewer = new VisionViewerPanel(client != null ? client.Host : null, viewerPort, displayName + " 이미지", client)
             {
                 Dock = DockStyle.Fill,
                 Margin = new Padding(0)
@@ -238,7 +238,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            try { _viewer?.StopStream(); } catch { }
+            try { _viewer?.StopLive(); } catch { }
             base.OnFormClosing(e);
         }
     }

@@ -49,6 +49,7 @@ namespace QMC.CDT_320
         private BottomMenuButton btnTabRecipe;
         private BottomMenuButton btnAxisJog;
         private BottomMenuButton btnAxisPosition;
+        private BottomMenuButton btnVision;
         private BottomMenuButton btnTabSettings;
         private BottomMenuButton btnTabUser;
         private BottomMenuButton btnTabExit;
@@ -104,6 +105,7 @@ namespace QMC.CDT_320
             this.btnTabRecipe = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnAxisJog = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnAxisPosition = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
+            this.btnVision = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabSettings = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabUser = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabExit = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
@@ -499,6 +501,7 @@ namespace QMC.CDT_320
             this.pnlBottomBar.Controls.Add(this.btnTabRecipe);
             this.pnlBottomBar.Controls.Add(this.btnAxisJog);
             this.pnlBottomBar.Controls.Add(this.btnAxisPosition);
+            this.pnlBottomBar.Controls.Add(this.btnVision);
             this.pnlBottomBar.Controls.Add(this.btnTabSettings);
             this.pnlBottomBar.Controls.Add(this.btnTabUser);
             this.pnlBottomBar.Controls.Add(this.btnTabExit);
@@ -592,6 +595,21 @@ namespace QMC.CDT_320
             this.btnAxisPosition.Selected = false;
             this.btnAxisPosition.Size = new System.Drawing.Size(110, 70);
             this.btnAxisPosition.TabIndex = 5;
+            //
+            // btnVision
+            //
+            this.btnVision.Anchor = System.Windows.Forms.AnchorStyles.Top;
+            this.btnVision.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
+            this.btnVision.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVision.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.btnVision.ForeColor = System.Drawing.Color.White;
+            this.btnVision.IconText = "V";
+            this.btnVision.Label = "VISION";
+            this.btnVision.Location = new System.Drawing.Point(1060, 5);
+            this.btnVision.Name = "btnVision";
+            this.btnVision.Selected = false;
+            this.btnVision.Size = new System.Drawing.Size(110, 70);
+            this.btnVision.TabIndex = 6;
             // 
             // btnTabSettings
             // 

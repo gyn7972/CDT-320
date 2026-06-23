@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
@@ -11,6 +12,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// <summary>Settings - QMC.Vision TCP link. 6 채널(Wafer/BottomInspection/Bin/Main/TopSide/BottomSide) 연결·Ping·상태.</summary>
     public partial class VisionLinkPage : PageBase
     {
+        /// <summary>접속돼 있는데 이 시간(초) 이상 무통신이면 RX 경과를 경고색으로 표시.</summary>
+        private const double StaleSeconds = 30.0;
+
+        private Label[] _lamps;
+        private Label[] _rx;
+        private Label[] _vs;
+        private System.Windows.Forms.Timer _timer;
+        private long _lastLogRev = -1;
+
         public VisionLinkPage()
         {
             InitializeComponent();
@@ -18,9 +28,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             LoadSettings();
             WireEvents();
 
+            _lamps = new[] { _lblWafer, _lblInsp, _lblBin, _lblMain, _lblTop, _lblBot };
+            _rx    = new[] { _rxWafer,  _rxInsp,  _rxBin,  _rxMain,  _rxTop,  _rxBot  };
+            _vs    = new Label[] { _vsWafer, _vsInsp, _vsBin, null, _vsTop, _vsBot };
+
             VisionHub.ConnectionChanged += OnConnChanged;
             Disposed += (s, e) => VisionHub.ConnectionChanged -= OnConnChanged;
-            OnConnChanged();
+
+            _timer = new System.Windows.Forms.Timer { Interval = 1000 };
+            _timer.Tick += (s, e) => { RefreshStatus(); RefreshLog(); };
+            _timer.Start();
+
+            RefreshStatus();
+            RefreshLog();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try { _timer?.Stop(); _timer?.Dispose(); } catch { }
+            base.OnHandleDestroyed(e);
         }
 
         private void ApplyRuntimeUi()
@@ -42,6 +68,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _tbMain.Text  = cfg.VisionMainPort.ToString();
             _tbTop.Text   = cfg.VisionTopSidePort.ToString();
             _tbBot.Text   = cfg.VisionBottomSidePort.ToString();
+
+            _tbWaferV.Text = cfg.VisionWaferViewerPort.ToString();
+            _tbInspV.Text  = cfg.VisionInspectionViewerPort.ToString();
+            _tbBinV.Text   = cfg.VisionBinViewerPort.ToString();
+            _tbTopV.Text   = cfg.VisionTopSideViewerPort.ToString();
+            _tbBotV.Text   = cfg.VisionBottomSideViewerPort.ToString();
+
             _cbAuto.Checked = cfg.VisionAutoConnect;
         }
 
@@ -60,6 +93,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 OnConnChanged();
             };
             _btnPing.Click += async (s, e) => await DoPing();
+            _btnClearLog.Click += (s, e) => { VisionCommLog.Clear(); _lastLogRev = -1; RefreshLog(); };
         }
 
         private async Task DoConnect()
@@ -72,6 +106,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             cfg.VisionMainPort       = ParsePort(_tbMain,  cfg.VisionMainPort);
             cfg.VisionTopSidePort    = ParsePort(_tbTop,   cfg.VisionTopSidePort);
             cfg.VisionBottomSidePort = ParsePort(_tbBot,   cfg.VisionBottomSidePort);
+
+            // 뷰어(이미지) 포트 — 연결과 무관하지만 같은 페이지에서 함께 저장한다.
+            cfg.VisionWaferViewerPort      = ParsePort(_tbWaferV, cfg.VisionWaferViewerPort);
+            cfg.VisionInspectionViewerPort = ParsePort(_tbInspV,  cfg.VisionInspectionViewerPort);
+            cfg.VisionBinViewerPort        = ParsePort(_tbBinV,   cfg.VisionBinViewerPort);
+            cfg.VisionTopSideViewerPort    = ParsePort(_tbTopV,   cfg.VisionTopSideViewerPort);
+            cfg.VisionBottomSideViewerPort = ParsePort(_tbBotV,   cfg.VisionBottomSideViewerPort);
             AppSettingsStore.Save();
 
             _btnConnect.Enabled = false;
@@ -117,21 +158,83 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 BeginInvoke(new Action(OnConnChanged));
                 return;
             }
-
-            SetLamp(_lblWafer, VisionHub.Wafer);
-            SetLamp(_lblInsp,  VisionHub.Inspection);
-            SetLamp(_lblBin,   VisionHub.Bin);
-            SetLamp(_lblMain,  VisionHub.Main);
-            SetLamp(_lblTop,   VisionHub.TopSide);
-            SetLamp(_lblBot,   VisionHub.BottomSide);
+            RefreshStatus();
         }
 
-        /// <summary>연결됨(초록) / 미연결(회색). 채널별 1:1 매핑.</summary>
-        private static void SetLamp(Label lamp, VisionTcpClient c)
+        // ── 상태 램프 + 최근 수신(워치독) 갱신(1초 주기) ──
+        private void RefreshStatus()
         {
-            bool on = c != null && c.IsConnected;
-            lamp.ForeColor = on ? Color.LimeGreen : Color.Gray;
-            lamp.Text = on ? "● 연결" : "● 미연결";
+            if (IsDisposed || _lamps == null) return;
+
+            var cfg = AppSettingsStore.Current;
+            SetCh(0, VisionHub.Wafer,      cfg.VisionWaferPort,      VisionViewerPorts.Wafer);
+            SetCh(1, VisionHub.Inspection, cfg.VisionInspectionPort, VisionViewerPorts.BottomInspection);
+            SetCh(2, VisionHub.Bin,        cfg.VisionBinPort,        VisionViewerPorts.Bin);
+            SetCh(3, VisionHub.Main,       cfg.VisionMainPort,       0);
+            SetCh(4, VisionHub.TopSide,    cfg.VisionTopSidePort,    VisionViewerPorts.TopSide);
+            SetCh(5, VisionHub.BottomSide, cfg.VisionBottomSidePort, VisionViewerPorts.BottomSide);
+        }
+
+        private void SetCh(int i, VisionTcpClient c, int cfgPort, int viewerPort)
+        {
+            bool connected = c != null && c.IsConnected;
+            int port = c != null ? c.Port : cfgPort;
+            SetLamp(_lamps[i], connected, port);
+            SetRx(_rx[i], c != null ? c.LastRxUtc : default(DateTime), connected);
+            SetViewerStatus(_vs[i], viewerPort);
+        }
+
+        /// <summary>뷰어 스트림 상태. on-demand 라 평소 회색 '대기', Grab/Live 로 스트림 중이면 초록 '스트리밍'.</summary>
+        private static void SetViewerStatus(Label vs, int viewerPort)
+        {
+            if (vs == null) return;
+            if (viewerPort <= 0) { vs.ForeColor = Color.DimGray; vs.Text = "—"; return; }
+            if (VisionViewerRegistry.IsStreaming(viewerPort))
+            { vs.ForeColor = Color.LimeGreen; vs.Text = "● 스트리밍 :" + viewerPort; }
+            else
+            { vs.ForeColor = Color.Gray; vs.Text = "● 대기 :" + viewerPort; }
+        }
+
+        // ── 통신 로그 갱신(변경 시에만) ──
+        private void RefreshLog()
+        {
+            if (IsDisposed || _txtLog == null) return;
+            long rev = VisionCommLog.Revision;
+            if (rev == _lastLogRev) return;
+            _lastLogRev = rev;
+            _txtLog.Lines = VisionCommLog.Snapshot();
+            _txtLog.SelectionStart = _txtLog.TextLength;
+            _txtLog.ScrollToCaret();
+        }
+
+        /// <summary>접속됨(초록 :port) / 대기(회색 :port). 핸들러=클라이언트 기준.</summary>
+        private static void SetLamp(Label lamp, bool connected, int port)
+        {
+            string suffix = port > 0 ? $" :{port}" : "";
+            if (connected) { lamp.ForeColor = Color.LimeGreen; lamp.Text = "● 접속됨" + suffix; }
+            else           { lamp.ForeColor = Color.Gray;      lamp.Text = "● 대기"   + suffix; }
+        }
+
+        /// <summary>마지막 수신 경과. 접속 중 무통신이 길면(StaleSeconds↑) 경고색.</summary>
+        private static void SetRx(Label rx, DateTime lastUtc, bool connected)
+        {
+            if (lastUtc == default(DateTime))
+            {
+                rx.ForeColor = Color.DimGray;
+                rx.Text = "RX -";
+                return;
+            }
+            var d = DateTime.UtcNow - lastUtc;
+            if (d.Ticks < 0) d = TimeSpan.Zero;
+
+            string ago;
+            if (d.TotalSeconds < 60)      ago = $"{(int)d.TotalSeconds}s 전";
+            else if (d.TotalMinutes < 60) ago = $"{(int)d.TotalMinutes}m 전";
+            else                          ago = $"{(int)d.TotalHours}h 전";
+
+            bool stale = connected && d.TotalSeconds > StaleSeconds;
+            rx.ForeColor = stale ? Color.Goldenrod : Color.DimGray;
+            rx.Text = "RX " + ago;
         }
     }
 }

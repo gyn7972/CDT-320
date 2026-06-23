@@ -24,6 +24,10 @@ namespace QMC.CDT320.VisionComm
 
         public static event Action ConnectionChanged;
 
+        /// <summary>Vision PC 가 레시피를 요청(RECIPEREQ)하면 호출된다. 핸들러 Form1 이 현재 레시피를
+        /// BroadcastRecipeAsync 로 응답하도록 설정한다. 미설정 시 응답 안 함(Vision 은 재요청).</summary>
+        public static Action OnVisionRecipeRequest;
+
         public static bool AllConnected =>
             Wafer      != null && Wafer.IsConnected &&
             Inspection != null && Inspection.IsConnected &&
@@ -48,6 +52,8 @@ namespace QMC.CDT320.VisionComm
             Inspection = New("BottomInspection", host, inspectionPort);
             Bin        = New("BinVision",        host, binPort);
             Main       = New("MainComm",         host, mainPort);
+            // Vision → 핸들러 레시피 요청(RECIPEREQ) 수신 시 현재 레시피로 응답(Form1 이 OnVisionRecipeRequest 설정).
+            if (Main != null) Main.RecipeRequested += () => { try { OnVisionRecipeRequest?.Invoke(); } catch { } };
             TopSide    = New("TopSideVision",    host, topSidePort);
             BottomSide = New("BottomSideVision", host, bottomSidePort);
 
@@ -129,11 +135,14 @@ namespace QMC.CDT320.VisionComm
             // 연결 후 디스크 I/O 폭주로 UI 가 느려진다. TX/RX 는 제외하고 연결/해제/오류만 기록한다.
             c.Log += s =>
             {
-                if (s != null &&
-                    (s.IndexOf("] TX: ", StringComparison.Ordinal) >= 0 ||
-                     s.IndexOf("] RX: ", StringComparison.Ordinal) >= 0))
-                    return;
-                EventLogger.Write(EventKind.Event, "SYS", "VISION-" + module, s);
+                if (s == null) return;
+                // 모든 라인은 인메모리 통신 로그(패널 표시)로 — 파일이 아니라 저렴하다.
+                VisionCommLog.Add(s);
+                // TX/RX 는 고빈도라 파일(EventLogger)에는 적재하지 않는다(디스크 I/O 폭주 방지). 연결/해제/오류만 파일 기록.
+                bool isTxRx = s.IndexOf("] TX: ", StringComparison.Ordinal) >= 0 ||
+                              s.IndexOf("] RX: ", StringComparison.Ordinal) >= 0;
+                if (!isTxRx)
+                    EventLogger.Write(EventKind.Event, "SYS", "VISION-" + module, s);
             };
             return c;
         }
