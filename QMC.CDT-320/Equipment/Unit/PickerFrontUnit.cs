@@ -735,6 +735,9 @@ namespace QMC.CDT320
             if (pickerAxis == PickerAxis.PickerY)
                 ClearContinuousJogZoneScope();
 
+            if (!VerifyContinuousJogInterlock(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, zoneTargetName))
+                return Task.FromResult(-1);
+
             ManualMovePickerAxisJog(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
             StartContinuousJogZoneScope(pickerAxis, zoneTargetName);
             return Task.FromResult(0);
@@ -761,6 +764,40 @@ namespace QMC.CDT320
                 return string.Empty;
 
             return "JogContinuous;PickerZone=" + zoneName;
+        }
+
+        private bool VerifyContinuousJogInterlock(PickerAxis axis, Direction direction, string targetName)
+        {
+            if (axis != PickerAxis.PickerY || string.IsNullOrWhiteSpace(targetName))
+                return true;
+
+            BaseAxis item = GetAxis(axis);
+            if (item == null)
+                return false;
+
+            double guardTarget = ResolveContinuousJogGuardTarget(item, direction);
+            string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+            string reason;
+            using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+            {
+                if (!MotionGuardRuntime.VerifyAxisTeachingMove(item, guardTarget, guardTargetName, out reason))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static double ResolveContinuousJogGuardTarget(BaseAxis axis, Direction direction)
+        {
+            if (axis == null)
+                return 0.0;
+
+            if (axis.Setup == null)
+                return axis.ActualPosition;
+
+            return direction == Direction.Plus
+                ? axis.Setup.SoftLimitPlus
+                : axis.Setup.SoftLimitMinus;
         }
 
         private string ResolveCurrentPickerXWorkZoneName()

@@ -75,6 +75,42 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool VerifyInputVisionXAvoidForPickerX(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAxisMoving(stage.CameraX))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: InputVisionX가 이동 중입니다. PickerX 이동 전 InputVisionX가 Avoid 위치에 있어야 합니다.",
+                        out reason);
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return true;
+
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: PickerX 이동 전 InputVisionX가 Avoid 위치에 있어야 합니다. actual=" +
+                    stage.CameraX.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 전 InputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
         private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
