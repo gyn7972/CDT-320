@@ -149,6 +149,13 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        protected bool IsPickerMotionOnlyTestMode()
+        {
+            return Options != null &&
+                   Options.RunMode == SequenceRunMode.Auto &&
+                   Options.PickerMotionOnlyTestMode;
+        }
+
         protected bool IsFrontPickerSimulationOrDryRun()
         {
             return FrontPicker != null &&

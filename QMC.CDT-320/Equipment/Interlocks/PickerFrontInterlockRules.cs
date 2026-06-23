@@ -168,11 +168,23 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!CanHomeFrontPickerY(machine, out reason))
+            if (!VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
                 return false;
 
             if (!VerifyReticleCylinderClear(machine, "FrontPickerY", out reason))
                 return false;
+
+            PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+            OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+            if (RequiresOutputStageZSafeForPickerY(targetZone) &&
+                outputStage != null &&
+                !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerY",
+                    "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
 
             if (!PickerZoneInterlockRules.VerifyFrontPickerYMove(request, out reason))
                 return false;
@@ -363,7 +375,7 @@ namespace QMC.CDT320.Interlocks
                 case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontPickerZ(request.Machine, request.MovingName, out reason);
+                    return CanMoveFrontPickerZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerZ(request.Machine, request.MovingName, out reason);
@@ -378,35 +390,100 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveFrontPickerZ(CDT320_Machine machine, string movingName, out string reason)
+        private static bool CanMoveFrontPickerZ(MotionGuardRuleContext request, out string reason)
         {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            string movingName = request != null ? request.MovingName : "FrontPickerZ";
+            PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+
             if (!CanHomeFrontPickerZ(machine, movingName, out reason))
                 return false;
 
-            // ① InputFeederY와 OutputFeederY가 모두 Avoid 위치여야 FrontPickerZ 이동 가능.
+            // PickerZ는 현재 작업 존 기준으로 필요한 feeder만 확인한다.
+            // Avoid 복귀는 Z가 안전 위치로 올라가는 동작이므로 feeder 위치로 차단하지 않는다.
+            // 존을 알 수 없으면 기존처럼 양쪽 feeder를 모두 확인한다.
             InputFeederUnit inputFeeder = machine != null ? machine.InputFeederUnit : null;
-            if (inputFeeder != null && !inputFeeder.IsWaferFeederYInAvoidPosition())
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다.",
-                    out reason);
-
             OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
-            if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다.",
-                    out reason);
 
-            // ② InputExpandingZ가 Avoid/Process/Ready 위치여야 FrontPickerZ 이동 가능.
-            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-            if (stage != null && !IsExpanderZAvoidProcessOrReady(stage))
+            if (RequiresInputFeederAvoid(targetZone) &&
+                inputFeeder != null &&
+                !inputFeeder.IsWaferFeederYInAvoidPosition())
+            {
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
+                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
                     out reason);
+            }
+
+            if (RequiresOutputFeederAvoid(targetZone) &&
+                outputFeeder != null &&
+                !outputFeeder.IsBinFeederYInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            // Input PickUp 존에서만 ExpanderZ와 직접 간섭을 확인한다.
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (RequiresInputStageZSafe(targetZone) &&
+                stage != null &&
+                !IsExpanderZAvoidProcessOrReady(stage))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
 
             return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, movingName, out reason);
+        }
+
+        private static PickerWorkZone ResolvePickerZTargetZone(MotionGuardRuleContext request)
+        {
+            string name = request != null ? request.TargetName ?? string.Empty : string.Empty;
+            if (Contains(name, "PickerZone=Input") || Contains(name, "DiePick") || Contains(name, "PickPosition"))
+                return PickerWorkZone.Input;
+            if (Contains(name, "PickerZone=Output") || Contains(name, "DiePlace") || Contains(name, "PlacePosition"))
+                return PickerWorkZone.Output;
+            if (Contains(name, "PickerZone=Bottom") || Contains(name, "DieBottom") || Contains(name, "BottomPosition"))
+                return PickerWorkZone.Bottom;
+            if (Contains(name, "PickerZone=Side") || Contains(name, "DieSide") || Contains(name, "SidePosition"))
+                return PickerWorkZone.Side;
+            if (Contains(name, "PickerZone=Avoid") || Contains(name, "AvoidPosition") || Contains(name, "SafeRetreat"))
+                return PickerWorkZone.Avoid;
+
+            return PickerWorkZone.Unknown;
+        }
+
+        private static bool RequiresInputFeederAvoid(PickerWorkZone targetZone)
+        {
+            return targetZone == PickerWorkZone.Input ||
+                   targetZone == PickerWorkZone.Unknown;
+        }
+
+        private static bool RequiresOutputFeederAvoid(PickerWorkZone targetZone)
+        {
+            return targetZone == PickerWorkZone.Output ||
+                   targetZone == PickerWorkZone.Unknown;
+        }
+
+        private static bool RequiresInputStageZSafe(PickerWorkZone targetZone)
+        {
+            return targetZone == PickerWorkZone.Input ||
+                   targetZone == PickerWorkZone.Unknown;
+        }
+
+        private static bool RequiresOutputStageZSafeForPickerY(PickerWorkZone targetZone)
+        {
+            return targetZone == PickerWorkZone.Output ||
+                   targetZone == PickerWorkZone.Unknown;
+        }
+
+        private static bool Contains(string value, string pattern)
+        {
+            return (value ?? string.Empty).IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)

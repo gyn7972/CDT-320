@@ -66,6 +66,12 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public double DefaultVelocityScalePercent { get; set; } = 100.0;
 
+        /// <summary>
+        /// 자동 시퀀스 테스트 중 Input/Output 카메라 X 이동과 비전 검사를 생략하고 Picker 모션만 확인한다.
+        /// 실장비 생산용 안전 인터락은 우회하지 않는다.
+        /// </summary>
+        [DataMember] public bool   PickerMotionOnlyTestMode { get; set; } = false;
+
         public bool BypassHardware => SimulationMode;
     }
 

@@ -293,6 +293,15 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (IsPickerMotionOnlyTestMode())
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " Picker Motion Only Test 모드: InputVisionX 이동 전 Picker Avoid 동작을 생략합니다. die=" +
+                        _currentDieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                    CurrentStep = InputDieVisionPrepareStep.MoveInputStageAndVisionToDie;
+                    return 0;
+                }
+
                 int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
                     "InputVisionX 이동 전 Picker Avoid",
                     ct).ConfigureAwait(false);
@@ -339,6 +348,32 @@ namespace QMC.CDT320.Sequencing
                 double targetX = _pickTarget.TargetX;
 
                 string areaReason;
+                if (IsPickerMotionOnlyTestMode())
+                {
+                    if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-STAGE-WORK-AREA", stage.Name,
+                            "Picker Motion Only Test 목표 위치가 InputStage 작업 가능 영역을 벗어났습니다. die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", reason=" + areaReason);
+                    }
+
+                    int stageOnlyResult = await MoveInputStageToDiePositionForPickerMotionOnlyAsync(
+                        stage,
+                        targetX,
+                        targetY,
+                        ct).ConfigureAwait(false);
+                    if (stageOnlyResult != 0)
+                        return stageOnlyResult;
+
+                    _visionOffset = CreateZeroInputVisionOffset();
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " Picker Motion Only Test 모드: InputVisionX 이동과 비전 검사를 생략하고 보정값 0으로 진행합니다. die=" +
+                        _currentDieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                    CurrentStep = InputDieVisionPrepareStep.ApplyInputDieVisionOffset;
+                    return 0;
+                }
+
                 if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-WORK-AREA", stage.Name,
                         "Input die vision 목표 위치가 InputStage 작업 가능 영역을 벗어났습니다. " +
@@ -843,6 +878,64 @@ namespace QMC.CDT320.Sequencing
                     DeltaY = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
                     DeltaTheta = (SimVisionRandom.NextDouble() - 0.5) * 0.02
                 };
+            }
+        }
+
+        private VisionAlignResult CreateZeroInputVisionOffset()
+        {
+            return new VisionAlignResult
+            {
+                DeltaX = 0.0,
+                DeltaY = 0.0,
+                DeltaTheta = 0.0
+            };
+        }
+
+        private async Task<int> MoveInputStageToDiePositionForPickerMotionOnlyAsync(
+            InputStageUnit stage,
+            double targetX,
+            double targetY,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(
+                    stage,
+                    "Picker Motion Only Test StageY 이동",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageYAndVerifyAsync(
+                    stage,
+                    targetX,
+                    targetY,
+                    "Picker Motion Only Test StageY",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return CheckInputStageAxisInPosition(
+                    stage,
+                    WaferStageAxis.WaferY,
+                    targetY,
+                    "Picker Motion Only Test StageY 최종 위치 확인");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-MOTION-ONLY-STAGEY-EX", stage != null ? stage.Name : "InputStageUnit",
+                    "Picker Motion Only Test StageY 이동 중 예외가 발생했습니다. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
             }
         }
 

@@ -29,6 +29,7 @@ namespace QMC.CDT320.Sequencing
         private OutputStageReceiveTarget _placedReceiveTarget;
         private SequenceResourceLease _outputPlaceLease;
         private SequenceResourceLease _outputStageLease;
+        private SequenceResourceLease _outputFeederLease;
         private bool _outputInspectBatchOpen;
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -48,6 +49,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
+                ReleaseOutputFeederArea();
                 CurrentStep = PickerPlaceStep.Complete;
             }
             catch
@@ -61,6 +63,11 @@ namespace QMC.CDT320.Sequencing
         private OutputStageUnit OutputStage
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null; }
+        }
+
+        private OutputFeederUnit OutputFeeder
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputFeederUnit : null; }
         }
 
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
@@ -102,6 +109,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     ReleaseOutputPlaceArea();
                     ReleaseOutputStageArea();
+                    ReleaseOutputFeederArea();
                 }
             }
         }
@@ -483,6 +491,15 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            if (IsPickerMotionOnlyTestMode())
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Picker Motion Only Test 모드: OutputVisionX 피커 진입용 Avoid 이동을 생략합니다. side=" +
+                    _currentOutputSide + ", die=" + (_currentDie != null ? _currentDie.DieId : "-") + " - Check");
+                CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
+                return 0;
+            }
+
             result = await AwaitStepWithCancellationAsync(
                 OutputStage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
                 ct).ConfigureAwait(false);
@@ -558,6 +575,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveOutputStageReceivePositionAsync(CancellationToken ct)
         {
+            int feederReady = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
+            if (feederReady != 0)
+                return feederReady;
+
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
             double baseY = _currentOutputSide == BinSide.Ng
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
@@ -592,6 +613,83 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerPlaceStep.VerifyPlaceTarget;
             return 0;
+        }
+
+        private async Task<int> EnsureOutputFeederSafeBeforePlaceStageMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                OutputFeederUnit feeder = OutputFeeder;
+                if (feeder == null)
+                    return Fail("PICKER-PLACE-FEEDER-NO-UNIT", "BinFeederUnit",
+                        "Place 전 OutputFeederUnit을 찾을 수 없습니다. side=" + _currentOutputSide +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-"));
+
+                if (_outputFeederLease == null)
+                {
+                    _outputFeederLease = await AcquireResourceAsync(
+                        SequenceResourceKind.OutputFeederArea,
+                        Name + ":Place:OutputFeederAvoid:" + _currentOutputSide,
+                        ct).ConfigureAwait(false);
+                    if (_outputFeederLease == null)
+                        return -1;
+                }
+
+                if (!feeder.IsFeederUnclamped())
+                {
+                    int unclampResult = await feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
+                    if (unclampResult != 0)
+                        return Fail("PICKER-PLACE-FEEDER-UNCLAMP", feeder.Name,
+                            "Place 전 OutputFeeder Unclamp 명령 실패. result=" + unclampResult +
+                            ", side=" + _currentOutputSide + ", " + feeder.DescribeFeederCylinderState());
+                }
+
+                if (!feeder.IsFeederUnclamped())
+                    return Fail("PICKER-PLACE-FEEDER-UNCLAMP-CHECK", feeder.Name,
+                        "Place 전 OutputFeeder Unclamp 최종 확인 실패. side=" + _currentOutputSide +
+                        ", " + feeder.DescribeFeederCylinderState());
+
+                if (!feeder.IsBinFeederYInAvoidPosition())
+                {
+                    int moveResult = await feeder.MoveToFeederAvoidPosition(Options.FineMove).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return Fail("PICKER-PLACE-FEEDER-Y-AVOID", feeder.Name,
+                            "Place 전 OutputFeederY Avoid 이동 명령 실패. result=" + moveResult +
+                            ", side=" + _currentOutputSide + ", " + feeder.DescribeBinFeederYMoveDoneState() +
+                            feeder.DescribeBinFeederYLastMotionFailure());
+
+                    AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
+                        feeder.Recipe.AvoidPosition,
+                        ResolveTimeout(),
+                        ct).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-FEEDER-Y-AVOID", waitResult), feeder.Name,
+                            "Place 전 OutputFeederY Avoid 이동 완료 확인 실패. side=" + _currentOutputSide +
+                            ", " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+                }
+
+                if (!feeder.IsBinFeederYInAvoidPosition())
+                    return Fail("PICKER-PLACE-FEEDER-Y-AVOID-CHECK", feeder.Name,
+                        "Place 전 OutputFeederY Avoid 최종 확인 실패. side=" + _currentOutputSide +
+                        ", " + feeder.DescribeBinFeederYMoveDoneState());
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-FEEDER-SAFE-EX", "BinFeederUnit",
+                    "Place 전 OutputFeeder 안전 위치 확보 중 예외가 발생했습니다. side=" +
+                    _currentOutputSide + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int CalculatePlaceTarget()
@@ -879,7 +977,8 @@ namespace QMC.CDT320.Sequencing
                         ReceiveTarget = _placedReceiveTarget,
                         FineMove = Options != null && Options.FineMove,
                         MoveTimeoutMs = ResolveTimeout(),
-                        Owner = Name
+                        Owner = Name,
+                        SkipInspection = IsPickerMotionOnlyTestMode()
                     },
                     ct);
                 if (result != 0)
@@ -1043,6 +1142,7 @@ namespace QMC.CDT320.Sequencing
 
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
+                ReleaseOutputFeederArea();
                 EndOutputPostPlaceInspectionBatch();
                 CurrentStep = PickerPlaceStep.Complete;
                 return 0;
@@ -1283,6 +1383,25 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("PickerPlaceSequence", "OutputPlaceArea lease release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void ReleaseOutputFeederArea()
+        {
+            try
+            {
+                if (_outputFeederLease == null)
+                    return;
+
+                _outputFeederLease.Dispose();
+                _outputFeederLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence", "OutputFeederArea lease release failed: " + ex.Message + " - Failed");
             }
             finally
             {

@@ -22,6 +22,8 @@ namespace QMC.CDT320.Sequencing
         CheckTargetStageZProcess,
         MoveVisionXToProcess,
         CheckVisionXProcess,
+        MoveVisionXToAvoid,
+        CheckVisionXAvoid,
         Complete,
         Error
     }
@@ -105,6 +107,14 @@ namespace QMC.CDT320.Sequencing
                     // 비전 X 프로세스 확인
                     case OutputStageMoveProcessStep.CheckVisionXProcess:
                         return Task.FromResult(CheckTargetAxis(BinStageAxis.VisionX, "Process", "VisionX process", OutputStageMoveProcessStep.Complete));
+
+                    // Place 준비용 비전 X 어보이드 이동
+                    case OutputStageMoveProcessStep.MoveVisionXToAvoid:
+                        return MoveTargetAxisAsync(BinStageAxis.VisionX, "Avoid", "OutputVisionX Avoid", OutputStageMoveProcessStep.CheckVisionXAvoid, ct);
+
+                    // Place 준비용 비전 X 어보이드 확인
+                    case OutputStageMoveProcessStep.CheckVisionXAvoid:
+                        return Task.FromResult(CheckTargetAxis(BinStageAxis.VisionX, "Avoid", "OutputVisionX Avoid", OutputStageMoveProcessStep.Complete));
 
                     default:
                         return Task.FromResult(FailUnsupportedStep());
@@ -391,7 +401,7 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z process"))
                 {
-                    CurrentStep = OutputStageMoveProcessStep.MoveVisionXToProcess;
+                    CurrentStep = ResolveVisionXStepAfterStageProcess();
                     return 0;
                 }
 
@@ -417,7 +427,7 @@ namespace QMC.CDT320.Sequencing
             {
                 if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z process final check"))
                 {
-                    CurrentStep = OutputStageMoveProcessStep.MoveVisionXToProcess;
+                    CurrentStep = ResolveVisionXStepAfterStageProcess();
                     return 0;
                 }
 
@@ -425,7 +435,7 @@ namespace QMC.CDT320.Sequencing
                     ResolveZAxis(Options.Side),
                     "Process",
                     Options.Side + " Z process",
-                    OutputStageMoveProcessStep.MoveVisionXToProcess);
+                    ResolveVisionXStepAfterStageProcess());
             }
             catch (Exception ex)
             {
@@ -460,6 +470,13 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private OutputStageMoveProcessStep ResolveVisionXStepAfterStageProcess()
+        {
+            return Options.KeepVisionXAvoidOnProcessMove
+                ? OutputStageMoveProcessStep.MoveVisionXToAvoid
+                : OutputStageMoveProcessStep.MoveVisionXToProcess;
         }
     }
 }

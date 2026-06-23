@@ -25,6 +25,8 @@ namespace QMC.CDT320.Sequencing
         public int MoveTimeoutMs { get; set; }
 
         public string Owner { get; set; } = "";
+
+        public bool SkipInspection { get; set; }
     }
 
     internal sealed class OutputPostPlaceInspectionQueue
@@ -97,6 +99,14 @@ namespace QMC.CDT320.Sequencing
                     "이전 Output camera 후검사 실패가 정리되지 않아 새 요청을 등록할 수 없습니다. " +
                     "die=" + request.DieId + ", side=" + request.OutputSide +
                     ", lastFailure=" + _failureMessage);
+            }
+            if (request.SkipInspection)
+            {
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "Picker Motion Only Test 모드: Output camera 후검사 요청을 등록하지 않습니다. die=" + request.DieId +
+                    ", side=" + request.OutputSide +
+                    ", owner=" + request.Owner + " - Check");
+                return 0;
             }
             request.ReceiveTarget = CloneReceiveTarget(request.ReceiveTarget);
             Interlocked.Increment(ref _pendingOrRunning);
