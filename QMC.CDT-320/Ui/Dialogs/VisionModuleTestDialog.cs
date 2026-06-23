@@ -18,9 +18,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         public VisionModuleTestDialog()
         {
             InitializeComponent();
-            _btnGrab.Click    += async (s, e) => await RunGrab();
-            _btnMatch.Click   += async (s, e) => await RunMatch();
-            _btnInspect.Click += async (s, e) => await RunInspect();
         }
 
         public VisionModuleTestDialog(VisionTcpClient client, string displayName)
@@ -90,7 +87,22 @@ namespace QMC.CDT_320.Ui.Dialogs
                 actions.SetChildIndex(stopButton, actions.Count - 1);
         }
 
-        private bool Ready(Label target)
+        private async void btnGrab_Click(object sender, EventArgs e)
+        {
+            await RunGrabAsync().ConfigureAwait(true);
+        }
+
+        private async void btnMatch_Click(object sender, EventArgs e)
+        {
+            await RunMatchAsync().ConfigureAwait(true);
+        }
+
+        private async void btnInspect_Click(object sender, EventArgs e)
+        {
+            await RunInspectAsync().ConfigureAwait(true);
+        }
+
+        private async Task RunGrabAsync()
         {
             if (!CheckReady(_lblGrab))
                 return;
@@ -101,9 +113,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                string resp = await _c.SendAsync($"{_c.ModuleName}|EXPOSE|0");
-                bool ok = resp != null && resp.StartsWith("ACK|");
-                string body = ""; var p = (resp ?? "").Split('|'); if (p.Length > 3) body = p[3];
+                string response = await _client.SendAsync(_client.ModuleName + "|EXPOSE|0", 30000).ConfigureAwait(true);
+                bool ok = response != null && response.StartsWith("ACK|", StringComparison.OrdinalIgnoreCase);
+                string body = string.Empty;
+                string[] parts = (response ?? string.Empty).Split('|');
+                if (parts.Length > 3)
+                    body = parts[3];
+
                 _lblGrab.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
                 _lblGrab.Text = ok ? body : (response ?? "응답 없음");
             }
@@ -137,8 +153,8 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                MatchResultDto r = await _c.MatchAsync(finder);
-                if (r.Success)
+                MatchResultDto result = await _client.MatchAsync(finder, 0, 30000).ConfigureAwait(true);
+                if (result != null && result.Success)
                 {
                     _lblMatch.ForeColor = Color.SeaGreen;
                     _lblMatch.Text = string.Format(
@@ -184,9 +200,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                InspectionResultDto r = await _c.InspectAsync(inspector);
-                bool acked = r.Raw != null && r.Raw.StartsWith("ACK|");
-                if (acked)
+                InspectionResultDto result = await _client.InspectAsync(inspector, 0, 30000).ConfigureAwait(true);
+                bool ack = result != null && result.Raw != null && result.Raw.StartsWith("ACK|", StringComparison.OrdinalIgnoreCase);
+                if (ack)
                 {
                     _lblInsp.ForeColor = result.IsPass ? Color.SeaGreen : Color.Firebrick;
                     _lblInsp.Text = (result.IsPass ? "PASS" : "FAIL") + "   (" + result.Raw + ")";
@@ -208,10 +224,39 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private bool CheckReady(Label target)
+        {
+            if (_client == null)
+            {
+                target.ForeColor = Color.Firebrick;
+                target.Text = "모듈 없음";
+                return false;
+            }
+
+            if (!_client.IsConnected)
+            {
+                target.ForeColor = Color.Firebrick;
+                target.Text = "미연결 (port " + _client.Port + ") - 먼저 연결하세요.";
+                return false;
+            }
+
+            return true;
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            try { _viewer?.StopLive(); } catch { }
-            base.OnFormClosing(e);
+            try
+            {
+                if (_viewer != null)
+                    _viewer.StopLive();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                base.OnFormClosing(e);
+            }
         }
     }
 }

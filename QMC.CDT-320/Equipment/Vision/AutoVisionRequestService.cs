@@ -17,11 +17,7 @@ namespace QMC.CDT320.VisionComm
 
     public static class AutoVisionRequestService
     {
-        public static Task<bool> GrabAsync(
-            AutoVisionChannel channel,
-            int index,
-            int timeoutMs,
-            CancellationToken ct)
+        public static Task<bool> GrabAsync(AutoVisionChannel channel, int index, int timeoutMs, CancellationToken ct)
         {
             try
             {

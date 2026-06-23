@@ -24,7 +24,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             base.Dispose(disposing);
         }
 
-        // 비주얼 디자이너 호환: 표준 속성 대입만 사용(커스텀 헬퍼 호출 금지).
         private void InitializeComponent()
         {
             this._root = new System.Windows.Forms.TableLayoutPanel();
@@ -48,13 +47,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._root.ColumnCount = 2;
             this._root.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 470F));
             this._root.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._root.RowCount = 1;
-            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._root.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._root.Location = new System.Drawing.Point(0, 0);
-            this._root.Name = "_root";
-            this._root.Size = new System.Drawing.Size(1080, 420);
-            this._root.TabIndex = 0;
             this._root.Controls.Add(this._grid, 0, 0);
             this._root.Controls.Add(this._viewer, 1, 0);
             this._root.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -68,17 +60,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._grid.RowCount = 4;
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._grid.Location = new System.Drawing.Point(3, 3);
-            this._grid.Name = "_grid";
-            this._grid.Padding = new System.Windows.Forms.Padding(12);
-            this._grid.Size = new System.Drawing.Size(464, 414);
-            this._grid.TabIndex = 0;
             this._grid.Controls.Add(this._btnGrab, 0, 0);
             this._grid.Controls.Add(this._lblGrab, 1, 0);
             this._grid.SetColumnSpan(this._lblGrab, 2);
@@ -90,10 +71,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._grid.Controls.Add(this._lblInsp, 2, 2);
             this._grid.Controls.Add(this._hint, 0, 3);
             this._grid.SetColumnSpan(this._hint, 3);
-            //
+            this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._grid.Name = "_grid";
+            this._grid.Padding = new System.Windows.Forms.Padding(12);
+            this._grid.RowCount = 4;
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            // 
             // _btnGrab
-            //
-            this._btnGrab.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            // 
+            this._btnGrab.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
             this._btnGrab.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnGrab.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnGrab.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
@@ -102,10 +91,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnGrab.Name = "_btnGrab";
             this._btnGrab.Text = "GRAB";
             this._btnGrab.UseVisualStyleBackColor = false;
-            //
+            this._btnGrab.Click += new System.EventHandler(this.btnGrab_Click);
+            // 
+            // _lblGrab
+            // 
+            this._lblGrab.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblGrab.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblGrab.ForeColor = System.Drawing.Color.DimGray;
+            this._lblGrab.Name = "_lblGrab";
+            this._lblGrab.Text = "대기";
+            this._lblGrab.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _txtFinder
+            // 
+            this._txtFinder.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._txtFinder.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._txtFinder.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
+            this._txtFinder.Name = "_txtFinder";
+            // 
             // _btnMatch
-            //
-            this._btnMatch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            // 
+            this._btnMatch.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
             this._btnMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnMatch.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnMatch.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
@@ -114,10 +120,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnMatch.Name = "_btnMatch";
             this._btnMatch.Text = "MATCH";
             this._btnMatch.UseVisualStyleBackColor = false;
-            //
+            this._btnMatch.Click += new System.EventHandler(this.btnMatch_Click);
+            // 
+            // _lblMatch
+            // 
+            this._lblMatch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblMatch.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblMatch.ForeColor = System.Drawing.Color.DimGray;
+            this._lblMatch.Name = "_lblMatch";
+            this._lblMatch.Text = "finder 입력 후 MATCH - x/y/t/score";
+            this._lblMatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _txtInsp
+            // 
+            this._txtInsp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._txtInsp.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._txtInsp.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
+            this._txtInsp.Name = "_txtInsp";
+            // 
             // _btnInspect
-            //
-            this._btnInspect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            // 
+            this._btnInspect.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
             this._btnInspect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnInspect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnInspect.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
@@ -126,67 +149,32 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._btnInspect.Name = "_btnInspect";
             this._btnInspect.Text = "INSPECT";
             this._btnInspect.UseVisualStyleBackColor = false;
-            //
-            // _txtFinder
-            //
-            this._txtFinder.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._txtFinder.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this._txtFinder.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
-            this._txtFinder.Name = "_txtFinder";
-            //
-            // _txtInsp
-            //
-            this._txtInsp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._txtInsp.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this._txtInsp.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
-            this._txtInsp.Name = "_txtInsp";
-            //
-            // _lblGrab
-            //
-            this._lblGrab.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblGrab.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblGrab.ForeColor = System.Drawing.Color.DimGray;
-            this._lblGrab.Name = "_lblGrab";
-            this._lblGrab.Text = "대기";
-            this._lblGrab.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // _lblMatch
-            //
-            this._lblMatch.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblMatch.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblMatch.ForeColor = System.Drawing.Color.DimGray;
-            this._lblMatch.Name = "_lblMatch";
-            this._lblMatch.Text = "finder 입력 후 MATCH → x/y/θ/score";
-            this._lblMatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            this._btnInspect.Click += new System.EventHandler(this.btnInspect_Click);
+            // 
             // _lblInsp
-            //
+            // 
             this._lblInsp.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblInsp.Font = new System.Drawing.Font("Consolas", 10F);
             this._lblInsp.ForeColor = System.Drawing.Color.DimGray;
             this._lblInsp.Name = "_lblInsp";
-            this._lblInsp.Text = "inspector 입력 후 INSPECT → PASS/FAIL";
+            this._lblInsp.Text = "inspector 입력 후 INSPECT - PASS/FAIL";
             this._lblInsp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _hint
             // 
             this._hint.Dock = System.Windows.Forms.DockStyle.Fill;
             this._hint.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._hint.ForeColor = System.Drawing.Color.DimGray;
-            this._hint.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this._hint.Name = "_hint";
             this._hint.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
-            this._hint.Text = "Vision RUN 상태에서만 명령 수락(PING 제외). finder/inspector 는 레시피 등록 도구명.";
-            //
+            this._hint.Text = "Vision RUN 상태에서만 명령을 수락합니다. finder/inspector는 레시피에 등록된 도구명입니다.";
+            // 
             // _viewer
             // 
             this._viewer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._viewer.Location = new System.Drawing.Point(473, 3);
             this._viewer.Margin = new System.Windows.Forms.Padding(0);
             this._viewer.Name = "_viewer";
-            this._viewer.Size = new System.Drawing.Size(604, 414);
-            this._viewer.TabIndex = 1;
-            //
+            // 
             // VisionModuleTestDialog
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
