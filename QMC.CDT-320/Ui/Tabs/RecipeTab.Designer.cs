@@ -31,6 +31,7 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnOutputSubset;
         internal SidebarButton BtnPickupSubset;
         internal SidebarButton BtnForceControl;
+        internal SidebarButton BtnCalibration;
         internal System.Windows.Forms.Panel PnlVisionSeparator;
         internal System.Windows.Forms.Panel PnlMapSeparator;
         internal System.Windows.Forms.Panel PnlSubsetSeparator;
@@ -65,6 +66,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputSubset = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnPickupSubset = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnForceControl = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnCalibration = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.PnlVisionSeparator = new System.Windows.Forms.Panel();
             this.PnlMapSeparator = new System.Windows.Forms.Panel();
             this.PnlSubsetSeparator = new System.Windows.Forms.Panel();
@@ -409,6 +411,18 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnForceControl.TabIndex = 29;
             this.BtnForceControl.Text = "FORCE CONTROL";
             //
+            // BtnCalibration
+            //
+            this.BtnCalibration.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnCalibration.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.BtnCalibration.Location = new System.Drawing.Point(4, 1310);
+            this.BtnCalibration.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnCalibration.Name = "BtnCalibration";
+            this.BtnCalibration.Selected = false;
+            this.BtnCalibration.Size = new System.Drawing.Size(184, 46);
+            this.BtnCalibration.TabIndex = 30;
+            this.BtnCalibration.Text = "CALIBRATION";
+            //
             // PnlVisionSeparator
             //
             this.PnlVisionSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
@@ -478,6 +492,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnPickupSubset);
             this.PnlSidebarButtons.Controls.Add(this.PnlForceSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnForceControl);
+            this.PnlSidebarButtons.Controls.Add(this.BtnCalibration);
             //
             // RecipeTab
             //

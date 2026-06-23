@@ -2,6 +2,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 
+using QMC.Common.Motion;
+
 namespace QMC.CDT320.Sequencing
 {
     internal enum OutputStagePrepareLoadStep
@@ -9,6 +11,7 @@ namespace QMC.CDT320.Sequencing
         Idle,
         CheckUnit,
         CheckTargetSide,
+        EnsureOutputFeederSafeBeforeStageMove,
         MoveOppositeStageZToAvoid,
         CheckOppositeStageZAvoid,
         EnsureGoodGuideDownBeforeNgYMove,
@@ -47,6 +50,10 @@ namespace QMC.CDT320.Sequencing
                     // 대상 사이드 확인
                     case OutputStagePrepareLoadStep.CheckTargetSide:
                         return CheckTargetSideAsync(ct);
+
+                    // Stage Z/Y 이동 전 OutputFeeder 안전 위치 확보
+                    case OutputStagePrepareLoadStep.EnsureOutputFeederSafeBeforeStageMove:
+                        return EnsureOutputFeederSafeBeforeStageMoveAsync(ct);
 
                     // 반대쪽 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid:
@@ -102,12 +109,79 @@ namespace QMC.CDT320.Sequencing
                 if (pickerReady != 0)
                     return pickerReady;
 
-                CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                CurrentStep = OutputStagePrepareLoadStep.EnsureOutputFeederSafeBeforeStageMove;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-SIDE-EX", Name, "Target side check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureOutputFeederSafeBeforeStageMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                OutputFeederUnit feeder = OutputFeeder;
+                if (feeder == null)
+                    return Fail("OUT-STAGE-FEEDER-NO-UNIT", "BinFeederUnit",
+                        "OutputStage Load 준비 중 OutputFeederUnit을 찾을 수 없습니다. side=" + Options.Side);
+
+                if (!feeder.IsFeederUnclamped())
+                {
+                    int result = await feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return Fail("OUT-STAGE-FEEDER-UNCLAMP", feeder.Name,
+                            "OutputStage Load 전 OutputFeeder Unclamp 명령 실패. result=" + result +
+                            ", side=" + Options.Side + ", " + feeder.DescribeFeederCylinderState());
+                }
+
+                if (!feeder.IsFeederUnclamped())
+                    return Fail("OUT-STAGE-FEEDER-UNCLAMP-CHECK", feeder.Name,
+                        "OutputStage Load 전 OutputFeeder Unclamp 최종 확인 실패. side=" + Options.Side +
+                        ", " + feeder.DescribeFeederCylinderState());
+
+                if (!feeder.IsBinFeederYInAvoidPosition())
+                {
+                    int moveResult = await feeder.MoveToFeederAvoidPosition(Options.FineMove).ConfigureAwait(false);
+                    if (moveResult != 0)
+                        return Fail("OUT-STAGE-FEEDER-Y-AVOID", feeder.Name,
+                            "OutputStage Load 전 OutputFeederY Avoid 이동 명령 실패. result=" + moveResult +
+                            ", side=" + Options.Side + ", " + feeder.DescribeBinFeederYMoveDoneState() +
+                            feeder.DescribeBinFeederYLastMotionFailure());
+
+                    AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
+                        feeder.Recipe.AvoidPosition,
+                        ResolveTimeout(),
+                        ct).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return Fail("OUT-STAGE-FEEDER-Y-AVOID-WAIT", feeder.Name,
+                            "OutputStage Load 전 OutputFeederY Avoid 이동 완료 확인 실패. side=" + Options.Side +
+                            ", " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+                }
+
+                if (!feeder.IsBinFeederYInAvoidPosition())
+                    return Fail("OUT-STAGE-FEEDER-Y-AVOID-CHECK", feeder.Name,
+                        "OutputStage Load 전 OutputFeederY Avoid 최종 확인 실패. side=" + Options.Side +
+                        ", " + feeder.DescribeBinFeederYMoveDoneState());
+
+                CurrentStep = OutputStagePrepareLoadStep.MoveOppositeStageZToAvoid;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-FEEDER-SAFE-EX", "BinFeederUnit",
+                    "OutputStage Load 전 OutputFeeder 안전 위치 확보 중 예외가 발생했습니다. side=" +
+                    Options.Side + ", error=" + ex.Message);
             }
             finally
             {

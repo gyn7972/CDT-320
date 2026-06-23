@@ -36,6 +36,8 @@ namespace QMC.CDT320
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        private readonly object _productionStatsLock = new object();
+        private System.Diagnostics.Stopwatch _autoProductionStopwatch;
         // 4개 유닛(INPUT/FRONT/REAR/OUTPUT) 동작 상태. UI 가 스냅샷으로 폴링한다. (앱 수명 동안 유지)
         private readonly QMC.CDT320.Sequencing.SequenceActivityMonitor _sequenceActivity =
             new QMC.CDT320.Sequencing.SequenceActivityMonitor();
@@ -267,6 +269,9 @@ namespace QMC.CDT320
         /// <summary>Mean Time To Recovery (rolling).</summary>
         public TimeSpan Mttr { get; internal set; } = TimeSpan.Zero;
 
+        /// <summary>작업 시간/UPH 통계 엔진. 사이클/상태 이벤트를 먹이면 lock-free 스냅샷을 발행한다.</summary>
+        public QMC.CDT320.Stats.ProductionStatsEngine Stats { get; } = new QMC.CDT320.Stats.ProductionStatsEngine();
+
         /// <summary>?꾩옱 InputLoader 媛 泥섎━ 以묒씤 ?щ’ ?몃뜳??(0-base). -1 = 誘몄옣李??몃줈???곹깭.</summary>
         public int CurrentInputSlot { get; private set; } = -1;
         /// <summary>?꾩옱 ?щ’???⑥씠?쇨? InputStage 援먰솚 ?꾩튂源뚯? ?댁넚?섏뿀?붿? ?щ?.</summary>
@@ -353,7 +358,7 @@ namespace QMC.CDT320
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode is on, but saved initialized state does not exist. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-NO-STATE", "MachineController",
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-RESTORE-NO-STATE", "MachineController",
                         "Developer Mode: 저장된 장비 초기화 상태가 없어 INIT이 필요합니다.");
                     return;
                 }
@@ -365,7 +370,7 @@ namespace QMC.CDT320
                     SetMachineInitialized(false, "DeveloperModeRestoreFailed", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode initialized state restore failed: " + reason + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-FAIL", "MachineController",
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-RESTORE-FAIL", "MachineController",
                         "Developer Mode: 장비 초기화 상태 복구 실패. " + reason);
                     return;
                 }
@@ -384,7 +389,7 @@ namespace QMC.CDT320
                 SetMachineInitialized(false, "StartupRestoreException", true);
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Machine initialized state restore failed: " + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-EX", "MachineController",
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-RESTORE-EX", "MachineController",
                     "장비 초기화 상태 복구 중 오류가 발생했습니다. " + ex.Message);
             }
             finally
@@ -1076,7 +1081,7 @@ namespace QMC.CDT320
                 LastActionFailureMessage = "장비 초기화가 완료되지 않았습니다. INIT 후 START를 수행하세요.";
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Run failed: machine is not initialized. - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, "START-NOT-INITIALIZED", "MachineController",
+                AlarmManager.Raise(AlarmSeverity.Error, "START-NOT-INITIALIZED", "MachineController",
                     LastActionFailureMessage);
                 Log("[START] failed: machine is not initialized");
                 return false;
@@ -1086,7 +1091,7 @@ namespace QMC.CDT320
                 LastActionFailureMessage = ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Run initialized check failed: " + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, "START-INIT-CHECK", "MachineController",
+                AlarmManager.Raise(AlarmSeverity.Error, "START-INIT-CHECK", "MachineController",
                     "장비 초기화 상태 확인 실패. " + ex.Message);
                 return false;
             }
@@ -1199,7 +1204,7 @@ namespace QMC.CDT320
             // 移댁꽭???덉갑 ?뺤씤
             if (!DryRun && !cassette.CassetteExistSensor.IsOn)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
+                AlarmManager.Raise(AlarmSeverity.Error, "LOT-NOCASS",
                     cassette.Name, "Input cassette is not detected.");
                 Log("[LOTPORT] InputCassette absent. Load skipped.");
                 return false;
@@ -1212,7 +1217,7 @@ namespace QMC.CDT320
                 bool scanned = (await cassette.ScanCassetteAsync(16, 6.0)) == 0;
                 if (!scanned)
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, "LOT-SCAN",
+                    AlarmManager.Raise(AlarmSeverity.Error, "LOT-SCAN",
                         cassette.Name, "Input cassette scan failed.");
                     return false;
                 }
@@ -1304,7 +1309,7 @@ namespace QMC.CDT320
                 // (?댁쟾: Console.WriteLine 留???UI ?뚮엺 諛곕꼫/?덉뒪?좊━??誘몃컲??
                 if (handoff != 0)
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, "IS-LOAD",
+                    AlarmManager.Raise(AlarmSeverity.Error, "IS-LOAD",
                         _machine.InputStageUnit.Name,
                         "LoadAndPrepareWafer failed. Check feeder safe position, ExpanderZ, and barcode readiness.");
                     ErrorCount++;
@@ -1326,7 +1331,7 @@ namespace QMC.CDT320
 
                     if (aligned != 0)
                     {
-                        AlarmManager.Raise(AlarmSeverity.Warning, "IS-ALIGN",
+                        AlarmManager.Raise(AlarmSeverity.Error, "IS-ALIGN",
                             _machine.InputStageUnit.Name,
                             "VisionAlignAndSetupOrigin failed. Check vision communication and StageT alarm.");
                         ErrorCount++;
@@ -1381,7 +1386,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 Log("[INPUTSTAGE] MoveToDie exception: " + ex.Message);
-                AlarmManager.Raise(AlarmSeverity.Warning, "INPUT-STAGE-MOVE", "InputStage",
+                AlarmManager.Raise(AlarmSeverity.Error, "INPUT-STAGE-MOVE", "InputStage",
                     "다이 위치 이동 중 예외가 발생했습니다. row=" + row + ", col=" + col + ", error=" + ex.Message);
                 return -1;
             }
@@ -1612,12 +1617,12 @@ namespace QMC.CDT320
                     try { ax.EStop(); axTotal++; }
                     catch (Exception axEx) { axFail++; Log("[E-STOP] Axis EStop failed: " + axEx.Message); }
                 }
-                // E-STOP ?뺤콉: 紐⑤뱺 異?Servo OFF (?ъ슜???붽뎄 ??鍮꾩긽?뺤? ???덉슜???먮룞 OFF)
+                // E-STOP 정책: 모든 축 Servo OFF. 사용자가 복구 또는 재초기화 후 다시 운전한다.
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.ServoOff(); } catch { }
                 }
-                AlarmManager.Raise(AlarmSeverity.Error, "E-STOP", "Machine",
+                AlarmManager.Raise(AlarmSeverity.Critical, "E-STOP", "Machine",
                     "Emergency stop was triggered by user safety operation.");
                 SaveMachineRuntimeState("EmergencyStop");
                 SetStatus(EquipmentStatus.Alarm);
@@ -1633,7 +1638,7 @@ namespace QMC.CDT320
                     catch (Exception lampEx)
                     {
                         Log("[E-STOP] TowerLamp control failed: " + lampEx.Message);
-                        AlarmManager.Raise(AlarmSeverity.Warning, "TOWER-FAIL", "OpPanel", lampEx.Message);
+                        AlarmManager.Raise(AlarmSeverity.Error, "TOWER-FAIL", "OpPanel", lampEx.Message);
                     }
                 }
                 else
@@ -1723,7 +1728,7 @@ namespace QMC.CDT320
 
                 if (!InterlockRegistry.VerifyMove(axis.Name, position, out string reason))
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name,
+                    AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name,
                         $"이동 인터락 차단. target={position:F1}, reason={reason}");
                     Log($"[INTERLOCK] {axis.Name} target={position:F1} blocked: {reason}");
                     return -1;
@@ -1739,7 +1744,7 @@ namespace QMC.CDT320
                 if (moveResult != 0 || axis.IsAlarm)
                 {
                     string message = BuildAxisMotionFailureMessage(axis, "Move failed", moveResult);
-                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS", axis.Name, message);
+                    AlarmManager.Raise(AlarmSeverity.Error, "MOVE-AXIS", axis.Name, message);
                     Log("[MOVE] " + message);
                     return moveResult != 0 ? moveResult : -1;
                 }
@@ -1748,7 +1753,7 @@ namespace QMC.CDT320
                 if (!waitResult.Success)
                 {
                     string message = "Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name);
-                    AlarmManager.Raise(AlarmSeverity.Warning, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
+                    AlarmManager.Raise(AlarmSeverity.Error, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
                     Log("[MOVE] " + message);
                     return -1;
                 }
@@ -1764,7 +1769,7 @@ namespace QMC.CDT320
                 string axisName = axis != null ? axis.Name : "-";
                 string message = "축 이동 중 예외가 발생했습니다. axis=" + axisName +
                     ", target=" + position + ", error=" + ex.Message;
-                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS-EXCEPTION", axisName, message);
+                AlarmManager.Raise(AlarmSeverity.Error, "MOVE-AXIS-EXCEPTION", axisName, message);
                 Log("[MOVE] " + message);
                 return -1;
             }
@@ -1844,7 +1849,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Sequence 실행 중에는 축 초기화를 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
                         "Axis initialize failed: sequence is running. axis=" + axisName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-AXIS-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-AXIS-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1854,7 +1859,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "초기화할 축을 찾을 수 없습니다. axis=" + axisName;
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
                         "Axis initialize failed: axis not found. axis=" + axisName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-AXIS-NOTFOUND", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-AXIS-NOTFOUND", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1898,7 +1903,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Sequence 실행 중에는 축 그룹 초기화를 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
                         "Axis group initialize failed: sequence is running. group=" + groupName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-GROUP-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1909,7 +1914,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "초기화할 축 그룹을 찾을 수 없습니다. group=" + groupName;
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
                         "Axis group initialize failed: initialize step group is empty. group=" + groupName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-GROUP-EMPTY", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1955,7 +1960,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Sequence 실행 중에는 전체 축 초기화를 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
                         "All axes initialize failed: sequence is running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-ALL-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-ALL-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1965,7 +1970,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "초기화할 축 정보가 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
                         "All axes initialize failed: axis list is empty. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-ALL-EMPTY", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-ALL-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -1977,7 +1982,7 @@ namespace QMC.CDT320
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
                         "All axes initialize failed: initialize plan has no enabled step. file=" +
                         AxisInitializePlanStore.PlanPath + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-PLAN-EMPTY", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-PLAN-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -2073,7 +2078,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Sequence 실행 중에는 초기화 Step을 수행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -2085,7 +2090,7 @@ namespace QMC.CDT320
                 if (steps.Count == 0)
                 {
                     LastActionFailureMessage = "실행할 초기화 Step을 찾을 수 없습니다. step=" + stepNo;
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-STEP-NOTFOUND", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-NOTFOUND", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -2969,7 +2974,7 @@ namespace QMC.CDT320
                     QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
                         "Axis initialize step failed: no valid axes. step=" + step.StepNo +
                         ", group=" + step.GroupName + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-STEP-EMPTY", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-EMPTY", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -5103,7 +5108,7 @@ namespace QMC.CDT320
                     SetReadySequenceProgress(MachineReadySequenceState.Failed, 0, 0, 0, "Ready", LastActionFailureMessage);
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                         "Ready sequence failed: alarm status is active. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "READY-ALARM", "MachineController", LastActionFailureMessage);
                     Log("[READY] failed: alarm status is active");
                     return -1;
                 }
@@ -5113,7 +5118,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "READY 시퀀스가 이미 진행 중입니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                         "Ready sequence failed: ready sequence is already running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "READY-RUNNING", "MachineController", LastActionFailureMessage);
                     Log("[READY] failed: ready sequence is already running");
                     return -1;
                 }
@@ -5124,7 +5129,7 @@ namespace QMC.CDT320
                     SetReadySequenceProgress(MachineReadySequenceState.Failed, 0, 0, 0, "Ready", LastActionFailureMessage);
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                         "Ready sequence failed: sequence is already running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "READY-RUNNING", "MachineController", LastActionFailureMessage);
                     Log("[READY] failed: sequence is already running");
                     return -1;
                 }
@@ -5209,7 +5214,7 @@ namespace QMC.CDT320
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 START를 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: alarm status is active. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "START-ALARM", "MachineController", "Alarm 상태에서는 START를 수행할 수 없습니다.");
+                    AlarmManager.Raise(AlarmSeverity.Error, "START-ALARM", "MachineController", "Alarm 상태에서는 START를 수행할 수 없습니다.");
                     Log("[START] failed: alarm status is active");
                     return -1;
                 }
@@ -5218,7 +5223,7 @@ namespace QMC.CDT320
                 {
                     LastActionFailureMessage = "Sequence가 이미 실행 중입니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: sequence is already running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "START-RUNNING", "MachineController", "Sequence가 이미 실행 중입니다.");
+                    AlarmManager.Raise(AlarmSeverity.Error, "START-RUNNING", "MachineController", "Sequence가 이미 실행 중입니다.");
                     Log("[START] failed: sequence is already running");
                     return -1;
                 }
@@ -5370,6 +5375,134 @@ namespace QMC.CDT320
             }
         }
 
+        public void RecordAutoDiePlacedForStats(BinSide side)
+        {
+            try
+            {
+                if (ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    return;
+
+                long cycleMs;
+                lock (_productionStatsLock)
+                {
+                    if (_autoProductionStopwatch == null)
+                        _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                    cycleMs = _autoProductionStopwatch.ElapsedMilliseconds;
+                    if (cycleMs <= 0)
+                        cycleMs = 1;
+                    _autoProductionStopwatch.Restart();
+                }
+
+                int good = side == BinSide.Good ? 1 : 0;
+                int ng = side == BinSide.Ng ? 1 : 0;
+                Stats.OnCycleCompleted(1, good, ng, cycleMs);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "RecordAutoDiePlacedForStats",
+                    "작업 시간 통계 업데이트 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void BeginAutoProductionStats()
+        {
+            try
+            {
+                string lotId = ResolveProductionStatsLotId();
+                int totalDies = ResolveProductionStatsTotalDies();
+
+                lock (_productionStatsLock)
+                {
+                    _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                }
+
+                Stats.BeginLot(lotId, totalDies);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "BeginAutoProductionStats",
+                    "작업 시간 통계 시작 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void EndAutoProductionStats()
+        {
+            try
+            {
+                lock (_productionStatsLock)
+                {
+                    if (_autoProductionStopwatch != null)
+                    {
+                        _autoProductionStopwatch.Stop();
+                        _autoProductionStopwatch = null;
+                    }
+                }
+
+                Stats.EndLot();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "EndAutoProductionStats",
+                    "작업 시간 통계 종료 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveProductionStatsLotId()
+        {
+            try
+            {
+                if (LotStorage.ActiveLot != null && !string.IsNullOrEmpty(LotStorage.ActiveLot.LotID))
+                    return LotStorage.ActiveLot.LotID;
+
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state != null && !string.IsNullOrEmpty(state.LotId))
+                    return state.LotId;
+            }
+            catch
+            {
+            }
+
+            return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        }
+
+        private int ResolveProductionStatsTotalDies()
+        {
+            try
+            {
+                if (LotStorage.ActiveLot != null && LotStorage.ActiveLot.TotalDies > 0)
+                    return LotStorage.ActiveLot.TotalDies;
+
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state != null && state.Dies != null)
+                {
+                    int count = 0;
+                    foreach (DieMaterial die in state.Dies)
+                    {
+                        if (die != null && die.IsInputTarget)
+                            count++;
+                    }
+
+                    if (count > 0)
+                        return count;
+                }
+            }
+            catch
+            {
+            }
+
+            return 0;
+        }
+
         /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
         /// Input ?�이맵의 IsTarget=true ?�이�?모두 처리. totalDies&lt;=0 ?�는 ?�이�?모드???�는
         /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
@@ -5410,6 +5543,8 @@ namespace QMC.CDT320
 
                 _coordinator.Configure(options);
                 ActiveSequenceRunMode = options.Mode;
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    BeginAutoProductionStats();
                 SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
                     ? EquipmentStatus.AutoRunning
                     : EquipmentStatus.ManualRunning);
@@ -5427,6 +5562,8 @@ namespace QMC.CDT320
                         if (!cts.IsCancellationRequested && _status != EquipmentStatus.Alarm)
                         {
                             Log("[SEQ] Complete");
+                            if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                                EndAutoProductionStats();
                             SetStatus(EquipmentStatus.Ready);
                         }
                     }
@@ -5450,6 +5587,8 @@ namespace QMC.CDT320
                             }
                             else
                             {
+                                if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                                    EndAutoProductionStats();
                                 SetStatus(EquipmentStatus.Stopped);
                             }
                         }
@@ -5460,6 +5599,8 @@ namespace QMC.CDT320
                         _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Canceled,
                             "시퀀스가 취소되었습니다.");
                         Log("[SEQ] Canceled");
+                        if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                            EndAutoProductionStats();
                     }
                     catch (Exception ex)
                     {
@@ -5470,6 +5611,8 @@ namespace QMC.CDT320
                             "자동 시퀀스 실패: " + ex.Message + " - Failed");
                         AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "자동 시퀀스 실패: " + ex.Message);
                         Log("[SEQ] failed: " + ex.Message);
+                        if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                            EndAutoProductionStats();
                         SetStatus(EquipmentStatus.Alarm);
                     }
                     finally
@@ -5564,7 +5707,7 @@ namespace QMC.CDT320
                 LastActionFailureMessage = "CYCLE STOP 요청 실패: " + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopSequence",
                     LastActionFailureMessage + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-CYCLE-STOP-EX", "MachineController", LastActionFailureMessage);
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-CYCLE-STOP-EX", "MachineController", LastActionFailureMessage);
                 Log("[SEQ] Cycle stop request failed: " + ex.Message);
                 return Task.CompletedTask;
             }
@@ -5842,7 +5985,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Alarm 상태에서는 Manual 시퀀스를 실행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
                         LastActionFailureMessage + " unit=" + unit + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-STEP-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -5864,7 +6007,7 @@ namespace QMC.CDT320
                         LastActionFailureMessage = "Auto Sequence 실행 중에는 Manual 시퀀스를 실행할 수 없습니다.";
                         QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
                             LastActionFailureMessage + " unit=" + unit + " - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
                         return -1;
                     }
 
@@ -5879,7 +6022,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Auto Running 상태에서는 Manual 시퀀스를 시작할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunManualSequenceUnitStep",
                         LastActionFailureMessage + " unit=" + unit + " - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-STEP-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -5920,7 +6063,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 Picker Manual 공정을 실행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -5933,7 +6076,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 Picker Manual 공정을 새로 시작할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6021,7 +6164,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 PickUp Z 단독 테스트를 실행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-Z-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-Z-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6034,7 +6177,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 PickUp Z 단독 테스트를 새로 시작할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-Z-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-Z-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6098,7 +6241,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 선택 Die PickUp 테스트를 실행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-DIE-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-DIE-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6111,7 +6254,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 선택 Die PickUp 테스트를 새로 시작할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-DIE-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-DIE-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6240,7 +6383,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 " + label + "를 실행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6253,7 +6396,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 " + label + "를 새로 시작할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6396,7 +6539,7 @@ namespace QMC.CDT320
                 if (_status == EquipmentStatus.Alarm)
                 {
                     LastActionFailureMessage = "Alarm 상태에서는 " + processLabel + " Manual 공정을 실행할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6409,7 +6552,7 @@ namespace QMC.CDT320
                 if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
                     LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 " + processLabel + " Manual 공정을 새로 시작할 수 없습니다.";
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
                     return -1;
                 }
 
@@ -6468,7 +6611,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Alarm 상태에서는 CYCLE RUN을 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
                         "Process sequence step run failed: alarm status is active. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-PROCESS-STEP-ALARM", "MachineController", LastActionFailureMessage);
                     Log("[SEQ] Process step failed: alarm status is active");
                     return -1;
                 }
@@ -6483,7 +6626,7 @@ namespace QMC.CDT320
                         LastActionFailureMessage = "Auto Sequence 실행 중에는 CYCLE RUN Step을 수행할 수 없습니다.";
                         QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
                             "Process sequence step run failed: auto sequence is running. - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-PROCESS-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
                         Log("[SEQ] Process step failed: auto sequence is running");
                         return -1;
                     }
@@ -6499,7 +6642,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Auto Running 상태에서는 CYCLE RUN Step을 시작할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
                         "Process sequence step run failed: equipment auto running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-PROCESS-STEP-RUNNING", "MachineController", LastActionFailureMessage);
                     Log("[SEQ] Process step failed: equipment auto running");
                     return -1;
                 }
@@ -6546,7 +6689,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Alarm 상태에서는 CYCLE RUN을 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
                         "Input sequence step run failed: alarm status is active. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-STEP-ALARM", "MachineController", LastActionFailureMessage);
                     Log("[SEQ] Input step failed: alarm status is active");
                     return -1;
                 }
@@ -6561,7 +6704,7 @@ namespace QMC.CDT320
                         LastActionFailureMessage = "Auto Sequence 실행 중에는 CYCLE RUN Step을 수행할 수 없습니다.";
                         QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
                             "Input sequence step run failed: auto sequence is running. - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
                         Log("[SEQ] Input step failed: auto sequence is running");
                         return -1;
                     }
@@ -6577,7 +6720,7 @@ namespace QMC.CDT320
                     LastActionFailureMessage = "Auto Running 상태에서는 CYCLE RUN Step을 시작할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
                         "Input sequence step run failed: equipment auto running. - Failed");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-STEP-RUNNING", "MachineController", LastActionFailureMessage);
                     Log("[SEQ] Input step failed: equipment auto running");
                     return -1;
                 }
@@ -6669,6 +6812,8 @@ namespace QMC.CDT320
                 lotId = "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
                 LotStorage.OpenLot(lotId, "default", totalDies);
             }
+            // 작업 시간/UPH 통계 엔진: 부하 시간 시작(사이클 Start 기준) + 작업 변수 리셋.
+            try { Stats.BeginLot(lotId, totalDies); } catch { }
             SetStatus(EquipmentStatus.AutoRunning);
             Log("[CYCLE] Start (total=" + totalDies + ", lot=" + lotId + ")");
 
@@ -6696,13 +6841,23 @@ namespace QMC.CDT320
                 Log("[CYCLE] " + totalCycles + " cycles 횞 " + pickers + " pickers = " + totalDies + " dies");
 
                 int startCycle = resumeCycle ? System.Math.Max(0, CycleDone / pickers) : 0;
+                // 작업 시간 통계: 1 사이클 소요 ms 측정용 Stopwatch (루프 진입 전 1회).
+                var swCycle = System.Diagnostics.Stopwatch.StartNew();
                 for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
                     if (_cycleStopRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
+                    int goodBefore = GoodCount;
+                    int ngBefore = NgCount;
                     await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // ?ъ씠???몃뜳??+ total ?꾨떖
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
+                    // 통계 엔진에 1 사이클 결과를 먹인다(기존 카운트는 그대로 유지).
+                    long cycleMs = swCycle.ElapsedMilliseconds;
+                    swCycle.Restart();
+                    int goodDelta = System.Math.Max(0, GoodCount - goodBefore);
+                    int ngDelta = System.Math.Max(0, NgCount - ngBefore);
+                    try { Stats.OnCycleCompleted(diesInCycle, goodDelta, ngDelta, cycleMs); } catch { }
                     RaiseProgress();
                     if (_cycleStopRequested)
                     {
@@ -6734,6 +6889,7 @@ namespace QMC.CDT320
 
                 Log("[CYCLE] ?꾨즺 (good=" + GoodCount + ", ng=" + NgCount + ")");
                 LotStorage.CloseLot(aborted: false);
+                try { Stats.EndLot(); } catch { }
                 _cycleResumePending = false;
                 _cycleStopRequested = false;
                 // Stage 45 ??Tower Lamp OFF (?ъ씠???뺤긽 ?꾨즺)
@@ -6769,6 +6925,7 @@ namespace QMC.CDT320
                     // Tower Lamp OFF (?ъ씠??以묐떒)
                     try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                     LotStorage.CloseLot(aborted: true);
+                    try { Stats.EndLot(); } catch { }
                     SetStatus(EquipmentStatus.Stopped);
                 }
             }
@@ -6777,6 +6934,7 @@ namespace QMC.CDT320
                 AlarmManager.Raise(AlarmSeverity.Error, "CYCLE-EX", "MachineController", ex.Message);
                 Log("[CYCLE ERROR] " + ex.Message);
                 LotStorage.CloseLot(aborted: true);
+                try { Stats.EndLot(); } catch { }
                 SetStatus(EquipmentStatus.Alarm);
             }
         }
@@ -7011,7 +7169,7 @@ namespace QMC.CDT320
 
                 string message = description + " 이동 실패. result=" + result;
                 Log("[MOVE] " + message);
-                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", message);
+                AlarmManager.Raise(AlarmSeverity.Error, "MOVE-RESULT", "MachineController", message);
                 return result != 0 ? result : -1;
             }
             catch (Exception ex)
@@ -7034,7 +7192,7 @@ namespace QMC.CDT320
                 {
                     string emptyMessage = description + " 이동 결과가 없습니다.";
                     Log("[MOVE] " + emptyMessage);
-                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", emptyMessage);
+                    AlarmManager.Raise(AlarmSeverity.Error, "MOVE-RESULT", "MachineController", emptyMessage);
                     return -1;
                 }
 
@@ -7045,7 +7203,7 @@ namespace QMC.CDT320
 
                     string message = description + " 이동 실패. index=" + i + ", result=" + results[i];
                     Log("[MOVE] " + message);
-                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", message);
+                    AlarmManager.Raise(AlarmSeverity.Error, "MOVE-RESULT", "MachineController", message);
                     return results[i] != 0 ? results[i] : -1;
                 }
 
@@ -7844,7 +8002,9 @@ namespace QMC.CDT320
         private void SetStatus(EquipmentStatus s)
         {
             if (_status == s) return;
+            EquipmentStatus old = _status;
             _status = s;
+            try { Stats.OnStateChanged(old, s, DateTime.UtcNow); } catch { }
             var h = StatusChanged;
             if (h != null) try { h(s); } catch { }
         }

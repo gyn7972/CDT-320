@@ -57,7 +57,7 @@ namespace QMC.CDT320.Interlocks
                 if (result.Allowed)
                     return true;
 
-                AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name, reason);
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name, reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - Blocked");
                 return false;
             }
@@ -98,7 +98,7 @@ namespace QMC.CDT320.Interlocks
                 if (result.Allowed)
                     return true;
 
-                AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name, reason);
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name, reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - TeachingBlocked");
                 return false;
             }
@@ -133,7 +133,7 @@ namespace QMC.CDT320.Interlocks
                 if (result.Allowed)
                     return true;
 
-                AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name, reason);
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name, reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - HomeBlocked");
                 return false;
             }
@@ -170,7 +170,7 @@ namespace QMC.CDT320.Interlocks
                 if (result.Allowed)
                     return true;
 
-                AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", cylinder.Name, reason);
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", cylinder.Name, reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - Blocked");
                 return false;
             }

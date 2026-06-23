@@ -975,6 +975,7 @@ namespace QMC.CDT320.Sequencing
                 RestrictToPickerNo = source.RestrictToPickerNo,
                 VisionRetryCount = source.VisionRetryCount,
                 SimulateVisionResult = source.SimulateVisionResult,
+                PickerMotionOnlyTestMode = source.PickerMotionOnlyTestMode,
                 KeepZAfterBottomInspection = source.KeepZAfterBottomInspection || (isAuto && keepZAfterBottomInspection),
                 EnterSideFromBottomInspection = source.EnterSideFromBottomInspection || (isAuto && enterSideFromBottomInspection),
                 KeepZUntilSideInspectionComplete = source.KeepZUntilSideInspectionComplete || (isAuto && keepZUntilSideInspectionComplete)

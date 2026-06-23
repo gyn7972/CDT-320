@@ -1800,7 +1800,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     code,
                     "OutputStageMapTransferPage",
                     message);

@@ -28,7 +28,7 @@ namespace QMC.Vision.Optics
                 case "Leesos":
                     return new LeesosLightController(ToLeesosConfig(entry));
                 default:
-                    AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-MAP-INVALID", "LightControllerFactory",
+                    AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-MAP-INVALID", "LightControllerFactory",
                         $"알 수 없는 Vendor '{entry.Vendor}' — Sim 으로 대체");
                     return new SimLightController(entry.ChannelCount);
             }

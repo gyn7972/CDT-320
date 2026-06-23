@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -140,6 +140,7 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
+            // GYN - 여기서 시컨스 관련 정책을 정한다.
             // CDT-320 현재 기구 기준 phase matrix.
             // FrontPicker와 RearPicker에 동일하게 적용한다.
             // 초기 PickUp 선점 정책은 RearPickerSequence에서만 별도로 처리하고,
@@ -147,10 +148,11 @@ namespace QMC.CDT320.Sequencing
             switch (requested)
             {
                 case PickerProcessPhase.PickUp:
-                    if (opposite == PickerProcessPhase.SideInspection ||
+                    if (opposite == PickerProcessPhase.BottomInspection ||
+                        opposite == PickerProcessPhase.SideInspection ||
                         opposite == PickerProcessPhase.Place)
                         return true;
-                    reason = "PickUp은 상대 Picker가 SideInspection 또는 Place 중일 때만 진입할 수 있습니다.";
+                    reason = "PickUp은 상대 Picker가 BottomInspection, SideInspection 또는 Place 중일 때 진입할 수 있습니다.";
                     return false;
 
                 case PickerProcessPhase.BottomInspection:

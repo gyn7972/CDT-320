@@ -702,7 +702,7 @@ namespace QMC.Vision
                 if (!AlgorithmCameraBinder.TryApplyParameters(mod.Camera, mapping, out var applyErr))
                 {
                     error = applyErr;
-                    AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
+                    AlarmManager.Raise(AlarmSeverity.Error, "VISION-PARAMFAIL",
                         "Vision/" + algorithm, "파라미터 적용 실패: " + applyErr);
                     return false;
                 }
@@ -727,7 +727,7 @@ namespace QMC.Vision
             {
                 // open 은 성공했지만 일부 파라미터 적용 실패 — warning
                 error = newApplyErr;
-                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
+                AlarmManager.Raise(AlarmSeverity.Error, "VISION-PARAMFAIL",
                     "Vision/" + algorithm, "신규 카메라 파라미터 적용 실패: " + newApplyErr);
                 return false;
             }

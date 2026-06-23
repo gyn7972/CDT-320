@@ -89,7 +89,25 @@ namespace QMC.CDT320.Sequencing
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = Mode;
             options.SimulateVisionResult = IsSimulationOrDryRun();
+            options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             return options;
+        }
+
+        private bool IsPickerMotionOnlyTestModeEnabled()
+        {
+            try
+            {
+                return QMC.CDT320.AppSettingsStore.Current != null &&
+                       QMC.CDT320.AppSettingsStore.Current.PickerMotionOnlyTestMode;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("IsPickerMotionOnlyTestModeEnabled", "FrontPicker Picker Motion Only Test 설정 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsSimulationOrDryRun()

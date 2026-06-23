@@ -832,7 +832,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 EventLogger.Write(EventKind.Alarm, "UI", code, message);
-                AlarmManager.Raise(AlarmSeverity.Warning, code, LogSource, message);
+                AlarmManager.Raise(AlarmSeverity.Error, code, LogSource, message);
             }
             catch { }
         }
@@ -842,7 +842,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 EventLogger.Write(EventKind.Warning, "UI", code, message);
-                AlarmManager.Raise(AlarmSeverity.Warning, code, LogSource, message);
+                AlarmManager.Raise(AlarmSeverity.Error, code, LogSource, message);
             }
             catch { }
         }

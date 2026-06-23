@@ -33,13 +33,15 @@ namespace QMC.CDT_320.Ui.Controls
         public Action<object> Setter { get; set; }
         public Func<object, bool> Validator { get; set; }
         public List<ParameterGridOption> Options { get; private set; }
+        public string Description { get; set; }
 
-        /// <summary>접이식 그룹 헤더 행 여부.</summary>
+        /// <summary>데이터 그리드의 그룹 헤더 여부입니다.</summary>
         public bool IsGroupHeader { get; set; }
-        /// <summary>이 항목이 속한 그룹 키. 헤더와 멤버가 같은 키를 공유한다. 비어 있으면 그룹 없음(항상 표시).</summary>
+
+        /// <summary>항목이 속한 그룹 키입니다. 헤더와 멤버가 같은 키를 공유합니다. 비어 있으면 그룹이 없습니다.</summary>
         public string GroupKey { get; set; }
 
-        /// <summary>접이식 그룹 헤더 항목을 만든다.</summary>
+        /// <summary>데이터 그리드 그룹 헤더 항목을 만듭니다.</summary>
         public static ParameterGridItem Header(string displayName, string groupKey)
         {
             return new ParameterGridItem
@@ -59,6 +61,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 DisplayScale = 1.0;
                 Unit = string.Empty;
+                Description = string.Empty;
                 Options = new List<ParameterGridOption>();
             }
             catch

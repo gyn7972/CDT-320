@@ -1331,7 +1331,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 LastStageMoveFailureMessage = axis + " move exception. target=" + targetPos + ". " + ex.Message;
-                return RaiseStageAlarm(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
             }
             finally
             {
@@ -1416,7 +1416,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 LastStageMoveFailureMessage = axis + " move command exception. target=" + targetPos + ". " + ex.Message;
-                return RaiseStageAlarm(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
             }
             finally
             {
@@ -1445,7 +1445,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE-WAIT", Name, ex.Message);
+                AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-MOVE-WAIT", Name, ex.Message);
                 return -1;
             }
             finally
@@ -1491,7 +1491,7 @@ namespace QMC.CDT320
             {
                 string message = axis + " jog blocked by work area interlock. direction=" + dir + ". " + interlockReason;
                 LastStageMoveFailureMessage = message;
-                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-INTERLOCK", Name, message);
+                AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-INTERLOCK", Name, message);
                 return -1;
             }
 
@@ -1516,7 +1516,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+                AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-EX", Name, ex.Message);
             }
             finally
             {
@@ -1537,7 +1537,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+                AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-EX", Name, ex.Message);
             }
             finally
             {
@@ -1555,7 +1555,7 @@ namespace QMC.CDT320
                 if (result != 0)
                 {
                     AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                        AlarmSeverity.Error,
                         "IN-STAGE-JOG-FAIL",
                         Name,
                         "InputStage 제한 조그 이동 실패. result=" + result);
@@ -1566,7 +1566,7 @@ namespace QMC.CDT320
                 try
                 {
                     AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                        AlarmSeverity.Error,
                         "IN-STAGE-JOG-EX",
                         Name,
                         "InputStage 제한 조그 이동 중 예외가 발생했습니다. error=" + ex.Message);
@@ -1742,7 +1742,7 @@ namespace QMC.CDT320
                 {
                     if (requireMapData)
                     {
-                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-MAP", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        return RaiseStageAlarm(AlarmSeverity.Error, "IS-MAP", "InputStageUnit.LoadAndPrepareWaferAsync",
                             "Wafer map load failed. waferId=" + waferId);
                     }
 
@@ -1819,13 +1819,13 @@ namespace QMC.CDT320
                 {
                     VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center").ConfigureAwait(false);
                     if (alignResult == null)
-                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                        return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                             "Center vision align failed. iteration=" + (iter + 1));
 
                     double targetT = StageT.ActualPosition + alignResult.DeltaTheta;
                     int thetaResult = await StageT.MoveRelativeAsync(alignResult.DeltaTheta, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
                     if (thetaResult != 0 || StageT.IsAlarm)
-                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-T", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                        return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-T", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                             "StageT correction failed. result=" + thetaResult + ", alarm=" + StageT.IsAlarm);
 
                     int thetaWaitResult = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, targetT, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
@@ -1841,7 +1841,7 @@ namespace QMC.CDT320
 
                 VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1").ConfigureAwait(false);
                 if (ref1Result == null)
-                    return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-REF1", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-REF1", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                         "Ref1 vision align failed.");
 
                 double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
@@ -1852,7 +1852,7 @@ namespace QMC.CDT320
 
                 VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2").ConfigureAwait(false);
                 if (ref2Result == null)
-                    return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-REF2", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-REF2", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                         "Ref2 vision align failed.");
 
                 double ref2X = CameraX.ActualPosition + ref2Result.DeltaX;
@@ -1954,7 +1954,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                RaiseStageAlarm(AlarmSeverity.Warning, "IS-MAP-ALIGN", "InputStageUnit.EnsureWaferMapForAlign",
+                RaiseStageAlarm(AlarmSeverity.Error, "IS-MAP-ALIGN", "InputStageUnit.EnsureWaferMapForAlign",
                     "Align wafer map prepare failed: " + ex.Message);
                 return null;
             }
@@ -2013,7 +2013,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-APPLY", "InputStageUnit.ApplyWaferAlignResult",
+                RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-APPLY", "InputStageUnit.ApplyWaferAlignResult",
                     "Align result apply failed: " + ex.Message);
             }
             finally
@@ -2050,7 +2050,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                RaiseStageAlarm(AlarmSeverity.Warning, "IS-DIEMAP-APPLY", "InputStageUnit.ApplyDieMappingResult",
+                RaiseStageAlarm(AlarmSeverity.Error, "IS-DIEMAP-APPLY", "InputStageUnit.ApplyDieMappingResult",
                     "Die mapping result apply failed: " + ex.Message);
             }
             finally
@@ -2169,7 +2169,7 @@ namespace QMC.CDT320
                     int moveResult = await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
                     if (moveResult != 0 || StageT.IsAlarm)
                     {
-                        RaiseStageAlarm(AlarmSeverity.Warning, "IS-CONFIRM-T", "InputStageUnit.WaitForUserConfirmAsync",
+                        RaiseStageAlarm(AlarmSeverity.Error, "IS-CONFIRM-T", "InputStageUnit.WaitForUserConfirmAsync",
                             "User confirm StageT correction failed. result=" + moveResult + ", alarm=" + StageT.IsAlarm);
                         result.IsConfirmed = false;
                         return result;
@@ -2239,7 +2239,7 @@ namespace QMC.CDT320
         //    try
         //    {
         //        if (CurrentWaferMap == null)
-        //            return RaiseStageAlarm(AlarmSeverity.Warning, "IS-PICK-MAP", "InputStageUnit.MultiScanAndPickupAsync", "맵 데이터 없음.");
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICK-MAP", "InputStageUnit.MultiScanAndPickupAsync", "맵 데이터 없음.");
 
         //        WaferMapData map       = CurrentWaferMap;
         //        int          totalDies = map.RowCount * map.ColumnCount;

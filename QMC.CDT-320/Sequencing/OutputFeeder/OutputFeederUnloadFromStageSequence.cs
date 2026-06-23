@@ -20,6 +20,7 @@ namespace QMC.CDT320.Sequencing
         EnsureOutputStageUnclamp,
         EnsureOutputStageClampLiftDown,
         VerifyOutputStageUnloadReady,
+        EnsureFeederLiftDownAtStart,
         VerifyFeederReadyAtAvoid,
         PrepareFeederUnclamp,
         PrepareFeederLiftUp,
@@ -102,6 +103,10 @@ namespace QMC.CDT320.Sequencing
                     // 아웃풋 스테이지 언로드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady:
                         return Task.FromResult(VerifyOutputStageUnloadReady());
+
+                    // 피더 시작 위치 리프트 다운 정규화
+                    case OutputFeederUnloadFromStageStep.EnsureFeederLiftDownAtStart:
+                        return EnsureFeederLiftDownAtStartAsync(ct);
 
                     // 피더 어보이드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid:
@@ -323,8 +328,63 @@ namespace QMC.CDT320.Sequencing
                     "Output stage bin guide must be unclamped before feeder starts stage unload. side=" + Options.Side + ", " +
                     Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureFeederLiftDownAtStart;
             return 0;
+        }
+
+        private async Task<int> EnsureFeederLiftDownAtStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!IsFeederReadyForStageUnloadStart())
+                    return Fail("OUT-FEEDER-AVOID-CHECK", Feeder.Name,
+                        "Output feeder lift down 전 위치 확인 실패. Stage unload 시작 전에는 Feeder가 Avoid 또는 StageUnloadAvoid 위치여야 합니다. side=" + Options.Side + ", " +
+                        Feeder.DescribeBinFeederYMoveDoneState());
+
+                if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
+                    return Fail("OUT-FEEDER-LIFT-DOWN-SAFE-CHECK", Feeder.Name,
+                        "Output feeder lift down 전 자재 감지 상태가 안전하지 않습니다. side=" + Options.Side + ", " +
+                        Feeder.DescribeFeederCylinderState());
+
+                if (Feeder.IsFeederOverload())
+                    return Fail("OUT-FEEDER-LIFT-DOWN-SAFE-CHECK", Feeder.Name,
+                        "Output feeder lift down 전 과부하 센서가 감지되었습니다. side=" + Options.Side + ", " +
+                        Feeder.DescribeFeederCylinderState());
+
+                if (Feeder.IsFeederDown())
+                {
+                    CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
+                    return 0;
+                }
+
+                int result = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-LIFT-DOWN-START", Feeder.Name,
+                        "Stage unload 시작 전 Output feeder lift down 명령 실패. side=" + Options.Side +
+                        ", result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+
+                if (!Feeder.IsFeederDown())
+                    return Fail("OUT-FEEDER-LIFT-DOWN-START", Feeder.Name,
+                        "Stage unload 시작 전 Output feeder lift down 최종 확인 실패. side=" + Options.Side +
+                        ", " + Feeder.DescribeFeederCylinderState());
+
+                CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-LIFT-DOWN-START-EX", Feeder != null ? Feeder.Name : "BinFeederUnit",
+                    "Stage unload 시작 전 Output feeder lift down 처리 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int VerifyFeederReadyAtAvoid()

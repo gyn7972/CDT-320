@@ -413,7 +413,7 @@ namespace QMC.CDT320.Sequencing
                     return completeResult;
 
                 string reason = "입력 카세트에서 작업 가능한 Ready 웨이퍼 슬롯을 찾을 수 없습니다. 카세트 매핑 상태와 슬롯의 Process 상태를 확인하세요.";
-                AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-IN-NO-READY-WAFER", "InputSequence", reason);
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-IN-NO-READY-WAFER", "InputSequence", reason);
                 return StopAutoSequence(reason);
             }
             catch (SequenceStopException)
@@ -1441,7 +1441,7 @@ namespace QMC.CDT320.Sequencing
                 message = SequenceFailureStore.AppendRecentDetail(message, "InputSequence", alarmCode);
                 SequenceFailureStore.Record("InputSequence", Kind.ToString(), "", alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 LogPublic("[UNIT-INPUT-LOADER] FAIL " + alarmCode + " - " + message);
             }
             catch (Exception ex)

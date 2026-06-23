@@ -65,8 +65,8 @@ namespace QMC.CDT320.Interlocks
 
             if (stage != null)
             {
-                if (!IsInputStageYAtLoadOrUnload(stage))
-                    return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
+                //if (!IsInputStageYAtLoadOrUnload(stage))
+                //    return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
                 if (!IsInputStageTAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageT must be at Loading or Unloading position.", out reason);

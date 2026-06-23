@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -158,9 +159,19 @@ namespace QMC.CDT320.Sequencing
 
                 if (completed.IsFaulted)
                 {
-                    AbortChildren();
-                    await AwaitPendingAfterAbortAsync(pending).ConfigureAwait(false);
                     Exception ex = completed.Exception != null ? completed.Exception.GetBaseException() : null;
+                    if (HasCriticalActiveAlarm())
+                    {
+                        AbortChildren();
+                        await AwaitPendingAfterAbortAsync(pending).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        _ctx.RequestCycleStop();
+                        _ctx.LogPublic("[SEQ] 유닛 알람 발생. 다른 유닛은 현재 작업 경계에서 정지합니다.");
+                        await AwaitPendingAfterCycleStopAsync(pending).ConfigureAwait(false);
+                    }
+
                     if (ex != null)
                         throw ex;
                     throw new InvalidOperationException("Sequence unit failed.");
@@ -208,6 +219,124 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task AwaitPendingAfterCycleStopAsync(List<Task> pending)
+        {
+            if (pending == null || pending.Count == 0)
+                return;
+
+            try
+            {
+                Task allPending = Task.WhenAll(pending);
+                while (!allPending.IsCompleted)
+                {
+                    Task logDelay = Task.Delay(AbortPendingWaitLogIntervalMs);
+                    Task completed = await Task.WhenAny(allPending, logDelay).ConfigureAwait(false);
+                    if (completed == allPending)
+                        break;
+
+                    _ctx.LogPublic("[SEQ] Cycle Stop 경계까지 남은 시퀀스가 정리되는 중입니다. pending=" +
+                                   pending.Count);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                        "Sequence pending wait still running after unit alarm. pending=" + pending.Count +
+                        ", intervalMs=" + AbortPendingWaitLogIntervalMs + " - Wait");
+                }
+
+                await allPending.ConfigureAwait(false);
+                _ctx.LogPublic("[SEQ] 유닛 알람 이후 남은 시퀀스가 작업 경계에서 정리되었습니다.");
+            }
+            catch (OperationCanceledException)
+            {
+                _ctx.LogPublic("[SEQ] Cycle Stop 대기 중 남은 시퀀스가 취소되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                _ctx.LogPublic("[SEQ] Cycle Stop 대기 중 추가 유닛 알람이 발생했습니다. error=" + ex.Message);
+                QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                    "Sequence pending wait after unit alarm failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasCriticalActiveAlarm()
+        {
+            try
+            {
+                if (AlarmManager.HighestActiveSeverity == AlarmSeverity.Critical)
+                    return true;
+
+                foreach (AlarmRecord alarm in AlarmManager.Active)
+                {
+                    if (IsCriticalMotionOrInterlockAlarm(alarm))
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsCriticalMotionOrInterlockAlarm(AlarmRecord alarm)
+        {
+            try
+            {
+                if (alarm == null)
+                    return false;
+
+                string code = alarm.Code ?? "";
+                string message = alarm.Message ?? "";
+
+                if (IsExactOrPrefix(code, "E-STOP") ||
+                    Contains(code, "INTERLOCK") ||
+                    Contains(code, "LIMIT"))
+                    return true;
+
+                if (code.StartsWith("AX-MOVE", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-HOME", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-JOG", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-SOFT-LIMIT", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("LIMIT-", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (Contains(code, "MOVE") &&
+                    (Contains(message, "alarm=True") ||
+                     Contains(message, "alarm=ON") ||
+                     Contains(message, "알람=ON") ||
+                     Contains(message, "Axis alarm is ON") ||
+                     Contains(message, "축 알람이 ON")))
+                    return true;
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool Contains(string value, string text)
+        {
+            return (value ?? "").IndexOf(text ?? "", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsExactOrPrefix(string value, string token)
+        {
+            value = value ?? "";
+            token = token ?? "";
+            return value.Equals(token, StringComparison.OrdinalIgnoreCase) ||
+                   value.StartsWith(token + "-", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>실행 중인 모든 하위 유닛 시퀀스를 중단합니다.</summary>

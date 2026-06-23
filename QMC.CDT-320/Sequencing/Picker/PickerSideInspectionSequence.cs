@@ -243,18 +243,20 @@ namespace QMC.CDT320.Sequencing
 
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "SideInspection");
 
-                if (Options != null && Options.EnterSideFromBottomInspection)
+                if (Options != null &&
+                    (Options.EnterSideFromBottomInspection || Options.KeepZUntilSideInspectionComplete))
                 {
                     WriteLog("PickerSideInspectionSequence",
-                        Name + " Auto 연속 검사 진입으로 Side 시작 전 전체 PickerZ Avoid를 생략합니다. " +
-                        "pickerNo=" + Options.RestrictToPickerNo + " - Ok");
+                        Name + " Bottom->Side 연속 검사를 위해 Side 진입 전 PickerZ 전체 Avoid 이동을 생략합니다. " +
+                        "enterFromBottom=" + Options.EnterSideFromBottomInspection +
+                        ", keepZUntilSideComplete=" + Options.KeepZUntilSideInspectionComplete + " - Ok");
+                    CurrentStep = PickerSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
+                    return 0;
                 }
-                else
-                {
-                    result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
+
+                result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = PickerSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
                 return 0;
@@ -446,11 +448,7 @@ namespace QMC.CDT320.Sequencing
             if (canKeepInspectionY && (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY)))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
-            int result = await MovePickerAxesAndVerifyAsync(
-                targets,
-                "side inspection X/Y",
-                ct,
-                BuildSideMoveTargetName()).ConfigureAwait(false);
+            int result = await MoveSideXAndVision0PositionAsync(targets, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -478,6 +476,54 @@ namespace QMC.CDT320.Sequencing
                 phase += ";InspectionContinuous;From=Bottom;To=Side";
 
             return targetName + phase;
+        }
+
+        private async Task<int> MoveSideXAndVision0PositionAsync(
+            IDictionary<PickerAxis, double> pickerTargets,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task<int> pickerTask = MovePickerAxesAndVerifyAsync(
+                    pickerTargets,
+                    "side inspection X/Y",
+                    ct,
+                    BuildSideMoveTargetName());
+
+                Task<int> visionTask = IsSideVisionProcessPositionReady(0)
+                    ? Task.FromResult(0)
+                    : MoveSideVisionProcess0PositionAsync(ct);
+
+                int[] results = await Task.WhenAll(pickerTask, visionTask).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail(
+                        "PICKER-SIDE-X-VISION0-PARALLEL",
+                        Name,
+                        "Side 0도 진입 X/Y와 SideVisionY 0도 병렬 이동 실패. " +
+                        "pickerResult=" + results[0] +
+                        ", visionResult=" + results[1] +
+                        ", pickerNo=" + _currentPickerNo);
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "PICKER-SIDE-X-VISION0-PARALLEL-EX",
+                    Name,
+                    "Side 0도 진입 X/Y와 SideVisionY 0도 병렬 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveSideYToInspectionAsync(CancellationToken ct)
@@ -547,9 +593,12 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            result = await MoveSideVisionProcess0PositionAsync(ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            if (!IsSideVisionProcessPositionReady(0))
+            {
+                result = await MoveSideVisionProcess0PositionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
 
             CurrentStep = PickerSideInspectionStep.RequestSide0Inspection;
             return 0;
@@ -557,12 +606,6 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RequestSide0InspectionAsync(CancellationToken ct)
         {
-            int pendingResult = await StartPendingT0ReturnCommandAsync(
-                "다음 Picker Side 0도 검사 중 이전 PickerT 0도 복귀",
-                ct).ConfigureAwait(false);
-            if (pendingResult != 0)
-                return pendingResult;
-
             _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
             if (_side0Result == null)
             {
@@ -578,21 +621,59 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideT90Async(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(
-                GetPickerTAxis(_currentPickerIndex),
-                _targetPickerT90,
-                "side inspection T 90deg",
-                ct,
-                BuildSideMoveTargetName()).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            result = await MoveSideVisionProcess90PositionAsync(ct).ConfigureAwait(false);
+            int result = await MoveSideT90AndVision90PositionAsync(ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             CurrentStep = PickerSideInspectionStep.RequestSide90Inspection;
             return 0;
+        }
+
+        private async Task<int> MoveSideT90AndVision90PositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task<int> pickerTask = MovePickerAxisAndVerifyAsync(
+                    GetPickerTAxis(_currentPickerIndex),
+                    _targetPickerT90,
+                    "side inspection T 90deg",
+                    ct,
+                    BuildSideMoveTargetName());
+
+                Task<int> visionTask = IsSideVisionProcessPositionReady(90)
+                    ? Task.FromResult(0)
+                    : MoveSideVisionProcess90PositionAsync(ct);
+
+                int[] results = await Task.WhenAll(pickerTask, visionTask).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    return Fail(
+                        "PICKER-SIDE-T90-VISION90-PARALLEL",
+                        Name,
+                        "Side 90도 PickerT와 SideVisionY 90도 병렬 이동 실패. " +
+                        "pickerResult=" + results[0] +
+                        ", visionResult=" + results[1] +
+                        ", pickerNo=" + _currentPickerNo);
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "PICKER-SIDE-T90-VISION90-PARALLEL-EX",
+                    Name,
+                    "Side 90도 PickerT와 SideVisionY 90도 병렬 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> RequestSide90InspectionAsync(CancellationToken ct)
@@ -655,6 +736,27 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-SIDE-VISION-POSITION-EX", "Vision",
                     "Side 검사 카메라 " + angleDeg + "도 티칭 위치 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsSideVisionProcessPositionReady(int angleDeg)
+        {
+            try
+            {
+                VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
+                if (vision == null)
+                    return false;
+
+                string positionName = angleDeg == 90 ? "Process90Position" : "Process0Position";
+                return vision.IsVisionAxisInTeachingPosition(VisionAxis.FrontSideVisionY, positionName) &&
+                       vision.IsVisionAxisInTeachingPosition(VisionAxis.RearSideVisionY, positionName);
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -824,20 +926,6 @@ namespace QMC.CDT320.Sequencing
 
         private void QueuePendingT0Return(int pickerIndex, double target)
         {
-            PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-            if (IsPickerAxisInPosition(tAxis, target))
-                return;
-
-            for (int i = 0; i < _pendingT0Returns.Count; i++)
-            {
-                if (_pendingT0Returns[i].PickerIndex == pickerIndex)
-                {
-                    _pendingT0Returns[i].Target = target;
-                    _pendingT0Returns[i].MoveTask = null;
-                    return;
-                }
-            }
-
             _pendingT0Returns.Add(new PendingT0Return
             {
                 PickerIndex = pickerIndex,
@@ -845,9 +933,9 @@ namespace QMC.CDT320.Sequencing
             });
 
             WriteLog("PickerSideInspectionSequence",
-                Name + " Side 90도 검사 완료 후 PickerT 0도 복귀를 다음 검사 동작과 겹치도록 예약했습니다. " +
-                "pickerNo=" + ToPickerNo(pickerIndex) +
-                ", target=" + target.ToString("F3") + " - Ok");
+                Name + " Side 검사 완료 후 PickerT 0도 복귀를 생략합니다. " +
+                "Side 90도 위치를 유지합니다. pickerNo=" + ToPickerNo(pickerIndex) +
+                ", target0=" + target.ToString("F3") + " - Ok");
         }
 
         private bool HasPendingT0Return()
@@ -1010,10 +1098,7 @@ namespace QMC.CDT320.Sequencing
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
                 if (HasPendingT0Return())
-                {
-                    CurrentStep = PickerSideInspectionStep.MoveSideTToSafe;
-                    return 0;
-                }
+                    ClearPendingT0Return();
 
                 if (Options != null && Options.KeepZUntilSideInspectionComplete)
                 {

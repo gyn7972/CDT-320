@@ -581,7 +581,7 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         private static int RaiseBlocked(string reason)
         {
-            AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X", "SharedRailX", reason);
+            AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X", "SharedRailX", reason);
             return -11;
         }
 
@@ -695,7 +695,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                 catch (Exception ex)
                 {
                     AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                        AlarmSeverity.Error,
                         "SHARED-RAIL-X-MOVE-GUARD",
                         "SharedRailX",
                         "SharedRailX 실시간 감시 취소 중 예외가 발생했습니다. plan=" +
@@ -768,7 +768,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                                 Interlocked.Exchange(ref _blocked, 1);
                                 StopSharedRailAxes();
                                 AlarmManager.Raise(
-                                    AlarmSeverity.Warning,
+                                    AlarmSeverity.Error,
                                     "SHARED-RAIL-X-MOVE-GUARD",
                                     "SharedRailX",
                                     "plan=" + _planName + ". " + reason);
@@ -783,7 +783,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                 catch (Exception ex)
                 {
                     AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                        AlarmSeverity.Error,
                         "SHARED-RAIL-X-MOVE-GUARD",
                         "SharedRailX",
                         "SharedRailX real-time guard exception. plan=" + _planName + ", message=" + ex.Message);

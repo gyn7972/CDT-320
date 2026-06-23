@@ -13,12 +13,14 @@
         private System.Windows.Forms.Label lblSimulationMode;
         private System.Windows.Forms.Label lblDryRunMode;
         private System.Windows.Forms.Label lblDeveloperMode;
+        private System.Windows.Forms.Label lblPickerMotionOnlyTestMode;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
         private System.Windows.Forms.ComboBox _cbSimulationMode;
         private System.Windows.Forms.ComboBox _cbDryRunMode;
         private System.Windows.Forms.ComboBox _cbDeveloperMode;
+        private System.Windows.Forms.ComboBox _cbPickerMotionOnlyTestMode;
         private System.Windows.Forms.GroupBox grpAjin;
         private System.Windows.Forms.TableLayoutPanel ajinLayout;
         private System.Windows.Forms.CheckBox _cbAjin;
@@ -43,12 +45,14 @@
             this.lblSimulationMode = new System.Windows.Forms.Label();
             this.lblDryRunMode = new System.Windows.Forms.Label();
             this.lblDeveloperMode = new System.Windows.Forms.Label();
+            this.lblPickerMotionOnlyTestMode = new System.Windows.Forms.Label();
             this._cbLang = new System.Windows.Forms.ComboBox();
             this._cbBinArr = new System.Windows.Forms.ComboBox();
             this._cbVisionMatch = new System.Windows.Forms.ComboBox();
             this._cbSimulationMode = new System.Windows.Forms.ComboBox();
             this._cbDryRunMode = new System.Windows.Forms.ComboBox();
             this._cbDeveloperMode = new System.Windows.Forms.ComboBox();
+            this._cbPickerMotionOnlyTestMode = new System.Windows.Forms.ComboBox();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
@@ -73,7 +77,7 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
@@ -103,25 +107,28 @@
             this.bodyLayout.Controls.Add(this.lblSimulationMode, 0, 3);
             this.bodyLayout.Controls.Add(this.lblDryRunMode, 0, 4);
             this.bodyLayout.Controls.Add(this.lblDeveloperMode, 0, 5);
+            this.bodyLayout.Controls.Add(this.lblPickerMotionOnlyTestMode, 0, 6);
             this.bodyLayout.Controls.Add(this._cbLang, 1, 0);
             this.bodyLayout.Controls.Add(this._cbBinArr, 1, 1);
             this.bodyLayout.Controls.Add(this._cbVisionMatch, 1, 2);
             this.bodyLayout.Controls.Add(this._cbSimulationMode, 1, 3);
             this.bodyLayout.Controls.Add(this._cbDryRunMode, 1, 4);
             this.bodyLayout.Controls.Add(this._cbDeveloperMode, 1, 5);
+            this.bodyLayout.Controls.Add(this._cbPickerMotionOnlyTestMode, 1, 6);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(8, 40);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.bodyLayout.Name = "bodyLayout";
             this.bodyLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.bodyLayout.RowCount = 6;
+            this.bodyLayout.RowCount = 7;
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.Size = new System.Drawing.Size(1662, 252);
+            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.bodyLayout.Size = new System.Drawing.Size(1662, 292);
             this.bodyLayout.TabIndex = 1;
             // 
             // lblLanguage
@@ -208,6 +215,20 @@
             this.lblDeveloperMode.Text = "DEVELOPER MODE";
             this.lblDeveloperMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
+            // lblPickerMotionOnlyTestMode
+            //
+            this.lblPickerMotionOnlyTestMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.lblPickerMotionOnlyTestMode.Location = new System.Drawing.Point(10, 250);
+            this.lblPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
+            this.lblPickerMotionOnlyTestMode.Name = "lblPickerMotionOnlyTestMode";
+            this.lblPickerMotionOnlyTestMode.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblPickerMotionOnlyTestMode.Size = new System.Drawing.Size(176, 36);
+            this.lblPickerMotionOnlyTestMode.TabIndex = 12;
+            this.lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
+            this.lblPickerMotionOnlyTestMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // _cbLang
             // 
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -273,13 +294,24 @@
             this._cbDeveloperMode.Name = "_cbDeveloperMode";
             this._cbDeveloperMode.Size = new System.Drawing.Size(1462, 23);
             this._cbDeveloperMode.TabIndex = 11;
+            //
+            // _cbPickerMotionOnlyTestMode
+            //
+            this._cbPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbPickerMotionOnlyTestMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._cbPickerMotionOnlyTestMode.Location = new System.Drawing.Point(190, 250);
+            this._cbPickerMotionOnlyTestMode.Margin = new System.Windows.Forms.Padding(2);
+            this._cbPickerMotionOnlyTestMode.Name = "_cbPickerMotionOnlyTestMode";
+            this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(1462, 23);
+            this._cbPickerMotionOnlyTestMode.TabIndex = 13;
             // 
             // grpAjin
             // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpAjin.Location = new System.Drawing.Point(8, 300);
+            this.grpAjin.Location = new System.Drawing.Point(8, 340);
             this.grpAjin.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpAjin.Name = "grpAjin";
             this.grpAjin.Padding = new System.Windows.Forms.Padding(8);

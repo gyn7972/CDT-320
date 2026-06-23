@@ -181,8 +181,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             // AVOID — 전체 축의 avoid 위치
             optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X INPUT", "K_AVOID");
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X OUTPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X INPUT-SIDE AVOID", "K_AVOID",
+                "InputAvoidPosition은 Input 카메라 위치가 아니라 Rear Picker X가 Input 영역 간섭을 피하기 위해 이동하는 회피 위치입니다.");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X OUTPUT-SIDE AVOID", "K_AVOID",
+                "OutputAvoidPosition은 Output 카메라 위치가 아니라 Rear Picker X가 Output 영역 간섭을 피하기 위해 이동하는 회피 위치입니다.");
             AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER X", "K_AVOID");
             AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER Y", "K_AVOID");
             for (int i = 0; i < tzKeys.Length; i++)
@@ -253,6 +255,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.Config.PickUp = pickUp = new PickerPickUpMotionConfig();
 
             pickUp.Ensure();
+            items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDistance, v => pickUp.PickerZSyncLiftDistance = Math.Max(0.0, v)), groupKey));
@@ -303,7 +306,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return item;
         }
 
-        private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit, string memberDisplay, string groupKey)
+        private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit, string memberDisplay, string groupKey, string description = "")
         {
             string display = axisName + " " + displaySuffix;
             PositionItem posItem = new PositionItem { DisplayName = display, Axis = axis, PositionName = positionName };
@@ -325,6 +328,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
             item.GroupKey = groupKey;
+            item.Description = description ?? string.Empty;
             items.Add(item);
         }
 

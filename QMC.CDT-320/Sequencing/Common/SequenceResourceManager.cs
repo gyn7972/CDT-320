@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,7 +57,7 @@ namespace QMC.CDT320.Sequencing
                     if (raiseAlarmOnTimeout)
                     {
                         Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Blocked");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-RESOURCE-TIMEOUT", safeHolder, message);
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-RESOURCE-TIMEOUT", safeHolder, message);
                     }
                     return null;
                 }
@@ -79,7 +79,7 @@ namespace QMC.CDT320.Sequencing
                 string message = resource + " resource acquire failed. holder=" + safeHolder +
                                  ", error=" + ex.Message;
                 Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-RESOURCE-EX", safeHolder, message);
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-RESOURCE-EX", safeHolder, message);
                 return null;
             }
             finally
