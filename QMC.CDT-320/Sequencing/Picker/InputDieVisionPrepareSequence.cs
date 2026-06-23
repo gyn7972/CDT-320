@@ -16,6 +16,7 @@ namespace QMC.CDT320.Sequencing
 
         private readonly List<int> _enabledPickerIndexes;
         private readonly List<InputDieVisionPreparedItem> _preparedItems = new List<InputDieVisionPreparedItem>();
+        private readonly HashSet<int> _preInspectionOccupiedPickerNos = new HashSet<int>();
         private int _inspectionCursor;
         private int _currentPickerIndex = -1;
         private int _currentPickerNo;
@@ -145,6 +146,7 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 _preparedItems.Clear();
+                _preInspectionOccupiedPickerNos.Clear();
                 _inspectionCursor = 0;
                 ClearCurrentContext();
 
@@ -155,6 +157,16 @@ namespace QMC.CDT320.Sequencing
                     int pickerNo = ToPickerNo(pickerIndex);
 
                     DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (loadedDie != null && IsInputCameraPreInspectionMode())
+                    {
+                        _preInspectionOccupiedPickerNos.Add(pickerNo);
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputCamera 선행검사 모드: Picker가 Die를 들고 있지만 다음 PickUp 대상 예약을 허용합니다. " +
+                            "pickerNo=" + pickerNo +
+                            ", pickerIndex=" + pickerIndex +
+                            ", loadedDie=" + loadedDie.DieId + " - Check");
+                        loadedDie = null;
+                    }
                     if (loadedDie != null)
                     {
                         occupiedPickerCount++;
@@ -253,6 +265,16 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
+                if (loadedDie != null && IsInputCameraPreInspectionMode())
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " InputCamera 선행검사 모드: Picker 적재 상태를 유지하고 예약 Die 검사를 계속합니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", loadedDie=" + loadedDie.DieId +
+                        ", reservedDie=" + _currentDieId +
+                        ", side=" + Side + " - Check");
+                    loadedDie = null;
+                }
                 if (loadedDie != null)
                 {
                     return Fail("INPUT-DIE-VISION-PREPARE-PICKER-OCCUPIED", "Material",
@@ -298,6 +320,37 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("InputDieVisionPrepareSequence",
                         Name + " Picker Motion Only Test 모드: InputVisionX 이동 전 Picker Avoid 동작을 생략합니다. die=" +
                         _currentDieId + ", pickerNo=" + _currentPickerNo + " - Check");
+                    CurrentStep = InputDieVisionPrepareStep.MoveInputStageAndVisionToDie;
+                    return 0;
+                }
+
+                if (IsInputCameraPreInspectionMode())
+                {
+                    if (_preInspectionOccupiedPickerNos.Contains(_currentPickerNo))
+                    {
+                        int waitResult = await WaitPickerInputZonesClearForPreInspectionAsync(ct).ConfigureAwait(false);
+                        if (waitResult != 0)
+                            return waitResult;
+
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputCamera 선행검사 모드: Die를 들고 있는 picker는 이동하지 않고 InputVision 검사만 진행합니다. " +
+                            "pickerNo=" + _currentPickerNo + ", die=" + _currentDieId + " - Check");
+                    }
+                    else
+                    {
+                        int avoidResult = await MoveCurrentPickerToAvoidAndVerifyAsync(
+                            "InputCamera 선행검사 전 빈 Picker Avoid",
+                            ct).ConfigureAwait(false);
+                        if (avoidResult != 0)
+                            return avoidResult;
+
+                        avoidResult = await WaitOppositePickerInputZoneClearAsync(
+                            "InputCamera 선행검사 전 상대 Picker Input 영역 확인",
+                            ct).ConfigureAwait(false);
+                        if (avoidResult != 0)
+                            return avoidResult;
+                    }
+
                     CurrentStep = InputDieVisionPrepareStep.MoveInputStageAndVisionToDie;
                     return 0;
                 }
@@ -515,6 +568,73 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private async Task<int> WaitPickerInputZonesClearForPreInspectionAsync(CancellationToken ct)
+        {
+            try
+            {
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".PreInspectionInputZoneWait");
+
+                    string ownDetail;
+                    bool ownBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        Side == PickerSequenceSide.Front,
+                        PickerWorkZone.Input,
+                        out ownDetail);
+
+                    string oppositeDetail;
+                    bool oppositeBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        Side != PickerSequenceSide.Front,
+                        PickerWorkZone.Input,
+                        out oppositeDetail);
+
+                    if (!ownBlocking && !oppositeBlocking)
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 Input 영역 대기 완료. side=" + Side + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputCamera 선행검사 대기. Picker Input 영역이 비워질 때까지 기다립니다. " +
+                            "side=" + Side +
+                            ", ownBlocking=" + ownBlocking +
+                            ", ownDetail=" + ownDetail +
+                            ", oppositeBlocking=" + oppositeBlocking +
+                            ", oppositeDetail=" + oppositeDetail + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-PRE-INSPECTION-WAIT-EX", Name,
+                    "InputCamera 선행검사 Input 영역 대기 중 예외가 발생했습니다. error=" + ex.Message);
             }
         }
 
@@ -948,6 +1068,13 @@ namespace QMC.CDT320.Sequencing
                 return true;
 
             return IsPickerSimulationOrDryRun();
+        }
+
+        private bool IsInputCameraPreInspectionMode()
+        {
+            return Options != null &&
+                   Options.RunMode == SequenceRunMode.Auto &&
+                   Options.InputCameraPreInspectionMode;
         }
 
         private async Task<int> MoveInputStageVisionPointForPickerAsync(

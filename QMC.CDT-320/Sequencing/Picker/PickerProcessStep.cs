@@ -4,6 +4,7 @@ namespace QMC.CDT320.Sequencing
     {
         Idle,
         CheckUnit,
+        RunInputCameraMarkInspection,
         RunPickUp,
         RunBottomInspection,
         RunSideInspection,

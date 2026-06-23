@@ -91,11 +91,11 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 // 2. Wafer Feeder Unclamp == true
-                if (!feeder.IsWaferFeederUnclamp())
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        movingName + " 이동 불가: Wafer Feeder가 Unclamp 상태가 아닙니다.",
-                        out reason);
+                //if (!feeder.IsWaferFeederUnclamp())
+                //    return MotionGuardRuleHelpers.Block(
+                //        movingName,
+                //        movingName + " 이동 불가: Wafer Feeder가 Unclamp 상태가 아닙니다.",
+                //        out reason);
 
                 // 3. Wafer Feeder Overload == false
                 if (feeder.IsWaferFeederOverload())
