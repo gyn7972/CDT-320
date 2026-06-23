@@ -404,7 +404,7 @@ namespace QMC.CDT320.Sequencing
             if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
-            int result = await MovePickerAxesAndVerifyAsync(
+            int result = await MovePickerXTThenYAndVerifyAsync(
                 targets,
                 "bottom inspection X/Y",
                 ct,

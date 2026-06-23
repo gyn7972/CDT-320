@@ -446,10 +446,9 @@ namespace QMC.CDT320.Sequencing
                 return await MoveSideEntryYToAvoidAsync(ct).ConfigureAwait(false);
             }
 
-            bool canKeepInspectionY = enterFromBottom || currentXInSideZone || IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
-            if (canKeepInspectionY && (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY)))
+            if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
             int result = await MoveSideXAndVision0PositionAsync(targets, ct).ConfigureAwait(false);
@@ -490,7 +489,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                Task<int> pickerTask = MovePickerAxesAndVerifyAsync(
+                Task<int> pickerTask = MovePickerXTThenYAndVerifyAsync(
                     pickerTargets,
                     "side inspection X/Y",
                     ct,

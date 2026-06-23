@@ -753,7 +753,7 @@ namespace QMC.CDT320.Sequencing
 
             AddLoadedPickerTPlaceTargets(targets);
 
-            int result = await MovePickerAxesAndVerifyAsync(
+            int result = await MovePickerXTThenYAndVerifyAsync(
                 targets,
                 "place picker X/Y/T",
                 ct,
@@ -777,7 +777,7 @@ namespace QMC.CDT320.Sequencing
                 _targetOutputStageY,
                 "output stage receive Y",
                 ct);
-            Task<int> pickerMove = MovePickerAxesAndVerifyAsync(
+            Task<int> pickerMove = MovePickerXTThenYAndVerifyAsync(
                 pickerTargets,
                 "place picker X/Y/T",
                 ct,
