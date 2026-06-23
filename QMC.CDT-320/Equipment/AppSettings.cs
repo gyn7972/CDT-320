@@ -48,6 +48,10 @@ namespace QMC.CDT320
         /// <summary>앱 시작 시 자동 연결 시도 여부.</summary>
         [DataMember] public bool   VisionAutoConnect    { get; set; } = true;
 
+        /// <summary>비전 사용 여부. false 면 핸들러가 Vision PC 에 연결하지 않고, 자동 시퀀스의 GRAB/MATCH/INSPECT 는
+        /// 통과 처리(bypass)하여 비전 없이도 동작한다(시뮬/DryRun 바이패스와 동일 경로). 기본 true.</summary>
+        [DataMember] public bool   UseVision            { get; set; } = true;
+
         // ── Barcode link (CDT-310 매뉴얼 사양 — Serial Port 4/6) ──
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
         [DataMember] public int    WaferBarcodeSerialPort { get; set; } = 4;
@@ -71,6 +75,14 @@ namespace QMC.CDT320
         /// 실장비 생산용 안전 인터락은 우회하지 않는다.
         /// </summary>
         [DataMember] public bool   PickerMotionOnlyTestMode { get; set; } = false;
+
+        // DataContractJsonSerializer 는 필드 이니셜라이저를 실행하지 않으므로, 구 settings.json 에 없는
+        // 신규 키는 여기서 기본값을 심는다(없으면 false 로 로드되어 의도치 않게 비전이 꺼지는 문제 방지).
+        [OnDeserializing]
+        internal void OnDeserializing(StreamingContext ctx)
+        {
+            UseVision = true;
+        }
 
         public bool BypassHardware => SimulationMode;
     }

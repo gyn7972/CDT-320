@@ -589,7 +589,8 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun())
+                // 시뮬/DryRun(실제 비전 PC 없음) 또는 비전 미사용(UseVision=false) — 합성 결과로 통과.
+                if (IsPickerSimulationOrDryRun() || IsVisionBypassed())
                     return SimulateBottomInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -651,7 +652,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsPickerSimulationOrDryRun())
+                if (IsPickerSimulationOrDryRun() || IsVisionBypassed())
                     return SimulateSideInspectionResult(pickerNo);
 
                 if (vision == null)
@@ -1666,6 +1667,13 @@ namespace QMC.CDT320
             return (settings != null && (settings.BypassHardware || settings.DryRunMode)) ||
                    (Config != null && Config.IsSimulationMode) ||
                    (Setup != null && Setup.IsSimulationMode);
+        }
+
+        /// <summary>비전 미사용(UseVision=false) — 시뮬과 동일하게 합성 결과로 통과(Vision 연결 불필요). 모션/IO 체크에는 영향 없음.</summary>
+        private bool IsVisionBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
         }
 
         private bool ShouldBypassHardwareInputChecks()

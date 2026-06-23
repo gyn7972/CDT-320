@@ -172,7 +172,7 @@ namespace QMC.CDT320.VisionComm
         private static bool IsVisionLinkBypassed()
         {
             var settings = AppSettingsStore.Current;
-            return settings != null && (settings.SimulationMode || settings.DryRunMode || settings.BypassHardware);
+            return settings != null && (settings.SimulationMode || settings.DryRunMode || settings.BypassHardware || !settings.UseVision);
         }
     }
 }
