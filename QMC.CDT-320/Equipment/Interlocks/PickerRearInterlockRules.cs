@@ -168,11 +168,23 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!CanHomeRearPickerY(machine, out reason))
+            if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                 return false;
 
             if (!VerifyReticleCylinderClear(machine, "RearPickerY", out reason))
                 return false;
+
+            PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+            OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+            if (RequiresOutputStageZSafeForPickerY(targetZone) &&
+                outputStage != null &&
+                !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerY",
+                    "RearPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
 
             if (!PickerZoneInterlockRules.VerifyRearPickerYMove(request, out reason))
                 return false;
@@ -438,6 +450,12 @@ namespace QMC.CDT320.Interlocks
         private static bool RequiresInputStageZSafe(PickerWorkZone targetZone)
         {
             return targetZone == PickerWorkZone.Input ||
+                   targetZone == PickerWorkZone.Unknown;
+        }
+
+        private static bool RequiresOutputStageZSafeForPickerY(PickerWorkZone targetZone)
+        {
+            return targetZone == PickerWorkZone.Output ||
                    targetZone == PickerWorkZone.Unknown;
         }
 
