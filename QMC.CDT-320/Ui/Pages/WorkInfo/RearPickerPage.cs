@@ -52,7 +52,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 actionPanel.Controls);
 
             VisionModuleTestDialog.AddLaunchers(
-                actionPanel.Controls, this, btnStop,
+                actionRightPanel.Controls, this, btnStop,
                 Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM INSP", () => VisionHub.Inspection, "Bottom Inspection"),
                 Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: TOP SIDE",    () => VisionHub.TopSide,    "Top Side Vision"),
                 Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM SIDE", () => VisionHub.BottomSide, "Bottom Side Vision"));

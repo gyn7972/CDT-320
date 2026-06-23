@@ -66,6 +66,58 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>
+        /// 스코프(Push)가 없는 직접 호출 경로 로그를 메시지 접두어/키워드로 시퀀스 종류로 추정한다.
+        /// <para>
+        /// 입력/출력은 소유 모듈 대괄호 접두어( [UNIT-INPUT] / [INPUT-*] / [OUTPUT] / [OUTPUT-*] )로,
+        /// 픽커는 이름( FrontPicker.../PickerFront..., RearPicker.../PickerRear... )으로 구분한다.
+        /// 어느 것에도 안 걸리면 <see cref="EventKind.Event"/>.
+        /// </para>
+        /// </summary>
+        public static EventKind ClassifyByMessage(string msg)
+        {
+            if (string.IsNullOrEmpty(msg)) return EventKind.Event;
+
+            // 1) 입력/출력 — 소유 모듈 대괄호 접두어 기준(픽커 언급이 섞여도 모듈 소유 우선)
+            if (Has(msg, "[UNIT-INPUT") || Has(msg, "[INPUT-CASSETTE]") || Has(msg, "[INPUT-FEEDER]") || Has(msg, "[INPUT-STAGE]"))
+                return EventKind.InputSeq;
+            if (Has(msg, "[UNIT-OUTPUT") || Has(msg, "[OUTPUT]") || Has(msg, "[OUTPUT-CASSETTE]") || Has(msg, "[OUTPUT-FEEDER]") || Has(msg, "[OUTPUT-STAGE]"))
+                return EventKind.OutputSeq;
+
+            // 2) 픽커 — 이름 기준
+            if (Has(msg, "FrontPicker") || Has(msg, "PickerFront"))
+                return EventKind.FrontHeadSeq;
+            if (Has(msg, "RearPicker") || Has(msg, "PickerRear"))
+                return EventKind.RearHeadSeq;
+
+            return EventKind.Event;
+        }
+
+        private static bool Has(string s, string sub) => s.IndexOf(sub, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>
+        /// 시퀀스 베이스의 <c>WriteLog</c> 헬퍼가 호출하는 이력 라우팅 진입점.
+        /// <para>
+        /// 현재 시퀀스 스코프(Push)가 있으면 그 <see cref="EventKind"/>·스텝(CODE)으로, 없으면 호출한 베이스가 넘긴
+        /// <paramref name="fallbackKind"/>(그 베이스의 고정 종류)로 <see cref="EventLogger"/> 에 기록한다. 메시지 내용
+        /// 추정에 의존하지 않으므로, WriteLog 로 남기던 시퀀스 로그가 이력 페이지(InputSeq/OutputSeq/Front·RearHeadSeq)에
+        /// 정확히 분류되어 표시된다.
+        /// </para>
+        /// </summary>
+        public static void EmitTrace(EventKind fallbackKind, string source, string message)
+        {
+            try
+            {
+                SequenceLogScope seq = _current.Value;
+                EventKind kind = seq != null ? seq.Kind : fallbackKind;
+                string code = seq != null ? seq.Step : "SEQ";
+                EventLogger.Write(kind, "SYSTEM", code, source ?? string.Empty, message ?? string.Empty);
+            }
+            catch
+            {
+            }
+        }
+
         private sealed class Pop : IDisposable
         {
             private readonly SequenceLogScope _prev;

@@ -594,12 +594,16 @@ namespace QMC.CDT_320
             Controller.OperatorMessageRequested += OnOperatorMessageRequested;
             Controller.LogMessage    += s =>
             {
-                // 시퀀스 실행 중이면 그 종류(InputSeq/OutputSeq/FrontHeadSeq/RearHeadSeq)·유닛(SOURCE)·스텝(CODE)으로 분류한다.
+                // 1순위: 시퀀스 스코프가 있으면 그 종류·유닛(SOURCE)·스텝(CODE)으로 정확히 분류.
                 var seq = QMC.CDT320.Sequencing.SequenceLog.Current;
                 if (seq != null)
+                {
                     QMC.Common.Logging.EventLogger.Write(seq.Kind, UserSession.Name, seq.Step, seq.Unit, s);
-                else
-                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
+                    return;
+                }
+                // 2순위(폴백): 스코프 없는 직접 호출 경로는 메시지 접두어로 시퀀스 종류 추정(아니면 Event).
+                var kind = QMC.CDT320.Sequencing.SequenceLog.ClassifyByMessage(s);
+                QMC.Common.Logging.EventLogger.Write(kind, UserSession.Name, "CTRL", s);
             };
             if (Program.AutoCycleCount > 0)
                 Controller.LogMessage += s => Console.WriteLine("[CTRL] " + s);

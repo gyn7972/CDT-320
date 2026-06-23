@@ -643,8 +643,26 @@ namespace QMC.Vision
                     }
                 }
                 catch { }
-                // 검출 마크(이미지 좌표) → 핸들러 오버레이.
-                try { var mk = QMC.Vision.Core.ModuleResultStore.GetMarks(mod.Name); if (mk != null) meta.Marks = mk; } catch { }
+                // 최근 MATCH 오버레이(찾은 위치/각/박스 + 검색 ROI) → 핸들러 뷰어가 영상 위에 표시.
+                try
+                {
+                    if (QMC.Vision.Core.MatchOverlayStore.TryGet(mod.Name, out var ov))
+                    {
+                        if (ov.Marks != null && ov.Marks.Length > 0)
+                        {
+                            var fm = new QMC.Common.Ui.Controls.FrameMark[ov.Marks.Length];
+                            for (int i = 0; i < ov.Marks.Length; i++)
+                            {
+                                var k = ov.Marks[i];
+                                fm[i] = new QMC.Common.Ui.Controls.FrameMark
+                                { X = k.X, Y = k.Y, Score = k.Score, Angle = k.Angle, BoxW = k.BoxW, BoxH = k.BoxH };
+                            }
+                            meta.Marks = fm;
+                        }
+                        meta.RoiX = ov.RoiX; meta.RoiY = ov.RoiY; meta.RoiW = ov.RoiW; meta.RoiH = ov.RoiH;
+                    }
+                }
+                catch { }
                 return meta;
             };
 

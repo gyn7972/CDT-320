@@ -1,6 +1,7 @@
-﻿using QMC.CDT_320.Ui.Localization;
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Sequencing;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -217,7 +218,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_InputCassetteUnit == null) return;
-
                 DialogResult result = QMC.Common.MessageDialog.Show(
                     this,
                     "Loading Move를 진행하시겠습니까?",
