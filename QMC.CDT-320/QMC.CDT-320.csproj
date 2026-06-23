@@ -76,6 +76,7 @@
     <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
     <Compile Include="Equipment\Alarms\AlarmStopScope.cs" />
     <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
+    <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
@@ -333,6 +334,7 @@
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceOptions.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequence.cs" />
@@ -591,6 +593,18 @@
     <!-- UI / Dialogs -->
     <Compile Include="Ui\Dialogs\BoardScanDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\CalibrationSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\CalibrationSetupDialog.Designer.cs">
+      <DependentUpon>CalibrationSetupDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.Designer.cs">
+      <DependentUpon>VisionCameraCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
@@ -876,6 +890,12 @@
       <DependentUpon>ForceControlPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ForceControlPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\CalibrationPage.Designer.cs">
+      <DependentUpon>CalibrationPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\CalibrationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.Designer.cs">

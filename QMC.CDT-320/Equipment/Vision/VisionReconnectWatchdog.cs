@@ -20,11 +20,13 @@ namespace QMC.CDT320.VisionComm
     {
         private const int    MaxTriesPerCycle = 3;
         private const int    RetryDelayMs     = 2000;
+        private const int    CooldownMs       = 15000;   // 알람 후, 해제 신호를 못 받아도 이 시간 뒤 자동 재시도
         private const string AlarmCode        = "VISION-RECONNECT";
         private const string Source           = "VisionReconnect";
 
         private static CancellationTokenSource _cts;
         private static volatile bool _alarmActive;
+        private static volatile bool _retrySignal;   // 알람 해제 등으로 즉시 재시도하라는 신호
         private static AlarmRecord _alarm;   // 마지막으로 올린 재연결 알람(해제용)
         private static Action _onReconnected;
 
@@ -48,6 +50,8 @@ namespace QMC.CDT320.VisionComm
 
         private static void OnAlarmCleared(AlarmRecord rec)
         {
+            // 어떤 알람이든 해제되면(작업 화면 알람 리셋 = ClearAll) 즉시 재연결을 시도하도록 깨운다.
+            _retrySignal = true;
             if (rec != null && string.Equals(rec.Code, AlarmCode, StringComparison.OrdinalIgnoreCase))
                 _alarmActive = false;
         }
@@ -83,11 +87,16 @@ namespace QMC.CDT320.VisionComm
                         continue;
                     }
 
-                    // 3회 실패 → 알람 올리고, 해제(또는 연결 회복)될 때까지 대기
-                    RaiseAlarm();
-                    while (!ct.IsCancellationRequested && _alarmActive && !VisionHub.AnyConnected)
+                    // 3회 실패 → 알람(중복 방지) 올리고, 알람 해제 / 연결 회복 / 쿨다운 중 먼저 오는 것까지 대기 후 재시도
+                    if (!_alarmActive) RaiseAlarm();
+                    _retrySignal = false;
+                    int waited = 0;
+                    while (!ct.IsCancellationRequested && !VisionHub.AnyConnected && !_retrySignal && waited < CooldownMs)
+                    {
                         await Task.Delay(500, ct).ConfigureAwait(false);
-                    // 해제되면 루프 상단으로 → 다시 3회 시도
+                        waited += 500;
+                    }
+                    // 알람 해제(또는 쿨다운/연결 회복) → 루프 상단으로 → 다시 3회 시도
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)

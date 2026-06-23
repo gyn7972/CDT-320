@@ -182,7 +182,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 bool ok = await _adapter.TriggerExposeAsync(0);
                 _lblExpose.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                _lblExpose.Text = ok ? "EXPOSE ACK (노출 완료)" : "EXPOSE 실패 / 미연결";
+                bool stillConn = VisionHub.Wafer != null && VisionHub.Wafer.IsConnected;
+                _lblExpose.Text = ok
+                    ? "EXPOSE ACK (노출 완료)"
+                    : (stillConn ? "EXPOSE 거부 — Vision 측 READY 완료/RUN 아님(Vision에서 READY→RUN 후 가능)" : "EXPOSE 실패 — 미연결");
+                // 촬상 성공 시, 그 프레임을 보려면 뷰어(5200)가 연결돼 있어야 한다 → Live 시작(클릭이 트리거).
+                if (ok) { try { _viewer?.StartLive(); } catch { } }
             }
             catch (Exception ex)
             {
