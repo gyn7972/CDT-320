@@ -670,13 +670,15 @@ namespace QMC.CDT320.Ajin
 
         public override void UpdateStatus()
         {
+
+            //Log.Write("AjinAxis", "UpdateStatus", "Updating status for AxisNo=" + AxisNo);
             if (Config.IsSimulationMode)
             {
                 base.UpdateStatus();
                 return;
             }
 
-            if (!AjinSystem.IsOpen) 
+            if (!AjinSystem.IsOpen)
                 return;
 
             double cmd = 0;
@@ -693,8 +695,6 @@ namespace QMC.CDT320.Ajin
             int servoRet;
 
             MOTION_INFO info = new MOTION_INFO();
-
-
 
             //외부 센서 및 모터 관련 신호 상태값: AXT_MOTION_QIMECHANICAL_SIGNAL_DEF 
             //    - [00001h]Bit 0, +Limit 급정지 신호 현재 상태 
@@ -739,18 +739,21 @@ namespace QMC.CDT320.Ajin
                 // 주석 확인 했으면 아래 주석 삭제 할것.
 
                 //AXM.GetCommandPosition(AxisNo, ref cmd);
-                //AXM.GetActualPosition(AxisNo, ref act);
-                //AXM.GetInMotion(AxisNo, ref mot);
-                //AXM.GetInPositionValue(AxisNo, ref inp);
+                AXM.GetActualPosition(AxisNo, ref act);
+                AXM.GetInMotion(AxisNo, ref mot);
+                AXM.GetInPositionValue(AxisNo, ref inp);
                 //AXM.GetAmpFaultValue(AxisNo, ref fault);
                 //AXM.GetPositiveLimitValue(AxisNo, ref pel);
                 //AXM.GetNegativeLimitValue(AxisNo, ref mel);
                 //AXM.GetHomeSensorValue(AxisNo, ref org);
-
+                //ApplyReadStatus(cmd, act, mot, inp, fault, homeRet, homeResult, pel, mel, org, servoRet, svOn);
             }
 
             ApplyReadStatus(cmd, act, mot, inp, fault, homeRet, homeResult, pel, mel, org, servoRet, svOn);
+
+            //Log.Write("AjinAxis", "UpdateStatus", "Updated status End");
         }
+
 
         private void ApplyReadStatus(
             double cmd,

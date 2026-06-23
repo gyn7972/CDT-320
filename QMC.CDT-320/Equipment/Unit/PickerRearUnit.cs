@@ -1071,7 +1071,9 @@ namespace QMC.CDT320
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
         {
+
             BaseAxis item = GetAxis(axis);
+            item?.UpdateStatus();
             return Math.Abs(item.ActualPosition - targetPos) <= tolerance && !item.IsAlarm;
         }
 
