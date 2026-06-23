@@ -694,8 +694,6 @@ namespace QMC.CDT320.Ajin
 
             MOTION_INFO info = new MOTION_INFO();
 
-
-
             //외부 센서 및 모터 관련 신호 상태값: AXT_MOTION_QIMECHANICAL_SIGNAL_DEF 
             //    - [00001h]Bit 0, +Limit 급정지 신호 현재 상태 
             //    - [00002h] Bit 1, -Limit 급정지 신호 현재 상태 
