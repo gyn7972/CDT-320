@@ -668,7 +668,7 @@ namespace QMC.Vision
                 return meta;
             };
 
-            var srv = new GrabStreamServer(name, port, provider, cfg.RemoteViewerFps, cfg.RemoteViewerQuality, metaProvider);
+            var srv = new GrabStreamServer(name, port, provider, cfg.RemoteViewerFps, cfg.RemoteViewerQuality, metaProvider, cfg.RemoteViewerMaxSize);
             try { srv.Start(); } catch { }
             return srv;
         }
