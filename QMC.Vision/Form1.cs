@@ -275,6 +275,7 @@ namespace QMC.Vision
         private bool _prevHandlerConnected;   // 핸들러 접속 상승엣지 감지용(자동 RUN).
         private string _handlerRecipeName;    // 핸들러가 RECIPE 명령으로 지시한 레시피명(SSOT). READY 아닐 때 실시간 동기 체크 기준.
         private DateTime _lastRecipeReqUtc;   // 레시피 요청(RECIPEREQ) throttle — 미동기 시 과다 요청 방지.
+        private int _recipeReqCount;          // 무응답 시 요청 횟수 상한(접속 시 0으로 리셋).
 
         /// <summary>MainComm 서버의 핸들러 접속/해제 이벤트 핸들러(수신 스레드) — UI 스레드로 마샬 후 자동 RUN 처리.
         /// 핸들러 측 VisionHub.ConnectionChanged 와 동일한 이벤트 기반 패턴.</summary>
@@ -282,6 +283,7 @@ namespace QMC.Vision
         {
             try
             {
+                if (connected) _recipeReqCount = 0;   // 접속 시 레시피 요청 상한 리셋(재시도 허용).
                 if (IsHandleCreated) BeginInvoke((Action)(() => AutoArmRunOnConnect()));
                 else                 AutoArmRunOnConnect();
             }
@@ -415,9 +417,14 @@ namespace QMC.Vision
             try
             {
                 if (_svrMain == null) return;
+                if (_recipeReqCount >= 10) return;   // 핸들러 무응답 시 과다 요청 방지(재접속 시 리셋).
                 if ((DateTime.UtcNow - _lastRecipeReqUtc).TotalSeconds < 3.0) return;
                 _lastRecipeReqUtc = DateTime.UtcNow;
+                _recipeReqCount++;
                 _svrMain.RequestRecipe();
+                if (_recipeReqCount >= 10)
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "RecipeSync",
+                        "핸들러가 레시피 요청에 응답하지 않음 — 요청 중단(재접속 시 재시도). 핸들러 빌드/활성 레시피 확인 필요.");
             }
             catch { }
         }
