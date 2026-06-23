@@ -80,6 +80,12 @@ namespace QMC.CDT320.Sequencing
 
         public int Enqueue(OutputPostPlaceInspectionRequest request, CancellationToken ct)
         {
+            if (IsAlarmStopActive())
+            {
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    "활성 알람 상태라 Output camera 후검사 요청 등록을 중단합니다. - Stopped");
+                return -1;
+            }
             if (request == null)
                 return RaiseFailure("OUT-POST-INSPECT-REQUEST", "OutputPostPlaceInspection",
                     "Output camera 후검사 요청 정보가 없습니다.");
@@ -149,6 +155,11 @@ namespace QMC.CDT320.Sequencing
                 {
                     await _signal.WaitAsync(ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
+                    if (IsAlarmStopActive())
+                    {
+                        DrainQueuedRequests("활성 알람 상태라 Output camera 후검사 큐를 정리합니다.");
+                        return;
+                    }
                     if (Volatile.Read(ref _batchDepth) > 0)
                     {
                         Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -206,6 +217,13 @@ namespace QMC.CDT320.Sequencing
             bool firstRequestCompleted = false;
             try
             {
+                if (IsAlarmStopActive())
+                {
+                    CompleteRequest(firstRequest);
+                    firstRequestCompleted = true;
+                    return -1;
+                }
+
                 OutputStageUnit stage = _context.Machine != null ? _context.Machine.OutputStageUnit : null;
                 if (stage == null)
                 {
@@ -234,6 +252,14 @@ namespace QMC.CDT320.Sequencing
                 OutputPostPlaceInspectionRequest request = firstRequest;
                 while (request != null)
                 {
+                    if (IsAlarmStopActive())
+                    {
+                        CompleteRequest(request);
+                        if (object.ReferenceEquals(request, firstRequest))
+                            firstRequestCompleted = true;
+                        DrainQueuedRequests("활성 알람 상태라 Output camera 후검사 묶음을 정리합니다.");
+                        return -1;
+                    }
                     lastRequest = request;
                     int result = -1;
                     try
@@ -296,6 +322,9 @@ namespace QMC.CDT320.Sequencing
             SequenceResourceLease stageLease = null;
             try
             {
+                if (IsAlarmStopActive())
+                    return -1;
+
                 if (stage.Recipe == null)
                     return RaiseFailure("OUT-POST-INSPECT-RECIPE", "OutputStage",
                         "Output camera 후검사를 위한 OutputStage recipe가 없습니다.");
@@ -573,6 +602,14 @@ namespace QMC.CDT320.Sequencing
             OutputPostPlaceInspectionRequest request,
             CancellationToken ct)
         {
+            if (IsAlarmStopActive())
+            {
+                Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                    description + " 이동을 중단합니다. 이미 활성 알람 상태입니다. die=" +
+                    request.DieId + ", side=" + request.OutputSide + " - Stopped");
+                return -1;
+            }
+
             int result = await SequenceAwaiter.AwaitAsync(
                 stage.MoveStageAxis(axis, target, fineMove),
                 -1,
@@ -610,9 +647,38 @@ namespace QMC.CDT320.Sequencing
                 source,
                 message);
             Log.Write("Main", "SYSTEM", source, message + " - Failed");
-            AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
+            if (IsAlarmStopActive())
+            {
+                Log.Write("Main", "SYSTEM", source,
+                    "이미 활성 알람이 있어 Output camera 후검사 후속 알람 발생을 생략합니다. code=" +
+                    alarmCode + ", message=" + message + " - Suppressed");
+            }
+            else
+            {
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
+            }
             _context.LogPublic("[OUTPUT-INSPECT] FAIL " + alarmCode + " - " + message);
             return -1;
+        }
+
+        private bool IsAlarmStopActive()
+        {
+            try
+            {
+                if (AlarmManager.HasActive)
+                    return true;
+
+                return _context != null &&
+                       _context.Controller != null &&
+                       _context.Controller.Status == EquipmentStatus.Alarm;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private void MarkFailed(string alarmCode, string message)

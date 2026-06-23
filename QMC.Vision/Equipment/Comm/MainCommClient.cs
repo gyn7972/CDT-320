@@ -142,7 +142,8 @@ namespace QMC.Vision.Comm
             }
         }
 
-        /// <summary>"MainComm|RECIPE|번호|명칭" — VisionMachine 전체에 LoadRecipe(명칭) cascade.</summary>
+        /// <summary>"MainComm|RECIPE|번호|명칭" — 핸들러 수신 레시피로 셋팅.
+        /// 레시피가 있으면 로드(cascade), 없으면 새로 생성(기본값 리셋+빈 레시피 저장) 후 적용. 마지막 레시피 영속화.</summary>
         private string DoRecipe(string[] parts)
         {
             if (parts.Length < 4) return "fail:need recipeNo recipeName";
@@ -150,11 +151,26 @@ namespace QMC.Vision.Comm
             string name = parts[3];
             if (string.IsNullOrWhiteSpace(name)) return "fail:empty name";
 
-            _machine.LoadRecipe(name);
+            bool exists = false;
+            try { exists = System.IO.Directory.Exists(QMC.Common.Data.Store.RecipeDataStore.DirOf(name)); }
+            catch { exists = false; }
+
+            if (exists)
+                _machine.SetRecipe(name);    // 기존 레시피 로드 + 명칭 고정
+            else
+                _machine.NewRecipe(name);    // 없으면 생성: 기본값 리셋 + 빈 레시피 저장 후 명칭 고정
+
             _machine.Recipe.RecipeNo   = no;
             _machine.Recipe.RecipeName = name;
 
-            LogMsg($"[{ModuleKey}] recipe applied: no={no} name={name}");
+            try
+            {
+                var cfg = QMC.Vision.Config.VisionConfigStore.Current;
+                if (cfg != null) { cfg.LastRecipeName = name; QMC.Vision.Config.VisionConfigStore.Save(); }
+            }
+            catch { }
+
+            LogMsg($"[{ModuleKey}] recipe {(exists ? "applied" : "created+applied")}: no={no} name={name}");
             return $"OK;no={no};name={name}";
         }
 

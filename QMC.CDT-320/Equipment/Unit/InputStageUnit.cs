@@ -572,17 +572,29 @@ namespace QMC.CDT320
 
             Recipe.EnsurePositionObjects();
 
-            if ((axis == WaferStageAxis.WaferY || axis == WaferStageAxis.VisionX) &&
+            if (axis == WaferStageAxis.VisionX &&
+                IsStageTravelTeachingTarget(axis, target))
+                return true;
+
+            if (axis == WaferStageAxis.WaferY &&
                 IsStageTravelTeachingTarget(axis, target))
             {
                 if (IsProcessTeachingTarget(axis, target))
                     return true;
 
+                if (!VerifyExpanderZSafeForStageYNonProcessTarget(axis, target, out reason))
+                    return false;
+
                 return VerifyNeedleZSafeForNonProcessTarget(axis, target, out reason);
             }
 
             if (IsSafeTeachingTarget(axis, target))
+            {
+                if (!VerifyExpanderZSafeForStageYNonProcessTarget(axis, target, out reason))
+                    return false;
+
                 return VerifyNeedleZSafeForNonProcessTarget(axis, target, out reason);
+            }
 
             if (axis == WaferStageAxis.WaferY)
             {
@@ -1046,6 +1058,28 @@ namespace QMC.CDT320
             return false;
         }
 
+        private bool VerifyExpanderZSafeForStageYNonProcessTarget(WaferStageAxis axis, double target, out string reason)
+        {
+            reason = string.Empty;
+            if (axis != WaferStageAxis.WaferY)
+                return true;
+
+            if (IsExpanderZInAvoidOrProcessPosition())
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            double actual = ExpanderZ != null ? ExpanderZ.ActualPosition : 0.0;
+            double tolerance = ResolveExpanderZInPositionTolerance();
+            reason = "StageY 비공정 위치 이동 전 StageZ는 Avoid 또는 Process 위치여야 합니다. " +
+                "axis=" + axis +
+                ", target=" + target.ToString("F3") +
+                ", stageZActual=" + (ExpanderZ != null ? actual.ToString("F3") : "null") +
+                ", stageZAvoid=" + Recipe.WaferZ.AvoidPosition.ToString("F3") +
+                ", stageZProcess=" + Recipe.WaferZ.ProcessPosition.ToString("F3") +
+                ", tolerance=" + tolerance.ToString("F3");
+            return false;
+        }
+
         private StageAxisPositions ResolveStagePositions(WaferStageAxis axis)
         {
             Recipe.EnsurePositionObjects();
@@ -1133,6 +1167,17 @@ namespace QMC.CDT320
 
             Recipe.EnsurePositionObjects();
             return Math.Abs(ExpanderZ.ActualPosition - Recipe.WaferZ.AvoidPosition) <= ResolveExpanderZInPositionTolerance();
+        }
+
+        public bool IsExpanderZInAvoidOrProcessPosition()
+        {
+            if (ExpanderZ == null || Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            double tolerance = ResolveExpanderZInPositionTolerance();
+            return Math.Abs(ExpanderZ.ActualPosition - Recipe.WaferZ.AvoidPosition) <= tolerance ||
+                   Math.Abs(ExpanderZ.ActualPosition - Recipe.WaferZ.ProcessPosition) <= tolerance;
         }
 
         private double ResolveExpanderZInPositionTolerance()
@@ -1439,12 +1484,6 @@ namespace QMC.CDT320
         public int ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
         {
             BaseAxis item = ResolveInputStageAxis(axis);
-            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
-            {
-                StartContinuousJogVelocity(item, dir, speed);
-                LastStageMoveFailureMessage = string.Empty;
-                return 0;
-            }
 
             double target;
             string interlockReason;
@@ -1472,8 +1511,6 @@ namespace QMC.CDT320
                     ? (direction == Direction.Plus ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus)
                     : axis.ActualPosition;
 
-                // Needle/Eject Z continuous jog is a recovery/manual operation. Let the
-                // axis controller enforce the jog limit while motion guard skips work-area checks.
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, guardTarget, ContinuousJogTargetName))
                     axis.MoveJogContinuous((int)direction, JogSpeedType.Custom, speed);
             }

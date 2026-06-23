@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Net.Sockets;
@@ -18,6 +18,7 @@ namespace QMC.CDT320.VisionComm
         private readonly string _host;
         private readonly int _port;
         private readonly int _connectTimeoutMs;
+        private readonly VisionTcpClient _cmd;   // 툴바 Grab 시 Vision 에 촬상(EXPOSE) 명령. null 이면 수동 수신만.
 
         private Thread _thread;
         private volatile bool _running;
@@ -27,9 +28,17 @@ namespace QMC.CDT320.VisionComm
         private readonly object _lastLock = new object();
         private Bitmap _last;   // 최근 수신 프레임(GrabFrame 단발용)
 
-        public VisionViewerSource(string host, int port, int connectTimeoutMs = 2000)
+        /// <summary>프레임 메타(스케일/판정/결과/마크) 수신 — 이미지와 별개로 오버레이 표시용. 백그라운드 스레드.</summary>
+        public event Action<QMC.Common.Ui.Controls.VisionFrameMeta> FrameMeta;
+
+        /// <summary>상태 메시지(촬상 OK / READY 거부 / 미연결 등). UI 표시용.</summary>
+        public event Action<string> Status;
+
+        private void OnStatus(string s) { var h = Status; if (h != null) try { h(s); } catch { } }
+
+        public VisionViewerSource(string host, int port, int connectTimeoutMs = 2000, VisionTcpClient commandClient = null)
         {
-            _host = host; _port = port; _connectTimeoutMs = connectTimeoutMs;
+            _host = host; _port = port; _connectTimeoutMs = connectTimeoutMs; _cmd = commandClient;
         }
 
         public bool SupportsLive => true;
@@ -39,13 +48,16 @@ namespace QMC.CDT320.VisionComm
             if (_running) return;
             _onFrame = onFrame;
             _running = true;
+            VisionViewerRegistry.StreamStarted(_port);   // 스트리밍 상태 등록(설정 페이지 표시용)
             _thread = new Thread(RecvLoop) { IsBackground = true, Name = "VisionViewer-" + _port };
             _thread.Start();
         }
 
         public void StopLive()
         {
+            bool was = _running;
             _running = false;
+            if (was) VisionViewerRegistry.StreamStopped(_port);
             try { _tcp?.Close(); } catch { }
             try { _thread?.Join(800); } catch { }
             _thread = null;
@@ -53,7 +65,23 @@ namespace QMC.CDT320.VisionComm
 
         public Bitmap GrabFrame()
         {
-            // 라이브 중이면 최근 프레임 복제, 아니면 1회 접속해 한 프레임만 받아 반환.
+            // 핸들러 카메라뷰 툴바 Grab → Vision 에 실제 촬상(EXPOSE) 명령을 보내고 그 결과 프레임을 표시한다.
+            // 허용/거부는 Vision 게이트가 결정(ACK/ERR). 정책: READY(O) armed 면 거부, 해제 상태면 가능.
+            // 명령 클라이언트가 없으면 기존처럼 수동 수신만.
+            if (_cmd != null)
+            {
+                if (!_cmd.IsConnected) { OnStatus("명령 미연결 — CONNECT 확인"); return null; }
+                bool ack;
+                try { ack = _cmd.ExposeAsync(0, 2000, System.Threading.CancellationToken.None).GetAwaiter().GetResult(); }
+                catch (Exception ex) { OnStatus("촬상 실패: " + ex.Message); return null; }
+                if (!ack) { OnStatus("촬상 거부 — Vision READY(O) 상태에서는 불가. READY 해제 후 다시 시도"); return null; }
+                OnStatus("촬상 OK");
+                // 라이브 중이면 RecvLoop 가 새 프레임을 표시하므로 여기선 null. 아니면 단발로 받아 반환.
+                if (_running) return null;
+                return ReadSingleFrame();
+            }
+
+            // 명령 채널 없음: 기존 동작 — 라이브 중이면 최근 프레임, 아니면 단발 수신.
             lock (_lastLock) { if (_last != null) return (Bitmap)_last.Clone(); }
             return ReadSingleFrame();
         }
@@ -93,10 +121,14 @@ namespace QMC.CDT320.VisionComm
                 using (var tcp = Connect())
                 {
                     if (tcp == null) return null;
-                    return ReadFrame(tcp.GetStream());
+                    var ns = tcp.GetStream();
+                    // 단발 Grab 은 UI 스레드에서 동기로 읽히므로, 프레임이 안 오면 멈추지 않도록 읽기 타임아웃을 건다.
+                    // (Live 의 RecvLoop 는 별도 연결이라 타임아웃 없음 — 아이들 대기 정상.)
+                    try { ns.ReadTimeout = 1500; } catch { }
+                    return ReadFrame(ns);
                 }
             }
-            catch { return null; }
+            catch { return null; }   // 타임아웃/끊김 시 프레임 없음으로 처리(멈추지 않음)
         }
 
         private TcpClient Connect()
@@ -114,12 +146,20 @@ namespace QMC.CDT320.VisionComm
             catch { return null; }
         }
 
-        private static Bitmap ReadFrame(NetworkStream ns)
+        private Bitmap ReadFrame(NetworkStream ns)
         {
-            // 새 와이어 포맷([meta][jpeg], VisionFrameCodec) — 메타는 무시하고 이미지만(툴바 Live 용).
+            // 새 와이어 포맷([meta][jpeg], VisionFrameCodec) — 이미지는 반환하고, 메타는 FrameMeta 이벤트로 통지(오버레이용).
             QMC.Common.Ui.Controls.VisionFrameMeta meta;
             Bitmap bmp;
-            return QMC.Common.Ui.Controls.VisionFrameCodec.ReadFrame(ns, out meta, out bmp) ? bmp : null;
+            if (!QMC.Common.Ui.Controls.VisionFrameCodec.ReadFrame(ns, out meta, out bmp))
+                return null;
+
+            if (meta != null)
+            {
+                var h = FrameMeta;
+                if (h != null) try { h(meta); } catch { }
+            }
+            return bmp;
         }
 
         private void SetLast(Bitmap bmp)

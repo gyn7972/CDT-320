@@ -194,6 +194,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     int index = enabled[i];
                     int pickerNo = ToPickerNo(index);
+                    if (Options != null &&
+                        Options.RestrictToPickerNo > 0 &&
+                        Options.RestrictToPickerNo != pickerNo)
+                    {
+                        continue;
+                    }
+
                     DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
                     if (die == null)
                     {

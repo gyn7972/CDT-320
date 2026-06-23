@@ -8,95 +8,88 @@ using QMC.CDT320.VisionComm;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// Vision 뷰어(이미지 스트림) 1개를 표시하는 재사용 패널.
+    /// Vision 뷰어(이미지 스트림) 1개를 표시하는 재사용 패널 — Vision PC 카메라 UI와 동일 구성(별도 버튼 없음).
     /// <para>
-    /// 명령 채널과 별개인 뷰어 포트에 <see cref="VisionFrameClient"/>로 접속해 프레임(이미지+메타)을 받아
-    /// <see cref="CameraViewBase"/>에 그린다(스케일/판정/결과라인/오버레이 마크 반영). 수신 전용 — 모션과 무관.
-    /// 핸들이 만들어지면 자동 시작, Dispose 시 정리. 코드 전용 컨트롤(Designer 없음).
+    /// 뷰어 포트에 <see cref="VisionViewerSource"/>를 <see cref="CameraViewBase.AttachSource"/>로 연결한다.
+    /// 카메라 컨트롤의 네이티브 툴바(Grab/Live/Stop/Save/Load/측정/맞춤/CrossLine/Mag)가 그대로 동작하며,
+    /// <b>툴바 Grab</b>은 명령 채널로 Vision 에 촬상(EXPOSE)을 보내고(있으면) 그 결과 프레임을 표시한다.
+    /// 허용/거부는 Vision 게이트가 결정: <b>READY(O) armed 면 거부</b>, 해제 상태면 촬상 가능(거부 시 상태줄에 표시).
+    /// 프레임 메타(스케일/판정/결과/마크)는 오버레이로 표시. 수신/표시 전용 — 모션 무관. 코드 전용 컨트롤.
     /// </para>
     /// </summary>
     public sealed class VisionViewerPanel : UserControl
     {
         private readonly CameraViewBase _cam = new CameraViewBase { Dock = DockStyle.Fill, ShowToolbar = true };
-        private readonly Label _lblStat  = new Label { Dock = DockStyle.Top, Height = 22, ForeColor = Color.DimGray, Text = "이미지 idle", Padding = new Padding(6, 3, 0, 0) };
-        private readonly Label _lblTitle = new Label { Dock = DockStyle.Top, Height = 22, Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold), Padding = new Padding(6, 3, 0, 0) };
+        private readonly Label _lblTitle = new Label { AutoSize = true, Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold), Margin = new Padding(6, 7, 8, 0) };
+        private readonly Label _lblStat  = new Label { AutoSize = true, ForeColor = Color.DimGray, Text = "idle", Margin = new Padding(8, 7, 0, 0) };
 
-        private readonly string _host;
         private readonly int _port;
-        private VisionFrameClient _client;
+        private VisionViewerSource _source;
 
-        public VisionViewerPanel(string host, int port, string title)
+        /// <param name="commandClient">툴바 Grab 시 Vision 에 촬상(EXPOSE)을 보내는 명령 채널. null 이면 수동 수신만.</param>
+        public VisionViewerPanel(string host, int viewerPort, string title, VisionTcpClient commandClient = null)
         {
-            _host = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
-            _port = port;
+            string h = string.IsNullOrWhiteSpace(host) ? "127.0.0.1" : host.Trim();
+            _port = viewerPort;
             _lblTitle.Text = (string.IsNullOrWhiteSpace(title) ? "이미지" : title) +
-                             (port > 0 ? "  (뷰어 " + port + ")" : "  (뷰어 없음)");
+                             (viewerPort > 0 ? "  (뷰어 " + viewerPort + ")" : "  (뷰어 없음)");
 
-            // Fill(_cam)을 먼저 추가해 뒤쪽 z-order에 두고, Top 라벨을 나중에 추가한다.
+            var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 30, WrapContents = false, Padding = new Padding(4, 2, 4, 2) };
+            bar.Controls.Add(_lblTitle);
+            bar.Controls.Add(_lblStat);
+
+            // Fill(_cam)을 먼저 추가해 뒤쪽 z-order, Top(bar)을 나중에.
             Controls.Add(_cam);
-            Controls.Add(_lblStat);
-            Controls.Add(_lblTitle);
+            Controls.Add(bar);
 
-            HandleCreated += (s, e) => StartStream();
+            if (_port > 0)
+            {
+                _source = new VisionViewerSource(h, _port, 2000, commandClient);
+                _source.FrameMeta += OnMeta;
+                _source.Status += OnStatus;
+                _cam.AttachSource(_source);   // 툴바 Grab/Live/Stop이 이 소스를 제어(접속·촬상은 누를 때).
+                _lblStat.Text = "대기 — Grab/Live를 누르면 연결";
+            }
+            else
+            {
+                _lblStat.Text = "뷰어 포트 없음";
+            }
+
+            // 자동 연결하지 않는다. 사용자가 툴바 Grab/Live를 누를 때 접속한다.
         }
 
-        public void StartStream()
+        /// <summary>외부에서 LIVE 시작(툴바 Live와 동일).</summary>
+        public void StartLive() { if (_port > 0) { try { _cam.StartLive(); } catch { } } }
+        /// <summary>외부에서 LIVE 정지(툴바 Stop과 동일).</summary>
+        public void StopLive()  { try { _cam.StopLive(); } catch { } }
+
+        // ── 소스 상태 메시지(촬상 OK / READY 거부 등) → 상태줄 ──
+        private void OnStatus(string s)
         {
-            if (_port <= 0) { _lblStat.Text = "뷰어 포트 없음"; return; }
-            StopStream();
-            try
-            {
-                _client = new VisionFrameClient(_host, _port);
-                _client.Frame  += OnFrame;
-                _client.Status += OnStatus;
-                _client.Start();
-            }
-            catch (Exception ex)
-            {
-                _lblStat.Text = "이미지 시작 실패: " + ex.Message;
-            }
+            if (IsDisposed || !IsHandleCreated || string.IsNullOrEmpty(s)) return;
+            try { BeginInvoke(new Action(() => { _lblStat.Text = s; })); } catch { }
         }
 
-        public void StopStream()
+        // 백그라운드 스레드(메타) → UI 마샬링하여 오버레이 반영
+        private void OnMeta(VisionFrameMeta meta)
+        {
+            if (meta == null) return;
+            if (IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(new Action(() => ApplyMeta(meta))); } catch { }
+        }
+
+        private void ApplyMeta(VisionFrameMeta meta)
         {
             try
             {
-                if (_client != null)
-                {
-                    _client.Frame  -= OnFrame;
-                    _client.Status -= OnStatus;
-                    _client.Dispose();
-                }
+                _cam.MmPerPixelX = meta.ScaleX;
+                _cam.MmPerPixelY = meta.ScaleY;
+                _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
+                _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
+                _cam.SetResultLines(meta.ResultLines);
+                _cam.SetOverlay(System.Drawing.RectangleF.Empty, MarksOf(meta));
             }
             catch { }
-            _client = null;
-        }
-
-        // 백그라운드 수신 스레드 → UI 마샬링
-        private void OnFrame(VisionFrameMeta meta, Bitmap bmp)
-        {
-            if (bmp == null) return;
-            if (IsDisposed || !IsHandleCreated) { bmp.Dispose(); return; }
-            try { BeginInvoke(new Action(() => ApplyFrame(meta, bmp))); }
-            catch { try { bmp.Dispose(); } catch { } }
-        }
-
-        private void ApplyFrame(VisionFrameMeta meta, Bitmap bmp)
-        {
-            try
-            {
-                _cam.SetImage(bmp);                  // 내부 복제
-                if (meta != null)
-                {
-                    _cam.MmPerPixelX = meta.ScaleX;
-                    _cam.MmPerPixelY = meta.ScaleY;
-                    _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
-                    _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
-                    _cam.SetResultLines(meta.ResultLines);
-                    _cam.SetOverlay(System.Drawing.RectangleF.Empty, MarksOf(meta));
-                }
-            }
-            finally { bmp.Dispose(); }
         }
 
         private static List<OverlayMark> MarksOf(VisionFrameMeta meta)
@@ -107,16 +100,14 @@ namespace QMC.CDT_320.Ui.Controls
             return list;
         }
 
-        private void OnStatus(string s)
-        {
-            if (IsDisposed || !IsHandleCreated) return;
-            try { BeginInvoke(new Action(() => { _lblStat.Text = "이미지: " + s; })); } catch { }
-        }
-
         protected override void Dispose(bool disposing)
         {
             if (disposing)
-                StopStream();
+            {
+                try { _cam.StopLive(); } catch { }
+                try { if (_source != null) { _source.FrameMeta -= OnMeta; _source.Status -= OnStatus; _source.Dispose(); } } catch { }
+                _source = null;
+            }
             base.Dispose(disposing);
         }
     }
