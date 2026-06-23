@@ -255,6 +255,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.Config.PickUp = pickUp = new PickerPickUpMotionConfig();
 
             pickUp.Ensure();
+            items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDistance, v => pickUp.PickerZSyncLiftDistance = Math.Max(0.0, v)), groupKey));

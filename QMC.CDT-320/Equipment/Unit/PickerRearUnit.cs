@@ -61,6 +61,10 @@ namespace QMC.CDT320
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig();
 
         [Category("PickUp")]
+        [DisplayName("PickUp Z Motion Mode")]
+        public PickerPickUpZMotionMode PickUpZMotionMode { get { return EnsurePickUpConfig().MotionMode; } set { EnsurePickUpConfig().MotionMode = value; } }
+
+        [Category("PickUp")]
         [DisplayName("PickUp PickerZ PrePick Distance")]
         public double PickUpPickerZPrePickDistance { get { return EnsurePickUpConfig().PickerZPrePickDistance; } set { EnsurePickUpConfig().PickerZPrePickDistance = value; } }
 

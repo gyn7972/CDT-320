@@ -1825,6 +1825,9 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis pickerZ = GetPickerZAxis(_currentPickerIndex);
                 double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
 
+                if (config.MotionMode == PickerPickUpZMotionMode.SimpleZDownVacuumUp)
+                    return await RunSimplePickupZMotionAsync(config, pickerZ, pickerZAvoid, updateMaterialInspection, ct).ConfigureAwait(false);
+
                 int result = await PrepareNeedlePinZForPickAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -1866,6 +1869,58 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-PICKUP-Z-RUN-EX", Name,
                     "PickUp Z 세부 모션 실행 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> RunSimplePickupZMotionAsync(
+            PickerPickUpMotionConfig config,
+            PickerAxis pickerZ,
+            double pickerZAvoid,
+            bool updateMaterialInspection,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    _targetPickerZ,
+                    "PickUp 단순 PickerZ 하강",
+                    ct,
+                    "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await VacuumOnForSimplePickAsync(config, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    pickerZ,
+                    pickerZAvoid,
+                    "PickUp 단순 PickerZ 상승",
+                    ct,
+                    "AvoidPosition").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (config.PickSettleMs > 0)
+                    await Task.Delay(config.PickSettleMs, ct).ConfigureAwait(false);
+
+                return await VerifyDiePickedAfterZMotionAsync(updateMaterialInspection, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-SIMPLE-Z-RUN-EX", Name,
+                    "PickUp 단순 Z 모션 실행 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -1998,6 +2053,34 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-PICKUP-VACUUM-BEFORE-EX", Name,
                     "PickUp 하강 전 Vacuum ON 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> VacuumOnForSimplePickAsync(PickerPickUpMotionConfig config, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                SetPickerVacuum(_currentPickerNo, true);
+
+                int delayMs = Math.Max(ResolveVacuumSettleMs(), config.VacuumOnBeforePickDelayMs);
+                if (delayMs > 0)
+                    await Task.Delay(delayMs, ct).ConfigureAwait(false);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-SIMPLE-VACUUM-EX", Name,
+                    "PickUp 단순 Z 모션 Vacuum ON 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
