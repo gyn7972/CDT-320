@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 
 namespace QMC.CDT320
 {
@@ -35,11 +36,26 @@ namespace QMC.CDT320
     public sealed class VisionConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
 
         public bool IsSimulationMode
         {
             get { return bDryRun; }
             set { bDryRun = value; }
+        }
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsureCalibrationObjects();
+        }
+
+        public void EnsureCalibrationObjects()
+        {
+            if (CameraCalibration == null)
+                CameraCalibration = new VisionCameraCalibrationData();
+
+            CameraCalibration.EnsureObjects();
         }
     }
 

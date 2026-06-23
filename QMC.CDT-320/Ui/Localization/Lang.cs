@@ -171,6 +171,7 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.inputCreate",   "INPUT CREATE",     "INPUT CREATE");
             A("recipe.outputCreate",  "OUTPUT CREATE",    "OUTPUT CREATE");
             A("recipe.forceControl",  "FORCE CONTROL",    "FORCE CONTROL");
+            A("recipe.calibration",   "CALIBRATION",      "CALIBRATION");
 
             // 설정 탭
             A("set.section",          "설정",              "Settings");
