@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.Stats;
 using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Pages.Work
@@ -12,11 +13,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private const int RefreshIntervalMs = 500;
 
         private Timer _refresh;
-        private readonly DateTime _runStart = DateTime.Now;
-        private int _lastDone;
-        private long _cycleAccMs;
-        private int _cycleSamples;
-        private long _lastCycleStartTicks;
         private bool _eventsHooked;
 
         public WorkMainPage()
@@ -145,7 +141,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             var ctrl = host?.Controller;
             var lot = LotStorage.ActiveLot;
 
-            int total = lot?.ProcessedDies ?? 0;
+            // 작업 시간/UPH 통계는 엔진 스냅샷 1회 읽기로 끝낸다(계산은 엔진이 수행, UI는 표시만).
+            ProductionStatsSnapshot stats = ctrl?.Stats?.GetSnapshot() ?? ProductionStatsSnapshot.Empty;
+
+            int total = stats.ProcessedDies;
             int currBin = -1;
             if (lot?.BinDistribution != null && lot.BinDistribution.Count > 0)
             {
@@ -185,58 +184,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
             snap.Project = project;
             snap.PickFail = (ctrl?.PickFailCount ?? 0) + " ea";
             snap.PlaceFail = (ctrl?.PlaceFailCount ?? 0) + " ea";
-            snap.BinQty = (lot?.GoodCount ?? 0) + " ea";
+            snap.BinQty = stats.GoodCount + " ea";
             snap.Collet1 = (ctrl?.Collet1UseCount ?? 0).ToString();
             snap.Collet2 = (ctrl?.Collet2UseCount ?? 0).ToString();
             snap.Needle = (ctrl?.NeedleUseCount ?? 0).ToString();
 
-            TimeSpan upTime = lot != null ? lot.Duration : DateTime.Now - _runStart;
-            TimeSpan normalDown = ctrl?.NormalDownTime ?? TimeSpan.Zero;
-            TimeSpan errorDown = ctrl?.ErrorDownTime ?? TimeSpan.Zero;
+            // 가동/정지 시간은 엔진이 확정한 초 값을 hh:mm:ss로만 포맷한다.
+            snap.Load = FormatTs(TimeSpan.FromSeconds(stats.LoadSeconds));
+            snap.Up = FormatTs(TimeSpan.FromSeconds(stats.UpSeconds));
+            snap.ContUp = FormatTs(TimeSpan.FromSeconds(stats.ContUpSeconds));
+            snap.NormDown = FormatTs(TimeSpan.FromSeconds(stats.NormalDownSeconds));
+            snap.ErrDown = FormatTs(TimeSpan.FromSeconds(stats.ErrorDownSeconds));
+            snap.ErrCnt = stats.ErrorCount + " ea";
+            snap.Recovery = FormatTs(TimeSpan.FromSeconds(stats.RecoverySeconds));
 
-            string upText = FormatTs(upTime);
-            snap.Load = upText;
-            snap.Up = upText;
-            snap.ContUp = upText;
-            snap.NormDown = FormatTs(normalDown);
-            snap.ErrDown = FormatTs(errorDown);
-            snap.ErrCnt = (ctrl?.ErrorCount ?? 0) + " ea";
-            snap.Recovery = FormatTs(ctrl?.RecoveryTime ?? TimeSpan.Zero);
+            // UPH 화면 기본값은 순간 UPH(실효 UPH는 엔진 스냅샷에 함께 보관됨).
+            snap.Uph = stats.UphInstant.ToString("F2");
 
-            double uph = 0;
-            if (lot != null && lot.GoodCount > 0 && upTime.TotalSeconds > 0.5)
-                uph = lot.GoodCount * 3600.0 / upTime.TotalSeconds;
-            snap.Uph = uph.ToString("F2");
+            snap.Mtbf = FormatTs(TimeSpan.FromSeconds(stats.MtbfSeconds));
+            snap.Mttr = FormatTs(TimeSpan.FromSeconds(stats.MttrSeconds));
 
-            snap.Mtbf = FormatTs(ctrl?.Mtbf ?? TimeSpan.Zero);
-            snap.Mttr = FormatTs(ctrl?.Mttr ?? TimeSpan.Zero);
+            // CYCLE TIME = 다이당 ms (최근 20 다이 Rolling 평균).
+            snap.Cycle = ((int)Math.Round(stats.CycleMsPerDieRolling)) + " ms";
 
-            int doneNow = lot?.ProcessedDies ?? 0;
-            if (doneNow > _lastDone)
-            {
-                long now = DateTime.UtcNow.Ticks;
-                if (_lastCycleStartTicks > 0)
-                {
-                    long ms = (now - _lastCycleStartTicks) / TimeSpan.TicksPerMillisecond;
-                    int doneDelta = doneNow - _lastDone;
-                    if (doneDelta > 0)
-                    {
-                        _cycleAccMs += ms;
-                        _cycleSamples += doneDelta;
-                    }
-                }
-
-                _lastCycleStartTicks = now;
-                _lastDone = doneNow;
-            }
-
-            snap.Cycle = (_cycleSamples > 0 ? _cycleAccMs / _cycleSamples : 0) + " ms";
-
-            double rate = lot != null && lot.ProcessedDies > 0
-                ? lot.GoodCount * 100.0 / lot.ProcessedDies
-                : 0;
-            snap.Rate = rate.ToString("F2") + " %";
-            snap.Lot = lot?.LotID ?? "(no lot)";
+            // 가동률(%) = 가동시간 / 부하시간 × 100 (수율이 아님).
+            snap.Rate = stats.UptimeRatePercent.ToString("F2") + " %";
+            snap.Lot = !string.IsNullOrEmpty(stats.ActiveLotId) ? stats.ActiveLotId : "(no lot)";
 
             return snap;
         }
