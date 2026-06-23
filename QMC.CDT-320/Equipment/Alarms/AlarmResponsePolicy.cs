@@ -100,7 +100,7 @@ namespace QMC.CDT320.Alarms
                     };
                 }
 
-                if (alarm.Severity == AlarmSeverity.Warning)
+                if (alarm.Severity == AlarmSeverity.Error)
                 {
                     return new AlarmResponsePolicy
                     {
@@ -111,7 +111,7 @@ namespace QMC.CDT320.Alarms
                     };
                 }
 
-                if (alarm.Severity == AlarmSeverity.Error)
+                if (alarm.Severity == AlarmSeverity.Warning)
                 {
                     return new AlarmResponsePolicy
                     {
