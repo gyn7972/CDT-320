@@ -22,7 +22,7 @@ namespace QMC.Vision.Cameras.Mil
         private MIL_ID _buf = MIL.M_NULL;
         private int    _digNum;
         private int    _bands = 1;
-        private MIL.MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
+        private MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
         private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
         private long _lastLiveTickMs;
         private readonly string _tmpPath;
