@@ -944,6 +944,9 @@ namespace QMC.CDT320.Sequencing
                 ", outputWafer=" + (_receiveTarget != null ? _receiveTarget.OutputWaferId : "-") +
                 ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Ok");
 
+            if (Context != null && Context.Controller != null)
+                Context.Controller.RecordAutoDiePlacedForStats(_currentOutputSide);
+
             NotifySequenceProgressAfterPlace();
 
             _placedDieId = _currentDie.DieId;

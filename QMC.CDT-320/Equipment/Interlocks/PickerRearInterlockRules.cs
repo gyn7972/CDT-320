@@ -168,7 +168,8 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+            if (!IsInspectionZHoldMove(request) &&
+                !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                 return false;
 
             if (!VerifyReticleCylinderClear(machine, "RearPickerY", out reason))

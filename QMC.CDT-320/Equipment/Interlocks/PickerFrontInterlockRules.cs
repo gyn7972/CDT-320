@@ -168,7 +168,8 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
+            if (!IsInspectionZHoldMove(request) &&
+                !VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
                 return false;
 
             if (!VerifyReticleCylinderClear(machine, "FrontPickerY", out reason))

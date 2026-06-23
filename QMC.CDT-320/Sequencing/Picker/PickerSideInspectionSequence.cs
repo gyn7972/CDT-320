@@ -243,6 +243,17 @@ namespace QMC.CDT320.Sequencing
 
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "SideInspection");
 
+                if (Options != null &&
+                    (Options.EnterSideFromBottomInspection || Options.KeepZUntilSideInspectionComplete))
+                {
+                    WriteLog("PickerSideInspectionSequence",
+                        Name + " Bottom->Side 연속 검사를 위해 Side 진입 전 PickerZ 전체 Avoid 이동을 생략합니다. " +
+                        "enterFromBottom=" + Options.EnterSideFromBottomInspection +
+                        ", keepZUntilSideComplete=" + Options.KeepZUntilSideInspectionComplete + " - Ok");
+                    CurrentStep = PickerSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
+                    return 0;
+                }
+
                 result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;

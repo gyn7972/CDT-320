@@ -36,6 +36,8 @@ namespace QMC.CDT320
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        private readonly object _productionStatsLock = new object();
+        private System.Diagnostics.Stopwatch _autoProductionStopwatch;
         // 4개 유닛(INPUT/FRONT/REAR/OUTPUT) 동작 상태. UI 가 스냅샷으로 폴링한다. (앱 수명 동안 유지)
         private readonly QMC.CDT320.Sequencing.SequenceActivityMonitor _sequenceActivity =
             new QMC.CDT320.Sequencing.SequenceActivityMonitor();
@@ -5373,6 +5375,134 @@ namespace QMC.CDT320
             }
         }
 
+        public void RecordAutoDiePlacedForStats(BinSide side)
+        {
+            try
+            {
+                if (ActiveSequenceRunMode != QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    return;
+
+                long cycleMs;
+                lock (_productionStatsLock)
+                {
+                    if (_autoProductionStopwatch == null)
+                        _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+                    cycleMs = _autoProductionStopwatch.ElapsedMilliseconds;
+                    if (cycleMs <= 0)
+                        cycleMs = 1;
+                    _autoProductionStopwatch.Restart();
+                }
+
+                int good = side == BinSide.Good ? 1 : 0;
+                int ng = side == BinSide.Ng ? 1 : 0;
+                Stats.OnCycleCompleted(1, good, ng, cycleMs);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "RecordAutoDiePlacedForStats",
+                    "작업 시간 통계 업데이트 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void BeginAutoProductionStats()
+        {
+            try
+            {
+                string lotId = ResolveProductionStatsLotId();
+                int totalDies = ResolveProductionStatsTotalDies();
+
+                lock (_productionStatsLock)
+                {
+                    _autoProductionStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                }
+
+                Stats.BeginLot(lotId, totalDies);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "BeginAutoProductionStats",
+                    "작업 시간 통계 시작 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void EndAutoProductionStats()
+        {
+            try
+            {
+                lock (_productionStatsLock)
+                {
+                    if (_autoProductionStopwatch != null)
+                    {
+                        _autoProductionStopwatch.Stop();
+                        _autoProductionStopwatch = null;
+                    }
+                }
+
+                Stats.EndLot();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "EndAutoProductionStats",
+                    "작업 시간 통계 종료 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveProductionStatsLotId()
+        {
+            try
+            {
+                if (LotStorage.ActiveLot != null && !string.IsNullOrEmpty(LotStorage.ActiveLot.LotID))
+                    return LotStorage.ActiveLot.LotID;
+
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state != null && !string.IsNullOrEmpty(state.LotId))
+                    return state.LotId;
+            }
+            catch
+            {
+            }
+
+            return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+        }
+
+        private int ResolveProductionStatsTotalDies()
+        {
+            try
+            {
+                if (LotStorage.ActiveLot != null && LotStorage.ActiveLot.TotalDies > 0)
+                    return LotStorage.ActiveLot.TotalDies;
+
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state != null && state.Dies != null)
+                {
+                    int count = 0;
+                    foreach (DieMaterial die in state.Dies)
+                    {
+                        if (die != null && die.IsInputTarget)
+                            count++;
+                    }
+
+                    if (count > 0)
+                        return count;
+                }
+            }
+            catch
+            {
+            }
+
+            return 0;
+        }
+
         /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
         /// Input ?�이맵의 IsTarget=true ?�이�?모두 처리. totalDies&lt;=0 ?�는 ?�이�?모드???�는
         /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
@@ -5413,6 +5543,8 @@ namespace QMC.CDT320
 
                 _coordinator.Configure(options);
                 ActiveSequenceRunMode = options.Mode;
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    BeginAutoProductionStats();
                 SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
                     ? EquipmentStatus.AutoRunning
                     : EquipmentStatus.ManualRunning);
@@ -5430,6 +5562,8 @@ namespace QMC.CDT320
                         if (!cts.IsCancellationRequested && _status != EquipmentStatus.Alarm)
                         {
                             Log("[SEQ] Complete");
+                            if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                                EndAutoProductionStats();
                             SetStatus(EquipmentStatus.Ready);
                         }
                     }
@@ -5453,6 +5587,8 @@ namespace QMC.CDT320
                             }
                             else
                             {
+                                if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                                    EndAutoProductionStats();
                                 SetStatus(EquipmentStatus.Stopped);
                             }
                         }
@@ -5463,6 +5599,8 @@ namespace QMC.CDT320
                         _sequenceActivity.SweepActiveTo(QMC.CDT320.Sequencing.SequenceActivityState.Canceled,
                             "시퀀스가 취소되었습니다.");
                         Log("[SEQ] Canceled");
+                        if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                            EndAutoProductionStats();
                     }
                     catch (Exception ex)
                     {
@@ -5473,6 +5611,8 @@ namespace QMC.CDT320
                             "자동 시퀀스 실패: " + ex.Message + " - Failed");
                         AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "자동 시퀀스 실패: " + ex.Message);
                         Log("[SEQ] failed: " + ex.Message);
+                        if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                            EndAutoProductionStats();
                         SetStatus(EquipmentStatus.Alarm);
                     }
                     finally
