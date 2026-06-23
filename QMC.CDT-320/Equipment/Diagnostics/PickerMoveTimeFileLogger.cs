@@ -15,16 +15,19 @@ namespace QMC.CDT320
         private static readonly object QueueSyncRoot = new object();
         private static readonly Queue<string> PendingLines = new Queue<string>();
         private const string Header =
-            "When,Unit,Kind,Axis,ElapsedMs,CommandMs,VerifyMs,SafeZMs,XyMs,ZMs,Result,Verify,Target,TargetName,Fine,Velocity,TargetCount,NonZCount,ZCount";
+            "When,Unit,Kind,Axis,ElapsedMs,CommandMs,VerifyMs,SafeZMs,XyMs,ZMs,Result,Verify,Target,TargetName,Fine,Velocity,TargetCount,NonZCount,ZCount,Start,Distance,Acceleration,Deceleration";
         private static bool _writerRunning;
 
         public static void WriteAxis(
             string unitName,
             PickerAxis axis,
+            double startPos,
             double targetPos,
             string targetName,
             bool bFine,
             double velocity,
+            double acceleration,
+            double deceleration,
             int result,
             long commandMs,
             long verifyMs,
@@ -52,7 +55,11 @@ namespace QMC.CDT320
                     velocity,
                     null,
                     null,
-                    null);
+                    null,
+                    startPos,
+                    Math.Abs(targetPos - startPos),
+                    acceleration,
+                    deceleration);
                 AppendLine(line);
             }
             catch
@@ -94,7 +101,11 @@ namespace QMC.CDT320
                     null,
                     targetCount,
                     nonZCount,
-                    zCount);
+                    zCount,
+                    null,
+                    null,
+                    null,
+                    null);
                 AppendLine(line);
             }
             catch
@@ -196,7 +207,11 @@ namespace QMC.CDT320
             double? velocity,
             int? targetCount,
             int? nonZCount,
-            int? zCount)
+            int? zCount,
+            double? start,
+            double? distance,
+            double? acceleration,
+            double? deceleration)
         {
             return string.Join(",",
                 Csv(when.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)),
@@ -217,7 +232,11 @@ namespace QMC.CDT320
                 Csv(velocity),
                 Csv(targetCount),
                 Csv(nonZCount),
-                Csv(zCount));
+                Csv(zCount),
+                Csv(start),
+                Csv(distance),
+                Csv(acceleration),
+                Csv(deceleration));
         }
 
         private static string Csv(object value)

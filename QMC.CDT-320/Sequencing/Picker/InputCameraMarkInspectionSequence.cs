@@ -234,6 +234,10 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("INPUT-CAMERA-MARK-INSPECTION-RESOURCE-EX", Name,

@@ -1050,7 +1050,10 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                double startPos = item.ActualPosition;
                 double velocity = ResolveMoveVelocity(item, bFine);
+                double acceleration = ResolveMoveAcceleration(item, bFine);
+                double deceleration = ResolveMoveDeceleration(item, bFine);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
                 {
                     Stopwatch commandWatch = Stopwatch.StartNew();
@@ -1069,7 +1072,7 @@ namespace QMC.CDT320
 
                     if (result != 0 || item.IsAlarm)
                     {
-                        WritePickerMoveElapsed(axis, targetPos, targetName, bFine, velocity, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
+                        WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
                         return RaisePickerAlarm(
                             "PK-MOVE",
                             axis + " 이동 명령 실패. result=" + result +
@@ -1082,7 +1085,7 @@ namespace QMC.CDT320
                         axis,
                         targetPos).ConfigureAwait(false);
                     verifyMs = verifyWatch.ElapsedMilliseconds;
-                    WritePickerMoveElapsed(axis, targetPos, targetName, bFine, velocity, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
                     if (!waitResult.Success)
                         return RaisePickerAlarm(
                             AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
@@ -1400,10 +1403,13 @@ namespace QMC.CDT320
 
         private void WritePickerMoveElapsed(
             PickerAxis axis,
+            double startPos,
             double targetPos,
             string targetName,
             bool bFine,
             double velocity,
+            double acceleration,
+            double deceleration,
             int result,
             long commandMs,
             long verifyMs,
@@ -1422,17 +1428,24 @@ namespace QMC.CDT320
                     ", verifyMs=" + verifyMs +
                     ", result=" + result +
                     ", verify=" + (waitResult != null ? waitResult.Failure.ToString() : "-") +
+                    ", start=" + startPos +
                     ", target=" + targetPos +
+                    ", distance=" + Math.Abs(targetPos - startPos) +
                     ", targetName=" + (targetName ?? string.Empty) +
                     ", fine=" + bFine +
-                    ", velocity=" + velocity);
+                    ", velocity=" + velocity +
+                    ", acc=" + acceleration +
+                    ", dec=" + deceleration);
                 PickerMoveTimeFileLogger.WriteAxis(
                     Name,
                     axis,
+                    startPos,
                     targetPos,
                     targetName,
                     bFine,
                     velocity,
+                    acceleration,
+                    deceleration,
                     result,
                     commandMs,
                     verifyMs,
@@ -2027,6 +2040,26 @@ namespace QMC.CDT320
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
             return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+        }
+
+        private double ResolveMoveAcceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return bFine
+                ? axis.Config.Acceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+        }
+
+        private double ResolveMoveDeceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return bFine
+                ? axis.Config.Deceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
         }
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)

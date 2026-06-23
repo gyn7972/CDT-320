@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Interlocks;
 using QMC.Common.Motion;
+using QMC.Common;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -126,85 +127,106 @@ namespace QMC.CDT320.Sequencing
             {
                 // 유닛 확인
                 case PickerPlaceStep.CheckUnit:
+                    Log.Write("PickerPlaceSequence", Name + " Place 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(CheckUnit());
 
                 // 픽업 피커 목록 생성
                 case PickerPlaceStep.BuildPickedPickerList:
+                    Log.Write("PickerPlaceSequence", Name + " Place 피커 목록 생성 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(BuildPickedPickerList());
 
                 // 전체 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MoveAllPickerZToAvoid:
+                    Log.Write("PickerPlaceSequence", Name + " Place 전체 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MoveAllPickerZToAvoidAsync(ct);
 
                 // 다음 피커 선택
                 case PickerPlaceStep.SelectNextPicker:
+                    Log.Write("PickerPlaceSequence", Name + " Place 다음 피커 선택 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(SelectNextPicker());
 
                 // 아웃풋 사이드 결정
                 case PickerPlaceStep.ResolveOutputSide:
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 사이드 결정 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(ResolveOutputSide());
 
                 // 아웃풋 스테이지 수령 가능 확인
                 case PickerPlaceStep.VerifyOutputStageReady:
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 수령 준비 확인 시작. side=" + Side + ", step=" + CurrentStep); 
                     return VerifyOutputStageReadyAsync(ct);
 
                 // 아웃풋 스테이지 대상 예약
                 case PickerPlaceStep.ReserveOutputStageTarget:
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 대상 예약 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(ReserveOutputStageTarget());
 
                 // 아웃풋 스테이지 피커 진입용 어보이드 이동
                 case PickerPlaceStep.MoveOutputStageAvoidPosition:
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 피커 진입용 Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);  
                     return MoveOutputStageAvoidPositionAsync(ct);
 
                 // 아웃풋 스테이지 수령 위치 이동
                 case PickerPlaceStep.MoveOutputStageReceivePosition:
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 수령 위치 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MoveOutputStageReceivePositionAsync(ct);
 
                 // 플레이스 대상 계산
                 case PickerPlaceStep.CalculatePlaceTarget:
+                    Log.Write("PickerPlaceSequence", Name + " Place 대상 계산 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(CalculatePlaceTarget());
 
                 // 피커 X/Y/T 플레이스 티칭 위치 이동. Bin 내 Y 좌표는 OutputStageY가 담당한다.
                 case PickerPlaceStep.MovePickerXYAndTToPlace:
+                    Log.Write("PickerPlaceSequence", Name + " Place 피커 XY/T 플레이스 티칭 위치 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MovePickerXYAndTToPlaceAsync(ct);
 
                 // 플레이스 대상 검증
                 case PickerPlaceStep.VerifyPlaceTarget:
+                    Log.Write("PickerPlaceSequence", Name + " Place 대상 검증 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(VerifyPlaceTarget());
 
                 // 피커 Z 플레이스 이동
                 case PickerPlaceStep.MovePickerZPlace:
+                    Log.Write("PickerPlaceSequence", Name + " Place 피커 Z 플레이스 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MovePickerZPlaceAsync(ct);
 
                 // 진공 OFF 처리
                 case PickerPlaceStep.VacuumOff:
+                    Log.Write("PickerPlaceSequence", Name + " Place 진공 OFF 처리 시작. side=" + Side + ", step=" + CurrentStep);
                     return VacuumOffAsync(ct);
 
                 // 블로우 OFF 처리
                 case PickerPlaceStep.BlowOff:
+                    Log.Write("PickerPlaceSequence", Name + " Place 블로우 OFF 처리 시작. side=" + Side + ", step=" + CurrentStep);    
                     return BlowOffAsync(ct);
 
                 // 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MovePickerZToAvoid:
+                    Log.Write("PickerPlaceSequence", Name + " Place 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep); 
                     return MovePickerZToAvoidAsync(ct);
 
                 // Flow OFF 최종 확인
                 case PickerPlaceStep.VerifyFlowOff:
+                    Log.Write("PickerPlaceSequence", Name + " Place Flow OFF 최종 확인 시작. side=" + Side + ", step=" + CurrentStep);    
                     return VerifyFlowOffAsync(ct);
 
                 // 자재로 아웃풋 스테이지 갱신
                 case PickerPlaceStep.UpdateMaterialToOutputStage:
+                    Log.Write("PickerPlaceSequence", Name + " Place 자재로 아웃풋 스테이지 갱신 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(UpdateMaterialToOutputStage(ct));
 
                 case PickerPlaceStep.RecoverOutputStageAfterPlace:
+                    Log.Write("PickerPlaceSequence", Name + " Place 완료 후 아웃풋 스테이지 복귀 시작. side=" + Side + ", step=" + CurrentStep);
                     return RecoverOutputStageAfterPlaceAsync(ct);
 
                 // 다음 피커 또는 완료 선택
                 case PickerPlaceStep.SelectNextPickerOrComplete:
+                    Log.Write("PickerPlaceSequence", Name + " Place 완료 후 다음 피커 또는 완료 선택 시작. side=" + Side + ", step=" + CurrentStep);
                     return Task.FromResult(SelectNextPickerOrComplete());
 
                 // Place 완료 후 피커 전체 어보이드 복귀
                 case PickerPlaceStep.MovePickerToAvoidAfterPlace:
+                    Log.Write("PickerPlaceSequence", Name + " Place 완료 후 피커 전체 어보이드 복귀 시작. side=" + Side + ", step=" + CurrentStep);
                     return MovePickerToAvoidAfterPlaceAsync(ct);
 
                 default:
