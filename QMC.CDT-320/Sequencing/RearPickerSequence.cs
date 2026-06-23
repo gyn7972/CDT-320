@@ -92,7 +92,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = Mode;
-            options.SimulateVisionResult = IsSimulationOrDryRun();
+            options.SimulateVisionResult = ShouldSimulateVisionResult();
             options.PickerMotionOnlyTestMode = Mode == SequenceRunMode.Auto && IsPickerMotionOnlyTestModeEnabled();
             return options;
         }
@@ -114,37 +114,31 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSimulationOrDryRun()
+        private bool ShouldSimulateVisionResult()
         {
             try
             {
-                if (QMC.CDT320.AppSettingsStore.Current != null &&
-                    (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
-                     QMC.CDT320.AppSettingsStore.Current.DryRunMode))
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
                     return true;
 
                 if (Context != null && Context.Controller != null && Context.Controller.GlobalDryRun)
-                    return true;
-
-                if (Context != null &&
-                    Context.Machine != null &&
-                    Context.Machine.InputStageUnit != null &&
-                    Context.Machine.InputStageUnit.IsInputStageSimulationOrDryRun())
-                    return true;
+                    return false;
 
                 if (Context != null &&
                     Context.Machine != null &&
                     Context.Machine.PickerRearUnit != null &&
-                    Context.Machine.PickerRearUnit.Config != null &&
-                    Context.Machine.PickerRearUnit.Config.bDryRun)
+                    ((Context.Machine.PickerRearUnit.Setup != null && Context.Machine.PickerRearUnit.Setup.IsSimulationMode) ||
+                     (Context.Machine.PickerRearUnit.Config != null && Context.Machine.PickerRearUnit.Config.IsSimulationMode)))
                     return true;
 
                 return false;
             }
             catch (Exception ex)
             {
-                WriteLog("IsSimulationOrDryRun", "RearPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
-                return false;
+                WriteLog("ShouldSimulateVisionResult", "RearPicker Vision 시뮬레이션 조건 확인 실패: " + ex.Message + " - Failed");
+                return true;
             }
             finally
             {

@@ -6228,6 +6228,38 @@ namespace QMC.CDT320
             }
         }
 
+        private bool ShouldSimulatePickerVisionResult(QMC.CDT320.Sequencing.PickerSequenceSide side)
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
+                    return true;
+
+                if (_machine == null)
+                    return false;
+
+                if (side == QMC.CDT320.Sequencing.PickerSequenceSide.Front)
+                {
+                    return _machine.PickerFrontUnit != null &&
+                           ((_machine.PickerFrontUnit.Setup != null && _machine.PickerFrontUnit.Setup.IsSimulationMode) ||
+                            (_machine.PickerFrontUnit.Config != null && _machine.PickerFrontUnit.Config.IsSimulationMode));
+                }
+
+                return _machine.PickerRearUnit != null &&
+                       ((_machine.PickerRearUnit.Setup != null && _machine.PickerRearUnit.Setup.IsSimulationMode) ||
+                        (_machine.PickerRearUnit.Config != null && _machine.PickerRearUnit.Config.IsSimulationMode));
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>선택한 InputStage Die를 대상으로 Manual PickUp 테스트를 실행합니다. 실제 Material 상태를 Picker 보유 상태로 갱신합니다.</summary>
         public async Task<int> RunManualPickerSelectedDiePickUpAsync(
             QMC.CDT320.Sequencing.PickerSequenceSide side,
@@ -6281,10 +6313,7 @@ namespace QMC.CDT320
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
-                    options.SimulateVisionResult =
-                        QMC.CDT320.AppSettingsStore.Current != null &&
-                        (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
-                         QMC.CDT320.AppSettingsStore.Current.DryRunMode);
+                    options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
 
                     int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
                         .RunManualSelectedDiePickUpAsync(dieId, pickerNo, ManualOperationToken, options)
@@ -6423,10 +6452,7 @@ namespace QMC.CDT320
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
                     options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
                     options.PickerNo = pickerNo;
-                    options.SimulateVisionResult =
-                        QMC.CDT320.AppSettingsStore.Current != null &&
-                        (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
-                         QMC.CDT320.AppSettingsStore.Current.DryRunMode);
+                    options.SimulateVisionResult = ShouldSimulatePickerVisionResult(side);
 
                     var sequence = new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side);
                     int result;

@@ -1349,7 +1349,7 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Rear && RearPicker != null)
                 return RearPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
-            return 100;
+            return 5; //100
         }
 
         private void ReleaseOutputStageArea()

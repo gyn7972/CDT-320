@@ -3147,7 +3147,7 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Rear && RearPicker != null)
                 return RearPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
-            return 50;
+            return 5; //50
         }
 
         private void RecordColletUse(int pickerNo)
