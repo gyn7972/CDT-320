@@ -500,15 +500,18 @@ namespace QMC.CDT320.Sequencing
                     ? Task.FromResult(0)
                     : MoveSideVisionProcess0PositionAsync(ct);
 
-                int[] results = await Task.WhenAll(pickerTask, visionTask).ConfigureAwait(false);
-                if (results[0] != 0 || results[1] != 0)
+                Task<int> previousZTask = MovePreviousInspectedPickerZToAvoidForCurrentInspectionAsync(ct);
+
+                int[] results = await Task.WhenAll(pickerTask, visionTask, previousZTask).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0 || results[2] != 0)
                 {
                     return Fail(
                         "PICKER-SIDE-X-VISION0-PARALLEL",
                         Name,
-                        "Side 0도 진입 X/Y와 SideVisionY 0도 병렬 이동 실패. " +
+                        "Side 0도 진입 X/Y, SideVisionY 0도, 이전 PickerZ Avoid 병렬 이동 실패. " +
                         "pickerResult=" + results[0] +
                         ", visionResult=" + results[1] +
+                        ", previousZResult=" + results[2] +
                         ", pickerNo=" + _currentPickerNo);
                 }
 
@@ -524,6 +527,54 @@ namespace QMC.CDT320.Sequencing
                     "PICKER-SIDE-X-VISION0-PARALLEL-EX",
                     Name,
                     "Side 0도 진입 X/Y와 SideVisionY 0도 병렬 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePreviousInspectedPickerZToAvoidForCurrentInspectionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options == null || !Options.KeepZUntilSideInspectionComplete)
+                    return 0;
+
+                if (_pickerCursor <= 0 || _pickerCursor > _pickedPickerIndexes.Count - 1)
+                    return 0;
+
+                int previousPickerIndex = _pickedPickerIndexes[_pickerCursor - 1];
+                PickerAxis previousZAxis = GetPickerZAxis(previousPickerIndex);
+                double zAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
+                if (IsPickerAxisAlreadyInPosition(previousZAxis, zAvoid))
+                    return 0;
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    previousZAxis,
+                    zAvoid,
+                    "다음 Side 검사 시작 중 이전 PickerZ Avoid",
+                    ct,
+                    "DieSidePreviousZAvoid[" + previousPickerIndex + "]").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerSideInspectionSequence",
+                    Name + " 다음 Side 검사 시작과 이전 PickerZ Avoid를 병렬 완료했습니다. " +
+                    "currentPickerNo=" + _currentPickerNo +
+                    ", previousPickerNo=" + ToPickerNo(previousPickerIndex) + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SIDE-PREV-Z-AVOID-EX", Name,
+                    "다음 Side 검사 시작 중 이전 PickerZ Avoid 이동 예외 발생. currentPickerNo=" +
+                    _currentPickerNo + ", error=" + ex.Message);
             }
             finally
             {
@@ -886,14 +937,53 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAfterInspectionAsync(CancellationToken ct)
         {
-            int result = await MoveAllPickerZToAvoidAndVerifyAsync(
-                "Side 검사 전체 완료 후 PickerZ 전체 Avoid",
+            int result = await MoveRemainingInspectedPickerZToAvoidAfterInspectionAsync(
+                "Side 검사 전체 완료 후 남은 PickerZ Avoid",
                 ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             CurrentStep = PickerSideInspectionStep.Complete;
             return 0;
+        }
+
+        private async Task<int> MoveRemainingInspectedPickerZToAvoidAfterInspectionAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var targets = new Dictionary<PickerAxis, double>();
+                for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                {
+                    int pickerIndex = _pickedPickerIndexes[i];
+                    PickerAxis zAxis = GetPickerZAxis(pickerIndex);
+                    double zAvoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                    if (!IsPickerAxisAlreadyInPosition(zAxis, zAvoid))
+                        targets[zAxis] = zAvoid;
+                }
+
+                if (targets.Count == 0)
+                    return 0;
+
+                return await MovePickerAxesAndVerifyAsync(
+                    targets,
+                    description,
+                    ct,
+                    "DieSideFinalZAvoid").ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SIDE-FINAL-Z-AVOID-EX", Name,
+                    description + " 중 예외 발생. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveSideYToAvoidAsync(CancellationToken ct)
