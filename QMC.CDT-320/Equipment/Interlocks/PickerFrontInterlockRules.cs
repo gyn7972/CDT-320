@@ -247,12 +247,12 @@ namespace QMC.CDT320.Interlocks
                         "FrontPickerY 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
                         out reason);
 
-                // OutputStage GoodStageZ가 Avoid 위치여야 FrontPickerY 이동 가능.
+                // OutputStage GoodStageZ가 안전 위치(Avoid 또는 Process)여야 FrontPickerY 이동 가능.
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
-                if (outputStage != null && !outputStage.IsGoodStageZInAvoidPosition())
+                if (outputStage != null && !outputStage.IsGoodStageZInAvoidOrProcessPosition())
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerY",
-                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 위치가 아닙니다.",
+                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다.",
                         out reason);
 
                 return true;

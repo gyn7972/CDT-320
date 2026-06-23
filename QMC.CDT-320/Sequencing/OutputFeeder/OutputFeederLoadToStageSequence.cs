@@ -551,6 +551,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveOutputStageProcessPositionAsync(CancellationToken ct)
         {
+            int pickerClear = await WaitPickersClearForOutputTransportAsync("OutputStage Process 이동 준비", ct).ConfigureAwait(false);
+            if (pickerClear != 0)
+                return pickerClear;
+
             var stageOptions = OutputStageSequenceOptions.Default();
             stageOptions.Side = Options.Side;
             stageOptions.Grade = Options.Side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good;

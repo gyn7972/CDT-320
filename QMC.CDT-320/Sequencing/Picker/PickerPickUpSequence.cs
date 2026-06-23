@@ -3405,9 +3405,22 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await AwaitStepWithCancellationAsync(
-                    stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
-                    ct).ConfigureAwait(false);
+                int result;
+                if (axis == WaferStageAxis.VisionX)
+                {
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "PickerPickUp;Side=" + Side + ";InputVisionX;" + description))
+                    {
+                        result = await AwaitStepWithCancellationAsync(
+                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                            ct).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await AwaitStepWithCancellationAsync(
+                        stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                        ct).ConfigureAwait(false);
+                }
 
                 if (result != 0)
                     return Fail("PICKER-PICKUP-STAGE-MOVE", stage.Name,

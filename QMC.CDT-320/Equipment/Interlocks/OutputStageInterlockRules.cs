@@ -151,6 +151,9 @@ namespace QMC.CDT320.Interlocks
                 if (feeder == null)
                     return true;
 
+                if (feeder.IsOutputFeederSimulationOrDryRun())
+                    return true;
+
                 if (feeder.IsBinFeederRingCheck())
                     return MotionGuardRuleHelpers.Block(
                         movingName,

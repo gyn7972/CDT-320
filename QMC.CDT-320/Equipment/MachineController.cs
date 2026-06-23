@@ -4038,62 +4038,76 @@ namespace QMC.CDT320
             }
         }
 
-        private Task<int> PrepareOutputFeederHomeAsync()
+        private async Task<int> PrepareOutputFeederHomeAsync()
         {
             Log("[INIT] Prepare OutputFeeder home: OutputLifterZ / OutputVisionX Avoid check, feeder unclamp/up.");
 
             var cassette = _machine.OutputCassetteUnit;
             if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다.");
             }
 
             var outputStage = _machine.OutputStageUnit;
             if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다.");
             }
 
             if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다.");
             }
 
             if (outputStage != null && !outputStage.IsBinGuideDown(BinSide.Good))
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
+                Log("[INIT] Prepare OutputFeeder home: Good Bin Guide Down.");
+
+                int guideDownResult = await outputStage.EnsureBinGuideDownAsync(BinSide.Good, 3000, CancellationToken.None).ConfigureAwait(false);
+                if (guideDownResult != 0)
+                {
+                    return FailInitializePreparation(
+                        "OutputFeeder HOME 준비 실패: Good Bin Guide Down 명령 실패. result=" + guideDownResult + ", " +
+                        outputStage.DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                if (!outputStage.IsBinGuideDown(BinSide.Good))
+                {
+                    return FailInitializePreparation(
+                        "OutputFeeder HOME 준비 실패: Good Bin Guide Down 최종 확인 실패. " +
+                        outputStage.DescribeOutputStageInterlockState(BinSide.Good));
+                }
             }
 
             var feeder = _machine.OutputFeederUnit;
             if (feeder == null)
-                return Task.FromResult(0);
+                return 0;
 
             if (feeder.IsFeederOverload())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
             }
 
             if (!feeder.IsFeederUnclamped())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder unclamp failed."));
+                return FailInitializePreparation("OutputFeeder unclamp failed.");
             }
 
             if (!feeder.IsFeederUp())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder lift up failed."));
+                return FailInitializePreparation("OutputFeeder lift up failed.");
             }
 
-            if (feeder.IsBinFeederRingCheck())
+            if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder Ring Check."));
+                return FailInitializePreparation("OutputFeeder Ring Check.");
             }
 
-            return Task.FromResult(0);
+            return 0;
         }
 
         private async Task<int> MoveSharedRailAxesToAvoidAsync()

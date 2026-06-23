@@ -523,7 +523,7 @@ namespace QMC.CDT_320
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
-            // Stage 43 ??6 梨꾨꼸: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // Stage 43 - 6채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
             if (cfg.VisionAutoConnect)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
@@ -562,7 +562,7 @@ namespace QMC.CDT_320
                 }
             };
             MotionMonitor = new MotionMonitorService();
-            MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 100);
+            MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 250);
             IoScan = new AjinIoScanService();
             IoScan.Start(EnumerateInputs(Machine), EnumerateOutputs(Machine), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 10 : 100, () => !AppSettingsStore.Current.BypassHardware && AjinSystem.IsOpen);
             OpPanelMonitor = new OperationPanelMonitorService(Machine, Controller);
