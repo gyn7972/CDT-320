@@ -556,6 +556,12 @@ namespace QMC.CDT320.Sequencing
                             ", targetZone=" + targetZone +
                             ", description=" + description +
                             ", opposite=" + BuildOppositePickerYState() + " - Wait");
+                        WriteSharedRailXLog(
+                            Name + " PickerYMoveGate wait. side=" + Side +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", targetZone=" + targetZone +
+                            ", description=" + description +
+                            ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                         waitLogged = true;
                     }
 
@@ -571,6 +577,12 @@ namespace QMC.CDT320.Sequencing
                         ", targetName=" + (targetName ?? "-") +
                         ", targetZone=" + targetZone +
                         ", description=" + description + " - Ok");
+                    WriteSharedRailXLog(
+                        Name + " PickerYMoveGate wait complete. side=" + Side +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", targetZone=" + targetZone +
+                        ", description=" + description +
+                        ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                 }
 
                 return 0;
@@ -726,6 +738,11 @@ namespace QMC.CDT320.Sequencing
 
         private BaseAxis ResolveOppositePickerYAxis()
         {
+            return ResolveOppositePickerAxis(PickerAxis.PickerY);
+        }
+
+        private BaseAxis ResolveOppositePickerAxis(PickerAxis pickerAxis)
+        {
             try
             {
                 if (Side == PickerSequenceSide.Front)
@@ -733,7 +750,7 @@ namespace QMC.CDT320.Sequencing
                     BaseAxis axis;
                     if (RearPicker != null &&
                         RearPicker.Axes != null &&
-                        RearPicker.Axes.TryGetValue(PickerAxis.PickerY, out axis))
+                        RearPicker.Axes.TryGetValue(pickerAxis, out axis))
                         return axis;
 
                     return null;
@@ -742,7 +759,7 @@ namespace QMC.CDT320.Sequencing
                 BaseAxis frontAxis;
                 if (FrontPicker != null &&
                     FrontPicker.Axes != null &&
-                    FrontPicker.Axes.TryGetValue(PickerAxis.PickerY, out frontAxis))
+                    FrontPicker.Axes.TryGetValue(pickerAxis, out frontAxis))
                     return frontAxis;
 
                 return null;
@@ -750,6 +767,70 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildOppositePickerSharedRailXState(string movingAxes)
+        {
+            try
+            {
+                bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+                string oppositeName = oppositeIsFront ? "FrontPicker" : "RearPicker";
+                BaseAxis x = ResolveOppositePickerAxis(PickerAxis.PickerX);
+                BaseAxis y = ResolveOppositePickerAxis(PickerAxis.PickerY);
+                PickerWorkZone currentXZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
+                    Context != null ? Context.Machine : null,
+                    oppositeIsFront);
+                PickerWorkZone activeYTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
+                PickerWorkZone workAreaZone;
+                string workAreaOwner;
+                bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    oppositeIsFront,
+                    out workAreaZone,
+                    out workAreaOwner);
+
+                return "opposite=" + oppositeName +
+                       ", currentXZone=" + currentXZone +
+                       ", activeYTargetZone=" + activeYTargetZone +
+                       ", yAtAvoid=" + (IsOppositePickerYAtAvoidPosition() ? "Y" : "N") +
+                       ", workArea=" + (workAreaActive ? workAreaZone.ToString() : "None") +
+                       ", owner=" + (workAreaActive ? workAreaOwner : "-") +
+                       ", movingAxes=" + (string.IsNullOrWhiteSpace(movingAxes) ? "-" : movingAxes) +
+                       ", x=" + FormatSharedRailAxis(x) +
+                       ", y=" + FormatSharedRailAxis(y);
+            }
+            catch (Exception ex)
+            {
+                return "stateError=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatSharedRailAxis(BaseAxis axis)
+        {
+            if (axis == null)
+                return "<null>";
+
+            return axis.Name +
+                   "(actual=" + axis.ActualPosition.ToString("0.###") +
+                   ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                   ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") + ")";
+        }
+
+        private static void WriteSharedRailXLog(string message)
+        {
+            try
+            {
+                Log.Write("SharedRailX", message);
+            }
+            catch
+            {
             }
             finally
             {
@@ -994,6 +1075,11 @@ namespace QMC.CDT320.Sequencing
                                 Name + " auto wait. Opposite picker is moving. description=" + description +
                                 ", opposite=" + oppositeName +
                                 ", movingAxes=" + movingAxes + " - Check");
+                            WriteSharedRailXLog(
+                                Name + " PickerOppositeWait wait. reason=OppositeMoving" +
+                                ", description=" + description +
+                                ", opposite=" + oppositeName +
+                                ", oppositeState=" + BuildOppositePickerSharedRailXState(movingAxes));
                             loggedWait = true;
                         }
 
@@ -1018,6 +1104,13 @@ namespace QMC.CDT320.Sequencing
                                 ", opposite=" + oppositeName +
                                 ", zone=" + oppositeZone +
                                 ", owner=" + oppositeOwner + " - Check");
+                            WriteSharedRailXLog(
+                                Name + " PickerOppositeWait wait. reason=OppositeInspectionArea" +
+                                ", description=" + description +
+                                ", opposite=" + oppositeName +
+                                ", zone=" + oppositeZone +
+                                ", owner=" + oppositeOwner +
+                                ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                             loggedWait = true;
                         }
 
@@ -1030,6 +1123,10 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("PickerOppositeWait",
                             Name + " auto wait complete. Opposite picker is ready. description=" + description +
                             ", opposite=" + oppositeName + " - Ok");
+                        WriteSharedRailXLog(
+                            Name + " PickerOppositeWait wait complete. description=" + description +
+                            ", opposite=" + oppositeName +
+                            ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                     }
 
                     return 0;

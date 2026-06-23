@@ -118,6 +118,8 @@ namespace QMC.CDT320.Interlocks
         private static int rearOutputAreaUseCount;
         private static string frontOutputAreaOwner = string.Empty;
         private static string rearOutputAreaOwner = string.Empty;
+        private static DateTime lastFrontEncoderOverlapLogUtc = DateTime.MinValue;
+        private static DateTime lastRearEncoderOverlapLogUtc = DateTime.MinValue;
 
         public static IDisposable BeginPickerZoneMove(string side, PickerAxis axis, string targetName)
         {
@@ -1023,19 +1025,37 @@ namespace QMC.CDT320.Interlocks
                 setup.Ensure();
                 double tolerance = setup.ZoneTolerance > 0.0 ? setup.ZoneTolerance : DefaultTolerance;
                 int matchCount = 0;
+                string matches = string.Empty;
 
                 if (IsInZone(setup.Avoid, position, tolerance))
+                {
                     SetEncoderZoneMatch(PickerWorkZone.Avoid, ref zone, ref matchCount);
+                    AppendEncoderZoneMatch(ref matches, PickerWorkZone.Avoid);
+                }
                 if (IsInZone(setup.Input, position, tolerance))
+                {
                     SetEncoderZoneMatch(PickerWorkZone.Input, ref zone, ref matchCount);
+                    AppendEncoderZoneMatch(ref matches, PickerWorkZone.Input);
+                }
                 if (IsInZone(setup.Bottom, position, tolerance))
+                {
                     SetEncoderZoneMatch(PickerWorkZone.Bottom, ref zone, ref matchCount);
+                    AppendEncoderZoneMatch(ref matches, PickerWorkZone.Bottom);
+                }
                 if (IsInZone(setup.Side, position, tolerance))
+                {
                     SetEncoderZoneMatch(PickerWorkZone.Side, ref zone, ref matchCount);
+                    AppendEncoderZoneMatch(ref matches, PickerWorkZone.Side);
+                }
                 if (IsInZone(setup.Output, position, tolerance))
+                {
                     SetEncoderZoneMatch(PickerWorkZone.Output, ref zone, ref matchCount);
+                    AppendEncoderZoneMatch(ref matches, PickerWorkZone.Output);
+                }
 
                 configured = IsZoneConfigured(setup);
+                if (matchCount > 1)
+                    WriteEncoderZoneOverlapLog(isFront, position, tolerance, matches, setup);
                 return matchCount == 1;
             }
             catch
@@ -1056,6 +1076,74 @@ namespace QMC.CDT320.Interlocks
                 zone = matchedZone;
             else
                 zone = PickerWorkZone.Unknown;
+        }
+
+        private static void AppendEncoderZoneMatch(ref string matches, PickerWorkZone zone)
+        {
+            if (matches.Length > 0)
+                matches += "|";
+            matches += zone.ToString();
+        }
+
+        private static void WriteEncoderZoneOverlapLog(
+            bool isFront,
+            double position,
+            double tolerance,
+            string matches,
+            PickerZoneXSetup setup)
+        {
+            try
+            {
+                if (!ShouldWriteEncoderOverlapLog(isFront))
+                    return;
+
+                QMC.Common.Log.Write(
+                    "SharedRailX",
+                    "PickerZone encoder overlap. side=" + (isFront ? "Front" : "Rear") +
+                    ", position=" + position.ToString("0.###") +
+                    ", tolerance=" + tolerance.ToString("0.###") +
+                    ", matches=" + matches +
+                    ", resolved=Unknown" +
+                    ", avoid=" + FormatZoneRange(setup != null ? setup.Avoid : null) +
+                    ", input=" + FormatZoneRange(setup != null ? setup.Input : null) +
+                    ", bottom=" + FormatZoneRange(setup != null ? setup.Bottom : null) +
+                    ", sideZone=" + FormatZoneRange(setup != null ? setup.Side : null) +
+                    ", output=" + FormatZoneRange(setup != null ? setup.Output : null));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ShouldWriteEncoderOverlapLog(bool isFront)
+        {
+            lock (activeZoneLock)
+            {
+                DateTime now = DateTime.UtcNow;
+                DateTime last = isFront ? lastFrontEncoderOverlapLogUtc : lastRearEncoderOverlapLogUtc;
+                if ((now - last).TotalMilliseconds < 100.0)
+                    return false;
+
+                if (isFront)
+                    lastFrontEncoderOverlapLogUtc = now;
+                else
+                    lastRearEncoderOverlapLogUtc = now;
+
+                return true;
+            }
+        }
+
+        private static string FormatZoneRange(PickerZoneXRange range)
+        {
+            if (range == null)
+                return "<null>";
+
+            return "{enabled=" + range.Enabled +
+                   ", min=" + range.MinX.ToString("0.###") +
+                   ", max=" + range.MaxX.ToString("0.###") + "}";
         }
 
         private static bool IsZoneConfigured(PickerZoneXSetup setup)
