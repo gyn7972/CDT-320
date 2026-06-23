@@ -71,7 +71,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             root.Controls.Add(BuildControlGrid(), 0, 0);
 
-            _viewer = new VisionViewerPanel(VisionHub.Host, VisionViewerPorts.Wafer, "Wafer 이미지")
+            _viewer = new VisionViewerPanel(VisionHub.Host, VisionViewerPorts.Wafer, "Wafer 이미지", VisionHub.Wafer)
             {
                 Dock = DockStyle.Fill,
                 Margin = new Padding(0)
@@ -267,7 +267,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            try { _viewer?.StopStream(); } catch { }
+            try { _viewer?.StopLive(); } catch { }
             base.OnFormClosing(e);
         }
     }

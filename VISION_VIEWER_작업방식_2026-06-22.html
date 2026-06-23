@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDT-320 Vision 뷰어/동작테스트 작업 방식 (2026-06-22)</title>
+<style>
+  :root{--bg:#0f1115;--card:#171a21;--line:#2a2f3a;--fg:#e6e9ef;--mut:#9aa3b2;--ok:#3ecf8e;--warn:#f0a33e;--accent:#5b9dff;--danger:#ff6b6b;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI","맑은 고딕",sans-serif;line-height:1.6;padding:32px;}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:17px;margin:28px 0 10px;border-left:4px solid var(--accent);padding-left:10px}
+  h3{font-size:14px;margin:16px 0 6px;color:var(--accent)}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+  code{background:#0c0e12;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-family:Consolas,monospace;font-size:12.5px;color:#cfe3ff}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:6px}
+  .done{background:rgba(62,207,142,.15);color:var(--ok);border:1px solid rgba(62,207,142,.4)}
+  .prop{background:rgba(240,163,62,.15);color:var(--warn);border:1px solid rgba(240,163,62,.4)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#11141a;color:var(--mut);font-weight:600}
+  ul{margin:6px 0 6px 0;padding-left:20px}
+  li{margin:3px 0}
+  .flow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;font-size:12.5px}
+  .box{background:#0c0e12;border:1px solid var(--line);border-radius:6px;padding:8px 11px}
+  .arr{color:var(--accent);font-weight:700}
+  .files{font-family:Consolas,monospace;font-size:12px;color:#bcd}
+  .note{color:var(--mut);font-size:12.5px}
+  .new{color:var(--ok)} .edit{color:var(--warn)}
+</style>
+</head>
+<body>
+
+<h1>CDT-320 Vision 뷰어 · 동작테스트 — 작업 방식 정리</h1>
+<div class="sub">2026-06-22 야간 작업 / 코드 완료, 빌드·검증은 내일 VS2022에서 / 작업 경로: <code>C:\Project\CDT-320</code></div>
+
+<div class="card">
+  <h3>큰 그림 — 채널 2개로 분리</h3>
+  <div class="flow">
+    <div class="box"><b>명령/결과 채널</b><br>5100/5101/5103/5105/5106<br><span class="note">MODULE|CMD|args → ACK/ERR<br>텍스트만(오프셋·PASS/FAIL)</span></div>
+    <span class="arr">─ 동작 테스트(버튼) ─▶</span>
+    <div class="box">EXPOSE / MATCH / INSPECT<br><span class="note">모션 구동 없음</span></div>
+  </div>
+  <div class="flow">
+    <div class="box"><b>이미지(뷰어) 채널</b><br>5200/5201/5203/5205/5206<br><span class="note">VisionFrameCodec: [meta][JPEG]</span></div>
+    <span class="arr">─ 뷰어 표시 ─▶</span>
+    <div class="box">CameraViewBase (Grab/Live/Stop)<br><span class="note">메타 → 오버레이(판정·마크·측정)</span></div>
+  </div>
+  <p class="note"><b>뷰어 연결 지점</b> — 핸들러(수신): <code>VisionViewerSource</code>(툴바 Live/Grab) 또는 <code>VisionFrameClient</code>. Vision측(송출): <code>GrabStreamServer</code>가 <code>Form1.cs</code>의 <code>_svr*.Start()</code>+<code>MakeViewer()</code>로 기동, 포트=<code>cfg.*ViewerPort</code>.</p>
+</div>
+
+<h2>요청 1 — 동작 버튼 누르는 동안 LIVE 유지 <span class="tag done">코드완료</span></h2>
+<div class="card">
+  <ul>
+    <li>뷰어 패널이 <code>CameraViewBase.AttachSource(VisionViewerSource)</code>로 연결 → 화면의 <b>네이티브 툴바 Grab/Live/Stop</b>이 그대로 동작.</li>
+    <li>패널에 별도 <b>LIVE / STOP / GRAB 버튼</b> 추가, <b>핸들 생성 시 자동 LIVE 시작</b> → 액션 버튼을 눌러도 영상이 계속 흐름.</li>
+    <li>동작 테스트 버튼(EXPOSE/MATCH 등)은 여전히 <b>모션 미구동</b>(약속 유지).</li>
+  </ul>
+  <div class="files new">+ Ui\Controls\VisionViewerPanel.cs (Live/Stop/Grab 바 + 자동 Live)</div>
+</div>
+
+<h2>요청 2 — GRAB 시 결과 데이터 오버레이(Vision PC처럼) <span class="tag done">코드완료</span></h2>
+<div class="card">
+  <ul>
+    <li><code>VisionViewerSource</code>에 <code>FrameMeta</code> 이벤트 추가 — 프레임마다 메타(스케일/판정/결과라인/마크)를 통지.</li>
+    <li>뷰어 패널이 메타를 받아 <code>SetVerdict / SetResultLines / SetOverlay / MmPerPixel</code>로 <b>오버레이</b> 표시 → 판정·검출 마크·측정 mm가 영상 위에 그려짐.</li>
+    <li>GRAB 버튼 = 명령 채널로 <code>EXPOSE</code> 전송(촬상·검사 트리거) → 결과 프레임이 뷰어로 들어와 오버레이 갱신.</li>
+  </ul>
+  <div class="files edit">~ Equipment\Vision\VisionViewerSource.cs (FrameMeta 이벤트)</div>
+</div>
+
+<h2>요청 3 — Front Side + Rear Side 동시 표시 <span class="tag done">코드완료</span></h2>
+<div class="card">
+  <ul>
+    <li><code>SideVisionViewerControl</code> 신설 — 위=FRONT SIDE(TopSide 5205), 아래=REAR SIDE(BottomSide 5206)를 <b>반반 동시</b> 표시.</li>
+    <li>FRONT HEAD / REAR HEAD 페이지에 <b>"VISION: SIDE(동시)"</b> 런처 추가 → 두 측면을 한 화면에서 셋업.</li>
+    <li class="note">실측 이미지 4000×700은 추후 분할 예정 — 지금은 전체를 그대로 표시(셋업 편의).</li>
+  </ul>
+  <div class="files new">+ Ui\Controls\SideVisionViewerControl.cs &nbsp; + SideVisionViewerDialog (VisionViewDialog.cs 내)</div>
+</div>
+
+<h2>요청 4 — 나머지 모듈 뷰어 모두 추가 <span class="tag done">코드완료</span></h2>
+<div class="card">
+  <table>
+    <tr><th>모듈</th><th>명령 포트</th><th>뷰어 포트</th><th>진입(테스트 팝업)</th></tr>
+    <tr><td>Wafer</td><td>5100</td><td>5200</td><td>INPUT STAGE → VISION: WAFER</td></tr>
+    <tr><td>Bottom Insp</td><td>5101</td><td>5201</td><td>FRONT/REAR HEAD → VISION: BOTTOM INSP</td></tr>
+    <tr><td>Bin</td><td>5103</td><td>5203</td><td>OUTPUT STAGE → VISION: BIN</td></tr>
+    <tr><td>Top Side(Front)</td><td>5105</td><td>5205</td><td>HEAD → VISION: TOP SIDE / SIDE(동시)</td></tr>
+    <tr><td>Bottom Side(Rear)</td><td>5106</td><td>5206</td><td>HEAD → VISION: BOTTOM SIDE / SIDE(동시)</td></tr>
+  </table>
+  <ul>
+    <li>모듈별 테스트 팝업(<code>VisionModuleTestDialog</code>)을 2열로 바꿔 <b>우측에 해당 모듈 뷰어</b>를 붙임 — 모듈명→뷰어포트 자동 해석(<code>VisionViewerPorts.ResolveByModule</code>).</li>
+  </ul>
+  <div class="files new">+ Equipment\Vision\VisionViewerPorts.cs</div>
+  <div class="files edit">~ Ui\Dialogs\VisionModuleTestDialog.cs (좌 명령 / 우 뷰어 + 명령클라이언트 전달)</div>
+</div>
+
+<h2>요청 5 — 작업화면 VISION + 별도 Vision View <span class="tag done">Vision View 코드완료</span> <span class="tag prop">POSITION 옆 탭=제안</span></h2>
+<div class="card">
+  <ul>
+    <li><b>통합 Vision View</b>(<code>VisionViewDialog</code>) 신설 — 탭으로 <b>Wafer / Bottom / Bin / Side(동시)</b> 이미지를 한 곳에서. 각 탭은 Live/Grab + 오버레이 지원, 버튼은 <b>TCP/IP</b>로 동작(명령 클라이언트 연결).</li>
+    <li>각 작업정보 페이지(INPUT/OUTPUT STAGE, FRONT/REAR HEAD)에 <b>"VISION VIEW"</b> 런처 버튼 추가 → 어디서나 통합 뷰 열기.</li>
+    <li class="prop"><b>"POSITION 옆에 VISION 탭"</b> 정식 통합은 작업화면 탭 구조(WorkTab) 수정이 필요해, 빌드 안전을 위해 <b>오늘은 런처 버튼으로</b> 우선 제공하고 탭 삽입은 내일 함께 위치 잡아 진행 제안. (현재 화면에서 POSITION 탭의 정확한 호스트를 같이 확인 필요)</li>
+  </ul>
+  <div class="files new">+ Ui\Dialogs\VisionViewDialog.cs (VisionViewDialog + SideVisionViewerDialog + AddLaunchers)</div>
+  <div class="files edit">~ InputStagePage / OutputStagePage / FrontPickerPage / RearPickerPage (VISION VIEW · SIDE 런처)</div>
+</div>
+
+<h2>신규/수정 파일 요약</h2>
+<div class="card">
+  <h3 class="new">신규</h3>
+  <div class="files">
+    Equipment\Vision\VisionViewerPorts.cs — 모듈명→뷰어포트 단일 맵<br>
+    Ui\Controls\VisionViewerPanel.cs — 재사용 뷰어(Live/Grab/Stop + 오버레이 + TCP GRAB)<br>
+    Ui\Controls\SideVisionViewerControl.cs — Front+Rear 동시<br>
+    Ui\Dialogs\VisionViewDialog.cs — 통합 Vision View + 측면 동시 다이얼로그 + 런처<br>
+    Equipment\Vision\WaferVisionResultStore.cs — (앞서) Wafer 결과 SSOT<br>
+    Ui\Dialogs\WaferVisionTestDialog.cs — (앞서) Wafer 버튼전용 테스트
+  </div>
+  <h3 class="edit">수정</h3>
+  <div class="files">
+    Equipment\Vision\VisionViewerSource.cs — FrameMeta 이벤트<br>
+    Equipment\Vision\VisionAdapters.cs — Wafer 결과 Store 기록<br>
+    Ui\Dialogs\VisionModuleTestDialog.cs — 우측 모듈 뷰어 통합<br>
+    Ui\Pages\WorkInfo\InputStagePage / OutputStagePage / FrontPickerPage / RearPickerPage — 런처<br>
+    QMC.CDT-320.csproj — 신규 파일 등록
+  </div>
+</div>
+
+<h2>해결한 에러 · 검증</h2>
+<div class="card">
+  <ul>
+    <li><b>SplitContainer 예외</b>(<code>SplitterDistance는 Panel1MinSize와 너비-Panel2MinSize 사이여야</code>) → 생성 시점 너비 부족이 원인. <b>2열 TableLayoutPanel</b>로 교체해 해결.</li>
+    <li>핵심 시그니처 정적 확인 완료: <code>VisionHub.Wafer/Host</code>, <code>CameraViewBase.SetVerdict/SetResultLines/StartLive/IsLive/AttachSource</code>, <code>VisionFrameMeta</code> 필드, <code>VisionTcpClient.ExposeAsync/ModuleName/Host</code>.</li>
+    <li class="note">실제 컴파일은 Windows MSBuild 전용 → <b>내일 VS2022에서 빌드</b>. (이 환경엔 MSBuild 없음)</li>
+  </ul>
+</div>
+
+<h2>내일 같이 볼 항목</h2>
+<div class="card">
+  <ul>
+    <li>VS2022 빌드 → 뷰어 5개 연결 테스트(이미지/오버레이/Live/GRAB).</li>
+    <li>"POSITION 옆 VISION 탭" 정식 위치 확정 후 탭으로 승격(현재는 VISION VIEW 런처).</li>
+    <li>측면 4000×700 분할(좌/우 crop) 규칙 적용.</li>
+    <li>GRAB 시 INSPECT까지 묶을지(검사 결과 오버레이 강화) 결정.</li>
+    <li>Bottom/Bin/Side도 Wafer처럼 <b>버튼전용 단계별 동작 테스트</b>로 확장(현재 제네릭 텍스트 입력형).</li>
+  </ul>
+</div>
+
+</body>
+</html>
