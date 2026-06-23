@@ -5,97 +5,120 @@ using System.Threading.Tasks;
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// InputStageUnit �� <see cref="IVisionTcpClient"/> �Ǳ��� ? Wafer vision ���� ���.
+    /// InputStageUnit에서 사용하는 Wafer/Input vision adapter.
+    /// Unit은 공정 의미를 유지하고, 실제 TCP 요청은 AutoVisionRequestService가 담당한다.
     /// </summary>
-    /// <remarks>
-    /// [index��chipUid] MATCH/INSPECT�� index ���ڴ� ���� ������ chipUid(�̹����αס�MaterialTracker Ű)�� �ؼ��Ѵ�.
-    /// ����� dieIndex/pickerNo/slotIndex ���ڸ� �״�� �����Ѵ�. ���� Ĩ UID ������ �ʿ��ϸ�
-    /// ȣ���(Material ��)���� UID�� �����ϵ��� ���� �ʿ�. TODO: chipUid �ҽ� ����.
-    /// </remarks>
     public class WaferVisionAdapter : IVisionTcpClient
     {
-        // ���� �ӽ� Ķ���극�̼� ��� (TODO: SCALE ������/���������� ��ü) ����
-        private const double ImageCenterX        = 320.0;  // �̹��� �߽� X [px] (TODO: ���� �ػ� ���)
-        private const double ImageCenterY        = 240.0;  // �̹��� �߽� Y [px]
-        private const double PixelToMm           = 0.001;  // �ȼ���mm �ӽ� ������ (TODO: SCALE Ķ���극�̼� ��)
-        private const double DiePitchMm          = 0.15;   // ���� ��ġ [mm] (TODO: ���۷��� ��ũ ���� ��ġ)
-        private const double MatchScoreThreshold = 0.7;    // ��Ī �հ� ���ھ� �Ӱ谪
+        private const double ImageCenterX = 320.0;
+        private const double ImageCenterY = 240.0;
+        private const double PixelToMm = 0.001;
+        private const double DiePitchMm = 0.15;
+        private const double MatchScoreThreshold = 0.7;
 
         public Task<bool> TriggerExposeAsync(int dieIndex)
         {
-            var c = VisionHub.Wafer;
-            if (c == null || !c.IsConnected) return Task.FromResult(false);
-            return c.ExposeAsync(dieIndex);
+            return AutoVisionRequestService.GrabAsync(
+                AutoVisionChannel.Wafer,
+                dieIndex,
+                5000,
+                CancellationToken.None);
         }
 
         public async Task<bool> GetResultAsync(int dieIndex, int timeoutMs = 5000)
         {
-            var c = VisionHub.Wafer;
-            if (c == null || !c.IsConnected) return false;
-            // WaferVision DieFinder �� ��Ī �� score>=0.7 �̸� OK
             try
             {
-                var r = await c.MatchAsync("DieFinder", dieIndex, timeoutMs);
-                bool ok = r.Success && r.Score >= MatchScoreThreshold;
+                MatchResultDto result = await AutoVisionRequestService.MatchAsync(
+                    AutoVisionChannel.Wafer,
+                    "DieFinder",
+                    dieIndex,
+                    timeoutMs,
+                    CancellationToken.None).ConfigureAwait(false);
+
+                bool ok = result != null && result.Success && result.Score >= MatchScoreThreshold;
                 QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordDieCheck(ok);
                 return ok;
             }
-            catch { return false; }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId)
         {
-            var c = VisionHub.Wafer;
-            if (c == null || !c.IsConnected) return null;
-
-            // Ÿ�ٺ� ����
-            string finder;
-            switch (alignTargetId)
-            {
-                // �߾� ���� Finder ����
-                case "Center": finder = "AlignDieFinder";        break;
-                // ù ��° Reference Finder ����
-                case "Ref1":   finder = "FirstReferenceFinder";  break;
-                // �� ��° Reference Finder ����
-                case "Ref2":   finder = "SecondReferenceFinder"; break;
-                default:       finder = alignTargetId;           break;
-            }
+            string finder = ResolveAlignFinder(alignTargetId);
 
             try
             {
-                var r = await c.MatchAsync(finder);
-                if (!r.Success) return null;
-                // �̹��� �߽��� 0���� �ϴ� Delta ��ȯ (�ӽ� ������ ? TODO: SCALE ������ ����)
-                var align = new VisionAlignResult
-                {
-                    DeltaX     = (r.X - ImageCenterX) * PixelToMm,
-                    DeltaY     = (r.Y - ImageCenterY) * PixelToMm,
-                    DeltaTheta = r.AngleDeg,
-                    PitchX     = DiePitchMm,
-                    PitchY     = DiePitchMm
-                };
-                QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(alignTargetId, align);
+                MatchResultDto result = await AutoVisionRequestService.MatchAsync(
+                    AutoVisionChannel.Wafer,
+                    finder,
+                    0,
+                    5000,
+                    CancellationToken.None).ConfigureAwait(false);
+
+                VisionAlignResult align = AutoVisionRequestService.ToAlignResult(
+                    result,
+                    ImageCenterX,
+                    ImageCenterY,
+                    PixelToMm,
+                    DiePitchMm);
+
+                if (align != null)
+                    QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(alignTargetId, align);
+
                 return align;
             }
-            catch { return null; }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveAlignFinder(string alignTargetId)
+        {
+            switch (alignTargetId)
+            {
+                case "Center":
+                    return "AlignDieFinder";
+                case "Ref1":
+                    return "FirstReferenceFinder";
+                case "Ref2":
+                    return "SecondReferenceFinder";
+                default:
+                    return alignTargetId;
+            }
         }
     }
 
     /// <summary>
-    /// TransferPickerUnit �� <see cref="IVisionTpuClient"/> �Ǳ��� ?
-    /// Bottom(Inspection) / Side(TopSide/BottomSide) vision ȣ��.
-    /// ���� Side �� Bottom �� ���� ��Ʈ(Inspection) ���� ? �Ŵ��� ����.
+    /// Picker bottom/side vision adapter.
+    /// Bottom은 BottomInspection 채널을 사용하고, Side는 생성 시 전달받은 Front/Rear side 채널을 사용한다.
     /// </summary>
-    /// <remarks>
-    /// [index��chipUid] EXPOSE/MATCH/INSPECT�� index(=pickerNo, �Ǵ� pickerNo*10+side)��
-    /// ���� �������� chipUid(�̹����αס����� Ű)�� �ؼ��ȴ�. ���� Ĩ UID ������ �ʿ��ϸ� ȣ��ο��� UID ���� ���� �ʿ�. TODO.
-    /// </remarks>
     public class TpuVisionAdapter : IVisionTpuClient
     {
-        // ���� �ӽ� Ķ���극�̼� ��� (TODO: ���������� ��ü) ����
-        private const double ImageCenterX        = 320.0;  // �̹��� �߽� X [px]
-        private const double ImageCenterY        = 240.0;  // �̹��� �߽� Y [px]
-        private const double MatchScoreThreshold = 0.7;    // ��Ī �հ� ���ھ� �Ӱ谪
+        private const double ImageCenterX = 320.0;
+        private const double ImageCenterY = 240.0;
+        private const double MatchScoreThreshold = 0.7;
+        private readonly AutoVisionChannel _sideChannel;
+
+        public TpuVisionAdapter()
+            : this(AutoVisionChannel.Bottom)
+        {
+        }
+
+        public TpuVisionAdapter(AutoVisionChannel sideChannel)
+        {
+            _sideChannel = sideChannel;
+        }
 
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000)
         {
@@ -104,9 +127,11 @@ namespace QMC.CDT320.VisionComm
 
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
-            var c = VisionHub.Inspection;
-            if (c == null || !c.IsConnected) return Task.FromResult(false);
-            return c.ExposeAsync(pickerNo, timeoutMs, ct);
+            return AutoVisionRequestService.GrabAsync(
+                AutoVisionChannel.Bottom,
+                pickerNo,
+                timeoutMs,
+                ct);
         }
 
         public async Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000)
@@ -116,23 +141,28 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct)
         {
-            var c = VisionHub.Inspection;
-            if (c == null || !c.IsConnected) return null;
+            var results = new BottomVisionOffset[4];
 
-            // 4�� Picker ������ ���� DieFinder ��Ī �� OffsetX/Y/IsOk
-            var result = new BottomVisionOffset[4];
             for (int i = 0; i < 4; i++)
             {
                 try
                 {
                     ct.ThrowIfCancellationRequested();
-                    var r = await c.MatchAsync("DieFinder", i, timeoutMs, ct);
-                    result[i] = new BottomVisionOffset
+
+                    MatchResultDto match = await AutoVisionRequestService.MatchAsync(
+                        AutoVisionChannel.Bottom,
+                        "DieFinder",
+                        i,
+                        timeoutMs,
+                        ct).ConfigureAwait(false);
+
+                    results[i] = new BottomVisionOffset
                     {
                         PickerNo = i + 1,
-                        OffsetX  = r.Success ? r.X - ImageCenterX : 0,
-                        OffsetY  = r.Success ? r.Y - ImageCenterY : 0,
-                        IsOk     = r.Success && r.Score >= MatchScoreThreshold
+                        OffsetX = match != null && match.Success ? match.X - ImageCenterX : 0,
+                        OffsetY = match != null && match.Success ? match.Y - ImageCenterY : 0,
+                        OffsetT = match != null && match.Success ? match.AngleDeg : 0,
+                        IsOk = match != null && match.Success && match.Score >= MatchScoreThreshold
                     };
                 }
                 catch (OperationCanceledException)
@@ -141,10 +171,14 @@ namespace QMC.CDT320.VisionComm
                 }
                 catch
                 {
-                    result[i] = new BottomVisionOffset { PickerNo = i + 1, IsOk = false };
+                    results[i] = new BottomVisionOffset { PickerNo = i + 1, IsOk = false };
+                }
+                finally
+                {
                 }
             }
-            return result;
+
+            return results;
         }
 
         public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs = 1000)
@@ -154,10 +188,11 @@ namespace QMC.CDT320.VisionComm
 
         public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
         {
-            var c = VisionHub.Inspection;
-            if (c == null || !c.IsConnected) return Task.FromResult(false);
-            // Side exposure �� Inspection ��Ʈ�� ���� ȣ�� (index �� sideNo ���ڵ�)
-            return c.ExposeAsync(pickerNo * 10 + sideNo, timeoutMs, ct);
+            return AutoVisionRequestService.GrabAsync(
+                _sideChannel,
+                pickerNo * 10 + sideNo,
+                timeoutMs,
+                ct);
         }
 
         public async Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)
@@ -167,19 +202,23 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
-            var c = VisionHub.Inspection;
-            if (c == null || !c.IsConnected) return null;
-
-            // 4�� ���� SurfaceInspector ȣ��. index = pickerNo*10+side (TriggerSideExposeAsync ���ڵ��� ��ġ)
             try
             {
                 bool[] ok = new bool[4];
                 for (int side = 1; side <= 4; side++)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var ins = await c.InspectAsync("SurfaceInspector", pickerNo * 10 + side, timeoutMs, ct);
-                    ok[side - 1] = ins.IsPass;
+
+                    InspectionResultDto inspection = await AutoVisionRequestService.InspectAsync(
+                        _sideChannel,
+                        "SurfaceInspector",
+                        pickerNo * 10 + side,
+                        timeoutMs,
+                        ct).ConfigureAwait(false);
+
+                    ok[side - 1] = inspection != null && inspection.IsPass;
                 }
+
                 return new SideVisionResult
                 {
                     PickerNo = pickerNo,
@@ -193,27 +232,38 @@ namespace QMC.CDT320.VisionComm
             {
                 throw;
             }
-            catch { return null; }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
         }
     }
 
-    /// <summary>OutputStage �� ITpuUnit ? ����� TransferPicker �� ���� �̺�Ʈ�θ� ����, ���� ����.</summary>
-    /// ���⼭�� VisionHub �� Bin Ŭ���̾�Ʈ�� Ȱ���� "PlacementInspector" ȣ�� ���۸� ����.
     public static class BinVisionHelper
     {
         public static async Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
         {
-            var c = VisionHub.Bin;
-            if (c == null || !c.IsConnected)
+            if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
                 return new InspectionResultDto { IsPass = true, Raw = "BYPASS:BinVisionNotConnected" };
 
             try
             {
-                return await c.InspectAsync("PlacementInspector", slotIndex, timeoutMs);
+                return await AutoVisionRequestService.InspectAsync(
+                    AutoVisionChannel.Bin,
+                    "PlacementInspector",
+                    slotIndex,
+                    timeoutMs,
+                    CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:" + ex.Message };
+                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+            }
+            finally
+            {
             }
         }
     }

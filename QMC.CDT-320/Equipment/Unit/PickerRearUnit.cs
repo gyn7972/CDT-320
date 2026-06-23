@@ -258,7 +258,7 @@ namespace QMC.CDT320
         public PickerRearUnit() : base("PickerRearUnit")
         {
             side = "Rear";
-            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter();
+            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter(QMC.CDT320.VisionComm.AutoVisionChannel.RearSide);
 
             PickerX = RegisterAxis(PickerAxis.PickerX, side + "PickerX");
             PickerY = RegisterAxis(PickerAxis.PickerY, side + "PickerY");

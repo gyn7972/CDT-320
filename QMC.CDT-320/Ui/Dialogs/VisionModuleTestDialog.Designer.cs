@@ -41,33 +41,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._root.SuspendLayout();
             this._grid.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // _root
-            //
+            // 
             this._root.ColumnCount = 2;
             this._root.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 470F));
             this._root.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._root.RowCount = 1;
-            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._root.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._root.Name = "_root";
             this._root.Controls.Add(this._grid, 0, 0);
             this._root.Controls.Add(this._viewer, 1, 0);
-            //
+            this._root.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._root.Name = "_root";
+            this._root.RowCount = 1;
+            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            // 
             // _grid
-            //
+            // 
             this._grid.ColumnCount = 3;
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this._grid.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._grid.RowCount = 4;
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._grid.Padding = new System.Windows.Forms.Padding(12);
-            this._grid.Name = "_grid";
             this._grid.Controls.Add(this._btnGrab, 0, 0);
             this._grid.Controls.Add(this._lblGrab, 1, 0);
             this._grid.SetColumnSpan(this._lblGrab, 2);
@@ -79,84 +71,128 @@ namespace QMC.CDT_320.Ui.Dialogs
             this._grid.Controls.Add(this._lblInsp, 2, 2);
             this._grid.Controls.Add(this._hint, 0, 3);
             this._grid.SetColumnSpan(this._hint, 3);
-            //
-            // command buttons
-            //
-            ConfigCmdBtn(this._btnGrab,    "GRAB");
-            ConfigCmdBtn(this._btnMatch,   "MATCH");
-            ConfigCmdBtn(this._btnInspect, "INSPECT");
-            //
-            // textboxes
-            //
+            this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._grid.Name = "_grid";
+            this._grid.Padding = new System.Windows.Forms.Padding(12);
+            this._grid.RowCount = 4;
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this._grid.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            // 
+            // _btnGrab
+            // 
+            this._btnGrab.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this._btnGrab.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnGrab.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnGrab.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnGrab.ForeColor = System.Drawing.Color.White;
+            this._btnGrab.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
+            this._btnGrab.Name = "_btnGrab";
+            this._btnGrab.Text = "GRAB";
+            this._btnGrab.UseVisualStyleBackColor = false;
+            this._btnGrab.Click += new System.EventHandler(this.btnGrab_Click);
+            // 
+            // _lblGrab
+            // 
+            this._lblGrab.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblGrab.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblGrab.ForeColor = System.Drawing.Color.DimGray;
+            this._lblGrab.Name = "_lblGrab";
+            this._lblGrab.Text = "대기";
+            this._lblGrab.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _txtFinder
+            // 
             this._txtFinder.Dock = System.Windows.Forms.DockStyle.Fill;
             this._txtFinder.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this._txtFinder.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
             this._txtFinder.Name = "_txtFinder";
+            // 
+            // _btnMatch
+            // 
+            this._btnMatch.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this._btnMatch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnMatch.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnMatch.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnMatch.ForeColor = System.Drawing.Color.White;
+            this._btnMatch.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
+            this._btnMatch.Name = "_btnMatch";
+            this._btnMatch.Text = "MATCH";
+            this._btnMatch.UseVisualStyleBackColor = false;
+            this._btnMatch.Click += new System.EventHandler(this.btnMatch_Click);
+            // 
+            // _lblMatch
+            // 
+            this._lblMatch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblMatch.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblMatch.ForeColor = System.Drawing.Color.DimGray;
+            this._lblMatch.Name = "_lblMatch";
+            this._lblMatch.Text = "finder 입력 후 MATCH - x/y/t/score";
+            this._lblMatch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _txtInsp
+            // 
             this._txtInsp.Dock = System.Windows.Forms.DockStyle.Fill;
             this._txtInsp.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this._txtInsp.Margin = new System.Windows.Forms.Padding(3, 8, 3, 8);
             this._txtInsp.Name = "_txtInsp";
-            //
-            // result labels
-            //
-            ConfigResultLbl(this._lblGrab,  "대기");
-            ConfigResultLbl(this._lblMatch, "finder 입력 후 MATCH → x/y/θ/score");
-            ConfigResultLbl(this._lblInsp,  "inspector 입력 후 INSPECT → PASS/FAIL");
-            //
+            // 
+            // _btnInspect
+            // 
+            this._btnInspect.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
+            this._btnInspect.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnInspect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnInspect.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnInspect.ForeColor = System.Drawing.Color.White;
+            this._btnInspect.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
+            this._btnInspect.Name = "_btnInspect";
+            this._btnInspect.Text = "INSPECT";
+            this._btnInspect.UseVisualStyleBackColor = false;
+            this._btnInspect.Click += new System.EventHandler(this.btnInspect_Click);
+            // 
+            // _lblInsp
+            // 
+            this._lblInsp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblInsp.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblInsp.ForeColor = System.Drawing.Color.DimGray;
+            this._lblInsp.Name = "_lblInsp";
+            this._lblInsp.Text = "inspector 입력 후 INSPECT - PASS/FAIL";
+            this._lblInsp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
             // _hint
-            //
+            // 
             this._hint.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._hint.ForeColor = System.Drawing.Color.DimGray;
             this._hint.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._hint.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
+            this._hint.ForeColor = System.Drawing.Color.DimGray;
             this._hint.Name = "_hint";
-            this._hint.Text = "Vision RUN 상태에서만 명령 수락(PING 제외). finder/inspector 는 레시피 등록 도구명.";
-            //
+            this._hint.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
+            this._hint.Text = "Vision RUN 상태에서만 명령을 수락합니다. finder/inspector는 레시피에 등록된 도구명입니다.";
+            // 
             // _viewer
-            //
+            // 
             this._viewer.Dock = System.Windows.Forms.DockStyle.Fill;
             this._viewer.Margin = new System.Windows.Forms.Padding(0);
             this._viewer.Name = "_viewer";
-            //
+            // 
             // VisionModuleTestDialog
-            //
+            // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(1080, 420);
+            this.Controls.Add(this._root);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
             this.MaximizeBox = true;
             this.MinimizeBox = false;
             this.MinimumSize = new System.Drawing.Size(900, 360);
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Name = "VisionModuleTestDialog";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "VISION 동작 테스트";
-            this.Controls.Add(this._root);
             this._root.ResumeLayout(false);
             this._grid.ResumeLayout(false);
             this._grid.PerformLayout();
             this.ResumeLayout(false);
-        }
-
-        private static void ConfigCmdBtn(System.Windows.Forms.Button b, string text)
-        {
-            b.Text = text;
-            b.Dock = System.Windows.Forms.DockStyle.Fill;
-            b.BackColor = System.Drawing.Color.FromArgb(60, 60, 60);
-            b.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            b.ForeColor = System.Drawing.Color.White;
-            b.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
-            b.Margin = new System.Windows.Forms.Padding(3, 6, 12, 6);
-            b.UseVisualStyleBackColor = false;
-        }
-
-        private static void ConfigResultLbl(System.Windows.Forms.Label l, string text)
-        {
-            l.Dock = System.Windows.Forms.DockStyle.Fill;
-            l.Text = text;
-            l.Font = new System.Drawing.Font("Consolas", 10F);
-            l.ForeColor = System.Drawing.Color.DimGray;
-            l.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
         }
     }
 }

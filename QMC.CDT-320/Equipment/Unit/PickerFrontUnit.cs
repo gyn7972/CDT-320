@@ -429,7 +429,7 @@ namespace QMC.CDT320
         public PickerFrontUnit() : base("PickerFrontUnit")
         {
             side = "Front";
-            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter();
+            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter(QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide);
 
             PickerX = RegisterAxis(PickerAxis.PickerX, side + "PickerX");
             PickerY = RegisterAxis(PickerAxis.PickerY, side + "PickerY");
