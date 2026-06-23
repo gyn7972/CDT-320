@@ -405,7 +405,7 @@ namespace QMC.CDT320.Sequencing
                     return result;
                 int slotIndex = request.ReceiveTarget.OrderIndex;
                 InspectionResultDto inspection = await SequenceAwaiter.AwaitAsync(
-                    BinVisionHelper.CheckPlacementAsync(slotIndex, timeout),
+                    BinVisionHelper.CheckPlacementAsync(slotIndex, timeout, ct),
                     null,
                     ct).ConfigureAwait(false);
                 bool inspectionOk = inspection != null && inspection.IsPass;

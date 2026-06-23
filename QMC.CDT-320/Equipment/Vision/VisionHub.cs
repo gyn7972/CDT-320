@@ -45,6 +45,15 @@ namespace QMC.CDT320.VisionComm
             string host, int waferPort = 5100, int inspectionPort = 5101, int binPort = 5103,
             int mainPort = 5104, int topSidePort = 5105, int bottomSidePort = 5106)
         {
+            if (IsVisionLinkBypassed())
+            {
+                DisconnectAll();
+                Host = host;
+                EventLogger.Write(EventKind.Event, "SYS", "VISION-CONN",
+                    "시뮬레이션 모드라 Vision PC 연결을 시도하지 않습니다.");
+                return true;
+            }
+
             DisconnectAll();
             Host = host;
 
@@ -150,6 +159,12 @@ namespace QMC.CDT320.VisionComm
         private static void RaiseChanged()
         {
             try { ConnectionChanged?.Invoke(); } catch { }
+        }
+
+        private static bool IsVisionLinkBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && (settings.SimulationMode || settings.BypassHardware);
         }
     }
 }

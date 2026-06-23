@@ -6,6 +6,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private QMC.Common.Ui.Controls.CameraViewBase _cam;
         private System.Windows.Forms.FlowLayoutPanel _bar;
+        private System.Windows.Forms.CheckBox _chkViewer;
         private System.Windows.Forms.Label _lblTitle;
         private System.Windows.Forms.Label _lblStat;
 
@@ -20,6 +21,7 @@ namespace QMC.CDT_320.Ui.Controls
         {
             this._cam = new QMC.Common.Ui.Controls.CameraViewBase();
             this._bar = new System.Windows.Forms.FlowLayoutPanel();
+            this._chkViewer = new System.Windows.Forms.CheckBox();
             this._lblTitle = new System.Windows.Forms.Label();
             this._lblStat = new System.Windows.Forms.Label();
             this._bar.SuspendLayout();
@@ -34,12 +36,25 @@ namespace QMC.CDT_320.Ui.Controls
             // _bar
             //
             this._bar.Controls.Add(this._lblTitle);
+            this._bar.Controls.Add(this._chkViewer);
             this._bar.Controls.Add(this._lblStat);
             this._bar.Dock = System.Windows.Forms.DockStyle.Top;
             this._bar.Height = 30;
             this._bar.Name = "_bar";
             this._bar.Padding = new System.Windows.Forms.Padding(4, 2, 4, 2);
             this._bar.WrapContents = false;
+            //
+            // _chkViewer — 뷰어(라이브 스트림) ON/OFF 토글. 버튼 모양 체크박스.
+            //
+            this._chkViewer.Appearance = System.Windows.Forms.Appearance.Button;
+            this._chkViewer.AutoSize = true;
+            this._chkViewer.Margin = new System.Windows.Forms.Padding(10, 3, 4, 3);
+            this._chkViewer.Name = "_chkViewer";
+            this._chkViewer.Padding = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this._chkViewer.Text = "뷰어 OFF";
+            this._chkViewer.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this._chkViewer.UseVisualStyleBackColor = true;
+            this._chkViewer.CheckedChanged += new System.EventHandler(this.chkViewer_CheckedChanged);
             //
             // _lblTitle
             //

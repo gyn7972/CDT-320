@@ -385,6 +385,7 @@ namespace QMC.CDT320.Sequencing
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
 
+                //수정포인트 1
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)

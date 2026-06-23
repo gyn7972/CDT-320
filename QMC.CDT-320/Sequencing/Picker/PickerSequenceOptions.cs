@@ -12,6 +12,8 @@ namespace QMC.CDT320.Sequencing
         public int VisionRetryCount { get; set; }
         public bool SimulateVisionResult { get; set; }
         public bool PickerMotionOnlyTestMode { get; set; }
+        public bool RequireInputCameraMarkInspectionPermission { get; set; }
+        public bool InputCameraPreInspectionMode { get; set; }
         public bool KeepZAfterBottomInspection { get; set; }
         public bool EnterSideFromBottomInspection { get; set; }
         public bool KeepZUntilSideInspectionComplete { get; set; }
@@ -30,6 +32,8 @@ namespace QMC.CDT320.Sequencing
                 VisionRetryCount = 3,
                 SimulateVisionResult = false,
                 PickerMotionOnlyTestMode = false,
+                RequireInputCameraMarkInspectionPermission = false,
+                InputCameraPreInspectionMode = false,
                 KeepZAfterBottomInspection = false,
                 EnterSideFromBottomInspection = false,
                 KeepZUntilSideInspectionComplete = false

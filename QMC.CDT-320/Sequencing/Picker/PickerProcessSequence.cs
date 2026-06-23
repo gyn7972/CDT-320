@@ -33,6 +33,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ResetPickerPhaseSignals();
                 ReleasePickerProcessPhase("Abort");
+                InputCameraPreInspectionCoordinator.Clear(Side);
 
                 if (_pickUpSequence != null)
                     _pickUpSequence.Abort();
@@ -127,7 +128,11 @@ namespace QMC.CDT320.Sequencing
                 case PickerProcessStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
-                // 픽업 업 실행
+                // InputCamera Mark 검사 실행
+                case PickerProcessStep.RunInputCameraMarkInspection:
+                    return RunInputCameraMarkInspectionAsync(ct);
+
+                // 픽업 실행
                 case PickerProcessStep.RunPickUp:
                     return RunPickUpAsync(ct);
 
@@ -231,11 +236,23 @@ namespace QMC.CDT320.Sequencing
                     placeReadyCount++;
                 }
 
+                bool hasReadyInputPickTarget = MaterialStateService.HasReadyInputStagePickTarget();
+                WriteLog("PickerProcessSequence",
+                    Name + " Picker 공정 시작 스텝 판단. side=" + Side +
+                    ", runMode=" + (Options != null ? Options.RunMode.ToString() : "null") +
+                    ", enabledPickerCount=" + enabled.Count +
+                    ", occupiedPickerCount=" + occupiedCount +
+                    ", bottomRequiredCount=" + bottomRequiredCount +
+                    ", sideRequiredCount=" + sideRequiredCount +
+                    ", placeReadyCount=" + placeReadyCount +
+                    ", hasReadyInputPickTarget=" + hasReadyInputPickTarget +
+                    " - Check");
+
                 if (occupiedCount == 0)
                 {
-                    CurrentStep = PickerProcessStep.RunPickUp;
+                    CurrentStep = PickerProcessStep.RunInputCameraMarkInspection;
                     WriteLog("PickerProcessSequence",
-                        Name + " Picker에 Die가 없어 PickUp부터 시작합니다. side=" + Side +
+                        Name + " Picker에 Die가 없어 InputCamera Mark 검사부터 시작합니다. side=" + Side +
                         ", enabledPickerCount=" + enabled.Count + " - Check");
                     return 0;
                 }
@@ -319,6 +336,66 @@ namespace QMC.CDT320.Sequencing
                    (die.Result == DieResult.Good || die.Result == DieResult.NG);
         }
 
+        private async Task<int> RunInputCameraMarkInspectionAsync(CancellationToken ct)
+        {
+            try
+            {
+                int readyResult = await EnterOrTransitionPickerPhaseAsync(
+                    PickerProcessPhase.PickUp,
+                    "InputCameraMarkInspection",
+                    ct).ConfigureAwait(false);
+                if (readyResult != 0)
+                    return readyResult;
+
+                InputCameraPreInspectionWaitResult waitResult =
+                    await InputCameraPreInspectionCoordinator.WaitForPermissionOrCompletionAsync(
+                        Context,
+                        Side,
+                        BuildChildSequenceOptions(),
+                        ct,
+                        Name + ":PickUpReady").ConfigureAwait(false);
+
+                if (waitResult.Status == InputCameraPreInspectionWaitStatus.Failed)
+                {
+                    ReleasePickerProcessPhase("InputCameraMarkInspectionFailed");
+                    return Fail("PICKER-PROCESS-INPUT-CAMERA-PRE-INSPECTION", Name,
+                        "InputCamera 선행검사 실패. side=" + Side +
+                        ", result=" + waitResult.ResultCode +
+                        ", message=" + waitResult.Message);
+                }
+
+                if (waitResult.Status == InputCameraPreInspectionWaitStatus.NoTarget)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " InputCamera 선행검사 대상이 없어 Picker 공정을 완료 처리합니다. side=" +
+                        Side + " - Check");
+                    ReleasePickerProcessPhase("InputCameraPreInspectionNoTarget");
+                    CurrentStep = PickerProcessStep.Complete;
+                    return 0;
+                }
+
+                CurrentStep = PickerProcessStep.RunPickUp;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PROCESS-INPUT-CAMERA-MARK-EX", Name,
+                    "InputCamera Mark 검사 공정 실행 중 예외가 발생했습니다. side=" + Side +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> RunPickUpAsync(CancellationToken ct)
         {
             try
@@ -345,6 +422,7 @@ namespace QMC.CDT320.Sequencing
                 if (_pickUpSequence.IsComplete)
                 {
                     _pickUpSequence = null;
+                    StartNextInputCameraPreInspectionIfNeeded(ct, "PickUpComplete");
                     int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "PickUpToBottomInspection", ct).ConfigureAwait(false);
                     if (phaseResult != 0)
                         return phaseResult;
@@ -369,6 +447,33 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private void StartNextInputCameraPreInspectionIfNeeded(CancellationToken ct, string reason)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+
+                InputCameraPreInspectionCoordinator.EnsureStarted(
+                    Context,
+                    Side,
+                    BuildChildSequenceOptions(),
+                    ct,
+                    Name + ":" + reason);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " InputCamera 선행검사 시작 요청 중 예외가 발생했습니다. side=" + Side +
+                    ", reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
             }
         }
 
@@ -976,6 +1081,8 @@ namespace QMC.CDT320.Sequencing
                 VisionRetryCount = source.VisionRetryCount,
                 SimulateVisionResult = source.SimulateVisionResult,
                 PickerMotionOnlyTestMode = source.PickerMotionOnlyTestMode,
+                RequireInputCameraMarkInspectionPermission = source.RequireInputCameraMarkInspectionPermission,
+                InputCameraPreInspectionMode = source.InputCameraPreInspectionMode,
                 KeepZAfterBottomInspection = source.KeepZAfterBottomInspection || (isAuto && keepZAfterBottomInspection),
                 EnterSideFromBottomInspection = source.EnterSideFromBottomInspection || (isAuto && enterSideFromBottomInspection),
                 KeepZUntilSideInspectionComplete = source.KeepZUntilSideInspectionComplete || (isAuto && keepZUntilSideInspectionComplete)

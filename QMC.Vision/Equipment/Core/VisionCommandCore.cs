@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using QMC.Vision.Config;
 using QMC.Vision.Modules;
@@ -13,14 +14,22 @@ namespace QMC.Vision.Core
     /// </summary>
     public static class VisionCommandCore
     {
+        /// <summary>그랩/알고리즘 소요시간 로그 ON/OFF(병목 측정용). 운영 중 끄려면 false.</summary>
+        public static bool TimingLogEnabled = true;
+
         /// <summary>1장 그랩. "w=..;h=..;frame=.." 또는 "fail:..".</summary>
         public static string Grab(IVisionModule m)
         {
             if (m == null) return "fail:no module";
+            var swGrab = Stopwatch.StartNew();
             using (var g = m.Grab())
+            {
+                swGrab.Stop();
+                LogTiming(m.Name, "GRAB", "", swGrab.ElapsedMilliseconds, -1);
                 return g != null && g.IsSuccess
                     ? $"w={g.Width};h={g.Height};frame={g.FrameNumber}"
                     : "fail:" + (g?.ErrorMessage ?? "grab");
+            }
         }
 
         /// <summary>패턴 매칭(동기) — 그랩 + 알고리즘. ReturnMmCoordinates 면 mm 좌표 반환. chipUid 있으면 이미지로그.</summary>
@@ -29,10 +38,20 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(finderId)) return "fail:no finder";
             if (!m.Finders.TryGetValue(finderId, out var f)) return "fail:finder not found";
+            var swGrab = Stopwatch.StartNew();
             using (var g = m.GrabForTool(finderId))
             {
-                if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
-                return MatchOnImage(m, cfg, finderId, f, g.Image, chipUid);
+                swGrab.Stop();
+                if (g == null || !g.IsSuccess)
+                {
+                    LogTiming(m.Name, "MATCH", finderId, swGrab.ElapsedMilliseconds, -1);
+                    return "fail:" + (g?.ErrorMessage ?? "grab");
+                }
+                var swAlgo = Stopwatch.StartNew();
+                string res = MatchOnImage(m, cfg, finderId, f, g.Image, chipUid);
+                swAlgo.Stop();
+                LogTiming(m.Name, "MATCH", finderId, swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
+                return res;
             }
         }
 
@@ -113,10 +132,20 @@ namespace QMC.Vision.Core
                 return "PASS;inspection=skip";
             }
 
+            var swGrab = Stopwatch.StartNew();
             using (var g = m.GrabForTool(inspId))
             {
-                if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
-                return InspectOnImage(m, cfg, inspId, ins, g.Image, chipUid);
+                swGrab.Stop();
+                if (g == null || !g.IsSuccess)
+                {
+                    LogTiming(m.Name, "INSPECT", inspId, swGrab.ElapsedMilliseconds, -1);
+                    return "fail:" + (g?.ErrorMessage ?? "grab");
+                }
+                var swAlgo = Stopwatch.StartNew();
+                string res = InspectOnImage(m, cfg, inspId, ins, g.Image, chipUid);
+                swAlgo.Stop();
+                LogTiming(m.Name, "INSPECT", inspId, swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
+                return res;
             }
         }
 
@@ -198,5 +227,22 @@ namespace QMC.Vision.Core
         private static bool HasChip(string chipUid)
             => !string.IsNullOrEmpty(chipUid)
                && !chipUid.Equals("Manual", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>그랩/알고리즘 소요시간(ms) 로그 — 병목(그랩 vs 연산)을 분리 측정한다.
+        /// algoMs &lt; 0 이면 알고리즘 미수행(그랩 실패 등). 로깅 실패가 명령을 막지 않도록 best-effort.</summary>
+        private static void LogTiming(string module, string op, string tool, long grabMs, long algoMs)
+        {
+            if (!TimingLogEnabled) return;
+            try
+            {
+                string algoPart = algoMs < 0 ? "-" : (algoMs + "ms");
+                long total = grabMs + (algoMs < 0 ? 0 : algoMs);
+                string toolPart = string.IsNullOrEmpty(tool) ? "" : ("/" + tool);
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event, "VISION", "Timing",
+                    $"{module}{toolPart} {op}: grab={grabMs}ms algo={algoPart} total={total}ms");
+            }
+            catch { /* 텔레메트리 로그 실패는 명령 처리에 영향 주지 않음(무시) */ }
+        }
     }
 }
