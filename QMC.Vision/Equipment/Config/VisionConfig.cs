@@ -83,6 +83,7 @@ namespace QMC.Vision.Config
             RemoteViewerSource   = "GrabImage";
             RemoteViewerFps      = 10;
             RemoteViewerQuality  = 60;
+            RemoteViewerMaxSize  = 1600;
             WaferViewerPort      = 5200;
             InspectionViewerPort = 5201;
             BinViewerPort        = 5203;
@@ -107,6 +108,7 @@ namespace QMC.Vision.Config
             if (string.IsNullOrEmpty(RemoteViewerSource)) RemoteViewerSource = "GrabImage";
             if (RemoteViewerFps     <= 0) RemoteViewerFps     = 10;
             if (RemoteViewerQuality <= 0) RemoteViewerQuality = 60;
+            if (RemoteViewerMaxSize <  0) RemoteViewerMaxSize = 1600;   // 0 = 원본 송출(다운스케일 끔), 음수만 기본값 복원
             if (WaferViewerPort      <= 0) WaferViewerPort      = 5200;
             if (InspectionViewerPort <= 0) InspectionViewerPort = 5201;
             if (BinViewerPort        <= 0) BinViewerPort        = 5203;
@@ -128,6 +130,9 @@ namespace QMC.Vision.Config
         [DataMember] public string RemoteViewerSource       { get; set; } = "GrabImage";
         [DataMember] public int    RemoteViewerFps          { get; set; } = 10;
         [DataMember] public int    RemoteViewerQuality      { get; set; } = 60;
+        /// <summary>뷰어 송출 다운스케일 한 변 최대 px(비율 유지). 0 이면 원본 그대로 송출.
+        /// 대형 센서(예: 144M=12000px)를 풀해상도로 보내면 인코딩/대역폭/메모리가 폭증하므로 표시용으로 축소.</summary>
+        [DataMember] public int    RemoteViewerMaxSize      { get; set; } = 1600;
         // 모듈(스테이션)별 뷰어 포트 — 명령포트(5100~5106)와 분리.
         [DataMember] public int    WaferViewerPort          { get; set; } = 5200;
         [DataMember] public int    InspectionViewerPort     { get; set; } = 5201; // Bottom

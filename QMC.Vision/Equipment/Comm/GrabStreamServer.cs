@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
@@ -37,6 +38,10 @@ namespace QMC.Vision.Comm
         private readonly Func<VisionFrameMeta> _metaProvider;   // 프레임 동봉 메타(스케일/판정/결과). null 가능.
         private readonly int _fps;
         private readonly long _quality;
+        private readonly int _maxLongSide;                      // 뷰어 송출 다운스케일 한 변 최대 px. 0 이면 원본 그대로.
+
+        // 런타임 뷰어 ON/OFF. false 면 클라이언트가 붙어있어도 프레임 획득/인코딩/송출을 하지 않는다(그랩 속도 테스트용).
+        private volatile bool _viewerEnabled = true;
 
         private TcpListener _listener;
         private Thread _acceptThread;
@@ -61,9 +66,17 @@ namespace QMC.Vision.Comm
             get { lock (_clientsLock) return _clients.Count(c => c.Active); }
         }
 
+        /// <summary>뷰어 송출 ON/OFF(런타임). false 면 프레임 획득/인코딩/송출을 멈춘다 — 그랩 속도 영향 격리 테스트용.</summary>
+        public bool ViewerEnabled
+        {
+            get { return _viewerEnabled; }
+            set { _viewerEnabled = value; OnStatus($"{_name} viewer {(value ? "ON" : "OFF")}"); }
+        }
+
         public GrabStreamServer(string name, int port, Func<Bitmap> frameProvider,
                                 int fps = 10, long jpegQuality = 60,
-                                Func<VisionFrameMeta> metaProvider = null)
+                                Func<VisionFrameMeta> metaProvider = null,
+                                int maxLongSide = 0)
         {
             _name = name ?? "Viewer";
             _port = port;
@@ -71,6 +84,7 @@ namespace QMC.Vision.Comm
             _metaProvider = metaProvider;
             _fps = Math.Max(1, Math.Min(60, fps));
             _quality = Math.Max(1, Math.Min(100, jpegQuality));
+            _maxLongSide = Math.Max(0, maxLongSide);
         }
 
         public void Start()
@@ -79,7 +93,7 @@ namespace QMC.Vision.Comm
             _listener = new TcpListener(IPAddress.Any, _port);
             _listener.Start();
             _running = true;
-            OnStatus($"{_name} viewer 시작 — port {_port}, {_fps}fps, q{_quality}");
+            OnStatus($"{_name} viewer 시작 — port {_port}, {_fps}fps, q{_quality}, maxSize {(_maxLongSide > 0 ? _maxLongSide + "px" : "원본")}");
 
             _captureThread = new Thread(CaptureLoop) { IsBackground = true, Name = _name + "-cap" };
             _captureThread.Start();
@@ -143,8 +157,8 @@ namespace QMC.Vision.Comm
             int interval = 1000 / _fps;
             while (_running)
             {
-                // 보는 사람(클라이언트)이 없으면 프레임 획득/인코딩/송출을 일절 하지 않는다.
-                if (ConnectedClients == 0) { Thread.Sleep(interval); continue; }
+                // 뷰어 OFF(런타임) 이거나 보는 사람(클라이언트)이 없으면 프레임 획득/인코딩/송출을 일절 하지 않는다.
+                if (!_viewerEnabled || ConnectedClients == 0) { Thread.Sleep(interval); continue; }
                 DateTime t0 = DateTime.UtcNow;
                 try
                 {
@@ -152,15 +166,28 @@ namespace QMC.Vision.Comm
                     try { bmp = _frameProvider(); } catch { bmp = null; }
                     if (bmp != null)
                     {
-                        // 프레임 동봉 메타 — 크기는 실제 비트맵 기준(권위), 스케일/판정/결과는 metaProvider.
+                        // 프레임 동봉 메타 — 스케일/판정/결과는 metaProvider, 크기는 실제 송출 비트맵 기준(권위).
                         VisionFrameMeta meta = null;
                         try { meta = _metaProvider?.Invoke(); } catch { meta = null; }
                         if (meta == null) meta = new VisionFrameMeta();
-                        meta.Width = bmp.Width; meta.Height = bmp.Height;
                         if (string.IsNullOrEmpty(meta.Module)) meta.Module = _name;
 
-                        byte[] jpeg;
-                        try { jpeg = CompressJpeg(bmp, _quality); }
+                        byte[] jpeg = null;
+                        try
+                        {
+                            // 뷰어 송출용 다운스케일 — 대형 센서(예: 144M)를 풀해상도로 인코딩/전송하면
+                            // GDI+ JPEG 인코딩(단일스레드)·네트워크 대역폭·메모리가 폭증한다. 표시용 해상도로 축소.
+                            double factor;
+                            Bitmap scaled = ScaleForViewer(bmp, out factor);
+                            try
+                            {
+                                meta.Width = scaled.Width; meta.Height = scaled.Height;
+                                // 메타 좌표(ROI/마크)·스케일(mm/px)은 원본 px 기준이므로 축소 배율로 동기 보정.
+                                if (factor != 1.0) ApplyScaleToMeta(meta, factor);
+                                jpeg = CompressJpeg(scaled, _quality);
+                            }
+                            finally { if (!ReferenceEquals(scaled, bmp)) scaled.Dispose(); }
+                        }
                         finally { bmp.Dispose(); }
 
                         if (jpeg != null)
@@ -233,6 +260,61 @@ namespace QMC.Vision.Comm
             if (c.SendThread != null && c.SendThread.IsAlive && c.SendThread != Thread.CurrentThread)
                 try { c.SendThread.Join(500); } catch { }
             try { c.FrameReady?.Dispose(); } catch { }
+        }
+
+        /// <summary>뷰어 송출용 다운스케일 — 한 변이 _maxLongSide 를 넘으면 비율 유지로 축소한 새 비트맵 반환,
+        /// 아니면 원본을 그대로 반환(factor=1). 호출측은 원본과 다른 인스턴스일 때만 Dispose 한다.</summary>
+        private Bitmap ScaleForViewer(Bitmap src, out double factor)
+        {
+            factor = 1.0;
+            if (src == null) return null;
+            int max = _maxLongSide;
+            if (max <= 0) return src;
+
+            int longSide = Math.Max(src.Width, src.Height);
+            if (longSide <= max) return src;
+
+            int w = Math.Max(1, (int)Math.Round(src.Width * (double)max / longSide));
+            int h = Math.Max(1, (int)Math.Round(src.Height * (double)max / longSide));
+            factor = (double)w / src.Width;   // 실제 적용 배율(정수 반올림 반영)
+
+            Bitmap dst = null;
+            try
+            {
+                dst = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+                using (var g = Graphics.FromImage(dst))
+                {
+                    g.InterpolationMode = InterpolationMode.Bilinear;   // 속도/품질 균형(HighQuality 는 대형 이미지에서 느림)
+                    g.PixelOffsetMode = PixelOffsetMode.Half;
+                    g.DrawImage(src, new Rectangle(0, 0, w, h));
+                }
+                return dst;
+            }
+            catch
+            {
+                // 축소 실패 시 원본으로 폴백(인코딩은 계속 진행).
+                try { dst?.Dispose(); } catch { }
+                factor = 1.0;
+                return src;
+            }
+        }
+
+        /// <summary>다운스케일 배율 f 에 맞춰 메타의 좌표/스케일을 보정 — 핸들러 오버레이/측정이 어긋나지 않게 한다.</summary>
+        private static void ApplyScaleToMeta(VisionFrameMeta meta, double f)
+        {
+            if (meta == null || f <= 0) return;
+            // 축소된 1px 가 더 넓은 영역을 표현 → mm/px 는 1/f 로 증가.
+            if (meta.ScaleX > 0) meta.ScaleX /= f;
+            if (meta.ScaleY > 0) meta.ScaleY /= f;
+            meta.RoiX *= f; meta.RoiY *= f; meta.RoiW *= f; meta.RoiH *= f;
+            if (meta.Marks != null)
+            {
+                foreach (var m in meta.Marks)
+                {
+                    if (m == null) continue;
+                    m.X *= f; m.Y *= f; m.BoxW *= f; m.BoxH *= f;
+                }
+            }
         }
 
         private static ImageCodecInfo _jpegCodec;
