@@ -21,6 +21,7 @@ namespace QMC.Vision.Ui.Pages
         private Label[]   _lamps;
         private Label[]   _rx;
         private TextBox[] _ports;
+        private Label[]   _vlamps;   // 뷰어 상태 램프(Wafer/Insp/Bin/Top/Bot — Main 없음)
         private System.Windows.Forms.Timer _timer;
         private long _lastLogRev = -1;
 
@@ -32,6 +33,8 @@ namespace QMC.Vision.Ui.Pages
             _lamps = new[] { _lampWafer, _lampInsp, _lampBin, _lampMain, _lampTop, _lampBot };
             _rx    = new[] { _rxWafer,   _rxInsp,   _rxBin,   _rxMain,   _rxTop,   _rxBot   };
             _ports = new[] { _tbWafer,   _tbInsp,   _tbBin,   _tbMain,   _tbTop,   _tbBot   };
+            // 뷰어 램프는 Wafer/Insp/Bin/Top/Bot 순(Main 영상 없음) — GetVisionViewerStatus 순서와 정렬.
+            _vlamps = new[] { _vlampWafer, _vlampInsp, _vlampBin, _vlampTop, _vlampBot };
 
             LoadPorts();
             WireEvents();
@@ -65,6 +68,12 @@ namespace QMC.Vision.Ui.Pages
             _tbMain.Text  = cfg.MainCommPort.ToString();
             _tbTop.Text   = cfg.TopSideVisionPort.ToString();
             _tbBot.Text   = cfg.BottomSideVisionPort.ToString();
+            // 뷰어 포트(5200대, 영상 스트림). Main 은 영상 없음.
+            _tbWaferV.Text = cfg.WaferViewerPort.ToString();
+            _tbInspV.Text  = cfg.InspectionViewerPort.ToString();
+            _tbBinV.Text   = cfg.BinViewerPort.ToString();
+            _tbTopV.Text   = cfg.FrontSideViewerPort.ToString();
+            _tbBotV.Text   = cfg.RearSideViewerPort.ToString();
         }
 
         // ── 저장 — 6 포트를 vision.json 에 기록(재시작 후 반영) ──
@@ -79,6 +88,12 @@ namespace QMC.Vision.Ui.Pages
                 cfg.MainCommPort         = ParsePort(_tbMain,  cfg.MainCommPort);
                 cfg.TopSideVisionPort    = ParsePort(_tbTop,   cfg.TopSideVisionPort);
                 cfg.BottomSideVisionPort = ParsePort(_tbBot,   cfg.BottomSideVisionPort);
+                // 뷰어 포트(5200대)
+                cfg.WaferViewerPort      = ParsePort(_tbWaferV, cfg.WaferViewerPort);
+                cfg.InspectionViewerPort = ParsePort(_tbInspV,  cfg.InspectionViewerPort);
+                cfg.BinViewerPort        = ParsePort(_tbBinV,   cfg.BinViewerPort);
+                cfg.FrontSideViewerPort  = ParsePort(_tbTopV,   cfg.FrontSideViewerPort);
+                cfg.RearSideViewerPort   = ParsePort(_tbBotV,   cfg.RearSideViewerPort);
                 VisionConfigStore.Save();
                 LoadPorts();
                 MessageBox.Show("저장되었습니다.\n(포트 변경은 재시작 후 반영)",
@@ -119,6 +134,7 @@ namespace QMC.Vision.Ui.Pages
             if (st == null)
             {
                 for (int i = 0; i < _lamps.Length; i++) { SetLamp(_lamps[i], false, false, 0); SetRx(_rx[i], default(DateTime), false); }
+                if (_vlamps != null) foreach (var vl in _vlamps) SetViewerLamp(vl, false, 0, 0);
                 return;
             }
 
@@ -128,6 +144,28 @@ namespace QMC.Vision.Ui.Pages
                 SetLamp(_lamps[i], st[i].Listening, st[i].Connected, st[i].Port);
                 SetRx(_rx[i], st[i].LastRxUtc, st[i].Connected);
             }
+
+            // 뷰어(영상 스트림) 상태 램프 — Wafer/Insp/Bin/Top/Bot (Main 없음).
+            List<Form1.ViewerChannelStatus> vt = null;
+            try { vt = (FindForm() as Form1)?.GetVisionViewerStatus(); } catch { }
+            if (_vlamps != null)
+            {
+                for (int i = 0; i < _vlamps.Length; i++)
+                {
+                    if (vt != null && i < vt.Count) SetViewerLamp(_vlamps[i], vt[i].Listening, vt[i].Clients, vt[i].Port);
+                    else                            SetViewerLamp(_vlamps[i], false, 0, 0);
+                }
+            }
+        }
+
+        /// <summary>뷰어 램프 — 클라이언트 접속 시 초록(:포트 ×N), listen 만이면 주황(대기), 아니면 회색(중지).</summary>
+        private static void SetViewerLamp(Label lamp, bool listening, int clients, int port)
+        {
+            if (lamp == null) return;
+            string suffix = port > 0 ? $" :{port}" : "";
+            if (clients > 0)    { lamp.ForeColor = Color.LimeGreen; lamp.Text = "● 접속됨" + suffix + " ×" + clients; }
+            else if (listening) { lamp.ForeColor = Color.Goldenrod; lamp.Text = "● 대기"   + suffix; }
+            else                { lamp.ForeColor = Color.Gray;      lamp.Text = "● 중지"   + suffix; }
         }
 
         // ── 통신 로그 갱신(변경 시에만) ──

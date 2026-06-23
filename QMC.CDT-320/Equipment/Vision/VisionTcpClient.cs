@@ -28,6 +28,8 @@ namespace QMC.CDT320.VisionComm
         public event Action<string> ExposureDone;
         /// <summary>비동기 푸시 — Vision 측 ARM (Alarm) 수신. arg=reason.</summary>
         public event Action<string, string> Alarmed;
+        /// <summary>비동기 푸시 — Vision 측이 "현재 레시피 알려줘"(RECIPEREQ) 요청. 핸들러는 현재 레시피를 SendRecipeAsync 로 응답해야 한다.</summary>
+        public event Action RecipeRequested;
 
         private TcpClient       _client;
         private NetworkStream   _stream;
@@ -236,6 +238,12 @@ namespace QMC.CDT320.VisionComm
                                 var pp = line.Split('|');
                                 try { Alarmed?.Invoke(pp.Length > 1 ? pp[1] : ModuleName,
                                                       pp.Length > 2 ? pp[2] : ""); } catch { }
+                                continue;
+                            }
+                            // Vision → 핸들러 레시피 요청. 응답 큐와 무관. 구독측이 현재 레시피를 SendRecipeAsync 로 응답.
+                            if (line.StartsWith("RECIPEREQ|"))
+                            {
+                                try { RecipeRequested?.Invoke(); } catch { }
                                 continue;
                             }
                             TaskCompletionSource<string> tcs = null;

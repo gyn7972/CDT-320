@@ -103,6 +103,7 @@ namespace QMC.Vision.Ui.Pages
             _initialized = true;
             StartTap();
             UpdateRunButton();
+            UpdateReadyButton();
         }
 
         /// <summary>언어 변경 이벤트 — UI 스레드로 마샬링 후 표시 문구 재적용.</summary>
@@ -259,6 +260,7 @@ namespace QMC.Vision.Ui.Pages
             }
 
             UpdateRunButton();
+            UpdateReadyButton();
         }
 
         /// <summary>최근 Grab 활동(시퀀스 변화)이 있으면 LIVE, 없으면 READY.
@@ -283,11 +285,26 @@ namespace QMC.Vision.Ui.Pages
             {
                 var host = FindForm() as QMC.Vision.Form1;
                 if (host == null) return;
-                if (host.IsRunActive) host.SetRun(false);     // STOP
+                if (host.IsRunActive) host.SetRun(false);     // STOP (READY 도 자동 해제)
                 else if (host.CanRun) host.SetRun(true);       // RUN (Sim 항상 / 실제는 접속 시)
                 UpdateRunButton();
+                UpdateReadyButton();
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[OperationPage] RUN 토글 실패: " + ex.Message); }
+        }
+
+        /// <summary>READY/해제 토글 — RUN 활성 상태에서만 켤 수 있다. 켜지면 핸들러 VISION 사용 허용.</summary>
+        private void OnReadyToggleClick(object sender, EventArgs e)
+        {
+            try
+            {
+                var host = FindForm() as QMC.Vision.Form1;
+                if (host == null) return;
+                if (host.IsReady) host.SetReady(false);        // READY 해제
+                else if (host.CanReady) host.SetReady(true);   // READY (RUN 활성 시에만)
+                UpdateReadyButton();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[OperationPage] READY 토글 실패: " + ex.Message); }
         }
 
         /// <summary>RUN 버튼 텍스트/색/활성 상태를 현재 모드·연결·가동 상태로 갱신(틱마다 호출).</summary>
@@ -305,6 +322,24 @@ namespace QMC.Vision.Ui.Pages
             _btnRun.BackColor = running
                 ? Color.FromArgb(0x5a, 0x22, 0x22)
                 : (canRun ? Color.FromArgb(0x1f, 0x9d, 0x4d) : Color.FromArgb(0x55, 0x55, 0x55));
+        }
+
+        /// <summary>READY 버튼 텍스트/색/활성 갱신(틱마다 호출). RUN 활성 시에만 누를 수 있고,
+        /// READY 면 초록(핸들러 VISION 사용 가능), 아니면 회색.</summary>
+        private void UpdateReadyButton()
+        {
+            if (_btnReady == null) return;
+            var host = FindForm() as QMC.Vision.Form1;
+            if (host == null) { _btnReady.Enabled = false; return; }
+
+            bool ready   = host.IsReady;
+            bool canRdy  = host.CanReady;   // RUN 활성 상태에서만 READY 가능
+
+            _btnReady.Enabled   = ready || canRdy;
+            _btnReady.Text      = ready ? "READY ●" : "READY";
+            _btnReady.BackColor = ready
+                ? Color.FromArgb(0x1f, 0x9d, 0x4d)
+                : (canRdy ? Color.FromArgb(0x35, 0x6b, 0x46) : Color.FromArgb(0x55, 0x55, 0x55));
         }
     }
 }

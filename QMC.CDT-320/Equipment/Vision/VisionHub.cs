@@ -24,6 +24,10 @@ namespace QMC.CDT320.VisionComm
 
         public static event Action ConnectionChanged;
 
+        /// <summary>Vision PC 가 레시피를 요청(RECIPEREQ)하면 호출된다. 핸들러 Form1 이 현재 레시피를
+        /// BroadcastRecipeAsync 로 응답하도록 설정한다. 미설정 시 응답 안 함(Vision 은 재요청).</summary>
+        public static Action OnVisionRecipeRequest;
+
         public static bool AllConnected =>
             Wafer      != null && Wafer.IsConnected &&
             Inspection != null && Inspection.IsConnected &&
@@ -48,6 +52,8 @@ namespace QMC.CDT320.VisionComm
             Inspection = New("BottomInspection", host, inspectionPort);
             Bin        = New("BinVision",        host, binPort);
             Main       = New("MainComm",         host, mainPort);
+            // Vision → 핸들러 레시피 요청(RECIPEREQ) 수신 시 현재 레시피로 응답(Form1 이 OnVisionRecipeRequest 설정).
+            if (Main != null) Main.RecipeRequested += () => { try { OnVisionRecipeRequest?.Invoke(); } catch { } };
             TopSide    = New("TopSideVision",    host, topSidePort);
             BottomSide = New("BottomSideVision", host, bottomSidePort);
 

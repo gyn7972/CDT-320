@@ -524,6 +524,30 @@ namespace QMC.CDT_320
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
             // Stage 43 ??6 梨꾨꼸: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // Vision PC 가 레시피를 요청(RECIPEREQ)하면 현재 활성 레시피로 응답 — 핸들러가 먼저 안 보내도 Vision 이 능동 동기화.
+            QMC.CDT320.VisionComm.VisionHub.OnVisionRecipeRequest = () =>
+            {
+                try
+                {
+                    string name = CurrentRecipeName;
+                    if (string.IsNullOrWhiteSpace(name) || name == "-")
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYS", "VISION-RECIPE",
+                            "Vision 레시피 요청 수신 — 응답 스킵(활성 레시피 없음: CurrentRecipeName='" + (name ?? "null") + "'). 핸들러에서 레시피/프로젝트 로드 필요.");
+                        return;
+                    }
+                    int no = ResolveVisionRecipeNo(name);
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "SYS", "VISION-RECIPE",
+                        "Vision 레시피 요청 수신 → 응답: no=" + no + " name=" + name);
+                    _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(no, name);
+                }
+                catch (Exception ex)
+                {
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "SYS", "VISION-RECIPE",
+                        "Vision 레시피 요청 응답 실패: " + ex.Message); } catch { }
+                }
+            };
+
             if (cfg.VisionAutoConnect)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
