@@ -9,6 +9,7 @@ using QMC.Common.Motion;
 using System;
 using System.ComponentModel;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -394,6 +395,7 @@ namespace QMC.CDT320
     {
         public const int MaxPickerCount = 4;
         public const int MaxIoPickerCount = 8;
+        private const int CompletedMoveVerifyTimeoutMs = 50;
 
         private readonly Dictionary<PickerAxis, BaseAxis> axes = new Dictionary<PickerAxis, BaseAxis>();
         private readonly string side;
@@ -912,7 +914,13 @@ namespace QMC.CDT320
                 if (!CheckPickerAxisMoveReady(axis))
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
 
-                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos);
+                double velocity = ResolveMoveVelocity(item, bFine);
+                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD",
+                    Name + " " + axis +
+                    " target=" + targetPos +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", fine=" + bFine +
+                    ", velocity=" + velocity);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
@@ -921,12 +929,12 @@ namespace QMC.CDT320
                     {
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
                         {
-                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
                         }
                     }
                     else
                     {
-                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
                     }
 
                     if (result != 0 || item.IsAlarm)
@@ -1029,6 +1037,10 @@ namespace QMC.CDT320
 
         private async Task<int> MovePickerAxisNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
+            Stopwatch totalWatch = Stopwatch.StartNew();
+            long commandMs = 0;
+            long verifyMs = 0;
+
             try
             {
                 BaseAxis item = GetAxis(axis);
@@ -1038,35 +1050,43 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
                 int result;
                 string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                double velocity = ResolveMoveVelocity(item, bFine);
                 using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
                 {
+                    Stopwatch commandWatch = Stopwatch.StartNew();
                     if (!string.IsNullOrWhiteSpace(guardTargetName))
                     {
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
                         {
-                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
                         }
                     }
                     else
                     {
-                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
                     }
+                    commandMs = commandWatch.ElapsedMilliseconds;
 
                     if (result != 0 || item.IsAlarm)
+                    {
+                        WritePickerMoveElapsed(axis, targetPos, targetName, bFine, velocity, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
                         return RaisePickerAlarm(
                             "PK-MOVE",
                             axis + " 이동 명령 실패. result=" + result +
                             ", alarm=" + item.IsAlarm +
                             BuildAxisLastMotionFailure(item));
+                    }
 
-                    AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                    Stopwatch verifyWatch = Stopwatch.StartNew();
+                    AxisMoveWaitResult waitResult = await VerifyPickerAxisAfterCompletedMoveAsync(
                         axis,
-                        targetPos,
-                        ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
+                        targetPos).ConfigureAwait(false);
+                    verifyMs = verifyWatch.ElapsedMilliseconds;
+                    WritePickerMoveElapsed(axis, targetPos, targetName, bFine, velocity, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, waitResult);
                     if (!waitResult.Success)
                         return RaisePickerAlarm(
                             AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
-                            axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                            axis + " move/in-position verify failed. target=" + targetPos + ". " +
                             AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
                 }
 
@@ -1093,51 +1113,67 @@ namespace QMC.CDT320
             if (targets == null)
                 return RaisePickerAlarm("PK-MOVE-TARGET", "Picker move target collection is null.");
 
+            Stopwatch totalWatch = Stopwatch.StartNew();
+            long safeZMs = 0;
+            long xyMs = 0;
+            long zMs = 0;
+            int nonZCount = 0;
+            int zCount = 0;
+
+            Stopwatch safeWatch = Stopwatch.StartNew();
             int safeResult = await MoveZAxesToSafeFirst(targets, bFine).ConfigureAwait(false);
+            safeZMs = safeWatch.ElapsedMilliseconds;
             if (safeResult != 0)
+            {
+                WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, safeResult, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                 return safeResult;
+            }
 
             List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (!IsZAxis(pair.Key))
+                {
+                    nonZCount++;
                     tasks.Add(MovePickerAxisNamed(pair.Key, pair.Value, bFine, targetName));
+                }
             }
 
+            Stopwatch xyWatch = Stopwatch.StartNew();
             int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            xyMs = xyWatch.ElapsedMilliseconds;
             for (int i = 0; i < results.Length; i++)
             {
                 if (results[i] != 0)
+                {
+                    WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                     return results[i];
+                }
             }
 
             tasks.Clear();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (IsZAxis(pair.Key))
+                {
+                    zCount++;
                     tasks.Add(MovePickerAxisNamed(pair.Key, pair.Value, bFine, targetName));
+                }
             }
 
+            Stopwatch zWatch = Stopwatch.StartNew();
             results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            zMs = zWatch.ElapsedMilliseconds;
             for (int i = 0; i < results.Length; i++)
             {
                 if (results[i] != 0)
+                {
+                    WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, results[i], safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
                     return results[i];
+                }
             }
 
-            foreach (KeyValuePair<PickerAxis, double> pair in targets)
-            {
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
-                    pair.Key,
-                    pair.Value,
-                    ResolvePickerAxisMoveTimeoutMs(pair.Key)).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaisePickerAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
-                        pair.Key + " move/in-position wait failed. target=" + pair.Value + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, pair.Key.ToString()));
-            }
-
+            WritePickerGroupMoveElapsed(targetName, bFine, targets.Count, nonZCount, zCount, 0, safeZMs, xyMs, zMs, totalWatch.ElapsedMilliseconds);
             return 0;
         }
 
@@ -1303,6 +1339,153 @@ namespace QMC.CDT320
                     "axis=" + axis + ", target=" + targetPos);
             }
             finally
+            {
+            }
+        }
+
+        private async Task<AxisMoveWaitResult> VerifyPickerAxisAfterCompletedMoveAsync(PickerAxis axis, double targetPos)
+        {
+            AxisMoveWaitResult immediate = VerifyPickerAxisMoveDoneInPosition(axis, targetPos);
+            if (immediate.Success ||
+                immediate.Failure == AxisMoveWaitFailure.AxisMissing ||
+                immediate.Failure == AxisMoveWaitFailure.ServoOff ||
+                immediate.Failure == AxisMoveWaitFailure.Alarm)
+            {
+                return immediate;
+            }
+
+            return await WaitPickerAxisMoveDoneInPosition(
+                axis,
+                targetPos,
+                CompletedMoveVerifyTimeoutMs).ConfigureAwait(false);
+        }
+
+        private AxisMoveWaitResult VerifyPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos)
+        {
+            BaseAxis item = GetAxis(axis);
+            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            string axisState = AxisMoveWaiter.BuildAxisState(item, targetPos, tolerance);
+
+            if (item == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Axis is null.", axisState);
+            if (!item.IsServoOn)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.ServoOff, "Axis servo is OFF.", axisState);
+            if (item.IsAlarm)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.Alarm, "Axis alarm is ON.", axisState);
+
+            bool targetInTolerance = Math.Abs(item.ActualPosition - targetPos) <= tolerance;
+            bool commandInTolerance = Math.Abs(item.CommandPosition - targetPos) <= tolerance;
+            if (!item.IsMoving && targetInTolerance && commandInTolerance)
+            {
+                return AxisMoveWaitResult.Ok(
+                    item,
+                    targetPos,
+                    tolerance,
+                    item.IsInPosition
+                        ? "Axis reached target position."
+                        : "Axis reached target position by command/actual tolerance. In-position signal is OFF.");
+            }
+
+            if (item.IsMoving)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.Moving, "Axis is still moving.", axisState);
+            if (!targetInTolerance)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.TargetToleranceOut, "Axis actual position is out of target tolerance.", axisState);
+            if (!item.IsInPosition)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.InPositionSignalOff, "Axis in-position signal is OFF.", axisState);
+
+            return new AxisMoveWaitResult(AxisMoveWaitFailure.Timeout, "Axis move verify failed.", axisState);
+        }
+
+        private void WritePickerMoveElapsed(
+            PickerAxis axis,
+            double targetPos,
+            string targetName,
+            bool bFine,
+            double velocity,
+            int result,
+            long commandMs,
+            long verifyMs,
+            long totalMs,
+            AxisMoveWaitResult waitResult)
+        {
+            try
+            {
+                EventLogger.Write(
+                    EventKind.Event,
+                    "QMC",
+                    "PK-MOVE-TIME",
+                    Name + " " + axis +
+                    " elapsedMs=" + totalMs +
+                    ", commandMs=" + commandMs +
+                    ", verifyMs=" + verifyMs +
+                    ", result=" + result +
+                    ", verify=" + (waitResult != null ? waitResult.Failure.ToString() : "-") +
+                    ", target=" + targetPos +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", fine=" + bFine +
+                    ", velocity=" + velocity);
+                PickerMoveTimeFileLogger.WriteAxis(
+                    Name,
+                    axis,
+                    targetPos,
+                    targetName,
+                    bFine,
+                    velocity,
+                    result,
+                    commandMs,
+                    verifyMs,
+                    totalMs,
+                    waitResult);
+            }
+            catch
+            {
+            }
+        }
+
+        private void WritePickerGroupMoveElapsed(
+            string targetName,
+            bool bFine,
+            int targetCount,
+            int nonZCount,
+            int zCount,
+            int result,
+            long safeZMs,
+            long xyMs,
+            long zMs,
+            long totalMs)
+        {
+            try
+            {
+                EventLogger.Write(
+                    EventKind.Event,
+                    "QMC",
+                    "PK-MOVE-TIME",
+                    Name + " group elapsedMs=" + totalMs +
+                    ", safeZMs=" + safeZMs +
+                    ", xyMs=" + xyMs +
+                    ", zMs=" + zMs +
+                    ", result=" + result +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", fine=" + bFine +
+                    ", targetCount=" + targetCount +
+                    ", nonZCount=" + nonZCount +
+                    ", zCount=" + zCount);
+                PickerMoveTimeFileLogger.WriteGroup(
+                    Name,
+                    targetName,
+                    bFine,
+                    targetCount,
+                    nonZCount,
+                    zCount,
+                    result,
+                    safeZMs,
+                    xyMs,
+                    zMs,
+                    totalMs);
+            }
+            catch
             {
             }
         }
@@ -2168,22 +2351,6 @@ namespace QMC.CDT320
             {
                 if (results[i] != 0)
                     return results[i];
-            }
-
-            foreach (KeyValuePair<PickerAxis, double> pair in targets)
-            {
-                if (!IsZAxis(pair.Key))
-                    continue;
-
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
-                    pair.Key,
-                    GetPickerTeachingPosition(pair.Key, "AvoidPosition"),
-                    ResolvePickerAxisMoveTimeoutMs(pair.Key)).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaisePickerAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE-SAFE-Z", waitResult),
-                        pair.Key + " safe Z move/in-position wait failed. " +
-                        AxisMoveWaiter.FormatResult(waitResult, pair.Key.ToString()));
             }
 
             return 0;

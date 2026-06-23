@@ -81,6 +81,10 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("PICKER-BOTTOM-EX", Name, "Picker bottom inspection failed. step=" + CurrentStep + ", error=" + ex.Message);
