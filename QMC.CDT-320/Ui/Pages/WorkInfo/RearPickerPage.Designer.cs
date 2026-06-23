@@ -115,7 +115,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ComboBox cmbPickZTestPickerNo;
         private ActionButton btnPickZTest;
         private ActionButton btnStop;
-        private Panel actionSpacer;
+        private TableLayoutPanel actionBar;
+        private FlowLayoutPanel actionRightPanel;
 
         private void InitializeComponent()
         {
@@ -234,7 +235,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickUpTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.cmbPickZTestPickerNo = new System.Windows.Forms.ComboBox();
             this.btnPickZTest = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.actionSpacer = new System.Windows.Forms.Panel();
+            this.actionBar = new System.Windows.Forms.TableLayoutPanel();
+            this.actionRightPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
@@ -264,6 +266,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headFlow3Panel.SuspendLayout();
             this.headFlow4Panel.SuspendLayout();
             this.actionPanel.SuspendLayout();
+            this.actionBar.SuspendLayout();
+            this.actionRightPanel.SuspendLayout();
             this.SuspendLayout();
             //
             // rootLayout
@@ -272,15 +276,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.contentLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.actionPanel, 0, 2);
+            this.rootLayout.Controls.Add(this.actionBar, 0, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 88F));
-            this.rootLayout.Size = new System.Drawing.Size(1678, 800);
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 108F));
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             //
             // lblHeader
@@ -309,7 +313,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(3, 33);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.contentLayout.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
             this.contentLayout.RowCount = 2;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 325F));
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -391,7 +395,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadZoneTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadZoneTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadZoneTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadZoneTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadZoneTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadZoneTitle.Location = new System.Drawing.Point(5, 8);
             this.lblHeadZoneTitle.Name = "lblHeadZoneTitle";
             this.lblHeadZoneTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -418,7 +422,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead1Title.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHead1Title.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead1Title.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead1Title.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead1Title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead1Title.Location = new System.Drawing.Point(5, 8);
             this.lblHead1Title.Name = "lblHead1Title";
             this.lblHead1Title.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -432,7 +436,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead1Value.BackColor = System.Drawing.Color.White;
             this.lblHead1Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead1Value.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead1Value.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead1Value.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead1Value.Location = new System.Drawing.Point(201, 8);
             this.lblHead1Value.Name = "lblHead1Value";
             this.lblHead1Value.Size = new System.Drawing.Size(208, 27);
@@ -447,7 +451,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead2Title.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHead2Title.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead2Title.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead2Title.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead2Title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead2Title.Location = new System.Drawing.Point(5, 35);
             this.lblHead2Title.Name = "lblHead2Title";
             this.lblHead2Title.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -461,7 +465,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead2Value.BackColor = System.Drawing.Color.White;
             this.lblHead2Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead2Value.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead2Value.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead2Value.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead2Value.Location = new System.Drawing.Point(201, 35);
             this.lblHead2Value.Name = "lblHead2Value";
             this.lblHead2Value.Size = new System.Drawing.Size(208, 27);
@@ -476,7 +480,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead3Title.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHead3Title.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead3Title.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead3Title.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead3Title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead3Title.Location = new System.Drawing.Point(5, 62);
             this.lblHead3Title.Name = "lblHead3Title";
             this.lblHead3Title.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -490,7 +494,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead3Value.BackColor = System.Drawing.Color.White;
             this.lblHead3Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead3Value.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead3Value.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead3Value.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead3Value.Location = new System.Drawing.Point(201, 62);
             this.lblHead3Value.Name = "lblHead3Value";
             this.lblHead3Value.Size = new System.Drawing.Size(208, 27);
@@ -505,7 +509,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead4Title.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHead4Title.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead4Title.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead4Title.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead4Title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead4Title.Location = new System.Drawing.Point(5, 89);
             this.lblHead4Title.Name = "lblHead4Title";
             this.lblHead4Title.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -519,7 +523,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHead4Value.BackColor = System.Drawing.Color.White;
             this.lblHead4Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHead4Value.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHead4Value.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHead4Value.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHead4Value.Location = new System.Drawing.Point(201, 89);
             this.lblHead4Value.Name = "lblHead4Value";
             this.lblHead4Value.Size = new System.Drawing.Size(208, 27);
@@ -534,7 +538,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletChangeTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblColletChangeTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletChangeTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletChangeTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletChangeTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletChangeTitle.Location = new System.Drawing.Point(5, 154);
             this.lblColletChangeTitle.Name = "lblColletChangeTitle";
             this.lblColletChangeTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -548,7 +552,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletChangeValue.BackColor = System.Drawing.Color.White;
             this.lblColletChangeValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletChangeValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletChangeValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletChangeValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletChangeValue.Location = new System.Drawing.Point(201, 154);
             this.lblColletChangeValue.Name = "lblColletChangeValue";
             this.lblColletChangeValue.Size = new System.Drawing.Size(208, 27);
@@ -561,7 +565,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblAutoPosTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblAutoPosTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAutoPosTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAutoPosTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblAutoPosTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblAutoPosTitle.Location = new System.Drawing.Point(5, 181);
             this.lblAutoPosTitle.Name = "lblAutoPosTitle";
             this.lblAutoPosTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -575,7 +579,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblAutoPosValue.BackColor = System.Drawing.Color.White;
             this.lblAutoPosValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAutoPosValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAutoPosValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblAutoPosValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblAutoPosValue.Location = new System.Drawing.Point(201, 181);
             this.lblAutoPosValue.Name = "lblAutoPosValue";
             this.lblAutoPosValue.Size = new System.Drawing.Size(208, 27);
@@ -588,7 +592,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletCleaningTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblColletCleaningTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletCleaningTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletCleaningTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletCleaningTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletCleaningTitle.Location = new System.Drawing.Point(5, 208);
             this.lblColletCleaningTitle.Name = "lblColletCleaningTitle";
             this.lblColletCleaningTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -602,7 +606,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletCleaningValue.BackColor = System.Drawing.Color.White;
             this.lblColletCleaningValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletCleaningValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletCleaningValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletCleaningValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletCleaningValue.Location = new System.Drawing.Point(201, 208);
             this.lblColletCleaningValue.Name = "lblColletCleaningValue";
             this.lblColletCleaningValue.Size = new System.Drawing.Size(208, 27);
@@ -615,7 +619,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletCheckTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblColletCheckTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletCheckTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletCheckTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletCheckTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletCheckTitle.Location = new System.Drawing.Point(5, 235);
             this.lblColletCheckTitle.Name = "lblColletCheckTitle";
             this.lblColletCheckTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -629,7 +633,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblColletCheckValue.BackColor = System.Drawing.Color.White;
             this.lblColletCheckValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblColletCheckValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletCheckValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletCheckValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblColletCheckValue.Location = new System.Drawing.Point(201, 235);
             this.lblColletCheckValue.Name = "lblColletCheckValue";
             this.lblColletCheckValue.Size = new System.Drawing.Size(208, 27);
@@ -642,7 +646,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.SetColumnSpan(this.btnInitAll, 2);
             this.btnInitAll.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnInitAll.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnInitAll.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnInitAll.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnInitAll.Location = new System.Drawing.Point(5, 119);
             this.btnInitAll.Name = "btnInitAll";
             this.btnInitAll.Size = new System.Drawing.Size(404, 32);
@@ -701,7 +705,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblPickFailTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblPickFailTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPickFailTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickFailTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPickFailTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPickFailTitle.Location = new System.Drawing.Point(5, 8);
             this.lblPickFailTitle.Name = "lblPickFailTitle";
             this.lblPickFailTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -715,7 +719,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblPickFailValue.BackColor = System.Drawing.Color.White;
             this.lblPickFailValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPickFailValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickFailValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPickFailValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPickFailValue.Location = new System.Drawing.Point(219, 8);
             this.lblPickFailValue.Name = "lblPickFailValue";
             this.lblPickFailValue.Size = new System.Drawing.Size(226, 30);
@@ -728,7 +732,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblPlaceFailTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblPlaceFailTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPlaceFailTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceFailTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPlaceFailTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPlaceFailTitle.Location = new System.Drawing.Point(5, 38);
             this.lblPlaceFailTitle.Name = "lblPlaceFailTitle";
             this.lblPlaceFailTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -742,7 +746,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblPlaceFailValue.BackColor = System.Drawing.Color.White;
             this.lblPlaceFailValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPlaceFailValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceFailValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPlaceFailValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblPlaceFailValue.Location = new System.Drawing.Point(219, 38);
             this.lblPlaceFailValue.Name = "lblPlaceFailValue";
             this.lblPlaceFailValue.Size = new System.Drawing.Size(226, 30);
@@ -755,7 +759,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet1UseTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblCollet1UseTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet1UseTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet1UseTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet1UseTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet1UseTitle.Location = new System.Drawing.Point(5, 68);
             this.lblCollet1UseTitle.Name = "lblCollet1UseTitle";
             this.lblCollet1UseTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -769,7 +773,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet1UseValue.BackColor = System.Drawing.Color.White;
             this.lblCollet1UseValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet1UseValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet1UseValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet1UseValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet1UseValue.Location = new System.Drawing.Point(219, 68);
             this.lblCollet1UseValue.Name = "lblCollet1UseValue";
             this.lblCollet1UseValue.Size = new System.Drawing.Size(226, 30);
@@ -782,7 +786,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet2UseTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblCollet2UseTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet2UseTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet2UseTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet2UseTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet2UseTitle.Location = new System.Drawing.Point(5, 98);
             this.lblCollet2UseTitle.Name = "lblCollet2UseTitle";
             this.lblCollet2UseTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -796,7 +800,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet2UseValue.BackColor = System.Drawing.Color.White;
             this.lblCollet2UseValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet2UseValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet2UseValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet2UseValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet2UseValue.Location = new System.Drawing.Point(219, 98);
             this.lblCollet2UseValue.Name = "lblCollet2UseValue";
             this.lblCollet2UseValue.Size = new System.Drawing.Size(226, 30);
@@ -809,7 +813,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet3UseTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblCollet3UseTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet3UseTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet3UseTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet3UseTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet3UseTitle.Location = new System.Drawing.Point(5, 128);
             this.lblCollet3UseTitle.Name = "lblCollet3UseTitle";
             this.lblCollet3UseTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -823,7 +827,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet3UseValue.BackColor = System.Drawing.Color.White;
             this.lblCollet3UseValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet3UseValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet3UseValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet3UseValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet3UseValue.Location = new System.Drawing.Point(219, 128);
             this.lblCollet3UseValue.Name = "lblCollet3UseValue";
             this.lblCollet3UseValue.Size = new System.Drawing.Size(226, 30);
@@ -836,7 +840,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet4UseTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblCollet4UseTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet4UseTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet4UseTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet4UseTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet4UseTitle.Location = new System.Drawing.Point(5, 158);
             this.lblCollet4UseTitle.Name = "lblCollet4UseTitle";
             this.lblCollet4UseTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -850,7 +854,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblCollet4UseValue.BackColor = System.Drawing.Color.White;
             this.lblCollet4UseValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCollet4UseValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet4UseValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblCollet4UseValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblCollet4UseValue.Location = new System.Drawing.Point(219, 158);
             this.lblCollet4UseValue.Name = "lblCollet4UseValue";
             this.lblCollet4UseValue.Size = new System.Drawing.Size(226, 30);
@@ -863,7 +867,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.SetColumnSpan(this.btnCountClear, 2);
             this.btnCountClear.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCountClear.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCountClear.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnCountClear.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCountClear.Location = new System.Drawing.Point(5, 191);
             this.btnCountClear.Name = "btnCountClear";
             this.btnCountClear.Size = new System.Drawing.Size(440, 24);
@@ -1025,7 +1029,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadAxisTTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadAxisTTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadAxisTTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadAxisTTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadAxisTTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadAxisTTitle.Location = new System.Drawing.Point(3, 0);
             this.lblHeadAxisTTitle.Name = "lblHeadAxisTTitle";
             this.lblHeadAxisTTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1039,7 +1043,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadAxisTValue.BackColor = System.Drawing.Color.White;
             this.lblHeadAxisTValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadAxisTValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadAxisTValue.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadAxisTValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadAxisTValue.Location = new System.Drawing.Point(235, 0);
             this.lblHeadAxisTValue.Name = "lblHeadAxisTValue";
             this.lblHeadAxisTValue.Size = new System.Drawing.Size(184, 32);
@@ -1067,7 +1071,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadProcessTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadProcessTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadProcessTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadProcessTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadProcessTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadProcessTitle.Location = new System.Drawing.Point(3, 0);
             this.lblHeadProcessTitle.Name = "lblHeadProcessTitle";
             this.lblHeadProcessTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1252,7 +1256,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblProcessDetailTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblProcessDetailTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblProcessDetailTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProcessDetailTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblProcessDetailTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblProcessDetailTitle.Location = new System.Drawing.Point(3, 0);
             this.lblProcessDetailTitle.Name = "lblProcessDetailTitle";
             this.lblProcessDetailTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1305,7 +1309,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum1.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadVacuum1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadVacuum1.Location = new System.Drawing.Point(25, 0);
             this.lblHeadVacuum1.Name = "lblHeadVacuum1";
             this.lblHeadVacuum1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1345,7 +1349,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum2.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadVacuum2.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadVacuum2.Location = new System.Drawing.Point(25, 0);
             this.lblHeadVacuum2.Name = "lblHeadVacuum2";
             this.lblHeadVacuum2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1385,7 +1389,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum3.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadVacuum3.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadVacuum3.Location = new System.Drawing.Point(25, 0);
             this.lblHeadVacuum3.Name = "lblHeadVacuum3";
             this.lblHeadVacuum3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1425,7 +1429,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum4.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadVacuum4.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadVacuum4.Location = new System.Drawing.Point(25, 0);
             this.lblHeadVacuum4.Name = "lblHeadVacuum4";
             this.lblHeadVacuum4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1465,7 +1469,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow1.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadBlow1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadBlow1.Location = new System.Drawing.Point(25, 0);
             this.lblHeadBlow1.Name = "lblHeadBlow1";
             this.lblHeadBlow1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1505,7 +1509,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow2.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadBlow2.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadBlow2.Location = new System.Drawing.Point(25, 0);
             this.lblHeadBlow2.Name = "lblHeadBlow2";
             this.lblHeadBlow2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1545,7 +1549,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow3.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadBlow3.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadBlow3.Location = new System.Drawing.Point(25, 0);
             this.lblHeadBlow3.Name = "lblHeadBlow3";
             this.lblHeadBlow3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1585,7 +1589,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow4.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadBlow4.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadBlow4.Location = new System.Drawing.Point(25, 0);
             this.lblHeadBlow4.Name = "lblHeadBlow4";
             this.lblHeadBlow4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1625,7 +1629,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadFlow1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadFlow1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadFlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow1.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadFlow1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadFlow1.Location = new System.Drawing.Point(25, 0);
             this.lblHeadFlow1.Name = "lblHeadFlow1";
             this.lblHeadFlow1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1665,7 +1669,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadFlow2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadFlow2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadFlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow2.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadFlow2.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadFlow2.Location = new System.Drawing.Point(25, 0);
             this.lblHeadFlow2.Name = "lblHeadFlow2";
             this.lblHeadFlow2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1705,7 +1709,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadFlow3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadFlow3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadFlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow3.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadFlow3.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadFlow3.Location = new System.Drawing.Point(25, 0);
             this.lblHeadFlow3.Name = "lblHeadFlow3";
             this.lblHeadFlow3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1745,7 +1749,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadFlow4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadFlow4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadFlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow4.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadFlow4.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblHeadFlow4.Location = new System.Drawing.Point(25, 0);
             this.lblHeadFlow4.Name = "lblHeadFlow4";
             this.lblHeadFlow4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
@@ -1755,6 +1759,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadFlow4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // actionPanel
             //
+            this.actionPanel.AutoScroll = true;
             this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this.actionPanel.Controls.Add(this.btnInput);
             this.actionPanel.Controls.Add(this.btnInspect);
@@ -1764,26 +1769,50 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionPanel.Controls.Add(this.btnPickUpTest);
             this.actionPanel.Controls.Add(this.cmbPickZTestPickerNo);
             this.actionPanel.Controls.Add(this.btnPickZTest);
-            this.actionPanel.Controls.Add(this.actionSpacer);
-            this.actionPanel.Controls.Add(this.btnStop);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionPanel.Location = new System.Drawing.Point(3, 715);
+            this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionPanel.Name = "actionPanel";
-            this.actionPanel.Padding = new System.Windows.Forms.Padding(14, 10, 14, 10);
-            this.actionPanel.Size = new System.Drawing.Size(1672, 82);
-            this.actionPanel.TabIndex = 2;
+            this.actionPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.actionPanel.TabIndex = 0;
             this.actionPanel.WrapContents = false;
+            //
+            // actionBar
+            //
+            this.actionBar.ColumnCount = 2;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 54F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 46F));
+            this.actionBar.Controls.Add(this.actionPanel, 0, 0);
+            this.actionBar.Controls.Add(this.actionRightPanel, 1, 0);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Name = "actionBar";
+            this.actionBar.RowCount = 1;
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.TabIndex = 2;
+            //
+            // actionRightPanel
+            //
+            this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.actionRightPanel.Controls.Add(this.btnStop);
+            this.actionRightPanel.AutoSize = true;
+            this.actionRightPanel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Right;
+            this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.actionRightPanel.Name = "actionRightPanel";
+            this.actionRightPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.actionRightPanel.TabIndex = 1;
+            this.actionRightPanel.WrapContents = false;
             //
             // btnInput
             //
             this.btnInput.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnInput.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnInput.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnInput.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnInput.ForeColor = System.Drawing.Color.White;
             this.btnInput.Location = new System.Drawing.Point(20, 16);
             this.btnInput.Margin = new System.Windows.Forms.Padding(6);
             this.btnInput.Name = "btnInput";
-            this.btnInput.Size = new System.Drawing.Size(160, 64);
+            this.btnInput.Size = new System.Drawing.Size(132, 60);
             this.btnInput.TabIndex = 0;
             this.btnInput.Text = "PICK UP";
             //
@@ -1791,12 +1820,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnInspect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnInspect.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnInspect.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnInspect.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnInspect.ForeColor = System.Drawing.Color.White;
             this.btnInspect.Location = new System.Drawing.Point(192, 16);
             this.btnInspect.Margin = new System.Windows.Forms.Padding(6);
             this.btnInspect.Name = "btnInspect";
-            this.btnInspect.Size = new System.Drawing.Size(160, 64);
+            this.btnInspect.Size = new System.Drawing.Size(132, 60);
             this.btnInspect.TabIndex = 1;
             this.btnInspect.Text = "INSPECT";
             //
@@ -1804,12 +1833,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnBottom.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBottom.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnBottom.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnBottom.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnBottom.ForeColor = System.Drawing.Color.White;
             this.btnBottom.Location = new System.Drawing.Point(364, 16);
             this.btnBottom.Margin = new System.Windows.Forms.Padding(6);
             this.btnBottom.Name = "btnBottom";
-            this.btnBottom.Size = new System.Drawing.Size(160, 64);
+            this.btnBottom.Size = new System.Drawing.Size(132, 60);
             this.btnBottom.TabIndex = 2;
             this.btnBottom.Text = "BOTTOM";
             //
@@ -1817,12 +1846,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSide.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSide.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnSide.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSide.ForeColor = System.Drawing.Color.White;
             this.btnSide.Location = new System.Drawing.Point(536, 16);
             this.btnSide.Margin = new System.Windows.Forms.Padding(6);
             this.btnSide.Name = "btnSide";
-            this.btnSide.Size = new System.Drawing.Size(160, 64);
+            this.btnSide.Size = new System.Drawing.Size(132, 60);
             this.btnSide.TabIndex = 3;
             this.btnSide.Text = "SIDE";
             //
@@ -1830,12 +1859,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnOutput.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnOutput.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnOutput.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnOutput.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOutput.ForeColor = System.Drawing.Color.White;
             this.btnOutput.Location = new System.Drawing.Point(708, 16);
             this.btnOutput.Margin = new System.Windows.Forms.Padding(6);
             this.btnOutput.Name = "btnOutput";
-            this.btnOutput.Size = new System.Drawing.Size(160, 64);
+            this.btnOutput.Size = new System.Drawing.Size(132, 60);
             this.btnOutput.TabIndex = 4;
             this.btnOutput.Text = "PLACE";
             //
@@ -1843,19 +1872,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnPickUpTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPickUpTest.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPickUpTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnPickUpTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickUpTest.ForeColor = System.Drawing.Color.White;
             this.btnPickUpTest.Location = new System.Drawing.Point(880, 16);
             this.btnPickUpTest.Margin = new System.Windows.Forms.Padding(6);
             this.btnPickUpTest.Name = "btnPickUpTest";
-            this.btnPickUpTest.Size = new System.Drawing.Size(160, 64);
+            this.btnPickUpTest.Size = new System.Drawing.Size(132, 60);
             this.btnPickUpTest.TabIndex = 5;
             this.btnPickUpTest.Text = "PICKUP TEST";
             //
             // cmbPickZTestPickerNo
             //
             this.cmbPickZTestPickerNo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbPickZTestPickerNo.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.cmbPickZTestPickerNo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.cmbPickZTestPickerNo.FormattingEnabled = true;
             this.cmbPickZTestPickerNo.Items.AddRange(new object[] {
             "1",
@@ -1872,33 +1901,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.btnPickZTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPickZTest.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPickZTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnPickZTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnPickZTest.ForeColor = System.Drawing.Color.White;
             this.btnPickZTest.Location = new System.Drawing.Point(1142, 16);
             this.btnPickZTest.Margin = new System.Windows.Forms.Padding(6);
             this.btnPickZTest.Name = "btnPickZTest";
-            this.btnPickZTest.Size = new System.Drawing.Size(160, 64);
+            this.btnPickZTest.Size = new System.Drawing.Size(132, 60);
             this.btnPickZTest.TabIndex = 7;
             this.btnPickZTest.Text = "PICK Z TEST";
             //
-            // actionSpacer
-            //
-            this.actionSpacer.Location = new System.Drawing.Point(1308, 10);
-            this.actionSpacer.Margin = new System.Windows.Forms.Padding(0);
-            this.actionSpacer.Name = "actionSpacer";
-            this.actionSpacer.Size = new System.Drawing.Size(178, 64);
-            this.actionSpacer.TabIndex = 8;
-            //
             // btnStop
             //
-            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(170)))), ((int)(((byte)(46)))), ((int)(((byte)(46)))));
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
             this.btnStop.Location = new System.Drawing.Point(1492, 16);
             this.btnStop.Margin = new System.Windows.Forms.Padding(6);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(160, 64);
+            this.btnStop.Size = new System.Drawing.Size(132, 60);
             this.btnStop.TabIndex = 9;
             this.btnStop.Text = "STOP";
             //
@@ -1936,6 +1957,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headFlow3Panel.ResumeLayout(false);
             this.headFlow4Panel.ResumeLayout(false);
             this.actionPanel.ResumeLayout(false);
+            this.actionRightPanel.ResumeLayout(false);
+            this.actionBar.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

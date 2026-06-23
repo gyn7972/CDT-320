@@ -201,6 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void AlignStopButton()
         {
+            return; // STOP은 우측 고정존(actionRightPanel)에 위치 — 정렬 불필요
             if (actionsLayout == null || btnStop == null)
                 return;
 

@@ -37,6 +37,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label _markOverload;
         private Label lblOverloadCaption;
         private FlowLayoutPanel actionsLayout;
+        private TableLayoutPanel actionBar;
+        private FlowLayoutPanel actionRightPanel;
         private ActionButton btnLoadFromCassette;
         private ActionButton btnLoadToStage;
         private ActionButton btnUnloadFromStage;
@@ -77,6 +79,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialDetailView = new MaterialDetailView();
             this.lblInfoHeader = new Label();
             this.actionsLayout = new FlowLayoutPanel();
+            this.actionBar = new TableLayoutPanel();
+            this.actionRightPanel = new FlowLayoutPanel();
             this.btnLoadFromCassette = new ActionButton();
             this.btnLoadToStage = new ActionButton();
             this.btnUnloadFromStage = new ActionButton();
@@ -96,6 +100,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlInfo.SuspendLayout();
             this.infoLayout.SuspendLayout();
             this.actionsLayout.SuspendLayout();
+            this.actionBar.SuspendLayout();
+            this.actionRightPanel.SuspendLayout();
             this.SuspendLayout();
 
             this.rootPanel.BackColor = Color.FromArgb(191, 191, 191);
@@ -104,15 +110,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
             this.rootPanel.Controls.Add(this.topLayout, 0, 1);
             this.rootPanel.Controls.Add(this.contentLayout, 0, 2);
-            this.rootPanel.Controls.Add(this.actionsLayout, 0, 3);
+            this.rootPanel.Controls.Add(this.actionBar, 0, 3);
             this.rootPanel.Dock = DockStyle.Fill;
             this.rootPanel.Location = new Point(0, 0);
             this.rootPanel.Name = "rootPanel";
             this.rootPanel.RowCount = 4;
             this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 143F));
             this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 96F));
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 108F));
             this.rootPanel.Size = new Size(1678, 900);
             this.rootPanel.TabIndex = 0;
 
@@ -175,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._markRing.BorderStyle = BorderStyle.FixedSingle;
             this._markRing.Dock = DockStyle.Fill;
             this._markRing.Margin = new Padding(10, 20, 10, 20);
-            this.lblRingCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblRingCaption.BackColor = Color.FromArgb(200, 200, 200);
             this.lblRingCaption.Dock = DockStyle.Fill;
             this.lblRingCaption.Font = new Font("Consolas", 10F);
             this.lblRingCaption.Padding = new Padding(6, 0, 0, 0);
@@ -195,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._markOverload.BorderStyle = BorderStyle.FixedSingle;
             this._markOverload.Dock = DockStyle.Fill;
             this._markOverload.Margin = new Padding(10, 20, 10, 20);
-            this.lblOverloadCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblOverloadCaption.BackColor = Color.FromArgb(200, 200, 200);
             this.lblOverloadCaption.Dock = DockStyle.Fill;
             this.lblOverloadCaption.Font = new Font("Consolas", 10F);
             this.lblOverloadCaption.Padding = new Padding(6, 0, 0, 0);
@@ -231,7 +237,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
             this.workLayout.Size = new Size(254, 56);
 
-            this.lblExistCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblExistCaption.BackColor = Color.FromArgb(200, 200, 200);
             this.lblExistCaption.Dock = DockStyle.Fill;
             this.lblExistCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.lblExistCaption.Padding = new Padding(6, 0, 0, 0);
@@ -265,7 +271,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
             this.cylinderLayout.Size = new Size(314, 92);
 
-            this.lblClampCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblClampCaption.BackColor = Color.FromArgb(200, 200, 200);
             this.lblClampCaption.Dock = DockStyle.Fill;
             this.lblClampCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.lblClampCaption.Padding = new Padding(6, 0, 0, 0);
@@ -278,7 +284,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lblClampState.Padding = new Padding(0, 0, 6, 0);
             this._lblClampState.Text = "--";
             this._lblClampState.TextAlign = ContentAlignment.MiddleRight;
-            this.lblUpDownCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblUpDownCaption.BackColor = Color.FromArgb(200, 200, 200);
             this.lblUpDownCaption.Dock = DockStyle.Fill;
             this.lblUpDownCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.lblUpDownCaption.Padding = new Padding(6, 0, 0, 0);
@@ -321,63 +327,87 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialDetailView.Name = "materialDetailView";
             this.materialDetailView.Visible = true;
 
+            this.actionsLayout.AutoScroll = true;
             this.actionsLayout.BackColor = Color.FromArgb(191, 191, 191);
             this.actionsLayout.Controls.Add(this.btnLoadFromCassette);
             this.actionsLayout.Controls.Add(this.btnLoadToStage);
             this.actionsLayout.Controls.Add(this.btnUnloadFromStage);
             this.actionsLayout.Controls.Add(this.btnUnloadToCassette);
             this.actionsLayout.Controls.Add(this.btnRecover);
-            this.actionsLayout.Controls.Add(this.btnStop);
             this.actionsLayout.Dock = DockStyle.Fill;
-            this.actionsLayout.Padding = new Padding(12);
+            this.actionsLayout.Margin = new Padding(0);
+            this.actionsLayout.Padding = new Padding(12, 8, 12, 8);
             this.actionsLayout.WrapContents = false;
+            //
+            // actionBar
+            //
+            this.actionBar.ColumnCount = 2;
+            this.actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54F));
+            this.actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46F));
+            this.actionBar.Controls.Add(this.actionsLayout, 0, 0);
+            this.actionBar.Controls.Add(this.actionRightPanel, 1, 0);
+            this.actionBar.Dock = DockStyle.Fill;
+            this.actionBar.Margin = new Padding(0);
+            this.actionBar.RowCount = 1;
+            this.actionBar.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            //
+            // actionRightPanel
+            //
+            this.actionRightPanel.BackColor = Color.FromArgb(191, 191, 191);
+            this.actionRightPanel.Controls.Add(this.btnStop);
+            this.actionRightPanel.AutoSize = true;
+            this.actionRightPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            this.actionRightPanel.Dock = DockStyle.Right;
+            this.actionRightPanel.Margin = new Padding(0);
+            this.actionRightPanel.Padding = new Padding(12, 8, 12, 8);
+            this.actionRightPanel.WrapContents = false;
             this.btnLoadFromCassette.BackColor = Color.FromArgb(128, 128, 128);
             this.btnLoadFromCassette.Cursor = Cursors.Hand;
-            this.btnLoadFromCassette.Font = new Font("맑은 고딕", 11F);
+            this.btnLoadFromCassette.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.btnLoadFromCassette.ForeColor = Color.White;
             this.btnLoadFromCassette.Margin = new Padding(6);
             this.btnLoadFromCassette.Name = "btnLoadFromCassette";
-            this.btnLoadFromCassette.Size = new Size(180, 64);
+            this.btnLoadFromCassette.Size = new Size(132, 60);
             this.btnLoadFromCassette.Text = "CST -> FEEDER";
             this.btnLoadToStage.BackColor = Color.FromArgb(128, 128, 128);
             this.btnLoadToStage.Cursor = Cursors.Hand;
-            this.btnLoadToStage.Font = new Font("맑은 고딕", 11F);
+            this.btnLoadToStage.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.btnLoadToStage.ForeColor = Color.White;
             this.btnLoadToStage.Margin = new Padding(6);
             this.btnLoadToStage.Name = "btnLoadToStage";
-            this.btnLoadToStage.Size = new Size(180, 64);
+            this.btnLoadToStage.Size = new Size(132, 60);
             this.btnLoadToStage.Text = "FEEDER -> STAGE";
             this.btnUnloadFromStage.BackColor = Color.FromArgb(128, 128, 128);
             this.btnUnloadFromStage.Cursor = Cursors.Hand;
-            this.btnUnloadFromStage.Font = new Font("맑은 고딕", 11F);
+            this.btnUnloadFromStage.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.btnUnloadFromStage.ForeColor = Color.White;
             this.btnUnloadFromStage.Margin = new Padding(6);
             this.btnUnloadFromStage.Name = "btnUnloadFromStage";
-            this.btnUnloadFromStage.Size = new Size(180, 64);
+            this.btnUnloadFromStage.Size = new Size(132, 60);
             this.btnUnloadFromStage.Text = "STAGE -> FEEDER";
             this.btnUnloadToCassette.BackColor = Color.FromArgb(128, 128, 128);
             this.btnUnloadToCassette.Cursor = Cursors.Hand;
-            this.btnUnloadToCassette.Font = new Font("맑은 고딕", 11F);
+            this.btnUnloadToCassette.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.btnUnloadToCassette.ForeColor = Color.White;
             this.btnUnloadToCassette.Margin = new Padding(6);
             this.btnUnloadToCassette.Name = "btnUnloadToCassette";
-            this.btnUnloadToCassette.Size = new Size(180, 64);
+            this.btnUnloadToCassette.Size = new Size(132, 60);
             this.btnUnloadToCassette.Text = "FEEDER -> CST";
             this.btnRecover.BackColor = Color.FromArgb(128, 128, 128);
             this.btnRecover.Cursor = Cursors.Hand;
-            this.btnRecover.Font = new Font("맑은 고딕", 11F);
+            this.btnRecover.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
             this.btnRecover.ForeColor = Color.White;
             this.btnRecover.Margin = new Padding(6);
             this.btnRecover.Name = "btnRecover";
-            this.btnRecover.Size = new Size(180, 64);
+            this.btnRecover.Size = new Size(132, 60);
             this.btnRecover.Text = "RECOVER";
-            this.btnStop.BackColor = Color.FromArgb(160, 48, 48);
+            this.btnStop.BackColor = Color.FromArgb(214, 40, 40);
             this.btnStop.Cursor = Cursors.Hand;
             this.btnStop.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
             this.btnStop.ForeColor = Color.White;
             this.btnStop.Margin = new Padding(6);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new Size(140, 64);
+            this.btnStop.Size = new Size(132, 60);
             this.btnStop.Text = "STOP";
 
             this.BackColor = Color.FromArgb(191, 191, 191);
@@ -397,6 +427,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlInfo.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
             this.actionsLayout.ResumeLayout(false);
+            this.actionRightPanel.ResumeLayout(false);
+            this.actionBar.ResumeLayout(false);
             this.ResumeLayout(false);
         }
     }

@@ -52,9 +52,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (actionsLayout != null)
                 actionsLayout.WrapContents = false;
 
-            ConfigureActionButtonSize(btnWfAlign, 180, 64);
-            ConfigureActionButtonSize(btnWfBarcode, 180, 64);
-            ConfigureActionButtonSize(btnStop, 140, 64);
+            ConfigureActionButtonSize(btnWfAlign, 132, 60);
+            ConfigureActionButtonSize(btnWfBarcode, 132, 60);
+            ConfigureActionButtonSize(btnStop, 132, 60);
 
             if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
                 actionsLayout.Controls.Remove(btnStop);
@@ -69,7 +69,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             actionsLayout.Controls.Add(btnMoveAvoid);
             PlaceDieMappingAfterAlign();
             if (btnStop != null)
-                actionsLayout.Controls.Add(btnStop);
+                actionRightPanel.Controls.Add(btnStop);
             AddWaferVisionLauncher();
             EnsureStopButtonLast();
             AlignStopButton();
@@ -84,10 +84,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 var btn = CreateActionButton("VISION: WAFER");
                 btn.Click += (s, e) => WaferVisionTestDialog.Open(this);
-                actionsLayout.Controls.Add(btn);
+                actionRightPanel.Controls.Add(btn);
 
-                if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
-                    actionsLayout.Controls.SetChildIndex(btnStop, actionsLayout.Controls.Count - 1);
+                if (btnStop != null && actionRightPanel.Controls.Contains(btnStop))
+                    actionRightPanel.Controls.SetChildIndex(btnStop, actionRightPanel.Controls.Count - 1);
             }
             catch (Exception ex)
             {
@@ -115,7 +115,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Text = text,
                 Margin = new Padding(6)
             };
-            ConfigureActionButtonSize(button, 180, 64);
+            ConfigureActionButtonSize(button, 132, 60);
             return button;
         }
 
@@ -335,6 +335,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void AlignStopButton()
         {
+            return; // STOP은 우측 고정존(actionRightPanel)에 위치 — 정렬 불필요
+#pragma warning disable CS0162
             if (actionsLayout == null || btnStop == null)
                 return;
 

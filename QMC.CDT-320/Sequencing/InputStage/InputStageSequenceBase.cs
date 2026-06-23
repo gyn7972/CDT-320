@@ -663,6 +663,9 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+
+            // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
+            SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }
     }
 }
