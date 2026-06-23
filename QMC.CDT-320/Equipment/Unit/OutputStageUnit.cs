@@ -1944,7 +1944,12 @@ namespace QMC.CDT320
 
                 bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
                 if (!ok)
+                {
+                    if (IsCylinderAtRequestedStateAfterRefresh(cylinder, fwd))
+                        return 0;
+
                     return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " 실린더 구동 실패.");
+                }
 
                 bool refreshOk = true;
                 bool arrived = await WaitUntilAsync(() =>
@@ -1961,7 +1966,12 @@ namespace QMC.CDT320
                     return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
 
                 if (!arrived)
+                {
+                    if (IsCylinderAtRequestedStateAfterRefresh(cylinder, fwd))
+                        return 0;
+
                     return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " 실린더 센서 대기 시간 초과.");
+                }
 
                 return 0;
             }
@@ -1972,6 +1982,25 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseOutputStageAlarm("OS-CYL-EX", description + " 실린더 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsCylinderAtRequestedStateAfterRefresh(BaseCylinder cylinder, bool fwd)
+        {
+            try
+            {
+                if (cylinder == null)
+                    return false;
+
+                RefreshCylinderInputs(cylinder);
+                return fwd ? cylinder.IsFwd : cylinder.IsBwd;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

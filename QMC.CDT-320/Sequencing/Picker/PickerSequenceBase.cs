@@ -514,7 +514,8 @@ namespace QMC.CDT320.Sequencing
                         waitLogged = true;
                     }
 
-                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    //await Task.Delay(50, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 if (waitLogged)
@@ -951,7 +952,7 @@ namespace QMC.CDT320.Sequencing
                             loggedWait = true;
                         }
 
-                        await Task.Delay(50, ct).ConfigureAwait(false);
+                        await Task.Delay(1, ct).ConfigureAwait(false);
                         continue;
                     }
 
@@ -975,7 +976,7 @@ namespace QMC.CDT320.Sequencing
                             loggedWait = true;
                         }
 
-                        await Task.Delay(50, ct).ConfigureAwait(false);
+                        await Task.Delay(1, ct).ConfigureAwait(false);
                         continue;
                     }
 
@@ -1192,7 +1193,7 @@ namespace QMC.CDT320.Sequencing
                     if (actual == expected)
                         return 0;
 
-                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 actual = ReadPickerFlowState(pickerNo);

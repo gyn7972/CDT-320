@@ -230,7 +230,7 @@ namespace QMC.CDT320.Sequencing
             if (visionAvoid != 0)
                 return visionAvoid;
 
-            int pickerClear = CheckPickersClearForOutputTransport("before cassette to feeder load");
+            int pickerClear = await WaitPickersClearForOutputTransportAsync("before cassette to feeder load", ct).ConfigureAwait(false);
             if (pickerClear != 0)
                 return pickerClear;
 

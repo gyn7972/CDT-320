@@ -395,7 +395,7 @@ namespace QMC.CDT320.Sequencing
                         .ConfigureAwait(false);
 
                     if (_inputStageLease == null)
-                        await Task.Delay(100, ct).ConfigureAwait(false);
+                        await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 if (waitLogged)

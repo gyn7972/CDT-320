@@ -2236,6 +2236,62 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static int ReleaseInputStagePickReservationsForPickerLocation(MaterialLocationKind pickerLocation, string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                        return 0;
+
+                    int releaseCount = 0;
+                    DateTime now = DateTime.Now;
+
+                    for (int i = 0; i < State.Dies.Count; i++)
+                    {
+                        DieMaterial die = State.Dies[i];
+                        if (die == null || die.ReservedPickerLocation != pickerLocation)
+                            continue;
+
+                        MaterialLocationKind kind = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+
+                        if (kind != MaterialLocationKind.Unknown && kind != MaterialLocationKind.InputStage)
+                            continue;
+
+                        die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                        die.ReservedPickerNo = -1;
+                        die.UpdatedAt = now;
+                        releaseCount++;
+                    }
+
+                    if (releaseCount > 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "사용 불가 Picker 예약을 해제했습니다. pickerLocation=" + pickerLocation +
+                            ", count=" + releaseCount +
+                            ", reason=" + reason + " - Ok");
+                        NotifyAndSave("ReleaseInputStagePickReservationsForPickerLocation");
+                    }
+
+                    return releaseCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "사용 불가 Picker 예약 해제 중 예외가 발생했습니다. pickerLocation=" + pickerLocation +
+                    ", error=" + ex.Message + " - Failed");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool ValidateInputStagePickTarget(
             string dieId,
             MaterialLocationKind pickerLocation,

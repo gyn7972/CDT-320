@@ -25,7 +25,7 @@ namespace QMC.CDT320.Sequencing
                 VisionOffsetX = 0.0,
                 VisionOffsetY = 0.0,
                 FineMove = false,
-                MoveTimeoutMs = 10000,
+                MoveTimeoutMs = 300000,
                 RunMode = SequenceRunMode.Auto,
                 StartMode = SequenceStartMode.Resume,
                 KeepVisionXAvoidOnProcessMove = false

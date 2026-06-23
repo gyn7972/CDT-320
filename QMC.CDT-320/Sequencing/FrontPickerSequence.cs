@@ -180,7 +180,7 @@ namespace QMC.CDT320.Sequencing
                     Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
                     await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
-                    await Task.Delay(200, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
             }
             catch (System.OperationCanceledException)
@@ -254,6 +254,12 @@ namespace QMC.CDT320.Sequencing
                 if (!IsFrontPickerEnabled())
                     return false;
 
+                if (!HasEnabledFrontPickerHead())
+                {
+                    ClearDisabledPickerReservations();
+                    return false;
+                }
+
                 bool inputStageReady = Context != null &&
                                        Context.Bus != null &&
                                        Context.Bus.IsSet("InputStageReady");
@@ -287,6 +293,57 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("IsFrontPickerEnabled", "FrontPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasEnabledFrontPickerHead()
+        {
+            try
+            {
+                PickerFrontUnit front = Context != null && Context.Machine != null
+                    ? Context.Machine.PickerFrontUnit
+                    : null;
+                bool[] usePicker = front != null && front.Config != null ? front.Config.UsePicker : null;
+                if (usePicker == null || usePicker.Length == 0)
+                    return false;
+
+                for (int i = 0; i < usePicker.Length; i++)
+                {
+                    if (usePicker[i])
+                        return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("HasEnabledFrontPickerHead", "FrontPicker 사용 Head 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearDisabledPickerReservations()
+        {
+            try
+            {
+                InputCameraPickUpPermissionStore.Clear(PickerSequenceSide.Front);
+                int releaseCount = MaterialStateService.ReleaseInputStagePickReservationsForPickerLocation(
+                    MaterialLocationKind.PickerFront,
+                    "FrontPicker 사용 가능한 Head가 없습니다.");
+                if (releaseCount > 0)
+                    WriteLog("ClearDisabledPickerReservations",
+                        "FrontPicker 사용 가능한 Head가 없어 남은 Pick 예약을 해제했습니다. count=" + releaseCount + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ClearDisabledPickerReservations",
+                    "FrontPicker 사용 불가 예약 해제 중 예외 발생: " + ex.Message + " - Failed");
             }
             finally
             {

@@ -386,7 +386,7 @@ namespace QMC.CDT320.Sequencing
 
                     WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
                     Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitOutputStageReady");
-                    await Task.Delay(100, ct).ConfigureAwait(false);
+                    await Task.Delay(1, ct).ConfigureAwait(false);
                 }
 
                 ct.ThrowIfCancellationRequested();
@@ -611,6 +611,10 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            result = await EnsureOutputStageZReadyForPlaceAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             CurrentStep = PickerPlaceStep.VerifyPlaceTarget;
             return 0;
         }
@@ -769,6 +773,37 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo +
                     ", outputSide=" + _currentOutputSide);
             }
+
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputStageZReadyForPlaceAsync(CancellationToken ct)
+        {
+            if (_currentOutputSide != BinSide.Good)
+                return 0;
+
+            if (OutputStage == null || OutputStage.Recipe == null)
+                return Fail("PICKER-PLACE-GOOD-Z-UNIT", "OutputStage",
+                    "Good Stage Place 전 OutputStage 또는 Recipe를 찾을 수 없습니다. die=" +
+                    (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo);
+
+            OutputStage.Recipe.EnsurePositionObjects();
+
+            double target = OutputStage.Recipe.GoodStageZ.ProcessPosition;
+            int result = await MoveOutputStageAxisAndVerifyAsync(
+                BinStageAxis.GoodBinZ,
+                target,
+                "Good Stage Z place process",
+                ct).ConfigureAwait(false);
+
+            if (result != 0)
+                return Fail("PICKER-PLACE-GOOD-Z-PROCESS", "OutputStage",
+                    "Good Stage Place 전 Z축 Process 위치 이동 실패. result=" + result +
+                    ", target=" + target +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
 
             return 0;
         }

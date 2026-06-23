@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -139,7 +139,7 @@ namespace QMC.CDT320.Sequencing
                     waitLogged = true;
                 }
 
-                await Task.Delay(50, ct).ConfigureAwait(false);
+                await Task.Delay(1, ct).ConfigureAwait(false);
             }
         }
 
