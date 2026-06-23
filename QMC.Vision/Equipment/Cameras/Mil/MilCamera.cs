@@ -22,8 +22,9 @@ namespace QMC.Vision.Cameras.Mil
         private MIL_ID _buf = MIL.M_NULL;
         private int    _digNum;
         private int    _bands = 1;
-        private Thread _liveThread;
-        private volatile bool _liveRun;
+        private MIL.MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
+        private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
+        private long _lastLiveTickMs;
         private readonly string _tmpPath;
         private byte[] _hostBuf;   // Mono 프레임 호스트 복사 버퍼(재사용 — GC 압박 감소)
         private int    _diskFallbackStreak;   // 디스크 폴백 연속 횟수 — 라이브에서 디스크 I/O 폭주 방지
@@ -121,39 +122,23 @@ namespace QMC.Vision.Cameras.Mil
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
-
-            // Software 트리거(SingleFrame) 모드: 동기 MdigGrab 은 트리거를 기다리며 블로킹되므로,
-            //   비동기로 arm → 소프트 트리거 발생 → 완료 대기 순서로 1장을 받는다.
-            //   (트리거가 실제 노출을 일으키므로 스트로브도 이때 발생한다.)
-            // Continuous(free-run)/Line(하드웨어 트리거) 은 종전대로 동기 단발 MdigGrab.
-            bool softwareTrig = TriggerMode == CameraTriggerMode.Software;
             try
             {
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
 
-                if (softwareTrig)
-                {
-                    MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_ASYNCHRONOUS); // 그랩을 비동기로 — arm 후 즉시 반환
-                    MIL.MdigGrab(_dig, _buf);                                           // 트리거 대기 상태로 arm
-                    TriggerSoftware();                                                  // 소프트 트리거 발생(스트로브 동반)
-                    MIL.MdigGrabWait(_dig, MIL.M_GRAB_END);                             // 프레임 수신 완료 대기
-                }
-                else
-                {
-                    MIL.MdigGrab(_dig, _buf);
-                }
+                // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
+                //   (VIEWORKS/Rapixo: Intellicam 에서 Single Frame + Acquisition Start 1회와 동일 동작)
+                //   노출은 내부 Timed, 스트로브는 DCF(...strobe.dcf)에 묶여 노출 때 함께 출력 → 외부/소프트 트리거 불필요.
+                TryFeatureS("AcquisitionMode", "SingleFrame");
+                TryFeatureI("AcquisitionFrameCount", 1);
+                TryFeatureS("TriggerMode", "Off");   // AcquisitionStart 가 노출을 일으키도록(외부/소프트 트리거 미사용)
+                MIL.MdigGrab(_dig, _buf);            // AcquisitionStart → 1프레임(+ 스트로브)
 
                 var bmp = BufferToBitmap();
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
                 return new GrabResult(bmp, 0, Info.Id);
             }
             catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
-            finally
-            {
-                // 다른 경로(라이브 등)에 영향 없도록 그랩 모드를 동기로 원복.
-                if (softwareTrig)
-                    try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
-            }
         }
 
         private volatile bool _continuousOn;
@@ -162,56 +147,69 @@ namespace QMC.Vision.Cameras.Mil
         {
             if (!IsOpen || IsGrabbing) return;
             IsGrabbing = true;
-            _liveRun   = true;
-            // 연속 그랩(free-run) 시작 — 반복 MdigGrab(매 호출 arm)의 첫 프레임 지연·부하를 없앤다.
-            // 드라이버가 백그라운드로 _buf 를 갱신 → 표시 스레드는 미리보기 FPS 로 버퍼만 복사.
+
+            // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다.
+            //   (SingleFrame/트리거는 StopLive 에서 복원 → 이후 Grab 은 단발 트리거+스트로브.)
+            TryFeatureS("AcquisitionMode", "Continuous");
+            TryFeatureS("TriggerMode", "Off");
+
+            // 프레임마다 MIL 내부 스레드가 호출하는 훅 — 우리 폴링 스레드를 만들지 않는다.
+            //   델리게이트는 필드로 보관해야 콜백 중 GC 되지 않는다.
+            _lastLiveTickMs = 0;
+            _liveHook = LiveGrabHook;
+            try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END, _liveHook, IntPtr.Zero); } catch { }
             try { MIL.MdigGrabContinuous(_dig, _buf); _continuousOn = true; }
-            catch { _continuousOn = false; }   // 미지원 시 LiveLoop 가 단발 MdigGrab 폴백
-            _liveThread = new Thread(LiveLoop) { IsBackground = true, Name = "MilLive/" + _digNum };
-            _liveThread.Start();
+            catch { _continuousOn = false; }
         }
 
         public override void StopLive()
         {
-            _liveRun = false;
-            try { _liveThread?.Join(1000); } catch { }
-            _liveThread = null;
+            bool wasLive = _continuousOn || IsGrabbing;
+
             if (_continuousOn)
             {
                 try { MIL.MdigHalt(_dig); } catch { }
                 _continuousOn = false;
             }
+            try { if (_liveHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END + MIL.M_UNHOOK, _liveHook, IntPtr.Zero); } catch { }
+            _liveHook = null;
+
+            // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브).
+            if (wasLive)
+            {
+                TryFeatureS("AcquisitionMode", "SingleFrame");
+                TryFeatureI("AcquisitionFrameCount", 1);
+                TryFeatureS("TriggerMode", "Off");
+            }
+
             IsGrabbing = false;
         }
 
-        /// <summary>라이브 미리보기 최대 FPS(고해상도 센서 변환·표시 부하·버퍼 적체 방지). 0 이하면 무제한.</summary>
+        /// <summary>라이브 미리보기 최대 FPS(고해상도 센서 변환·표시 부하 완화). 0 이하면 무제한.</summary>
         public int LivePreviewFps { get; set; } = 15;
 
-        private void LiveLoop()
+        /// <summary>MIL 연속 그랩의 프레임 완료 콜백(M_GRAB_FRAME_END) — MIL 내부 스레드에서 호출된다.
+        /// _buf 를 비트맵으로 변환해 FrameReceived 로 발행. 별도 폴링 스레드를 쓰지 않는다.</summary>
+        private MIL_INT LiveGrabHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            while (_liveRun && IsOpen)
+            try
             {
-                long t0 = sw.ElapsedMilliseconds;
-                try
-                {
-                    // 연속 그랩 중이면 _buf 는 드라이버가 채우므로 복사만. 폴백 시에만 단발 grab.
-                    if (!_continuousOn) MIL.MdigGrab(_dig, _buf);
-                    var bmp = BufferToBitmap();
-                    if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
-                }
-                catch { Thread.Sleep(5); }
+                if (!IsGrabbing || !IsOpen) return 0;
 
-                // 미리보기 FPS 캡 — 변환+표시에 쓴 시간을 빼고 남은 만큼 대기(고MP 센서 부하 완화).
+                // 미리보기 FPS 캡 — 고MP 변환 부하/적체 완화(초과 프레임은 건너뜀).
                 int fps = LivePreviewFps;
                 if (fps > 0)
                 {
-                    int budget = 1000 / fps;
-                    int spent  = (int)(sw.ElapsedMilliseconds - t0);
-                    int wait   = budget - spent;
-                    if (wait > 0) Thread.Sleep(wait);
+                    long now = _liveSw.ElapsedMilliseconds;
+                    if (now - _lastLiveTickMs < (1000 / fps)) return 0;
+                    _lastLiveTickMs = now;
                 }
+
+                var bmp = BufferToBitmap();
+                if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
             }
+            catch { }
+            return 0;
         }
 
         public override void TriggerSoftware()
