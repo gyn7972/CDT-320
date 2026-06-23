@@ -398,7 +398,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
-
+                Log.Write("PickerPlaceSequence", Name + " StopPickerMoveBecauseAlarmActive. side=" + Side + ", step=" + CurrentStep);
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     targets,
                     targetName,
@@ -415,6 +415,7 @@ namespace QMC.CDT320.Sequencing
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 var commandDetails = new List<PickerMoveAxisLogDetail>();
+                Log.Write("PickerPlaceSequence", Name + " WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync. side=" + Side + ", step=" + CurrentStep);
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -434,6 +435,7 @@ namespace QMC.CDT320.Sequencing
                     commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
                 }
 
+                Log.Write("PickerPlaceSequence", Name + " foreach (KeyValuePair<PickerAxis, double> pair in targets). side=" + Side + ", step=" + CurrentStep);
                 if (commandTasks.Count > 0)
                 {
                     Stopwatch commandWatch = Stopwatch.StartNew();
@@ -469,7 +471,7 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
                 }
-
+                Log.Write("PickerPlaceSequence", Name + " foreach (KeyValuePair<PickerAxis, double> pair in targets) Before" + Side + ", step=" + CurrentStep);
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     if (!IsPickerAxisInPosition(pair.Key, pair.Value))
@@ -480,7 +482,7 @@ namespace QMC.CDT320.Sequencing
                             BuildPickerAxisState(pair.Key, pair.Value));
                     }
                 }
-
+                Log.Write("PickerPlaceSequence", Name + " WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, 0, commandMs, waitMs, totalWatch.ElapsedMilliseconds, \"Ok\");" + Side + ", step=" + CurrentStep);
                 if (commandTargets.Count > 0)
                     WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, 0, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "Ok");
 

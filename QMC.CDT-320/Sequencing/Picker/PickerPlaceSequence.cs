@@ -152,7 +152,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 아웃풋 스테이지 수령 가능 확인
                 case PickerPlaceStep.VerifyOutputStageReady:
-                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 수령 준비 확인 시작. side=" + Side + ", step=" + CurrentStep); 
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 수령 준비 확인 시작. side=" + Side + ", step=" + CurrentStep);
                     return VerifyOutputStageReadyAsync(ct);
 
                 // 아웃풋 스테이지 대상 예약
@@ -162,7 +162,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 아웃풋 스테이지 피커 진입용 어보이드 이동
                 case PickerPlaceStep.MoveOutputStageAvoidPosition:
-                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 피커 진입용 Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);  
+                    Log.Write("PickerPlaceSequence", Name + " Place 아웃풋 스테이지 피커 진입용 Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MoveOutputStageAvoidPositionAsync(ct);
 
                 // 아웃풋 스테이지 수령 위치 이동
@@ -197,17 +197,17 @@ namespace QMC.CDT320.Sequencing
 
                 // 블로우 OFF 처리
                 case PickerPlaceStep.BlowOff:
-                    Log.Write("PickerPlaceSequence", Name + " Place 블로우 OFF 처리 시작. side=" + Side + ", step=" + CurrentStep);    
+                    Log.Write("PickerPlaceSequence", Name + " Place 블로우 OFF 처리 시작. side=" + Side + ", step=" + CurrentStep);
                     return BlowOffAsync(ct);
 
                 // 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MovePickerZToAvoid:
-                    Log.Write("PickerPlaceSequence", Name + " Place 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep); 
+                    Log.Write("PickerPlaceSequence", Name + " Place 피커 Z Avoid 이동 시작. side=" + Side + ", step=" + CurrentStep);
                     return MovePickerZToAvoidAsync(ct);
 
                 // Flow OFF 최종 확인
                 case PickerPlaceStep.VerifyFlowOff:
-                    Log.Write("PickerPlaceSequence", Name + " Place Flow OFF 최종 확인 시작. side=" + Side + ", step=" + CurrentStep);    
+                    Log.Write("PickerPlaceSequence", Name + " Place Flow OFF 최종 확인 시작. side=" + Side + ", step=" + CurrentStep);
                     return VerifyFlowOffAsync(ct);
 
                 // 자재로 아웃풋 스테이지 갱신
@@ -632,15 +632,18 @@ namespace QMC.CDT320.Sequencing
                 _outputVisionToPickerY;
 
             CalculatePlaceTargetValues();
-
+            Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 계산 완료. side=" + Side + ", step=" + CurrentStep);
             int result = await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
+
+            Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 이동 완료. side=" + Side + ", step=" + CurrentStep);
 
             result = await EnsureOutputStageZReadyForPlaceAsync(ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
+            Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 이동 후 Z Ready 확인 완료. side=" + Side + ", step=" + CurrentStep);
             CurrentStep = PickerPlaceStep.VerifyPlaceTarget;
             return 0;
         }
@@ -800,6 +803,19 @@ namespace QMC.CDT320.Sequencing
                     ", outputSide=" + _currentOutputSide);
             }
 
+            //await MovePickerAxesAndVerifyAsync(
+            //    pickerTargets,
+            //    "place picker X/Y/T",
+            //    ct,
+            //    "DiePlacePosition[" + _currentPickerIndex + "]");
+
+            //Log.Write("PickerPlaceSequence", Name + " MovePickerAxesAndVerifyAsync. side=" + Side + ", step=" + CurrentStep);
+            //await MoveOutputStageAxisAndVerifyAsync(
+            //    yAxis,
+            //    _targetOutputStageY,
+            //    "output stage receive Y",
+            //    ct);
+            //Log.Write("PickerPlaceSequence", Name + " MoveOutputStageAxisAndVerifyAsync. side=" + Side + ", step=" + CurrentStep);
             return 0;
         }
 

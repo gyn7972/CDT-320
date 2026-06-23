@@ -515,7 +515,7 @@ namespace QMC.Common.Motion
                 if (detectedMotion && !IsMoving)
                     break;
 
-                await Task.Delay(10, ct).ContinueWith(_ => { }); // 취소 예외 무시
+                await Task.Delay(1, ct).ContinueWith(_ => { }); // 취소 예외 무시
             }
         }
 

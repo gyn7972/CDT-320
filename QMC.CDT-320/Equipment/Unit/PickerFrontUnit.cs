@@ -6,13 +6,15 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
+using QMC.Common.Motion.Ajin;
 using System;
-using System.ComponentModel;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using static QMC.CDT_320.Ui.Pages.Settings.AxisSetupPage;
 
 namespace QMC.CDT320
 {
@@ -888,6 +890,60 @@ namespace QMC.CDT320
 
         public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
+            //BaseAxis item = GetAxis(axis);
+            //int axisNo = 12;
+            //AXM.MovePosition(12, targetPos, 500, 5000, 5000);
+
+
+            //AxisMoveWaitResult wait = await WaitPickerAxisMoveDoneInPosition(
+            //axis,
+            //targetPos,
+            //ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
+
+            //DateTime start = DateTime.UtcNow;
+
+            //while ((DateTime.UtcNow - start).TotalMilliseconds < 1000)
+            //{
+            //    bool moving = false;
+            //    bool inpos = false;
+            //    bool alarm = false;
+            //    double actual = 0;
+            //    double command = 0;
+
+            //    int alarmRet = AXM.GetAmpFaultValue(axisNo, ref alarm);
+            //    int movingRet = AXM.GetInMotion(axisNo, ref moving);
+            //    int inposRet = AXM.GetInPositionValue(axisNo, ref inpos);
+            //    int actualRet = AXM.GetActualPosition(axisNo, ref actual);
+            //    int commandRet = AXM.GetCommandPosition(axisNo, ref command);
+
+            //    if (alarmRet != 0 || movingRet != 0 || inposRet != 0 || actualRet != 0 || commandRet != 0)
+            //    {
+            //        EventLogger.Write(EventKind.Alarm, "QMC", "PK-Z1-AJIN-TEST",
+            //            "Ajin 상태 읽기 실패. axisNo=" + axisNo +
+            //            ", alarmRet=0x" + alarmRet.ToString("X4") +
+            //            ", movingRet=0x" + movingRet.ToString("X4") +
+            //            ", inposRet=0x" + inposRet.ToString("X4") +
+            //            ", actualRet=0x" + actualRet.ToString("X4") +
+            //            ", commandRet=0x" + commandRet.ToString("X4"));
+            //        return -1;
+            //    }
+
+            //    if (alarm)
+            //    {
+                    
+            //        return -1;
+            //    }
+
+            //    if (!moving && inpos)
+            //    {
+            //        return 0;
+            //    }
+
+            //    await Task.Delay(1).ConfigureAwait(false);
+            //}
+
+            //return 0;
+
             return await MovePickerAxisNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
         }
 
