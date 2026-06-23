@@ -147,14 +147,16 @@ namespace QMC.Vision.Ui.Pages
             // 
             // _cam
             // 
-            this._cam.BackColor = System.Drawing.Color.Black;
+            this._cam.BackColor = System.Drawing.Color.DimGray;
             this._cam.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cam.InfoForeColor = System.Drawing.Color.LightGreen;
             this._cam.InfoText = "STAGE\r\nW:640 H:480";
             this._cam.Location = new System.Drawing.Point(3, 27);
             this._cam.MmPerPixelX = 0D;
             this._cam.MmPerPixelY = 0D;
             this._cam.Name = "_cam";
             this._cam.ShowCrosshair = true;
+            this._cam.ShowCursorReadout = false;
             this._cam.ShowLiveLabel = true;
             this._cam.ShowToolbar = false;
             this._cam.Size = new System.Drawing.Size(769, 778);

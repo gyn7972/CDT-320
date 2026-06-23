@@ -26,6 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerFrontUnit unit;
+        private Button btnFrontPickerZ1CycleTest;
 
         public FrontPickerRecipePage()
         {
@@ -47,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
             BindParameterGridMenus();
+            AddFrontPickerZ1CycleTestButton();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -158,6 +160,39 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private async void btnDiePlacePosition_Click(object sender, EventArgs e)
         {
             await ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"));
+        }
+
+        private void AddFrontPickerZ1CycleTestButton()
+        {
+            if (manualLayout == null || btnFrontPickerZ1CycleTest != null)
+                return;
+
+            btnFrontPickerZ1CycleTest = CreateManualActionButton("Z1 0-2mm x50 TEST", 9);
+            btnFrontPickerZ1CycleTest.Click += async delegate
+            {
+                await ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync);
+            };
+
+            if (manualLayout.RowCount < 5)
+                manualLayout.RowCount = 5;
+
+            manualLayout.Controls.Add(btnFrontPickerZ1CycleTest, 1, 4);
+        }
+
+        private static Button CreateManualActionButton(string text, int tabIndex)
+        {
+            Button button = new Button();
+            button.BackColor = Color.FromArgb(128, 128, 128);
+            button.Cursor = Cursors.Hand;
+            button.Dock = DockStyle.Fill;
+            button.FlatStyle = FlatStyle.Standard;
+            button.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            button.ForeColor = Color.White;
+            button.Margin = new Padding(4);
+            button.TabIndex = tabIndex;
+            button.Text = text;
+            button.UseVisualStyleBackColor = false;
+            return button;
         }
 
         private void BindParameterGrids()
@@ -620,6 +655,104 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (r != 0) return AbortSeq(kind, "Z 하강 실패 (CDA/알람 확인)");
 
             return 0;
+        }
+
+        private async Task<int> RunFrontPickerZ1CycleTestAsync()
+        {
+            const int repeatCount = 50;
+            const double lowPosition = 0.0;
+            const double highPosition = 2.0;
+            const PickerAxis axis = PickerAxis.PickerZ0; // 화면 표기 Front Picker #1 Z축
+
+            if (unit == null)
+                return -1;
+
+            Button button = btnFrontPickerZ1CycleTest;
+            if (button != null)
+                button.Enabled = false;
+
+            System.Diagnostics.Stopwatch totalWatch = System.Diagnostics.Stopwatch.StartNew();
+            EventLogger.Write(
+                EventKind.Event,
+                "UI",
+                "FRONT-PICKER-Z1-CYCLE-TEST",
+                "Front Picker #1 Z축 0<->2mm 50회 왕복 테스트 시작. axis=" + axis +
+                ", low=" + lowPosition.ToString("0.###") +
+                ", high=" + highPosition.ToString("0.###") +
+                ", repeat=" + repeatCount);
+
+            try
+            {
+                for (int i = 1; i <= repeatCount; i++)
+                {
+                    int result = await MoveFrontPickerZ1CycleTestAxisAsync(axis, highPosition, i, "UP").ConfigureAwait(true);
+                    if (result != 0)
+                        return result;
+
+                    result = await MoveFrontPickerZ1CycleTestAxisAsync(axis, lowPosition, i, "DOWN").ConfigureAwait(true);
+                    if (result != 0)
+                        return result;
+                }
+
+                totalWatch.Stop();
+                EventLogger.Write(
+                    EventKind.Event,
+                    "UI",
+                    "FRONT-PICKER-Z1-CYCLE-TEST",
+                    "Front Picker #1 Z축 0<->2mm 50회 왕복 테스트 완료. elapsedMs=" +
+                    totalWatch.ElapsedMilliseconds);
+                return 0;
+            }
+            finally
+            {
+                if (button != null && !button.IsDisposed)
+                    button.Enabled = true;
+            }
+        }
+
+        private async Task<int> MoveFrontPickerZ1CycleTestAxisAsync(PickerAxis axis, double target, int cycleNo, string direction)
+        {
+            BaseAxis baseAxis = GetAxis(axis);
+            double before = baseAxis != null ? baseAxis.ActualPosition : 0.0;
+            System.Diagnostics.Stopwatch moveWatch = System.Diagnostics.Stopwatch.StartNew();
+
+            EventLogger.Write(
+                EventKind.Event,
+                "UI",
+                "FRONT-PICKER-Z1-CYCLE-TEST",
+                "Front Picker #1 Z축 테스트 이동 시작. cycle=" + cycleNo +
+                ", direction=" + direction +
+                ", target=" + target.ToString("0.###") +
+                ", before=" + before.ToString("0.###"));
+
+            int result = await unit.MovePickerAxis(
+                axis,
+                target,
+                false,
+                "FrontPickerZ1CycleTest").ConfigureAwait(true);
+
+            moveWatch.Stop();
+            double after = baseAxis != null ? baseAxis.ActualPosition : 0.0;
+            EventLogger.Write(
+                result == 0 ? EventKind.Event : EventKind.Alarm,
+                "UI",
+                "FRONT-PICKER-Z1-CYCLE-TEST",
+                "Front Picker #1 Z축 테스트 이동 " + (result == 0 ? "완료" : "실패") +
+                ". cycle=" + cycleNo +
+                ", direction=" + direction +
+                ", target=" + target.ToString("0.###") +
+                ", before=" + before.ToString("0.###") +
+                ", after=" + after.ToString("0.###") +
+                ", elapsedMs=" + moveWatch.ElapsedMilliseconds +
+                ", result=" + result);
+
+            if (result != 0)
+                lastAbortReason = "Front Picker #1 Z축 테스트 이동 실패. cycle=" + cycleNo +
+                    ", direction=" + direction +
+                    ", target=" + target.ToString("0.###") +
+                    ", result=" + result;
+
+            return result;
         }
 
         private void TeachSelectedPosition(string key)

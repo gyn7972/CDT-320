@@ -1038,8 +1038,9 @@ namespace QMC.CDT320
         {
             if (!HasStageAxis(axis))
                 return true;
-
-            return Math.Abs(ResolveStageAxis(axis).ActualPosition - targetPos) <= tolerance;
+            var v = ResolveStageAxis(axis);
+            v?.UpdateStatus();
+            return Math.Abs(v.ActualPosition - targetPos) <= tolerance;
         }
 
         /// <summary>
