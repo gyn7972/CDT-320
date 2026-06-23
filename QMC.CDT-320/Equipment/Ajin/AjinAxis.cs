@@ -721,8 +721,6 @@ namespace QMC.CDT320.Ajin
             const uint InPositionMask = 0x00020;
             const uint OriginMask = 0x00080;
 
-
-
             lock (_sync)
             {
                 info.uMask = 0x1F;
