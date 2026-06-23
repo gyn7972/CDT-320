@@ -43,6 +43,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 InitializeComponent();
+                grid.ShowCellToolTips = true;
             }
             catch
             {
@@ -161,6 +162,7 @@ namespace QMC.CDT_320.Ui.Controls
                 row.Cells[colUnit.Index].Value = item.GetUnit();
                 row.Cells[colScope.Index].Value = item.Scope.ToString();
                 SetValueCellText(row, item, FormatValue(item));
+                ApplyDescriptionToolTip(row, item);
             }
             catch (Exception ex)
             {
@@ -220,12 +222,33 @@ namespace QMC.CDT_320.Ui.Controls
                 row.DefaultCellStyle.SelectionForeColor = headerFg;
                 row.DefaultCellStyle.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 0.5F), FontStyle.Bold);
                 row.Cells[colScope.Index].Style.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 1F), FontStyle.Bold);
+                ApplyDescriptionToolTip(row, item);
             }
             catch (Exception ex)
             {
                 if (index >= 0 && index < grid.Rows.Count)
                     grid.Rows.RemoveAt(index);
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "Group header add failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyDescriptionToolTip(DataGridViewRow row, ParameterGridItem item)
+        {
+            try
+            {
+                if (row == null || item == null)
+                    return;
+
+                string description = item.Description ?? string.Empty;
+                foreach (DataGridViewCell cell in row.Cells)
+                    cell.ToolTipText = description;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "ApplyDescriptionToolTip failed: " + ex.Message);
             }
             finally
             {
