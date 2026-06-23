@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -337,7 +337,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, code, _stage != null ? _stage.Name : "InputStageUnit", message);
+                AlarmManager.Raise(AlarmSeverity.Error, code, _stage != null ? _stage.Name : "InputStageUnit", message);
                 QMC.Common.Log.Write("Main", "UI", code, message + " - Failed");
                 SetStatus(message);
             }

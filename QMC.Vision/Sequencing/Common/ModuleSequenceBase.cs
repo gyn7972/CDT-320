@@ -281,7 +281,7 @@ namespace QMC.Vision.Sequencing
             try
             {
                 WriteLog(Name, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, Name, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, Name, message);
                 Context.LogPublic("[SEQ-" + Name + "] FAIL " + alarmCode + " - " + message);
             }
             catch { }

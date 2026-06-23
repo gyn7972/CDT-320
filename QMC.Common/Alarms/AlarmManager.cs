@@ -57,10 +57,7 @@ namespace QMC.Common.Alarms
 
         public static AlarmRecord Raise(AlarmSeverity sev, string code, string source, string message)
         {
-            // 안전 등급 재정의 전까지는 Warning도 Error로 승격한다.
-            // Warning 상태로 시퀀스가 계속 진행되면 장비 간섭/모션 알람을 놓칠 수 있다.
-            if (sev == AlarmSeverity.Warning)
-                sev = AlarmSeverity.Error;
+            sev = NormalizeSeverity(sev, code, message);
 
             // Stage 19 — AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
             // Stage 23 — Lang.Current (ko/en) 적용
@@ -141,6 +138,78 @@ namespace QMC.Common.Alarms
             finally
             {
             }
+        }
+
+        private static AlarmSeverity NormalizeSeverity(AlarmSeverity severity, string code, string message)
+        {
+            try
+            {
+                if (severity == AlarmSeverity.Critical)
+                    return severity;
+
+                if (IsCriticalMotionOrInterlockAlarm(code, message))
+                    return AlarmSeverity.Critical;
+
+                return severity;
+            }
+            catch
+            {
+                return severity;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsCriticalMotionOrInterlockAlarm(string code, string message)
+        {
+            try
+            {
+                code = code ?? string.Empty;
+                message = message ?? string.Empty;
+
+                if (IsExactOrPrefix(code, "E-STOP") ||
+                    Contains(code, "INTERLOCK") ||
+                    Contains(code, "LIMIT"))
+                    return true;
+
+                if (code.StartsWith("AX-MOVE", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-HOME", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-JOG", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("AX-SOFT-LIMIT", StringComparison.OrdinalIgnoreCase) ||
+                    code.StartsWith("LIMIT-", StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (Contains(code, "MOVE") &&
+                    (Contains(message, "alarm=True") ||
+                     Contains(message, "alarm=ON") ||
+                     Contains(message, "알람=ON") ||
+                     Contains(message, "Axis alarm is ON") ||
+                     Contains(message, "축 알람이 ON")))
+                    return true;
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsExactOrPrefix(string value, string token)
+        {
+            value = value ?? string.Empty;
+            token = token ?? string.Empty;
+            return value.Equals(token, StringComparison.OrdinalIgnoreCase) ||
+                   value.StartsWith(token + "-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool Contains(string value, string text)
+        {
+            return (value ?? string.Empty).IndexOf(text ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

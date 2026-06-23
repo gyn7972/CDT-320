@@ -42,7 +42,7 @@ namespace QMC.CDT320.Initialization
                             ", expected=" + rule.ExpectedState +
                             ", reason=" + reason;
                         Log.Write("Main", "SYSTEM", "AxisInitializeInterlock", message + " - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "INIT-INTERLOCK", "MachineController", message);
+                        AlarmManager.Raise(AlarmSeverity.Error, "INIT-INTERLOCK", "MachineController", message);
                         reason = message;
                         return false;
                     }

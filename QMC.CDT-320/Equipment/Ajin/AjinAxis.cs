@@ -1058,7 +1058,7 @@ namespace QMC.CDT320.Ajin
             catch (Exception ex)
             {
                 AlarmManager.Raise(
-                    AlarmSeverity.Warning,
+                    AlarmSeverity.Error,
                     "AX-READ-LIVE",
                     Name,
                     "ReadLiveStatus failed: " + ex.Message);
@@ -1150,7 +1150,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "SoftLimit enable read failed: " + ex.Message);
                         }
 
@@ -1166,7 +1166,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "PulseOutput read failed: " + ex.Message);
                         }
 
@@ -1182,7 +1182,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "EncoderInput read failed: " + ex.Message);
                         }
 
@@ -1195,7 +1195,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "InPosition level read failed: " + ex.Message);
                         }
 
@@ -1208,7 +1208,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "StopMode read failed: " + ex.Message);
                         }
 
@@ -1222,7 +1222,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "EmergencyLevel read failed: " + ex.Message);
                         }
 
@@ -1238,7 +1238,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "ProfileMode read failed: " + ex.Message);
                         }
 
@@ -1253,7 +1253,7 @@ namespace QMC.CDT320.Ajin
                         }
                         catch (Exception ex)
                         {
-                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                            AlarmManager.Raise(AlarmSeverity.Error, "AX-READ-SETUP", Name,
                                 "Jerk read failed: " + ex.Message);
                         }
                     }
@@ -1264,7 +1264,7 @@ namespace QMC.CDT320.Ajin
             catch (Exception ex)
             {
                 AlarmManager.Raise(
-                    AlarmSeverity.Warning,
+                    AlarmSeverity.Error,
                     "AX-READ-SETUP",
                     Name,
                     "ReadSetupFromBoard failed: " + ex.Message);
@@ -1429,7 +1429,7 @@ namespace QMC.CDT320.Ajin
             catch (Exception ex)
             {
                 AlarmManager.Raise(
-                    AlarmSeverity.Warning,
+                    AlarmSeverity.Error,
                     "AX-WRITE-SETUP",
                     Name,
                     "WriteSetupToBoard failed: " + ex.Message);
@@ -1439,7 +1439,7 @@ namespace QMC.CDT320.Ajin
 
         private void LogWriteWarn(string field, Exception ex)
         {
-            AlarmManager.Raise(AlarmSeverity.Warning, "AX-WRITE-SETUP", Name,
+            AlarmManager.Raise(AlarmSeverity.Error, "AX-WRITE-SETUP", Name,
                 field + " write failed: " + ex.Message);
         }
 

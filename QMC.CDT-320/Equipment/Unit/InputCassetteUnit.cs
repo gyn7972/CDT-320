@@ -279,7 +279,7 @@ namespace QMC.CDT320
                 return true;
 
             Log.Write("Main", "INTERLOCK", "InputCassette", reason + " - Blocked");
-            AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", Name, reason);
+            AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", Name, reason);
             return false;
         }
 
@@ -1748,7 +1748,7 @@ namespace QMC.CDT320
             try
             {
                 Log.Write("Main", "SYSTEM", "InputCassetteMapping", message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, Name, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, Name, message);
             }
             catch
             {
@@ -1908,7 +1908,7 @@ namespace QMC.CDT320
             try
             {
                 Log.Write("Main", "ALARM", code, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, code, Name, message);
+                AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             }
             catch
             {

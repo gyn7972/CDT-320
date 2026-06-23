@@ -74,7 +74,7 @@ namespace QMC.Vision.Optics.Leesos
             if (!IsValid(channel)) return false;
             if (power < 0 || power > _cfg.MaxPower)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PWR-RANGE",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-PWR-RANGE",
                     "Light/" + _cfg.PortName, $"Volume 범위 초과 ch={channel} v={power} (max={_cfg.MaxPower})");
                 return false;
             }
@@ -175,13 +175,13 @@ namespace QMC.Vision.Optics.Leesos
         {
             if (_port == null || !_port.IsOpen)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TX-FAIL",
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TX-FAIL",
                     "Light/" + _cfg.PortName, "포트 미개방 상태에서 송신 시도");
                 return false;
             }
             try { _port.Write(frame, 0, frame.Length); return true; }
-            catch (TimeoutException) { AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TIMEOUT", "Light/" + _cfg.PortName, "송신 타임아웃"); return false; }
-            catch (Exception ex)     { AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TX-FAIL", "Light/" + _cfg.PortName, "시리얼 쓰기 예외: " + ex.Message); return false; }
+            catch (TimeoutException) { AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TIMEOUT", "Light/" + _cfg.PortName, "송신 타임아웃"); return false; }
+            catch (Exception ex)     { AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TX-FAIL", "Light/" + _cfg.PortName, "시리얼 쓰기 예외: " + ex.Message); return false; }
         }
 
         private string ReadFrame(int timeoutMs)
@@ -215,9 +215,9 @@ namespace QMC.Vision.Optics.Leesos
         }
         private bool IsValid(int channel) => channel >= 1 && channel <= ChannelCount;
 
-        private void RaiseNak(string resp)     => AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-NAK", "Light/" + _cfg.PortName, $"NAK 응답 [{resp}]");
-        private void RaiseTimeout(string cmd)  => AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-TIMEOUT", "Light/" + _cfg.PortName, $"응답 타임아웃 (cmd={cmd})");
-        private void RaiseInvalid(string r, string cmd) => AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-INVALID-RESP", "Light/" + _cfg.PortName, $"형식 불일치 응답 [{r}] (cmd={cmd})");
+        private void RaiseNak(string resp)     => AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-NAK", "Light/" + _cfg.PortName, $"NAK 응답 [{resp}]");
+        private void RaiseTimeout(string cmd)  => AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-TIMEOUT", "Light/" + _cfg.PortName, $"응답 타임아웃 (cmd={cmd})");
+        private void RaiseInvalid(string r, string cmd) => AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-INVALID-RESP", "Light/" + _cfg.PortName, $"형식 불일치 응답 [{r}] (cmd={cmd})");
 
         private static Parity    ParseParity(string s)    => Enum.TryParse(s, true, out Parity p)    ? p : Parity.None;
         private static StopBits  ParseStopBits(string s)  => Enum.TryParse(s, true, out StopBits b)  ? b : StopBits.One;

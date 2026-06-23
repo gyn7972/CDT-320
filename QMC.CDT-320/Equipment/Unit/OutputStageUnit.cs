@@ -2419,7 +2419,7 @@ namespace QMC.CDT320
                     Console.WriteLine(
                         "[ALARM] '" + Name + "' -> InspectBin: TPU Place 완료 대기 타임아웃");
                     AlarmManager.Raise(
-                        AlarmSeverity.Warning,
+                        AlarmSeverity.Error,
                         "OS-PLACEDONE",
                         source: Name + ".InspectBinPositionAsync",
                         message: "TPU Place 완료 대기 타임아웃");

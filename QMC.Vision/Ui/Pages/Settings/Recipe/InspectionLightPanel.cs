@@ -331,7 +331,7 @@ namespace QMC.Vision.Ui.Pages
             // C3b-3 — 결선 풀 검증 폐기. 지정(LightPages) 없으면 거부, 있으면 페이지 전 채널 배열(미사용=0) 송신.
             if (ActivePages().Count == 0)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PAGE-MISS", "Light/" + _algorithm, $"{_algorithm}/{_inspectionId} 컨트롤러/페이지 미지정");
+                AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-PAGE-MISS", "Light/" + _algorithm, $"{_algorithm}/{_inspectionId} 컨트롤러/페이지 미지정");
                 SetStatus(Lang.T("rec.lightApplyReject"), true); return;
             }
             var settings = Collect();
@@ -347,7 +347,7 @@ namespace QMC.Vision.Ui.Pages
                     if (ctrl == null)
                     {
                         LogLight("포트 '" + grp.Key + "' LightHub 미등록 → 건너뜀(실제 조명 미적용). [설정>조명]에서 컨트롤러/포트 확인.");
-                        AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-MAP-INVALID", "Light/" + _algorithm, $"{grp.Key} not in LightHub");
+                        AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-MAP-INVALID", "Light/" + _algorithm, $"{grp.Key} not in LightHub");
                         continue;
                     }
                     LogLight("포트 '" + grp.Key + "' 컨트롤러=" + ctrl.GetType().Name + " (Sim 이면 실제 조명 변화 없음), 채널 " + grp.Count() + "개 적용");

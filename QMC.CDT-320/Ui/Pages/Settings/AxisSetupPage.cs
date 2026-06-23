@@ -484,7 +484,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-CELL-EDIT", "Axis setup cell edit failed: " + ex.Message);
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-AXIS-SETUP",
                     "AxisSetupPage",
                     "Cell edit failed: " + ex.Message);
@@ -512,7 +512,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-SIM-TOGGLE", "Axis setup sim toggle failed: " + ex.Message);
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-AXIS-SETUP",
                     "AxisSetupPage",
                     "SIM toggle failed: " + ex.Message);
@@ -580,7 +580,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-HEADER-EDIT", "Axis setup header edit failed: " + ex.Message);
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-AXIS-SETUP",
                     "AxisSetupPage",
                     "Header edit failed: " + ex.Message);

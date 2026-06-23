@@ -165,7 +165,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex)
             {
                 QMC.Common.Alarms.AlarmManager.Raise(
-                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION",
                     "MotionPage",
                     "LoadAxisRows failed: " + ex.Message);

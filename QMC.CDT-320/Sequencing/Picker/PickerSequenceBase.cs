@@ -1982,7 +1982,7 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 }
                 Context.LogPublic("[" + Name + "] FAIL " + alarmCode + " - " + message);
             }

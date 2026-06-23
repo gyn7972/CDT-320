@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -449,7 +449,7 @@ namespace QMC.CDT320.Sequencing
                 SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
                 SequenceFailureStore.Record(SequenceStateName, Kind.ToString(), failedStep.ToString(), alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 Context.LogPublic("[OUTPUT-CASSETTE] FAIL " + alarmCode + " - " + message);
             }
             catch (Exception ex)
