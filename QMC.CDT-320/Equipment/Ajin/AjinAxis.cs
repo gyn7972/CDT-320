@@ -675,6 +675,7 @@ namespace QMC.CDT320.Ajin
                 base.UpdateStatus();
                 return;
             }
+
             if (!AjinSystem.IsOpen) 
                 return;
 
@@ -1451,7 +1452,6 @@ namespace QMC.CDT320.Ajin
         {
             switch (m)
             {
-                // 프로젝트 High CCW/CW 출력을 AXL High TwoPulse로 변환
                 case PulseOutput.TwoPulse_High_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwHigh;
                 // 프로젝트 Low CCW/CW 출력을 AXL Low TwoPulse로 변환
                 case PulseOutput.TwoPulse_Low_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwLow;

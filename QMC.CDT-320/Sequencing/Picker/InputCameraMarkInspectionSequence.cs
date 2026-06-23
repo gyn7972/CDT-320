@@ -49,6 +49,10 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 CurrentStep = InputCameraMarkInspectionStep.Error;

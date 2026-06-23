@@ -67,6 +67,10 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-EX", Name,
