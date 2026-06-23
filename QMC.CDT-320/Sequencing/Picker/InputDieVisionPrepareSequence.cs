@@ -114,7 +114,7 @@ namespace QMC.CDT320.Sequencing
                 if (!IsPickerSideEnabled())
                 {
                     WriteLog("InputDieVisionPrepareSequence",
-                        Name + " Picker 사용 설정이 OFF라 Input die vision 준비를 완료 처리합니다. side=" + Side + " - Check");
+                        Name + " Picker 사용 설정이 OFF라서 Input die vision 준비를 완료 처리합니다. side=" + Side + " - Check");
                     CurrentStep = InputDieVisionPrepareStep.Complete;
                     return 0;
                 }
@@ -299,8 +299,9 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = VerifyOppositePickerNotInInputPickArea(
-                    "InputVisionX 이동 전 상대 Picker Input 영역 확인");
+                result = await WaitOppositePickerInputZoneClearAsync(
+                    "InputVisionX 이동 전 상대 Picker Input 영역 확인",
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -402,7 +403,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 return Fail("INPUT-DIE-VISION-PREPARE-VISION-NG", "Vision",
-                    "Input die vision 검사가 실패했습니다. die=" + _currentDieId +
+                    "Input die vision 검사에 실패했습니다. die=" + _currentDieId +
                     ", pickerNo=" + _currentPickerNo);
             }
             catch (OperationCanceledException)
@@ -470,10 +471,66 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int VerifyOppositePickerNotInInputPickArea(string description)
+        private async Task<int> WaitOppositePickerInputZoneClearAsync(string description, CancellationToken ct)
         {
             try
             {
+                bool oppositeFront = Side != PickerSequenceSide.Front;
+                if ((oppositeFront && FrontPicker == null) ||
+                    (!oppositeFront && RearPicker == null))
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " 상대 Picker Input 영역 확인 생략. unit 없음. description=" +
+                        description + " - Check");
+                    return 0;
+                }
+
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                while (DateTime.UtcNow >= DateTime.MinValue)
+                {
+                    string detail;
+                    bool blocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+                        Context != null ? Context.Machine : null,
+                        oppositeFront,
+                        PickerWorkZone.Input,
+                        out detail);
+
+                    if (!blocking)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
+                        return 0;
+                    }
+
+                    string alarmState = BuildOppositePickerAlarmState(oppositeFront);
+                    if (!string.IsNullOrEmpty(alarmState))
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-OPPOSITE-PICKER-ALARM", Name,
+                            description + " 대기 불가: 상대 Picker 축 알람 상태입니다. " +
+                            "detail=" + detail + ", " + alarmState);
+                    }
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("INPUT-DIE-VISION-PREPARE-OPPOSITE-INPUT-ZONE-TIMEOUT", Name,
+                            description + " 대기 시간 초과: 상대 Picker가 Input 영역에서 벗어나지 않았습니다. " +
+                            "timeoutMs=" + timeoutMs + ", detail=" + detail);
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " 상대 Picker Input 영역 해제 대기. description=" + description +
+                            ", detail=" + detail + ", timeoutMs=" + timeoutMs + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+
                 if (Side == PickerSequenceSide.Front)
                 {
                     if (RearPicker == null)
@@ -519,6 +576,10 @@ namespace QMC.CDT320.Sequencing
                     Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-OPPOSITE-INPUT-ZONE-EX", Name,
@@ -527,6 +588,36 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string BuildOppositePickerAlarmState(bool oppositeFront)
+        {
+            QMC.Common.Motion.BaseAxis x = oppositeFront && FrontPicker != null
+                ? FrontPicker.PickerX
+                : (!oppositeFront && RearPicker != null ? RearPicker.PickerX : null);
+            QMC.Common.Motion.BaseAxis y = oppositeFront && FrontPicker != null
+                ? FrontPicker.PickerY
+                : (!oppositeFront && RearPicker != null ? RearPicker.PickerY : null);
+
+            string state = string.Empty;
+            AppendAxisAlarmState(ref state, oppositeFront ? "FrontPickerX" : "RearPickerX", x);
+            AppendAxisAlarmState(ref state, oppositeFront ? "FrontPickerY" : "RearPickerY", y);
+            return state;
+        }
+
+        private static void AppendAxisAlarmState(ref string state, string name, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (state.Length > 0)
+                state += " ";
+
+            state += name +
+                "(servo=" + axis.IsServoOn +
+                ", alarm=" + axis.IsAlarm +
+                ", moving=" + axis.IsMoving +
+                ", actual=" + axis.ActualPosition + ");";
         }
 
         private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct)
@@ -959,9 +1050,22 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await AwaitStepWithCancellationAsync(
-                    stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
-                    ct).ConfigureAwait(false);
+                int result;
+                if (axis == WaferStageAxis.VisionX)
+                {
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "AutoInputDieVisionPrepare;Side=" + Side + ";InputVisionX;" + description))
+                    {
+                        result = await AwaitStepWithCancellationAsync(
+                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                            ct).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await AwaitStepWithCancellationAsync(
+                        stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                        ct).ConfigureAwait(false);
+                }
 
                 if (result != 0)
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-MOVE", stage.Name,

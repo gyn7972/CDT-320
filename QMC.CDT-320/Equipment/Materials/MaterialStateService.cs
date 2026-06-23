@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -451,6 +452,37 @@ namespace QMC.CDT320.Materials
 
             State.LotId = cassetteLotId ?? State.LotId;
             NotifyAndSave("OutputCassetteMapping");
+        }
+
+        public static void UpdateOutputCassetteMappingSelective(
+            bool updateGood,
+            bool updateNg,
+            int goodLevelCount,
+            int slotCount,
+            IReadOnlyList<bool> good1Map,
+            IReadOnlyList<bool> good2Map,
+            IReadOnlyList<bool> ngMap,
+            IReadOnlyList<double> good1SlotPositions,
+            IReadOnlyList<double> good2SlotPositions,
+            IReadOnlyList<double> ngSlotPositions,
+            string cassetteLotId,
+            string tapeFrameSpecName)
+        {
+            if (goodLevelCount < 1) goodLevelCount = 1;
+            if (goodLevelCount > 2) goodLevelCount = 2;
+            if (slotCount < 0) slotCount = 0;
+
+            if (updateGood)
+            {
+                UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
+                UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+            }
+
+            if (updateNg)
+                UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+
+            State.LotId = cassetteLotId ?? State.LotId;
+            NotifyAndSave("OutputCassetteMappingSelective");
         }
 
         public static string ResolveRecipeTapeFrameSpecName(int inchSelect)
@@ -1324,6 +1356,14 @@ namespace QMC.CDT320.Materials
                         return false;
                     }
 
+                    if (outputWafer.OutputReceiveTotalCount <= 0)
+                    {
+                        reason = "Output stage receive plan is not initialized. side=" + side +
+                                 ", waferId=" + outputWafer.WaferId +
+                                 ", total=" + outputWafer.OutputReceiveTotalCount;
+                        return false;
+                    }
+
                     if (IsOutputStageReceiveComplete(outputWafer))
                     {
                         reason = "Output stage receive plan is complete. side=" + side +
@@ -1608,6 +1648,328 @@ namespace QMC.CDT320.Materials
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target reserve failed: " + ex.Message + " - Failed");
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static List<InputStagePickTargetCandidate> GetReadyInputStagePickTargetCandidates()
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    var candidates = new List<InputStagePickTargetCandidate>();
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                        return candidates;
+
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                        return candidates;
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = ResolveInputPickup(project);
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    if (ordered == null || ordered.Count == 0)
+                        return candidates;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            continue;
+
+                        string candidateReason;
+                        if (!CanUseInputPickCandidate(entry, die, out candidateReason))
+                            continue;
+
+                        if (IsDieReservedForPicker(die))
+                            continue;
+
+                        MaterialLocationKind kind = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+                        if (kind != MaterialLocationKind.Unknown && kind != MaterialLocationKind.InputStage)
+                            continue;
+
+                        candidates.Add(new InputStagePickTargetCandidate
+                        {
+                            WaferId = wafer.WaferId,
+                            DieId = die.DieId,
+                            OrderIndex = i,
+                            DieMapX = entry.DieMapX,
+                            DieMapY = entry.DieMapY,
+                            TargetX = entry.PosX,
+                            TargetY = entry.PosY,
+                            DisplayText = "#" + (i + 1) +
+                                          " [" + entry.DieMapX + "," + entry.DieMapY + "] " +
+                                          die.DieId +
+                                          " X=" + entry.PosX.ToString("0.###", CultureInfo.InvariantCulture) +
+                                          " Y=" + entry.PosY.ToString("0.###", CultureInfo.InvariantCulture)
+                        });
+                    }
+
+                    return candidates;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target candidate query failed: " + ex.Message + " - Failed");
+                return new List<InputStagePickTargetCandidate>();
+            }
+            finally
+            {
+            }
+        }
+
+        public static InputStagePickTarget ReserveInputStagePickTargetByDieId(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string dieId)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve by die failed: invalid picker location=" + pickerLocation + " - Failed");
+                        return null;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(dieId))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve by die failed: dieId is empty. - Failed");
+                        return null;
+                    }
+
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve by die blocked: InputStage is not finished. reason=" + readyReason + " - Blocked");
+                        return null;
+                    }
+
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve by die skipped: input stage die map is empty. - Check");
+                        return null;
+                    }
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = ResolveInputPickup(project);
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    if (ordered == null || ordered.Count == 0)
+                        return null;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || !string.Equals(entry.DieUid, dieId, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            return null;
+
+                        string candidateReason;
+                        if (!CanUseInputPickCandidate(entry, die, out candidateReason))
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Input pick target reserve by die blocked: " + candidateReason + ", die=" + dieId + " - Blocked");
+                            return null;
+                        }
+
+                        if (IsDieReservedForPicker(die))
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Input pick target reserve by die blocked: die is already reserved. die=" + dieId +
+                                ", reservedPickerNo=" + die.ReservedPickerNo + " - Blocked");
+                            return null;
+                        }
+
+                        if (die.CurrentLocation != null &&
+                            die.CurrentLocation.Kind != MaterialLocationKind.Unknown &&
+                            die.CurrentLocation.Kind != MaterialLocationKind.InputStage)
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Input pick target reserve by die blocked: die location is not InputStage. die=" + dieId +
+                                ", location=" + die.CurrentLocation.Kind + " - Blocked");
+                            return null;
+                        }
+
+                        die.ReservedPickerLocation = pickerLocation;
+                        die.ReservedPickerNo = pickerNo;
+                        die.UpdatedAt = DateTime.Now;
+
+                        var target = new InputStagePickTarget
+                        {
+                            WaferId = wafer.WaferId,
+                            DieId = die.DieId,
+                            OrderIndex = i,
+                            DieMapX = entry.DieMapX,
+                            DieMapY = entry.DieMapY,
+                            OffsetX = entry.PosX,
+                            OffsetY = entry.PosY,
+                            TargetX = entry.PosX,
+                            TargetY = entry.PosY,
+                            PickerNo = pickerNo,
+                            PickerLocation = pickerLocation
+                        };
+
+                        NotifyAndSave("ReserveInputStagePickTargetByDieId");
+                        return target;
+                    }
+
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Input pick target reserve by die failed: die is not in input pick order. die=" + dieId + " - Failed");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target reserve by die failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static InputStagePickTarget GetReservedInputStagePickTarget(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string dieId)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return null;
+
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                        return null;
+
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                        return null;
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = ResolveInputPickup(project);
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    if (ordered == null || ordered.Count == 0)
+                        return null;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || !string.Equals(entry.DieUid, dieId, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            return null;
+
+                        bool reservedByPicker =
+                            die.ReservedPickerLocation == pickerLocation &&
+                            die.ReservedPickerNo == pickerNo;
+                        if (!reservedByPicker)
+                            return null;
+
+                        return new InputStagePickTarget
+                        {
+                            WaferId = wafer.WaferId,
+                            DieId = die.DieId,
+                            OrderIndex = i,
+                            DieMapX = entry.DieMapX,
+                            DieMapY = entry.DieMapY,
+                            OffsetX = entry.PosX,
+                            OffsetY = entry.PosY,
+                            TargetX = entry.PosX,
+                            TargetY = entry.PosY,
+                            PickerNo = pickerNo,
+                            PickerLocation = pickerLocation
+                        };
+                    }
+
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Reserved input pick target query failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool TryGetLatestInputPickVisionOffset(string dieId, out VisionOffset offset)
+        {
+            offset = null;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null || die.Inspections == null)
+                        return false;
+
+                    DieInspectionRecord record = die.Inspections
+                        .Where(x => x != null &&
+                                    string.Equals(x.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) &&
+                                    x.Offset != null &&
+                                    x.Offset.IsValid)
+                        .OrderByDescending(x => x.UpdatedAt)
+                        .FirstOrDefault();
+                    if (record == null)
+                        return false;
+
+                    offset = new VisionOffset
+                    {
+                        X = record.Offset.X,
+                        Y = record.Offset.Y,
+                        R = record.Offset.R,
+                        IsValid = record.Offset.IsValid
+                    };
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick vision offset query failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
@@ -2933,6 +3295,12 @@ namespace QMC.CDT320.Materials
 
                 string waferId = BuildGeneratedWaferId(role, i);
                 var wafer = State.Wafers.FirstOrDefault(w => w.WaferId == waferId);
+                if (IsFinishedOutputBinWafer(role, wafer))
+                {
+                    RemoveFinishedOutputBinWaferForNewCassetteMapping(wafer);
+                    wafer = null;
+                }
+
                 if (wafer == null)
                 {
                     wafer = new WaferMaterial
@@ -2961,6 +3329,33 @@ namespace QMC.CDT320.Materials
                 cassette.Slots[i].WaferId = wafer.WaferId;
                 cassette.Slots[i].HasWafer = true;
             }
+        }
+
+        private static bool IsFinishedOutputBinWafer(CassetteMaterialRole role, WaferMaterial wafer)
+        {
+            return IsOutputCassetteRole(role) &&
+                   wafer != null &&
+                   WaferMaterialStateText.Normalize(wafer.State) == WaferMaterialState.Finish;
+        }
+
+        private static bool IsOutputCassetteRole(CassetteMaterialRole role)
+        {
+            return role == CassetteMaterialRole.Good1 ||
+                   role == CassetteMaterialRole.Good2 ||
+                   role == CassetteMaterialRole.Ng1;
+        }
+
+        private static void RemoveFinishedOutputBinWaferForNewCassetteMapping(WaferMaterial wafer)
+        {
+            if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
+                return;
+
+            string waferId = wafer.WaferId;
+            State.Dies.RemoveAll(d =>
+                d != null &&
+                (string.Equals(d.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(d.WaferID_Output, waferId, StringComparison.OrdinalIgnoreCase)));
+            State.Wafers.Remove(wafer);
         }
 
         private static string ResolveDefaultTapeFrameSpecName(int inchSelect)

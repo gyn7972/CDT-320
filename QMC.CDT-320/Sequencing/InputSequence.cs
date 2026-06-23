@@ -77,6 +77,7 @@ namespace QMC.CDT320.Sequencing
                     return;
                 }
 
+                stageWafer = await EnsureInputStageFinishBeforePickerReadyAsync(stageWafer, ct).ConfigureAwait(false);
                 PublishInputStageReadySignals(stageWafer);
                 await WaitPickerToCompleteInputStageDiesAsync(stageWafer, ct).ConfigureAwait(false);
 
@@ -100,6 +101,67 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 Fail("SEQ-IN-AUTO-CYCLE", "InputSequence", "Input 자동 사이클 실패: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<WaferMaterial> EnsureInputStageFinishBeforePickerReadyAsync(WaferMaterial stageWafer, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (stageWafer == null)
+                    return null;
+
+                string finishReason;
+                if (MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    return stageWafer;
+
+                InputSequenceAutoStep resumeStep = ResolveStageWaferResumeStep(stageWafer);
+                if (resumeStep == InputSequenceAutoStep.Complete)
+                    resumeStep = InputSequenceAutoStep.DieMapping;
+
+                _autoSlotIndex = ResolveSlotIndexFromWafer(stageWafer);
+                _autoWaferId = stageWafer.WaferId ?? "";
+                _autoStep = resumeStep;
+
+                ResetInputStageReadySignals();
+                WriteLog("EnsureInputStageFinishBeforePickerReady",
+                    "InputStage가 아직 PickUp 준비 완료 상태가 아니어서 누락된 준비 step부터 재개합니다. " +
+                    "wafer=" + _autoWaferId +
+                    ", slot=" + _autoSlotIndex +
+                    ", resumeStep=" + _autoStep +
+                    ", reason=" + finishReason + " - Check");
+
+                await ExecuteInputLoadingStepsUntilStageReadyAsync(ct).ConfigureAwait(false);
+
+                WaferMaterial refreshedWafer = ResolveStageWaferFromRuntimeState();
+                if (refreshedWafer == null)
+                    throw new InvalidOperationException("InputStage 준비 재개 후 웨이퍼 Material 정보가 없습니다.");
+
+                if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                    throw new InvalidOperationException("InputStage 준비 재개 후에도 Picker PickUp 가능 상태가 아닙니다. " + finishReason);
+
+                return refreshedWafer;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("EnsureInputStageFinishBeforePickerReady",
+                    "InputStage PickUp 준비 재확인 중 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("SEQ-IN-STAGE-FINISH-RECOVER", "InputSequence",
+                    "InputStage PickUp 준비 복구 실패: " + ex.Message);
                 throw;
             }
             finally
@@ -325,6 +387,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                NotifyInputCassetteReplacementRequired();
                 return StopAutoSequence("입력 카세트의 모든 웨이퍼 작업이 완료되었습니다. 카세트를 교체하세요.");
             }
             catch (SequenceStopException)
@@ -1281,7 +1344,10 @@ namespace QMC.CDT320.Sequencing
 
                 int slotIndex = cassette.FindNextProcessWaferSlot();
                 if (slotIndex < 0 && cassette.IsInputCassetteProcessComplete())
+                {
                     cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                    NotifyInputCassetteReplacementRequired();
+                }
 
                 return slotIndex;
             }
@@ -1405,6 +1471,24 @@ namespace QMC.CDT320.Sequencing
             }
 
             throw new SequenceStopException(reason);
+        }
+
+        private void NotifyInputCassetteReplacementRequired()
+        {
+            try
+            {
+                Context.RequestOperatorMessage(
+                    "입력 카세트 교체",
+                    "입력 카세트의 모든 웨이퍼 작업이 완료되었습니다.\r\n카세트를 교체한 뒤 필요한 작업을 진행하세요.");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("NotifyInputCassetteReplacementRequired",
+                    "입력 카세트 교체 메시지 표시 요청 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private void LogPublic(string message)

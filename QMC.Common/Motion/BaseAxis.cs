@@ -362,7 +362,7 @@ namespace QMC.Common.Motion
                 ClearMotionFailure();
 
                 // 명시 velocity 가 있으면 그대로 사용하고, 없으면 DefaultVelocity 에 전체 퍼센트 스케일을 적용한다.
-                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double vel = ApplySimulationSpeedScale(velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity));
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
                 CurrentVelocity = vel;
@@ -464,7 +464,7 @@ namespace QMC.Common.Motion
                 double homeTarget = Setup.SoftLimitMinus + 1.0;
                 CommandPosition = homeTarget;
                 _simTargetPosition = homeTarget;
-                CurrentVelocity = Config.HomeVelocity;
+                CurrentVelocity = ApplySimulationSpeedScale(Config.HomeVelocity);
                 IsMoving = true;
                 IsInPosition = false;
 
@@ -500,6 +500,9 @@ namespace QMC.Common.Motion
             bool detectedMotion = false;
             while (!ct.IsCancellationRequested)
             {
+                if (Config != null && Config.IsSimulationMode && !UseInternalStatusUpdate)
+                    UpdateStatus();
+
                 if (IsAlarm)               
                     break;
 
@@ -514,6 +517,18 @@ namespace QMC.Common.Motion
 
                 await Task.Delay(10, ct).ContinueWith(_ => { }); // 취소 예외 무시
             }
+        }
+
+        private double ApplySimulationSpeedScale(double velocity)
+        {
+            if (Config == null || !Config.IsSimulationMode || velocity <= 0.0)
+                return velocity;
+
+            double scale = Config.SimulationSpeedScale;
+            if (double.IsNaN(scale) || double.IsInfinity(scale) || scale <= 0.0)
+                scale = 1.0;
+
+            return velocity * scale;
         }
 
         // ─────────────────────────────────────────────

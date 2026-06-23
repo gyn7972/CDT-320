@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -34,14 +34,36 @@ namespace QMC.CDT320.Interlocks
             get
             {
                 return CurrentZone == RequestedZone ||
-                       TargetZone == RequestedZone ||
-                       (HasWorkArea && WorkAreaZone == RequestedZone);
+                       TargetZone == RequestedZone;
+            }
+        }
+
+        public bool WorkAreaBlocksTransport
+        {
+            get
+            {
+                if (!HasWorkArea || WorkAreaZone != RequestedZone)
+                    return false;
+
+                return !IsWorkAreaPhysicallyClearForTransport;
+            }
+        }
+
+        public bool IsWorkAreaPhysicallyClearForTransport
+        {
+            get
+            {
+                return YAvoid &&
+                       CurrentZone != RequestedZone &&
+                       TargetZone != RequestedZone &&
+                       !IsAxisMoving(PickerX) &&
+                       !IsAxisMoving(PickerY);
             }
         }
 
         public bool BlocksTransport
         {
-            get { return IsRequestedZoneActive || UnknownUnsafe; }
+            get { return IsRequestedZoneActive || WorkAreaBlocksTransport || UnknownUnsafe; }
         }
 
         public string Describe()
@@ -52,6 +74,8 @@ namespace QMC.CDT320.Interlocks
                 ", requestedZone=" + RequestedZone +
                 ", workArea=" + (HasWorkArea ? WorkAreaZone.ToString() : "None") +
                 ", owner=" + (HasWorkArea ? WorkAreaOwner : "-") +
+                ", workAreaBlocksTransport=" + WorkAreaBlocksTransport +
+                ", workAreaPhysicalClear=" + IsWorkAreaPhysicallyClearForTransport +
                 ", yAvoid=" + YAvoid +
                 ", unknownUnsafe=" + UnknownUnsafe +
                 ", x=" + FormatAxis(PickerX) +
@@ -63,6 +87,11 @@ namespace QMC.CDT320.Interlocks
         private static string FormatAxis(BaseAxis axis)
         {
             return axis != null ? axis.ActualPosition.ToString("0.###") : "<null>";
+        }
+
+        private static bool IsAxisMoving(BaseAxis axis)
+        {
+            return axis != null && axis.IsMoving;
         }
     }
 
@@ -172,6 +201,56 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        public static bool ClearPickerWorkAreasForReadyIfSafe(CDT320_Machine machine, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (machine == null)
+                {
+                    detail = "Machine 객체가 없어 Ready 상태 해제를 진행할 수 없습니다.";
+                    return false;
+                }
+
+                string frontReason;
+                if (!IsFrontPickerReadyAvoidSafe(machine, out frontReason))
+                {
+                    detail = "FrontPicker가 Ready Avoid 안전 상태가 아닙니다. " + frontReason;
+                    return false;
+                }
+
+                string rearReason;
+                if (!IsRearPickerReadyAvoidSafe(machine, out rearReason))
+                {
+                    detail = "RearPicker가 Ready Avoid 안전 상태가 아닙니다. " + rearReason;
+                    return false;
+                }
+
+                string clearedSummary;
+                bool cleared;
+                lock (activeZoneLock)
+                {
+                    cleared = ClearAllPickerWorkAreasLocked(out clearedSummary);
+                    frontPickerYActiveTargetZone = PickerWorkZone.Unknown;
+                    rearPickerYActiveTargetZone = PickerWorkZone.Unknown;
+                }
+
+                detail = cleared
+                    ? "Ready Avoid 안전 상태 확인 후 Picker 작업 점유 상태를 해제했습니다. " + clearedSummary
+                    : "Ready Avoid 안전 상태입니다. 해제할 Picker 작업 점유 상태가 없습니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "Ready 상태 해제 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static PickerWorkZone GetPickerYActiveTargetZone(bool isFront)
         {
             return GetActivePickerYTargetZone(isFront);
@@ -261,6 +340,7 @@ namespace QMC.CDT320.Interlocks
                 state.WorkAreaZone = resourceZone;
                 state.WorkAreaOwner = owner;
                 state.YAvoid = IsPickerYAtAvoid(machine, isFront);
+
                 state.UnknownUnsafe =
                     (state.CurrentZone == PickerWorkZone.Unknown || state.TargetZone == PickerWorkZone.Unknown) &&
                     !state.YAvoid;
@@ -676,7 +756,7 @@ namespace QMC.CDT320.Interlocks
             if (stage == null)
                 return true;
 
-            if (IsInputStageZAtAvoidOrProcess(stage))
+            if (IsInputStageZAtAvoidProcessOrReady(stage))
                 return true;
 
             return MotionGuardRuleHelpers.Block(
@@ -691,7 +771,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
-        private static bool IsInputStageZAtAvoidOrProcess(InputStageUnit stage)
+        private static bool IsInputStageZAtAvoidProcessOrReady(InputStageUnit stage)
         {
             if (stage == null || stage.ExpanderZ == null || stage.Recipe == null || stage.Recipe.WaferZ == null)
                 return false;
@@ -701,7 +781,8 @@ namespace QMC.CDT320.Interlocks
             StageAxisPositions waferZ = stage.Recipe.WaferZ;
 
             return Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
-                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance;
+                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
+                   Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
         }
 
         private static string BuildInputStageZState(InputStageUnit stage)
@@ -849,7 +930,8 @@ namespace QMC.CDT320.Interlocks
             string owner;
             if (TryGetPickerWorkArea(isFront, out resourceZone, out owner) &&
                 resourceZone != PickerWorkZone.Unknown &&
-                resourceZone != PickerWorkZone.Avoid)
+                resourceZone != PickerWorkZone.Avoid &&
+                !IsPickerYAtAvoid(machine, isFront))
             {
                 return resourceZone;
             }
@@ -1259,6 +1341,104 @@ namespace QMC.CDT320.Interlocks
                     owner = string.Empty;
                     return false;
             }
+        }
+
+        private static bool IsFrontPickerReadyAvoidSafe(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            if (machine.PickerFrontUnit == null)
+                return true;
+
+            if (!machine.PickerFrontUnit.IsFrontPickerInAvoidPosition())
+            {
+                reason = "FrontPicker Avoid 위치 최종 확인이 되지 않았습니다.";
+                return false;
+            }
+
+            return ArePickerAxesReadyAvoidSafe(machine.PickerFrontUnit.Axes, "FrontPicker", out reason);
+        }
+
+        private static bool IsRearPickerReadyAvoidSafe(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            if (machine.PickerRearUnit == null)
+                return true;
+
+            if (!machine.PickerRearUnit.IsRearPickerInAvoidPosition())
+            {
+                reason = "RearPicker Avoid 위치 최종 확인이 되지 않았습니다.";
+                return false;
+            }
+
+            return ArePickerAxesReadyAvoidSafe(machine.PickerRearUnit.Axes, "RearPicker", out reason);
+        }
+
+        private static bool ArePickerAxesReadyAvoidSafe(
+            System.Collections.Generic.IReadOnlyDictionary<PickerAxis, BaseAxis> axes,
+            string label,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (axes == null)
+                return true;
+
+            foreach (System.Collections.Generic.KeyValuePair<PickerAxis, BaseAxis> pair in axes)
+            {
+                BaseAxis axis = pair.Value;
+                if (axis == null)
+                    continue;
+
+                if (axis.IsAlarm)
+                {
+                    reason = label + " " + pair.Key + " 축 알람이 ON 상태입니다.";
+                    return false;
+                }
+
+                if (axis.IsMoving)
+                {
+                    reason = label + " " + pair.Key + " 축이 아직 이동 중입니다.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool ClearAllPickerWorkAreasLocked(out string summary)
+        {
+            var cleared = new System.Collections.Generic.List<string>();
+
+            ClearPickerWorkAreaLocked(true, PickerWorkZone.Input, ref frontInputPickAreaUseCount, ref frontInputPickAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(true, PickerWorkZone.Bottom, ref frontBottomAreaUseCount, ref frontBottomAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(true, PickerWorkZone.Side, ref frontSideAreaUseCount, ref frontSideAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(true, PickerWorkZone.Output, ref frontOutputAreaUseCount, ref frontOutputAreaOwner, cleared);
+
+            ClearPickerWorkAreaLocked(false, PickerWorkZone.Input, ref rearInputPickAreaUseCount, ref rearInputPickAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(false, PickerWorkZone.Bottom, ref rearBottomAreaUseCount, ref rearBottomAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(false, PickerWorkZone.Side, ref rearSideAreaUseCount, ref rearSideAreaOwner, cleared);
+            ClearPickerWorkAreaLocked(false, PickerWorkZone.Output, ref rearOutputAreaUseCount, ref rearOutputAreaOwner, cleared);
+
+            summary = cleared.Count > 0 ? string.Join("; ", cleared.ToArray()) : string.Empty;
+            return cleared.Count > 0;
+        }
+
+        private static void ClearPickerWorkAreaLocked(
+            bool isFront,
+            PickerWorkZone zone,
+            ref int useCount,
+            ref string owner,
+            System.Collections.Generic.List<string> cleared)
+        {
+            if (useCount <= 0)
+                return;
+
+            string side = isFront ? "FrontPicker" : "RearPicker";
+            cleared.Add(side + "/" + zone + "/owner=" + (owner ?? string.Empty) + "/count=" + useCount);
+            useCount = 0;
+            owner = string.Empty;
         }
 
         private static void AddPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)

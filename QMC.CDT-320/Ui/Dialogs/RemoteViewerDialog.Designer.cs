@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Dialogs
+﻿namespace QMC.CDT_320.Ui.Dialogs
 {
     partial class RemoteViewerDialog
     {
@@ -132,7 +132,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             0,
             0});
             this._nPort.Name = "_nPort";
-            this._nPort.Size = new System.Drawing.Size(104, 27);
+            this._nPort.Size = new System.Drawing.Size(104, 23);
             this._nPort.TabIndex = 1;
             this._nPort.Value = new decimal(new int[] {
             5099,

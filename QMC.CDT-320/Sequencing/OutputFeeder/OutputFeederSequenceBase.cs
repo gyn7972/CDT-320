@@ -58,10 +58,18 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct, OutputFeederSequenceOptions options)
         {
+            Options = options ?? OutputFeederSequenceOptions.Default();
             using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString()))
+            using (SequenceResourceLease feederLease = await Context.Resources.AcquireAsync(
+                SequenceResourceKind.OutputFeederArea,
+                Name + ":" + Kind,
+                ResolveTimeout(),
+                ct).ConfigureAwait(false))
             try
             {
-                Options = options ?? OutputFeederSequenceOptions.Default();
+                if (feederLease == null)
+                    return Fail("OUT-FEEDER-RESOURCE", Name, "OutputFeeder 영역을 점유할 수 없어 시퀀스를 시작할 수 없습니다. kind=" + Kind);
+
                 CurrentStep = ResolveStartStep(InitialStep);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 

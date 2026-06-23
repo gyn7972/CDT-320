@@ -329,9 +329,9 @@ namespace QMC.CDT320.Sequencing
 
         private int VerifyFeederReadyAtAvoid()
         {
-            if (!Feeder.IsBinFeederInAvoidPosition())
+            if (!IsFeederReadyForStageUnloadStart())
                 return Fail("OUT-FEEDER-AVOID-CHECK", Feeder.Name,
-                    "Output feeder must already be at avoid position before stage unload. side=" + Options.Side + ", " +
+                    "Output feeder must already be at Avoid or StageUnloadAvoid position before stage unload. side=" + Options.Side + ", " +
                     Feeder.DescribeBinFeederYMoveDoneState());
 
             if (!Feeder.IsFeederDown())
@@ -343,6 +343,12 @@ namespace QMC.CDT320.Sequencing
                 ? OutputFeederUnloadFromStageStep.PrepareFeederLiftUp
                 : OutputFeederUnloadFromStageStep.PrepareFeederUnclamp;
             return 0;
+        }
+
+        private bool IsFeederReadyForStageUnloadStart()
+        {
+            return Feeder.IsBinFeederInAvoidPosition() ||
+                   Feeder.IsBinFeederYInStageUnloadAvoidPosition(Options.Side);
         }
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)

@@ -111,6 +111,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnBottom;
         private ActionButton btnSide;
         private ActionButton btnOutput;
+        private ActionButton btnPickUpTest;
+        private ComboBox cmbPickZTestPickerNo;
+        private ActionButton btnPickZTest;
         private ActionButton btnStop;
         private Panel actionSpacer;
 
@@ -228,6 +231,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnBottom = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSide = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnOutput = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnPickUpTest = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.cmbPickZTestPickerNo = new System.Windows.Forms.ComboBox();
+            this.btnPickZTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionSpacer = new System.Windows.Forms.Panel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
@@ -1755,6 +1761,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionPanel.Controls.Add(this.btnBottom);
             this.actionPanel.Controls.Add(this.btnSide);
             this.actionPanel.Controls.Add(this.btnOutput);
+            this.actionPanel.Controls.Add(this.btnPickUpTest);
+            this.actionPanel.Controls.Add(this.cmbPickZTestPickerNo);
+            this.actionPanel.Controls.Add(this.btnPickZTest);
             this.actionPanel.Controls.Add(this.actionSpacer);
             this.actionPanel.Controls.Add(this.btnStop);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1830,13 +1839,55 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnOutput.TabIndex = 4;
             this.btnOutput.Text = "PLACE";
             //
+            // btnPickUpTest
+            //
+            this.btnPickUpTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnPickUpTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPickUpTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnPickUpTest.ForeColor = System.Drawing.Color.White;
+            this.btnPickUpTest.Location = new System.Drawing.Point(880, 16);
+            this.btnPickUpTest.Margin = new System.Windows.Forms.Padding(6);
+            this.btnPickUpTest.Name = "btnPickUpTest";
+            this.btnPickUpTest.Size = new System.Drawing.Size(160, 64);
+            this.btnPickUpTest.TabIndex = 5;
+            this.btnPickUpTest.Text = "PICKUP TEST";
+            //
+            // cmbPickZTestPickerNo
+            //
+            this.cmbPickZTestPickerNo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cmbPickZTestPickerNo.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.cmbPickZTestPickerNo.FormattingEnabled = true;
+            this.cmbPickZTestPickerNo.Items.AddRange(new object[] {
+            "1",
+            "2",
+            "3",
+            "4"});
+            this.cmbPickZTestPickerNo.Location = new System.Drawing.Point(1052, 28);
+            this.cmbPickZTestPickerNo.Margin = new System.Windows.Forms.Padding(6, 18, 6, 6);
+            this.cmbPickZTestPickerNo.Name = "cmbPickZTestPickerNo";
+            this.cmbPickZTestPickerNo.Size = new System.Drawing.Size(78, 28);
+            this.cmbPickZTestPickerNo.TabIndex = 6;
+            //
+            // btnPickZTest
+            //
+            this.btnPickZTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnPickZTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPickZTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnPickZTest.ForeColor = System.Drawing.Color.White;
+            this.btnPickZTest.Location = new System.Drawing.Point(1142, 16);
+            this.btnPickZTest.Margin = new System.Windows.Forms.Padding(6);
+            this.btnPickZTest.Name = "btnPickZTest";
+            this.btnPickZTest.Size = new System.Drawing.Size(160, 64);
+            this.btnPickZTest.TabIndex = 7;
+            this.btnPickZTest.Text = "PICK Z TEST";
+            //
             // actionSpacer
             //
-            this.actionSpacer.Location = new System.Drawing.Point(874, 10);
+            this.actionSpacer.Location = new System.Drawing.Point(1308, 10);
             this.actionSpacer.Margin = new System.Windows.Forms.Padding(0);
             this.actionSpacer.Name = "actionSpacer";
-            this.actionSpacer.Size = new System.Drawing.Size(612, 64);
-            this.actionSpacer.TabIndex = 5;
+            this.actionSpacer.Size = new System.Drawing.Size(178, 64);
+            this.actionSpacer.TabIndex = 8;
             //
             // btnStop
             //
@@ -1848,7 +1899,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Margin = new System.Windows.Forms.Padding(6);
             this.btnStop.Name = "btnStop";
             this.btnStop.Size = new System.Drawing.Size(160, 64);
-            this.btnStop.TabIndex = 6;
+            this.btnStop.TabIndex = 9;
             this.btnStop.Text = "STOP";
             //
             // FrontPickerPage

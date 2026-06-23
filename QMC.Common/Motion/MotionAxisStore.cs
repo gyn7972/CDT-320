@@ -254,6 +254,7 @@ namespace QMC.Common.Motion
         {
             if (source == null || target == null) return;
             target.IsSimulationMode = source.IsSimulationMode;
+            target.SimulationSpeedScale = source.SimulationSpeedScale;
             target.DefaultVelocity = source.DefaultVelocity;
             target.MaxVelocity = source.MaxVelocity;
             target.Acceleration = source.Acceleration;

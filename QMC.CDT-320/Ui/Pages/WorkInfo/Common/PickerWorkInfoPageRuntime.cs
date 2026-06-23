@@ -58,6 +58,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly ActionButton _btnBottom;
         private readonly ActionButton _btnSide;
         private readonly ActionButton _btnOutput;
+        private readonly ActionButton _btnPickUpTest;
+        private readonly ComboBox _cmbPickZTestPickerNo;
+        private readonly ActionButton _btnPickZTest;
         private readonly ActionButton _btnStop;
         private readonly Control.ControlCollection _actionControls;
         private readonly System.Windows.Forms.Timer _timer;
@@ -66,6 +69,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private PickerBottomInspectionSequence _bottomInspectStepSequence;
         private PickerSideInspectionSequence _sideInspectStepSequence;
         private PickerPlaceSequence _placeStepSequence;
+        private InputPickTargetSelectDialog _pickUpTestDialog;
         private bool _manualSequenceRunning;
         private string _lastStableProcess = "AVOID";
 
@@ -105,6 +109,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             ActionButton btnBottom,
             ActionButton btnSide,
             ActionButton btnOutput,
+            ActionButton btnPickUpTest,
+            ComboBox cmbPickZTestPickerNo,
+            ActionButton btnPickZTest,
             ActionButton btnStop,
             Control.ControlCollection actionControls)
         {
@@ -138,6 +145,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _btnBottom = btnBottom;
             _btnSide = btnSide;
             _btnOutput = btnOutput;
+            _btnPickUpTest = btnPickUpTest;
+            _cmbPickZTestPickerNo = cmbPickZTestPickerNo;
+            _btnPickZTest = btnPickZTest;
             _btnStop = btnStop;
             _actionControls = actionControls;
 
@@ -155,6 +165,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 _timer.Stop();
                 ResetStepSequence();
+                ClosePickUpTestDialog();
             };
             Refresh();
         }
@@ -176,9 +187,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _btnBottom.Click += async (s, e) => await RunSequenceAction(SideName + " BOTTOM", SequenceRunMode.Auto, PickerManualSequenceKind.Bottom);
             _btnSide.Click += async (s, e) => await RunSequenceAction(SideName + " SIDE", SequenceRunMode.Auto, PickerManualSequenceKind.Side);
             _btnOutput.Click += async (s, e) => await RunSequenceAction(SideName + " PLACE", SequenceRunMode.Auto, PickerManualSequenceKind.Place);
+            if (_btnPickUpTest != null)
+                _btnPickUpTest.Click += (s, e) => ShowPickUpTestDialog();
+            if (_btnPickZTest != null)
+            {
+                _btnPickZTest.Visible = false;
+                _btnPickZTest.Enabled = false;
+            }
             _btnStop.Click += async (s, e) => await StopManualActionAsync();
             if (_btnCountClear != null)
                 _btnCountClear.Click += (s, e) => ClearCounters();
+
+            if (_cmbPickZTestPickerNo != null && _cmbPickZTestPickerNo.SelectedIndex < 0)
+                _cmbPickZTestPickerNo.SelectedIndex = 0;
+            if (_cmbPickZTestPickerNo != null)
+                _cmbPickZTestPickerNo.Visible = false;
         }
 
         public void Refresh()
@@ -555,6 +578,156 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 QMC.Common.MessageDialog.Show(_owner, exceptionMessage, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
+        private async Task RunPickUpZMotionTestActionAsync()
+        {
+            string actionName = SideName + " PICK Z TEST #" + ResolvePickUpZTestPickerNo();
+            bool showFailure = false;
+            string exceptionMessage = null;
+
+            try
+            {
+                Form1 host = _getHost();
+                if (!ValidateManualSequenceHost(host, actionName))
+                    return;
+
+                if (_manualSequenceRunning)
+                    return;
+
+                DialogResult answer = QMC.Common.MessageDialog.Show(
+                    _owner,
+                    actionName + " 실행하시겠습니까?\r\nMaterial/DieMap 상태는 변경하지 않고 PickUp Z 세부 모션만 테스트합니다.",
+                    SideName,
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (answer != DialogResult.Yes)
+                    return;
+
+                _manualSequenceRunning = true;
+                SetButtonsEnabled(false);
+                SequenceFailureStore.Clear();
+
+                WriteEvent(actionName + " 시작.");
+                int result = await host.Controller
+                    .RunManualPickerPickUpZMotionTestAsync(_side, ResolvePickUpZTestPickerNo())
+                    .ConfigureAwait(true);
+
+                if (result == 0)
+                {
+                    WriteEvent(actionName + " 완료.");
+                    return;
+                }
+
+                WriteAlarm(actionName + " 실패. " + host.Controller.LastActionFailureMessage);
+                showFailure = true;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent(actionName + " 취소.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm(actionName + " 예외: " + ex.Message);
+                exceptionMessage = ex.Message;
+            }
+            finally
+            {
+                _manualSequenceRunning = false;
+                SetButtonsEnabledSafe(true);
+                RefreshSafe();
+            }
+
+            if (showFailure)
+                ShowFailure(actionName);
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+
+        private void ShowPickUpTestDialog()
+        {
+            string actionName = SideName + " SELECTED DIE PICKUP TEST";
+
+            try
+            {
+                Form1 host = _getHost();
+                if (!ValidateManualSequenceHost(host, actionName))
+                    return;
+
+                if (_pickUpTestDialog != null && !_pickUpTestDialog.IsDisposed)
+                {
+                    _pickUpTestDialog.Show();
+                    _pickUpTestDialog.Activate();
+                    return;
+                }
+
+                _pickUpTestDialog = new InputPickTargetSelectDialog(
+                    host.Controller,
+                    _side,
+                    ResolvePickUpZTestPickerNo());
+                _pickUpTestDialog.FormClosed += (s, e) => _pickUpTestDialog = null;
+
+                IWin32Window ownerWindow = _owner.FindForm();
+                if (ownerWindow != null)
+                    _pickUpTestDialog.Show(ownerWindow);
+                else
+                    _pickUpTestDialog.Show();
+
+                WriteEvent(actionName + " 다이얼로그 열림.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm(actionName + " 다이얼로그 실행 예외: " + ex.Message);
+                QMC.Common.MessageDialog.Show(_owner, ex.Message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClosePickUpTestDialog()
+        {
+            try
+            {
+                if (_pickUpTestDialog == null || _pickUpTestDialog.IsDisposed)
+                    return;
+
+                _pickUpTestDialog.Close();
+                _pickUpTestDialog = null;
+            }
+            catch
+            {
+                _pickUpTestDialog = null;
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolvePickUpZTestPickerNo()
+        {
+            try
+            {
+                int pickerNo;
+                if (_cmbPickZTestPickerNo != null &&
+                    _cmbPickZTestPickerNo.SelectedItem != null &&
+                    int.TryParse(_cmbPickZTestPickerNo.SelectedItem.ToString(), out pickerNo))
+                    return Math.Max(1, Math.Min(4, pickerNo));
+
+                if (_cmbPickZTestPickerNo != null &&
+                    int.TryParse(_cmbPickZTestPickerNo.Text, out pickerNo))
+                    return Math.Max(1, Math.Min(4, pickerNo));
+
+                return 1;
+            }
+            catch
+            {
+                return 1;
+            }
+            finally
+            {
+            }
+        }
+
         private bool ValidateManualSequenceHost(Form1 host, string actionName)
         {
             if (host == null)
@@ -740,9 +913,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 // 수동 플레이스 시퀀스 실행
                 case PickerManualSequenceKind.Place:
-                    return await new PickerPlaceSequence(context, _side)
-                        .RunAsync(ct, options)
-                        .ConfigureAwait(false);
+                    return await RunPlaceOrProcessFromLoadedPickerAsync(context, options, ct).ConfigureAwait(false);
 
                 // 수동 복구 시퀀스 실행
                 case PickerManualSequenceKind.Recover:
@@ -863,6 +1034,58 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_placeStepSequence.IsComplete)
                 _placeStepSequence = null;
             return result;
+        }
+
+        private async Task<int> RunPlaceOrProcessFromLoadedPickerAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (HasLoadedPickerDie())
+                {
+                    return await new PickerProcessSequence(context, _side)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+                }
+
+                return await new PickerPlaceSequence(context, _side)
+                    .RunAsync(ct, options)
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasLoadedPickerDie()
+        {
+            try
+            {
+                MaterialLocationKind location = _side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    if (MaterialStateService.GetDieAtPicker(location, pickerNo) != null)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> RunInspectionSequenceAsync(
