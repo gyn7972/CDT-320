@@ -66,14 +66,15 @@ namespace QMC.CDT320.VisionComm
         public Bitmap GrabFrame()
         {
             // 핸들러 카메라뷰 툴바 Grab → Vision 에 실제 촬상(EXPOSE) 명령을 보내고 그 결과 프레임을 표시한다.
-            // (RUN 게이트: Vision 이 RUN 아닐 때=READY 면 거부됨. 명령 클라이언트가 없으면 기존처럼 수동 수신만.)
+            // 허용/거부는 Vision 게이트가 결정(ACK/ERR). 정책: READY(O) armed 면 거부, 해제 상태면 가능.
+            // 명령 클라이언트가 없으면 기존처럼 수동 수신만.
             if (_cmd != null)
             {
                 if (!_cmd.IsConnected) { OnStatus("명령 미연결 — CONNECT 확인"); return null; }
                 bool ack;
                 try { ack = _cmd.ExposeAsync(0, 2000, System.Threading.CancellationToken.None).GetAwaiter().GetResult(); }
                 catch (Exception ex) { OnStatus("촬상 실패: " + ex.Message); return null; }
-                if (!ack) { OnStatus("촬상 거부 — Vision RUN 상태에서만 가능(READY 불가)"); return null; }
+                if (!ack) { OnStatus("촬상 거부 — Vision READY(O) 상태에서는 불가. READY 해제 후 다시 시도"); return null; }
                 OnStatus("촬상 OK");
                 // 라이브 중이면 RecvLoop 가 새 프레임을 표시하므로 여기선 null. 아니면 단발로 받아 반환.
                 if (_running) return null;

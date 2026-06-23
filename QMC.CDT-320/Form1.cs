@@ -525,6 +525,9 @@ namespace QMC.CDT_320
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
             // Stage 43 - 6채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // Vision PC 가 레시피를 요청(RECIPEREQ)하면 현재 활성 레시피로 응답 — 핸들러가 먼저 안 보내도 Vision 이 능동 동기화.
+            QMC.CDT320.VisionComm.VisionHub.OnVisionRecipeRequest = BroadcastCurrentRecipeToVision;
+
             if (cfg.VisionAutoConnect)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
@@ -1183,17 +1186,28 @@ namespace QMC.CDT_320
             if (dotVision != null) dotVision.IsOn = connected;
         }
 
-        /// <summary>현재 활성 레시피(번호+명칭)를 Vision Main 채널로 재전송. 재연결 성공 시 호출된다.</summary>
+        /// <summary>현재 활성 레시피(번호+명칭)를 Vision Main 채널로 재전송. 재연결 성공 시 + Vision 의 RECIPEREQ 요청 시 호출된다.</summary>
         private void BroadcastCurrentRecipeToVision()
         {
             try
             {
                 string name = CurrentRecipeName;
-                if (string.IsNullOrWhiteSpace(name)) return;
+                if (string.IsNullOrWhiteSpace(name) || name == "-")
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "SYS", "VISION-RECIPE",
+                        "Vision 레시피 요청 — 응답 스킵(활성 레시피 없음: CurrentRecipeName='" + (name ?? "null") + "'). 핸들러에서 레시피/프로젝트 로드 필요.");
+                    return;
+                }
                 int recipeNo = ResolveVisionRecipeNo(name);
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "SYS", "VISION-RECIPE",
+                    "Vision 레시피 요청 → 응답: no=" + recipeNo + " name=" + name);
                 _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(recipeNo, name);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "SYS", "VISION-RECIPE",
+                    "Vision 레시피 요청 응답 실패: " + ex.Message); } catch { }
+            }
         }
 
         private void RefreshStateBig()

@@ -13,7 +13,7 @@ namespace QMC.CDT_320.Ui.Controls
     /// 뷰어 포트에 <see cref="VisionViewerSource"/>를 <see cref="CameraViewBase.AttachSource"/>로 연결한다.
     /// 카메라 컨트롤의 네이티브 툴바(Grab/Live/Stop/Save/Load/측정/맞춤/CrossLine/Mag)가 그대로 동작하며,
     /// <b>툴바 Grab</b>은 명령 채널로 Vision 에 촬상(EXPOSE)을 보내고(있으면) 그 결과 프레임을 표시한다.
-    /// 단, Vision 이 <b>RUN 상태일 때만</b> 촬상 가능(READY 면 거부 → 상태줄에 표시).
+    /// 허용/거부는 Vision 게이트가 결정: <b>READY(O) armed 면 거부</b>, 해제 상태면 촬상 가능(거부 시 상태줄에 표시).
     /// 프레임 메타(스케일/판정/결과/마크)는 오버레이로 표시. 수신/표시 전용 — 모션 무관. 코드 전용 컨트롤.
     /// </para>
     /// </summary>
