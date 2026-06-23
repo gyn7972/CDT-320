@@ -15,17 +15,18 @@ namespace QMC.CDT320.VisionComm
         private const double PixelToMm = 0.001;
         private const double DiePitchMm = 0.15;
         private const double MatchScoreThreshold = 0.7;
+        private const int DefaultTimeoutMs = 5000;
 
         public Task<bool> TriggerExposeAsync(int dieIndex)
         {
             return AutoVisionRequestService.GrabAsync(
                 AutoVisionChannel.Wafer,
                 dieIndex,
-                5000,
+                DefaultTimeoutMs,
                 CancellationToken.None);
         }
 
-        public async Task<bool> GetResultAsync(int dieIndex, int timeoutMs = 5000)
+        public async Task<bool> GetResultAsync(int dieIndex, int timeoutMs = DefaultTimeoutMs)
         {
             try
             {
@@ -55,11 +56,19 @@ namespace QMC.CDT320.VisionComm
 
             try
             {
+                bool grabbed = await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.Wafer,
+                    0,
+                    DefaultTimeoutMs,
+                    CancellationToken.None).ConfigureAwait(false);
+                if (!grabbed)
+                    return null;
+
                 MatchResultDto result = await AutoVisionRequestService.MatchAsync(
                     AutoVisionChannel.Wafer,
                     finder,
                     0,
-                    5000,
+                    DefaultTimeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
 
                 VisionAlignResult align = AutoVisionRequestService.ToAlignResult(
@@ -93,6 +102,8 @@ namespace QMC.CDT320.VisionComm
                     return "FirstReferenceFinder";
                 case "Ref2":
                     return "SecondReferenceFinder";
+                case "InputPickDie":
+                    return "DieFinder";
                 default:
                     return alignTargetId;
             }
@@ -244,19 +255,36 @@ namespace QMC.CDT320.VisionComm
 
     public static class BinVisionHelper
     {
-        public static async Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
+        public static Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
+        {
+            return CheckPlacementAsync(slotIndex, timeoutMs, CancellationToken.None);
+        }
+
+        public static async Task<InspectionResultDto> CheckPlacementAsync(int slotIndex, int timeoutMs, CancellationToken ct)
         {
             if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
                 return new InspectionResultDto { IsPass = true, Raw = "BYPASS:BinVisionNotConnected" };
 
             try
             {
+                bool grabbed = await AutoVisionRequestService.GrabAsync(
+                    AutoVisionChannel.Bin,
+                    slotIndex,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+                if (!grabbed)
+                    return new InspectionResultDto { IsPass = false, Raw = "Bin vision GRAB failed." };
+
                 return await AutoVisionRequestService.InspectAsync(
                     AutoVisionChannel.Bin,
                     "PlacementInspector",
                     slotIndex,
                     timeoutMs,
-                    CancellationToken.None).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

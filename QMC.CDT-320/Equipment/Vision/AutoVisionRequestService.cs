@@ -23,7 +23,17 @@ namespace QMC.CDT320.VisionComm
             {
                 ct.ThrowIfCancellationRequested();
 
+                if (IsSimulationVisionBypassed())
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-BYPASS",
+                        "시뮬레이션 모드라 Vision GRAB 요청을 생략합니다. channel=" + channel + ", index=" + index);
+                    return Task.FromResult(true);
+                }
+
                 VisionTcpClient client = ResolveClient(channel);
+                if (IsDryRunMode())
+                    return RunDryRunGrabAsync(client, channel, index, timeoutMs, ct);
+
                 if (!IsReady(client, channel, "GRAB", string.Empty, index))
                     return Task.FromResult(false);
 
@@ -57,6 +67,9 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return BuildBypassMatchResult(channel, finder, index);
 
                 VisionTcpClient client = ResolveClient(channel);
                 if (!IsReady(client, channel, "MATCH", finder, index))
@@ -119,6 +132,9 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return BuildBypassInspectionResult(channel, inspector, index);
 
                 VisionTcpClient client = ResolveClient(channel);
                 if (!IsReady(client, channel, "INSPECT", inspector, index))
@@ -219,6 +235,111 @@ namespace QMC.CDT320.VisionComm
                 ", tool=" + toolName +
                 ", index=" + index);
             return false;
+        }
+
+        private static async Task<bool> RunDryRunGrabAsync(
+            VisionTcpClient client,
+            AutoVisionChannel channel,
+            int index,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (client == null || !client.IsConnected)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-SKIP",
+                        "DryRun 모드지만 Vision 연결이 없어 GRAB 요청을 생략하고 진행합니다. channel=" + channel +
+                        ", index=" + index);
+                    return true;
+                }
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN",
+                    "DryRun 모드 Vision GRAB 요청만 수행합니다. 결과 요청은 생략합니다. channel=" + channel +
+                    ", index=" + index +
+                    ", timeoutMs=" + timeoutMs);
+
+                bool result = await client.ExposeAsync(index, timeoutMs, ct).ConfigureAwait(false);
+                if (!result)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-FAIL",
+                        "DryRun 모드 Vision GRAB 응답 실패를 기록하고 시퀀스는 계속 진행합니다. channel=" + channel +
+                        ", index=" + index);
+                }
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-EX",
+                    "DryRun 모드 Vision GRAB 예외를 기록하고 시퀀스는 계속 진행합니다. channel=" + channel +
+                    ", index=" + index +
+                    ", error=" + ex.Message);
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsSimulationVisionBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && (settings.SimulationMode || settings.BypassHardware);
+        }
+
+        private static bool IsDryRunMode()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode;
+        }
+
+        private static bool ShouldBypassVisionResultRequests()
+        {
+            return IsSimulationVisionBypassed() || IsDryRunMode();
+        }
+
+        private static MatchResultDto BuildBypassMatchResult(AutoVisionChannel channel, string finder, int index)
+        {
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
+                "시뮬레이션/DryRun 모드라 Vision MATCH 결과 요청을 생략합니다. channel=" + channel +
+                ", finder=" + finder +
+                ", index=" + index);
+
+            return new MatchResultDto
+            {
+                Success = true,
+                X = 320.0,
+                Y = 240.0,
+                AngleDeg = 0.0,
+                Score = 1.0,
+                RawError = "BYPASS:SimulationOrDryRun"
+            };
+        }
+
+        private static InspectionResultDto BuildBypassInspectionResult(AutoVisionChannel channel, string inspector, int index)
+        {
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-BYPASS",
+                "시뮬레이션/DryRun 모드라 Vision INSPECT 결과 요청을 생략합니다. channel=" + channel +
+                ", inspector=" + inspector +
+                ", index=" + index);
+
+            return new InspectionResultDto
+            {
+                IsPass = true,
+                HasOffset = true,
+                OffsetX = 0.0,
+                OffsetY = 0.0,
+                OffsetT = 0.0,
+                Score = 1.0,
+                Raw = "BYPASS:SimulationOrDryRun"
+            };
         }
 
         private static MatchResultDto BuildMatchFailure(string reason)

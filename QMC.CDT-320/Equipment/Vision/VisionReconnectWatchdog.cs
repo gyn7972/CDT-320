@@ -35,6 +35,10 @@ namespace QMC.CDT320.VisionComm
         {
             Stop();
             _onReconnected = onReconnected;
+
+            if (IsVisionLinkBypassed())
+                return;
+
             _cts = new CancellationTokenSource();
             AlarmManager.AlarmCleared += OnAlarmCleared;
             var ct = _cts.Token;
@@ -63,6 +67,13 @@ namespace QMC.CDT320.VisionComm
             {
                 try
                 {
+                    if (IsVisionLinkBypassed())
+                    {
+                        ClearMyAlarm();
+                        await Task.Delay(1000, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
                     if (VisionHub.AnyConnected)
                     {
                         wasConnected = true;
@@ -110,6 +121,9 @@ namespace QMC.CDT320.VisionComm
         private static async Task<bool> TryReconnectCycleAsync(CancellationToken ct)
         {
             var cfg = AppSettingsStore.Current;
+            if (IsVisionLinkBypassed())
+                return true;
+
             for (int i = 1; i <= MaxTriesPerCycle; i++)
             {
                 if (ct.IsCancellationRequested) return false;
@@ -153,6 +167,12 @@ namespace QMC.CDT320.VisionComm
         private static void SafeOnReconnected()
         {
             try { _onReconnected?.Invoke(); } catch { }
+        }
+
+        private static bool IsVisionLinkBypassed()
+        {
+            var settings = AppSettingsStore.Current;
+            return settings != null && (settings.SimulationMode || settings.DryRunMode || settings.BypassHardware);
         }
     }
 }

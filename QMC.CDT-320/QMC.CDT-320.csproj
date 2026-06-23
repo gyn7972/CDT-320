@@ -1076,6 +1076,9 @@
     <EmbeddedResource Include="Ui\Dialogs\MaterialValueEditDialog.resx">
       <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\VisionModuleTestDialog.resx">
+      <DependentUpon>VisionModuleTestDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\History\AlarmHistoryPage.resx">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
     </EmbeddedResource>
