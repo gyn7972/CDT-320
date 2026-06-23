@@ -14,6 +14,7 @@ namespace QMC.CDT320.Sequencing
         private PickerSideInspectionSequence _sideInspectionSequence;
         private PickerPlaceSequence _placeSequence;
         private PickerPhaseLease _phaseLease;
+        private bool _bottomInspectionCompletedInCurrentRun;
 
         public PickerProcessSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Process, side == PickerSequenceSide.Front ? "FrontPickerSequence" : "RearPickerSequence")
@@ -46,6 +47,7 @@ namespace QMC.CDT320.Sequencing
                 _bottomInspectionSequence = null;
                 _sideInspectionSequence = null;
                 _placeSequence = null;
+                _bottomInspectionCompletedInCurrentRun = false;
                 CurrentStep = PickerProcessStep.Complete;
             }
             catch (Exception ex)
@@ -71,6 +73,10 @@ namespace QMC.CDT320.Sequencing
                 return await ExecuteProcessUntilCompleteAsync(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
             {
                 throw;
             }
@@ -382,7 +388,10 @@ namespace QMC.CDT320.Sequencing
                     _bottomInspectionSequence = new PickerBottomInspectionSequence(Context, Side);
 
                 int result = await _bottomInspectionSequence
-                    .RunAsync(ct, BuildChildSequenceOptions())
+                    .RunAsync(ct, BuildChildSequenceOptions(
+                        Options == null || Options.RunMode == SequenceRunMode.Auto,
+                        false,
+                        false))
                     .ConfigureAwait(false);
 
                 if (result != 0)
@@ -395,6 +404,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetPickerPhaseSignal(GetOwnBottomInspectionCompleteSignal(), "BottomComplete");
                     _bottomInspectionSequence = null;
+                    _bottomInspectionCompletedInCurrentRun = true;
                     int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.SideInspection, "BottomToSideInspection", ct).ConfigureAwait(false);
                     if (nextPhaseResult != 0)
                         return nextPhaseResult;
@@ -444,7 +454,10 @@ namespace QMC.CDT320.Sequencing
                     _sideInspectionSequence = new PickerSideInspectionSequence(Context, Side);
 
                 int result = await _sideInspectionSequence
-                    .RunAsync(ct, BuildChildSequenceOptions())
+                    .RunAsync(ct, BuildChildSequenceOptions(
+                        false,
+                        _bottomInspectionCompletedInCurrentRun,
+                        Options == null || Options.RunMode == SequenceRunMode.Auto))
                     .ConfigureAwait(false);
 
                 if (result != 0)
@@ -457,6 +470,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     SetPickerPhaseSignal(GetOwnSideInspectionCompleteSignal(), "SideComplete");
                     _sideInspectionSequence = null;
+                    _bottomInspectionCompletedInCurrentRun = false;
 
                     int safeYResult = await MovePickerAxisAndVerifyAsync(
                         PickerAxis.PickerY,
@@ -943,9 +957,13 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private PickerSequenceOptions BuildChildSequenceOptions()
+        private PickerSequenceOptions BuildChildSequenceOptions(
+            bool keepZAfterBottomInspection = false,
+            bool enterSideFromBottomInspection = false,
+            bool keepZUntilSideInspectionComplete = false)
         {
             PickerSequenceOptions source = Options ?? PickerSequenceOptions.Default();
+            bool isAuto = source.RunMode == SequenceRunMode.Auto;
             return new PickerSequenceOptions
             {
                 RunMode = source.RunMode,
@@ -954,8 +972,12 @@ namespace QMC.CDT320.Sequencing
                 MoveTimeoutMs = source.MoveTimeoutMs,
                 ResourceTimeoutMs = source.ResourceTimeoutMs,
                 PickerNo = source.PickerNo,
+                RestrictToPickerNo = source.RestrictToPickerNo,
                 VisionRetryCount = source.VisionRetryCount,
-                SimulateVisionResult = source.SimulateVisionResult
+                SimulateVisionResult = source.SimulateVisionResult,
+                KeepZAfterBottomInspection = source.KeepZAfterBottomInspection || (isAuto && keepZAfterBottomInspection),
+                EnterSideFromBottomInspection = source.EnterSideFromBottomInspection || (isAuto && enterSideFromBottomInspection),
+                KeepZUntilSideInspectionComplete = source.KeepZUntilSideInspectionComplete || (isAuto && keepZUntilSideInspectionComplete)
             };
         }
     }

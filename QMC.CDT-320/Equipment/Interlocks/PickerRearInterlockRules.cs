@@ -54,7 +54,7 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
-                if (!VerifyRearPickerZAxesAvoidForMove(rear, "RearPickerX", out reason))
+                if (!VerifyRearPickerZAxesAvoidForMove(rear, "RearPickerX", request, out reason))
                     return false;
 
                 if (!PickerZoneInterlockRules.VerifyRearPickerXMove(request, out reason))
@@ -75,10 +75,49 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, out string reason)
+        private static bool VerifyInputVisionXAvoidForPickerX(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAxisMoving(stage.CameraX))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: InputVisionX가 이동 중입니다. PickerX 이동 전 InputVisionX가 Avoid 위치에 있어야 합니다.",
+                        out reason);
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return true;
+
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: PickerX 이동 전 InputVisionX가 Avoid 위치에 있어야 합니다. actual=" +
+                    stage.CameraX.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 전 InputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             if (picker == null)
+                return true;
+
+            if (IsInspectionZHoldMove(request))
                 return true;
 
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -93,6 +132,18 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool IsInspectionZHoldMove(MotionGuardRuleContext request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                return false;
+
+            if (request.TargetName.IndexOf("PickerPhase=InspectionZHold", System.StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            return request.TargetName.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
