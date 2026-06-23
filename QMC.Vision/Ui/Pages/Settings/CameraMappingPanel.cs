@@ -390,10 +390,10 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>Container 의 ActiveControl 변경 영향이 끝난 뒤 scroll position 을 원점으로 강제 복귀.</summary>
         private void ResetScrollAsync()
         {
-            if (_body == null) return;
+            if (_leftScroll == null) return;
             BeginInvoke((Action)(() =>
             {
-                try { _body.AutoScrollPosition = Point.Empty; } catch { }
+                try { _leftScroll.AutoScrollPosition = Point.Empty; } catch { }
             }));
         }
 
@@ -455,6 +455,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 _left.RowStyles[2].Height = _paramGrid.PreferredGridHeight;
                 _left.RowStyles[4].Height = _scaleGrid.PreferredGridHeight;
+                // _left 가 AutoSize 라 행 높이 변경 시 _leftScroll 가 스크롤 범위를 자동 갱신(스크롤은 좌측 컬럼만, 미리보기 고정).
             }
             catch { }
         }

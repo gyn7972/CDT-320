@@ -12,6 +12,7 @@ namespace QMC.Vision.Ui.Pages
         private Panel    _body;
         // docked 골격 (핸들러 INPUT CASSETTE 스타일 — 화면 꽉 채움)
         private TableLayoutPanel _main;       // 2열: 좌(파라미터/조명) · 우(미리보기/버튼)
+        private Panel    _leftScroll;          // 좌 컬럼 전용 세로 스크롤(미리보기는 고정)
         private TableLayoutPanel _left;        // 좌 컬럼 세로 스택
         private Panel    _camRow;              // 카메라 ID + 검색 (상단 툴바)
         private Label    _lblCamId;
@@ -55,6 +56,7 @@ namespace QMC.Vision.Ui.Pages
             this._lblAlgorithm = new System.Windows.Forms.Label();
             this._body = new System.Windows.Forms.Panel();
             this._main = new System.Windows.Forms.TableLayoutPanel();
+            this._leftScroll = new System.Windows.Forms.Panel();
             this._left = new System.Windows.Forms.TableLayoutPanel();
             this._camRow = new System.Windows.Forms.Panel();
             this._lblCamId = new System.Windows.Forms.Label();
@@ -121,10 +123,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             // _body
             // 
-            this._body.AutoScroll = true;
-            // 창이 작아져 세로 공간이 부족하면 좌측 설정(스케일·조명 등)이 잘리지 않도록 최소 가상 높이 지정.
-            // 뷰포트가 이보다 작아지면 자동 세로 스크롤이 생기고, 충분히 크면 기존처럼 프리뷰가 채운다.
-            this._body.AutoScrollMinSize = new System.Drawing.Size(0, 600);
+            this._body.AutoScroll = false;   // 스크롤은 좌측 컬럼(_leftScroll)만 — 미리보기(Vision)는 고정.
             this._body.Controls.Add(this._main);
             this._body.Dock = System.Windows.Forms.DockStyle.Fill;
             this._body.Location = new System.Drawing.Point(12, 40);
@@ -137,7 +136,7 @@ namespace QMC.Vision.Ui.Pages
             this._main.ColumnCount = 2;
             this._main.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
             this._main.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
-            this._main.Controls.Add(this._left, 0, 0);
+            this._main.Controls.Add(this._leftScroll, 0, 0);
             this._main.Controls.Add(this._rightPanel, 1, 0);
             this._main.Dock = System.Windows.Forms.DockStyle.Fill;
             this._main.Location = new System.Drawing.Point(0, 0);
@@ -147,6 +146,15 @@ namespace QMC.Vision.Ui.Pages
             this._main.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this._main.Size = new System.Drawing.Size(1116, 501);
             this._main.TabIndex = 0;
+            //
+            // _leftScroll — 좌측 파라미터 컬럼 전용 세로 스크롤(미리보기는 고정)
+            //
+            this._leftScroll.AutoScroll = true;
+            this._leftScroll.Controls.Add(this._left);
+            this._leftScroll.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._leftScroll.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
+            this._leftScroll.Name = "_leftScroll";
+            this._leftScroll.TabIndex = 0;
             // 
             // _left
             // 
@@ -161,9 +169,11 @@ namespace QMC.Vision.Ui.Pages
             this._left.Controls.Add(this._lblLightAssign, 0, 6);
             this._left.Controls.Add(this._gridLightAssign, 0, 7);
             this._left.Controls.Add(this._lblLightStatus, 0, 8);
-            this._left.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._left.AutoSize = true;
+            this._left.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this._left.Dock = System.Windows.Forms.DockStyle.Top;
             this._left.Location = new System.Drawing.Point(0, 0);
-            this._left.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
+            this._left.Margin = new System.Windows.Forms.Padding(0);
             this._left.Name = "_left";
             this._left.RowCount = 10;
             this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
@@ -175,7 +185,7 @@ namespace QMC.Vision.Ui.Pages
             this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 170F));
             this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._left.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this._left.Size = new System.Drawing.Size(605, 501);
             this._left.TabIndex = 0;
             // 
