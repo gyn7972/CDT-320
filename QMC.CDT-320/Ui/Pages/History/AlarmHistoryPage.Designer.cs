@@ -20,6 +20,10 @@ namespace QMC.CDT_320.Ui.Pages.History
         private void InitializeComponent()
         {
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
             this.filterLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -165,7 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnClear.ForeColor = System.Drawing.Color.White;
             this.btnClear.Location = new System.Drawing.Point(693, 9);
             this.btnClear.Name = "btnClear";
-            this.btnClear.Size = new System.Drawing.Size(154, 28);
+            this.btnClear.Size = new System.Drawing.Size(154, 26);
             this.btnClear.TabIndex = 5;
             this.btnClear.Text = "Clear active alarms";
             this.btnClear.UseVisualStyleBackColor = false;
@@ -177,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("Consolas", 10F);
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
             dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -205,64 +209,68 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             // dataGridViewTextBoxColumn1
             // 
-            this.dataGridViewTextBoxColumn1.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn1.DefaultCellStyle = dataGridViewCellStyle2;
             this.dataGridViewTextBoxColumn1.FillWeight = 95F;
             this.dataGridViewTextBoxColumn1.HeaderText = "Time";
             this.dataGridViewTextBoxColumn1.MinimumWidth = 110;
             this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
             this.dataGridViewTextBoxColumn1.ReadOnly = true;
             this.dataGridViewTextBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn2
-            //
-            this.dataGridViewTextBoxColumn2.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            // 
+            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn2.DefaultCellStyle = dataGridViewCellStyle3;
             this.dataGridViewTextBoxColumn2.FillWeight = 85F;
             this.dataGridViewTextBoxColumn2.HeaderText = "Severity";
             this.dataGridViewTextBoxColumn2.MinimumWidth = 75;
             this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
             this.dataGridViewTextBoxColumn2.ReadOnly = true;
             this.dataGridViewTextBoxColumn2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn3
-            //
-            this.dataGridViewTextBoxColumn3.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            // 
+            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn3.DefaultCellStyle = dataGridViewCellStyle4;
             this.dataGridViewTextBoxColumn3.FillWeight = 150F;
             this.dataGridViewTextBoxColumn3.HeaderText = "Code";
             this.dataGridViewTextBoxColumn3.MinimumWidth = 90;
             this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
             this.dataGridViewTextBoxColumn3.ReadOnly = true;
             this.dataGridViewTextBoxColumn3.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn4
-            //
-            this.dataGridViewTextBoxColumn4.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            // 
+            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn4.DefaultCellStyle = dataGridViewCellStyle5;
             this.dataGridViewTextBoxColumn4.FillWeight = 150F;
             this.dataGridViewTextBoxColumn4.HeaderText = "Source";
             this.dataGridViewTextBoxColumn4.MinimumWidth = 90;
             this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
             this.dataGridViewTextBoxColumn4.ReadOnly = true;
             this.dataGridViewTextBoxColumn4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn5
-            //
+            // 
             this.dataGridViewTextBoxColumn5.FillWeight = 280F;
             this.dataGridViewTextBoxColumn5.HeaderText = "Message";
             this.dataGridViewTextBoxColumn5.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
             this.dataGridViewTextBoxColumn5.ReadOnly = true;
             this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn6
-            //
+            // 
             this.dataGridViewTextBoxColumn6.FillWeight = 190F;
             this.dataGridViewTextBoxColumn6.HeaderText = "Cause";
             this.dataGridViewTextBoxColumn6.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn6.Name = "dataGridViewTextBoxColumn6";
             this.dataGridViewTextBoxColumn6.ReadOnly = true;
             this.dataGridViewTextBoxColumn6.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            //
+            // 
             // dataGridViewTextBoxColumn7
-            //
+            // 
             this.dataGridViewTextBoxColumn7.FillWeight = 190F;
             this.dataGridViewTextBoxColumn7.HeaderText = "Action";
             this.dataGridViewTextBoxColumn7.MinimumWidth = 6;

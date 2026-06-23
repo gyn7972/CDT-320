@@ -60,6 +60,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label _markUnclamp;
         private Label lblUnclampSensorCaption;
         private FlowLayoutPanel actionPanel;
+        private TableLayoutPanel actionBar;
+        private FlowLayoutPanel actionRightPanel;
         private ActionButton btnLoadFromCassette;
         private ActionButton btnLoadToStage;
         private ActionButton btnUnloadFromStage;
@@ -123,6 +125,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblUnclampSensorCaption = new System.Windows.Forms.Label();
             this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.actionPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.actionBar = new System.Windows.Forms.TableLayoutPanel();
+            this.actionRightPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnLoadFromCassette = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnLoadToStage = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnUnloadFromStage = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -142,6 +146,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlCylinder.SuspendLayout();
             this.cylinderLayout.SuspendLayout();
             this.actionPanel.SuspendLayout();
+            this.actionBar.SuspendLayout();
+            this.actionRightPanel.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootPanel
@@ -152,15 +158,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
             this.rootPanel.Controls.Add(this.topLayout, 0, 1);
             this.rootPanel.Controls.Add(this.contentLayout, 0, 2);
-            this.rootPanel.Controls.Add(this.actionPanel, 0, 3);
+            this.rootPanel.Controls.Add(this.actionBar, 0, 3);
             this.rootPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootPanel.Location = new System.Drawing.Point(0, 0);
             this.rootPanel.Name = "rootPanel";
             this.rootPanel.RowCount = 4;
             this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 143F));
             this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 96F));
+            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 108F));
             this.rootPanel.Size = new System.Drawing.Size(1678, 900);
             this.rootPanel.TabIndex = 0;
             // 
@@ -272,7 +278,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblRingCaption
             // 
-            this.lblRingCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblRingCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblRingCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRingCaption.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblRingCaption.Location = new System.Drawing.Point(49, 0);
@@ -312,7 +318,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblOverloadCaption
             // 
-            this.lblOverloadCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblOverloadCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblOverloadCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblOverloadCaption.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblOverloadCaption.Location = new System.Drawing.Point(49, 0);
@@ -325,7 +331,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // outputSignalPanel
             // 
-            this.outputSignalPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.outputSignalPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.outputSignalPanel.ColumnCount = 4;
             this.outputSignalPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.outputSignalPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -570,7 +576,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblExistCaption
             // 
-            this.lblExistCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblExistCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblExistCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblExistCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblExistCaption.Location = new System.Drawing.Point(11, 8);
@@ -597,7 +603,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblSideCaption
             // 
-            this.lblSideCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblSideCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblSideCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSideCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSideCaption.Location = new System.Drawing.Point(11, 44);
@@ -624,7 +630,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblSlotCaption
             // 
-            this.lblSlotCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblSlotCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblSlotCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSlotCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSlotCaption.Location = new System.Drawing.Point(11, 80);
@@ -651,7 +657,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblTargetCaption
             // 
-            this.lblTargetCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblTargetCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblTargetCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblTargetCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblTargetCaption.Location = new System.Drawing.Point(11, 116);
@@ -749,7 +755,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblClampCaption
             // 
-            this.lblClampCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblClampCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblClampCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblClampCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblClampCaption.Location = new System.Drawing.Point(11, 8);
@@ -776,7 +782,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblUpDownCaption
             // 
-            this.lblUpDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblUpDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblUpDownCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUpDownCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblUpDownCaption.Location = new System.Drawing.Point(11, 44);
@@ -878,31 +884,57 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionPanel
             // 
+            this.actionPanel.AutoScroll = true;
             this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this.actionPanel.Controls.Add(this.btnLoadFromCassette);
             this.actionPanel.Controls.Add(this.btnLoadToStage);
             this.actionPanel.Controls.Add(this.btnUnloadFromStage);
             this.actionPanel.Controls.Add(this.btnUnloadToCassette);
             this.actionPanel.Controls.Add(this.btnRecover);
-            this.actionPanel.Controls.Add(this.btnStop);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionPanel.Location = new System.Drawing.Point(3, 807);
+            this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionPanel.Name = "actionPanel";
-            this.actionPanel.Padding = new System.Windows.Forms.Padding(12);
-            this.actionPanel.Size = new System.Drawing.Size(1672, 90);
-            this.actionPanel.TabIndex = 3;
+            this.actionPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.actionPanel.TabIndex = 0;
             this.actionPanel.WrapContents = false;
+            //
+            // actionBar
+            //
+            this.actionBar.ColumnCount = 2;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 54F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 46F));
+            this.actionBar.Controls.Add(this.actionPanel, 0, 0);
+            this.actionBar.Controls.Add(this.actionRightPanel, 1, 0);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Name = "actionBar";
+            this.actionBar.RowCount = 1;
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.TabIndex = 3;
+            //
+            // actionRightPanel
+            //
+            this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.actionRightPanel.Controls.Add(this.btnStop);
+            this.actionRightPanel.AutoSize = true;
+            this.actionRightPanel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Right;
+            this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.actionRightPanel.Name = "actionRightPanel";
+            this.actionRightPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
+            this.actionRightPanel.TabIndex = 1;
+            this.actionRightPanel.WrapContents = false;
             // 
             // btnLoadFromCassette
             // 
             this.btnLoadFromCassette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnLoadFromCassette.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnLoadFromCassette.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnLoadFromCassette.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnLoadFromCassette.ForeColor = System.Drawing.Color.White;
             this.btnLoadFromCassette.Location = new System.Drawing.Point(18, 18);
             this.btnLoadFromCassette.Margin = new System.Windows.Forms.Padding(6);
             this.btnLoadFromCassette.Name = "btnLoadFromCassette";
-            this.btnLoadFromCassette.Size = new System.Drawing.Size(180, 64);
+            this.btnLoadFromCassette.Size = new System.Drawing.Size(132, 60);
             this.btnLoadFromCassette.TabIndex = 0;
             this.btnLoadFromCassette.Text = "CST -> FEEDER";
             // 
@@ -910,12 +942,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.btnLoadToStage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnLoadToStage.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnLoadToStage.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnLoadToStage.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnLoadToStage.ForeColor = System.Drawing.Color.White;
             this.btnLoadToStage.Location = new System.Drawing.Point(210, 18);
             this.btnLoadToStage.Margin = new System.Windows.Forms.Padding(6);
             this.btnLoadToStage.Name = "btnLoadToStage";
-            this.btnLoadToStage.Size = new System.Drawing.Size(180, 64);
+            this.btnLoadToStage.Size = new System.Drawing.Size(132, 60);
             this.btnLoadToStage.TabIndex = 1;
             this.btnLoadToStage.Text = "FEEDER -> STAGE";
             // 
@@ -923,12 +955,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.btnUnloadFromStage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnUnloadFromStage.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnUnloadFromStage.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnUnloadFromStage.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnUnloadFromStage.ForeColor = System.Drawing.Color.White;
             this.btnUnloadFromStage.Location = new System.Drawing.Point(402, 18);
             this.btnUnloadFromStage.Margin = new System.Windows.Forms.Padding(6);
             this.btnUnloadFromStage.Name = "btnUnloadFromStage";
-            this.btnUnloadFromStage.Size = new System.Drawing.Size(180, 64);
+            this.btnUnloadFromStage.Size = new System.Drawing.Size(132, 60);
             this.btnUnloadFromStage.TabIndex = 2;
             this.btnUnloadFromStage.Text = "STAGE -> FEEDER";
             // 
@@ -936,12 +968,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.btnUnloadToCassette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnUnloadToCassette.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnUnloadToCassette.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnUnloadToCassette.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnUnloadToCassette.ForeColor = System.Drawing.Color.White;
             this.btnUnloadToCassette.Location = new System.Drawing.Point(594, 18);
             this.btnUnloadToCassette.Margin = new System.Windows.Forms.Padding(6);
             this.btnUnloadToCassette.Name = "btnUnloadToCassette";
-            this.btnUnloadToCassette.Size = new System.Drawing.Size(180, 64);
+            this.btnUnloadToCassette.Size = new System.Drawing.Size(132, 60);
             this.btnUnloadToCassette.TabIndex = 3;
             this.btnUnloadToCassette.Text = "FEEDER -> CST";
             // 
@@ -949,25 +981,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.btnRecover.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnRecover.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnRecover.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnRecover.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnRecover.ForeColor = System.Drawing.Color.White;
             this.btnRecover.Location = new System.Drawing.Point(786, 18);
             this.btnRecover.Margin = new System.Windows.Forms.Padding(6);
             this.btnRecover.Name = "btnRecover";
-            this.btnRecover.Size = new System.Drawing.Size(180, 64);
+            this.btnRecover.Size = new System.Drawing.Size(132, 60);
             this.btnRecover.TabIndex = 4;
             this.btnRecover.Text = "RECOVER";
             // 
             // btnStop
             // 
-            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(48)))), ((int)(((byte)(48)))));
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
             this.btnStop.Location = new System.Drawing.Point(978, 18);
             this.btnStop.Margin = new System.Windows.Forms.Padding(6);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(140, 64);
+            this.btnStop.Size = new System.Drawing.Size(132, 60);
             this.btnStop.TabIndex = 5;
             this.btnStop.Text = "STOP";
             // 
@@ -990,6 +1022,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.pnlCylinder.ResumeLayout(false);
             this.cylinderLayout.ResumeLayout(false);
             this.actionPanel.ResumeLayout(false);
+            this.actionRightPanel.ResumeLayout(false);
+            this.actionBar.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
