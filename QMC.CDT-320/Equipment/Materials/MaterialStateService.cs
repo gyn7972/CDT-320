@@ -1588,6 +1588,14 @@ namespace QMC.CDT320.Materials
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
+                    InputStagePickTarget existingReservedTarget = TryBuildExistingReservedInputStagePickTarget(
+                        ordered,
+                        wafer,
+                        pickerLocation,
+                        pickerNo);
+                    if (existingReservedTarget != null)
+                        return existingReservedTarget;
+
                     var skipSummary = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     for (int i = 0; i < ordered.Count; i++)
                     {
@@ -1647,6 +1655,95 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target reserve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static InputStagePickTarget TryBuildExistingReservedInputStagePickTarget(
+            List<DieMapEntry> ordered,
+            WaferMaterial wafer,
+            MaterialLocationKind pickerLocation,
+            int pickerNo)
+        {
+            try
+            {
+                if (ordered == null || wafer == null)
+                    return null;
+
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    DieMapEntry entry = ordered[i];
+                    if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                        continue;
+
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                        continue;
+
+                    bool reservedByRequestedPicker =
+                        die.ReservedPickerLocation == pickerLocation &&
+                        die.ReservedPickerNo == pickerNo;
+                    if (!reservedByRequestedPicker)
+                        continue;
+
+                    string candidateReason;
+                    if (!CanUseInputPickCandidate(entry, die, out candidateReason))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Existing input pick reservation ignored: " + candidateReason +
+                            ", die=" + die.DieId +
+                            ", pickerLocation=" + pickerLocation +
+                            ", pickerNo=" + pickerNo + " - Check");
+                        continue;
+                    }
+
+                    MaterialLocationKind kind = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+                    if (kind != MaterialLocationKind.Unknown && kind != MaterialLocationKind.InputStage)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Existing input pick reservation ignored: die is not on InputStage. die=" + die.DieId +
+                            ", location=" + kind +
+                            ", pickerLocation=" + pickerLocation +
+                            ", pickerNo=" + pickerNo + " - Check");
+                        continue;
+                    }
+
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Existing input pick reservation reused after restore/retry. die=" + die.DieId +
+                        ", pickerLocation=" + pickerLocation +
+                        ", pickerNo=" + pickerNo +
+                        ", orderIndex=" + i +
+                        ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ") - Ok");
+
+                    return new InputStagePickTarget
+                    {
+                        WaferId = wafer.WaferId,
+                        DieId = die.DieId,
+                        OrderIndex = i,
+                        DieMapX = entry.DieMapX,
+                        DieMapY = entry.DieMapY,
+                        OffsetX = entry.PosX,
+                        OffsetY = entry.PosY,
+                        TargetX = entry.PosX,
+                        TargetY = entry.PosY,
+                        PickerNo = pickerNo,
+                        PickerLocation = pickerLocation
+                    };
+                }
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Existing input pick reservation reuse check failed: " + ex.Message + " - Failed");
                 return null;
             }
             finally
@@ -2037,15 +2134,21 @@ namespace QMC.CDT320.Materials
                         if (!CanUseInputPickCandidate(entry, die, out candidateReason))
                             continue;
 
-                        if (IsDieReservedForPicker(die))
-                            continue;
-
-                        if (die.CurrentLocation == null ||
+                        bool pickableLocation =
+                            die.CurrentLocation == null ||
                             die.CurrentLocation.Kind == MaterialLocationKind.Unknown ||
-                            die.CurrentLocation.Kind == MaterialLocationKind.InputStage)
+                            die.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+
+                        if (IsDieReservedForPicker(die))
                         {
-                            return true;
+                            if (pickableLocation)
+                                return true;
+
+                            continue;
                         }
+
+                        if (pickableLocation)
+                            return true;
                     }
 
                     return false;
@@ -2055,6 +2158,47 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target ready check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool HasInputStagePickReservationForPickerLocation(MaterialLocationKind pickerLocation)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                        return false;
+
+                    for (int i = 0; i < State.Dies.Count; i++)
+                    {
+                        DieMaterial die = State.Dies[i];
+                        if (die == null || die.ReservedPickerLocation != pickerLocation)
+                            continue;
+
+                        if (die.ReservedPickerNo <= 0)
+                            continue;
+
+                        MaterialLocationKind kind = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+                        if (kind == MaterialLocationKind.Unknown || kind == MaterialLocationKind.InputStage)
+                            return true;
+                    }
+
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick reservation check failed. pickerLocation=" + pickerLocation +
+                    ", error=" + ex.Message + " - Failed");
                 return false;
             }
             finally

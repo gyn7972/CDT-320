@@ -345,6 +345,13 @@ namespace QMC.CDT320.Sequencing
                 if (HasLoadedDieOnPicker())
                     return false;
 
+                if (MaterialStateService.HasInputStagePickReservationForPickerLocation(MaterialLocationKind.PickerRear))
+                {
+                    WriteLog("YieldInputPickupPriorityToFrontAsync",
+                        "RearPicker에 복구/선행검사 Pick 예약이 남아 있어 FrontPicker 우선권 양보를 건너뜁니다. - Check");
+                    return false;
+                }
+
                 if (!IsFrontPickerEnabled())
                     return false;
 

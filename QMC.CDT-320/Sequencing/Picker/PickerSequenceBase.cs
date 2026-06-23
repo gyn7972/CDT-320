@@ -341,7 +341,7 @@ namespace QMC.CDT320.Sequencing
                 commandMs = commandWatch.ElapsedMilliseconds;
                 if (result != 0)
                 {
-                    WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, null);
+                    //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, null);
                     return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
                 }
 
@@ -350,7 +350,7 @@ namespace QMC.CDT320.Sequencing
                 waitMs = waitWatch.ElapsedMilliseconds;
                 if (waitResult == null || !waitResult.Success)
                 {
-                    WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
@@ -358,13 +358,13 @@ namespace QMC.CDT320.Sequencing
 
                 if (!IsPickerAxisInPosition(axis, target))
                 {
-                    WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                     return Fail("PICKER-MOVE-FINAL-POS", Name,
                         description + " final position check failed after move. " +
                         BuildPickerAxisState(axis, target));
                 }
 
-                WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
                 ct.ThrowIfCancellationRequested();
                 return 0;
             }
