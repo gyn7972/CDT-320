@@ -411,23 +411,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 for (int i = 0; i < 4; i++)
                 {
-                    Label caption = CreateWorkInfoLabel("Front - #" + (i + 1) + " Collet 사용", true, WorkInfoYellowColor);
+                    Label caption = CreateWorkInfoLabel("Front - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
                     Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
                     _frontColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 2 + i, WorkInfoYellowColor, Color.White);
+                    AddWorkInfoPair(caption, value, 0, 2 + i, WorkInfoCaptionColor, Color.White);
                 }
 
                 for (int i = 0; i < 4; i++)
                 {
-                    Label caption = CreateWorkInfoLabel("Rear - #" + (i + 1) + " Collet 사용", true, WorkInfoYellowColor);
+                    Label caption = CreateWorkInfoLabel("Rear - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
                     Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
                     _rearColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 6 + i, WorkInfoYellowColor, Color.White);
+                    AddWorkInfoPair(caption, value, 0, 6 + i, WorkInfoCaptionColor, Color.White);
                 }
 
                 lblNeedleCaption.Tag = null;
                 lblNeedleCaption.Text = "Needle 사용";
-                AddWorkInfoPair(lblNeedleCaption, lblNeedle, 2, 3, WorkInfoYellowColor, Color.White);
+                AddWorkInfoPair(lblNeedleCaption, lblNeedle, 2, 3, WorkInfoCaptionColor, Color.White);
             }
             finally
             {
