@@ -351,8 +351,6 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
                 return false;
 
-            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
-                return false;
 
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
                 return false;

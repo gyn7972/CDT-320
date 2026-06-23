@@ -782,6 +782,7 @@
     <Compile Include="Sequencing\Picker\PickerSequenceOptions.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpStep.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareStep.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraMarkInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
@@ -791,6 +792,11 @@
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraPickUpPermissionStore.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitStatus.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraPreInspectionWaitResult.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraPreInspectionCoordinator.cs" />
+    <Compile Include="Sequencing\Picker\InputCameraMarkInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />

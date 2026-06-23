@@ -433,6 +433,11 @@ namespace QMC.CDT320.Sequencing
                 _pickCursor = 0;
                 ClearCurrentPickContext();
 
+                bool permitLoaded;
+                int permitResult = TryLoadInputCameraMarkInspectionPermission(out permitLoaded);
+                if (permitLoaded || permitResult != 0)
+                    return permitResult;
+
                 InputDieVisionPrepareSequence prepareSequence = new InputDieVisionPrepareSequence(
                     Context,
                     Side,
@@ -484,6 +489,124 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-PICKUP-VISION-PREPARE-EX", Name,
                     "Input die vision 준비 시퀀스 실행 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int TryLoadInputCameraMarkInspectionPermission(out bool loaded)
+        {
+            loaded = false;
+
+            try
+            {
+                List<InputDieVisionPreparedItem> permittedItems;
+                string permissionReason;
+                if (!InputCameraPickUpPermissionStore.TryConsume(Side, out permittedItems, out permissionReason))
+                {
+                    if (Options != null && Options.RequireInputCameraMarkInspectionPermission)
+                    {
+                        return Fail("PICKER-PICKUP-INPUT-CAMERA-MARK-PERMISSION", Name,
+                            "Auto PickUp 전에 InputCamera Mark 검사 허가가 없습니다. " +
+                            "PickerProcessSequence에서 InputCameraMarkInspectionSequence가 먼저 완료되어야 합니다. " +
+                            "side=" + Side + ", reason=" + permissionReason);
+                    }
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " InputCamera Mark 검사 PickUp 허가가 없어 기존 PickUp 내부 검사 흐름으로 진행합니다. " +
+                        "side=" + Side + ", reason=" + permissionReason + " - Check");
+                    return 0;
+                }
+
+                loaded = true;
+                WriteLog("PickerPickUpSequence",
+                    Name + " InputCamera Mark 검사 PickUp 허가를 수신했습니다. " +
+                    "side=" + Side + ", " + permissionReason + " - Ok");
+
+                InputStageUnit stage = ResolveInputStage();
+                if (stage == null)
+                    return Fail("PICKER-PICKUP-PERMISSION-STAGE-NO-UNIT", "InputStageUnit",
+                        "InputCamera Mark 검사 허가를 받았지만 InputStageUnit이 없습니다.");
+
+                if (!stage.IsVisionXInAvoidPosition())
+                    return Fail("PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID", stage.Name,
+                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. side=" + Side);
+
+                if (permittedItems == null || permittedItems.Count == 0)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " InputCamera Mark 검사 허가 batch가 비어 있어 PickUp을 완료 처리합니다. side=" + Side + " - Check");
+                    CurrentStep = PickerPickUpStep.Complete;
+                    ReleaseInputStageArea();
+                    return 0;
+                }
+
+                for (int i = 0; i < permittedItems.Count; i++)
+                {
+                    InputDieVisionPreparedItem permitted = permittedItems[i];
+                    if (permitted == null)
+                        continue;
+
+                    var batchItem = new PickUpBatchItem
+                    {
+                        PickerIndex = permitted.PickerIndex,
+                        PickerNo = permitted.PickerNo,
+                        DieId = permitted.DieId,
+                        PickTarget = permitted.PickTarget,
+                        VisionOffset = permitted.VisionOffset,
+                        DiePicked = permitted.DiePicked
+                    };
+                    _pickBatchItems.Add(batchItem);
+
+                    string reason;
+                    if (!MaterialStateService.ValidateInputStagePickTarget(
+                        permitted.DieId,
+                        PickerLocationKind,
+                        permitted.PickerNo,
+                        out reason))
+                    {
+                        return Fail("PICKER-PICKUP-PERMISSION-DIE-NOT-PICKABLE", "Material",
+                            "InputCamera Mark 검사 허가 Die가 현재 PickUp 가능한 상태가 아닙니다. die=" +
+                            permitted.DieId + ", pickerNo=" + permitted.PickerNo +
+                            ", reason=" + reason);
+                    }
+
+                    if (permitted.PickTarget == null)
+                    {
+                        return Fail("PICKER-PICKUP-PERMISSION-TARGET-MISSING", "Material",
+                            "InputCamera Mark 검사 허가에 PickTarget이 없습니다. die=" +
+                            permitted.DieId + ", pickerNo=" + permitted.PickerNo);
+                    }
+
+                    if (permitted.VisionOffset == null)
+                    {
+                        return Fail("PICKER-PICKUP-PERMISSION-OFFSET-MISSING", "Vision",
+                            "InputCamera Mark 검사 허가에 VisionOffset이 없습니다. die=" +
+                            permitted.DieId + ", pickerNo=" + permitted.PickerNo);
+                    }
+                }
+
+                if (_pickBatchItems.Count == 0)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " InputCamera Mark 검사 허가에서 PickUp 대상이 없어 완료 처리합니다. side=" + Side + " - Check");
+                    CurrentStep = PickerPickUpStep.Complete;
+                    ReleaseInputStageArea();
+                    return 0;
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " InputCamera Mark 검사 완료 batch로 PickUp을 허가합니다. count=" +
+                    _pickBatchItems.Count + ", side=" + Side + " - Ok");
+
+                CurrentStep = PickerPickUpStep.CalculatePickTargets;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-PERMISSION-EX", Name,
+                    "InputCamera Mark 검사 PickUp 허가 처리 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -3151,7 +3274,7 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Rear && RearPicker != null)
                 return RearPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
-            return 50;
+            return 5; //50
         }
 
         private void RecordColletUse(int pickerNo)

@@ -476,8 +476,9 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 return Fail("PICKER-BOTTOM-VISION-FAIL", "Vision",
-                    "Bottom inspection communication/result failed after retry. die=" +
-                    _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                    "Bottom 검사 통신 또는 결과 수신이 재시도 후에도 실패했습니다. die=" +
+                    _currentDie.DieId + ", pickerNo=" + _currentPickerNo +
+                    ", mode=" + DescribeBottomVisionRuntimeMode());
             }
             catch (OperationCanceledException)
             {
@@ -485,7 +486,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-BOTTOM-VISION-EX", "Vision", "Bottom inspection exception: " + ex.Message);
+                return Fail("PICKER-BOTTOM-VISION-EX", "Vision", "Bottom 검사 중 예외가 발생했습니다. " + ex.Message);
             }
             finally
             {
@@ -698,12 +699,40 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsSimulationOrDryRun()
+        private bool ShouldUseSimulatedBottomVision()
         {
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 
-            return IsPickerSimulationOrDryRun();
+            QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+            if (settings != null && (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
+                return true;
+
+            return IsPickerUnitSimulationMode();
+        }
+
+        private bool IsPickerUnitSimulationMode()
+        {
+            if (Side == PickerSequenceSide.Front)
+            {
+                return FrontPicker != null &&
+                       ((FrontPicker.Setup != null && FrontPicker.Setup.IsSimulationMode) ||
+                        (FrontPicker.Config != null && FrontPicker.Config.IsSimulationMode));
+            }
+
+            return RearPicker != null &&
+                   ((RearPicker.Setup != null && RearPicker.Setup.IsSimulationMode) ||
+                    (RearPicker.Config != null && RearPicker.Config.IsSimulationMode));
+        }
+
+        private string DescribeBottomVisionRuntimeMode()
+        {
+            QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+            return "simulate=" + ShouldUseSimulatedBottomVision() +
+                   ", simulationMode=" + (settings != null && settings.SimulationMode) +
+                   ", dryRunMode=" + (settings != null && settings.DryRunMode) +
+                   ", useAjin=" + (settings != null && settings.UseAjin) +
+                   ", optionSimulate=" + (Options != null && Options.SimulateVisionResult);
         }
 
         private bool IsVisionBypassed()

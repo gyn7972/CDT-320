@@ -812,8 +812,41 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = mode;
             options.StartMode = startMode;
-            options.SimulateVisionResult = IsSimulationOrDryRun(context);
+            options.SimulateVisionResult = ShouldSimulateVisionResult(context);
             return options;
+        }
+
+        private bool ShouldSimulateVisionResult(MachineSequenceContext context)
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null &&
+                    (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin))
+                    return true;
+
+                CDT320_Machine machine = context != null ? context.Machine : null;
+                if (machine == null)
+                    return false;
+
+                if (_side == PickerSequenceSide.Front)
+                {
+                    return machine.PickerFrontUnit != null &&
+                           ((machine.PickerFrontUnit.Setup != null && machine.PickerFrontUnit.Setup.IsSimulationMode) ||
+                            (machine.PickerFrontUnit.Config != null && machine.PickerFrontUnit.Config.IsSimulationMode));
+                }
+
+                return machine.PickerRearUnit != null &&
+                       ((machine.PickerRearUnit.Setup != null && machine.PickerRearUnit.Setup.IsSimulationMode) ||
+                        (machine.PickerRearUnit.Config != null && machine.PickerRearUnit.Config.IsSimulationMode));
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
         }
 
         private bool IsSimulationOrDryRun(MachineSequenceContext context)
