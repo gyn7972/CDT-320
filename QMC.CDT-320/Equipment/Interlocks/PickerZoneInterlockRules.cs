@@ -506,7 +506,7 @@ namespace QMC.CDT320.Interlocks
 
                 if (currentZone != targetZone &&
                     !IsPickerYAtAvoid(request.Machine, isFront) &&
-                    !IsInspectionContinuousBottomSideMove(request, currentZone, targetZone))
+                    !IsInspectionContinuousProcessMove(request, currentZone, targetZone))
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -525,7 +525,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool IsInspectionContinuousBottomSideMove(
+        private static bool IsInspectionContinuousProcessMove(
             MotionGuardRuleContext request,
             PickerWorkZone currentZone,
             PickerWorkZone targetZone)
@@ -536,11 +536,12 @@ namespace QMC.CDT320.Interlocks
             if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
-            bool bottomToSide =
+            bool allowedTransition =
                 (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom);
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output);
 
-            if (!bottomToSide)
+            if (!allowedTransition)
                 return false;
 
             return true;

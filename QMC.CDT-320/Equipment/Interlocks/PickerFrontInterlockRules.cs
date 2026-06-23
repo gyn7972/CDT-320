@@ -143,7 +143,8 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return request.TargetName.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   request.TargetName.IndexOf("DiePlacePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
