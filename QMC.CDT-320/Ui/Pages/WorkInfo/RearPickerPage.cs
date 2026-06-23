@@ -51,11 +51,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnStop,
                 actionPanel.Controls);
 
-            VisionModuleTestDialog.AddLaunchers(
-                actionRightPanel.Controls, this, btnStop,
-                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM INSP", () => VisionHub.Inspection, "Bottom Inspection"),
-                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: TOP SIDE",    () => VisionHub.TopSide,    "Top Side Vision"),
-                Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BOTTOM SIDE", () => VisionHub.BottomSide, "Bottom Side Vision"));
+            // 버튼 전용(입력 없음) Head 비전 테스트 — 시퀀서(PickerUnit)와 동일한 TpuVisionAdapter 호출(수동==실제 시퀀스).
+            TpuVisionTestDialog.AddLaunchers(actionRightPanel.Controls, this, btnStop);
         }
 
         private Form1 GetHost()

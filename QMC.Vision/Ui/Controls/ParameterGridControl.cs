@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -339,7 +339,7 @@ namespace QMC.Vision.Ui.Controls
                 if (item.ValueType == ParameterGridValueType.Double)
                 {
                     double value = Convert.ToDouble(raw, CultureInfo.InvariantCulture) * item.DisplayScale;
-                    return value.ToString("0.###", CultureInfo.InvariantCulture);
+                    return value.ToString("0.#####", CultureInfo.InvariantCulture);
                 }
 
                 return Convert.ToString(raw, CultureInfo.InvariantCulture);

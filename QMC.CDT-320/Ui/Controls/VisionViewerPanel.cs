@@ -63,6 +63,11 @@ namespace QMC.CDT_320.Ui.Controls
         /// <summary>외부에서 LIVE 정지(툴바 Stop과 동일).</summary>
         public void StopLive()  { try { _cam.StopLive(); } catch { } }
 
+        /// <summary>외부(테스트 다이얼로그)에서 결과 라인을 영상 우측하단에 직접 표시.
+        /// ApplyMeta 는 빈 메타로 이 값을 덮어쓰지 않는다.</summary>
+        public void SetResultLines(string[] lines) { if (IsDisposed) return; try { _cam.SetResultLines(lines); } catch { } }
+        public void SetVerdictText(string text, bool pass) { if (IsDisposed) return; try { _cam.SetVerdict(text, pass); } catch { } }
+
         // ── 소스 상태 메시지(촬상 OK / READY 거부 등) → 상태줄 ──
         private void OnStatus(string s)
         {
@@ -85,8 +90,9 @@ namespace QMC.CDT_320.Ui.Controls
                 _cam.MmPerPixelX = meta.ScaleX;
                 _cam.MmPerPixelY = meta.ScaleY;
                 _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
-                _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
-                _cam.SetResultLines(meta.ResultLines);
+                // 메타에 값이 있을 때만 갱신 — 테스트에서 외부(SetResultLines)로 설정한 결과가 빈 메타에 덮이지 않게.
+                if (!string.IsNullOrEmpty(meta.Verdict)) _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
+                if (meta.ResultLines != null && meta.ResultLines.Length > 0) _cam.SetResultLines(meta.ResultLines);
                 _cam.SetOverlay(RoiOf(meta), MarksOf(meta));
             }
             catch { }

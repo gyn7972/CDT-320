@@ -182,6 +182,37 @@ namespace QMC.CDT320.VisionComm
             return MatchResultDto.Parse(r);
         }
 
+        // ── 비동기 MATCH (그랩 후 1차 ACK=STARTED → 백그라운드 알고리즘 → MATCHRESULT 폴링) ──
+        /// <summary>비동기 매칭 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 핸들러는 이후 다음 스텝 진행 +
+        /// <see cref="PollMatchResultAsync"/> 로 알고리즘 완료를 폴링한다.</summary>
+        public async Task<bool> MatchAsyncStartAsync(string finder, int index = 0, int timeoutMs = 30000)
+        {
+            var r = await SendAsync($"{ModuleName}|MATCHASYNC|{finder}|{index}", timeoutMs).ConfigureAwait(false);
+            return r != null && r.StartsWith("ACK|");
+        }
+
+        /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>
+        public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int timeoutMs = 5000)
+        {
+            var r = await SendAsync($"{ModuleName}|MATCHRESULT|{finder}", timeoutMs).ConfigureAwait(false);
+            return AsyncMatchPoll.Parse(r);
+        }
+
+        // ── 비동기 INSPECT (그랩 후 1차 ACK=STARTED → 백그라운드 검사 → INSPECTRESULT 폴링) ──
+        /// <summary>비동기 검사 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 이후 PollInspectResultAsync 로 완료 폴링.</summary>
+        public async Task<bool> InspectAsyncStartAsync(string inspector, int index = 0, int timeoutMs = 30000)
+        {
+            var r = await SendAsync($"{ModuleName}|INSPECTASYNC|{inspector}|{index}", timeoutMs).ConfigureAwait(false);
+            return r != null && r.StartsWith("ACK|");
+        }
+
+        /// <summary>비동기 검사 결과 폴링 — Done=false 면 진행 중(반복 폴링), Done=true 면 Result(PASS/FAIL).</summary>
+        public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int timeoutMs = 5000)
+        {
+            var r = await SendAsync($"{ModuleName}|INSPECTRESULT|{inspector}", timeoutMs).ConfigureAwait(false);
+            return AsyncInspectPoll.Parse(r);
+        }
+
         public async Task<InspectionResultDto> InspectAsync(string inspector, int index = 0, int timeoutMs = 5000)
         {
             return await InspectAsync(inspector, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
@@ -300,12 +331,12 @@ namespace QMC.CDT320.VisionComm
 
         public static MatchResultDto Parse(string line)
         {
-            // "ACK|WaferVision|MATCH|OK;x=320.1;y=239.7;r=0.12;score=0.93"
+            // "ACK|WaferVision|MATCH|OK;x=..." 또는 finder echo 형 "ACK|WaferVision|MATCH|AlignDieFinder|OK;x=..."
             var r = new MatchResultDto();
             if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { r.RawError = line; return r; }
             var parts = line.Split('|');
             if (parts.Length < 4) { r.RawError = line; return r; }
-            var body = parts[3];
+            var body = parts[parts.Length - 1];   // 마지막 필드 = OK;x=... 페이로드(중간에 finder 가 echo 돼도 견고).
             var kv = body.Split(';');
             if (kv.Length > 0 && kv[0] == "OK") r.Success = true;
             foreach (var s in kv)
@@ -329,6 +360,65 @@ namespace QMC.CDT320.VisionComm
         }
     }
 
+    /// <summary>비동기 매칭 폴링(MATCHRESULT) 결과 — Done/Error 플래그 + 완료 시 데이터.</summary>
+    public class AsyncMatchPoll
+    {
+        public bool          Done;       // 알고리즘 완료(=1)
+        public bool          Error;      // 실패(ERR) 또는 비정상 응답
+        public string        Raw;        // 원문
+        public MatchResultDto Result;    // Done 일 때 x/y/angle/score
+
+        public static AsyncMatchPoll Parse(string line)
+        {
+            var p = new AsyncMatchPoll { Raw = line };
+            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { p.Error = true; return p; }
+            var parts = line.Split('|');
+            var payload = parts[parts.Length - 1];   // "0" / "1;x=..;y=..;r=..;score=.." / "ERR;사유"
+            if (payload.StartsWith("1"))
+            {
+                p.Done = true;
+                int semi = payload.IndexOf(';');
+                string body = semi >= 0 ? payload.Substring(semi + 1) : "";
+                p.Result = MatchResultDto.Parse("ACK|x|MATCH|OK;" + body);   // 'OK;본문' 으로 변환해 재사용
+            }
+            else if (payload.StartsWith("ERR"))
+            {
+                p.Error = true;
+            }
+            // 그 외("0") → 진행 중: Done=false, Error=false
+            return p;
+        }
+    }
+
+    /// <summary>비동기 검사 폴링(INSPECTRESULT) 결과 — Done/Error + 완료 시 InspectionResultDto.</summary>
+    public class AsyncInspectPoll
+    {
+        public bool                Done;       // 검사 완료(=1)
+        public bool                Error;      // 실패(ERR) 또는 비정상 응답
+        public string              Raw;        // 원문
+        public InspectionResultDto Result;     // Done 일 때 PASS/FAIL + 항목
+
+        public static AsyncInspectPoll Parse(string line)
+        {
+            var p = new AsyncInspectPoll { Raw = line };
+            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { p.Error = true; return p; }
+            var parts = line.Split('|');
+            var payload = parts[parts.Length - 1];   // "0" / "1;PASS;.." / "ERR;사유"
+            if (payload.StartsWith("1"))
+            {
+                p.Done = true;
+                int semi = payload.IndexOf(';');
+                string body = semi >= 0 ? payload.Substring(semi + 1) : "";   // "PASS;.." / "FAIL;.."
+                p.Result = InspectionResultDto.Parse("ACK|x|INSPECT|" + body);
+            }
+            else if (payload.StartsWith("ERR"))
+            {
+                p.Error = true;
+            }
+            return p;
+        }
+    }
+
     public class InspectionResultDto
     {
         // INSPECT 응답 예:
@@ -349,7 +439,7 @@ namespace QMC.CDT320.VisionComm
             var parts = line.Split('|');
             if (parts.Length < 4) return r;
 
-            var tokens = parts[3].Split(';');
+            var tokens = parts[parts.Length - 1].Split(';');   // 마지막 필드 = 결과 페이로드(중간 inspector echo 견고).
             if (tokens.Length == 0) return r;
 
             string result = tokens[0].Trim();

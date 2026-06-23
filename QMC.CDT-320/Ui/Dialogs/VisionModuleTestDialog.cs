@@ -27,6 +27,13 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly TextBox _txtInsp    = new TextBox { Dock = DockStyle.Fill };
         private readonly Button  _btnInspect = new Button { Text = "INSPECT", Dock = DockStyle.Fill };
         private readonly Label   _lblInsp    = new Label  { Text = "inspector 입력 후 INSPECT → PASS/FAIL", Dock = DockStyle.Fill };
+        // 비동기(2단계: 그랩 후 1차 ACK → 백그라운드 알고리즘 → 폴링) — finder/inspector 는 위 입력칸 공유.
+        private readonly Button  _btnMatchA  = new Button { Text = "ASYNC MATCH",   Dock = DockStyle.Fill };
+        private readonly Label   _lblMatchA  = new Label  { Text = "비동기 매칭: 시작(그랩)→폴링→결과 + 소요(ms)", Dock = DockStyle.Fill };
+        private readonly Label   _lblMatchARef = new Label { Text = "↑ finder 공유", Dock = DockStyle.Fill };
+        private readonly Button  _btnInspA   = new Button { Text = "ASYNC INSPECT", Dock = DockStyle.Fill };
+        private readonly Label   _lblInspA   = new Label  { Text = "비동기 검사: 시작(그랩)→폴링→PASS/FAIL + 소요(ms)", Dock = DockStyle.Fill };
+        private readonly Label   _lblInspARef = new Label { Text = "↑ inspector 공유", Dock = DockStyle.Fill };
 
         /// <summary>모듈 1개에 대한 테스트 팝업을 연다.</summary>
         public static void Open(IWin32Window owner, VisionTcpClient client, string displayName)
@@ -72,14 +79,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true; MinimizeBox = false;
-            ClientSize = new Size(1080, 420);
+            ClientSize = new Size(1080, 520);
             BackColor = Color.White;
-            MinimumSize = new Size(900, 360);
+            MinimumSize = new Size(900, 460);
 
-            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 3, RowCount = 4 };
+            var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 3, RowCount = 6 };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
@@ -88,9 +97,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             StyleCmd(_btnGrab);
             StyleCmd(_btnMatch);
             StyleCmd(_btnInspect);
+            StyleCmd(_btnMatchA);
+            StyleCmd(_btnInspA);
             StyleResult(_lblGrab);
             StyleResult(_lblMatch);
             StyleResult(_lblInsp);
+            StyleResult(_lblMatchA);
+            StyleResult(_lblInspA);
+            StyleResult(_lblMatchARef);
+            StyleResult(_lblInspARef);
             _txtFinder.Font = new Font("맑은 고딕", 10F); _txtFinder.Margin = new Padding(3, 8, 3, 8);
             _txtInsp.Font   = new Font("맑은 고딕", 10F); _txtInsp.Margin   = new Padding(3, 8, 3, 8);
 
@@ -99,9 +114,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Controls.Add(_txtFinder, 0, 1);
             grid.Controls.Add(_btnMatch, 1, 1);
             grid.Controls.Add(_lblMatch, 2, 1);
-            grid.Controls.Add(_txtInsp, 0, 2);
-            grid.Controls.Add(_btnInspect, 1, 2);
-            grid.Controls.Add(_lblInsp, 2, 2);
+            grid.Controls.Add(_lblMatchARef, 0, 2);
+            grid.Controls.Add(_btnMatchA, 1, 2);
+            grid.Controls.Add(_lblMatchA, 2, 2);
+            grid.Controls.Add(_txtInsp, 0, 3);
+            grid.Controls.Add(_btnInspect, 1, 3);
+            grid.Controls.Add(_lblInsp, 2, 3);
+            grid.Controls.Add(_lblInspARef, 0, 4);
+            grid.Controls.Add(_btnInspA, 1, 4);
+            grid.Controls.Add(_lblInspA, 2, 4);
 
             var hint = new Label
             {
@@ -109,9 +130,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ForeColor = Color.DimGray,
                 Font = new Font("맑은 고딕", 9F),
                 Padding = new Padding(0, 8, 0, 0),
-                Text = "Vision RUN 상태에서만 명령 수락(PING 제외). finder/inspector 는 레시피 등록 도구명."
+                Text = "Vision READY 상태에서만 명령 수락(PING 제외). ASYNC=그랩 후 1차 ACK→백그라운드 알고리즘→폴링 완료. finder/inspector 는 레시피 등록 도구명."
             };
-            grid.Controls.Add(hint, 0, 3); grid.SetColumnSpan(hint, 3);
+            grid.Controls.Add(hint, 0, 5); grid.SetColumnSpan(hint, 3);
 
             // 좌측 = 명령/결과 그리드, 우측 = 모듈별 뷰어(이미지). 명령 채널과 별개 포트.
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
@@ -130,9 +151,15 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             Controls.Add(root);
 
+            // 테스트 다이얼로그는 열리면 뷰어를 자동 Live 연결 — 좌측 버튼만으로 그랩/매칭/검사 영상이 바로 표시되게.
+            // (뷰어 툴바 Grab/Live 를 따로 누를 필요 없음. 스트림은 새 프레임이 있을 때만 송출되어 부하 없음.)
+            this.Shown += (s, e) => { try { _viewer?.StartLive(); } catch { } };
+
             _btnGrab.Click    += async (s, e) => await RunGrab();
             _btnMatch.Click   += async (s, e) => await RunMatch();
             _btnInspect.Click += async (s, e) => await RunInspect();
+            _btnMatchA.Click  += async (s, e) => await RunMatchAsync();
+            _btnInspA.Click   += async (s, e) => await RunInspectAsync();
         }
 
         private static void StyleCmd(Button b)
@@ -166,7 +193,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _lblGrab.ForeColor = Color.DimGray; _lblGrab.Text = "GRAB 중...";
             try
             {
-                string resp = await _c.SendAsync($"{_c.ModuleName}|EXPOSE|0");
+                string resp = await _c.SendAsync($"{_c.ModuleName}|EXPOSE|0", 30000);   // 고해상도 그랩 대비 30s
                 bool ok = resp != null && resp.StartsWith("ACK|");
                 string body = ""; var p = (resp ?? "").Split('|'); if (p.Length > 3) body = p[3];
                 _lblGrab.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
@@ -188,7 +215,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _lblMatch.ForeColor = Color.DimGray; _lblMatch.Text = $"MATCH({finder}) 중...";
             try
             {
-                MatchResultDto r = await _c.MatchAsync(finder);
+                MatchResultDto r = await _c.MatchAsync(finder, 0, 30000);
                 if (r.Success)
                 {
                     _lblMatch.ForeColor = Color.SeaGreen;
@@ -216,7 +243,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _lblInsp.ForeColor = Color.DimGray; _lblInsp.Text = $"INSPECT({inspector}) 중...";
             try
             {
-                InspectionResultDto r = await _c.InspectAsync(inspector);
+                InspectionResultDto r = await _c.InspectAsync(inspector, 0, 30000);
                 bool acked = r.Raw != null && r.Raw.StartsWith("ACK|");
                 if (acked)
                 {
@@ -234,6 +261,66 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _lblInsp.ForeColor = Color.Firebrick; _lblInsp.Text = "INSPECT 실패: " + ex.Message;
             }
             finally { _btnInspect.Enabled = true; }
+        }
+
+        // ── 비동기 매칭(2단계) — 시작(그랩→1차 ACK) 후 완료까지 폴링하고 소요시간 표시 ──
+        private async Task RunMatchAsync()
+        {
+            if (!Ready(_lblMatchA)) return;
+            string finder = (_txtFinder.Text ?? "").Trim();
+            if (finder.Length == 0) { _lblMatchA.ForeColor = Color.Firebrick; _lblMatchA.Text = "finder 이름을 입력하세요"; return; }
+            _btnMatchA.Enabled = false;
+            try
+            {
+                _lblMatchA.ForeColor = Color.DimGray; _lblMatchA.Text = $"ASYNC MATCH({finder}) 시작...";
+                if (!await _c.MatchAsyncStartAsync(finder))
+                { _lblMatchA.ForeColor = Color.Firebrick; _lblMatchA.Text = "시작 실패(그랩/게이트 확인)"; return; }
+                _lblMatchA.Text = "STARTED — 폴링 중...";
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                AsyncMatchPoll poll;
+                do
+                {
+                    await Task.Delay(20);
+                    poll = await _c.PollMatchResultAsync(finder);
+                    if (poll.Error) { _lblMatchA.ForeColor = Color.Firebrick; _lblMatchA.Text = "실패: " + poll.Raw; return; }
+                    if (sw.ElapsedMilliseconds > 30000) { _lblMatchA.ForeColor = Color.Firebrick; _lblMatchA.Text = "폴링 타임아웃(30s)"; return; }
+                } while (!poll.Done);
+                var r = poll.Result;
+                _lblMatchA.ForeColor = Color.SeaGreen;
+                _lblMatchA.Text = $"OK ({sw.ElapsedMilliseconds}ms)  x={r.X:F2} y={r.Y:F2} θ={r.AngleDeg:F3} score={r.Score:F3}";
+            }
+            catch (Exception ex) { _lblMatchA.ForeColor = Color.Firebrick; _lblMatchA.Text = "실패: " + ex.Message; }
+            finally { _btnMatchA.Enabled = true; }
+        }
+
+        // ── 비동기 검사(2단계) — 시작 후 완료까지 폴링하고 소요시간 표시 ──
+        private async Task RunInspectAsync()
+        {
+            if (!Ready(_lblInspA)) return;
+            string insp = (_txtInsp.Text ?? "").Trim();
+            if (insp.Length == 0) { _lblInspA.ForeColor = Color.Firebrick; _lblInspA.Text = "inspector 이름을 입력하세요"; return; }
+            _btnInspA.Enabled = false;
+            try
+            {
+                _lblInspA.ForeColor = Color.DimGray; _lblInspA.Text = $"ASYNC INSPECT({insp}) 시작...";
+                if (!await _c.InspectAsyncStartAsync(insp))
+                { _lblInspA.ForeColor = Color.Firebrick; _lblInspA.Text = "시작 실패(그랩/게이트 확인)"; return; }
+                _lblInspA.Text = "STARTED — 폴링 중...";
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                AsyncInspectPoll poll;
+                do
+                {
+                    await Task.Delay(20);
+                    poll = await _c.PollInspectResultAsync(insp);
+                    if (poll.Error) { _lblInspA.ForeColor = Color.Firebrick; _lblInspA.Text = "실패: " + poll.Raw; return; }
+                    if (sw.ElapsedMilliseconds > 30000) { _lblInspA.ForeColor = Color.Firebrick; _lblInspA.Text = "폴링 타임아웃(30s)"; return; }
+                } while (!poll.Done);
+                var r = poll.Result;
+                _lblInspA.ForeColor = r.IsPass ? Color.SeaGreen : Color.Firebrick;
+                _lblInspA.Text = $"{(r.IsPass ? "PASS" : "FAIL")} ({sw.ElapsedMilliseconds}ms)  ({r.Raw})";
+            }
+            catch (Exception ex) { _lblInspA.ForeColor = Color.Firebrick; _lblInspA.Text = "실패: " + ex.Message; }
+            finally { _btnInspA.Enabled = true; }
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

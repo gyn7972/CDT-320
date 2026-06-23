@@ -71,18 +71,26 @@ namespace QMC.Vision.Backends.Cognex
                 dynamic pattern = _pma.Pattern;
                 pattern.TrainImage  = cogImage;
                 pattern.TrainRegion = trainRegion;
-                // Origin 자동 (학습 영역 중심)
-                CognexInterop.TrySet(pattern, "Origin",
-                    CognexInterop.NewRectangle(rect.X + rect.Width / 2.0, rect.Y + rect.Height / 2.0, 0, 0, asms));
-
+                // Origin = 학습 영역 중심(이미지 좌표). 결과 Pose.Translation 이 '찾은 위치'의 절대 이미지 좌표가 되도록.
+                // (CogRectangle 0×0 은 "Width>0" 예외 → CogTransform2DLinear 평행이동으로 지정한다.)
+                try {
+                    CognexInterop.TrySet(pattern, "Origin",
+                        CognexInterop.NewTransform2D(rect.X + rect.Width / 2.0, rect.Y + rect.Height / 2.0, asms));
+                } catch (Exception oex) {
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
+                        Id + " Origin 설정 실패(좌표 절대화 불가): " + oex.Message); } catch { }
+                }
                 pattern.Train();
                 _trainSucceeded = true;
             }
-            catch
+            catch (Exception ex)
             {
-                // 라이선스/타입/런타임 오류 — 무시하고 fallback 으로
+                // 학습 실패 사유를 로그로 남겨 진단(이전엔 조용히 삼킴). 라이선스/동글, 이미지 포맷, 영역/Origin 등.
                 _trainSucceeded = false;
                 _pma            = null;
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "VISION", "Cognex",
+                    Id + " Cognex 학습(Train) 실패: " + ex.GetType().Name + ": " + ex.Message
+                    + " | trainRoi=" + rect.Width + "x" + rect.Height + " imgFmt=" + image.PixelFormat); } catch { }
             }
         }
 
@@ -107,9 +115,14 @@ namespace QMC.Vision.Backends.Cognex
                 dynamic patt = _pma.Pattern;
                 patt.TrainImage  = cogImage;
                 patt.TrainRegion = region;   // 저장 패턴 전체 영역 학습
-                // Origin = 패턴 중심(Train() 과 parity) — 미설정 시 매칭 좌표/모델 기준이 어긋날 수 있음.
-                CognexInterop.TrySet(patt, "Origin",
-                    CognexInterop.NewRectangle(pattern.Width / 2.0, pattern.Height / 2.0, 0, 0, asms));
+                // Origin = 패턴(저장 크롭) 중심. 결과 Pose.Translation 이 절대 이미지 좌표가 되도록(Train() 과 parity).
+                try {
+                    CognexInterop.TrySet(patt, "Origin",
+                        CognexInterop.NewTransform2D(pattern.Width / 2.0, pattern.Height / 2.0, asms));
+                } catch (Exception oex) {
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
+                        Id + " LoadTrainImage Origin 설정 실패: " + oex.Message); } catch { }
+                }
                 patt.Train();
                 _trainSucceeded = true;
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
@@ -139,11 +152,20 @@ namespace QMC.Vision.Backends.Cognex
             _fallback.MaxInstances      = MaxInstances;
             _fallback.AcceptThreshold   = AcceptThreshold;
             _fallback.PreferNearestCenter = PreferNearestCenter;
-            if (!_be.CognexLoaded || !_trainSucceeded || _pma == null)
+            // Provider=Cognex 선택 시에는 OpenCv 로 대체하지 않고 Cognex 설정/결과 그대로 진행한다.
+            //  - VisionPro 미로드: Cognex 자체가 불가 → 명확히 실패(설치/DLL 경로 확인). (예전엔 조용히 OpenCv 전환)
+            //  - 미학습(_pma==null): 즉시 실패(티칭 필요) — 전영역 OpenCv 탐색으로 인한 지연/오검 방지.
+            if (!_be.CognexLoaded)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "VISION", "Engine",
+                    Id + " MATCH 실패 → Cognex(VisionPro) 미로드. Provider=Cognex 이므로 OpenCv 로 대체하지 않음(설치/경로 확인)."); } catch { }
+                return MatchResult.Fail(Id, "Cognex(VisionPro) 미로드 — 설치/DLL 경로 확인");
+            }
+            if (!_trainSucceeded || _pma == null)
             {
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Engine",
-                    Id + " MATCH → OpenCv fallback (CognexLoaded=" + _be.CognexLoaded + ", trained=" + _trainSucceeded + ", pma=" + (_pma != null) + ")"); } catch { }
-                return _fallback.Match(image);
+                    Id + " MATCH 실패 → 미학습(티칭 필요). Provider=Cognex 라 OpenCv fallback 안 함."); } catch { }
+                return MatchResult.Fail(Id, "미학습 — 티칭(Train) 필요");
             }
 
             try
@@ -250,8 +272,8 @@ namespace QMC.Vision.Backends.Cognex
                     try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Engine",
                         Id + " MATCH → Cognex PatMax found=0 (search @" + s.X + "," + s.Y + " " + s.Width + "x" + s.Height +
                         ", thr=" + AcceptThreshold.ToString("F2") + " | 진단 thr0.3: 후보=" + diagN + " best=" + diagBest.ToString("F3") +
-                        ") → OpenCv fallback 재시도"); } catch { }
-                    return _fallback.Match(image);
+                        ") → 미검출(no match), Provider=Cognex 라 fallback 안 함"); } catch { }
+                    return result;
                 }
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Engine",
                     Id + " MATCH → Cognex PatMax 사용 (found=" + result.Instances.Count + ")"); } catch { }
@@ -259,10 +281,10 @@ namespace QMC.Vision.Backends.Cognex
             }
             catch (Exception ex)
             {
-                // 런타임 실패 — fallback 사용 (라이선스/도ngle 미체결 등)
-                var fb = _fallback.Match(image);
-                if (!fb.Success) fb.ErrorMessage = "Cognex run failed (" + ex.Message + "); fallback also failed";
-                return fb;
+                // 런타임 실패(라이선스/동글 미체결 등) — Provider=Cognex 이므로 OpenCv 로 대체하지 않고 실패 반환.
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "VISION", "Engine",
+                    Id + " MATCH Cognex 런타임 실패: " + ex.Message); } catch { }
+                return MatchResult.Fail(Id, "Cognex 실행 실패: " + ex.Message);
             }
         }
 

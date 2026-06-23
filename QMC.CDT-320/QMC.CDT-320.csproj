@@ -458,6 +458,9 @@
     <Compile Include="Ui\Dialogs\WaferVisionTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\TpuVisionTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Controls\VisionViewerPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
