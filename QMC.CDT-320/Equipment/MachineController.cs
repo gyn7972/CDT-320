@@ -267,6 +267,9 @@ namespace QMC.CDT320
         /// <summary>Mean Time To Recovery (rolling).</summary>
         public TimeSpan Mttr { get; internal set; } = TimeSpan.Zero;
 
+        /// <summary>작업 시간/UPH 통계 엔진. 사이클/상태 이벤트를 먹이면 lock-free 스냅샷을 발행한다.</summary>
+        public QMC.CDT320.Stats.ProductionStatsEngine Stats { get; } = new QMC.CDT320.Stats.ProductionStatsEngine();
+
         /// <summary>?꾩옱 InputLoader 媛 泥섎━ 以묒씤 ?щ’ ?몃뜳??(0-base). -1 = 誘몄옣李??몃줈???곹깭.</summary>
         public int CurrentInputSlot { get; private set; } = -1;
         /// <summary>?꾩옱 ?щ’???⑥씠?쇨? InputStage 援먰솚 ?꾩튂源뚯? ?댁넚?섏뿀?붿? ?щ?.</summary>
@@ -6669,6 +6672,8 @@ namespace QMC.CDT320
                 lotId = "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
                 LotStorage.OpenLot(lotId, "default", totalDies);
             }
+            // 작업 시간/UPH 통계 엔진: 부하 시간 시작(사이클 Start 기준) + 작업 변수 리셋.
+            try { Stats.BeginLot(lotId, totalDies); } catch { }
             SetStatus(EquipmentStatus.AutoRunning);
             Log("[CYCLE] Start (total=" + totalDies + ", lot=" + lotId + ")");
 
@@ -6696,13 +6701,23 @@ namespace QMC.CDT320
                 Log("[CYCLE] " + totalCycles + " cycles 횞 " + pickers + " pickers = " + totalDies + " dies");
 
                 int startCycle = resumeCycle ? System.Math.Max(0, CycleDone / pickers) : 0;
+                // 작업 시간 통계: 1 사이클 소요 ms 측정용 Stopwatch (루프 진입 전 1회).
+                var swCycle = System.Diagnostics.Stopwatch.StartNew();
                 for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
                     if (_cycleStopRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
+                    int goodBefore = GoodCount;
+                    int ngBefore = NgCount;
                     await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // ?ъ씠???몃뜳??+ total ?꾨떖
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
+                    // 통계 엔진에 1 사이클 결과를 먹인다(기존 카운트는 그대로 유지).
+                    long cycleMs = swCycle.ElapsedMilliseconds;
+                    swCycle.Restart();
+                    int goodDelta = System.Math.Max(0, GoodCount - goodBefore);
+                    int ngDelta = System.Math.Max(0, NgCount - ngBefore);
+                    try { Stats.OnCycleCompleted(diesInCycle, goodDelta, ngDelta, cycleMs); } catch { }
                     RaiseProgress();
                     if (_cycleStopRequested)
                     {
@@ -6734,6 +6749,7 @@ namespace QMC.CDT320
 
                 Log("[CYCLE] ?꾨즺 (good=" + GoodCount + ", ng=" + NgCount + ")");
                 LotStorage.CloseLot(aborted: false);
+                try { Stats.EndLot(); } catch { }
                 _cycleResumePending = false;
                 _cycleStopRequested = false;
                 // Stage 45 ??Tower Lamp OFF (?ъ씠???뺤긽 ?꾨즺)
@@ -6769,6 +6785,7 @@ namespace QMC.CDT320
                     // Tower Lamp OFF (?ъ씠??以묐떒)
                     try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                     LotStorage.CloseLot(aborted: true);
+                    try { Stats.EndLot(); } catch { }
                     SetStatus(EquipmentStatus.Stopped);
                 }
             }
@@ -6777,6 +6794,7 @@ namespace QMC.CDT320
                 AlarmManager.Raise(AlarmSeverity.Error, "CYCLE-EX", "MachineController", ex.Message);
                 Log("[CYCLE ERROR] " + ex.Message);
                 LotStorage.CloseLot(aborted: true);
+                try { Stats.EndLot(); } catch { }
                 SetStatus(EquipmentStatus.Alarm);
             }
         }
@@ -7844,7 +7862,9 @@ namespace QMC.CDT320
         private void SetStatus(EquipmentStatus s)
         {
             if (_status == s) return;
+            EquipmentStatus old = _status;
             _status = s;
+            try { Stats.OnStateChanged(old, s, DateTime.UtcNow); } catch { }
             var h = StatusChanged;
             if (h != null) try { h(s); } catch { }
         }

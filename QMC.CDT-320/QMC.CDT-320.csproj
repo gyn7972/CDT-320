@@ -95,6 +95,8 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\Stats\ProductionStatsSnapshot.cs" />
+    <Compile Include="Equipment\Stats\ProductionStatsEngine.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxis.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxisSetting.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXConfig.cs" />
@@ -1152,6 +1154,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Work\OutputStageMapTransferPage.resx">
       <DependentUpon>OutputStageMapTransferPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Work\WorkMainPage.resx">
+      <DependentUpon>WorkMainPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Tabs\RecipeTab.resx">
       <DependentUpon>RecipeTab.cs</DependentUpon>
