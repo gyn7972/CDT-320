@@ -394,16 +394,7 @@ namespace QMC.CDT320.Sequencing
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
 
-            bool xPositionReady = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
-
-            if (xPositionReady)
-            {
-                CurrentStep = _inspectionYPositionReady
-                    ? PickerSideInspectionStep.MoveSideZ
-                    : PickerSideInspectionStep.MoveSideYToInspection;
-                return 0;
-            }
 
             if (!IsCurrentPickerXInSideZone() &&
                 !IsPickerYAtXZoneMoveSafePosition() &&
@@ -965,11 +956,19 @@ namespace QMC.CDT320.Sequencing
                 if (targets.Count == 0)
                     return 0;
 
-                return await MovePickerAxesAndVerifyAsync(
-                    targets,
-                    description,
-                    ct,
-                    "DieSideFinalZAvoid").ConfigureAwait(false);
+                foreach (KeyValuePair<PickerAxis, double> pair in targets)
+                {
+                    int result = await MovePickerAxisAndVerifyAsync(
+                        pair.Key,
+                        pair.Value,
+                        description,
+                        ct,
+                        "DieSideFinalZAvoid").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                return 0;
             }
             catch (OperationCanceledException)
             {

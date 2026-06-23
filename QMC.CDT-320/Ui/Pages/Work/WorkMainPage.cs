@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Drawing;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Lots;
@@ -14,10 +16,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
     {
         // UI 적용 주기(250~500ms). 표시 갱신만 수행하며 저장/모션 루프와 분리된다.
         private const int RefreshIntervalMs = 500;
+        private const int MaterialRefreshIntervalMs = 1000;
 
-        private Timer _refresh;
+        private System.Windows.Forms.Timer _refresh;
         private ToolTip _workTimeToolTip;
         private bool _eventsHooked;
+        private readonly object _materialDisplaySync = new object();
+        private MaterialDisplaySnapshot _materialDisplayCache = new MaterialDisplaySnapshot();
+        private DateTime _lastMaterialDisplayRefreshUtc = DateTime.MinValue;
+        private int _materialDisplayRefreshQueued;
         private readonly Label[] _frontColletUseValues = new Label[4];
         private readonly Label[] _rearColletUseValues = new Label[4];
 
@@ -32,7 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 HookStateEvents();
 
-                _refresh = new Timer { Interval = RefreshIntervalMs };
+                _refresh = new System.Windows.Forms.Timer { Interval = RefreshIntervalMs };
                 _refresh.Tick += (s, e) =>
                 {
                     if (!ShouldRefreshVisible(this))
@@ -42,6 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     }
 
                     RefreshAll();
+                    QueueMaterialDisplayRefresh(false);
                 };
             }
         }
@@ -160,6 +168,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             // Lot 변경은 비-UI 스레드에서 올 수 있으므로 BeginInvoke 로만 가볍게 표시 갱신을 예약한다.
             LotStorage.ActiveLotChanged += OnActiveLotChanged;
+            MaterialStateService.StateChanged += OnMaterialStateChanged;
             _eventsHooked = true;
         }
 
@@ -169,6 +178,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return;
 
             LotStorage.ActiveLotChanged -= OnActiveLotChanged;
+            MaterialStateService.StateChanged -= OnMaterialStateChanged;
             _eventsHooked = false;
         }
 
@@ -182,12 +192,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 BeginInvoke((Action)(() =>
                 {
                     if (ShouldRefreshVisible(this))
+                    {
+                        QueueMaterialDisplayRefresh(true);
                         RefreshAll();
+                    }
                 }));
             }
             catch
             {
             }
+        }
+
+        private void OnMaterialStateChanged(MaterialSnapshot snapshot)
+        {
+            QueueMaterialDisplayRefresh(false);
         }
 
         private void RefreshAll()
@@ -217,7 +235,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             // 작업 시간/UPH 통계는 엔진 스냅샷 1회 읽기로 끝낸다(계산은 엔진이 수행, UI는 표시만).
             ProductionStatsSnapshot stats = ctrl?.Stats?.GetSnapshot() ?? ProductionStatsSnapshot.Empty;
-            MaterialDisplaySnapshot material = BuildMaterialDisplaySnapshot();
+            MaterialDisplaySnapshot material = GetCachedMaterialDisplaySnapshot();
             bool useMaterialCounters = stats.ProcessedDies <= 0 && material.HasMaterial;
 
             int total = useMaterialCounters ? material.ProcessedCount : stats.ProcessedDies;
@@ -328,6 +346,80 @@ namespace QMC.CDT_320.Ui.Pages.Work
             snap.Lot = ResolveDisplayLotId(stats, lot, material);
 
             return snap;
+        }
+
+        private MaterialDisplaySnapshot GetCachedMaterialDisplaySnapshot()
+        {
+            lock (_materialDisplaySync)
+            {
+                return _materialDisplayCache ?? new MaterialDisplaySnapshot();
+            }
+        }
+
+        private void QueueMaterialDisplayRefresh(bool force)
+        {
+            try
+            {
+                if (IsDisposed)
+                    return;
+
+                if (!force)
+                {
+                    DateTime lastRefreshUtc;
+                    lock (_materialDisplaySync)
+                    {
+                        lastRefreshUtc = _lastMaterialDisplayRefreshUtc;
+                    }
+
+                    if (lastRefreshUtc != DateTime.MinValue &&
+                        (DateTime.UtcNow - lastRefreshUtc).TotalMilliseconds < MaterialRefreshIntervalMs)
+                    {
+                        return;
+                    }
+                }
+
+                if (Interlocked.CompareExchange(ref _materialDisplayRefreshQueued, 1, 0) != 0)
+                    return;
+
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        MaterialDisplaySnapshot snapshot = BuildMaterialDisplaySnapshot();
+                        lock (_materialDisplaySync)
+                        {
+                            _materialDisplayCache = snapshot ?? new MaterialDisplaySnapshot();
+                            _lastMaterialDisplayRefreshUtc = DateTime.UtcNow;
+                        }
+
+                        if (!IsDisposed && IsHandleCreated)
+                        {
+                            try
+                            {
+                                BeginInvoke((Action)(() =>
+                                {
+                                    if (ShouldRefreshVisible(this))
+                                        RefreshAll();
+                                }));
+                            }
+                            catch
+                            {
+                            }
+                        }
+                    }
+                    catch
+                    {
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref _materialDisplayRefreshQueued, 0);
+                    }
+                });
+            }
+            catch
+            {
+                Interlocked.Exchange(ref _materialDisplayRefreshQueued, 0);
+            }
         }
 
         /// <summary>스냅샷을 라벨에 반영한다. 값이 다를 때만 Text 를 바꿔 레이아웃 churn 을 줄인다.</summary>
@@ -742,6 +834,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 if (ShouldRefreshVisible(this))
                 {
+                    QueueMaterialDisplayRefresh(true);
                     RefreshAll();
                     if (!_refresh.Enabled)
                         _refresh.Start();
