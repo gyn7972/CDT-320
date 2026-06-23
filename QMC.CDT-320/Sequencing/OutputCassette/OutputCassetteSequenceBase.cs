@@ -444,6 +444,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SequenceStopException.IsCycleStopMessage(message))
+                {
+                    WriteLog(source, message + " - Stopped");
+                    Context.LogPublic("[OUTPUT-CASSETTE] STOP " + message);
+                    throw new SequenceStopException(message);
+                }
+
                 TStep failedStep = CurrentStep;
                 CurrentStep = ErrorStep;
                 SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
@@ -451,6 +458,10 @@ namespace QMC.CDT320.Sequencing
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 Context.LogPublic("[OUTPUT-CASSETTE] FAIL " + alarmCode + " - " + message);
+            }
+            catch (SequenceStopException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

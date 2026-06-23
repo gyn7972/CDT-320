@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Drawing;
 using System.Windows.Forms;
+using QMC.CDT320;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
@@ -16,10 +18,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Timer _refresh;
         private ToolTip _workTimeToolTip;
         private bool _eventsHooked;
+        private readonly Label[] _frontColletUseValues = new Label[4];
+        private readonly Label[] _rearColletUseValues = new Label[4];
 
         public WorkMainPage()
         {
             InitializeComponent();
+            RebuildWorkInfoPanel();
             WireEvents();
             InitializeWorkTimeToolTips();
 
@@ -273,9 +278,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             snap.PickFail = (ctrl?.PickFailCount ?? 0) + " ea";
             snap.PlaceFail = (ctrl?.PlaceFailCount ?? 0) + " ea";
             snap.BinQty = good + " ea";
-            snap.Collet1 = (ctrl?.Collet1UseCount ?? 0).ToString();
-            snap.Collet2 = (ctrl?.Collet2UseCount ?? 0).ToString();
-            snap.Needle = (ctrl?.NeedleUseCount ?? 0).ToString();
+            int[] frontCollets = GetFrontColletUseCounts(ctrl);
+            int[] rearCollets = GetRearColletUseCounts(ctrl);
+            int frontColletTotal = SumCountArray(frontCollets);
+            int rearColletTotal = SumCountArray(rearCollets);
+            snap.FrontCollets = BuildCountTextArray(frontCollets, 4);
+            snap.RearCollets = BuildCountTextArray(rearCollets, 4);
+            snap.Collet1 = frontColletTotal.ToString();
+            snap.Collet2 = rearColletTotal.ToString();
+            snap.Needle = FormatTwoDigitCount(Math.Max(ctrl?.NeedleUseCount ?? 0, frontColletTotal + rearColletTotal)) + " ea";
 
             // 화면 수량은 Material 복구값을 참고할 수 있지만, UPH/Cycle은 통계 엔진 값만 사용한다.
             // 복구된 Material 누적 수량과 방금 시작한 통계 시간을 섞으면 UPH가 비정상적으로 커진다.
@@ -336,6 +347,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             SetText(lblCollet1, s.Collet1);
             SetText(lblCollet2, s.Collet2);
             SetText(lblNeedle, s.Needle);
+            SetTextArray(_frontColletUseValues, s.FrontCollets);
+            SetTextArray(_rearColletUseValues, s.RearCollets);
             SetText(lblLoad, s.Load);
             SetText(lblUp, s.Up);
             SetText(lblContUp, s.ContUp);
@@ -368,6 +381,95 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private void RebuildWorkInfoPanel()
+        {
+            if (workInfoBody == null)
+                return;
+
+            workInfoBody.SuspendLayout();
+            try
+            {
+                workInfoBody.Controls.Clear();
+                workInfoBody.ColumnStyles.Clear();
+                workInfoBody.RowStyles.Clear();
+                workInfoBody.ColumnCount = 4;
+                workInfoBody.RowCount = 11;
+                workInfoBody.BackColor = Color.FromArgb(240, 240, 240);
+                workInfoBody.Padding = new Padding(6);
+                workInfoBody.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
+
+                for (int i = 0; i < 4; i++)
+                    workInfoBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+                for (int i = 0; i < 10; i++)
+                    workInfoBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                AddWorkInfoPair(lblProjectCaption, lblProject, 0, 0, WorkInfoCaptionColor, Color.White);
+                AddWorkInfoPair(lblBinQtyCaption, lblBinQty, 2, 0, WorkInfoCaptionColor, Color.White);
+                AddWorkInfoPair(lblPickFailCaption, lblPickFail, 0, 1, WorkInfoCaptionColor, Color.White);
+                AddWorkInfoPair(lblPlaceFailCaption, lblPlaceFail, 2, 1, WorkInfoCaptionColor, Color.White);
+
+                for (int i = 0; i < 4; i++)
+                {
+                    Label caption = CreateWorkInfoLabel("Front - #" + (i + 1) + " Collet 사용", true, WorkInfoYellowColor);
+                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
+                    _frontColletUseValues[i] = value;
+                    AddWorkInfoPair(caption, value, 0, 2 + i, WorkInfoYellowColor, Color.White);
+                }
+
+                for (int i = 0; i < 4; i++)
+                {
+                    Label caption = CreateWorkInfoLabel("Rear - #" + (i + 1) + " Collet 사용", true, WorkInfoYellowColor);
+                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
+                    _rearColletUseValues[i] = value;
+                    AddWorkInfoPair(caption, value, 0, 6 + i, WorkInfoYellowColor, Color.White);
+                }
+
+                lblNeedleCaption.Tag = null;
+                lblNeedleCaption.Text = "Needle 사용";
+                AddWorkInfoPair(lblNeedleCaption, lblNeedle, 2, 3, WorkInfoYellowColor, Color.White);
+            }
+            finally
+            {
+                workInfoBody.ResumeLayout(false);
+            }
+        }
+
+        private static Color WorkInfoCaptionColor => Color.FromArgb(208, 208, 208);
+        private static Color WorkInfoYellowColor => Color.FromArgb(255, 192, 0);
+
+        private void AddWorkInfoPair(Label caption, Label value, int column, int row, Color captionBackColor, Color valueBackColor)
+        {
+            ConfigureWorkInfoLabel(caption, true, captionBackColor);
+            ConfigureWorkInfoLabel(value, false, valueBackColor);
+            workInfoBody.Controls.Add(caption, column, row);
+            workInfoBody.Controls.Add(value, column + 1, row);
+        }
+
+        private static Label CreateWorkInfoLabel(string text, bool caption, Color backColor)
+        {
+            var label = new Label { Text = text };
+            ConfigureWorkInfoLabel(label, caption, backColor);
+            return label;
+        }
+
+        private static void ConfigureWorkInfoLabel(Label label, bool caption, Color backColor)
+        {
+            if (label == null)
+                return;
+
+            label.BackColor = backColor;
+            label.BorderStyle = BorderStyle.FixedSingle;
+            label.Dock = DockStyle.Fill;
+            label.Font = caption
+                ? new Font("맑은 고딕", 10F, FontStyle.Regular)
+                : new Font("Consolas", 10F, FontStyle.Regular);
+            label.ForeColor = caption && backColor == WorkInfoYellowColor ? Color.White : Color.Black;
+            label.Margin = new Padding(0);
+            label.Padding = caption ? new Padding(8, 0, 0, 0) : new Padding(0, 0, 6, 0);
+            label.TextAlign = caption ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleRight;
+        }
+
         private static void SetText(Control control, string text)
         {
             if (control == null)
@@ -375,6 +477,68 @@ namespace QMC.CDT_320.Ui.Pages.Work
             text = text ?? string.Empty;
             if (!string.Equals(control.Text, text, StringComparison.Ordinal))
                 control.Text = text;
+        }
+
+        private static void SetTextArray(Label[] labels, string[] values)
+        {
+            if (labels == null || values == null)
+                return;
+
+            int count = Math.Min(labels.Length, values.Length);
+            for (int i = 0; i < count; i++)
+                SetText(labels[i], values[i]);
+        }
+
+        private static int[] GetFrontColletUseCounts(MachineController ctrl)
+        {
+            try
+            {
+                return ctrl?.Machine?.PickerFrontUnit?.ColletUseCounts;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static int[] GetRearColletUseCounts(MachineController ctrl)
+        {
+            try
+            {
+                return ctrl?.Machine?.PickerRearUnit?.ColletUseCounts;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string[] BuildCountTextArray(int[] counts, int count)
+        {
+            string[] values = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                int value = counts != null && i < counts.Length ? Math.Max(0, counts[i]) : 0;
+                values[i] = FormatTwoDigitCount(value) + " ea";
+            }
+
+            return values;
+        }
+
+        private static int SumCountArray(int[] counts)
+        {
+            if (counts == null)
+                return 0;
+
+            int total = 0;
+            for (int i = 0; i < counts.Length; i++)
+                total += Math.Max(0, counts[i]);
+            return total;
+        }
+
+        private static string FormatTwoDigitCount(int value)
+        {
+            return Math.Max(0, value).ToString("00");
         }
 
         private static string FormatTs(TimeSpan ts)
@@ -606,6 +770,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public string Collet1;
             public string Collet2;
             public string Needle;
+            public string[] FrontCollets;
+            public string[] RearCollets;
             public string Load;
             public string Up;
             public string ContUp;
