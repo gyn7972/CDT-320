@@ -392,6 +392,13 @@ namespace QMC.Common.Motion
         /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.
         /// </summary>
         public bool IsSimulationMode { get; set; } = true;
+
+        /// <summary>
+        /// 시뮬레이션 절대 이동/홈 이동에만 적용하는 속도 배율입니다.
+        /// 실장비 모션 속도에는 적용하지 않습니다.
+        /// </summary>
+        public double SimulationSpeedScale { get; set; } = 3.0;
+
         /// <summary>일반 이동 기본 속도 [mm/s 또는 deg/s].</summary>
         public double DefaultVelocity { get; set; } = 100.0;
 

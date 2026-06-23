@@ -1,10 +1,12 @@
 ﻿using QMC.CDT320.Bin;
+using QMC.CDT320.Interlocks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -44,25 +46,27 @@ namespace QMC.CDT320.Sequencing
         /// </summary>
         private List<ReadyStep> BuildReadySteps()
         {
-            return new List<ReadyStep>
-            {
-                new ReadyStep("Input/Output VisionX Avoid", ct => MoveInputOutputVisionXOnlyAvoidAsync(ct)),
-                new ReadyStep("Front/Rear Picker Z Avoid", ct => MoveFrontRearPickerZAxesAvoidAsync(ct)),
-                new ReadyStep("Front/Rear Picker Y Avoid", ct => MoveFrontRearPickerYAxesAvoidAsync(ct)),
-                new ReadyStep("Front/Rear Picker T Avoid", ct => MoveFrontRearPickerTAxesAvoidAsync(ct)),
-                new ReadyStep("Front/Rear Picker X Avoid", ct => MoveFrontRearPickerXAxesAvoidAsync(ct)),
+            var steps = new List<ReadyStep>();
 
-                // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
-                //new ReadyStep("OutputStage Avoid", ct => MoveOutputStageAvoidAsync(ct)),
-                //new ReadyStep("Front Picker Avoid", ct => MoveFrontPickerAvoidAsync(ct)),
-                //new ReadyStep("Rear Picker Avoid", ct => MoveRearPickerAvoidAsync(ct)),
-                //new ReadyStep("Side Vision Avoid", ct => MoveSideVisionAvoidAsync(ct)),
-                //new ReadyStep("InputStage Avoid", ct => MoveInputStageAvoidAsync(ct)),
-                //new ReadyStep("Input Feeder Avoid", ct => MoveInputFeederAvoidAsync(ct)),
-                //new ReadyStep("Output Feeder Avoid", ct => MoveOutputFeederAvoidAsync(ct)),
-                //new ReadyStep("Input Cassette Avoid", ct => MoveInputCassetteAvoidAsync(ct)),
-                //new ReadyStep("Output Cassette Avoid", ct => MoveOutputCassetteAvoidAsync(ct)),
-            };
+            AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Output VisionX Avoid", MoveOutputStageVisionXOnlyAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.PickerTAvoid, "Front/Rear Picker T Avoid", MoveFrontRearPickerTAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.PickerXAvoid, "Front/Rear Picker X Avoid", MoveFrontRearPickerXAxesAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.InputVisionXAvoid, "Input VisionX Avoid", MoveInputStageVisionXOnlyAvoidAsync);
+
+            // 우선 아래는 확인 하면서 활성화하자. 주석 해제 시 TotalStepCount 가 자동으로 반영된다.
+            //AddReadyStep(steps, ReadyStepId.OutputStageAvoid, "OutputStage Avoid", MoveOutputStageAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.FrontPickerAvoid, "Front Picker Avoid", MoveFrontPickerAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.RearPickerAvoid, "Rear Picker Avoid", MoveRearPickerAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.SideVisionAvoid, "Side Vision Avoid", MoveSideVisionAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.InputStageAvoid, "InputStage Avoid", MoveInputStageAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.InputFeederAvoid, "Input Feeder Avoid", MoveInputFeederAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.OutputFeederAvoid, "Output Feeder Avoid", MoveOutputFeederAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.InputCassetteAvoid, "Input Cassette Avoid", MoveInputCassetteAvoidAsync);
+            //AddReadyStep(steps, ReadyStepId.OutputCassetteAvoid, "Output Cassette Avoid", MoveOutputCassetteAvoidAsync);
+
+            return steps;
         }
 
         public async Task<int> RunAsync(CancellationToken ct)
@@ -76,10 +80,14 @@ namespace QMC.CDT320.Sequencing
                 // 활성 단계를 순서대로 실행한다. 한 단계라도 실패하면 즉시 중단한다(기존 흐름 동일).
                 foreach (ReadyStep step in _steps)
                 {
-                    int result = await RunReadyStepAsync(step.Name, () => step.Action(ct)).ConfigureAwait(false);
+                    int result = await RunReadyStepAsync(step, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
+
+                int clearResult = ClearPickerWorkAreaStateAfterReady();
+                if (clearResult != 0)
+                    return clearResult;
 
                 LogStep("Ready 시퀀스 완료.");
                 return 0;
@@ -99,18 +107,81 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> RunReadyStepAsync(string stepName, Func<Task<int>> action)
+        private int ClearPickerWorkAreaStateAfterReady()
         {
-            ReportProgress(MachineReadySequenceState.Running, stepName, stepName + " 진행 중입니다.");
-
-            int result = await action().ConfigureAwait(false);
-            if (result == 0)
+            try
             {
-                _completedStepCount++;
-                ReportProgress(MachineReadySequenceState.Running, stepName, stepName + " 완료.");
-            }
+                string detail;
+                if (!PickerZoneInterlockRules.ClearPickerWorkAreasForReadyIfSafe(_machine, out detail))
+                {
+                    return Fail(
+                        "READY-PICKER-WORK-STATE-CLEAR",
+                        "MachineReadySequence",
+                        "Ready 완료 후 Picker 작업 점유 상태 해제 실패: " + detail);
+                }
 
-            return result;
+                LogStep(detail);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "READY-PICKER-WORK-STATE-CLEAR-EX",
+                    "MachineReadySequence",
+                    "Ready 완료 후 Picker 작업 점유 상태 해제 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> RunReadyStepAsync(ReadyStep step, CancellationToken ct)
+        {
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            string stepLabel = step.Label;
+            LogStep(stepLabel + " 시작.");
+            ReportProgress(MachineReadySequenceState.Running, stepLabel, stepLabel + " 진행 중입니다.");
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await step.Action(ct).ConfigureAwait(false);
+                stopwatch.Stop();
+
+                if (result == 0)
+                {
+                    _completedStepCount++;
+                    LogStep(stepLabel + " 완료. elapsedMs=" + stopwatch.ElapsedMilliseconds);
+                    ReportProgress(MachineReadySequenceState.Running, stepLabel, stepLabel + " 완료.");
+                    return 0;
+                }
+
+                string failure = stepLabel + " 실패. result=" + result + ", elapsedMs=" + stopwatch.ElapsedMilliseconds;
+                LastErrorMessage = string.IsNullOrWhiteSpace(LastErrorMessage)
+                    ? failure
+                    : failure + ", cause=" + LastErrorMessage;
+                Log.Write("Main", "SYSTEM", "MachineReadySequence", LastErrorMessage + " - Failed");
+                ReportProgress(MachineReadySequenceState.Failed, stepLabel, LastErrorMessage);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                stopwatch.Stop();
+                LogStep(stepLabel + " 정지 요청. elapsedMs=" + stopwatch.ElapsedMilliseconds);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                return Fail(
+                    "READY-STEP-EX",
+                    "MachineReadySequence",
+                    stepLabel + " 예외 발생. elapsedMs=" + stopwatch.ElapsedMilliseconds + ", reason=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void ReportProgress(MachineReadySequenceState state, string stepName, string message)
@@ -130,15 +201,55 @@ namespace QMC.CDT320.Sequencing
                 message));
         }
 
+        private static void AddReadyStep(
+            List<ReadyStep> steps,
+            ReadyStepId id,
+            string name,
+            Func<CancellationToken, Task<int>> action)
+        {
+            if (steps == null)
+                return;
+
+            steps.Add(new ReadyStep(steps.Count + 1, id, name, action));
+        }
+
+        private enum ReadyStepId
+        {
+            OutputVisionXAvoid,
+            PickerZAvoid,
+            PickerYAvoid,
+            PickerTAvoid,
+            PickerXAvoid,
+            InputVisionXAvoid,
+            OutputStageAvoid,
+            FrontPickerAvoid,
+            RearPickerAvoid,
+            SideVisionAvoid,
+            InputStageAvoid,
+            InputFeederAvoid,
+            OutputFeederAvoid,
+            InputCassetteAvoid,
+            OutputCassetteAvoid
+        }
+
         private struct ReadyStep
         {
+            public readonly int No;
+            public readonly ReadyStepId Id;
             public readonly string Name;
             public readonly Func<CancellationToken, Task<int>> Action;
 
-            public ReadyStep(string name, Func<CancellationToken, Task<int>> action)
+            public ReadyStep(int no, ReadyStepId id, string name, Func<CancellationToken, Task<int>> action)
             {
+                No = no;
+                Id = id;
                 Name = name;
                 Action = action;
+            }
+
+            public string Label
+            {
+                get { return "ReadyStep " + No + "/" + Id + " [" + Name + "]"; }
             }
         }
 

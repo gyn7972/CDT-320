@@ -274,16 +274,17 @@ namespace QMC.Common.Ui.Controls
 
             double sx = (double)_frame.Width  / dst.Width;
             double sy = (double)_frame.Height / dst.Height;
-            int ix1 = (int)((x1 - dst.Left) * sx);
-            int iy1 = (int)((y1 - dst.Top)  * sy);
-            int ix2 = (int)((x2 - dst.Left) * sx);
-            int iy2 = (int)((y2 - dst.Top)  * sy);
-            ix1 = Math.Max(0, Math.Min(_frame.Width  - 1, ix1));
-            ix2 = Math.Max(0, Math.Min(_frame.Width  - 1, ix2));
-            iy1 = Math.Max(0, Math.Min(_frame.Height - 1, iy1));
-            iy2 = Math.Max(0, Math.Min(_frame.Height - 1, iy2));
+            // 소수점 유지(정수 변환 안 함) — ROI 미세 조정/서브픽셀 정밀도 보존.
+            double dix1 = (x1 - dst.Left) * sx;
+            double diy1 = (y1 - dst.Top)  * sy;
+            double dix2 = (x2 - dst.Left) * sx;
+            double diy2 = (y2 - dst.Top)  * sy;
+            dix1 = Math.Max(0, Math.Min(_frame.Width  - 1, dix1));
+            dix2 = Math.Max(0, Math.Min(_frame.Width  - 1, dix2));
+            diy1 = Math.Max(0, Math.Min(_frame.Height - 1, diy1));
+            diy2 = Math.Max(0, Math.Min(_frame.Height - 1, diy2));
 
-            var rect = new RectangleF(ix1, iy1, ix2 - ix1, iy2 - iy1);
+            var rect = new RectangleF((float)dix1, (float)diy1, (float)(dix2 - dix1), (float)(diy2 - diy1));
             _editing = false;
             Cursor   = Cursors.Default;
             Invalidate();
@@ -578,8 +579,8 @@ namespace QMC.Common.Ui.Controls
                 var sx = (double)dst.Width  / _frame.Width;
                 var sy = (double)dst.Height / _frame.Height;
                 var rr = new Rectangle(
-                    dst.Left + (int)(_overlayRoi.X * sx), dst.Top + (int)(_overlayRoi.Y * sy),
-                    (int)(_overlayRoi.Width * sx),        (int)(_overlayRoi.Height * sy));
+                    dst.Left + (int)Math.Round(_overlayRoi.X * sx), dst.Top + (int)Math.Round(_overlayRoi.Y * sy),
+                    (int)Math.Round(_overlayRoi.Width * sx),        (int)Math.Round(_overlayRoi.Height * sy));
                 using (var p = new Pen(Color.Yellow, 1f)) g.DrawRectangle(p, rr);
             }
 
@@ -587,10 +588,14 @@ namespace QMC.Common.Ui.Controls
             {
                 var sx = (double)dst.Width  / _frame.Width;
                 var sy = (double)dst.Height / _frame.Height;
-                using (var p = new Pen(Color.LimeGreen, 2f))
-                using (var br = new SolidBrush(Color.LimeGreen))
-                using (var f  = new Font("Consolas", 9F))
+                // 라벨은 줌과 무관하게 고정 화면 크기(확대해도 안 작아짐) + 원본을 덜 가리도록
+                // 컴팩트하게: 인덱스 숫자만, 작은 폰트·반투명 배경, 마커도 소형.
+                using (var p   = new Pen(Color.LimeGreen, 1.5f))
+                using (var f   = new Font("Consolas", 8.25F, FontStyle.Bold))
+                using (var bg  = new SolidBrush(Color.FromArgb(140, 0, 0, 0)))
+                using (var brT = new SolidBrush(Color.LimeGreen))
                 {
+                    int idx = 0;
                     foreach (var m in _overlayMarks)
                     {
                         int cx = dst.Left + (int)(m.CenterX * sx);
@@ -612,10 +617,19 @@ namespace QMC.Common.Ui.Controls
                             }
                             g.DrawPolygon(p, corners);
                         }
-                        g.DrawEllipse(p, cx - 8, cy - 8, 16, 16);
-                        g.DrawLine   (p, cx - 10, cy, cx + 10, cy);
-                        g.DrawLine   (p, cx, cy - 10, cx, cy + 10);
-                        g.DrawString($"{m.Score:F2}", f, br, cx + 10, cy - 16);
+                        // 소형 십자 마커(원본 가림 최소화).
+                        g.DrawLine(p, cx - 6, cy, cx + 6, cy);
+                        g.DrawLine(p, cx, cy - 6, cx, cy + 6);
+
+                        // 인덱스 + 각도(°). 점수는 MATCH RESULT 그리드에서 확인. 컴팩트 라벨.
+                        string txt = idx.ToString() + " " + m.AngleDeg.ToString("F1") + "°";
+                        var ts = g.MeasureString(txt, f);
+                        float tx = cx + 7, ty = cy - ts.Height - 1;
+                        if (tx + ts.Width + 2 > ClientSize.Width)  tx = cx - ts.Width - 7;
+                        if (ty < 0)                                ty = cy + 7;
+                        g.FillRectangle(bg, tx - 1, ty, ts.Width + 2, ts.Height);
+                        g.DrawString(txt, f, brT, tx, ty);
+                        idx++;
                     }
                 }
             }

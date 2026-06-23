@@ -1,5 +1,6 @@
 ﻿using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -100,7 +101,7 @@ namespace QMC.CDT320.Interlocks
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
         }
-
+        
         private static bool VerifyReticleLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -135,11 +136,20 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
 
-            if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
-            {
-                reason = "ReticleLift initialize " + direction + " blocked. " + reason;
-                return false;
-            }
+            //if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
+            //{
+            //    reason = "ReticleLift initialize " + direction + " blocked. " + reason;
+            //    return false;
+            //}
+
+            // ReticleSideSlide Front/Rear가 모두 Backward 상태여야 ReticleLift 이동 가능.
+            // (둘 중 하나라도 Backward가 아니면 차단/알람)
+            VisionUnit vision = machine != null ? machine.VisionUnit : null;
+            if (!vision.IsVisionReticleFrontSideBackward() || !vision.IsVisionReticleRearSideBackward())
+                return MotionGuardRuleHelpers.Block(
+                    "ReticleLift",
+                    "ReticleLift move " + direction + " blocked. ReticleSideSlide Front/Rear가 모두 Backward 상태가 아닙니다.",
+                    out reason);
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }
@@ -149,11 +159,20 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
 
-            if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
-            {
-                reason = "ReticleLift move " + direction + " blocked. " + reason;
-                return false;
-            }
+            //if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
+            //{
+            //    reason = "ReticleLift move " + direction + " blocked. " + reason;
+            //    return false;
+            //}
+
+            // ReticleSideSlide Front/Rear가 모두 Backward 상태여야 ReticleLift 이동 가능.
+            // (둘 중 하나라도 Backward가 아니면 차단/알람)
+            VisionUnit vision = machine != null ? machine.VisionUnit : null;
+            if (!vision.IsVisionReticleFrontSideBackward() || !vision.IsVisionReticleRearSideBackward())
+                return MotionGuardRuleHelpers.Block(
+                    "ReticleLift",
+                    "ReticleLift move " + direction + " blocked. ReticleSideSlide Front/Rear가 모두 Backward 상태가 아닙니다.",
+                    out reason);
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }

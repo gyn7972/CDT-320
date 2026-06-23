@@ -397,6 +397,18 @@ namespace QMC.CDT320.Materials
         public MaterialLocationKind PickerLocation { get; set; }
     }
 
+    public sealed class InputStagePickTargetCandidate
+    {
+        public string WaferId { get; set; } = "";
+        public string DieId { get; set; } = "";
+        public int OrderIndex { get; set; }
+        public int DieMapX { get; set; }
+        public int DieMapY { get; set; }
+        public double TargetX { get; set; }
+        public double TargetY { get; set; }
+        public string DisplayText { get; set; } = "";
+    }
+
     [DataContract]
     public class MaterialSnapshot
     {

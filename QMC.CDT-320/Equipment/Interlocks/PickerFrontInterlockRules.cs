@@ -1,6 +1,6 @@
-﻿using QMC.Common.Motion;
-
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
+using QMC.Common.Motion;
+using System;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -56,7 +56,7 @@ namespace QMC.CDT320.Interlocks
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
                 if (!VerifyFrontPickerZAxesAvoidForMove(front, "FrontPickerX", out reason))
                     return false;
-
+                
                 if (!PickerZoneInterlockRules.VerifyFrontPickerXMove(request, out reason))
                     return false;
 
@@ -186,10 +186,10 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                if (stage != null && !IsExpanderZHomeAvoidOrProcess(stage))
+                if (stage != null && !IsExpanderZHomeAvoidProcessOrReady(stage))
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerX",
-                        "FrontPickerX HOME blocked. InputExpandingZ must be at Home(0), Avoid, or Process position.",
+                        "FrontPickerX HOME blocked. InputExpandingZ must be at Home(0), Avoid, Process or Ready position.",
                         out reason);
 
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
@@ -238,6 +238,22 @@ namespace QMC.CDT320.Interlocks
             {
                 if (!VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
                     return false;
+
+                // InputExpandingZ가 Avoid/Process/Ready 위치여야 FrontPickerY 이동 가능.
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !IsExpanderZAvoidProcessOrReady(stage))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
+                        out reason);
+
+                // OutputStage GoodStageZ가 안전 위치(Avoid 또는 Process)여야 FrontPickerY 이동 가능.
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage != null && !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다.",
+                        out reason);
 
                 return true;
             }
@@ -315,6 +331,29 @@ namespace QMC.CDT320.Interlocks
         {
             if (!CanHomeFrontPickerZ(machine, movingName, out reason))
                 return false;
+
+            // ① InputFeederY와 OutputFeederY가 모두 Avoid 위치여야 FrontPickerZ 이동 가능.
+            InputFeederUnit inputFeeder = machine != null ? machine.InputFeederUnit : null;
+            if (inputFeeder != null && !inputFeeder.IsWaferFeederYInAvoidPosition())
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다.",
+                    out reason);
+
+            OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+            if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다.",
+                    out reason);
+
+            // ② InputExpandingZ가 Avoid/Process/Ready 위치여야 FrontPickerZ 이동 가능.
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (stage != null && !IsExpanderZAvoidProcessOrReady(stage))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
+                    out reason);
 
             return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, movingName, out reason);
         }
@@ -445,7 +484,7 @@ namespace QMC.CDT320.Interlocks
             return isTeachingAvoid != null && isTeachingAvoid();
         }
 
-        private static bool IsExpanderZHomeAvoidOrProcess(InputStageUnit stage)
+        private static bool IsExpanderZHomeAvoidProcessOrReady(InputStageUnit stage)
         {
             if (stage == null || stage.ExpanderZ == null)
                 return true;
@@ -463,7 +502,28 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return System.Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
-                   System.Math.Abs(actual - waferZ.ProcessPosition) <= tolerance;
+                   System.Math.Abs(actual - waferZ.ProcessPosition) <= tolerance||
+                   System.Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
+        }
+
+        // FrontPickerX,Y 평면 이동 전제: ExpanderZ가 Avoid/Process/Ready 위치여야 한다. (Home(0)은 제외)
+        private static bool IsExpanderZAvoidProcessOrReady(InputStageUnit stage)
+        {
+            if (stage == null || stage.ExpanderZ == null)
+                return true;
+
+            double tolerance = stage.ExpanderZ.Config != null && stage.ExpanderZ.Config.InPositionTolerance > 0.0
+                ? stage.ExpanderZ.Config.InPositionTolerance
+                : 0.05;
+
+            StageAxisPositions waferZ = stage.Recipe != null ? stage.Recipe.WaferZ : null;
+            if (waferZ == null)
+                return false;
+
+            double actual = stage.ExpanderZ.ActualPosition;
+            return System.Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
+                   System.Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
+                   System.Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
         }
 
         private static BaseAxis ResolveFrontPickerAxis(PickerFrontUnit picker, PickerAxis axis)

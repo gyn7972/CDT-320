@@ -631,6 +631,27 @@ namespace QMC.CDT320
             return true;
         }
 
+        public bool IsWaferYNonProcessTravelTeachingTarget(double target)
+        {
+            if (Recipe == null)
+                return false;
+
+            Recipe.EnsurePositionObjects();
+            return IsStageTravelTeachingTarget(WaferStageAxis.WaferY, target) &&
+                   !IsProcessTeachingTarget(WaferStageAxis.WaferY, target);
+        }
+
+        public bool VerifyNeedleZSafeForWaferYNonProcessTravel(double target, out string reason)
+        {
+            if (!IsWaferYNonProcessTravelTeachingTarget(target))
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            return VerifyNeedleZSafeForNonProcessTarget(WaferStageAxis.WaferY, target, out reason);
+        }
+
         public bool IsInputStageJogAllowedInWorkArea(WaferStageAxis axis, Direction direction, out string reason)
         {
             reason = string.Empty;
@@ -1016,7 +1037,7 @@ namespace QMC.CDT320
             if (IsNeedleZInSafePosition())
                 return true;
 
-            reason = "NeedleZ must be at Avoid position before moving to non-process position. " +
+            reason = "비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
                 "axis=" + axis +
                 ", target=" + target.ToString("F3") +
                 ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
@@ -1208,13 +1229,6 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
                 }
 
-                double tolerance = ResolveAxisPositionTolerance(item);
-                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
-                {
-                    LastStageMoveFailureMessage = string.Empty;
-                    return 0;
-                }
-
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
                 {
@@ -1225,6 +1239,13 @@ namespace QMC.CDT320
                         "IN-STAGE-MOVE-INTERLOCK",
                         Name,
                         message);
+                }
+
+                double tolerance = ResolveAxisPositionTolerance(item);
+                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
                 }
 
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
@@ -1634,7 +1655,11 @@ namespace QMC.CDT320
         //  §6. 핵심 시퀀스 로직
         // ??????????????????????????????????????????????????????????????????????
 
-        public async Task<int> LoadAndPrepareWaferAsync(string waferId, bool requireMapData, bool bFine = false)
+        public async Task<int> LoadAndPrepareWaferAsync(
+            string waferId,
+            bool requireMapData,
+            bool bFine = false,
+            Func<Task<int>> beforeExpanderZMoveAsync = null)
         {
             try
             {
@@ -1652,6 +1677,13 @@ namespace QMC.CDT320
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (beforeExpanderZMoveAsync != null)
+                {
+                    result = await beforeExpanderZMoveAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
@@ -1810,7 +1842,9 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<int> PrepareUnloadWaferAsync(bool bFine = false)
+        public async Task<int> PrepareUnloadWaferAsync(
+            bool bFine = false,
+            Func<Task<int>> beforeExpanderZMoveAsync = null)
         {
             try
             {
@@ -1828,6 +1862,13 @@ namespace QMC.CDT320
                 result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (beforeExpanderZMoveAsync != null)
+                {
+                    result = await beforeExpanderZMoveAsync().ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)

@@ -53,6 +53,9 @@ namespace QMC.CDT320
         private readonly Dictionary<string, AxisInitializeStepProgress> _axisInitializeStepStates =
             new Dictionary<string, AxisInitializeStepProgress>(StringComparer.OrdinalIgnoreCase);
         private bool _restoringAxisInitializeStepState;
+        private readonly object _operatorMessageLock = new object();
+        private string _lastOperatorMessageKey = string.Empty;
+        private DateTime _lastOperatorMessageTimeUtc = DateTime.MinValue;
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
@@ -62,6 +65,7 @@ namespace QMC.CDT320
         public event Action<bool> MachineInitializedChanged;
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
         public event Action<MachineReadyProgress> ReadySequenceProgressChanged;
+        public event Action<string, string> OperatorMessageRequested;
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
@@ -4034,62 +4038,76 @@ namespace QMC.CDT320
             }
         }
 
-        private Task<int> PrepareOutputFeederHomeAsync()
+        private async Task<int> PrepareOutputFeederHomeAsync()
         {
             Log("[INIT] Prepare OutputFeeder home: OutputLifterZ / OutputVisionX Avoid check, feeder unclamp/up.");
 
             var cassette = _machine.OutputCassetteUnit;
             if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다.");
             }
 
             var outputStage = _machine.OutputStageUnit;
             if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다.");
             }
 
             if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다.");
             }
 
             if (outputStage != null && !outputStage.IsBinGuideDown(BinSide.Good))
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
+                Log("[INIT] Prepare OutputFeeder home: Good Bin Guide Down.");
+
+                int guideDownResult = await outputStage.EnsureBinGuideDownAsync(BinSide.Good, 3000, CancellationToken.None).ConfigureAwait(false);
+                if (guideDownResult != 0)
+                {
+                    return FailInitializePreparation(
+                        "OutputFeeder HOME 준비 실패: Good Bin Guide Down 명령 실패. result=" + guideDownResult + ", " +
+                        outputStage.DescribeOutputStageInterlockState(BinSide.Good));
+                }
+
+                if (!outputStage.IsBinGuideDown(BinSide.Good))
+                {
+                    return FailInitializePreparation(
+                        "OutputFeeder HOME 준비 실패: Good Bin Guide Down 최종 확인 실패. " +
+                        outputStage.DescribeOutputStageInterlockState(BinSide.Good));
+                }
             }
 
             var feeder = _machine.OutputFeederUnit;
             if (feeder == null)
-                return Task.FromResult(0);
+                return 0;
 
             if (feeder.IsFeederOverload())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다."));
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
             }
 
             if (!feeder.IsFeederUnclamped())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder unclamp failed."));
+                return FailInitializePreparation("OutputFeeder unclamp failed.");
             }
 
             if (!feeder.IsFeederUp())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder lift up failed."));
+                return FailInitializePreparation("OutputFeeder lift up failed.");
             }
 
-            if (feeder.IsBinFeederRingCheck())
+            if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
             {
-                return Task.FromResult(FailInitializePreparation("OutputFeeder Ring Check."));
+                return FailInitializePreparation("OutputFeeder Ring Check.");
             }
 
-            return Task.FromResult(0);
+            return 0;
         }
 
         private async Task<int> MoveSharedRailAxesToAvoidAsync()
@@ -6067,6 +6085,253 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>선택한 InputStage Die를 대상으로 Manual PickUp 테스트를 실행합니다. 실제 Material 상태를 Picker 보유 상태로 갱신합니다.</summary>
+        public async Task<int> RunManualPickerSelectedDiePickUpAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            string dieId)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 선택 Die PickUp 테스트를 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-DIE-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 선택 Die PickUp 테스트를 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 선택 Die PickUp 테스트를 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-MANUAL-PICKER-DIE-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    LastActionFailureMessage = "PickUp 테스트 대상 Die가 선택되지 않았습니다.";
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunManualPickerSelectedDiePickUpAsync"))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (EnterManualOperation())
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+                    var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.PickerNo = pickerNo;
+                    options.SimulateVisionResult =
+                        QMC.CDT320.AppSettingsStore.Current != null &&
+                        (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
+                         QMC.CDT320.AppSettingsStore.Current.DryRunMode);
+
+                    int result = await new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side)
+                        .RunManualSelectedDiePickUpAsync(dieId, pickerNo, ManualOperationToken, options)
+                        .ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = "선택 Die PickUp 테스트 실패. side=" + side +
+                                                   ", pickerNo=" + pickerNo +
+                                                   ", die=" + dieId +
+                                                   ", result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState("ManualPickerSelectedDiePickUp:" + side + ":" + pickerNo + ":" + dieId);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "선택 Die PickUp 테스트가 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "선택 Die PickUp 테스트 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-DIE-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> RunManualPickerSelectedDiePrepareAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            string dieId)
+        {
+            return await RunManualPickerSelectedDieStepAsync(
+                side,
+                pickerNo,
+                dieId,
+                false,
+                "선택 Die PickUp 준비",
+                "ManualPickerSelectedDiePrepare",
+                "SEQ-MANUAL-PICKER-DIE-PREPARE").ConfigureAwait(false);
+        }
+
+        public async Task<int> RunManualPickerPreparedDiePickZAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            string dieId)
+        {
+            return await RunManualPickerSelectedDieStepAsync(
+                side,
+                pickerNo,
+                dieId,
+                true,
+                "준비 Die Pick Z 테스트",
+                "ManualPickerPreparedDiePickZ",
+                "SEQ-MANUAL-PICKER-DIE-Z").ConfigureAwait(false);
+        }
+
+        public async Task<int> RunManualPickerPreparedDiePickZStepAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            string dieId,
+            QMC.CDT320.Sequencing.PickerPickUpZManualStep step)
+        {
+            return await RunManualPickerSelectedDieStepAsync(
+                side,
+                pickerNo,
+                dieId,
+                false,
+                "준비 Die Pick Z Step 테스트",
+                "ManualPickerPreparedDiePickZStep:" + step,
+                "SEQ-MANUAL-PICKER-DIE-Z-STEP",
+                step).ConfigureAwait(false);
+        }
+
+        private async Task<int> RunManualPickerSelectedDieStepAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            string dieId,
+            bool pickZ,
+            string label,
+            string saveReason,
+            string alarmCodePrefix,
+            QMC.CDT320.Sequencing.PickerPickUpZManualStep? pickZStep = null)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 " + label + "를 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 " + label + "를 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 " + label + "를 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Warning, alarmCodePrefix + "-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    LastActionFailureMessage = label + " 대상 Die가 선택되지 않았습니다.";
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun(saveReason))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (EnterManualOperation())
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+                    var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.PickerNo = pickerNo;
+                    options.SimulateVisionResult =
+                        QMC.CDT320.AppSettingsStore.Current != null &&
+                        (QMC.CDT320.AppSettingsStore.Current.SimulationMode ||
+                         QMC.CDT320.AppSettingsStore.Current.DryRunMode);
+
+                    var sequence = new QMC.CDT320.Sequencing.PickerPickUpSequence(context, side);
+                    int result;
+                    if (pickZStep.HasValue)
+                    {
+                        result = await sequence.RunManualPreparedDiePickZStepAsync(
+                            dieId,
+                            pickerNo,
+                            pickZStep.Value,
+                            ManualOperationToken,
+                            options).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        result = pickZ
+                            ? await sequence.RunManualPreparedDiePickZAsync(dieId, pickerNo, ManualOperationToken, options).ConfigureAwait(false)
+                            : await sequence.RunManualSelectedDiePrepareAsync(dieId, pickerNo, ManualOperationToken, options).ConfigureAwait(false);
+                    }
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = label + " 실패. side=" + side +
+                                                   ", pickerNo=" + pickerNo +
+                                                   ", die=" + dieId +
+                                                   ", result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState(saveReason + ":" + side + ":" + pickerNo + ":" + dieId);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = label + "가 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = label + " 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCodePrefix + "-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         public Task<int> RunManualInputLoadAsync()
         {
             return RunManualUnitProcessAsync(
@@ -7621,6 +7886,40 @@ namespace QMC.CDT320
         public void LogPublic(string msg)
         {
             Log(msg);
+        }
+
+        public void RequestOperatorMessage(string title, string message)
+        {
+            try
+            {
+                title = string.IsNullOrWhiteSpace(title) ? "작업자 확인" : title;
+                message = string.IsNullOrWhiteSpace(message) ? "작업자 확인이 필요합니다." : message;
+
+                string key = title + "|" + message;
+                lock (_operatorMessageLock)
+                {
+                    DateTime now = DateTime.UtcNow;
+                    if (string.Equals(_lastOperatorMessageKey, key, StringComparison.Ordinal) &&
+                        (now - _lastOperatorMessageTimeUtc).TotalSeconds < 5.0)
+                        return;
+
+                    _lastOperatorMessageKey = key;
+                    _lastOperatorMessageTimeUtc = now;
+                }
+
+                var handler = OperatorMessageRequested;
+                if (handler != null)
+                    handler(title, message);
+
+                Log("[OPERATOR-MESSAGE] " + title + " - " + message);
+            }
+            catch (Exception ex)
+            {
+                Log("[OPERATOR-MESSAGE] request failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void RaiseProgress()

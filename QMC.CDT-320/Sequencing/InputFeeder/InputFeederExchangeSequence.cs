@@ -101,6 +101,7 @@ namespace QMC.CDT320.Sequencing
             if (cassette.IsInputCassetteProcessComplete())
             {
                 cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                NotifyInputCassetteReplacementRequired();
                 return Fail("IN-FEEDER-EXCHANGE-CST-COMPLETE", cassette.Name,
                     "Input cassette processing is complete. Replace input cassette.");
             }
@@ -112,7 +113,10 @@ namespace QMC.CDT320.Sequencing
                 if (currentNextSlot < 0)
                 {
                     if (cassette.IsInputCassetteProcessComplete())
+                    {
                         cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                        NotifyInputCassetteReplacementRequired();
+                    }
 
                     return Fail("IN-FEEDER-EXCHANGE-NEXT-SLOT", cassette.Name, "Next cassette wafer slot was not found.");
                 }
@@ -131,6 +135,13 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = InputFeederExchangeStep.UnloadCurrentWaferToCassette;
             return 0;
+        }
+
+        private void NotifyInputCassetteReplacementRequired()
+        {
+            Context.RequestOperatorMessage(
+                "입력 카세트 교체",
+                "입력 카세트의 모든 웨이퍼 작업이 완료되었습니다.\r\n카세트를 교체한 뒤 필요한 작업을 진행하세요.");
         }
 
         private async Task<int> UnloadCurrentWaferToCassetteAsync(CancellationToken ct)

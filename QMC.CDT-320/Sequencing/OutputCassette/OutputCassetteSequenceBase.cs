@@ -537,7 +537,18 @@ namespace QMC.CDT320.Sequencing
                     return -1;
 
                 int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
-                MaterialStateService.UpdateOutputCassetteMapping(
+                string goodReason;
+                string ngReason;
+                bool updateGood = CanUpdateOutputCassetteMapping(BinSide.Good, out goodReason);
+                bool updateNg = CanUpdateOutputCassetteMapping(BinSide.Ng, out ngReason);
+                if (!updateGood && !updateNg)
+                    return Fail("OUT-CST-MAP-SIDE-BLOCK", Name,
+                        "Output cassette mapping 결과를 반영할 수 있는 side가 없습니다. goodReason=" + goodReason +
+                        ", ngReason=" + ngReason);
+
+                MaterialStateService.UpdateOutputCassetteMappingSelective(
+                    updateGood,
+                    updateNg,
                     ResolveGoodLevelCount(cassette),
                     slotCount,
                     ResolveSlotMap(cassette, TargetCassette.Good1),
@@ -548,7 +559,11 @@ namespace QMC.CDT320.Sequencing
                     BuildSlotPositions(cassette, TargetCassette.Ng),
                     LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
                     MaterialStateService.ResolveRecipeTapeFrameSpecName(cassette.Config != null ? cassette.Config.InchSelect : 0));
-                WriteLog("RegisterMappingResult", "Output cassette mapping result registered. - Ok");
+                WriteLog("RegisterMappingResult",
+                    "Output cassette mapping result registered. updateGood=" + updateGood +
+                    ", goodReason=" + goodReason +
+                    ", updateNg=" + updateNg +
+                    ", ngReason=" + ngReason + " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -559,6 +574,95 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool CanUpdateOutputCassetteMapping(BinSide side, out string reason)
+        {
+            try
+            {
+                MaterialLocationKind stageLocation = side == BinSide.Ng
+                    ? MaterialLocationKind.OutputStageNg
+                    : MaterialLocationKind.OutputStageGood;
+                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(stageLocation);
+                if (stageWafer != null)
+                {
+                    reason = FormatOutputSideName(side) + " OutputStage에 진행 중인 자재가 있습니다. waferId=" + stageWafer.WaferId;
+                    return false;
+                }
+
+                WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                BinSide feederSide;
+                if (TryResolveBinSide(feederWafer, out feederSide) && feederSide == side)
+                {
+                    reason = FormatOutputSideName(side) + " OutputFeeder에 진행 중인 자재가 있습니다. waferId=" + feederWafer.WaferId;
+                    return false;
+                }
+
+                OutputSlotPlan plan;
+                if (OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
+                {
+                    reason = FormatOutputSideName(side) + " 출력 카세트에 아직 사용할 Bin이 남아 있습니다. cassette=" +
+                             plan.CassetteRole + ", slot=" + plan.SlotIndex;
+                    return false;
+                }
+
+                reason = FormatOutputSideName(side) + " 출력 카세트 교체 상태로 판단되어 mapping 반영 가능합니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = FormatOutputSideName(side) + " mapping 반영 조건 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryResolveBinSide(WaferMaterial wafer, out BinSide side)
+        {
+            side = BinSide.Good;
+            if (wafer == null)
+                return false;
+
+            if (wafer.OutputGrade == DieResult.NG)
+            {
+                side = BinSide.Ng;
+                return true;
+            }
+
+            if (wafer.OutputGrade == DieResult.Good)
+            {
+                side = BinSide.Good;
+                return true;
+            }
+
+            if (wafer.SourceCassetteRole == CassetteMaterialRole.Ng1 ||
+                wafer.OutputCassetteRole == CassetteMaterialRole.Ng1 ||
+                (wafer.CurrentLocation != null && wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Ng1))
+            {
+                side = BinSide.Ng;
+                return true;
+            }
+
+            if (wafer.SourceCassetteRole == CassetteMaterialRole.Good1 ||
+                wafer.SourceCassetteRole == CassetteMaterialRole.Good2 ||
+                wafer.OutputCassetteRole == CassetteMaterialRole.Good1 ||
+                wafer.OutputCassetteRole == CassetteMaterialRole.Good2 ||
+                (wafer.CurrentLocation != null &&
+                    (wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Good1 ||
+                     wafer.CurrentLocation.CassetteRole == CassetteMaterialRole.Good2)))
+            {
+                side = BinSide.Good;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string FormatOutputSideName(BinSide side)
+        {
+            return side == BinSide.Ng ? "NG" : "OK";
         }
 
         private static IReadOnlyList<bool> ResolveSlotMap(OutputCassetteUnit cassette, TargetCassette target)

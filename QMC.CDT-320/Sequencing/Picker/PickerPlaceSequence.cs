@@ -234,9 +234,51 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
+            string unknownReason;
+            if (HasUnknownResultDieBeforePlace(out unknownReason))
+                return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material", unknownReason);
+
             BeginOutputPostPlaceInspectionBatch();
             CurrentStep = PickerPlaceStep.MoveAllPickerZToAvoid;
             return 0;
+        }
+
+        private bool HasUnknownResultDieBeforePlace(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                var unknownItems = new List<string>();
+                for (int i = 0; i < _pickedPickerIndexes.Count; i++)
+                {
+                    int pickerIndex = _pickedPickerIndexes[i];
+                    int pickerNo = ToPickerNo(pickerIndex);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    if (die.Result == DieResult.Good || die.Result == DieResult.NG)
+                        continue;
+
+                    unknownItems.Add("pickerNo=" + pickerNo + ", pickerIndex=" + pickerIndex + ", die=" + die.DieId);
+                }
+
+                if (unknownItems.Count == 0)
+                    return false;
+
+                reason = "Place 전에 검사 결과가 없는 Die가 있습니다. Bottom/Side 검사 또는 수동 Good/NG 판정 후 Place를 실행하세요. " +
+                         string.Join("; ", unknownItems);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Place 전 Die 검사 결과 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)

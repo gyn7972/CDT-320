@@ -292,6 +292,7 @@ namespace QMC.CDT320.Sequencing
             OutputPostPlaceInspectionRequest request,
             CancellationToken ct)
         {
+            SequenceResourceLease feederLease = null;
             SequenceResourceLease stageLease = null;
             try
             {
@@ -306,6 +307,20 @@ namespace QMC.CDT320.Sequencing
                 SequenceResourceKind stageResource = request.OutputSide == BinSide.Ng
                     ? SequenceResourceKind.OutputNgStageArea
                     : SequenceResourceKind.OutputGoodStageArea;
+                feederLease = await _context.Resources.AcquireAsync(
+                    SequenceResourceKind.OutputFeederArea,
+                    "OutputPostPlaceInspection:OutputFeederAvoid:" + request.OutputSide + ":" + request.DieId,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (feederLease == null)
+                    return -1;
+                int feederReadyResult = await EnsureOutputFeederAvoidForInspectionAsync(
+                    stage,
+                    request,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (feederReadyResult != 0)
+                    return feederReadyResult;
                 stageLease = await _context.Resources.AcquireAsync(
                     stageResource,
                     "OutputPostPlaceInspection:" + request.OutputSide + ":" + request.DieId,
@@ -396,6 +411,8 @@ namespace QMC.CDT320.Sequencing
             {
                 if (stageLease != null)
                     stageLease.Dispose();
+                if (feederLease != null)
+                    feederLease.Dispose();
             }
         }
 
@@ -453,6 +470,79 @@ namespace QMC.CDT320.Sequencing
             if (goodZProcessResult != 0)
                 return goodZProcessResult;
             return 0;
+        }
+
+        private async Task<int> EnsureOutputFeederAvoidForInspectionAsync(
+            OutputStageUnit stage,
+            OutputPostPlaceInspectionRequest request,
+            int timeout,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                OutputFeederUnit feeder = _context.Machine != null ? _context.Machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return RaiseFailure("OUT-POST-INSPECT-FEEDER-MISSING", "OutputFeeder",
+                        "Output camera 후검사 전 OutputFeederUnit을 확인할 수 없습니다. die=" + request.DieId +
+                        ", side=" + request.OutputSide);
+
+                if (feeder.IsBinFeederInAvoidPosition())
+                    return 0;
+
+                if (stage != null && !stage.IsVisionXInAvoidPosition())
+                {
+                    int visionAvoid = await SequenceAwaiter.AwaitAsync(
+                        stage.MoveVisionXToAvoidAndVerifyAsync(timeout, request.FineMove, ct),
+                        -1,
+                        ct).ConfigureAwait(false);
+                    if (visionAvoid != 0)
+                        return RaiseFailure("OUT-POST-INSPECT-VISION-AVOID-BEFORE-FEEDER", "OutputStage",
+                            "Output camera 후검사 전 OutputFeederY Avoid 이동을 위해 OutputVisionX Avoid 이동 실패. die=" +
+                            request.DieId + ", side=" + request.OutputSide +
+                            ", result=" + visionAvoid + ", " + stage.DescribeStageLoadMoveState(request.OutputSide));
+                }
+
+                int move = await SequenceAwaiter.AwaitAsync(
+                    feeder.MoveToFeederAvoidPosition(request.FineMove),
+                    -1,
+                    ct).ConfigureAwait(false);
+                if (move != 0)
+                    return RaiseFailure("OUT-POST-INSPECT-FEEDER-AVOID", "OutputFeeder",
+                        "Output camera 후검사 전 OutputFeederY Avoid 이동 명령 실패. die=" + request.DieId +
+                        ", side=" + request.OutputSide +
+                        ", result=" + move + ", " +
+                        feeder.DescribeBinFeederYMoveDoneState() +
+                        feeder.DescribeBinFeederYLastMotionFailure());
+
+                AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
+                    feeder.FeederY.CommandPosition,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success || !feeder.IsBinFeederInAvoidPosition())
+                    return RaiseFailure(AxisMoveWaiter.ResolveAlarmCode("OUT-POST-INSPECT-FEEDER-AVOID", waitResult), "OutputFeeder",
+                        "Output camera 후검사 전 OutputFeederY Avoid 이동 완료/위치 확인 실패. die=" + request.DieId +
+                        ", side=" + request.OutputSide +
+                        ". " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()) +
+                        ", finalAvoid=" + feeder.IsBinFeederInAvoidPosition());
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFailure("OUT-POST-INSPECT-FEEDER-AVOID-EX", "OutputFeeder",
+                    "Output camera 후검사 전 OutputFeederY Avoid 확인 중 예외 발생. die=" + request.DieId +
+                    ", side=" + request.OutputSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveVisionXToAvoidAsync(

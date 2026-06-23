@@ -226,6 +226,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveFeederCassetteLoadPositionAsync(CancellationToken ct)
         {
+            int visionAvoid = await EnsureOutputVisionXAvoidForFeederMoveAsync(ct).ConfigureAwait(false);
+            if (visionAvoid != 0)
+                return visionAvoid;
+
             int pickerClear = CheckPickersClearForOutputTransport("before cassette to feeder load");
             if (pickerClear != 0)
                 return pickerClear;
@@ -240,6 +244,58 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = OutputFeederLoadFromCassetteStep.VerifyFeederEmpty;
             return 0;
+        }
+
+        private async Task<int> EnsureOutputVisionXAvoidForFeederMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Stage == null)
+                    return Fail("OUT-FEEDER-STAGE-MISSING", "OutputStage", "OutputFeederY 이동 전 OutputStageUnit을 확인할 수 없습니다.");
+
+                if (Stage.IsVisionXInAvoidPosition())
+                    return 0;
+
+                int result = await Stage.MoveVisionXToAvoidAndVerifyAsync(
+                    ResolveTimeout(),
+                    Options.FineMove,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return Fail(
+                        "OUT-FEEDER-VISION-X-AVOID",
+                        "OutputStage",
+                        "OutputFeederY 이동 전 OutputVisionX Avoid 이동 실패. result=" + result +
+                        ", " + Stage.BuildStageAxisState(BinStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition));
+                }
+
+                if (!Stage.IsVisionXInAvoidPosition())
+                {
+                    return Fail(
+                        "OUT-FEEDER-VISION-X-AVOID-CHECK",
+                        "OutputStage",
+                        "OutputFeederY 이동 전 OutputVisionX Avoid 최종 확인 실패. " +
+                        Stage.BuildStageAxisState(BinStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "OUT-FEEDER-VISION-X-AVOID-EX",
+                    "OutputStage",
+                    "OutputFeederY 이동 전 OutputVisionX Avoid 확인 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> ClampFeederBinAsync(CancellationToken ct)
