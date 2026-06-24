@@ -289,6 +289,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+                items.Add(ParameterGridItem.Selection<PickerInspectionPipelineMode>(
+                    "PICKER INSPECTION MODE",
+                    "mode",
+                    ParameterGridScope.Config,
+                    () => unit.Config.PickerInspectionMode,
+                    v => unit.Config.PickerInspectionMode = v));
 
                 optionParameterGrid.SetItems(items);
 
