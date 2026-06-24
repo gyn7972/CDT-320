@@ -26,6 +26,12 @@ namespace QMC.CDT320
         Process90
     }
 
+    public enum PickerInspectionPipelineMode
+    {
+        SerialBottomThenSide,
+        BottomSidePipeline
+    }
+
     [DataContract]
     public sealed class VisionSetup : ISetupData
     {
@@ -36,6 +42,7 @@ namespace QMC.CDT320
     public sealed class VisionConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; }
         [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
 
         public bool IsSimulationMode
