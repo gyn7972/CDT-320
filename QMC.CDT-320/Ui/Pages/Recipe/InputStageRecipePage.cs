@@ -239,7 +239,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 BindIoPanel();
                 BindJogPanel();
                 RefreshView();
-                _refreshTimer.Start();
+                if (ShouldRefreshVisible(this))
+                    _refreshTimer.Start();
             }
             catch (Exception ex)
             {
@@ -253,7 +254,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (Visible) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
+            try { if (ShouldRefreshVisible(this)) _refreshTimer.Start(); else _refreshTimer.Stop(); } catch { }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
@@ -430,7 +431,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    _refreshTimer.Stop();
                     return;
+                }
 
                 RefreshView();
             }

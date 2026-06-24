@@ -39,7 +39,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             refreshTimer.Tick += delegate
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    refreshTimer.Stop();
                     return;
+                }
 
                 RefreshView();
             };
@@ -62,13 +65,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             BindIoPanel();
             BindJogPanel();
             RefreshView();
-            refreshTimer.Start();
+            if (ShouldRefreshVisible(this))
+                refreshTimer.Start();
         }
 
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (Visible) refreshTimer.Start(); else refreshTimer.Stop(); } catch { }
+            try { if (ShouldRefreshVisible(this)) refreshTimer.Start(); else refreshTimer.Stop(); } catch { }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
@@ -214,6 +218,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Header("PICKUP SETTING", pickUpSettingGroup));
             AddPickUpSettingItems(optionItems, pickUpSettingGroup);
 
+            const string bottomMotionSettingGroup = "K_BOTTOM_MOTION_SETTING";
+            optionItems.Add(ParameterGridItem.Header("BOTTOM MOTION SETTING", bottomMotionSettingGroup));
+            AddBottomMotionSettingItems(optionItems, bottomMotionSettingGroup);
+
             const string safetySettingGroup = "K_SAFETY_SETTING";
             optionItems.Add(ParameterGridItem.Header("SAFETY SETTING", safetySettingGroup));
             optionItems.Add(InGroup(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v), safetySettingGroup));
@@ -269,6 +277,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)), groupKey));
         }
 
+        private void AddBottomMotionSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            PickerBottomInspectionMotionConfig bottom = unit.Config.BottomInspection;
+            if (bottom == null)
+                unit.Config.BottomInspection = bottom = new PickerBottomInspectionMotionConfig();
+
+            bottom.Ensure();
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerBottomFlyingZDownMode>("BOTTOM FLYING Z DOWN MODE", "mode", ParameterGridScope.Config, () => bottom.FlyingZDownMode, v => bottom.FlyingZDownMode = v),
+                "Bottom 검사 위치로 X/Y/T 이동하는 동안 Picker Z를 미리 내릴지 정합니다.\r\nOff: 미리 내리지 않음\r\nDownDistance: Avoid 위치에서 지정 거리만큼 먼저 하강\r\nToBottomPosition: Bottom 검사 Z 위치까지 바로 하강"), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM FLYING Z DOWN DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZDownDistance, v => bottom.FlyingZDownDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)),
+                "DOWN MODE가 DownDistance일 때 사용할 선행 하강 거리입니다.\r\n예: 2 mm면 Avoid 위치에서 2 mm만 먼저 내려가고, 이후 정식 Bottom Z 위치로 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerBottomFlyingZStartMode>("BOTTOM FLYING Z START MODE", "mode", ParameterGridScope.Config, () => bottom.FlyingZStartMode, v => bottom.FlyingZStartMode = v),
+                "Z 선행 하강을 언제 시작할지 정합니다.\r\nImmediate: X/Y/T 이동 시작과 거의 동시에 시작\r\nDelayMs: 지정 시간 대기 후 시작\r\nXRemainingDistance: X축 목표까지 남은 거리가 설정값 이하일 때 시작"), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("BOTTOM FLYING Z START DELAY", "ms", ParameterGridScope.Config, () => bottom.FlyingZStartDelayMs, v => bottom.FlyingZStartDelayMs = Math.Max(0, v)),
+                "START MODE가 DelayMs일 때 대기할 시간입니다.\r\n0 ms면 지연 없이 바로 시작합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM FLYING Z START X REMAINING", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZStartXRemainingDistance, v => bottom.FlyingZStartXRemainingDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)),
+                "START MODE가 XRemainingDistance일 때 사용하는 X축 잔여 거리 기준입니다.\r\n예: 5 mm면 Picker X가 목표 위치 5 mm 이내로 들어온 뒤 Z 선행 하강을 시작합니다."), groupKey));
+        }
+
         private void AddVisionPickerOffsetItems(
             List<ParameterGridItem> items,
             string prefix,
@@ -303,6 +330,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)
         {
             item.GroupKey = groupKey;
+            return item;
+        }
+
+        private static ParameterGridItem Describe(ParameterGridItem item, string description)
+        {
+            if (item != null)
+                item.Description = description ?? string.Empty;
             return item;
         }
 

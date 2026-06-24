@@ -36,11 +36,38 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             Disposed += (s, e) => VisionHub.ConnectionChanged -= OnConnChanged;
 
             _timer = new System.Windows.Forms.Timer { Interval = 1000 };
-            _timer.Tick += (s, e) => { RefreshStatus(); RefreshLog(); };
-            _timer.Start();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                {
+                    _timer.Stop();
+                    return;
+                }
+
+                RefreshStatus();
+                RefreshLog();
+            };
+            if (ShouldRefreshVisible(this))
+                _timer.Start();
 
             RefreshStatus();
             RefreshLog();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try
+            {
+                if (_timer == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            }
+            catch { }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)

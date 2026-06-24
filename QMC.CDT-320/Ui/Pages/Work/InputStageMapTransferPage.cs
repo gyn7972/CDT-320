@@ -49,15 +49,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     try
                     {
                         if (!ShouldRefreshVisible(this))
+                        {
+                            _refresh.Stop();
                             return;
+                        }
 
                         RefreshActiveInputMapIfChanged();
                         ApplyLotProgress();
                     }
                     catch { }
                 };
-                _refresh.Start();
+                if (ShouldRefreshVisible(this))
+                    _refresh.Start();
             }
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try
+            {
+                if (_refresh == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _refresh.Start();
+                else
+                    _refresh.Stop();
+            }
+            catch { }
         }
 
         private void ApplyTitle()

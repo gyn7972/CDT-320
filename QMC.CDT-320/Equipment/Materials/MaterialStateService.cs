@@ -485,6 +485,99 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("OutputCassetteMappingSelective");
         }
 
+        public static bool CreateProcessTestDataSet(out string message)
+        {
+            return CreateProcessTestDataSet(null, out message);
+        }
+
+        public static bool CreateProcessTestDataSet(QMC.CDT320.InputStageUnit inputStage, out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                lock (_stateSync)
+                {
+                    RecipeProject project = RecipeStore.LoadLastOrDefault();
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    string lotId = "TEST-LOT-" + timestamp;
+                    string tapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+
+                    int inputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Input1);
+                    int outputSlotCount = ResolveProcessTestSlotCount(CassetteMaterialRole.Good1);
+                    bool useInput2 = IsCassetteCurrentlyEnabled(CassetteMaterialRole.Input2);
+                    bool useGood2 = IsCassetteCurrentlyEnabled(CassetteMaterialRole.Good2);
+
+                    ClearActiveProcessLocationsNoLock();
+
+                    UpdateCassetteMapping(CassetteMaterialRole.Input1, true, inputSlotCount, BuildProcessTestSlotMap(inputSlotCount, 2), null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Input2, useInput2, inputSlotCount, useInput2 ? BuildProcessTestSlotMap(inputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Good2, useGood2, outputSlotCount, useGood2 ? BuildProcessTestSlotMap(outputSlotCount, 1) : null, null, lotId, tapeFrameSpecName);
+                    UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, outputSlotCount, BuildProcessTestSlotMap(outputSlotCount, 2), null, lotId, tapeFrameSpecName);
+
+                    DieMap inputMap = LoadRecipeInputDieMapForProcessTest(project);
+                    if (!IsUsableSourceMap(inputMap))
+                        inputMap = CreateFallbackInputDieMapForProcessTest(project, tapeFrameSpecName);
+                    if (!IsUsableSourceMap(inputMap))
+                    {
+                        message = "테스트 입력 DieMap을 만들 수 없습니다. Recipe DieMap 또는 Frame 설정을 확인하세요.";
+                        return false;
+                    }
+
+                    RecenterInputDieMapForProcessTest(inputMap, inputStage);
+                    PickupSequenceGenerator.ApplySequenceNumbers(inputMap, ResolveInputPickup(project));
+                    inputMap = DieMapGenerator.Normalize(inputMap);
+
+                    WaferMaterial inputStageWafer = GetOrCreateWafer("TEST-IN-STAGE-" + timestamp);
+                    inputStageWafer.CassetteLotId = lotId;
+                    inputStageWafer.SourceCassetteId = CassetteMaterialRole.Input1.ToString();
+                    inputStageWafer.SourceCassetteRole = CassetteMaterialRole.Input1;
+                    inputStageWafer.SourceSlotNumber = 0;
+                    inputStageWafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    inputStageWafer.State = WaferMaterialState.WorkReady;
+                    inputStageWafer.TapeFrameSpecName = tapeFrameSpecName;
+                    inputStageWafer.DieMapFrameObjId = string.IsNullOrWhiteSpace(inputMap.FrameObjId) ? inputStageWafer.WaferId : inputMap.FrameObjId;
+                    inputStageWafer.HasInputStageAlignResult = true;
+                    inputStageWafer.InputStageAlignOriginX = inputMap.OriginX;
+                    inputStageWafer.InputStageAlignOriginY = inputMap.OriginY;
+                    inputStageWafer.InputStageAlignPitchX = inputMap.PitchX;
+                    inputStageWafer.InputStageAlignPitchY = inputMap.PitchY;
+                    inputStageWafer.InputStageAlignOffsetX = 0.0;
+                    inputStageWafer.InputStageAlignOffsetY = 0.0;
+                    inputStageWafer.HasInputStageDieMappingResult = true;
+                    inputStageWafer.InputStageDieMappingOffsetX = 0.0;
+                    inputStageWafer.InputStageDieMappingOffsetY = 0.0;
+                    inputStageWafer.UpdatedAt = DateTime.Now;
+
+                    int inputTargetCount = ApplyProcessTestInputDieMaterialsNoLock(inputMap, inputStageWafer);
+
+                    WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
+                    WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
+
+                    State.LotId = lotId;
+                    State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
+
+                    NotifyAndSave("CreateProcessTestDataSet");
+                    TryFlushPendingSave("CreateProcessTestDataSet");
+
+                    message = "공정 테스트 Data 생성 완료. InputStage die=" + inputTargetCount +
+                              ", GoodStage target=" + (goodStageWafer != null ? goodStageWafer.OutputReceiveTotalCount : 0) +
+                              ", NgStage target=" + (ngStageWafer != null ? ngStageWafer.OutputReceiveTotalCount : 0) +
+                              ", lot=" + lotId;
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                message = "공정 테스트 Data 생성 실패: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static string ResolveRecipeTapeFrameSpecName(int inchSelect)
         {
             var project = RecipeStore.LoadLastOrDefault();
@@ -1406,6 +1499,384 @@ namespace QMC.CDT320.Materials
 
             int placed = outputWafer.DieIds != null ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id)) : 0;
             return placed >= total;
+        }
+
+        private static int ResolveProcessTestSlotCount(CassetteMaterialRole role)
+        {
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c.Role == role);
+            if (cassette != null && cassette.SlotCount > 0)
+                return cassette.SlotCount;
+            return 25;
+        }
+
+        private static bool IsCassetteCurrentlyEnabled(CassetteMaterialRole role)
+        {
+            CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c.Role == role);
+            return cassette != null && cassette.IsEnabled;
+        }
+
+        private static List<bool> BuildProcessTestSlotMap(int slotCount, int waferCount)
+        {
+            var map = new List<bool>();
+            if (slotCount < 0)
+                slotCount = 0;
+            if (waferCount < 0)
+                waferCount = 0;
+
+            for (int i = 0; i < slotCount; i++)
+                map.Add(i < waferCount);
+            return map;
+        }
+
+        private static void ClearActiveProcessLocationsNoLock()
+        {
+            var activeKinds = new[]
+            {
+                MaterialLocationKind.InputStage,
+                MaterialLocationKind.OutputStageGood,
+                MaterialLocationKind.OutputStageNg
+            };
+
+            var activeWaferIds = State.Wafers
+                .Where(w => w != null &&
+                            w.CurrentLocation != null &&
+                            activeKinds.Contains(w.CurrentLocation.Kind))
+                .Select(w => w.WaferId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (activeWaferIds.Count > 0)
+            {
+                State.Dies.RemoveAll(d =>
+                    d != null &&
+                    ((!string.IsNullOrWhiteSpace(d.WaferID_Input) && activeWaferIds.Contains(d.WaferID_Input)) ||
+                     (!string.IsNullOrWhiteSpace(d.WaferID_Output) && activeWaferIds.Contains(d.WaferID_Output))));
+            }
+
+            foreach (WaferMaterial wafer in State.Wafers)
+            {
+                if (wafer == null || wafer.CurrentLocation == null)
+                    continue;
+
+                if (!activeKinds.Contains(wafer.CurrentLocation.Kind))
+                    continue;
+
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.State = WaferMaterialState.Empty;
+                wafer.UpdatedAt = DateTime.Now;
+            }
+        }
+
+        private static bool IsUsableSourceMap(DieMap map)
+        {
+            try
+            {
+                return map != null &&
+                       map.DieMapX > 0 &&
+                       map.DieMapY > 0 &&
+                       map.Entries != null &&
+                       map.Entries.Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap LoadRecipeInputDieMapForProcessTest(RecipeProject project)
+        {
+            try
+            {
+                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                    return null;
+
+                string path = project.InputDieMapFileName;
+                if (!Path.IsPathRooted(path))
+                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+                if (!File.Exists(path))
+                    return null;
+
+                DieMap map = DieMapGenerator.Load(path);
+                if (map != null)
+                    PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(project));
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 입력 DieMap 로드 실패: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap CreateFallbackInputDieMapForProcessTest(RecipeProject project, string tapeFrameSpecName)
+        {
+            try
+            {
+                int dieMapX = 5;
+                int dieMapY = 5;
+                double pitchX = 1.0;
+                double pitchY = 1.0;
+
+                TapeFrameSpec spec = MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null
+                    ? MaterialSpecs.Data.Frames.FirstOrDefault(f => string.Equals(f.Name, tapeFrameSpecName, StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (spec != null)
+                {
+                    dieMapX = spec.DieMapX;
+                    dieMapY = spec.DieMapY;
+                    pitchX = spec.PitchX;
+                    pitchY = spec.PitchY;
+                }
+                else if (project != null && project.Frame != null)
+                {
+                    dieMapX = project.Frame.DieMapX;
+                    dieMapY = project.Frame.DieMapY;
+                    pitchX = project.Frame.PitchX;
+                    pitchY = project.Frame.PitchY;
+                }
+
+                DieMap map = DieMapGenerator.GenerateRect(
+                    Math.Max(1, dieMapX),
+                    Math.Max(1, dieMapY),
+                    Math.Max(0.001, pitchX),
+                    Math.Max(0.001, pitchY),
+                    0.0,
+                    0.0,
+                    "PROCESS-TEST-INPUT");
+                PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(project));
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 입력 DieMap 생성 실패: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RecenterInputDieMapForProcessTest(DieMap map, QMC.CDT320.InputStageUnit inputStage)
+        {
+            try
+            {
+                if (!IsUsableSourceMap(map) || inputStage == null)
+                    return;
+
+                List<DieMapEntry> entries = map.Entries
+                    .Where(e => e != null && e.IsTarget)
+                    .ToList();
+                if (entries.Count == 0)
+                    entries = map.Entries.Where(e => e != null).ToList();
+                if (entries.Count == 0)
+                    return;
+
+                double targetCenterX = inputStage.ResolveWorkAreaCenterX();
+                double targetCenterY = inputStage.ResolveWorkAreaCenterY();
+                double pitchX = map.PitchX > 0.0 ? map.PitchX : ResolveDieMapPitch(entries, true);
+                double pitchY = map.PitchY > 0.0 ? map.PitchY : ResolveDieMapPitch(entries, false);
+                if (pitchX <= 0.0)
+                    pitchX = 1.0;
+                if (pitchY <= 0.0)
+                    pitchY = 1.0;
+
+                double originX = targetCenterX - (pitchX * Math.Max(0, map.DieMapX - 1) / 2.0);
+                double originY = targetCenterY - (pitchY * Math.Max(0, map.DieMapY - 1) / 2.0);
+
+                map.PitchX = pitchX;
+                map.PitchY = pitchY;
+                map.OriginX = originX;
+                map.OriginY = originY;
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    entry.PosX = originX + pitchX * entry.DieMapX;
+                    entry.PosY = originY + pitchY * entry.DieMapY;
+                }
+
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 InputStage DieMap 좌표를 Auto DieMapping 기준으로 생성했습니다. " +
+                    "centerX=" + targetCenterX.ToString("F3") +
+                    ", centerY=" + targetCenterY.ToString("F3") +
+                    ", originX=" + originX.ToString("F3") +
+                    ", originY=" + originY.ToString("F3") +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 InputStage DieMap 좌표 보정 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveDieMapPitch(List<DieMapEntry> entries, bool xAxis)
+        {
+            try
+            {
+                if (entries == null || entries.Count == 0)
+                    return 0.0;
+
+                List<DieMapEntry> ordered = entries
+                    .Where(e => e != null)
+                    .OrderBy(e => xAxis ? e.DieMapX : e.DieMapY)
+                    .ThenBy(e => xAxis ? e.DieMapY : e.DieMapX)
+                    .ToList();
+
+                for (int i = 1; i < ordered.Count; i++)
+                {
+                    int indexDelta = xAxis
+                        ? ordered[i].DieMapX - ordered[i - 1].DieMapX
+                        : ordered[i].DieMapY - ordered[i - 1].DieMapY;
+                    if (indexDelta == 0)
+                        continue;
+
+                    double positionDelta = xAxis
+                        ? ordered[i].PosX - ordered[i - 1].PosX
+                        : ordered[i].PosY - ordered[i - 1].PosY;
+                    if (Math.Abs(positionDelta) > 1e-9)
+                        return Math.Abs(positionDelta / indexDelta);
+                }
+
+                return 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int ApplyProcessTestInputDieMaterialsNoLock(DieMap map, WaferMaterial wafer)
+        {
+            if (map == null || wafer == null)
+                return 0;
+
+            if (wafer.DieIds == null)
+                wafer.DieIds = new List<string>();
+            wafer.DieIds.Clear();
+
+            int targetCount = 0;
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                string dieId = string.IsNullOrWhiteSpace(entry.DieUid)
+                    ? BuildProcessTestDieId(wafer, entry.DieMapY, entry.DieMapX)
+                    : entry.DieUid;
+                entry.DieUid = dieId;
+
+                DieMaterial die = GetOrCreateDieMaterial(dieId);
+                die.WaferID_Input = wafer.WaferId;
+                die.WaferID_Output = "";
+                die.Wafer_IndexX = entry.DieMapX;
+                die.Wafer_IndexY = entry.DieMapY;
+                die.InputSequenceNo = entry.SequenceNo;
+                die.Input_BinCode = entry.BinCode;
+                die.IsInputTarget = entry.IsTarget;
+                die.Output_BinCode = 0;
+                die.Bin_IndexX = -1;
+                die.Bin_IndexY = -1;
+                die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
+                die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                die.ReservedPickerNo = -1;
+                die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                die.PickedPickerNo = -1;
+                die.PickedAt = DateTime.MinValue;
+                die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
+                if (die.NgCodes == null)
+                    die.NgCodes = new List<string>();
+                else
+                    die.NgCodes.Clear();
+                if (die.WaferOffset == null)
+                    die.WaferOffset = new VisionOffset();
+                die.WaferOffset.X = entry.PosX;
+                die.WaferOffset.Y = entry.PosY;
+                die.WaferOffset.R = 0.0;
+                die.WaferOffset.IsValid = true;
+                die.UpdatedAt = DateTime.Now;
+
+                wafer.DieIds.Add(dieId);
+                if (entry.IsTarget)
+                    targetCount++;
+            }
+
+            return targetCount;
+        }
+
+        private static string BuildProcessTestDieId(WaferMaterial wafer, int mapY, int mapX)
+        {
+            string waferId = wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "TEST";
+            return waferId + "-D" + mapY.ToString("000") + "-" + mapX.ToString("000");
+        }
+
+        private static WaferMaterial CreateProcessTestOutputStageWaferNoLock(
+            QMC.CDT320.BinSide side,
+            string lotId,
+            string timestamp,
+            string tapeFrameSpecName,
+            string sourceWaferId,
+            RecipeProject project)
+        {
+            MaterialLocationKind location = ResolveOutputStageLocation(side);
+            string waferId = side == QMC.CDT320.BinSide.Ng
+                ? "TEST-NG-STAGE-" + timestamp
+                : "TEST-GOOD-STAGE-" + timestamp;
+
+            WaferMaterial wafer = GetOrCreateWafer(waferId);
+            wafer.CassetteLotId = lotId;
+            wafer.CurrentLocation = new MaterialLocation { Kind = location };
+            wafer.State = WaferMaterialState.WorkReady;
+            wafer.TapeFrameSpecName = tapeFrameSpecName;
+            wafer.OutputGrade = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
+            wafer.OutputCassetteRole = side == QMC.CDT320.BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
+            wafer.OutputSlotNumber = 0;
+
+            DieMap binMap = LoadRecipeBinMap(side);
+            if (!IsUsableSourceMap(binMap))
+                binMap = DieMapGenerator.GenerateRect(5, 5, 1.0, 1.0, 0.0, 0.0, side == QMC.CDT320.BinSide.Ng ? "PROCESS-TEST-NG" : "PROCESS-TEST-GOOD");
+            binMap = DieMapGenerator.Normalize(binMap);
+
+            PickupSubset pickup = ResolveOutputPickup(project);
+            List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
+
+            wafer.OutputReceiveSourceWaferId = sourceWaferId ?? "";
+            wafer.OutputReceiveDieMapX = binMap.DieMapX;
+            wafer.OutputReceiveDieMapY = binMap.DieMapY;
+            wafer.OutputReceivePitchX = binMap.PitchX;
+            wafer.OutputReceivePitchY = binMap.PitchY;
+            wafer.OutputReceiveOriginX = 0.0;
+            wafer.OutputReceiveOriginY = 0.0;
+            wafer.OutputReceiveNextIndex = 0;
+            wafer.OutputReceiveTotalCount = ordered.Count;
+            wafer.OutputReceiveStartCorner = pickup != null ? pickup.StartCorner.ToString() : "";
+            wafer.OutputReceiveDirection = pickup != null ? pickup.Direction.ToString() : "";
+            wafer.OutputReceivePattern = pickup != null ? pickup.Pattern.ToString() : "";
+            wafer.DieMapFrameObjId = binMap.FrameObjId ?? "";
+            wafer.OutputReceiveSlots = BuildOutputReceiveSlots(ordered, side, binMap.PitchX, binMap.PitchY);
+            if (wafer.DieIds == null)
+                wafer.DieIds = new List<string>();
+            else
+                wafer.DieIds.Clear();
+            wafer.UpdatedAt = DateTime.Now;
+            return wafer;
         }
 
         private static MaterialLocationKind ResolveOutputStageLocation(QMC.CDT320.BinSide side)

@@ -577,18 +577,6 @@ namespace QMC.CDT320.Sequencing
                     _sideInspectionSequence = null;
                     _bottomInspectionCompletedInCurrentRun = false;
 
-                    int safeYResult = await MovePickerAxisAndVerifyAsync(
-                        PickerAxis.PickerY,
-                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
-                        "Side 검사 완료 후 Place 진입 전 PickerY Safe 위치 이동",
-                        ct,
-                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
-                    if (safeYResult != 0)
-                    {
-                        ReleasePickerProcessPhase("SideInspectionSafeYFailed");
-                        return safeYResult;
-                    }
-
                     int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.Place, "SideInspectionToPlace", ct).ConfigureAwait(false);
                     if (nextPhaseResult != 0)
                         return nextPhaseResult;

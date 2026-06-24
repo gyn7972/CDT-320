@@ -250,8 +250,15 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
                 return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
+            if (Options.Side == BinSide.Ng)
+            {
+                if (!Stage.IsGoodStageZInAvoidPosition())
+                    return Fail("OUT-STAGE-GOOD-Z-AVOID", Stage.Name, "NG Stage Load 이동 전 GoodStageZ가 Avoid 위치가 아닙니다. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            }
+            else if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
+            {
                 return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            }
 
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));

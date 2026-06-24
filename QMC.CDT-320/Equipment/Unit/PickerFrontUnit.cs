@@ -183,6 +183,7 @@ namespace QMC.CDT320
         [DataMember] public bool bDryRun { get; set; } // 실제 I/O 결과 대신 DryRun 조건으로 동작을 허용할지 여부입니다.
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true }; // Picker0~3 각각의 사용 여부를 저장합니다.
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig(); // PickUp Z축 세부 모션 조건입니다.
+        [DataMember] public PickerBottomInspectionMotionConfig BottomInspection { get; set; } = new PickerBottomInspectionMotionConfig(); // Bottom 검사 중 X/Y 이동과 PickerZ 선행 Down 동작 조건입니다.
 
         [Category("PickUp")]
         [DisplayName("PickUp Z Motion Mode")]
@@ -248,6 +249,26 @@ namespace QMC.CDT320
         [DisplayName("PickUp Settle Ms")]
         public int PickUpSettleMs { get { return EnsurePickUpConfig().PickSettleMs; } set { EnsurePickUpConfig().PickSettleMs = value; } }
 
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Down Mode")]
+        public PickerBottomFlyingZDownMode BottomFlyingZDownMode { get { return EnsureBottomInspectionConfig().FlyingZDownMode; } set { EnsureBottomInspectionConfig().FlyingZDownMode = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Down Distance")]
+        public double BottomFlyingZDownDistance { get { return EnsureBottomInspectionConfig().FlyingZDownDistance; } set { EnsureBottomInspectionConfig().FlyingZDownDistance = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start Mode")]
+        public PickerBottomFlyingZStartMode BottomFlyingZStartMode { get { return EnsureBottomInspectionConfig().FlyingZStartMode; } set { EnsureBottomInspectionConfig().FlyingZStartMode = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start Delay Ms")]
+        public int BottomFlyingZStartDelayMs { get { return EnsureBottomInspectionConfig().FlyingZStartDelayMs; } set { EnsureBottomInspectionConfig().FlyingZStartDelayMs = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start X Remaining Distance")]
+        public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
+
         public bool IsSimulationMode
         {
             get { return bDryRun; }
@@ -283,6 +304,10 @@ namespace QMC.CDT320
             if (PickUp == null)
                 PickUp = new PickerPickUpMotionConfig();
             PickUp.Ensure();
+
+            if (BottomInspection == null)
+                BottomInspection = new PickerBottomInspectionMotionConfig();
+            BottomInspection.Ensure();
         }
 
         private PickerPickUpMotionConfig EnsurePickUpConfig()
@@ -291,6 +316,14 @@ namespace QMC.CDT320
                 PickUp = new PickerPickUpMotionConfig();
             PickUp.Ensure();
             return PickUp;
+        }
+
+        private PickerBottomInspectionMotionConfig EnsureBottomInspectionConfig()
+        {
+            if (BottomInspection == null)
+                BottomInspection = new PickerBottomInspectionMotionConfig();
+            BottomInspection.Ensure();
+            return BottomInspection;
         }
     }
 
@@ -2104,7 +2137,7 @@ namespace QMC.CDT320
                 return 0.0;
 
             return bFine
-                ? axis.Config.Acceleration
+                ? axis.Config.JogAcceleration
                 : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
         }
 
@@ -2114,7 +2147,7 @@ namespace QMC.CDT320
                 return 0.0;
 
             return bFine
-                ? axis.Config.Deceleration
+                ? axis.Config.JogDeceleration
                 : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
         }
 

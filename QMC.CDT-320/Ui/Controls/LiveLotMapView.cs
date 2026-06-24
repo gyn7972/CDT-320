@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Threading;
@@ -137,11 +138,8 @@ namespace QMC.CDT_320.Ui.Controls
             DieMap active = LotStorage.ActiveInputDieMap;
             if (active != null)
             {
-                if (!ReferenceEquals(active, _displayMap))
-                {
-                    DieMapGenerator.Normalize(active);
-                    _displayMap = active;
-                }
+                DieMapGenerator.Normalize(active);
+                _displayMap = BuildDisplayMapFromMaterialState(active);
                 return;
             }
 
@@ -168,6 +166,113 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private static DieMap BuildDisplayMapFromMaterialState(DieMap source)
+        {
+            DieMap display = CloneMap(source);
+            if (display == null)
+                return null;
+
+            try
+            {
+                MaterialSnapshot state = MaterialStorage.State;
+                if (state == null || state.Dies == null || state.Dies.Count == 0 || display.Entries == null)
+                    return display;
+
+                var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+                var dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
+                foreach (DieMaterial die in state.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
+                        dieById.Add(die.DieId, die);
+
+                    if (die.Wafer_IndexX >= 0 && die.Wafer_IndexY >= 0)
+                    {
+                        string key = BuildGridKey(die.Wafer_IndexX, die.Wafer_IndexY);
+                        if (!dieByGrid.ContainsKey(key))
+                            dieByGrid.Add(key, die);
+                    }
+                }
+
+                foreach (DieMapEntry entry in display.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    DieMaterial die = null;
+                    if (!string.IsNullOrWhiteSpace(entry.DieUid))
+                        dieById.TryGetValue(entry.DieUid, out die);
+                    if (die == null)
+                        dieByGrid.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out die);
+                    if (die == null)
+                        continue;
+
+                    entry.DieUid = die.DieId ?? entry.DieUid;
+                    entry.IsTarget = die.IsInputTarget;
+                    entry.Result = die.Result;
+                    if (die.Input_BinCode > 0)
+                        entry.BinCode = die.Input_BinCode;
+                    else if (die.Output_BinCode > 0)
+                        entry.BinCode = die.Output_BinCode;
+                }
+            }
+            catch
+            {
+            }
+
+            return display;
+        }
+
+        private static DieMap CloneMap(DieMap source)
+        {
+            if (source == null)
+                return null;
+
+            var clone = new DieMap
+            {
+                FrameObjId = source.FrameObjId,
+                DieMapX = source.DieMapX,
+                DieMapY = source.DieMapY,
+                PitchX = source.PitchX,
+                PitchY = source.PitchY,
+                OriginX = source.OriginX,
+                OriginY = source.OriginY,
+                CreatedAt = source.CreatedAt
+            };
+
+            if (source.Entries != null)
+            {
+                foreach (DieMapEntry entry in source.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    clone.Entries.Add(new DieMapEntry
+                    {
+                        Index = entry.Index,
+                        SequenceNo = entry.SequenceNo,
+                        DieMapX = entry.DieMapX,
+                        DieMapY = entry.DieMapY,
+                        IsTarget = entry.IsTarget,
+                        Result = entry.Result,
+                        BinCode = entry.BinCode,
+                        PosX = entry.PosX,
+                        PosY = entry.PosY,
+                        DieUid = entry.DieUid
+                    });
+                }
+            }
+
+            return clone;
+        }
+
+        private static string BuildGridKey(int x, int y)
+        {
+            return x.ToString() + ":" + y.ToString();
+        }
+
         private static long ComputeSignature(DieMap map)
         {
             unchecked
@@ -186,12 +291,9 @@ namespace QMC.CDT_320.Ui.Controls
                     {
                         if (entry == null)
                             continue;
-                        // 표시 색(ResolveEntryColor)은 IsTarget/Result/BinCode 로 결정되므로
-                        // 이 세 값만으로 변경을 감지한다. (값당 ResolveInputDieDisplayState 호출 제거 → 비용 대폭 감소)
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
-                        h = h * 31 + StableHash(MaterialStateService.ResolveInputDieDisplayState(entry));
                     }
                 }
                 else
@@ -200,21 +302,6 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 return h;
-            }
-        }
-
-        private static int StableHash(string text)
-        {
-            unchecked
-            {
-                int hash = 23;
-                if (!string.IsNullOrEmpty(text))
-                {
-                    for (int i = 0; i < text.Length; i++)
-                        hash = hash * 31 + text[i];
-                }
-
-                return hash;
             }
         }
 
@@ -337,24 +424,6 @@ namespace QMC.CDT_320.Ui.Controls
         {
             if (entry == null || !entry.IsTarget)
                 return Color.FromArgb(0x66, 0x66, 0x66);
-
-            string displayState = MaterialStateService.ResolveInputDieDisplayState(entry);
-            if (!string.IsNullOrWhiteSpace(displayState))
-            {
-                if (displayState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase))
-                    return Color.FromArgb(0xF5, 0xC5, 0x18);
-
-                if (displayState.StartsWith("RESERVE", StringComparison.OrdinalIgnoreCase))
-                    return Color.FromArgb(0x00, 0xBC, 0xD4);
-
-                if (displayState.Equals("GOOD STAGE", StringComparison.OrdinalIgnoreCase) ||
-                    displayState.Equals("FINISH", StringComparison.OrdinalIgnoreCase))
-                    return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
-
-                if (displayState.Equals("NG STAGE", StringComparison.OrdinalIgnoreCase) ||
-                    displayState.Equals("REJECT", StringComparison.OrdinalIgnoreCase))
-                    return Color.IndianRed;
-            }
 
             if (entry.Result == DieResult.Good)
                 return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);

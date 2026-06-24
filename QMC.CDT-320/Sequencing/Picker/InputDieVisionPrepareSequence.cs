@@ -626,6 +626,22 @@ namespace QMC.CDT320.Sequencing
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     if (elapsedMs >= timeoutMs)
                     {
+                        if (IsInputCameraPreInspectionMode())
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 모드: Picker가 Input 영역에서 이탈할 때까지 계속 대기합니다. " +
+                                "die=" + _currentDieId +
+                                ", pickerNo=" + _currentPickerNo +
+                                ", elapsedMs=" + elapsedMs.ToString("0") +
+                                ", timeoutMs=" + timeoutMs +
+                                ", frontBlocking=" + frontBlocking +
+                                ", frontDetail=" + frontDetail +
+                                ", rearBlocking=" + rearBlocking +
+                                ", rearDetail=" + rearDetail + " - Wait");
+                            start = DateTime.UtcNow;
+                            continue;
+                        }
+
                         return Fail("INPUT-DIE-VISION-PREPARE-PICKER-INPUT-ZONE-TIMEOUT", Name,
                             "InputVision 검사 전 Picker가 Input 영역에서 완전히 이탈하지 못했습니다. " +
                             "die=" + _currentDieId +

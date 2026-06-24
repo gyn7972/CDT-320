@@ -909,7 +909,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.GetPickerTeachingPosition(axis, "AvoidPosition");
                 LogStep("FrontPicker " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MovePickerAxisToTeachingPosition(axis, "AvoidPosition", true).ConfigureAwait(false);
+                int result = await unit.MovePickerAxisCommand(axis, target, true, "AvoidPosition").ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -919,10 +919,13 @@ namespace QMC.CDT320.Sequencing
                         BuildAxisState(label, baseAxis, target));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitPickerAxisMoveDoneInPosition(
-                    axis,
+                double readyTolerance = ResolveReadyAxisTolerance(baseAxis);
+                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    baseAxis,
                     target,
+                    readyTolerance,
                     unit.ResolvePickerAxisMoveTimeoutMs(axis),
+                    0,
                     ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
                 {
@@ -930,16 +933,16 @@ namespace QMC.CDT320.Sequencing
                         AxisMoveWaiter.ResolveAlarmCode("READY-FRONT-PICKER", waitResult),
                         "PickerFrontUnit",
                         "FrontPicker " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target)));
+                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target, readyTolerance)));
                 }
 
-                if (!unit.IsPickerAxisInPosition(axis, target, ResolveAxisTolerance(baseAxis)) || !IsAxisInPosition(baseAxis, target))
+                if (!IsAxisInPosition(baseAxis, target, readyTolerance))
                 {
                     return Fail(
                         "READY-FRONT-PICKER-CHECK",
                         "PickerFrontUnit",
                         "FrontPicker " + label + " Avoid 위치 최종 확인 실패. " +
-                        BuildAxisState(label, baseAxis, target));
+                        BuildAxisState(label, baseAxis, target, readyTolerance));
                 }
 
                 LogStep("FrontPicker " + label + " Avoid 이동 완료.");
@@ -974,7 +977,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.GetPickerTeachingPosition(axis, "AvoidPosition");
                 LogStep("RearPicker " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MovePickerAxisToTeachingPosition(axis, "AvoidPosition", true).ConfigureAwait(false);
+                int result = await unit.MovePickerAxisCommand(axis, target, true, "AvoidPosition").ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -984,10 +987,13 @@ namespace QMC.CDT320.Sequencing
                         BuildAxisState(label, baseAxis, target));
                 }
 
-                AxisMoveWaitResult waitResult = await unit.WaitPickerAxisMoveDoneInPosition(
-                    axis,
+                double readyTolerance = ResolveReadyAxisTolerance(baseAxis);
+                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    baseAxis,
                     target,
+                    readyTolerance,
                     unit.ResolvePickerAxisMoveTimeoutMs(axis),
+                    0,
                     ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
                 {
@@ -995,16 +1001,16 @@ namespace QMC.CDT320.Sequencing
                         AxisMoveWaiter.ResolveAlarmCode("READY-REAR-PICKER", waitResult),
                         "PickerRearUnit",
                         "RearPicker " + label + " Avoid 이동 완료/위치 확인 실패. " +
-                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target)));
+                        AxisMoveWaiter.FormatResult(waitResult, BuildAxisState(label, baseAxis, target, readyTolerance)));
                 }
 
-                if (!unit.IsPickerAxisInPosition(axis, target, ResolveAxisTolerance(baseAxis)) || !IsAxisInPosition(baseAxis, target))
+                if (!IsAxisInPosition(baseAxis, target, readyTolerance))
                 {
                     return Fail(
                         "READY-REAR-PICKER-CHECK",
                         "PickerRearUnit",
                         "RearPicker " + label + " Avoid 위치 최종 확인 실패. " +
-                        BuildAxisState(label, baseAxis, target));
+                        BuildAxisState(label, baseAxis, target, readyTolerance));
                 }
 
                 LogStep("RearPicker " + label + " Avoid 이동 완료.");
@@ -1991,12 +1997,16 @@ namespace QMC.CDT320.Sequencing
 
         private static bool IsAxisInPosition(BaseAxis axis, double target)
         {
+            return IsAxisInPosition(axis, target, ResolveAxisTolerance(axis));
+        }
+
+        private static bool IsAxisInPosition(BaseAxis axis, double target, double tolerance)
+        {
             try
             {
                 if (axis == null)
                     return false;
 
-                double tolerance = ResolveAxisTolerance(axis);
                 return !axis.IsAlarm &&
                        !axis.IsMoving &&
                        Math.Abs(axis.ActualPosition - target) <= tolerance &&
@@ -2012,6 +2022,11 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static double ResolveReadyAxisTolerance(BaseAxis axis)
+        {
+            return Math.Max(ResolveAxisTolerance(axis), 0.05);
         }
 
         private static double ResolveAxisTolerance(BaseAxis axis)
@@ -2037,12 +2052,16 @@ namespace QMC.CDT320.Sequencing
 
         private static string BuildAxisState(string label, BaseAxis axis, double target)
         {
+            return BuildAxisState(label, axis, target, ResolveAxisTolerance(axis));
+        }
+
+        private static string BuildAxisState(string label, BaseAxis axis, double target, double tolerance)
+        {
             try
             {
                 if (axis == null)
                     return label + "=null, target=" + target;
 
-                double tolerance = ResolveAxisTolerance(axis);
                 return label +
                     "[name=" + axis.Name +
                     ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +

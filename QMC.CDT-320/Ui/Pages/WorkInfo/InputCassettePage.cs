@@ -98,7 +98,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     cassetteSlotViewLevel2.SlotMoveRequested += async (s, e) => await MoveSlotFromContextMenuAsync(CassetteMaterialRole.Input2, e.SlotIndex);
                 if (materialDetailView != null)
                 {
+                    materialDetailView.ShowProcessTestDataButton = true;
                     materialDetailView.EditRequested += MaterialDetailView_EditRequested;
+                    materialDetailView.CreateProcessTestDataRequested += MaterialDetailView_CreateProcessTestDataRequested;
                     materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
                     materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
                     materialDetailView.ClearAllDataRequested += MaterialDetailView_ClearAllDataRequested;
@@ -775,6 +777,51 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
+        private void MaterialDetailView_CreateProcessTestDataRequested(object sender, EventArgs e)
+        {
+            try
+            {
+                string reason;
+                if (!CanCreateProcessTestData(out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, reason, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMaterialDataAction(
+                    "공정 테스트용 Data를 신규 생성하시겠습니까?\r\n\r\n" +
+                    "- Input Cassette / Output Cassette Mapping Data\r\n" +
+                    "- InputStage Pick 가능 DieMap Data\r\n" +
+                    "- Output Good/NG Stage Place 가능 Bin Map Data\r\n\r\n" +
+                    "기존 Stage 작업 Data는 테스트 Data로 교체됩니다."))
+                    return;
+
+                var host = GetHost();
+                string message;
+                InputStageUnit inputStage = host.Controller.Machine != null ? host.Controller.Machine.InputStageUnit : null;
+                bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, out message);
+                WriteEvent("INPUT-CST-PROCESS-TEST-DATA", message + ", result=" + ok);
+                if (!ok)
+                {
+                    RaiseWarning("INPUT-CST-PROCESS-TEST-DATA", message);
+                    QMC.Common.MessageDialog.Show(this, message, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                QMC.Common.MessageDialog.Show(this, message, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-PROCESS-TEST-DATA-EX", "공정 테스트 Data 생성 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "공정 테스트 Data 생성 실패:\r\n" + ex.Message, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
         private void MaterialDetailView_ClearDataRequested(object sender, EventArgs e)
         {
             try
@@ -817,6 +864,54 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private bool ConfirmMaterialDataAction(string message)
         {
             return QMC.Common.MessageDialog.Show(this, message, "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+        }
+
+        private bool CanCreateProcessTestData(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null)
+                {
+                    reason = "MachineController가 준비되지 않아 공정 테스트 Data를 생성할 수 없습니다.";
+                    return false;
+                }
+
+                if (AlarmManager.HasActive)
+                {
+                    reason = "현재 알람 상태입니다. 알람 해제 후 공정 테스트 Data를 생성하세요.";
+                    return false;
+                }
+
+                if (_manualSequenceRunning || host.Controller.IsManualBusy)
+                {
+                    reason = "수동 동작이 실행 중입니다. 완료 후 공정 테스트 Data를 생성하세요.";
+                    return false;
+                }
+
+                if (host.Controller.IsSequenceRunning || host.Controller.Status == EquipmentStatus.AutoRunning)
+                {
+                    reason = "시퀀스 실행 중에는 공정 테스트 Data를 생성할 수 없습니다.";
+                    return false;
+                }
+
+                if (host.Controller.Status == EquipmentStatus.Alarm)
+                {
+                    reason = "장비 상태가 Alarm입니다. 알람 해제 후 공정 테스트 Data를 생성하세요.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "공정 테스트 Data 생성 조건 확인 실패: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool TryEditMaterialValue(MaterialDetailRow row, out string value)

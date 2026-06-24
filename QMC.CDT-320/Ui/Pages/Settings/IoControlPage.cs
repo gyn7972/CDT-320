@@ -31,16 +31,36 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _timer.Tick += (s, e) =>
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    _timer.Stop();
                     return;
+                }
 
                 RefreshRows();
             };
             HandleCreated += (s, e) =>
             {
                 EnsureLoaded();
-                _timer.Start();
+                if (ShouldRefreshVisible(this))
+                    _timer.Start();
             };
             HandleDestroyed += (s, e) => _timer.Stop();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try
+            {
+                if (_timer == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            }
+            catch { }
         }
 
         private void ApplyRuntimeUi()

@@ -58,7 +58,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     try
                     {
                         if (!ShouldRefreshVisible(this))
+                        {
+                            _refresh.Stop();
                             return;
+                        }
 
                         ReloadOutputMap();
                     }
@@ -66,7 +69,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     {
                     }
                 };
-                _refresh.Start();
+                if (ShouldRefreshVisible(this))
+                    _refresh.Start();
             }
         }
 
@@ -175,8 +179,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             try
             {
-                if (IsDesignerMode() || !Visible)
+                if (IsDesignerMode())
                     return;
+
+                if (!ShouldRefreshVisible(this))
+                {
+                    if (_refresh != null)
+                        _refresh.Stop();
+                    return;
+                }
+
+                if (_refresh != null && !_refresh.Enabled)
+                    _refresh.Start();
 
                 SelectAvailableOutputSideFromMaterial();
                 _lastMapSignature = null;

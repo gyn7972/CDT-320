@@ -502,6 +502,46 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        protected async Task<int> MovePickerXTThenYAndVerifyAsync(
+            IDictionary<PickerAxis, double> targets,
+            string description,
+            CancellationToken ct,
+            string targetName = null)
+        {
+            if (targets == null || targets.Count == 0)
+                return 0;
+
+            double pickerYTarget;
+            bool hasPickerY = targets.TryGetValue(PickerAxis.PickerY, out pickerYTarget);
+
+            var xtTargets = new Dictionary<PickerAxis, double>();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (pair.Key == PickerAxis.PickerY)
+                    continue;
+
+                xtTargets[pair.Key] = pair.Value;
+            }
+
+            int result = await MovePickerAxesAndVerifyAsync(
+                xtTargets,
+                description + " X/T",
+                ct,
+                targetName).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (!hasPickerY || IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget))
+                return 0;
+
+            return await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                pickerYTarget,
+                description + " Y",
+                ct,
+                targetName).ConfigureAwait(false);
+        }
+
         private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
             IDictionary<PickerAxis, double> targets,
             string targetName,

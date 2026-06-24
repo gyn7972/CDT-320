@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -25,6 +26,7 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerZ;
         private double _targetPickerT;
         private bool _inspectionYPositionReady;
+        private bool _bottomFlyingZDownActive;
         private SequenceResourceLease _inspectionAreaLease;
 
         public PickerBottomInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -366,6 +368,7 @@ namespace QMC.CDT320.Sequencing
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
+            _bottomFlyingZDownActive = false;
             bool wasInInspectionZone = _inspectionYPositionReady;
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
@@ -404,13 +407,26 @@ namespace QMC.CDT320.Sequencing
             if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
                 targets[PickerAxis.PickerY] = _targetPickerY;
 
-            int result = await MovePickerAxesAndVerifyAsync(
-                targets,
-                "bottom inspection X/Y",
-                ct,
-                BuildBottomMoveTargetName()).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            Task<int> xyTask = MovePickerXTThenYAndVerifyAsync(
+                    targets,
+                    "bottom inspection X/Y",
+                    ct,
+                    BuildBottomMoveTargetName());
+            Task<int> flyingZTask = MoveBottomFlyingZDownDuringXYAsync(ct);
+
+            int[] results = await Task.WhenAll(xyTask, flyingZTask).ConfigureAwait(false);
+            if (results[0] != 0 || results[1] != 0)
+            {
+                return Fail(
+                    "PICKER-BOTTOM-FLYING-Z-MOVE",
+                    Name,
+                    "Bottom 검사 X/Y 이동 및 Flying Z Down 이동 실패. " +
+                    "xyResult=" + results[0] +
+                    ", flyingZResult=" + results[1] +
+                    ", mode=" + ResolveBottomInspectionMotionConfig().FlyingZDownMode +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-"));
+            }
 
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
             CurrentStep = _inspectionYPositionReady
@@ -436,10 +452,170 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        private async Task<int> MoveBottomFlyingZDownDuringXYAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PickerBottomInspectionMotionConfig config = ResolveBottomInspectionMotionConfig();
+                if (config.FlyingZDownMode == PickerBottomFlyingZDownMode.Off)
+                    return 0;
+
+                if (_pickerCursor <= 0)
+                    return 0;
+
+                PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+                double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+                double target = ResolveBottomFlyingZDownTarget(config, avoid, _targetPickerZ);
+                if (Math.Abs(target - avoid) <= 0.0001)
+                    return 0;
+
+                if (IsPickerAxisInPosition(zAxis, _targetPickerZ))
+                {
+                    _bottomFlyingZDownActive = true;
+                    return 0;
+                }
+
+                if (!IsPickerAxisInPosition(zAxis, avoid))
+                {
+                    WriteLog("PickerBottomInspectionSequence",
+                        Name + " Bottom Flying Z Down을 생략합니다. PickerZ가 Avoid 위치가 아닙니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", axis=" + zAxis +
+                        ", avoid=" + avoid.ToString("0.###") +
+                        ", target=" + target.ToString("0.###") + " - Check");
+                    return 0;
+                }
+
+                int waitStartResult = await WaitBottomFlyingZStartConditionAsync(config, ct).ConfigureAwait(false);
+                if (waitStartResult != 0)
+                    return waitStartResult;
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    zAxis,
+                    target,
+                    "bottom inspection flying Z down",
+                    ct,
+                    BuildBottomMoveTargetName() + ";BottomFlyingZDown").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                _bottomFlyingZDownActive = true;
+
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " Bottom Flying Z Down 완료. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", axis=" + zAxis +
+                    ", target=" + target.ToString("0.###") +
+                    ", mode=" + config.FlyingZDownMode + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-FLYING-Z-EX", Name, "Bottom Flying Z Down 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitBottomFlyingZStartConditionAsync(PickerBottomInspectionMotionConfig config, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (config == null)
+                    return 0;
+
+                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.Immediate)
+                    return 0;
+
+                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
+                {
+                    if (config.FlyingZStartDelayMs > 0)
+                        await Task.Delay(config.FlyingZStartDelayMs, ct).ConfigureAwait(false);
+                    return 0;
+                }
+
+                if (config.FlyingZStartMode != PickerBottomFlyingZStartMode.XRemainingDistance)
+                    return 0;
+
+                double remainingThreshold = PickerBottomInspectionMotionConfig.NormalizeDistance(config.FlyingZStartXRemainingDistance);
+                if (remainingThreshold <= 0.0)
+                    return 0;
+
+                BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
+                if (xAxis == null)
+                {
+                    return Fail(
+                        "PICKER-BOTTOM-FLYING-Z-START",
+                        Name,
+                        "Bottom Flying Z Down 시작 조건 확인 실패. PickerX 축 정보를 찾을 수 없습니다.");
+                }
+
+                int timeoutMs = ResolveTimeout();
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow <= deadline)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double remaining = Math.Abs(_targetPickerX - xAxis.ActualPosition);
+                    if (remaining <= remainingThreshold || IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+                    {
+                        WriteLog("PickerBottomInspectionSequence",
+                            Name + " Bottom Flying Z Down 시작 조건 충족. " +
+                            "mode=" + config.FlyingZStartMode +
+                            ", remaining=" + remaining.ToString("0.###") +
+                            ", threshold=" + remainingThreshold.ToString("0.###") +
+                            ", pickerNo=" + _currentPickerNo + " - Ok");
+                        return 0;
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                return Fail(
+                    "PICKER-BOTTOM-FLYING-Z-START-TIMEOUT",
+                    Name,
+                    "Bottom Flying Z Down 시작 조건 대기 시간이 초과되었습니다. " +
+                    "mode=" + config.FlyingZStartMode +
+                    ", threshold=" + remainingThreshold.ToString("0.###") +
+                    ", pickerX=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                    ", pickerNo=" + _currentPickerNo);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-FLYING-Z-START-EX", Name, "Bottom Flying Z Down 시작 조건 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveBottomZAsync(CancellationToken ct)
         {
+            PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+            if (_bottomFlyingZDownActive && IsPickerAxisInPosition(zAxis, _targetPickerZ))
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " Bottom 검사 Z 이동을 생략합니다. Flying Z Down으로 이미 최종 위치입니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", target=" + _targetPickerZ.ToString("0.###") + " - Ok");
+                CurrentStep = PickerBottomInspectionStep.MoveBottomT;
+                return 0;
+            }
+
             int result = await MovePickerAxisAndVerifyAsync(
-                GetPickerZAxis(_currentPickerIndex),
+                zAxis,
                 _targetPickerZ,
                 "bottom inspection Z",
                 ct,
@@ -449,6 +625,55 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerBottomInspectionStep.MoveBottomT;
             return 0;
+        }
+
+        private PickerBottomInspectionMotionConfig ResolveBottomInspectionMotionConfig()
+        {
+            PickerBottomInspectionMotionConfig config = null;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+            {
+                if (FrontPicker.Config.BottomInspection == null)
+                    FrontPicker.Config.BottomInspection = new PickerBottomInspectionMotionConfig();
+                config = FrontPicker.Config.BottomInspection;
+            }
+            else if (RearPicker != null && RearPicker.Config != null)
+            {
+                if (RearPicker.Config.BottomInspection == null)
+                    RearPicker.Config.BottomInspection = new PickerBottomInspectionMotionConfig();
+                config = RearPicker.Config.BottomInspection;
+            }
+
+            if (config == null)
+                config = new PickerBottomInspectionMotionConfig();
+
+            config.Ensure();
+            return config;
+        }
+
+        private static double ResolveBottomFlyingZDownTarget(PickerBottomInspectionMotionConfig config, double avoid, double bottom)
+        {
+            if (config == null)
+                return avoid;
+
+            if (config.FlyingZDownMode == PickerBottomFlyingZDownMode.ToBottomPosition)
+                return bottom;
+
+            if (config.FlyingZDownMode != PickerBottomFlyingZDownMode.DownDistance)
+                return avoid;
+
+            double distance = PickerBottomInspectionMotionConfig.NormalizeDistance(config.FlyingZDownDistance);
+            if (distance <= 0.0)
+                return avoid;
+
+            double delta = bottom - avoid;
+            double total = Math.Abs(delta);
+            if (total <= 0.0001)
+                return bottom;
+
+            if (distance >= total)
+                return bottom;
+
+            return avoid + Math.Sign(delta) * distance;
         }
 
         private async Task<int> MoveBottomTAsync(CancellationToken ct)
@@ -472,7 +697,7 @@ namespace QMC.CDT320.Sequencing
             if (Options == null || !Options.KeepZAfterBottomInspection)
                 return targetName;
 
-            return targetName + ";PickerPhase=InspectionZHold";
+            return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom";
         }
 
         private async Task<int> RequestBottomInspectionAsync(CancellationToken ct)
