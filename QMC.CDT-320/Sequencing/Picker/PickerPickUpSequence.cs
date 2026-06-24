@@ -1269,6 +1269,17 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (_pickCursor > 0 && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " 연속 PickUp 진행 중 PickerY가 Pick 위치에 있어 Avoid 복귀를 생략합니다. " +
+                        "pickIndex=" + (_pickCursor + 1) +
+                        "/" + _pickBatchItems.Count +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", targetY=" + _targetPickerY.ToString("0.###") + " - Ok");
+                    return 0;
+                }
+
                 double avoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
                 if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, avoid))
                     return 0;
