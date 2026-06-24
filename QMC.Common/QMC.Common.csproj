@@ -101,6 +101,7 @@
     <Compile Include="Data\Store\RecipeDataStore.cs" />
     <Compile Include="Data\Store\StorageName.cs" />
     <Compile Include="Data\Store\UnitDataStore.cs" />
+    <Compile Include="Diagnostics\TactTime\TactTime.cs" />
     <Compile Include="Interfaces\IEquipmentData.cs" />
     <Compile Include="AjinE\IODefine.cs" />
     <Compile Include="IO\BaseCylinder.cs" />

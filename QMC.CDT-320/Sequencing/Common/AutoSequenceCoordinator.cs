@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
+using QMC.Common.Diagnostics.TactTime;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -61,9 +62,17 @@ namespace QMC.CDT320.Sequencing
         /// <summary>활성 유닛 시퀀스를 병렬로 실행하고 모든 유닛 종료를 대기합니다.</summary>
         public async Task RunAsync(CancellationToken ct)
         {
+            using (TactTimeScope tactScope = _ctx.Tact.BeginScope(
+                TactTimeCategory.Run,
+                "Machine",
+                "AutoSequenceCoordinator",
+                "Run",
+                _options != null ? _options.Mode.ToString() : ""))
+            {
             if (_active.Count == 0)
             {
                 _ctx.LogPublic("[SEQ] 실행할 활성 유닛이 없습니다.");
+                tactScope.Skip("실행할 활성 유닛이 없습니다.");
                 return;
             }
 
@@ -79,10 +88,12 @@ namespace QMC.CDT320.Sequencing
             {
                 await WaitAllOrCancelOnFirstFailureAsync(tasks, childrenToken).ConfigureAwait(false);
                 _ctx.LogPublic("[SEQ] Run complete");
+                tactScope.Complete();
             }
             catch (SequenceStopException)
             {
                 _ctx.LogPublic("[SEQ] Run stopped");
+                tactScope.Stop("", "시퀀스가 Cycle Stop 경계에서 정지되었습니다.");
                 AbortChildren();
                 await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
                 throw;
@@ -90,8 +101,14 @@ namespace QMC.CDT320.Sequencing
             catch (OperationCanceledException)
             {
                 _ctx.LogPublic("[SEQ] Run canceled");
+                tactScope.Cancel("시퀀스가 취소되었습니다.");
                 AbortChildren();
                 await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                tactScope.Fail("", ex.Message);
                 throw;
             }
             finally
@@ -100,6 +117,7 @@ namespace QMC.CDT320.Sequencing
                     _childrenCts = null;
 
                 childrenCts.Dispose();
+            }
             }
         }
 

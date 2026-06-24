@@ -7,6 +7,7 @@ using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.Common.Alarms;
+using QMC.Common.Diagnostics.TactTime;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Jobs;
@@ -15,6 +16,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Initialization;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.Recipes;
 
 namespace QMC.CDT320
 {
@@ -36,6 +38,8 @@ namespace QMC.CDT320
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        private MemoryTactTimeSink _tactTimeMemorySink;
+        private TactTimeRecorder _activeTactTimeRecorder;
         private readonly object _productionStatsLock = new object();
         private System.Diagnostics.Stopwatch _autoProductionStopwatch;
         // 4개 유닛(INPUT/FRONT/REAR/OUTPUT) 동작 상태. UI 가 스냅샷으로 폴링한다. (앱 수명 동안 유지)
@@ -71,6 +75,22 @@ namespace QMC.CDT320
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
+
+        public IReadOnlyList<TactTimeRecord> GetTactTimeSnapshot()
+        {
+            try
+            {
+                MemoryTactTimeSink sink = _tactTimeMemorySink;
+                return sink != null ? sink.Snapshot() : new List<TactTimeRecord>().AsReadOnly();
+            }
+            catch
+            {
+                return new List<TactTimeRecord>().AsReadOnly();
+            }
+            finally
+            {
+            }
+        }
 
         public Task<int> MoveSharedRailXAsync(SharedRailXMovePlan plan)
         {
@@ -5506,6 +5526,69 @@ namespace QMC.CDT320
             return 0;
         }
 
+        private TactTimeRecorder CreateTactTimeRecorder(QMC.CDT320.Sequencing.SequenceRunOptions options)
+        {
+            try
+            {
+                var memorySink = new MemoryTactTimeSink();
+                _tactTimeMemorySink = memorySink;
+
+                string root = System.IO.Path.Combine(QMC.Common.Logging.EventLogger.LogRoot, "TactTime");
+                var sinks = new ITactTimeSink[]
+                {
+                    memorySink,
+                    new CsvTactTimeSink(root)
+                };
+
+                return new TactTimeRecorder(
+                    "CDT-320",
+                    ResolveTactProjectName(),
+                    ResolveTactLotId(),
+                    options != null ? options.Mode.ToString() : "",
+                    sinks);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "TactTime",
+                    "택타임 계측기 생성 실패. Null 계측기로 대체합니다. error=" + ex.Message + " - Failed");
+                return NullTactTimeRecorder.Instance;
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveTactProjectName()
+        {
+            try
+            {
+                string name = RecipeStore.GetLastProjectName();
+                return string.IsNullOrWhiteSpace(name) ? "" : System.IO.Path.GetFileNameWithoutExtension(name);
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveTactLotId()
+        {
+            try
+            {
+                return ResolveProductionStatsLotId();
+            }
+            catch
+            {
+                return "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
         /// Input ?�이맵의 IsTarget=true ?�이�?모두 처리. totalDies&lt;=0 ?�는 ?�이�?모드???�는
         /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
@@ -5525,10 +5608,12 @@ namespace QMC.CDT320
 
                 _autoCts = new CancellationTokenSource();
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                TactTimeRecorder tact = CreateTactTimeRecorder(options);
+                _activeTactTimeRecorder = tact;
                 // 새 시퀀스 시작: 4개 유닛 상태를 Idle 로 초기화하고 동일 ActivityMonitor 를 컨텍스트에 주입한다.
                 _sequenceActivity.Reset();
                 _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(
-                    this, bus, new QMC.CDT320.Sequencing.SequenceResourceManager(), _sequenceActivity);
+                    this, bus, new QMC.CDT320.Sequencing.SequenceResourceManager(), _sequenceActivity, tact);
                 _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
 
                 _coordinator.Register(
@@ -5622,6 +5707,13 @@ namespace QMC.CDT320
                     {
                         if (_coordinator == coordinator)
                         {
+                            if (_activeTactTimeRecorder != null &&
+                                !object.ReferenceEquals(_activeTactTimeRecorder, NullTactTimeRecorder.Instance))
+                            {
+                                _activeTactTimeRecorder.Dispose();
+                            }
+
+                            _activeTactTimeRecorder = null;
                             _coordinator = null;
                             _seqContext = null;
                             _coordinatorTask = null;
@@ -5632,6 +5724,13 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
+                if (_activeTactTimeRecorder != null &&
+                    !object.ReferenceEquals(_activeTactTimeRecorder, NullTactTimeRecorder.Instance))
+                {
+                    _activeTactTimeRecorder.Dispose();
+                    _activeTactTimeRecorder = null;
+                }
+
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                     "자동 시퀀스 시작 실패: " + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-START-EX", "MachineController", "자동 시퀀스 시작 실패: " + ex.Message);

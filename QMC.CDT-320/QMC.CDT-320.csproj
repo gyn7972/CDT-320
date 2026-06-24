@@ -333,6 +333,7 @@
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
+    <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />

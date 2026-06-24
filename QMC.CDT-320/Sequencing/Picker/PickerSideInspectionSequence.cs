@@ -74,7 +74,7 @@ namespace QMC.CDT320.Sequencing
                 if (Options != null && Options.RunMode != SequenceRunMode.Auto)
                 {
                     ct.ThrowIfCancellationRequested();
-                    int stepResult = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    int stepResult = await Context.Tact.StepAsync(this, CurrentStep, ct, () => ExecuteStepAsync(ct)).ConfigureAwait(false);
                     keepCurrentState = stepResult == 0 && CurrentStep != PickerSideInspectionStep.Complete;
                     return stepResult;
                 }
@@ -83,7 +83,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    int result = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    int result = await Context.Tact.StepAsync(this, CurrentStep, ct, () => ExecuteStepAsync(ct)).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
