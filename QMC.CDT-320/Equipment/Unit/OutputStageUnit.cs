@@ -1483,7 +1483,19 @@ namespace QMC.CDT320
                 //if (!IsBinGuideDown(BinSide.Ng))
                 //    return RaiseOutputStageAlarm("OS-NG-GUIDE-DOWN", "NG Bin Guide must be down before output stage movement.");
 
-                if (!IsGoodStageZInAvoidOrProcessPosition())
+                if (side == BinSide.Ng)
+                {
+                    if (!IsGoodStageZInAvoidPosition())
+                    {
+                        result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
+
+                    if (!IsGoodStageZInAvoidPosition())
+                        return RaiseOutputStageAlarm("OS-GOOD-Z-AVOID-BEFORE-NG-LOAD", "NG Stage Load 이동 전 GoodStageZ가 Avoid 위치가 아닙니다. " + DescribeOutputStageInterlockState(side));
+                }
+                else if (!IsGoodStageZInAvoidOrProcessPosition())
                 {
                     result = await MoveStageAxisAndVerifyAsync(
                         BinStageAxis.GoodBinZ,

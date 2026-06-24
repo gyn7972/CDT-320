@@ -10,6 +10,7 @@ namespace QMC.CDT_320.Ui.Controls
         private TableLayoutPanel materialLayout;
         private DataGridView gridMaterial;
         private FlowLayoutPanel materialButtonLayout;
+        private Button btnCreateProcessTestData;
         private Button btnCreateData;
         private Button btnClearData;
         private Button btnClearAllData;
@@ -37,6 +38,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.colName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.materialButtonLayout = new System.Windows.Forms.FlowLayoutPanel();
+            this.btnCreateProcessTestData = new System.Windows.Forms.Button();
             this.btnCreateData = new System.Windows.Forms.Button();
             this.btnClearData = new System.Windows.Forms.Button();
             this.btnClearAllData = new System.Windows.Forms.Button();
@@ -105,6 +107,7 @@ namespace QMC.CDT_320.Ui.Controls
             // materialButtonLayout
             // 
             this.materialButtonLayout.Controls.Add(this.btnCreateData);
+            this.materialButtonLayout.Controls.Add(this.btnCreateProcessTestData);
             this.materialButtonLayout.Controls.Add(this.btnClearData);
             this.materialButtonLayout.Controls.Add(this.btnClearAllData);
             this.materialButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -115,6 +118,22 @@ namespace QMC.CDT_320.Ui.Controls
             this.materialButtonLayout.Size = new System.Drawing.Size(398, 38);
             this.materialButtonLayout.TabIndex = 1;
             this.materialButtonLayout.WrapContents = false;
+            // 
+            // btnCreateProcessTestData
+            // 
+            this.btnCreateProcessTestData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(96)))), ((int)(((byte)(160)))));
+            this.btnCreateProcessTestData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCreateProcessTestData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCreateProcessTestData.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnCreateProcessTestData.ForeColor = System.Drawing.Color.White;
+            this.btnCreateProcessTestData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnCreateProcessTestData.Name = "btnCreateProcessTestData";
+            this.btnCreateProcessTestData.Size = new System.Drawing.Size(150, 30);
+            this.btnCreateProcessTestData.TabIndex = 3;
+            this.btnCreateProcessTestData.Text = "PROCESS TEST DATA";
+            this.btnCreateProcessTestData.UseVisualStyleBackColor = false;
+            this.btnCreateProcessTestData.Visible = false;
+            this.btnCreateProcessTestData.Click += new System.EventHandler(this.btnCreateProcessTestData_Click);
             // 
             // btnCreateData
             // 

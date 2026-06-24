@@ -29,6 +29,7 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler CreateDataRequested;
         public event EventHandler ClearDataRequested;
         public event EventHandler ClearAllDataRequested;
+        public event EventHandler CreateProcessTestDataRequested;
 
         // 직전에 표시한 내용의 signature. 동일하면 그리드 전체 재구성을 생략한다.
         private string _lastSignature;
@@ -37,6 +38,16 @@ namespace QMC.CDT_320.Ui.Controls
         {
             InitializeComponent();
             Clear();
+        }
+
+        public bool ShowProcessTestDataButton
+        {
+            get { return btnCreateProcessTestData != null && btnCreateProcessTestData.Visible; }
+            set
+            {
+                if (btnCreateProcessTestData != null)
+                    btnCreateProcessTestData.Visible = value;
+            }
         }
 
         public void Clear()
@@ -132,6 +143,13 @@ namespace QMC.CDT_320.Ui.Controls
         private void btnCreateData_Click(object sender, EventArgs e)
         {
             var handler = CreateDataRequested;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+
+        private void btnCreateProcessTestData_Click(object sender, EventArgs e)
+        {
+            var handler = CreateProcessTestDataRequested;
             if (handler != null)
                 handler(this, EventArgs.Empty);
         }
