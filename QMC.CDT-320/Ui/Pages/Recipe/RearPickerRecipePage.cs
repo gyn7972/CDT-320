@@ -286,6 +286,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             bottom.Ensure();
             items.Add(InGroup(ParameterGridItem.Selection<PickerBottomFlyingZDownMode>("BOTTOM FLYING Z DOWN MODE", "mode", ParameterGridScope.Config, () => bottom.FlyingZDownMode, v => bottom.FlyingZDownMode = v), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("BOTTOM FLYING Z DOWN DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZDownDistance, v => bottom.FlyingZDownDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Selection<PickerBottomFlyingZStartMode>("BOTTOM FLYING Z START MODE", "mode", ParameterGridScope.Config, () => bottom.FlyingZStartMode, v => bottom.FlyingZStartMode = v), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("BOTTOM FLYING Z START DELAY", "ms", ParameterGridScope.Config, () => bottom.FlyingZStartDelayMs, v => bottom.FlyingZStartDelayMs = Math.Max(0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("BOTTOM FLYING Z START X REMAINING", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZStartXRemainingDistance, v => bottom.FlyingZStartXRemainingDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(

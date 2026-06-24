@@ -26,6 +26,13 @@ namespace QMC.CDT320
         ToBottomPosition = 2
     }
 
+    public enum PickerBottomFlyingZStartMode
+    {
+        Immediate = 0,
+        DelayMs = 1,
+        XRemainingDistance = 2
+    }
+
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
@@ -122,6 +129,9 @@ namespace QMC.CDT320
     {
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
+        [DataMember] public PickerBottomFlyingZStartMode FlyingZStartMode { get; set; } = PickerBottomFlyingZStartMode.XRemainingDistance;
+        [DataMember] public int FlyingZStartDelayMs { get; set; } = 0;
+        [DataMember] public double FlyingZStartXRemainingDistance { get; set; } = 5.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -132,6 +142,9 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
+            if (FlyingZStartDelayMs < 0)
+                FlyingZStartDelayMs = 0;
+            FlyingZStartXRemainingDistance = NormalizeDistance(FlyingZStartXRemainingDistance);
         }
 
         public static double NormalizeDistance(double distance)

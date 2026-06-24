@@ -257,6 +257,18 @@ namespace QMC.CDT320
         [DisplayName("Bottom Flying Z Down Distance")]
         public double BottomFlyingZDownDistance { get { return EnsureBottomInspectionConfig().FlyingZDownDistance; } set { EnsureBottomInspectionConfig().FlyingZDownDistance = value; } }
 
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start Mode")]
+        public PickerBottomFlyingZStartMode BottomFlyingZStartMode { get { return EnsureBottomInspectionConfig().FlyingZStartMode; } set { EnsureBottomInspectionConfig().FlyingZStartMode = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start Delay Ms")]
+        public int BottomFlyingZStartDelayMs { get { return EnsureBottomInspectionConfig().FlyingZStartDelayMs; } set { EnsureBottomInspectionConfig().FlyingZStartDelayMs = value; } }
+
+        [Category("BottomInspection")]
+        [DisplayName("Bottom Flying Z Start X Remaining Distance")]
+        public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
+
         public bool IsSimulationMode
         {
             get { return bDryRun; }

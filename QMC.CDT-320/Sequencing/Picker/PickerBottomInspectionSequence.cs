@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -487,6 +488,10 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                int waitStartResult = await WaitBottomFlyingZStartConditionAsync(config, ct).ConfigureAwait(false);
+                if (waitStartResult != 0)
+                    return waitStartResult;
+
                 int result = await MovePickerAxisAndVerifyAsync(
                     zAxis,
                     target,
@@ -513,6 +518,83 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-BOTTOM-FLYING-Z-EX", Name, "Bottom Flying Z Down 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitBottomFlyingZStartConditionAsync(PickerBottomInspectionMotionConfig config, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (config == null)
+                    return 0;
+
+                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.Immediate)
+                    return 0;
+
+                if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
+                {
+                    if (config.FlyingZStartDelayMs > 0)
+                        await Task.Delay(config.FlyingZStartDelayMs, ct).ConfigureAwait(false);
+                    return 0;
+                }
+
+                if (config.FlyingZStartMode != PickerBottomFlyingZStartMode.XRemainingDistance)
+                    return 0;
+
+                double remainingThreshold = PickerBottomInspectionMotionConfig.NormalizeDistance(config.FlyingZStartXRemainingDistance);
+                if (remainingThreshold <= 0.0)
+                    return 0;
+
+                BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
+                if (xAxis == null)
+                {
+                    return Fail(
+                        "PICKER-BOTTOM-FLYING-Z-START",
+                        Name,
+                        "Bottom Flying Z Down 시작 조건 확인 실패. PickerX 축 정보를 찾을 수 없습니다.");
+                }
+
+                int timeoutMs = ResolveTimeout();
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow <= deadline)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    double remaining = Math.Abs(_targetPickerX - xAxis.ActualPosition);
+                    if (remaining <= remainingThreshold || IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+                    {
+                        WriteLog("PickerBottomInspectionSequence",
+                            Name + " Bottom Flying Z Down 시작 조건 충족. " +
+                            "mode=" + config.FlyingZStartMode +
+                            ", remaining=" + remaining.ToString("0.###") +
+                            ", threshold=" + remainingThreshold.ToString("0.###") +
+                            ", pickerNo=" + _currentPickerNo + " - Ok");
+                        return 0;
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                return Fail(
+                    "PICKER-BOTTOM-FLYING-Z-START-TIMEOUT",
+                    Name,
+                    "Bottom Flying Z Down 시작 조건 대기 시간이 초과되었습니다. " +
+                    "mode=" + config.FlyingZStartMode +
+                    ", threshold=" + remainingThreshold.ToString("0.###") +
+                    ", pickerX=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                    ", pickerNo=" + _currentPickerNo);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-FLYING-Z-START-EX", Name, "Bottom Flying Z Down 시작 조건 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
