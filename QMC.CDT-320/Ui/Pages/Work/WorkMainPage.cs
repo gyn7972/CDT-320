@@ -45,10 +45,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _refresh.Tick += (s, e) =>
                 {
                     if (!ShouldRefreshVisible(this))
-                    {
-                        _refresh.Stop();
                         return;
-                    }
 
                     RefreshAll();
                     QueueMaterialDisplayRefresh(false);

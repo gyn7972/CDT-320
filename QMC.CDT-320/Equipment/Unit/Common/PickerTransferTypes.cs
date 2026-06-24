@@ -19,6 +19,13 @@ namespace QMC.CDT320
         SimpleZDownVacuumUp = 1
     }
 
+    public enum PickerBottomFlyingZDownMode
+    {
+        Off = 0,
+        DownDistance = 1,
+        ToBottomPosition = 2
+    }
+
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
@@ -103,6 +110,31 @@ namespace QMC.CDT320
         }
 
         private static double NormalizeDistance(double distance)
+        {
+            if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0.0)
+                return 0.0;
+            return distance;
+        }
+    }
+
+    [DataContract]
+    public sealed class PickerBottomInspectionMotionConfig
+    {
+        [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
+        [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            Ensure();
+        }
+
+        public void Ensure()
+        {
+            FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
+        }
+
+        public static double NormalizeDistance(double distance)
         {
             if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0.0)
                 return 0.0;

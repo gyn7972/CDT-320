@@ -218,6 +218,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Header("PICKUP SETTING", pickUpSettingGroup));
             AddPickUpSettingItems(optionItems, pickUpSettingGroup);
 
+            const string bottomMotionSettingGroup = "K_BOTTOM_MOTION_SETTING";
+            optionItems.Add(ParameterGridItem.Header("BOTTOM MOTION SETTING", bottomMotionSettingGroup));
+            AddBottomMotionSettingItems(optionItems, bottomMotionSettingGroup);
+
             const string safetySettingGroup = "K_SAFETY_SETTING";
             optionItems.Add(ParameterGridItem.Header("SAFETY SETTING", safetySettingGroup));
             optionItems.Add(InGroup(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v), safetySettingGroup));
@@ -271,6 +275,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v), groupKey));
             items.Add(InGroup(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)), groupKey));
             items.Add(InGroup(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)), groupKey));
+        }
+
+        private void AddBottomMotionSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            PickerBottomInspectionMotionConfig bottom = unit.Config.BottomInspection;
+            if (bottom == null)
+                unit.Config.BottomInspection = bottom = new PickerBottomInspectionMotionConfig();
+
+            bottom.Ensure();
+            items.Add(InGroup(ParameterGridItem.Selection<PickerBottomFlyingZDownMode>("BOTTOM FLYING Z DOWN MODE", "mode", ParameterGridScope.Config, () => bottom.FlyingZDownMode, v => bottom.FlyingZDownMode = v), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("BOTTOM FLYING Z DOWN DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZDownDistance, v => bottom.FlyingZDownDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(
