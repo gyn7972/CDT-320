@@ -40,7 +40,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             refreshTimer.Tick += delegate
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    refreshTimer.Stop();
                     return;
+                }
 
                 RefreshView();
             };
@@ -64,13 +67,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             BindIoPanel();
             BindJogPanel();
             RefreshView();
-            refreshTimer.Start();
+            if (ShouldRefreshVisible(this))
+                refreshTimer.Start();
         }
 
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (Visible) refreshTimer.Start(); else refreshTimer.Stop(); } catch { }
+            try { if (ShouldRefreshVisible(this)) refreshTimer.Start(); else refreshTimer.Stop(); } catch { }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)

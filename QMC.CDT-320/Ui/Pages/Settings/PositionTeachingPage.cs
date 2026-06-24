@@ -82,11 +82,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _jogPosTimer.Tick += (s, e) =>
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    _jogPosTimer.Stop();
                     return;
+                }
 
                 RefreshJogPos();
             };
-            _jogPosTimer.Start();
+            if (ShouldRefreshVisible(this))
+                _jogPosTimer.Start();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (ShouldRefreshVisible(this)) _jogPosTimer.Start(); else _jogPosTimer.Stop(); } catch { }
         }
 
         private void MultiplyStep(double factor)

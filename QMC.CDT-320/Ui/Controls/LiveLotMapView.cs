@@ -186,12 +186,9 @@ namespace QMC.CDT_320.Ui.Controls
                     {
                         if (entry == null)
                             continue;
-                        // 표시 색(ResolveEntryColor)은 IsTarget/Result/BinCode 로 결정되므로
-                        // 이 세 값만으로 변경을 감지한다. (값당 ResolveInputDieDisplayState 호출 제거 → 비용 대폭 감소)
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
-                        h = h * 31 + StableHash(MaterialStateService.ResolveInputDieDisplayState(entry));
                     }
                 }
                 else
@@ -200,21 +197,6 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 return h;
-            }
-        }
-
-        private static int StableHash(string text)
-        {
-            unchecked
-            {
-                int hash = 23;
-                if (!string.IsNullOrEmpty(text))
-                {
-                    for (int i = 0; i < text.Length; i++)
-                        hash = hash * 31 + text[i];
-                }
-
-                return hash;
             }
         }
 
@@ -337,24 +319,6 @@ namespace QMC.CDT_320.Ui.Controls
         {
             if (entry == null || !entry.IsTarget)
                 return Color.FromArgb(0x66, 0x66, 0x66);
-
-            string displayState = MaterialStateService.ResolveInputDieDisplayState(entry);
-            if (!string.IsNullOrWhiteSpace(displayState))
-            {
-                if (displayState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase))
-                    return Color.FromArgb(0xF5, 0xC5, 0x18);
-
-                if (displayState.StartsWith("RESERVE", StringComparison.OrdinalIgnoreCase))
-                    return Color.FromArgb(0x00, 0xBC, 0xD4);
-
-                if (displayState.Equals("GOOD STAGE", StringComparison.OrdinalIgnoreCase) ||
-                    displayState.Equals("FINISH", StringComparison.OrdinalIgnoreCase))
-                    return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
-
-                if (displayState.Equals("NG STAGE", StringComparison.OrdinalIgnoreCase) ||
-                    displayState.Equals("REJECT", StringComparison.OrdinalIgnoreCase))
-                    return Color.IndianRed;
-            }
 
             if (entry.Result == DieResult.Good)
                 return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);

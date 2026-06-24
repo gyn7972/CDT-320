@@ -212,11 +212,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _refresh.Tick += (s, e) =>
             {
                 if (!ShouldRefreshVisible(this))
+                {
+                    _refresh.Stop();
                     return;
+                }
 
                 RefreshAllRows();
             };
-            _refresh.Start();
+            if (ShouldRefreshVisible(this))
+                _refresh.Start();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (ShouldRefreshVisible(this)) _refresh.Start(); else _refresh.Stop(); } catch { }
         }
 
         private void RefreshAllRows()

@@ -25,6 +25,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private MaterialDisplaySnapshot _materialDisplayCache = new MaterialDisplaySnapshot();
         private DateTime _lastMaterialDisplayRefreshUtc = DateTime.MinValue;
         private int _materialDisplayRefreshQueued;
+        private string _fallbackProjectName;
+        private bool _fallbackProjectNameLoaded;
         private readonly Label[] _frontColletUseValues = new Label[4];
         private readonly Label[] _rearColletUseValues = new Label[4];
 
@@ -283,13 +285,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             else
             {
-                try
-                {
-                    var list = RecipeStore.List();
-                    if (list != null && list.Count > 0)
-                        project = System.IO.Path.GetFileNameWithoutExtension(list[0]);
-                }
-                catch { }
+                project = ResolveFallbackProjectName();
             }
 
             snap.Project = project;
@@ -346,6 +342,28 @@ namespace QMC.CDT_320.Ui.Pages.Work
             snap.Lot = ResolveDisplayLotId(stats, lot, material);
 
             return snap;
+        }
+
+        private string ResolveFallbackProjectName()
+        {
+            if (_fallbackProjectNameLoaded)
+                return string.IsNullOrEmpty(_fallbackProjectName) ? "--" : _fallbackProjectName;
+
+            try
+            {
+                _fallbackProjectNameLoaded = true;
+                _fallbackProjectName = "--";
+
+                var list = RecipeStore.List();
+                if (list != null && list.Count > 0)
+                    _fallbackProjectName = System.IO.Path.GetFileNameWithoutExtension(list[0]);
+            }
+            catch
+            {
+                _fallbackProjectName = "--";
+            }
+
+            return _fallbackProjectName;
         }
 
         private MaterialDisplaySnapshot GetCachedMaterialDisplaySnapshot()
