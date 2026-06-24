@@ -96,7 +96,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (ShouldRefreshVisible(this)) _jogPosTimer.Start(); else _jogPosTimer.Stop(); } catch { }
+            try
+            {
+                if (_jogPosTimer == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _jogPosTimer.Start();
+                else
+                    _jogPosTimer.Stop();
+            }
+            catch { }
         }
 
         private void MultiplyStep(double factor)

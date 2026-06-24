@@ -67,7 +67,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (ShouldRefreshVisible(this)) _refresh.Start(); else _refresh.Stop(); } catch { }
+            try
+            {
+                if (_refresh == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _refresh.Start();
+                else
+                    _refresh.Stop();
+            }
+            catch { }
         }
 
         private void ApplyTitle()

@@ -57,7 +57,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
-            try { if (ShouldRefreshVisible(this)) _timer.Start(); else _timer.Stop(); } catch { }
+            try
+            {
+                if (_timer == null)
+                    return;
+
+                if (ShouldRefreshVisible(this))
+                    _timer.Start();
+                else
+                    _timer.Stop();
+            }
+            catch { }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
