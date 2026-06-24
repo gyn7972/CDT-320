@@ -1209,7 +1209,6 @@ namespace QMC.CDT320.Sequencing
 
                 var pickerTargets = new Dictionary<PickerAxis, double>();
                 pickerTargets[PickerAxis.PickerX] = _targetPickerX;
-                pickerTargets[PickerAxis.PickerY] = _targetPickerY;
                 pickerTargets[tAxis] = _targetPickerT;
 
                 Task<int> stageYMove = MoveInputStageYAndVerifyAsync(
@@ -1225,7 +1224,7 @@ namespace QMC.CDT320.Sequencing
                     ct);
                 Task<int> pickerMove = MovePickerAxesAndVerifyAsync(
                     pickerTargets,
-                    "pick corrected Picker X/Y/T",
+                    "pick corrected Picker X/T",
                     ct,
                     targetName);
 
@@ -1233,13 +1232,22 @@ namespace QMC.CDT320.Sequencing
                 if (results[0] != 0 || results[1] != 0 || results[2] != 0)
                 {
                     return Fail("PICKER-PICKUP-PARALLEL-MOVE", Name,
-                        "PickUp StageY/NeedleX/Picker X/Y/T 동시 이동 실패. " +
+                        "PickUp StageY/NeedleX/Picker X/T 동시 이동 실패. " +
                         "stageYResult=" + results[0] +
                         ", needleXResult=" + results[1] +
                         ", pickerResult=" + results[2] +
                         ", die=" + _currentDieId +
                         ", pickerNo=" + _currentPickerNo);
                 }
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    _targetPickerY,
+                    "pick corrected PickerY",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = PickerPickUpStep.VerifyPickTarget;
                 return 0;

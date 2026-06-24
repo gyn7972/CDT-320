@@ -537,6 +537,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             bool allowedTransition =
+                (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output);

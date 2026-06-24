@@ -697,7 +697,7 @@ namespace QMC.CDT320.Sequencing
             if (Options == null || !Options.KeepZAfterBottomInspection)
                 return targetName;
 
-            return targetName + ";PickerPhase=InspectionZHold";
+            return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom";
         }
 
         private async Task<int> RequestBottomInspectionAsync(CancellationToken ct)
