@@ -2137,7 +2137,7 @@ namespace QMC.CDT320
                 return 0.0;
 
             return bFine
-                ? axis.Config.Acceleration
+                ? axis.Config.JogAcceleration
                 : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
         }
 
@@ -2147,7 +2147,7 @@ namespace QMC.CDT320
                 return 0.0;
 
             return bFine
-                ? axis.Config.Deceleration
+                ? axis.Config.JogDeceleration
                 : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
         }
 
