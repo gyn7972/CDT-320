@@ -480,7 +480,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             // Picker 전체 Avoid를 강제하지 않는다. 실제 Input 존 점유/간섭만 차단한다.
-            if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(request, machine, out reason))
+            if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, out reason))
                 return false;
 
             if (!VerifyInputStageWorkArea(request, WaferStageAxis.VisionX, "InputVisionX", out reason))
@@ -527,32 +527,12 @@ namespace QMC.CDT320.Interlocks
         }
 
         // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하거나 간섭하면 안 된다.
-        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
+        private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
             try
             {
-                if (IsPickerOwnedInputVisionMove(request))
-                {
-                    bool? activeFront = ResolveAutoInputDieVisionPrepareSide(request);
-                    if (activeFront.HasValue)
-                    {
-                        if (!VerifyPickerInputZoneClearForInputVisionX(machine, !activeFront.Value, activeFront.Value ? "Rear" : "Front", out reason))
-                            return false;
-
-                        return true;
-                    }
-
-                    if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
-                        return false;
-
-                    if (!VerifyPickerInputZoneClearForInputVisionX(machine, false, "Rear", out reason))
-                        return false;
-
-                    return true;
-                }
-
                 if (!VerifyPickerInputZoneClearForInputVisionX(machine, true, "Front", out reason))
                     return false;
 
@@ -573,40 +553,26 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool IsPickerOwnedInputVisionMove(MotionGuardRuleContext request)
-        {
-            return request != null &&
-                   !string.IsNullOrEmpty(request.TargetName) &&
-                   (request.TargetName.IndexOf("AutoInputDieVisionPrepare", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    request.TargetName.IndexOf("PickerPickUp", System.StringComparison.OrdinalIgnoreCase) >= 0);
-        }
-
-        private static bool? ResolveAutoInputDieVisionPrepareSide(MotionGuardRuleContext request)
-        {
-            if (request == null || string.IsNullOrEmpty(request.TargetName))
-                return null;
-
-            if (request.TargetName.IndexOf("Side=Front", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                return true;
-
-            if (request.TargetName.IndexOf("Side=Rear", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                return false;
-
-            return null;
-        }
-
         private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, out string reason)
         {
             reason = string.Empty;
             if (machine == null)
                 return true;
 
-            string detail;
-            bool blocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
+            PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
                 machine,
                 isFront,
                 PickerWorkZone.Input,
-                out detail);
+                null,
+                "InputVisionX 이동 전 Picker Input 영역 확인");
+
+            bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
+            bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
+            bool blocking = state != null && (state.BlocksTransport || xMoving || yMoving);
+            string detail =
+                "movingX=" + xMoving +
+                ", movingY=" + yMoving +
+                ", " + (state != null ? state.Describe() : "state=null");
 
             if (!blocking)
                 return true;

@@ -365,7 +365,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     applied++;
                 }
 
-                bool saved = SaveMotionAxisSettings();
+                bool saved = SaveSpeedAxisStore();
                 _speedDirty = false;
 
                 QMC.Common.Logging.EventLogger.Write(
@@ -385,6 +385,24 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     "MotionPage",
                     "SaveSpeedRows failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool SaveSpeedAxisStore()
+        {
+            try
+            {
+                QMC.CDT320.Ajin.AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionPageSave",
+                    "Motion speed axis store save failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {
