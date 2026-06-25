@@ -222,7 +222,10 @@ namespace QMC.CDT320
 
                 string interlockReason;
                 if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
+                {
+                    LastWaferLifterMoveFailureMessage = interlockReason;
                     return -11;
+                }
 
                 await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine), ct).ConfigureAwait(false);
                 return 0;
@@ -1903,8 +1906,12 @@ namespace QMC.CDT320
             return input.IsOn ? "ON" : "OFF";
         }
 
+        // 마지막 Wafer Lifter Z 이동 실패 사유 — UI 실패 팝업에 합쳐 표시
+        public string LastWaferLifterMoveFailureMessage { get; private set; }
+
         private void RaiseWaferCassetteConditionAlarm(string code, string message)
         {
+            LastWaferLifterMoveFailureMessage = message;
             try
             {
                 Log.Write("Main", "ALARM", code, message + " - Failed");

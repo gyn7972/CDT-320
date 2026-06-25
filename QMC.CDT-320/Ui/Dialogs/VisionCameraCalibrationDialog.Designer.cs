@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private Button btnFindInput;
         private Button btnFindOutput;
         private Button btnRunAll;
+        private Button btnRetractReticle;
         private Button btnCalculateSave;
         private Button btnClose;
         private ToolTip toolTip;
@@ -59,6 +60,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnFindInput = new System.Windows.Forms.Button();
             this.btnFindOutput = new System.Windows.Forms.Button();
             this.btnRunAll = new System.Windows.Forms.Button();
+            this.btnRetractReticle = new System.Windows.Forms.Button();
             this.btnCalculateSave = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
@@ -246,10 +248,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             // buttonPanel
             // 
             this.buttonPanel.Controls.Add(this.btnCheck);
+            this.buttonPanel.Controls.Add(this.btnRunAll);
             this.buttonPanel.Controls.Add(this.btnFindBottom);
             this.buttonPanel.Controls.Add(this.btnFindInput);
             this.buttonPanel.Controls.Add(this.btnFindOutput);
-            this.buttonPanel.Controls.Add(this.btnRunAll);
+            this.buttonPanel.Controls.Add(this.btnRetractReticle);
             this.buttonPanel.Controls.Add(this.btnCalculateSave);
             this.buttonPanel.Controls.Add(this.btnClose);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -275,44 +278,55 @@ namespace QMC.CDT_320.Ui.Dialogs
             // btnFindBottom
             // 
             this.btnFindBottom.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindBottom.Location = new System.Drawing.Point(142, 6);
+            this.btnFindBottom.Location = new System.Drawing.Point(272, 6);
             this.btnFindBottom.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindBottom.Name = "btnFindBottom";
             this.btnFindBottom.Size = new System.Drawing.Size(118, 38);
-            this.btnFindBottom.TabIndex = 1;
+            this.btnFindBottom.TabIndex = 2;
             this.btnFindBottom.Text = "FIND BOTTOM";
             this.btnFindBottom.UseVisualStyleBackColor = true;
             // 
             // btnFindInput
             // 
             this.btnFindInput.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindInput.Location = new System.Drawing.Point(272, 6);
+            this.btnFindInput.Location = new System.Drawing.Point(402, 6);
             this.btnFindInput.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindInput.Name = "btnFindInput";
             this.btnFindInput.Size = new System.Drawing.Size(108, 38);
-            this.btnFindInput.TabIndex = 2;
+            this.btnFindInput.TabIndex = 3;
             this.btnFindInput.Text = "FIND INPUT";
             this.btnFindInput.UseVisualStyleBackColor = true;
             // 
             // btnFindOutput
             // 
             this.btnFindOutput.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindOutput.Location = new System.Drawing.Point(392, 6);
+            this.btnFindOutput.Location = new System.Drawing.Point(522, 6);
             this.btnFindOutput.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindOutput.Name = "btnFindOutput";
             this.btnFindOutput.Size = new System.Drawing.Size(118, 38);
-            this.btnFindOutput.TabIndex = 3;
+            this.btnFindOutput.TabIndex = 4;
             this.btnFindOutput.Text = "FIND OUTPUT";
             this.btnFindOutput.UseVisualStyleBackColor = true;
+            // 
+            // btnRetractReticle
+            // 
+            this.btnRetractReticle.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRetractReticle.Location = new System.Drawing.Point(652, 6);
+            this.btnRetractReticle.Margin = new System.Windows.Forms.Padding(6);
+            this.btnRetractReticle.Name = "btnRetractReticle";
+            this.btnRetractReticle.Size = new System.Drawing.Size(124, 38);
+            this.btnRetractReticle.TabIndex = 5;
+            this.btnRetractReticle.Text = "RETICLE BACK";
+            this.btnRetractReticle.UseVisualStyleBackColor = true;
             // 
             // btnRunAll
             // 
             this.btnRunAll.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRunAll.Location = new System.Drawing.Point(522, 6);
+            this.btnRunAll.Location = new System.Drawing.Point(142, 6);
             this.btnRunAll.Margin = new System.Windows.Forms.Padding(6);
             this.btnRunAll.Name = "btnRunAll";
             this.btnRunAll.Size = new System.Drawing.Size(118, 38);
-            this.btnRunAll.TabIndex = 4;
+            this.btnRunAll.TabIndex = 1;
             this.btnRunAll.Text = "RUN CURRENT";
             this.btnRunAll.UseVisualStyleBackColor = true;
             // 
@@ -322,22 +336,22 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnCalculateSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCalculateSave.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
             this.btnCalculateSave.ForeColor = System.Drawing.Color.White;
-            this.btnCalculateSave.Location = new System.Drawing.Point(652, 6);
+            this.btnCalculateSave.Location = new System.Drawing.Point(788, 6);
             this.btnCalculateSave.Margin = new System.Windows.Forms.Padding(6);
             this.btnCalculateSave.Name = "btnCalculateSave";
             this.btnCalculateSave.Size = new System.Drawing.Size(130, 38);
-            this.btnCalculateSave.TabIndex = 5;
+            this.btnCalculateSave.TabIndex = 6;
             this.btnCalculateSave.Text = "CALC / SAVE";
             this.btnCalculateSave.UseVisualStyleBackColor = false;
             // 
             // btnClose
             // 
             this.btnClose.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnClose.Location = new System.Drawing.Point(794, 6);
+            this.btnClose.Location = new System.Drawing.Point(930, 6);
             this.btnClose.Margin = new System.Windows.Forms.Padding(6);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(100, 38);
-            this.btnClose.TabIndex = 6;
+            this.btnClose.Size = new System.Drawing.Size(74, 38);
+            this.btnClose.TabIndex = 7;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = true;
             // 

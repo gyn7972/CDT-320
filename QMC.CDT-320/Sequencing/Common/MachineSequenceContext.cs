@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using QMC.Common.Diagnostics.TactTime;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -8,28 +9,38 @@ namespace QMC.CDT320.Sequencing
     {
         /// <summary>지정한 컨트롤러와 신호 버스로 시퀀스 컨텍스트를 생성합니다.</summary>
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus)
-            : this(controller, bus, new SequenceResourceManager(), null)
+            : this(controller, bus, new SequenceResourceManager(), null, null)
         {
         }
 
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus, SequenceResourceManager resources)
-            : this(controller, bus, resources, null)
+            : this(controller, bus, resources, null, null)
         {
         }
 
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus,
             SequenceResourceManager resources, SequenceActivityMonitor activity)
+            : this(controller, bus, resources, activity, null)
+        {
+        }
+
+        public MachineSequenceContext(MachineController controller, SequenceSignalBus bus,
+            SequenceResourceManager resources, SequenceActivityMonitor activity, TactTimeRecorder tact)
         {
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Bus = bus ?? throw new ArgumentNullException(nameof(bus));
             Resources = resources ?? new SequenceResourceManager();
             Activity = activity ?? new SequenceActivityMonitor();
+            Tact = tact ?? NullTactTimeRecorder.Instance;
             PickerPhases = new PickerPhaseCoordinator();
             OutputPostPlaceInspections = new OutputPostPlaceInspectionQueue(this);
         }
 
         /// <summary>4개 유닛(INPUT/FRONT/REAR/OUTPUT)의 동작 상태를 보관하는 공식 상태 객체입니다.</summary>
         public SequenceActivityMonitor Activity { get; private set; }
+
+        /// <summary>Auto/Manual/Step 시퀀스 택타임 계측기입니다.</summary>
+        public TactTimeRecorder Tact { get; private set; }
 
         /// <summary>시퀀스를 구동하는 장비 컨트롤러입니다.</summary>
         public MachineController Controller { get; private set; }

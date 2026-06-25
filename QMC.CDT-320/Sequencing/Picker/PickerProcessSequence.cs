@@ -135,23 +135,23 @@ namespace QMC.CDT320.Sequencing
 
                 // InputCamera Mark 검사 실행
                 case PickerProcessStep.RunInputCameraMarkInspection:
-                    return RunInputCameraMarkInspectionAsync(ct);
+                    return Context.Tact.ProcessAsync(this, "InputCamera Mark 검사", ct, () => RunInputCameraMarkInspectionAsync(ct));
 
                 // 픽업 실행
                 case PickerProcessStep.RunPickUp:
-                    return RunPickUpAsync(ct);
+                    return Context.Tact.ProcessAsync(this, "PickUp", ct, () => RunPickUpAsync(ct));
 
                 // 하단 검사 실행
                 case PickerProcessStep.RunBottomInspection:
-                    return RunBottomInspectionAsync(ct);
+                    return Context.Tact.ProcessAsync(this, "Bottom 검사", ct, () => RunBottomInspectionAsync(ct));
 
                 // 사이드 검사 실행
                 case PickerProcessStep.RunSideInspection:
-                    return RunSideInspectionAsync(ct);
+                    return Context.Tact.ProcessAsync(this, "Side 검사", ct, () => RunSideInspectionAsync(ct));
 
                 // 플레이스 실행
                 case PickerProcessStep.RunPlace:
-                    return RunPlaceAsync(ct);
+                    return Context.Tact.ProcessAsync(this, "Place", ct, () => RunPlaceAsync(ct));
 
                 default:
                     return Task.FromResult(Fail("PICKER-PROCESS-STEP", Name, "지원하지 않는 Picker 공정 스텝입니다. step=" + CurrentStep));
