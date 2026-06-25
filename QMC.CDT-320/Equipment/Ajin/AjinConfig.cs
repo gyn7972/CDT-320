@@ -106,6 +106,47 @@ namespace QMC.CDT320.Ajin
             ADD(36, "OutputLifterZ",        "OutputCassette", 0, 0,  200, true,  "mm",  100, "NEG", "ElevatorZ_Output", "OutputLifterZ")
         };
 
+        // UI 표시 전용: 내부 축 이름/키는 0-base(T0~3, Z0~3, 헤드 P0~3) 그대로 유지하되,
+        // 화면에 보여줄 때만 인덱스를 1-base 로 +1 한다. 데이터/resolve/JSON 에는 영향 없음.
+        private static readonly System.Text.RegularExpressions.Regex PickerAxisIndexRegex =
+            new System.Text.RegularExpressions.Regex(@"(Front|Rear)Picker([TZ])([0-3])",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static readonly System.Text.RegularExpressions.Regex PickerHeadIndexRegex =
+            new System.Text.RegularExpressions.Regex(@"(Front|Rear) ?P([0-3])\b",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>
+        /// UI 표시용 라벨 변환. FrontPicker/RearPicker 의 T/Z 축 인덱스와 픽커 헤드(P) 인덱스를
+        /// 화면에서만 +1 해서 보여준다. (내부 키는 0-base 유지)
+        /// 예) "FrontPickerT0" → "FrontPickerT1", "#12 FrontPickerZ0" → "#12 FrontPickerZ1",
+        ///     "Front P0 Pick Z" → "Front P1 Pick Z", "TPU.RearP3" → "TPU.RearP4".
+        /// </summary>
+        public static string ToDisplayName(string name)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(name)) return name;
+
+                string result = PickerAxisIndexRegex.Replace(name, m =>
+                    m.Groups[1].Value + "Picker" + m.Groups[2].Value
+                        + ((m.Groups[3].Value[0] - '0') + 1).ToString());
+
+                result = PickerHeadIndexRegex.Replace(result, m =>
+                    m.Value.Substring(0, m.Value.Length - 1)
+                        + ((m.Groups[2].Value[0] - '0') + 1).ToString());
+
+                return result;
+            }
+            catch
+            {
+                return name;
+            }
+            finally
+            {
+            }
+        }
+
         public static string ResolveName(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return string.Empty;

@@ -140,7 +140,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     grid.Rows.Add(
                         ++index,
                         setup != null ? setup.UnitName : string.Empty,
-                        setup != null && !string.IsNullOrWhiteSpace(setup.DisplayName) ? setup.DisplayName : axis.Name,
+                        AjinAxisDefaults.ToDisplayName(setup != null && !string.IsNullOrWhiteSpace(setup.DisplayName) ? setup.DisplayName : axis.Name),
                         setup != null ? setup.AxisNo.ToString() : string.Empty,
                         setup != null ? setup.BoardNo.ToString() : string.Empty,
                         map != null ? map.ChannelNo.ToString("X") : string.Empty,
@@ -368,7 +368,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return;
                 }
 
-                if (!ConfirmMotionAction(axis.Name + " 축 초기화를 진행하시겠습니까?"))
+                if (!ConfirmMotionAction(AjinAxisDefaults.ToDisplayName(axis.Name) + " 축 초기화를 진행하시겠습니까?"))
                     return;
 
                 if (Host == null || Host.Controller == null)

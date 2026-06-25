@@ -523,13 +523,13 @@
             // 
             this.btnReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Top;
             this.btnReadyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnReadyMove.ForeColor = System.Drawing.Color.White;
             this.btnReadyMove.Location = new System.Drawing.Point(0, 0);
             this.btnReadyMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.btnReadyMove.Name = "btnReadyMove";
-            this.btnReadyMove.Size = new System.Drawing.Size(264, 73);
+            this.btnReadyMove.Size = new System.Drawing.Size(264, 33);
             this.btnReadyMove.TabIndex = 8;
             this.btnReadyMove.Text = "READY MOVE";
             this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);

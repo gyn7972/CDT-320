@@ -372,7 +372,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             manualLayout.Dock = DockStyle.Top;
         }
 
-        // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 각 위치 종류의 인터락 시퀀스로 이동
+        // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 각 위치 종류의 시퀀스로 이동
         private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
             await ConfirmAndRunAsync("AVOID POSITION", MoveAvoidSequenceAsync);
@@ -690,10 +690,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        // ===== AVOID 순차 이동 (단계별 인터락 확인, 실패 시 전체 중단 + 알람) =====
-        // TODO(인터락): 픽커-인풋스테이지 XY 간섭영역 임계값. 우선 0(placeholder)로 두고 추후 실측값 반영.
         private const double PickerStageInterferenceZone = 0.0;
 
+        // AVOID: Z축 선행 체크 없이 Z축을 먼저 후퇴(Avoid)시키고 → T → Y → X 순으로 이동
         private async Task<int> MoveAvoidSequenceAsync()
         {
             try
@@ -702,39 +701,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return -1;
 
                 CDT320_Machine machine = FindMachine();
+                const StagePositionKind kind = StagePositionKind.Avoid;
+                string title = GetPositionLabel(kind);
                 string reason;
+                int r;
 
-                // 1) NEEDLE Z 하강(후퇴)
-                if (await StepMoveAvoidAsync("NEEDLE Z") != 0)
-                    return AbortAvoid("NEEDLE Z 이동 실패");
+                // 1) NeedleZ/EjectPinZ Avoid로 후퇴 (VISION X와 무관) — 선행 체크 없음
+                if ((r = await MoveNeedleAndEjectZAsync(kind, title)) != 0)
+                    return r;
 
-                // 2) EJECT PIN Z 하강(후퇴)
-                if (await StepMoveAvoidAsync("EJECT PIN Z") != 0)
-                    return AbortAvoid("EJECT PIN Z 이동 실패");
+                // 2) ExpanderZ Avoid로 후퇴 (이동 직전 VISION X를 Avoid로 보장)
+                if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                    return r;
 
-                // 3) VISION X (공유레일 충돌검증은 이동 경로에서 자동 적용)
-                if (await StepMoveAvoidAsync("VISION X") != 0)
-                    return AbortAvoid("VISION X 이동 실패");
-
-                // 4) EXPANDER Z
-                if (await StepMoveAvoidAsync("EXPANDER Z") != 0)
-                    return AbortAvoid("EXPANDER Z 이동 실패");
-
-                // 5) NEEDLE X
-                if (await StepMoveAvoidAsync("NEEDLE X") != 0)
-                    return AbortAvoid("NEEDLE X 이동 실패");
-
-                // 6) WAFER Y — 니들후퇴 + Front/Rear 픽커 Clear + 피더 Clear
+                // 3) WAFER T — 픽커/피더 Clear 확인
                 if (!CheckStagePlaneInterlock(machine, true, out reason))
-                    return AbortAvoid("WAFER Y 전 " + reason);
-                if (await StepMoveAvoidAsync("WAFER Y") != 0)
-                    return AbortAvoid("WAFER Y 이동 실패");
+                    return AbortStage(title, "WAFER T 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0)
+                    return AbortStage(title, "WAFER T 이동 실패");
 
-                // 7) WAFER T — 6번과 동일 선행조건
+                // 4) WAFER Y — 동일 선행조건
                 if (!CheckStagePlaneInterlock(machine, true, out reason))
-                    return AbortAvoid("WAFER T 전 " + reason);
-                if (await StepMoveAvoidAsync("WAFER T") != 0)
-                    return AbortAvoid("WAFER T 이동 실패");
+                    return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
+
+                // 5) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인 (ExpanderZ는 이미 이동 완료)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                    return r;
 
                 return 0;
             }
@@ -745,27 +739,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
-        }
-
-        private async Task<int> StepMoveAvoidAsync(string axisLabel)
-        {
-            StageTeachingPosition position = FindAvoidPosition(axisLabel);
-            if (position == null)
-                return -1;
-
-            return await MoveByTeachingPositionAsync(position);
-        }
-
-        private static StageTeachingPosition FindAvoidPosition(string axisLabel)
-        {
-            foreach (StageTeachingPosition position in TeachingPositions)
-            {
-                if (position.Kind == StagePositionKind.Avoid &&
-                    string.Equals(position.AxisLabel, axisLabel, StringComparison.OrdinalIgnoreCase))
-                    return position;
-            }
-
-            return null;
         }
 
         private static bool IsAxisAtPosition(BaseAxis axis, double target)
@@ -819,11 +792,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             reason = string.Empty;
             return true;
-        }
-
-        private int AbortAvoid(string message)
-        {
-            return AbortStage("AVOID", message);
         }
 
         // ===== 공통 순차 스텝 / 헬퍼 =====
@@ -893,7 +861,113 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return -1;
         }
 
-        // ===== LOAD / UNLOAD (4축: NeedleZ → ExpanderZ → WaferT → WaferY) =====
+        // 해당 kind에 axisLabel 파라미터가 있으면 이동, 없으면 스킵(0). (옵션레이아웃에 정의된 축만 이동)
+        private async Task<int> StepMoveKindIfPresentAsync(StagePositionKind kind, string axisLabel)
+        {
+            StageTeachingPosition position = FindKindPosition(kind, axisLabel);
+            if (position == null)
+                return 0;
+            return await MoveByTeachingPositionAsync(position);
+        }
+
+        // NeedleZ → EjectPinZ 순으로 해당 kind 위치로 이동 (있는 축만).
+        // 이 두 축은 VISION X와 간섭이 없어 단독으로 이동해도 된다.
+        private async Task<int> MoveNeedleAndEjectZAsync(StagePositionKind kind, string title)
+        {
+            if (await StepMoveKindIfPresentAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
+            if (await StepMoveKindIfPresentAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
+            return 0;
+        }
+
+        // ExpanderZ 이동 전제(저수준 인터락): VISION X가 Avoid 위치에 있어야 한다 → 아니면 먼저 Avoid로 후퇴
+        private async Task<int> EnsureVisionXAtAvoidAsync(string title, CDT320_Machine machine)
+        {
+            if (_InputStageUnit.IsVisionXInAvoidPosition())
+                return 0;
+
+            string reason;
+            if (!CheckVisionXClear(machine, out reason))
+                return AbortStage(title, "VISION X Avoid 후퇴 전 " + reason);
+            if (await StepMoveKindAsync(StagePositionKind.Avoid, "VISION X") != 0)
+                return AbortStage(title, "VISION X Avoid 후퇴 실패");
+            return 0;
+        }
+
+        // ExpanderZ를 해당 kind 위치로 이동 (있을 때만). ExpanderZ는 VISION X가 Avoid일 때만 움직일 수 있으므로
+        // 이동 직전 VISION X를 Avoid로 보장한다. (NeedleZ/EjectPinZ는 VISION X와 무관)
+        private async Task<int> MoveExpanderZAsync(StagePositionKind kind, string title, CDT320_Machine machine)
+        {
+            if (FindKindPosition(kind, "EXPANDER Z") == null)
+                return 0;
+
+            int r;
+            if ((r = await EnsureVisionXAtAvoidAsync(title, machine)) != 0)
+                return r;
+            if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0)
+                return AbortStage(title, "EXPANDER Z 이동 실패");
+            return 0;
+        }
+
+        // X축: VISION X → NEEDLE X 순으로 해당 kind 위치로 이동 (있는 축만).
+        // VISION X 이동 전에는 공유레일 충돌 방지를 위해 픽커 Avoid(+레티클 Clear)를 확인한다.
+        private async Task<int> MoveStageXAxesAsync(StagePositionKind kind, string title, CDT320_Machine machine, bool requireReticleClear)
+        {
+            if (FindKindPosition(kind, "VISION X") != null)
+            {
+                string reason;
+                if (!CheckVisionXClear(machine, out reason))
+                    return AbortStage(title, "VISION X 전 " + reason);
+                if (requireReticleClear && !IsReticleClear(machine, out reason))
+                    return AbortStage(title, "VISION X 전 레티클 " + reason);
+                if (await StepMoveKindAsync(kind, "VISION X") != 0)
+                    return AbortStage(title, "VISION X 이동 실패");
+            }
+            if (await StepMoveKindIfPresentAsync(kind, "NEEDLE X") != 0)
+                return AbortStage(title, "NEEDLE X 이동 실패");
+            return 0;
+        }
+
+        // Z축(NeedleZ/EjectPinZ/ExpanderZ)이 모두 Avoid 위치에 있는지 확인
+        private bool CheckStageZAxesAtAvoid(out string reason)
+        {
+            if (!IsAxisAtPosition(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.AvoidPosition))
+            { reason = "NEEDLE Z가 Avoid 위치 아님"; return false; }
+            if (!IsAxisAtPosition(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.AvoidPosition))
+            { reason = "EJECT PIN Z가 Avoid 위치 아님"; return false; }
+            if (!IsAxisAtPosition(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.AvoidPosition))
+            { reason = "EXPANDER Z가 Avoid 위치 아님"; return false; }
+            reason = string.Empty;
+            return true;
+        }
+
+        // Z축(NeedleZ/ExpanderZ)이 Load 또는 Unload 위치에 있는지 확인. (EjectPinZ는 Load/Unload 파라미터 없음 → 제외)
+        private bool CheckStageZAxesAtLoadOrUnload(out string reason)
+        {
+            if (!IsAxisAtPosition(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition) &&
+                !IsAxisAtPosition(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.UnloadPosition))
+            { reason = "NEEDLE Z가 Load/Unload 위치 아님"; return false; }
+            if (!IsAxisAtPosition(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.LoadPosition) &&
+                !IsAxisAtPosition(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.UnloadPosition))
+            { reason = "EXPANDER Z가 Load/Unload 위치 아님"; return false; }
+            reason = string.Empty;
+            return true;
+        }
+
+        // VISION X 이동 전 공유레일 충돌 방지: Front/Rear 픽커가 Avoid 위치(Clear)인지 확인
+        private bool CheckVisionXClear(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null)
+                return true;
+            if (machine.PickerFrontUnit != null && !machine.PickerFrontUnit.IsPickerInAvoidPosition())
+            { reason = "Front 픽커 Avoid 위치 아님"; return false; }
+            if (machine.PickerRearUnit != null && !machine.PickerRearUnit.IsPickerInAvoidPosition())
+            { reason = "Rear 픽커 Avoid 위치 아님"; return false; }
+            return true;
+        }
+
+        // ===== LOAD / UNLOAD: Z축 Avoid 확인 → X → Y → T → Z(체결) =====
+        // (Load/Unload 그룹은 옵션레이아웃에 WaferY/WaferT/ExpanderZ/NeedleZ만 정의되어 X는 자동 스킵)
         private async Task<int> MoveLoadUnloadSequenceAsync(StagePositionKind kind)
         {
             try
@@ -903,26 +977,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 CDT320_Machine machine = FindMachine();
                 string title = GetPositionLabel(kind);
                 string reason;
+                int r;
 
-                // 1) NEEDLE Z
-                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0)
-                    return AbortStage(title, "NEEDLE Z 이동 실패");
+                // 0) 선행: Z축들이 Avoid 위치에 있는지 확인
+                if (!CheckStageZAxesAtAvoid(out reason))
+                    return AbortStage(title, "Z축 " + reason);
 
-                // 2) EXPANDER Z
-                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0)
-                    return AbortStage(title, "EXPANDER Z 이동 실패");
+                // 1) X (Load/Unload는 X 파라미터 없음 → 자동 스킵)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                    return r;
 
-                // 3) WAFER T — 니들후퇴 + 픽커Clear + 피더
+                // 2) WAFER Y
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
+
+                // 3) WAFER T
                 if (!CheckStagePlaneInterlock(machine, true, out reason))
                     return AbortStage(title, "WAFER T 전 " + reason);
                 if (await StepMoveKindAsync(kind, "WAFER T") != 0)
                     return AbortStage(title, "WAFER T 이동 실패");
 
-                // 4) WAFER Y — 동일
-                if (!CheckStagePlaneInterlock(machine, true, out reason))
-                    return AbortStage(title, "WAFER Y 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
-                    return AbortStage(title, "WAFER Y 이동 실패");
+                // 4) ExpanderZ 체결 (이동 직전 VISION X를 Avoid로 보장)
+                if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                    return r;
+
+                // 5) NeedleZ 체결 (EjectPinZ는 Load/Unload 파라미터 없어 스킵)
+                if ((r = await MoveNeedleAndEjectZAsync(kind, title)) != 0)
+                    return r;
 
                 return 0;
             }
@@ -930,7 +1013,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally { }
         }
 
-        // ===== READY (7축, AVOID와 동일 틀) =====
+        // ===== READY (AVOID와 동일: Z축 체크 없이 Z 먼저 후퇴 → T → Y → X) =====
         private async Task<int> MoveReadySequenceAsync()
         {
             try
@@ -941,20 +1024,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 const StagePositionKind kind = StagePositionKind.Ready;
                 string title = GetPositionLabel(kind);
                 string reason;
+                int r;
 
-                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
-                if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
-                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
+                // 1) NeedleZ/EjectPinZ Ready로 후퇴 (VISION X와 무관) — 선행 체크 없음
+                if ((r = await MoveNeedleAndEjectZAsync(kind, title)) != 0)
+                    return r;
 
-                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
+                // 2) ExpanderZ Ready로 후퇴 (이동 직전 VISION X를 Avoid로 보장)
+                if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                    return r;
 
-                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
+                // 3) WAFER T
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortStage(title, "WAFER T 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0)
+                    return AbortStage(title, "WAFER T 이동 실패");
 
-                if (!CheckStagePlaneInterlock(machine, true, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
+                // 4) WAFER Y
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
 
-                if (!CheckStagePlaneInterlock(machine, true, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
+                // 5) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인 (ExpanderZ는 이미 이동 완료)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                    return r;
 
                 return 0;
             }
@@ -962,7 +1056,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally { }
         }
 
-        // ===== PROCESS (7축, 수평 먼저 → 니들 상승 마지막) =====
+        // ===== PROCESS: Z축 Load/Unload 확인 → X → Y → T → Z(Expander 고정 → 니들 상승) =====
         private async Task<int> MoveProcessSequenceAsync()
         {
             try
@@ -973,30 +1067,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 const StagePositionKind kind = StagePositionKind.Process;
                 string title = GetPositionLabel(kind);
                 string reason;
+                int r;
 
-                // 1) WAFER Y — 니들후퇴 + 피더 (픽커 미적용)
+                // 0) 선행: Z축들이 Load 또는 Unload 위치에 있는지 확인 (웨이퍼 로드 상태 전제)
+                if (!CheckStageZAxesAtLoadOrUnload(out reason))
+                    return AbortStage(title, "Z축 " + reason);
+
+                // 1) EXPANDER Z 고정 — ExpanderZ는 VISION X가 Avoid일 때만 이동 가능하므로 VISION X를
+                //    process로 보내기 전에 먼저 수행한다. (헬퍼가 직전 VISION X Avoid 보장 → 이후 VISION X는
+                //    process로 이동해 그대로 머문다. ExpanderZ를 뒤에 두면 VISION X가 다시 Avoid로 끌려감)
+                if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                    return r;
+
+                // 2) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                    return r;
+
+                // 3) WAFER Y — 피더 Clear (픽커 미적용)
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
                 if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
 
-                // 2) WAFER T — Wafer Y 정렬 완료 선행
+                // 4) WAFER T — Wafer Y 정렬 완료 선행
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
                 if (!IsAxisSettled(_InputStageUnit.StageY)) return AbortStage(title, "WAFER T 전 WAFER Y 정렬 미완료");
                 if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
 
-                // 3) NEEDLE X
-                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
-
-                // 4) VISION X
-                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
-
-                // 5) EXPANDER Z (하강/고정)
-                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
-
-                // 6) NEEDLE Z 상승 — 스테이지 정렬 + Expander 고정 선행
+                // 5) NEEDLE Z 상승 — 스테이지 정렬 + Expander 고정 선행
                 if (!CheckProcessNeedleUpReady(out reason)) return AbortStage(title, "NEEDLE Z 상승 전 " + reason);
                 if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
 
-                // 7) EJECT PIN Z 상승 — 동일
+                // 6) EJECT PIN Z 상승 — 동일
                 if (!CheckProcessNeedleUpReady(out reason)) return AbortStage(title, "EJECT PIN Z 상승 전 " + reason);
                 if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
 
@@ -1006,7 +1106,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally { }
         }
 
-        // ===== RETICLE (7축, VISION X 마지막) =====
+        // ===== RETICLE: Z축 Avoid 확인 → X → Y → T → Z(체결) =====
         private async Task<int> MoveReticleSequenceAsync()
         {
             try
@@ -1017,23 +1117,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 const StagePositionKind kind = StagePositionKind.Reticle;
                 string title = GetPositionLabel(kind);
                 string reason;
+                int r;
 
-                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
-                if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
-                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
+                // 0) 선행: Z축들이 Avoid 위치에 있는지 확인
+                if (!CheckStageZAxesAtAvoid(out reason))
+                    return AbortStage(title, "Z축 " + reason);
 
+                // 1) EXPANDER Z 체결 — ExpanderZ는 VISION X가 Avoid일 때만 이동 가능하므로
+                //    VISION X를 워킹(Reticle)으로 보내기 전에 먼저 수행한다. (직전 VISION X Avoid 보장)
+                if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
+                    return r;
+
+                // 2) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid + 레티클 실린더 Clear 확인
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, true)) != 0)
+                    return r;
+
+                // 3) WAFER Y
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
                 if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
 
+                // 4) WAFER T
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
                 if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
 
-                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
-
-                // 7) VISION X — 레티클 실린더 Clear + Wafer Y 경로 클리어 완료
-                if (!IsReticleClear(machine, out reason)) return AbortStage(title, "VISION X 전 레티클 " + reason);
-                if (!IsAxisSettled(_InputStageUnit.StageY)) return AbortStage(title, "VISION X 전 WAFER Y 경로클리어 미완료");
-                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
+                // 5) NeedleZ/EjectPinZ 체결 (ExpanderZ는 1번에서 이미 이동 완료)
+                if ((r = await MoveNeedleAndEjectZAsync(kind, title)) != 0)
+                    return r;
 
                 return 0;
             }
@@ -1525,12 +1634,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                int result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition, false);
+                // NeedleZ: Load → Process → Avoid 경유 → Unload (Process→Unload 직접 전이는
+                // 인터락(비공정 이동 전 NeedleZ Avoid 필요)에 막히므로 중간에 Avoid를 경유한다)
+                int result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false);
                 if (result != 0)
                     return result;
 
-                await Task.Delay(100).ContinueWith(_ => { });
-                return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false);
+                await Task.Delay(100);
+                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition, false);
+                if (result != 0)
+                    return result;
+
+                await Task.Delay(100);
+                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.AvoidPosition, false);
+                if (result != 0)
+                    return result;
+
+                await Task.Delay(100);
+                return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.UnloadPosition, false);
             }
             catch
             {
