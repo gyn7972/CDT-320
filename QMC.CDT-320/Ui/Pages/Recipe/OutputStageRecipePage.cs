@@ -312,7 +312,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AddKindGroup(List<ParameterGridItem> items, string kindLabel, string kind, bool goodY, bool goodZ, bool ng, bool vision)
         {
             string groupKey = "K_" + kind.ToUpperInvariant();
-            items.Add(ParameterGridItem.Header(kindLabel, groupKey));
+            ParameterGridItem header = ParameterGridItem.Header(kindLabel, groupKey);
+            if (string.Equals(kind, "Reticle", StringComparison.OrdinalIgnoreCase))
+                header.Description = "Vision Cal Position";
+            items.Add(header);
 
             var recipe = _outputStageUnit.Recipe;
             if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => recipe.GoodStageY));

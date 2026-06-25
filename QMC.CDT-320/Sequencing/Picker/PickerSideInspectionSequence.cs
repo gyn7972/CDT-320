@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Diagnostics.TactTime;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -651,12 +652,42 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RequestSide0InspectionAsync(CancellationToken ct)
         {
-            _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
-            if (_side0Result == null)
+            using (TactTimeScope scope = BeginDetailedTactScope(
+                TactTimeCategory.Vision,
+                "Side 0deg Inspect",
+                "0deg"))
             {
-                return Fail("PICKER-SIDE-VISION0-FAIL", "Vision",
-                    "Side 0deg inspection communication/result failed after retry. die=" +
-                    _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                try
+                {
+                    _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
+                    if (_side0Result == null)
+                    {
+                        scope.Fail("PICKER-SIDE-VISION0-FAIL", BuildSideTactDetail(0, "Side 0도 검사 실패."));
+                        return Fail("PICKER-SIDE-VISION0-FAIL", "Vision",
+                            "Side 0deg inspection communication/result failed after retry. die=" +
+                            _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                    }
+
+                    scope.Complete(BuildSideTactDetail(0, "Side 0도 검사 완료. ok=" + _side0Result.IsAllOk));
+                    RecordInspectionCheckpointForTact(
+                        "Side0Inspection",
+                        "Side 0deg Inspect Interval",
+                        "0deg",
+                        "ok=" + _side0Result.IsAllOk);
+                }
+                catch (OperationCanceledException)
+                {
+                    scope.Cancel(BuildSideTactDetail(0, "Side 0도 검사가 취소되었습니다."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    scope.Fail("PICKER-SIDE-VISION0-EX", BuildSideTactDetail(0, "Side 0도 검사 중 예외가 발생했습니다. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
             }
 
             await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
@@ -666,9 +697,36 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveSideT90Async(CancellationToken ct)
         {
-            int result = await MoveSideT90AndVision90PositionAsync(ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            using (TactTimeScope scope = BeginDetailedTactScope(
+                TactTimeCategory.Motion,
+                "Side 0deg To 90deg Motion",
+                "0deg->90deg"))
+            {
+                try
+                {
+                    int result = await MoveSideT90AndVision90PositionAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        scope.Fail("PICKER-SIDE-T90-MOVE", BuildSideTactDetail(90, "Side 0도에서 90도 전환 모션 실패. result=" + result));
+                        return result;
+                    }
+
+                    scope.Complete(BuildSideTactDetail(90, "Side 0도에서 90도 전환 모션 완료."));
+                }
+                catch (OperationCanceledException)
+                {
+                    scope.Cancel(BuildSideTactDetail(90, "Side 0도에서 90도 전환 모션이 취소되었습니다."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    scope.Fail("PICKER-SIDE-T90-MOVE-EX", BuildSideTactDetail(90, "Side 0도에서 90도 전환 모션 중 예외가 발생했습니다. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
+            }
 
             CurrentStep = PickerSideInspectionStep.RequestSide90Inspection;
             return 0;
@@ -723,12 +781,42 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RequestSide90InspectionAsync(CancellationToken ct)
         {
-            _side90Result = await RequestSideResultAsync(90, ct).ConfigureAwait(false);
-            if (_side90Result == null)
+            using (TactTimeScope scope = BeginDetailedTactScope(
+                TactTimeCategory.Vision,
+                "Side 90deg Inspect",
+                "90deg"))
             {
-                return Fail("PICKER-SIDE-VISION90-FAIL", "Vision",
-                    "Side 90deg inspection communication/result failed after retry. die=" +
-                    _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                try
+                {
+                    _side90Result = await RequestSideResultAsync(90, ct).ConfigureAwait(false);
+                    if (_side90Result == null)
+                    {
+                        scope.Fail("PICKER-SIDE-VISION90-FAIL", BuildSideTactDetail(90, "Side 90도 검사 실패."));
+                        return Fail("PICKER-SIDE-VISION90-FAIL", "Vision",
+                            "Side 90deg inspection communication/result failed after retry. die=" +
+                            _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                    }
+
+                    scope.Complete(BuildSideTactDetail(90, "Side 90도 검사 완료. ok=" + _side90Result.IsAllOk));
+                    RecordInspectionCheckpointForTact(
+                        "Side90Inspection",
+                        "Side 90deg Inspect Interval",
+                        "90deg",
+                        "ok=" + _side90Result.IsAllOk);
+                }
+                catch (OperationCanceledException)
+                {
+                    scope.Cancel(BuildSideTactDetail(90, "Side 90도 검사가 취소되었습니다."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    scope.Fail("PICKER-SIDE-VISION90-EX", BuildSideTactDetail(90, "Side 90도 검사 중 예외가 발생했습니다. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
             }
 
             await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
@@ -1316,6 +1404,56 @@ namespace QMC.CDT320.Sequencing
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && !settings.UseVision;
+        }
+
+        private TactTimeScope BeginDetailedTactScope(TactTimeCategory category, string processName, string stepName)
+        {
+            TactTimeRecorder recorder = Context != null && Context.Tact != null
+                ? Context.Tact
+                : NullTactTimeRecorder.Instance;
+
+            return recorder.BeginScope(
+                category,
+                Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker",
+                Name,
+                processName,
+                stepName,
+                null,
+                BuildSideTactDetail(stepName == "90deg" || stepName == "0deg->90deg" ? 90 : 0, "Start"));
+        }
+
+        private void RecordInspectionCheckpointForTact(string key, string processName, string stepName, string detail)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
+
+                Context.Controller.RecordInspectionCheckpointForTact(
+                    key,
+                    processName,
+                    stepName,
+                    Side.ToString(),
+                    _currentDie != null ? _currentDie.DieId : "",
+                    _currentPickerNo,
+                    detail);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildSideTactDetail(int angleDeg, string detail)
+        {
+            return "side=" + Side +
+                   ", angleDeg=" + angleDeg +
+                   ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                   ", pickerNo=" + _currentPickerNo +
+                   ", pickerIndex=" + _currentPickerIndex +
+                   ", " + (detail ?? "");
         }
 
         private void ReleaseInspectionArea()

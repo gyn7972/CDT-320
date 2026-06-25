@@ -42,6 +42,12 @@ namespace QMC.CDT320
         private TactTimeRecorder _activeTactTimeRecorder;
         private readonly object _productionStatsLock = new object();
         private System.Diagnostics.Stopwatch _autoProductionStopwatch;
+        private readonly object _outputReceiveTactLock = new object();
+        private DateTime _lastOutputReceiveTactAt = DateTime.MinValue;
+        private BinSide? _lastOutputReceiveTactSide;
+        private readonly object _inspectionTactLock = new object();
+        private readonly Dictionary<string, DateTime> _lastInspectionTactTimes =
+            new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
         // 4개 유닛(INPUT/FRONT/REAR/OUTPUT) 동작 상태. UI 가 스냅샷으로 폴링한다. (앱 수명 동안 유지)
         private readonly QMC.CDT320.Sequencing.SequenceActivityMonitor _sequenceActivity =
             new QMC.CDT320.Sequencing.SequenceActivityMonitor();
@@ -5431,6 +5437,127 @@ namespace QMC.CDT320
             }
         }
 
+        public void RecordOutputStageProductReceivedForTact(
+            BinSide side,
+            string dieId,
+            int pickerNo,
+            OutputStageReceiveTarget receiveTarget)
+        {
+            try
+            {
+                TactTimeRecorder recorder = _activeTactTimeRecorder;
+                if (recorder == null || object.ReferenceEquals(recorder, NullTactTimeRecorder.Instance))
+                    return;
+
+                DateTime now = DateTime.Now;
+                DateTime previousAt;
+                BinSide? previousSide;
+                lock (_outputReceiveTactLock)
+                {
+                    previousAt = _lastOutputReceiveTactAt;
+                    previousSide = _lastOutputReceiveTactSide;
+                    _lastOutputReceiveTactAt = now;
+                    _lastOutputReceiveTactSide = side;
+                }
+
+                if (previousAt == DateTime.MinValue)
+                    return;
+
+                long elapsedMs = Math.Max(0, (long)(now - previousAt).TotalMilliseconds);
+                string sideName = ResolveOutputReceiveTactSideName(side);
+                string previousSideName = previousSide.HasValue
+                    ? ResolveOutputReceiveTactSideName(previousSide.Value)
+                    : "-";
+
+                recorder.Record(new TactTimeRecord
+                {
+                    UnitName = "OutputStage",
+                    SequenceName = "OutputReceiveTact",
+                    ProcessName = "Output Receive TactTime",
+                    StepName = sideName,
+                    Category = TactTimeCategory.Process,
+                    StartedAt = previousAt,
+                    EndedAt = now,
+                    ElapsedMs = elapsedMs,
+                    Result = TactTimeResult.Ok,
+                    Detail =
+                        "OutputStage가 제품 1개를 받은 간격입니다. side=" + sideName +
+                        ", previousSide=" + previousSideName +
+                        ", die=" + (dieId ?? "") +
+                        ", pickerNo=" + pickerNo +
+                        ", outputWafer=" + (receiveTarget != null ? receiveTarget.OutputWaferId : "-") +
+                        ", order=" + (receiveTarget != null ? receiveTarget.OrderIndex.ToString() : "-") +
+                        ", mapX=" + (receiveTarget != null ? receiveTarget.DieMapX.ToString() : "-") +
+                        ", mapY=" + (receiveTarget != null ? receiveTarget.DieMapY.ToString() : "-")
+                });
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "RecordOutputStageProductReceivedForTact",
+                    "Output 수령 택타임 기록 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public void RecordInspectionCheckpointForTact(
+            string key,
+            string processName,
+            string stepName,
+            string pickerSide,
+            string dieId,
+            int pickerNo,
+            string detail)
+        {
+            try
+            {
+                TactTimeRecorder recorder = _activeTactTimeRecorder;
+                if (recorder == null || object.ReferenceEquals(recorder, NullTactTimeRecorder.Instance))
+                    return;
+
+                key = string.IsNullOrWhiteSpace(key) ? processName : key;
+                DateTime now = DateTime.Now;
+                DateTime previousAt;
+                lock (_inspectionTactLock)
+                {
+                    _lastInspectionTactTimes.TryGetValue(key, out previousAt);
+                    _lastInspectionTactTimes[key] = now;
+                }
+
+                if (previousAt == DateTime.MinValue)
+                    return;
+
+                long elapsedMs = Math.Max(0, (long)(now - previousAt).TotalMilliseconds);
+                recorder.Record(new TactTimeRecord
+                {
+                    UnitName = "Inspection",
+                    SequenceName = "InspectionTact",
+                    ProcessName = processName ?? "",
+                    StepName = stepName ?? "",
+                    Category = TactTimeCategory.Process,
+                    StartedAt = previousAt,
+                    EndedAt = now,
+                    ElapsedMs = elapsedMs,
+                    Result = TactTimeResult.Ok,
+                    Detail =
+                        "검사 완료 후 다음 제품 검사 완료까지의 간격입니다. key=" + key +
+                        ", side=" + (pickerSide ?? "") +
+                        ", die=" + (dieId ?? "") +
+                        ", pickerNo=" + pickerNo +
+                        (string.IsNullOrWhiteSpace(detail) ? "" : ", " + detail)
+                });
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("WorkStats", "SYSTEM", "RecordInspectionCheckpointForTact",
+                    "검사 택타임 기록 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         private void BeginAutoProductionStats()
         {
             try
@@ -5558,6 +5685,28 @@ namespace QMC.CDT320
             }
         }
 
+        private void ResetOutputReceiveTactTimeState()
+        {
+            lock (_outputReceiveTactLock)
+            {
+                _lastOutputReceiveTactAt = DateTime.MinValue;
+                _lastOutputReceiveTactSide = null;
+            }
+        }
+
+        private void ResetInspectionTactTimeState()
+        {
+            lock (_inspectionTactLock)
+            {
+                _lastInspectionTactTimes.Clear();
+            }
+        }
+
+        private static string ResolveOutputReceiveTactSideName(BinSide side)
+        {
+            return side == BinSide.Good ? "OK" : "NG";
+        }
+
         private string ResolveTactProjectName()
         {
             try
@@ -5610,6 +5759,8 @@ namespace QMC.CDT320
                 var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                 TactTimeRecorder tact = CreateTactTimeRecorder(options);
                 _activeTactTimeRecorder = tact;
+                ResetOutputReceiveTactTimeState();
+                ResetInspectionTactTimeState();
                 // 새 시퀀스 시작: 4개 유닛 상태를 Idle 로 초기화하고 동일 ActivityMonitor 를 컨텍스트에 주입한다.
                 _sequenceActivity.Reset();
                 _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(

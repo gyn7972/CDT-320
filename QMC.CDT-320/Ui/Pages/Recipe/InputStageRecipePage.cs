@@ -1156,7 +1156,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             foreach (StagePositionKind kind in OptionKindOrder)
             {
                 string groupKey = "POS_" + kind;
-                items.Add(ParameterGridItem.Header(GetPositionLabel(kind), groupKey));
+                ParameterGridItem header = ParameterGridItem.Header(GetPositionLabel(kind), groupKey);
+                if (kind == StagePositionKind.Reticle)
+                    header.Description = "Vision Cal Position";
+                items.Add(header);
 
                 foreach (StageTeachingPosition position in TeachingPositions)
                 {

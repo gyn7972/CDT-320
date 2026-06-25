@@ -438,6 +438,45 @@ namespace QMC.Common.Diagnostics.TactTime
             }
         }
 
+        public void Record(TactTimeRecord record)
+        {
+            try
+            {
+                if (!_enabled || Volatile.Read(ref _disposed) != 0 || record == null)
+                    return;
+
+                TactTimeRecord clone = record.Clone();
+                if (string.IsNullOrWhiteSpace(clone.RunId))
+                    clone.RunId = RunId;
+                if (string.IsNullOrWhiteSpace(clone.CorrelationId))
+                    clone.CorrelationId = Guid.NewGuid().ToString("N");
+                if (string.IsNullOrWhiteSpace(clone.EquipmentId))
+                    clone.EquipmentId = EquipmentId;
+                if (string.IsNullOrWhiteSpace(clone.ProjectName))
+                    clone.ProjectName = ProjectName;
+                if (string.IsNullOrWhiteSpace(clone.LotId))
+                    clone.LotId = LotId;
+                if (string.IsNullOrWhiteSpace(clone.Mode))
+                    clone.Mode = Mode;
+
+                DateTime now = DateTime.Now;
+                if (clone.StartedAt == DateTime.MinValue)
+                    clone.StartedAt = now;
+                if (clone.EndedAt == DateTime.MinValue)
+                    clone.EndedAt = clone.StartedAt;
+                if (clone.ElapsedMs <= 0)
+                    clone.ElapsedMs = Math.Max(0, (long)(clone.EndedAt - clone.StartedAt).TotalMilliseconds);
+
+                WriteRecordToSinks(clone);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         public IReadOnlyList<TactTimeRecord> Snapshot()
         {
             var list = new List<TactTimeRecord>();
@@ -492,25 +531,30 @@ namespace QMC.Common.Diagnostics.TactTime
                 if (record == null || Volatile.Read(ref _disposed) != 0)
                     return;
 
-                for (int i = 0; i < _sinks.Count; i++)
-                {
-                    try
-                    {
-                        _sinks[i].Write(record);
-                    }
-                    catch
-                    {
-                    }
-                    finally
-                    {
-                    }
-                }
+                WriteRecordToSinks(record);
             }
             catch
             {
             }
             finally
             {
+            }
+        }
+
+        private void WriteRecordToSinks(TactTimeRecord record)
+        {
+            for (int i = 0; i < _sinks.Count; i++)
+            {
+                try
+                {
+                    _sinks[i].Write(record);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
             }
         }
 

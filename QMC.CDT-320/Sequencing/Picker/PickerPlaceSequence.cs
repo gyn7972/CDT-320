@@ -1001,7 +1001,14 @@ namespace QMC.CDT320.Sequencing
                 ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Ok");
 
             if (Context != null && Context.Controller != null)
+            {
                 Context.Controller.RecordAutoDiePlacedForStats(_currentOutputSide);
+                Context.Controller.RecordOutputStageProductReceivedForTact(
+                    _currentOutputSide,
+                    _currentDie.DieId,
+                    _currentPickerNo,
+                    _receiveTarget);
+            }
 
             NotifySequenceProgressAfterPlace();
 
