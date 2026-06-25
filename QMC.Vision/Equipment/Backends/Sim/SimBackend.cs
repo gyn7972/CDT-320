@@ -12,7 +12,8 @@ namespace QMC.Vision.Backends.Sim
         public void Initialize() { IsInitialized = true; }
 
         public IPatternFinder CreatePatternFinder(string id) => new SimPatternFinder(id);
-        public IInspector     CreateInspector   (string id) => new SimInspector(id);
+        public IInspector     CreateInspector   (string id)
+            => QMC.Vision.Core.DomainInspectorFactory.TryCreate(id, out var di) ? di : new SimInspector(id);
 
         public void Dispose() { }
     }

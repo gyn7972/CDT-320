@@ -49,6 +49,7 @@ namespace QMC.Vision.Ui.Pages
                 _embedded = value;
                 if (_btnSave != null) _btnSave.Visible = !value;
                 if (_btnCancel != null) _btnCancel.Visible = !value;
+                LayoutBarButtons();
             }
         }
         private bool _embedded;
@@ -56,15 +57,55 @@ namespace QMC.Vision.Ui.Pages
         public InspectionLightPanel()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._grid, "LIGHT");
+            }
             WireGrid();
+            _bar.SizeChanged += (s, e) => LayoutBarButtons();
+            LayoutBarButtons();
         }
 
         public InspectionLightPanel(string algorithm, string inspectionId)
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._grid, "LIGHT");
+            }
             WireGrid();
+            _bar.SizeChanged += (s, e) => LayoutBarButtons();
+            LayoutBarButtons();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             SelectInspection(algorithm, inspectionId);
+        }
+
+        /// <summary>버튼 바의 보이는 버튼들을 바 폭에 맞춰 균등하게 채운다(빈 공간 제거).</summary>
+        private void LayoutBarButtons()
+        {
+            try
+            {
+                if (_bar == null) return;
+                var vis = new[] { _btnSave, _btnApply, _btnReset, _btnCancel }
+                    .Where(b => b != null && b.Visible).ToArray();
+                if (vis.Length == 0) return;
+
+                const int pad = 8, gap = 6;
+                int avail = _bar.Width - pad * 2 - gap * (vis.Length - 1);
+                if (avail <= 0) return;
+                int w = avail / vis.Length;
+                int h = System.Math.Max(24, _bar.Height - 8);
+                int x = pad;
+                for (int i = 0; i < vis.Length; i++)
+                {
+                    int bw = (i == vis.Length - 1) ? (_bar.Width - pad - x) : w;
+                    vis[i].SetBounds(x, 4, bw, h);
+                    x += bw + gap;
+                }
+            }
+            catch { }
         }
 
         private void WireGrid()

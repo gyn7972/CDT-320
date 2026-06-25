@@ -217,11 +217,18 @@ namespace QMC.Vision.Ui.Pages
         {
             lbl.Dock = DockStyle.Fill;
             lbl.Text = text;
-            lbl.BackColor = UiTheme.StatusBarBg;
-            lbl.ForeColor = Color.White;
+            // GENERAL 섹션 타이틀 스타일 — 회색 배경 + 명칭 + 주황 밑줄.
+            lbl.BackColor = Color.FromArgb(232, 234, 237);
+            lbl.ForeColor = Color.FromArgb(48, 52, 58);
             lbl.Font = UiTheme.SectionFont;
             lbl.TextAlign = ContentAlignment.MiddleLeft;
             lbl.Padding = new Padding(8, 0, 0, 0);
+            lbl.Controls.Add(new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 2,
+                BackColor = Color.FromArgb(217, 119, 6)
+            });
         }
 
         private void ConfigureActionBtn(Button b, string text, ActionKind kind, EventHandler onClick)

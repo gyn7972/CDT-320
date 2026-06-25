@@ -118,7 +118,8 @@ namespace QMC.Vision.Backends.OpenCv
         }
 
         public IPatternFinder CreatePatternFinder(string id) => new OpenCvPatternFinder(id, this);
-        public IInspector     CreateInspector   (string id) => new OpenCvInspector(id, this);
+        public IInspector     CreateInspector   (string id)
+            => QMC.Vision.Core.DomainInspectorFactory.TryCreate(id, out var di) ? di : new OpenCvInspector(id, this);
 
         public void Dispose() { }
     }

@@ -209,8 +209,8 @@ namespace QMC.Vision.Backends.Cognex
 
         public IPatternFinder CreatePatternFinder(string id) => new CognexPatternFinder(id, this);
         public IInspector     CreateInspector   (string id)
-            => (id != null && id.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0)
-                ? (IInspector)new QMC.Vision.Core.PlacementGapInspector(id)   // 안착 갭 검사(310 DieGap 포팅)
+            => QMC.Vision.Core.DomainInspectorFactory.TryCreate(id, out var di)   // 310 포팅(Bottom/Side/Placement)
+                ? di
                 : new CognexInspector(id, this);
 
         public void Dispose() { }

@@ -58,6 +58,9 @@ namespace QMC.Common.Ui.Controls
 
         /// <summary>표시 프레임의 크기가 바뀌면 발생(그랩/로드/첫 라이브 프레임). 페이지가 STAGE/ROI 자동맞춤에 사용.</summary>
         public event Action FrameChanged;
+
+        /// <summary>검사기별 전용 오버레이 그리기 콜백. (Graphics, 이미지px→화면px 변환). null 이면 미사용.</summary>
+        public Action<System.Drawing.Graphics, Func<System.Drawing.PointF, System.Drawing.PointF>> CustomOverlayPaint;
         private int _lastFrameW = -1, _lastFrameH = -1;
         private void RaiseFrameChangedIfSizeChanged()
         {
@@ -71,9 +74,12 @@ namespace QMC.Common.Ui.Controls
         private string   _verdict;
         private bool     _verdictPass;
         private string[] _resultLines;
+        private Color[]  _resultLineColors;   // 줄별 색(null 또는 Empty 면 판정색 사용)
 
         public void SetVerdict(string text, bool pass) { _verdict = text; _verdictPass = pass; Invalidate(); }
-        public void SetResultLines(string[] lines) { _resultLines = lines; Invalidate(); }
+        public void SetResultLines(string[] lines) { _resultLines = lines; _resultLineColors = null; Invalidate(); }
+        /// <summary>줄별 색 지정(일반=초록, 에러=빨강 등). colors[i].A==0 이면 그 줄은 판정색.</summary>
+        public void SetResultLines(string[] lines, Color[] colors) { _resultLines = lines; _resultLineColors = colors; Invalidate(); }
         public void ClearResultOverlay() { _verdict = null; _resultLines = null; Invalidate(); }
 
         // ── 내장 툴바 ──
@@ -446,6 +452,16 @@ namespace QMC.Common.Ui.Controls
                 var dst = DisplayRect();
                 DrawFrameFast(g, dst);
                 DrawOverlays(g, dst);
+
+                // 검사기별 전용 오버레이(이미지px→화면px 변환 제공). 줌/팬에 따라 정확히 따라간다.
+                if (CustomOverlayPaint != null)
+                {
+                    var fr = _frame;
+                    Func<PointF, PointF> toScreen = pp => new PointF(
+                        dst.Left + (float)(pp.X * dst.Width  / (double)fr.Width),
+                        dst.Top  + (float)(pp.Y * dst.Height / (double)fr.Height));
+                    try { CustomOverlayPaint(g, toScreen); } catch { }
+                }
             }
             else
             {
@@ -497,15 +513,19 @@ namespace QMC.Common.Ui.Controls
                 }
 
             if (_resultLines != null && _resultLines.Length > 0)
-                using (var f  = new Font("맑은 고딕", 9F))
-                using (var br = new SolidBrush(_verdictPass ? Color.FromArgb(120, 230, 120) : Color.FromArgb(255, 120, 120)))
+                using (var f = new Font("맑은 고딕", 9F))
                 {
+                    Color def = _verdictPass ? Color.FromArgb(120, 230, 120) : Color.FromArgb(255, 120, 120);
                     float y = ClientSize.Height - 6 - _resultLines.Length * 17;
-                    foreach (var line in _resultLines)
+                    for (int i = 0; i < _resultLines.Length; i++)
                     {
+                        string line = _resultLines[i];
                         if (string.IsNullOrEmpty(line)) { y += 17; continue; }
+                        Color c = (_resultLineColors != null && i < _resultLineColors.Length && _resultLineColors[i].A != 0)
+                                  ? _resultLineColors[i] : def;
                         var sz = g.MeasureString(line, f);
-                        g.DrawString(line, f, br, ClientSize.Width - sz.Width - 10, y);
+                        using (var br = new SolidBrush(c))
+                            g.DrawString(line, f, br, ClientSize.Width - sz.Width - 10, y);
                         y += 17;
                     }
                 }
@@ -591,14 +611,16 @@ namespace QMC.Common.Ui.Controls
                 var sy = (double)dst.Height / _frame.Height;
                 // 라벨은 줌과 무관하게 고정 화면 크기(확대해도 안 작아짐) + 원본을 덜 가리도록
                 // 컴팩트하게: 인덱스 숫자만, 작은 폰트·반투명 배경, 마커도 소형.
-                using (var p   = new Pen(Color.LimeGreen, 1.5f))
                 using (var f   = new Font("Consolas", 8.25F, FontStyle.Bold))
                 using (var bg  = new SolidBrush(Color.FromArgb(140, 0, 0, 0)))
-                using (var brT = new SolidBrush(Color.LimeGreen))
                 {
                     int idx = 0;
                     foreach (var m in _overlayMarks)
                     {
+                        Color col = (m.Color.A == 0) ? Color.LimeGreen : m.Color;   // 결함=마크색(Red), 매칭=기본 초록
+                        using (var p   = new Pen(col, 1.5f))
+                        using (var brT = new SolidBrush(col))
+                        {
                         int cx = dst.Left + (int)(m.CenterX * sx);
                         int cy = dst.Top  + (int)(m.CenterY * sy);
                         // 매칭 박스(검출 각도로 회전) — 크기 지정 시 표시. 위치+회전 시각화.
@@ -630,6 +652,7 @@ namespace QMC.Common.Ui.Controls
                         if (ty < 0)                                ty = cy + 7;
                         g.FillRectangle(bg, tx - 1, ty, ts.Width + 2, ts.Height);
                         g.DrawString(txt, f, brT, tx, ty);
+                        }
                         idx++;
                     }
                 }

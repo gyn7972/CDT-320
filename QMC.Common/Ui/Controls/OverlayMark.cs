@@ -15,6 +15,8 @@ namespace QMC.Common.Ui.Controls
         public double BoxW;
         /// <summary>매칭 박스 세로(이미지 px).</summary>
         public double BoxH;
+        /// <summary>마크 색(기본=Empty → CameraViewBase 가 LimeGreen 사용). 결함(이물 등)은 Red 지정.</summary>
+        public System.Drawing.Color Color;
 
         public OverlayMark(double centerX, double centerY, double score)
         {
@@ -24,6 +26,7 @@ namespace QMC.Common.Ui.Controls
             AngleDeg = 0;
             BoxW = 0;
             BoxH = 0;
+            Color = System.Drawing.Color.Empty;
         }
 
         public OverlayMark(double centerX, double centerY, double score, double angleDeg, double boxW, double boxH)
@@ -34,6 +37,7 @@ namespace QMC.Common.Ui.Controls
             AngleDeg = angleDeg;
             BoxW = boxW;
             BoxH = boxH;
+            Color = System.Drawing.Color.Empty;
         }
     }
 }

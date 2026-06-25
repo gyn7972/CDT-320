@@ -79,7 +79,9 @@ namespace QMC.Vision.Ui.Pages
             if (_btnRecCopy    != null) _btnRecCopy.Text    = Lang.T("rec.copy");
             if (_btnRecSaveAs  != null) _btnRecSaveAs.Text  = Lang.T("rec.saveAs");
             if (_btnRecDelete  != null) _btnRecDelete.Text  = Lang.T("common.delete");
-            if (_commonHdr     != null) _commonHdr.Text     = Lang.T("rec.commonHdr");
+            // 공통 설정(품목) 섹션 제목을 그리드 접기 헤더(주황 라인)로 이동 — 기존 주황 헤더는 숨김.
+            if (_commonHdr  != null) { _commonHdr.Text = Lang.T("rec.commonHdr"); _commonHdr.Visible = false; }
+            if (_commonGrid != null) _commonGrid.Title = Lang.T("rec.commonHdr");
             if (_btnCommonSave != null) _btnCommonSave.Text = Lang.T("rec.commonSave");
 
             // 사이드바 알고리즘 '탭' 버튼 + 세팅(finder/inspector) 버튼 표시명 갱신.
@@ -540,6 +542,85 @@ namespace QMC.Vision.Ui.Pages
             ReloadRecipeList();
             _projList.SelectedItem = name;   // 적용은 하지 않음(상단 Recipe 유지) — 목록에서 선택만
             LogRecipeEvent("레시피 복사(Copy) [" + source + " → " + name + "]", name);
+        }
+
+        // ── LOAD = 외부 레시피 폴더를 통째로 가져와(Recipes 루트로 복사) 목록 추가 + 활성 적용 ──
+        /// <summary>폴더 선택 → 폴더 내 전체 파일(*.recipe.json/*.train.png 등)을 Recipes\{폴더명} 으로 복사.
+        /// 폴더명 = 레시피명으로 목록에 추가하고 그대로 활성 로드(셋업 이관 용이). READY 중 차단.</summary>
+        private void OnRecipeLoadClick(object sender, EventArgs e)
+        {
+            if (IsRecipeLockedByReady()) return;
+
+            string sourceDir;
+            using (var dlg = new FolderBrowserDialog
+            {
+                Description = "불러올 레시피 폴더를 선택하세요 (폴더 전체가 복사되어 레시피로 등록됩니다)",
+                ShowNewFolderButton = false
+            })
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                sourceDir = dlg.SelectedPath;
+            }
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir))
+                { MessageBox.Show("선택한 폴더가 존재하지 않습니다.", "LOAD", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+                string name = Path.GetFileName(sourceDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                if (string.IsNullOrWhiteSpace(name))
+                { MessageBox.Show("폴더명을 확인할 수 없습니다.", "LOAD", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+
+                // 레시피 파일이 하나도 없으면 한 번 확인(다른 폴더를 잘못 고르는 실수 방지).
+                bool hasRecipe = Directory.GetFiles(sourceDir, "*.recipe.json", SearchOption.AllDirectories).Length > 0;
+                if (!hasRecipe &&
+                    MessageBox.Show("선택한 폴더에 *.recipe.json 파일이 없습니다.\n그래도 이 폴더를 레시피로 가져올까요?\n\n" + sourceDir,
+                                    "LOAD", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+
+                string targetDir = QMC.Common.Data.Store.RecipeDataStore.DirOf(name);
+
+                // 외부 폴더가 이미 Recipes 루트 안(자기 자신)이면 복사 불필요 — 적용만.
+                bool sameLocation = string.Equals(
+                    Path.GetFullPath(sourceDir).TrimEnd(Path.DirectorySeparatorChar),
+                    Path.GetFullPath(targetDir).TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase);
+
+                if (!sameLocation)
+                {
+                    if (Directory.Exists(targetDir) &&
+                        MessageBox.Show("같은 이름의 레시피가 이미 있습니다.\n덮어쓸까요?\n\n" + name,
+                                        "LOAD", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                        return;
+
+                    CopyDirRecursive(sourceDir, targetDir);
+                }
+
+                // 목록 갱신 + 가져온 레시피를 활성으로 로드(폴더 그대로 셋업).
+                var host = FindForm() as Form1;
+                host?.Machine?.SetRecipe(name);
+                PersistActiveRecipe(name);
+                host?.SetRecipeStatus(name);
+                ReloadRecipeList();
+                _projList.SelectedItem = name;
+                RebuildForRecipe();
+                LogRecipeEvent("레시피 폴더 LOAD [" + sourceDir + "]", name);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("레시피 폴더를 불러오지 못했습니다.\n" + ex.Message, "LOAD", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                LogRecipeEvent("레시피 LOAD 실패 - " + ex.Message, sourceDir);
+            }
+        }
+
+        /// <summary>폴더 전체(하위 폴더 포함)를 대상 경로로 복사. 동일 파일은 덮어씀.</summary>
+        private static void CopyDirRecursive(string sourceDir, string targetDir)
+        {
+            Directory.CreateDirectory(targetDir);
+            foreach (string file in Directory.GetFiles(sourceDir))
+                File.Copy(file, Path.Combine(targetDir, Path.GetFileName(file)), true);
+            foreach (string sub in Directory.GetDirectories(sourceDir))
+                CopyDirRecursive(sub, Path.Combine(targetDir, Path.GetFileName(sub)));
         }
 
         private void OnRecipeSaveAsClick(object sender, EventArgs e)

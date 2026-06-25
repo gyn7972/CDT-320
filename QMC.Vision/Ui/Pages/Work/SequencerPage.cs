@@ -22,9 +22,9 @@ namespace QMC.Vision.Ui.Pages
             SequenceModuleKind.WaferVision,
             SequenceModuleKind.BinVision,
             SequenceModuleKind.BottomInspection,
-            SequenceModuleKind.TopSideVision,
-            SequenceModuleKind.BottomSideVision,
-            SequenceModuleKind.SideVision        // 앞+뒤 측면 동시(묶음)
+            SequenceModuleKind.TopSideVision,    // 앞쪽 측면 (각각)
+            SequenceModuleKind.BottomSideVision  // 뒤쪽 측면 (각각)
+            // 측면(앞+뒤) 동시 묶음 제거 — 앞/뒤를 각각 선택·검증
         };
 
         private bool _subscribed;
@@ -52,10 +52,15 @@ namespace QMC.Vision.Ui.Pages
         public SequencerPage()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._metrics, "METRICS");
+            }
             if (IsDesignerMode()) return;
 
             _cbModule.Items.AddRange(new object[]
-            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면", "측면(앞+뒤) 동시" });
+            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면" });
             _cbModule.SelectedIndex = 0;
             _cbModule.SelectedIndexChanged += (s, e) => { PopulateTools(); BuildMetricsGrid(); };
 

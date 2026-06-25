@@ -77,7 +77,7 @@ namespace QMC.Vision.Ui.Pages
 
             // ── 상단 주황 헤더 (GENERAL 동일) ──
             this._hdr.Dock = DockStyle.Top;
-            this._hdr.Height = 38;
+            this._hdr.Height = 32;
             this._hdr.Text = "조명 셋업";
             this._hdr.Tag = "i18n:set.lightSetup";
             this._hdr.BackColor = Color.FromArgb(217, 119, 6);
@@ -202,7 +202,7 @@ namespace QMC.Vision.Ui.Pages
             this._body.BackColor = UiTheme.MainBg;
             this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 36f));
+            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
 
@@ -300,7 +300,7 @@ namespace QMC.Vision.Ui.Pages
             // ── LFine 하드웨어 모드(SM) 행 — 선택 컨트롤러가 LFine 일 때만 활성 (런타임 송신, 영속 아님) ──
             this._pnlHwMode.Dock = DockStyle.Fill;
             this._pnlHwMode.BackColor = Color.WhiteSmoke;
-            this._lblHwMode.Location = new Point(8, 8);
+            this._lblHwMode.Location = new Point(8, 13);
             this._lblHwMode.Size = new Size(170, 22);
             this._lblHwMode.Font = UiTheme.ButtonFont;
             this._lblHwMode.ForeColor = Color.Black;
@@ -308,11 +308,11 @@ namespace QMC.Vision.Ui.Pages
             this._lblHwMode.TextAlign = ContentAlignment.MiddleLeft;
             this._cbHwMode.DropDownStyle = ComboBoxStyle.DropDownList;
             this._cbHwMode.Font = UiTheme.ValueFont;
-            this._cbHwMode.Location = new Point(182, 7);
+            this._cbHwMode.Location = new Point(182, 12);
             this._cbHwMode.Size = new Size(180, 24);
             this._cbHwMode.Items.Add("Page Trigger (0)");
             this._cbHwMode.Items.Add("Software Trigger (3)");
-            this._btnHwModeApply.Location = new Point(372, 4);
+            this._btnHwModeApply.Location = new Point(372, 10);
             this._btnHwModeApply.Size = new Size(80, 28);
             this._btnHwModeApply.Text = "적용";
             this._btnHwModeApply.FlatStyle = FlatStyle.Flat;
@@ -320,7 +320,7 @@ namespace QMC.Vision.Ui.Pages
             this._btnHwModeApply.BackColor = Color.White;
             this._btnHwModeApply.ForeColor = Color.Black;
             this._btnHwModeApply.Click += new System.EventHandler(this.OnHwModeApplyClick);
-            this._lblHwModeState.Location = new Point(462, 8);
+            this._lblHwModeState.Location = new Point(462, 13);
             this._lblHwModeState.Size = new Size(560, 22);
             this._lblHwModeState.Font = UiTheme.ValueFont;
             this._lblHwModeState.ForeColor = Color.DarkSlateGray;

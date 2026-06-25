@@ -17,6 +17,22 @@ namespace QMC.Vision.Core
         /// <summary>그랩/알고리즘 소요시간 로그 ON/OFF(병목 측정용). 운영 중 끄려면 false.</summary>
         public static bool TimingLogEnabled = true;
 
+        // INSPECT 결과를 구조화 스토어에 태깅할 픽커/인덱스 컨텍스트(시퀀서/수동테스트가 INSPECT 전에 설정).
+        [ThreadStatic] private static int _inspectPicker;
+        [ThreadStatic] private static int _inspectChannel;
+        [ThreadStatic] private static int _inspectIndexX;
+        [ThreadStatic] private static int _inspectIndexY;
+
+        /// <summary>다음 INSPECT 결과에 붙일 픽커(1~4)·다이 인덱스 설정. picker=0 이면 이력에만 기록.</summary>
+        public static void SetInspectContext(int picker, int indexX, int indexY)
+            => SetInspectContext(picker, -1, indexX, indexY);
+
+        /// <summary>채널 지정 컨텍스트(Side 4채널: channel 0~3 — Front ch1/2, Back ch1/2, 그 외 -1).</summary>
+        public static void SetInspectContext(int picker, int channel, int indexX, int indexY)
+        {
+            _inspectPicker = picker; _inspectChannel = channel; _inspectIndexX = indexX; _inspectIndexY = indexY;
+        }
+
         /// <summary>1장 그랩. "w=..;h=..;frame=.." 또는 "fail:..".</summary>
         public static string Grab(IVisionModule m)
         {
@@ -168,6 +184,15 @@ namespace QMC.Vision.Core
 
             // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 OK/NG + 결과 라인 오버레이로 표시.
             ModuleResultStore.Record(m.Name, inspId, r.IsPass, items);
+
+            // 구조화 결과 스토어 — 작업화면 뷰어(Picker 이미지/추세/그리드)가 구독. 모드/픽커 태그.
+            try
+            {
+                string mode = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
+                if (mode != null)
+                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, _inspectPicker, _inspectChannel, _inspectIndexX, _inspectIndexY, r, image));
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionCommandCore] InspectionResultStore.Record 실패: " + ex.Message); }
 
             // 검출된 모든 결함 → 오버레이 스토어(메타로 송출) → 측면 영상에 결함 박스 전부 표시.
             try

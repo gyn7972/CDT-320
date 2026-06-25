@@ -115,6 +115,7 @@ namespace QMC.Vision.Ui.Pages
             this.bodyLayout.Controls.Add(this._g4, 0, 9);
             this.bodyLayout.Controls.Add(this._t5, 0, 10);
             this.bodyLayout.Controls.Add(this._g5, 0, 11);
+            this.bodyLayout.AutoScroll = true;
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.bodyLayout.Location = new System.Drawing.Point(12, 46);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0);

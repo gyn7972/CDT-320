@@ -106,6 +106,7 @@ namespace QMC.Vision.Ui.Pages
             });
 
             SizeGrids();
+            ApplyGeneralLayout();
         }
 
         /// <summary>각 섹션 그리드 행 높이를 내용에 맞춰 고정(행 잘림 방지).</summary>
@@ -119,6 +120,33 @@ namespace QMC.Vision.Ui.Pages
                 bodyLayout.RowStyles[7].Height = _g6.PreferredGridHeight;
                 bodyLayout.RowStyles[9].Height = _g4.PreferredGridHeight;
                 bodyLayout.RowStyles[11].Height = _g5.PreferredGridHeight;
+            }
+            catch { }
+        }
+
+        /// <summary>섹션 제목을 각 그리드의 접기 헤더로 이동하고, 기존 회색 타이틀 행을 제거한다.
+        /// Cognex / OpenCV 진단 섹션은 기본 접힘으로 시작한다.</summary>
+        private void ApplyGeneralLayout()
+        {
+            try
+            {
+                // 섹션 제목을 그리드 접기 헤더(제목바)로 이동
+                _g1.Title = Lang.T("set.gen.secLang");
+                _g2.Title = Lang.T("set.gen.backend");
+                _g3.Title = Lang.T("set.gen.cgxResult");
+                _g6.Title = Lang.T("set.gen.ocvResult");
+                _g4.Title = Lang.T("set.gen.secImg");
+                _g5.Title = Lang.T("set.gen.secData");
+
+                // 기존 회색 섹션 타이틀 라벨 숨김 + 해당 행 높이 제거
+                foreach (var lbl in new[] { _t1, _t2, _t3, _t6, _t4, _t5 })
+                    lbl.Visible = false;
+                foreach (int r in new[] { 0, 2, 4, 6, 8, 10 })
+                    bodyLayout.RowStyles[r].Height = 0;
+
+                // Cognex / OpenCV 진단 섹션은 기본 접힘
+                _g3.SetCollapsed(true);
+                _g6.SetCollapsed(true);
             }
             catch { }
         }

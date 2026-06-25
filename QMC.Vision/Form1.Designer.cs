@@ -16,6 +16,7 @@ namespace QMC.Vision
         private Label lblTitle;
         private Label lblVersion;
         private Label lblStateBig;
+        private Button btnPopout;   // 작업 화면을 보조 모니터에 보기 전용으로 복제
         // 헤더 사용자/시간 박스 (Handler pnlUserBox 동일 구조 — 아바타 + 사용자 + 시간)
         private Panel pnlUserBox;
         private Label lblAvatar;
@@ -71,6 +72,7 @@ namespace QMC.Vision
             this.lblTimeCaption = new System.Windows.Forms.Label();
             this.lblTimeValue = new System.Windows.Forms.Label();
             this.lblStateBig = new System.Windows.Forms.Label();
+            this.btnPopout = new System.Windows.Forms.Button();
             this.pnlStatusBar = new System.Windows.Forms.Panel();
             this.lblStatusL = new System.Windows.Forms.Label();
             this.dotCamera = new QMC.Vision.Ui.Controls.IndicatorDot();
@@ -103,6 +105,7 @@ namespace QMC.Vision
             this.pnlHeader.Controls.Add(this.lblVersion);
             this.pnlHeader.Controls.Add(this.pnlUserBox);
             this.pnlHeader.Controls.Add(this.lblStateBig);
+            this.pnlHeader.Controls.Add(this.btnPopout);
             this.pnlHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.pnlHeader.Location = new System.Drawing.Point(0, 0);
             this.pnlHeader.Name = "pnlHeader";
@@ -233,9 +236,25 @@ namespace QMC.Vision
             this.lblStateBig.Text = "NONE";
             this.lblStateBig.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.lblStateBig.Visible = false;
-            // 
+            //
+            // btnPopout
+            //
+            this.btnPopout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(44)))), ((int)(((byte)(62)))), ((int)(((byte)(92)))));
+            this.btnPopout.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPopout.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(86)))), ((int)(((byte)(118)))), ((int)(((byte)(170)))));
+            this.btnPopout.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnPopout.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPopout.ForeColor = System.Drawing.Color.White;
+            this.btnPopout.Location = new System.Drawing.Point(480, 17);
+            this.btnPopout.Name = "btnPopout";
+            this.btnPopout.Size = new System.Drawing.Size(200, 36);
+            this.btnPopout.TabIndex = 5;
+            this.btnPopout.Text = "작업화면 복제 (보조 모니터)";
+            this.btnPopout.UseVisualStyleBackColor = false;
+            this.btnPopout.Click += new System.EventHandler(this.btnPopout_Click);
+            //
             // pnlStatusBar
-            // 
+            //
             this.pnlStatusBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.pnlStatusBar.Controls.Add(this.lblStatusL);
             this.pnlStatusBar.Controls.Add(this.dotCamera);

@@ -15,8 +15,31 @@ namespace QMC.Vision.Ui.Controls
         private readonly List<ParameterGridItem> _items = new List<ParameterGridItem>();
         private bool _isRefreshing;
 
+        // 접기 상태 및 부모 TableLayoutPanel 행 스타일 복원용 저장값.
+        private bool _collapsed;
+        private bool _rowStyleSaved;
+        private System.Windows.Forms.SizeType _savedRowSizeType;
+        private float _savedRowValue;
+
         public event EventHandler<ParameterGridChangedEventArgs> ParameterValueChanged;
         public event EventHandler<ParameterGridChangedEventArgs> ParameterRowDoubleClicked;
+
+        /// <summary>접힘 상태가 바뀔 때 발생.</summary>
+        public event EventHandler CollapsedChanged;
+
+        /// <summary>접기 제목바 텍스트.</summary>
+        public string Title
+        {
+            get { return lblTitle.Text; }
+            set { lblTitle.Text = value ?? string.Empty; }
+        }
+
+        /// <summary>접힘 여부. true 면 그리드를 숨기고 제목바만 남긴다.</summary>
+        public bool Collapsed
+        {
+            get { return _collapsed; }
+            set { SetCollapsed(value); }
+        }
 
         public ParameterGridItem SelectedItem
         {
@@ -40,15 +63,91 @@ namespace QMC.Vision.Ui.Controls
         {
             get
             {
+                if (_collapsed) return panelHeader.Visible ? panelHeader.Height : 0;
                 int h = grid.ColumnHeadersVisible ? grid.ColumnHeadersHeight : 0;
                 foreach (System.Windows.Forms.DataGridViewRow r in grid.Rows) h += r.Height;
-                return h + 6;
+                h += 6;
+                if (panelHeader.Visible) h += panelHeader.Height;
+                return h;
             }
         }
 
         public ParameterGridControl()
         {
             InitializeComponent();
+            panelHeader.Visible = true;
+            UpdateArrow();
+        }
+
+        private void panelHeader_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SetCollapsed(!_collapsed);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] toggle failed: " + ex.Message);
+            }
+        }
+
+        /// <summary>접힘 상태를 설정하고 그리드 표시/부모 행 높이를 갱신한다.</summary>
+        public void SetCollapsed(bool collapsed)
+        {
+            try
+            {
+                if (_collapsed == collapsed) return;
+                _collapsed = collapsed;
+                grid.Visible = !collapsed;
+                UpdateArrow();
+                ApplyParentRow();
+                CollapsedChanged?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] SetCollapsed failed: " + ex.Message);
+            }
+        }
+
+        private void ApplyParentRow()
+        {
+            var tlp = this.Parent as System.Windows.Forms.TableLayoutPanel;
+            if (tlp == null) return;
+            try
+            {
+                var pos = tlp.GetPositionFromControl(this);
+                int row = pos.Row;
+                if (row < 0 || row >= tlp.RowStyles.Count) return;
+
+                var style = tlp.RowStyles[row];
+                if (_collapsed)
+                {
+                    if (!_rowStyleSaved)
+                    {
+                        _savedRowSizeType = style.SizeType;
+                        _savedRowValue = style.Height;
+                        _rowStyleSaved = true;
+                    }
+                    style.SizeType = System.Windows.Forms.SizeType.Absolute;
+                    style.Height = panelHeader.Visible ? panelHeader.Height : 0;
+                }
+                else if (_rowStyleSaved)
+                {
+                    style.SizeType = _savedRowSizeType;
+                    style.Height = _savedRowValue;
+                    _rowStyleSaved = false;
+                }
+                tlp.PerformLayout();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] ApplyParentRow failed: " + ex.Message);
+            }
+        }
+
+        private void UpdateArrow()
+        {
+            lblArrow.Text = _collapsed ? "▶" : "▼";
         }
 
         public void SetItems(IEnumerable<ParameterGridItem> items)
