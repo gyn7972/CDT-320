@@ -261,6 +261,9 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
+        // 마지막 Bin Lifter Z 이동 실패 사유 — UI 실패 팝업에 합쳐 표시
+        public string LastBinLifterMoveFailureMessage { get; private set; }
+
         public async Task<int> MoveBinLifterZ(double targetPos, bool bFine = false)
         {
             return await MoveBinLifterZ(targetPos, bFine, CancellationToken.None).ConfigureAwait(false);
@@ -288,6 +291,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
+                LastBinLifterMoveFailureMessage = "Bin Lifter Z 이동 예외. target=" + targetPos + ", error=" + ex.Message;
                 QMC.Common.Log.Write("Main", "MOTION", Name,
                     "Output cassette Z move failed. target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
@@ -1874,6 +1878,7 @@ namespace QMC.CDT320
 
                 if (IsBinProtrusionDetected())
                 {
+                    LastBinLifterMoveFailureMessage = "돌출 센서 감지로 이동 차단. target=" + targetPosition;
                     OutputLifterZ.EStop();
                     QMC.Common.Log.Write("Main", "MOTION", Name,
                         "Output cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
@@ -1887,6 +1892,7 @@ namespace QMC.CDT320
 
                     if (IsBinProtrusionDetected())
                     {
+                        LastBinLifterMoveFailureMessage = "이동 중 돌출 센서 감지로 정지. target=" + targetPosition;
                         OutputLifterZ.EStop();
                         QMC.Common.Log.Write("Main", "MOTION", Name,
                             "Output cassette Z move stopped. Protrusion detected while moving. target=" + targetPosition + " - Failed");
@@ -1899,6 +1905,8 @@ namespace QMC.CDT320
                 int moveResult = await moveTask.ConfigureAwait(false);
                 if (moveResult != 0 || OutputLifterZ.IsAlarm)
                 {
+                    LastBinLifterMoveFailureMessage = "Bin Lifter Z 이동 명령 실패. result=" + moveResult +
+                        ", alarm=" + OutputLifterZ.IsAlarm + ", target=" + targetPosition;
                     QMC.Common.Log.Write("Main", "MOTION", Name,
                         "Output cassette Z move command failed. result=" + moveResult +
                         ", velocity=" + velocity + ". " + BuildOutputLifterZState(targetPosition) + " - Failed");
@@ -1911,6 +1919,8 @@ namespace QMC.CDT320
                     ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                 {
+                    LastBinLifterMoveFailureMessage = "Bin Lifter Z 이동 완료/in-position 실패. target=" + targetPosition + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, "OutputLifterZ");
                     QMC.Common.Log.Write("Main", "MOTION", Name,
                         "Output cassette Z move wait/in-position failed. " +
                         AxisMoveWaiter.FormatResult(waitResult, "OutputLifterZ") + " - Failed");

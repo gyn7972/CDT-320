@@ -87,6 +87,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-STEP-DONE", "Vision Camera Calibration step 완료: " + executingStep + ", next=" + CurrentStep);
                 }
 
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RUN-DONE",
+                    "Vision Camera Calibration Run Current 완료. Input/Output Reticle 측정과 계산/저장은 사용자가 별도 버튼으로 실행해야 합니다.");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -682,10 +684,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
+        public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 VisionUnit vision = _machine != null ? _machine.VisionUnit : null;
                 if (vision == null)
                     return Fail("VISION-CAMERA-CAL-RETICLE-RETRACT-NO-VISION", "VisionUnit", "Reticle 복귀를 위한 VisionUnit이 없습니다.");
@@ -702,6 +705,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                if (!IsReticleRetracted(vision))
+                    return Fail("VISION-CAMERA-CAL-RETICLE-RETRACT-CHECK", "VisionUnit", "Reticle 복귀 후 위치 확인 실패. down=" + vision.IsVisionReticleDown() + ", frontBw=" + vision.IsVisionReticleFrontSideBackward() + ", rearBw=" + vision.IsVisionReticleRearSideBackward());
+
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-RETRACT", "Reticle이 역순으로 복귀했습니다.");
                 return 0;
             }
@@ -712,6 +718,29 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("VISION-CAMERA-CAL-RETICLE-RETRACT-EX", "VisionUnit", "Reticle 복귀 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsReticleRetracted(VisionUnit vision)
+        {
+            try
+            {
+                if (vision == null)
+                    return false;
+
+                if (IsSimulationMode())
+                    return true;
+
+                return vision.IsVisionReticleDown() &&
+                       vision.IsVisionReticleFrontSideBackward() &&
+                       vision.IsVisionReticleRearSideBackward();
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -896,9 +925,13 @@ namespace QMC.CDT320.Sequencing.Calibration
         private bool IsSimulationMode()
         {
             VisionUnit unit = _machine != null ? _machine.VisionUnit : null;
-            return unit != null &&
-                   ((unit.Setup != null && unit.Setup.IsSimulationMode) ||
-                    (unit.Config != null && unit.Config.IsSimulationMode));
+            if (unit != null &&
+                ((unit.Setup != null && unit.Setup.IsSimulationMode) ||
+                 (unit.Config != null && unit.Config.IsSimulationMode)))
+                return true;
+
+            return AppSettingsStore.Current != null &&
+                   (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode);
         }
 
         private void FillAxisPositions(VisionCameraCalibrationTarget target, VisionReticleMeasurement measurement)

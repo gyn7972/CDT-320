@@ -378,7 +378,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string msg = _inputFeederUnit != null ? _inputFeederUnit.LastWaferFeederMoveFailureMessage : null;
+                    string detail = string.IsNullOrEmpty(msg) ? "" : Environment.NewLine + "사유 : " + msg;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {

@@ -26,6 +26,12 @@ namespace QMC.CDT320
         Process90
     }
 
+    public enum PickerInspectionPipelineMode
+    {
+        SerialBottomThenSide,
+        BottomSidePipeline
+    }
+
     [DataContract]
     public sealed class VisionSetup : ISetupData
     {
@@ -36,6 +42,7 @@ namespace QMC.CDT320
     public sealed class VisionConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
+        [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; }
         [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
 
         public bool IsSimulationMode
@@ -1028,8 +1035,12 @@ namespace QMC.CDT320
             else if (IsName(positionName, "Process90Position")) positions.Process90Position = position;
         }
 
+        // 마지막 Vision 축 이동 실패 사유 — UI 실패 팝업에 합쳐 표시
+        public string LastVisionMoveFailureMessage { get; private set; }
+
         private int RaiseVisionAlarm(string code, string message)
         {
+            LastVisionMoveFailureMessage = message;
             EventLogger.Write(EventKind.Alarm, "QMC", code, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;

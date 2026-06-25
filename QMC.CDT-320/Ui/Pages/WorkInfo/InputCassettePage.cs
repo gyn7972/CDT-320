@@ -793,10 +793,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     "- Input Cassette / Output Cassette Mapping Data\r\n" +
                     "- InputStage Pick 가능 DieMap Data\r\n" +
                     "- Output Good/NG Stage Place 가능 Bin Map Data\r\n\r\n" +
-                    "기존 Stage 작업 Data는 테스트 Data로 교체됩니다."))
+                    "기존 Stage 작업 Data와 시퀀스 재개 상태는 테스트 Data 기준으로 초기화됩니다."))
                     return;
 
                 var host = GetHost();
+                ClearProcessTestRuntimeState();
                 string message;
                 InputStageUnit inputStage = host.Controller.Machine != null ? host.Controller.Machine.InputStageUnit : null;
                 bool ok = MaterialStateService.CreateProcessTestDataSet(inputStage, out message);
@@ -816,6 +817,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteAlarm("INPUT-CST-PROCESS-TEST-DATA-EX", "공정 테스트 Data 생성 실패: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, "공정 테스트 Data 생성 실패:\r\n" + ex.Message, "공정 테스트 Data", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearProcessTestRuntimeState()
+        {
+            try
+            {
+                InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Front);
+                InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Rear);
+                SequenceResumeStore.ClearAll();
+                SequenceFailureStore.Clear();
+                WriteEvent("INPUT-CST-PROCESS-TEST-RUNTIME-CLEAR",
+                    "공정 테스트 Data 생성 전 InputCamera 선행검사 허가와 시퀀스 재개 상태를 초기화했습니다.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-PROCESS-TEST-RUNTIME-CLEAR-EX",
+                    "공정 테스트 Data 런타임 상태 초기화 실패: " + ex.Message);
             }
             finally
             {

@@ -241,7 +241,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     AxisConfig c = row.Axis.Config;
 
                     int idx = speedGrid.Rows.Add(
-                        row.Axis.Name,
+                        AjinAxisDefaults.ToDisplayName(row.Axis.Name),
                         FormatAxisValue(c.DefaultVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.Acceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.Deceleration, row.Axis, "0.###"),

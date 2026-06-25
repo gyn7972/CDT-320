@@ -1274,18 +1274,8 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
                 }
 
-                string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
-                {
-                    string message = axis + " move blocked by interlock. target=" + targetPos + ". " + interlockReason;
-                    LastStageMoveFailureMessage = message;
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Error,
-                        "IN-STAGE-MOVE-INTERLOCK",
-                        Name,
-                        message);
-                }
-
+                // 인터락 사전검사는 실제 이동(MoveAbsoluteAsync)의 BaseAxis.MotionGuard 훅에서
+                // InputStageInterlockRules.Verify로 1번 수행한다. 여기서 중복 호출하지 않는다.
                 double tolerance = ResolveAxisPositionTolerance(item);
                 if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
                 {

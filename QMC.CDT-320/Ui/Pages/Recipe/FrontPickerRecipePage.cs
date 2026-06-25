@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerFrontUnit unit;
-        private Button btnFrontPickerZ1CycleTest;
+        private ActionButton btnFrontPickerZ1CycleTest;
 
         public FrontPickerRecipePage()
         {
@@ -183,19 +183,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             manualLayout.Controls.Add(btnFrontPickerZ1CycleTest, 1, 4);
         }
 
-        private static Button CreateManualActionButton(string text, int tabIndex)
+        private static ActionButton CreateManualActionButton(string text, int tabIndex)
         {
-            Button button = new Button();
+            ActionButton button = new ActionButton();
             button.BackColor = Color.FromArgb(128, 128, 128);
             button.Cursor = Cursors.Hand;
             button.Dock = DockStyle.Fill;
-            button.FlatStyle = FlatStyle.Standard;
             button.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
             button.ForeColor = Color.White;
             button.Margin = new Padding(4);
             button.TabIndex = tabIndex;
             button.Text = text;
-            button.UseVisualStyleBackColor = false;
             return button;
         }
 
@@ -701,7 +699,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (unit == null)
                 return -1;
 
-            Button button = btnFrontPickerZ1CycleTest;
+            ActionButton button = btnFrontPickerZ1CycleTest;
             if (button != null)
                 button.Enabled = false;
 

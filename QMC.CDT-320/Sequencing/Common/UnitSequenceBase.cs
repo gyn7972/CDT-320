@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Diagnostics.TactTime;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -54,9 +55,35 @@ namespace QMC.CDT320.Sequencing
                 {
                     if (Mode == SequenceRunMode.Auto)
                     {
-                        await ExecuteAutoAsync(ct).ConfigureAwait(false);
-                        if (activity != null)
-                            activity.SetState(Kind, SequenceActivityState.Completed, "시퀀스가 정상 완료되었습니다.");
+                        using (TactTimeScope tactScope = Context.Tact.Unit(this))
+                        {
+                            try
+                            {
+                                await ExecuteAutoAsync(ct).ConfigureAwait(false);
+                                if (activity != null)
+                                    activity.SetState(Kind, SequenceActivityState.Completed, "시퀀스가 정상 완료되었습니다.");
+                                tactScope.Complete();
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                tactScope.Cancel("시퀀스가 취소되었습니다.");
+                                throw;
+                            }
+                            catch (SequenceStopException ex)
+                            {
+                                tactScope.Stop("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
+                                throw;
+                            }
+                            catch (Exception ex)
+                            {
+                                tactScope.Fail("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
+                                throw;
+                            }
+                            finally
+                            {
+                            }
+                        }
+
                         return;
                     }
 
@@ -67,7 +94,32 @@ namespace QMC.CDT320.Sequencing
                         ct.ThrowIfCancellationRequested();
                         try
                         {
-                            await ExecuteStepAsync(ct).ConfigureAwait(false);
+                            using (TactTimeScope tactScope = Context.Tact.Unit(this))
+                            {
+                                try
+                                {
+                                    await ExecuteStepAsync(ct).ConfigureAwait(false);
+                                    tactScope.Complete();
+                                }
+                                catch (OperationCanceledException)
+                                {
+                                    tactScope.Cancel("시퀀스가 취소되었습니다.");
+                                    throw;
+                                }
+                                catch (SequenceStopException ex)
+                                {
+                                    tactScope.Stop("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
+                                    throw;
+                                }
+                                catch (Exception ex)
+                                {
+                                    tactScope.Fail("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
+                                    throw;
+                                }
+                                finally
+                                {
+                                }
+                            }
                         }
                         finally
                         {

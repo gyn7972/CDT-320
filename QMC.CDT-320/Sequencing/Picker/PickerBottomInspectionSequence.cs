@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
+using QMC.Common.Diagnostics.TactTime;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -27,6 +28,9 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private bool _inspectionYPositionReady;
         private bool _bottomFlyingZDownActive;
+        private bool _bottomVisionToPitchTactActive;
+        private DateTime _bottomVisionToPitchTactStartAt = DateTime.MinValue;
+        private string _bottomVisionToPitchTactDetail = "";
         private SequenceResourceLease _inspectionAreaLease;
 
         public PickerBottomInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -64,7 +68,7 @@ namespace QMC.CDT320.Sequencing
                 if (Options != null && Options.RunMode != SequenceRunMode.Auto)
                 {
                     ct.ThrowIfCancellationRequested();
-                    int stepResult = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    int stepResult = await Context.Tact.StepAsync(this, CurrentStep, ct, () => ExecuteStepAsync(ct)).ConfigureAwait(false);
                     keepCurrentState = stepResult == 0 && CurrentStep != PickerBottomInspectionStep.Complete;
                     return stepResult;
                 }
@@ -73,7 +77,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    int result = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    int result = await Context.Tact.StepAsync(this, CurrentStep, ct, () => ExecuteStepAsync(ct)).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -402,6 +406,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomXToInspectionAsync(CancellationToken ct)
         {
+            bool measureVisionToPitch = _bottomVisionToPitchTactActive;
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = _targetPickerX;
             if (!_inspectionYPositionReady || !IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
@@ -417,6 +422,15 @@ namespace QMC.CDT320.Sequencing
             int[] results = await Task.WhenAll(xyTask, flyingZTask).ConfigureAwait(false);
             if (results[0] != 0 || results[1] != 0)
             {
+                if (measureVisionToPitch)
+                {
+                    RecordBottomVisionToPitchMoveTact(
+                        TactTimeResult.Failed,
+                        "PICKER-BOTTOM-FLYING-Z-MOVE",
+                        "Bottom 비전 후 피치 이동 실패. xyResult=" + results[0] +
+                        ", flyingZResult=" + results[1]);
+                }
+
                 return Fail(
                     "PICKER-BOTTOM-FLYING-Z-MOVE",
                     Name,
@@ -432,6 +446,10 @@ namespace QMC.CDT320.Sequencing
             CurrentStep = _inspectionYPositionReady
                 ? PickerBottomInspectionStep.MoveBottomZ
                 : PickerBottomInspectionStep.MoveBottomYToInspection;
+
+            if (measureVisionToPitch)
+                RecordBottomVisionToPitchMoveTact(TactTimeResult.Ok, "", "Bottom 비전 후 피치 이동 완료.");
+
             return 0;
         }
 
@@ -702,6 +720,11 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RequestBottomInspectionAsync(CancellationToken ct)
         {
+            using (TactTimeScope scope = BeginDetailedTactScope(
+                TactTimeCategory.Vision,
+                "Bottom Camera Inspect",
+                "Bottom"))
+            {
             try
             {
                 int retryCount = Options != null && Options.VisionRetryCount > 0 ? Options.VisionRetryCount : 3;
@@ -712,6 +735,13 @@ namespace QMC.CDT320.Sequencing
                     _bottomResult = await RequestBottomResultAsync(ct).ConfigureAwait(false);
                     if (_bottomResult != null)
                     {
+                        scope.Complete(BuildBottomTactDetail("Bottom 검사 완료. attempt=" + attempt));
+                        StartBottomVisionToPitchMoveTact("attempt=" + attempt + ", ok=" + _bottomResult.IsOk);
+                        RecordInspectionCheckpointForTact(
+                            "BottomCameraInspection",
+                            "Bottom Camera Inspect Interval",
+                            "Bottom",
+                            "attempt=" + attempt + ", ok=" + _bottomResult.IsOk);
                         CurrentStep = PickerBottomInspectionStep.ApplyBottomInspectionResult;
                         return 0;
                     }
@@ -722,6 +752,7 @@ namespace QMC.CDT320.Sequencing
                         ", attempt=" + attempt + " - Check");
                 }
 
+                scope.Fail("PICKER-BOTTOM-VISION-FAIL", BuildBottomTactDetail("Bottom 검사 재시도 실패."));
                 return Fail("PICKER-BOTTOM-VISION-FAIL", "Vision",
                     "Bottom 검사 통신 또는 결과 수신이 재시도 후에도 실패했습니다. die=" +
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo +
@@ -729,14 +760,17 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                scope.Cancel(BuildBottomTactDetail("Bottom 검사가 취소되었습니다."));
                 throw;
             }
             catch (Exception ex)
             {
+                scope.Fail("PICKER-BOTTOM-VISION-EX", BuildBottomTactDetail("Bottom 검사 중 예외가 발생했습니다. error=" + ex.Message));
                 return Fail("PICKER-BOTTOM-VISION-EX", "Vision", "Bottom 검사 중 예외가 발생했습니다. " + ex.Message);
             }
             finally
             {
+            }
             }
         }
 
@@ -879,6 +913,7 @@ namespace QMC.CDT320.Sequencing
 
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
+                ClearBottomVisionToPitchMoveTact();
                 CurrentStep = PickerBottomInspectionStep.Complete;
                 return 0;
             }
@@ -986,6 +1021,117 @@ namespace QMC.CDT320.Sequencing
         {
             AppSettings settings = AppSettingsStore.Current;
             return settings != null && !settings.UseVision;
+        }
+
+        private TactTimeScope BeginDetailedTactScope(TactTimeCategory category, string processName, string stepName)
+        {
+            TactTimeRecorder recorder = Context != null && Context.Tact != null
+                ? Context.Tact
+                : NullTactTimeRecorder.Instance;
+
+            return recorder.BeginScope(
+                category,
+                Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker",
+                Name,
+                processName,
+                stepName,
+                null,
+                BuildBottomTactDetail("Start"));
+        }
+
+        private void RecordInspectionCheckpointForTact(string key, string processName, string stepName, string detail)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
+
+                Context.Controller.RecordInspectionCheckpointForTact(
+                    key,
+                    processName,
+                    stepName,
+                    Side.ToString(),
+                    _currentDie != null ? _currentDie.DieId : "",
+                    _currentPickerNo,
+                    detail);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void StartBottomVisionToPitchMoveTact(string detail)
+        {
+            try
+            {
+                _bottomVisionToPitchTactActive = true;
+                _bottomVisionToPitchTactStartAt = DateTime.Now;
+                _bottomVisionToPitchTactDetail = BuildBottomTactDetail(detail);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearBottomVisionToPitchMoveTact()
+        {
+            _bottomVisionToPitchTactActive = false;
+            _bottomVisionToPitchTactStartAt = DateTime.MinValue;
+            _bottomVisionToPitchTactDetail = "";
+        }
+
+        private void RecordBottomVisionToPitchMoveTact(TactTimeResult result, string alarmCode, string detail)
+        {
+            try
+            {
+                if (!_bottomVisionToPitchTactActive || _bottomVisionToPitchTactStartAt == DateTime.MinValue)
+                    return;
+
+                TactTimeRecorder recorder = Context != null && Context.Tact != null
+                    ? Context.Tact
+                    : NullTactTimeRecorder.Instance;
+
+                DateTime endAt = DateTime.Now;
+                recorder.Record(new TactTimeRecord
+                {
+                    UnitName = Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker",
+                    SequenceName = Name,
+                    ProcessName = "Bottom Vision To Pitch Move",
+                    StepName = "Vision->Pitch",
+                    Category = TactTimeCategory.Motion,
+                    StartedAt = _bottomVisionToPitchTactStartAt,
+                    EndedAt = endAt,
+                    ElapsedMs = Math.Max(0, (long)(endAt - _bottomVisionToPitchTactStartAt).TotalMilliseconds),
+                    Result = result,
+                    AlarmCode = alarmCode ?? "",
+                    Detail = _bottomVisionToPitchTactDetail + ", nextDie=" +
+                             (_currentDie != null ? _currentDie.DieId : "-") +
+                             ", nextPickerNo=" + _currentPickerNo +
+                             ", " + (detail ?? "")
+                });
+            }
+            catch
+            {
+            }
+            finally
+            {
+                ClearBottomVisionToPitchMoveTact();
+            }
+        }
+
+        private string BuildBottomTactDetail(string detail)
+        {
+            return "side=" + Side +
+                   ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                   ", pickerNo=" + _currentPickerNo +
+                   ", pickerIndex=" + _currentPickerIndex +
+                   ", " + (detail ?? "");
         }
 
         private void ReleaseInspectionArea()

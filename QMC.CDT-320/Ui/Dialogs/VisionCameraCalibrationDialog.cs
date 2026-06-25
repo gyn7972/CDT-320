@@ -97,28 +97,36 @@ namespace QMC.CDT_320.Ui.Dialogs
                 btnFindInput.Font = koreanBoldFont;
                 btnFindOutput.Font = koreanBoldFont;
                 btnRunAll.Font = koreanBoldFont;
+                btnRetractReticle.Font = koreanBoldFont;
                 btnCalculateSave.Font = koreanBoldFont;
                 btnClose.Font = koreanBoldFont;
 
-                lblGuide.Text = "Bottom/Input/Output 카메라가 같은 Reticle Mark를 찾은 X/Y/T와 현재 모터 위치를 VisionUnit Config에 저장합니다.";
+                lblGuide.Text = "Bottom/Input/Output 카메라가 같은 Reticle Mark를 찾은 좌표와 현재 모터 위치를 VisionUnit Config에 저장합니다.";
                 lblSequenceGuide.Text =
                     "수행 순서\r\n\r\n" +
                     "1. CHECK READY\r\n" +
-                    "2. RUN CURRENT: Input/Output VisionX Avoid 이동\r\n" +
-                    "3. RUN CURRENT: Front/Rear Picker Output Avoid 이동\r\n" +
-                    "4. RUN CURRENT: Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
-                    "5. RUN CURRENT: Bottom Vision ReticleFinder 촬영 및 X/Y/T/Score 저장\r\n" +
-                    "6. FIND INPUT / FIND OUTPUT은 각 카메라 위치 준비 후 개별 실행\r\n" +
-                    "7. CALC / SAVE\r\n\r\n" +
-                    "RUN CURRENT 후 Reticle은 Bottom 촬영 준비 위치를 유지합니다. 복귀는 별도 절차에서 역순으로 수행합니다.";
+                    "2. RUN CURRENT\r\n" +
+                    "   - Input/Output VisionX Avoid 이동\r\n" +
+                    "   - Front/Rear Picker Output Avoid 이동\r\n" +
+                    "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
+                    "   - Bottom Vision ReticleFinder 촬영 및 X/Y/T/Score 저장\r\n" +
+                    "3. FIND INPUT\r\n" +
+                    "   - Reticle Bottom 준비, Picker Output Avoid, Input 카메라 Reticle 위치 필요\r\n" +
+                    "4. FIND OUTPUT\r\n" +
+                    "   - Reticle Bottom 준비, Picker Input Avoid, Output 카메라 Reticle 위치 필요\r\n" +
+                    "5. RETICLE BACK\r\n" +
+                    "   - Rear Slide 후진 -> Front Slide 후진 -> Lift Down\r\n" +
+                    "6. CALC / SAVE\r\n\r\n" +
+                    "RUN CURRENT 후 Reticle은 Bottom 촬영 준비 위치를 유지합니다. 복귀가 필요할 때만 RETICLE BACK을 실행하세요.";
                 lblStatus.Text = "대기 중입니다.";
 
-                toolTip.SetToolTip(btnCheck, "자동 운전/다른 수동 동작/알람 상태를 확인합니다.");
-                toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청하고 X/Y/T/Score를 저장합니다.");
-                toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청하고 X/Y/T/Score 및 InputVisionX/StageY 위치를 저장합니다.");
-                toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청하고 X/Y/T/Score 및 OutputVisionX/StageY 위치를 저장합니다.");
-                toolTip.SetToolTip(btnRunAll, "Input/Output VisionX와 Picker를 회피시킨 뒤 Reticle을 Bottom 촬영 준비 위치로 전개하고 Bottom Reticle을 측정합니다.");
-                toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산하고 VisionUnit Config에 저장합니다.");
+                toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
+                toolTip.SetToolTip(btnRunAll, "Input/Output VisionX와 Picker를 회피시킨 뒤 Reticle을 Bottom 촬영 위치로 전개합니다.\r\n이 버튼은 Bottom Reticle 측정까지만 수행하고 Input/Output 카메라 자동 이동은 하지 않습니다.");
+                toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
+                toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nReticle Bottom 준비, Front/Rear Picker Output Avoid, Input 카메라 Reticle 위치 조건이 필요합니다.");
+                toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nReticle Bottom 준비, Front/Rear Picker Input Avoid, Output 카메라 Reticle 위치 조건이 필요합니다.");
+                toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 역순으로 복귀합니다.\r\nRear Slide 후진, Front Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다.");
+                toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산합니다.\r\n계산된 값을 VisionUnit Config.CameraCalibration에 저장합니다.");
                 toolTip.SetToolTip(btnClose, "Vision Camera Calibration 창을 닫습니다.");
             }
             catch (Exception ex)
@@ -133,10 +141,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void WireEvents()
         {
             btnCheck.Click += btnCheck_Click;
+            btnRunAll.Click += async delegate { await RunOperationAsync("RUN CURRENT", ct => Sequence.RunAsync(ct)); };
             btnFindBottom.Click += async delegate { await RunOperationAsync("Bottom Reticle Mark 측정", ct => Sequence.FindBottomReticleAsync(ct), ManualCalibrationReadinessTarget.Bottom); };
             btnFindInput.Click += async delegate { await RunOperationAsync("Input Reticle Mark 측정", ct => Sequence.FindInputReticleAsync(ct), ManualCalibrationReadinessTarget.Input); };
             btnFindOutput.Click += async delegate { await RunOperationAsync("Output Reticle Mark 측정", ct => Sequence.FindOutputReticleAsync(ct), ManualCalibrationReadinessTarget.Output); };
-            btnRunAll.Click += async delegate { await RunOperationAsync("현재 위치 기준 Vision Camera Calibration", ct => Sequence.RunAsync(ct)); };
+            btnRetractReticle.Click += async delegate { await RunOperationAsync("Reticle 복귀", ct => Sequence.RetractReticleFromBottomCameraAsync(ct)); };
             btnCalculateSave.Click += async delegate
             {
                 await RunOperationAsync("Vision Camera Calibration 계산/저장", delegate(CancellationToken ct)
@@ -188,7 +197,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 EnsureSequence();
-                lblStatus.Text = "실행 가능한 상태입니다. Reticle Mark를 카메라 시야 안에 준비한 뒤 Find를 실행하세요.";
+                lblStatus.Text = "실행 가능한 상태입니다. 각 카메라를 Reticle Mark가 보이는 위치에 준비한 뒤 Find를 실행하세요.";
                 RefreshData();
             }
             catch (Exception ex)
@@ -359,6 +368,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return false;
             }
 
+            if (IsCalibrationSimulationOrDryRun(vision))
+                return true;
+
             bool up = vision.IsVisionReticleUp();
             bool frontForward = vision.IsVisionReticleFrontSideForward();
             bool rearForward = vision.IsVisionReticleRearSideForward();
@@ -413,20 +425,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (target == null || !target.Valid || !target.HasVisionXPosition)
             {
                 EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-INPUT-TEACH-MISSING",
-                    "Input 카메라 Reticle 티칭 기준 위치가 없어 현재 위치 검사는 생략합니다. 최초 측정 후에는 저장된 위치와 비교합니다.");
+                    "Input 카메라 Reticle 측정 기준 위치가 없어 현재 위치 검사는 생략합니다. 최초 측정 후에는 저장된 위치와 비교합니다.");
                 return true;
             }
 
             if (machine == null || machine.InputStageUnit == null || machine.InputStageUnit.CameraX == null)
             {
-                reason = "InputVisionX 축 정보가 없어 Reticle 티칭 위치를 확인할 수 없습니다.";
+                reason = "InputVisionX 축 정보가 없어 Reticle 측정 위치를 확인할 수 없습니다.";
                 return false;
             }
 
             double actualX = machine.InputStageUnit.CameraX.ActualPosition;
             if (Math.Abs(actualX - target.VisionXPosition) > CameraReticlePositionToleranceMm)
             {
-                reason = "Input 카메라가 Reticle 티칭 위치가 아닙니다. actualX=" + actualX.ToString("F3") +
+                reason = "Input 카메라가 Reticle 측정 위치가 아닙니다. actualX=" + actualX.ToString("F3") +
                          ", teachX=" + target.VisionXPosition.ToString("F3") +
                          ", tolerance=" + CameraReticlePositionToleranceMm.ToString("F3");
                 return false;
@@ -442,20 +454,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (target == null || !target.Valid || !target.HasVisionXPosition)
             {
                 EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-OUTPUT-TEACH-MISSING",
-                    "Output 카메라 Reticle 티칭 기준 위치가 없어 현재 위치 검사는 생략합니다. 최초 측정 후에는 저장된 위치와 비교합니다.");
+                    "Output 카메라 Reticle 측정 기준 위치가 없어 현재 위치 검사는 생략합니다. 최초 측정 후에는 저장된 위치와 비교합니다.");
                 return true;
             }
 
             if (machine == null || machine.OutputStageUnit == null || machine.OutputStageUnit.OutputCameraX == null)
             {
-                reason = "OutputVisionX 축 정보가 없어 Reticle 티칭 위치를 확인할 수 없습니다.";
+                reason = "OutputVisionX 축 정보가 없어 Reticle 측정 위치를 확인할 수 없습니다.";
                 return false;
             }
 
             double actualX = machine.OutputStageUnit.OutputCameraX.ActualPosition;
             if (Math.Abs(actualX - target.VisionXPosition) > CameraReticlePositionToleranceMm)
             {
-                reason = "Output 카메라가 Reticle 티칭 위치가 아닙니다. actualX=" + actualX.ToString("F3") +
+                reason = "Output 카메라가 Reticle 측정 위치가 아닙니다. actualX=" + actualX.ToString("F3") +
                          ", teachX=" + target.VisionXPosition.ToString("F3") +
                          ", tolerance=" + CameraReticlePositionToleranceMm.ToString("F3");
                 return false;
@@ -558,6 +570,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                 measurement.Score.ToString("F3"));
         }
 
+        private bool IsCalibrationSimulationOrDryRun(VisionUnit vision)
+        {
+            try
+            {
+                if (vision != null &&
+                    ((vision.Setup != null && vision.Setup.IsSimulationMode) ||
+                     (vision.Config != null && vision.Config.IsSimulationMode)))
+                    return true;
+
+                return AppSettingsStore.Current != null &&
+                       (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private void SetButtonsEnabled(bool enabled)
         {
             btnCheck.Enabled = enabled;
@@ -565,6 +598,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnFindInput.Enabled = enabled;
             btnFindOutput.Enabled = enabled;
             btnRunAll.Enabled = enabled;
+            btnRetractReticle.Enabled = enabled;
             btnCalculateSave.Enabled = enabled;
             btnClose.Enabled = enabled;
         }

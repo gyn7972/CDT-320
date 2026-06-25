@@ -289,6 +289,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+                items.Add(ParameterGridItem.Selection<PickerInspectionPipelineMode>(
+                    "PICKER INSPECTION MODE",
+                    "mode",
+                    ParameterGridScope.Config,
+                    () => unit.Config.PickerInspectionMode,
+                    v => unit.Config.PickerInspectionMode = v));
 
                 optionParameterGrid.SetItems(items);
 
@@ -578,7 +584,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 int result = await action();
                 EventLogger.Write(EventKind.Event, "UI", "VISION", actionName + " result=" + result);
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string msg = _visionUnit != null ? _visionUnit.LastVisionMoveFailureMessage : null;
+                    string detail = string.IsNullOrEmpty(msg) ? "" : Environment.NewLine + "사유 : " + msg;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {

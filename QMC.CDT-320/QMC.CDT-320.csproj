@@ -333,6 +333,7 @@
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
+    <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
@@ -786,6 +787,7 @@
     <Compile Include="Sequencing\Picker\InputCameraMarkInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionStep.cs" />
+    <Compile Include="Sequencing\Picker\PickerBottomSideInspectionStep.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
@@ -801,6 +803,7 @@
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
+    <Compile Include="Sequencing\Picker\PickerBottomSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
     <Compile Include="Sequencing\FrontPickerSequence.cs" />

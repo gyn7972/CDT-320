@@ -443,7 +443,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string msg = _outputFeederUnit != null ? _outputFeederUnit.LastBinFeederMoveFailureMessage : null;
+                    string detail = string.IsNullOrEmpty(msg) ? "" : Environment.NewLine + "사유 : " + msg;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {
