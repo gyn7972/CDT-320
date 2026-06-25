@@ -698,7 +698,7 @@ namespace QMC.CDT320.Sequencing
                      state.BlocksTransport ||
                      state.UnknownUnsafe);
 
-                bool busy = inputRelated || ((xMoving || yMoving) && inputRelated);
+                bool busy = inputRelated || xMoving || yMoving;
                 detail = (isFront ? "FrontPicker" : "RearPicker") +
                          ", busy=" + busy +
                          ", movingX=" + xMoving +
@@ -730,21 +730,12 @@ namespace QMC.CDT320.Sequencing
                     if (Context != null)
                         Context.StopIfCycleStopRequested(Name + ".PreInspectionInputZoneWait");
 
-                    string ownDetail;
-                    bool ownBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
-                        Context != null ? Context.Machine : null,
-                        Side == PickerSequenceSide.Front,
-                        PickerWorkZone.Input,
-                        out ownDetail);
+                    string frontDetail;
+                    bool frontBlocking = IsPickerInputZoneBusyForVision(true, out frontDetail);
+                    string rearDetail;
+                    bool rearBlocking = IsPickerInputZoneBusyForVision(false, out rearDetail);
 
-                    string oppositeDetail;
-                    bool oppositeBlocking = PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
-                        Context != null ? Context.Machine : null,
-                        Side != PickerSequenceSide.Front,
-                        PickerWorkZone.Input,
-                        out oppositeDetail);
-
-                    if (!ownBlocking && !oppositeBlocking)
+                    if (!frontBlocking && !rearBlocking)
                     {
                         if (waitLogged)
                         {
@@ -760,10 +751,10 @@ namespace QMC.CDT320.Sequencing
                         WriteLog("InputDieVisionPrepareSequence",
                             Name + " InputCamera 선행검사 대기. Picker Input 영역이 비워질 때까지 기다립니다. " +
                             "side=" + Side +
-                            ", ownBlocking=" + ownBlocking +
-                            ", ownDetail=" + ownDetail +
-                            ", oppositeBlocking=" + oppositeBlocking +
-                            ", oppositeDetail=" + oppositeDetail + " - Wait");
+                            ", frontBlocking=" + frontBlocking +
+                            ", frontDetail=" + frontDetail +
+                            ", rearBlocking=" + rearBlocking +
+                            ", rearDetail=" + rearDetail + " - Wait");
                         waitLogged = true;
                     }
 
