@@ -1035,8 +1035,12 @@ namespace QMC.CDT320
             else if (IsName(positionName, "Process90Position")) positions.Process90Position = position;
         }
 
+        // 마지막 Vision 축 이동 실패 사유 — UI 실패 팝업에 합쳐 표시
+        public string LastVisionMoveFailureMessage { get; private set; }
+
         private int RaiseVisionAlarm(string code, string message)
         {
+            LastVisionMoveFailureMessage = message;
             EventLogger.Write(EventKind.Alarm, "QMC", code, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;

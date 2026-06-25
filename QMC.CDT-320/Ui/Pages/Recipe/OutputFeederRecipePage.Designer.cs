@@ -335,8 +335,8 @@
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 376F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
-            this.actionLayout.Size = new System.Drawing.Size(264, 870);
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
+            this.actionLayout.Size = new System.Drawing.Size(264, 865);
             this.actionLayout.TabIndex = 0;
             // 
             // lblGoodGroup
@@ -685,7 +685,7 @@
             this.commonLayout.Name = "commonLayout";
             this.commonLayout.RowCount = 1;
             this.commonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.commonLayout.Size = new System.Drawing.Size(244, 52);
+            this.commonLayout.Size = new System.Drawing.Size(244, 47);
             this.commonLayout.TabIndex = 5;
             // 
             // btnReadyMove
@@ -698,7 +698,7 @@
             this.btnReadyMove.Location = new System.Drawing.Point(0, 0);
             this.btnReadyMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.btnReadyMove.Name = "btnReadyMove";
-            this.btnReadyMove.Size = new System.Drawing.Size(244, 44);
+            this.btnReadyMove.Size = new System.Drawing.Size(244, 39);
             this.btnReadyMove.TabIndex = 8;
             this.btnReadyMove.Text = "READY MOVE";
             this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);

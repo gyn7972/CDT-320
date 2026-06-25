@@ -1,6 +1,7 @@
 ﻿using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -556,7 +557,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string msg = _OutCassetteUnit != null ? _OutCassetteUnit.LastBinLifterMoveFailureMessage : null;
+                    string detail = string.IsNullOrEmpty(msg) ? "" : Environment.NewLine + "사유 : " + msg;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {
@@ -633,21 +638,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 if (string.Equals(item.Key, "READY POSITION", StringComparison.OrdinalIgnoreCase))
                     return "Avoid";
-                if (string.Equals(item.Key, "GOOD LOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "GOOD LOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "GoodLoading";
-                if (string.Equals(item.Key, "GOOD UNLOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "GOOD UNLOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "GoodUnloading";
-                if (string.Equals(item.Key, "GOOD FIRST SLOT", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "GOOD FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
                     return "GoodFirstSlot";
-                if (string.Equals(item.Key, "NG LOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "NG LOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "NgLoading";
-                if (string.Equals(item.Key, "NG UNLOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "NG UNLOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "NgUnloading";
-                if (string.Equals(item.Key, "NG FIRST SLOT", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "NG FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
                     return "NgFirstSlot";
-                if (string.Equals(item.Key, "MAPPING START Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingStart";
-                if (string.Equals(item.Key, "MAPPING END Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingEnd";
 
                 return string.Empty;
@@ -766,14 +771,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionParameterGrid.SetItems(new[]
                 {
                     AxisDouble("READY POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.AvoidPosition, v => _OutCassetteUnit.Recipe.AvoidPosition = v),
-                    AxisDouble("GOOD LOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodLoaingPosition, v => _OutCassetteUnit.Recipe.GoodLoaingPosition = v),
-                    AxisDouble("GOOD UNLOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodUnloadingPosition, v => _OutCassetteUnit.Recipe.GoodUnloadingPosition = v),
-                    AxisDouble("GOOD FIRST SLOT POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodFirstSlotPosition, v => _OutCassetteUnit.Recipe.GoodFirstSlotPosition = v),
-                    AxisDouble("NG LOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGLoaingPosition, v => _OutCassetteUnit.Recipe.NGLoaingPosition = v),
-                    AxisDouble("NG UNLOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGUnloadingPosition, v => _OutCassetteUnit.Recipe.NGUnloadingPosition = v),
-                    AxisDouble("NG FIRST SLOT POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGFirstSlotPosition, v => _OutCassetteUnit.Recipe.NGFirstSlotPosition = v),
-                    AxisDouble("MAPPING START Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
-                    AxisDouble("MAPPING END Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
+                    AxisDouble("GOOD LOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodLoaingPosition, v => _OutCassetteUnit.Recipe.GoodLoaingPosition = v),
+                    AxisDouble("GOOD UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodUnloadingPosition, v => _OutCassetteUnit.Recipe.GoodUnloadingPosition = v),
+                    AxisDouble("GOOD FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodFirstSlotPosition, v => _OutCassetteUnit.Recipe.GoodFirstSlotPosition = v),
+                    AxisDouble("NG LOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGLoaingPosition, v => _OutCassetteUnit.Recipe.NGLoaingPosition = v),
+                    AxisDouble("NG UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGUnloadingPosition, v => _OutCassetteUnit.Recipe.NGUnloadingPosition = v),
+                    AxisDouble("NG FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGFirstSlotPosition, v => _OutCassetteUnit.Recipe.NGFirstSlotPosition = v),
+                    AxisDouble("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
+                    AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
                     AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.LoadingPositionOffset, v => _OutCassetteUnit.Config.LoadingPositionOffset = v),
                     AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UnloadingPositionOffset, v => _OutCassetteUnit.Config.UnloadingPositionOffset = v),
                     AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.Level2PositionOffset, v => _OutCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
@@ -840,6 +845,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         () => _OutCassetteUnit.NgBinCassetteLockOut != null && _OutCassetteUnit.NgBinCassetteLockOut.IsOn,
                         on =>
                         {
+                            string reason;
+                            if (!VerifyNamedCylinderMove("NgBinCassetteLock", on, out reason))
+                            {
+                                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "NG BIN LOCK output blocked by interlock: " + reason);
+                                return Task.FromResult(-1);
+                            }
                             if (on)
                                 _OutCassetteUnit.SetNgBinCassetteLock(true);
                             else
@@ -857,6 +868,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // BaseCylinder가 없는 출력(락/언락)을 레지스트리 가드(CylinderMove)로 검사한다.
+        private bool VerifyNamedCylinderMove(string movingName, bool forwardOn, out string reason)
+        {
+            var context = MotionGuardRuntime.ContextProvider != null ? MotionGuardRuntime.ContextProvider() : null;
+            var request = new MotionGuardRuleContext(movingName, movingName, forwardOn ? 1.0 : 0.0,
+                MotionGuardMoveKind.CylinderMove, string.Empty, null, context);
+            return MotionGuardRuleRegistry.Verify(request, out reason);
         }
 
         private void BindJogPanel()

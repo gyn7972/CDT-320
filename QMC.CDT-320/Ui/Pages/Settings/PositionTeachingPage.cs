@@ -124,7 +124,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
             _jogCurrentAxis = ResolveAxis(host.Machine, it.Axis);
-            _jogAxisLabel.Text = "Axis: " + it.Axis;
+            _jogAxisLabel.Text = "Axis: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis);
             UpdateJogUnitUi();
             RebuildJogButtons(DetectAxisDir(it.Axis));
         }
@@ -424,7 +424,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string lastGroup = null;
             foreach (var it in _items)
             {
-                int idx = _grid.Rows.Add(it.Group, it.Key, it.Name, it.Axis,
+                int idx = _grid.Rows.Add(
+                                         QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Group),
+                                         it.Key,
+                                         QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Name),
+                                         QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis),
                                          FormatTeachValue(it), GetTeachDisplayUnit(it), it.Desc);
                 if (it.Group != lastGroup)
                 {
@@ -553,7 +557,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var host = FindForm() as Form1;
             if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             double pos = ResolveAxisActualPos(host.Machine, it.Axis);
-            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
+            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis)); return; }
             it.Value = pos;
             _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = FormatTeachValue(it);
             _grid.Rows[_grid.CurrentRow.Index].Cells["UNIT"].Value = GetTeachDisplayUnit(it);
@@ -567,7 +571,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var host = FindForm() as Form1;
             if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             var ax = ResolveAxis(host.Machine, it.Axis);
-            if (ax == null) { QMC.Common.MessageDialog.Show("축을 찾지 못했습니다: " + it.Axis); return; }
+            if (ax == null) { QMC.Common.MessageDialog.Show("축을 찾지 못했습니다: " + QMC.CDT320.Ajin.AjinAxisDefaults.ToDisplayName(it.Axis)); return; }
             try
             {
                 if (!ax.IsServoOn) ax.ServoOn();

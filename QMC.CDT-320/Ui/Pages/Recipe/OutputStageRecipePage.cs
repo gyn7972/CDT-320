@@ -1,6 +1,7 @@
 ﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -457,6 +458,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
+        // VISION X(공유레일) 이동 전: Front/Rear 픽커가 Avoid 위치(Clear)인지 확인.
+        // (InputStage의 CheckVisionXClear와 동일 기준 — 공유레일 충돌 방지)
+        private bool CheckVisionXClear(out string reason)
+        {
+            reason = string.Empty;
+            var machine = FindMachine();
+            if (machine == null)
+                return true;
+
+            if (machine.PickerFrontUnit != null && !machine.PickerFrontUnit.IsPickerInAvoidPosition())
+            { reason = "Front 픽커 Avoid 위치 아님"; return false; }
+            if (machine.PickerRearUnit != null && !machine.PickerRearUnit.IsPickerInAvoidPosition())
+            { reason = "Rear 픽커 Avoid 위치 아님"; return false; }
+            return true;
+        }
+
         // 홈게이트: 해당 빈 Y/Z 원점복귀 완료 (Z축이 없는 스테이지는 Z 생략 — 예: NG는 Y 전용)
         private bool CheckBinAxesHomed(BinSide side, out string reason)
         {
@@ -518,9 +535,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (r != 0) return AbortSeq(title, "Z " + kind + " 이동 실패");
             }
 
-            // 5) PROCESS: VisionX 동반 이동
+            // 5) PROCESS: VisionX 동반 이동 (공유레일 → Front/Rear 픽커 Avoid 선행 확인)
             if (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
             {
+                if (!CheckVisionXClear(out reason))
+                    return AbortSeq(title, "VISION X 전 " + reason);
                 r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process");
                 if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
             }
@@ -535,13 +554,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return -1;
 
             string title = "VISION " + kind.ToUpperInvariant();
+            string reason;
 
             if (string.Equals(kind, "Reticle", StringComparison.OrdinalIgnoreCase))
             {
-                string reason;
                 if (!IsReticleClear(out reason))
                     return AbortSeq(title, "VISION X 전 레티클 " + reason);
             }
+
+            // 공유레일 → VISION X 이동 전 Front/Rear 픽커 Avoid 확인
+            if (!CheckVisionXClear(out reason))
+                return AbortSeq(title, "VISION X 전 " + reason);
 
             int r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, kind);
             if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
@@ -686,7 +709,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                     // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
                     IoCylinderItem.Output("BOTTOM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
-                        on => WritePairOut(unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                        on => GuardedPairOut("BottomVisionBlow", null, unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)
@@ -732,6 +755,49 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // 실린더 DO pair 출력 전에 모션가드 Verify를 거친다.
+        // cylinder가 있으면 실린더 모션가드(VerifyCylinderMove)로, 없으면 이름 기반 가드로 검사한다.
+        private Task<int> GuardedPairOut(string movingName, QMC.Common.IO.BaseCylinder cylinder,
+            QMC.Common.IO.BaseDigitalOutput forward, QMC.Common.IO.BaseDigitalOutput backward, bool forwardOn)
+        {
+            try
+            {
+                string reason;
+                if (cylinder != null)
+                {
+                    // VerifyCylinderMove 내부에서 차단 시 Alarm/Log를 남긴다.
+                    if (!MotionGuardRuntime.VerifyCylinderMove(cylinder, forwardOn, out reason))
+                        return Task.FromResult(-1);
+                }
+                else
+                {
+                    if (!VerifyNamedCylinderMove(movingName, forwardOn, out reason))
+                    {
+                        EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", movingName + " output blocked by interlock: " + reason);
+                        return Task.FromResult(-1);
+                    }
+                }
+
+                return WritePairOut(forward, backward, forwardOn);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        // BaseCylinder가 없는 출력(예: 바텀비전 블로우)을 레지스트리 가드(CylinderMove)로 검사한다.
+        private bool VerifyNamedCylinderMove(string movingName, bool forwardOn, out string reason)
+        {
+            var context = MotionGuardRuntime.ContextProvider != null ? MotionGuardRuntime.ContextProvider() : null;
+            var request = new MotionGuardRuleContext(movingName, movingName, forwardOn ? 1.0 : 0.0,
+                MotionGuardMoveKind.CylinderMove, string.Empty, null, context);
+            return MotionGuardRuleRegistry.Verify(request, out reason);
         }
 
         private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)

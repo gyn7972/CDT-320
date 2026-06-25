@@ -1706,8 +1706,12 @@ namespace QMC.CDT320
             return true;
         }
 
+        // 마지막 OutputFeederY 이동 실패 사유 — UI 실패 팝업에 합쳐 표시 (InputStage/InputFeeder와 동일 용도)
+        public string LastBinFeederMoveFailureMessage { get; private set; }
+
         private int RaiseFeederAlarm(string code, string message)
         {
+            LastBinFeederMoveFailureMessage = message;
             EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             Console.WriteLine("[ALARM] '" + Name + "' " + message);

@@ -372,7 +372,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 row.Cells["NO"].Value = "#" + it.No.ToString("00");
                 row.Cells["MODULE"].Value = it.Module;
-                row.Cells["NAME"].Value = it.Name;
+                row.Cells["NAME"].Value = AjinAxisDefaults.ToDisplayName(it.Name);
                 row.Cells["BOARD"].Value = it.BoardNo.ToString();
                 row.Cells["CH"].Value = it.ChannelNo.ToString("X");
                 row.Cells["UNIT"].Value = it.Unit;
@@ -501,7 +501,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (rowIndex < 0 || rowIndex >= _items.Count) return;
                 AxisRow row = _items[rowIndex];
                 bool next = !row.SimulationMode;
-                string axisName = string.IsNullOrWhiteSpace(row.Name) ? row.ConfigKey : row.Name;
+                string axisName = AjinAxisDefaults.ToDisplayName(string.IsNullOrWhiteSpace(row.Name) ? row.ConfigKey : row.Name);
                 string message = axisName + " 축을 " + (next ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
                 if (QMC.Common.MessageDialog.Show(message, "SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
                     return;
