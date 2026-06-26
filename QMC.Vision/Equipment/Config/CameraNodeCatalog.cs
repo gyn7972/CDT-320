@@ -82,7 +82,7 @@ namespace QMC.Vision.Config
                 Options = new[] { "Input", "Strobe" }, Default = "Strobe" },
             new CameraNodeDef { Group = GIo, Node = "LineSource", Label = "라인 소스", Kind = CameraParamKind.Enum,
                 Options = new[] { "ExposureStartActive", "AcquisitionStartActive", "FrameBurstActive", "SoftTriggerActive" }, Default = "ExposureStartActive" },
-            new CameraNodeDef { Group = GIo, Node = "StrobeEnable", Label = "스트로브 사용", Kind = CameraParamKind.Bool, Default = "False" },
+            new CameraNodeDef { Group = GIo, Node = "StrobeEnable", Label = "스트로브 사용", Kind = CameraParamKind.Bool, Default = "True" },
             new CameraNodeDef { Group = GIo, Node = "StrobeLineDuration", Label = "스트로브 지속", Unit = "μs", Kind = CameraParamKind.Float, Min = 0, Max = 10000000, Default = "0" },
             new CameraNodeDef { Group = GIo, Node = "StrobeLineDelay", Label = "스트로브 지연", Unit = "μs", Kind = CameraParamKind.Float, Min = 0, Max = 10000000, Default = "0" },
             new CameraNodeDef { Group = GIo, Node = "StrobeLinePreDelay", Label = "스트로브 선지연", Unit = "μs", Kind = CameraParamKind.Float, Min = 0, Max = 10000000, Default = "0" },

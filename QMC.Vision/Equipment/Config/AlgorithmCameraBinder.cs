@@ -30,18 +30,13 @@ namespace QMC.Vision.Config
         public static ICamera CreateAndApply(AlgorithmCameraMapping m)
             => CreateAndApply(m, out _, out _);
 
-        /// <summary>이미 생성된 카메라에 파라미터만 갱신 (오류 메시지 반환).</summary>
+        /// <summary>이미 생성된 카메라에 파라미터만 갱신 (오류 메시지 반환).
+        /// .mfs 전체 로드는 자동으로 하지 않는다 — 사용자가 설정 화면의 [불러오기] 버튼을 누를 때만 적용한다.</summary>
         public static bool TryApplyParameters(ICamera cam, AlgorithmCameraMapping m, out string error)
         {
             error = null;
             if (cam == null || m == null) { error = "camera or mapping is null"; return false; }
             var sb = new StringBuilder();
-            // .mfs 베이스 적용(경로 지정 시) — 카메라 전체 노드값을 먼저 깔고, 아래 관리 파라미터가 그 위에 덮어쓴다.
-            if (!string.IsNullOrWhiteSpace(m.MvsFeatureFilePath) && System.IO.File.Exists(m.MvsFeatureFilePath))
-            {
-                if (!cam.LoadFeatures(m.MvsFeatureFilePath, out var mfsErr))
-                    sb.Append("mfs:" + mfsErr + "; ");
-            }
             try { cam.ExposureUs           = m.ExposureUs; } catch (Exception ex) { sb.Append("Exposure:" + ex.Message + "; "); }
             try { cam.Gain                 = m.Gain;       } catch (Exception ex) { sb.Append("Gain:"     + ex.Message + "; "); }
             try { cam.AcquisitionFrameRate = m.FrameRate;  } catch (Exception ex) { sb.Append("FPS:"      + ex.Message + "; "); }
@@ -52,11 +47,19 @@ namespace QMC.Vision.Config
                 try { cam.Roi = m.ToRectangle(); } catch (Exception ex) { sb.Append("ROI:" + ex.Message + "; "); }
             }
             // 제네릭 노드 파라미터 — 카탈로그 순서대로(LineSelector 등 selector 가 먼저) 적용.
-            // 사용자가 설정에서 지정(저장)한 노드만 적용하고, 미지정 노드는 카메라 현재값을 유지한다.
+            // 일반 노드: 사용자가 지정(저장)한 값만 적용(미지정은 카메라 현재값 유지).
+            // IO Output(Strobe) 그룹: 저장값이 없어도 기본값으로 항상 적용 — MVS가 LineSelector를 Line0(입력)으로
+            //   초기화하므로, 적용 때마다 Line1 선택 + 스트로브 설정을 결정적으로 다시 구성한다.
             foreach (var def in CameraNodeCatalog.All)
             {
+                bool isIoOutput = string.Equals(def.Group, "IO Output(Strobe)", StringComparison.OrdinalIgnoreCase);
                 var v = m.GetNode(def.Node);
-                if (v == null) continue;
+                if (v == null)
+                {
+                    if (!isIoOutput) continue;   // 비-IO 노드는 저장값 있을 때만
+                    v = def.Default;             // IO Output 노드는 기본값으로라도 적용
+                }
+                if (string.IsNullOrEmpty(v)) continue;
                 try { cam.SetParameterTyped(def.Node, def.Kind, v); }
                 catch (Exception ex) { sb.Append(def.Node + ":" + ex.Message + "; "); }
             }

@@ -240,7 +240,13 @@ namespace QMC.Vision.Ui.Pages
                 { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "Live 중에는 .mfs 적용 불가 — Live Stop 후 시도하세요."; return; }
 
                 if (_activeCam.LoadFeatures(path, out var err))
-                { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = ".mfs 적용 완료 — " + System.IO.Path.GetFileName(path); }
+                {
+                    // 카메라뿐 아니라 설정 버퍼/그리드에도 .mfs 값을 반영(파일 직접 파싱). 이후 [저장]으로 영속.
+                    int n = LoadMfsIntoBuffer(path, m);
+                    BindFields();
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = $".mfs 적용 + 설정 반영 완료 ({n}개) — " + System.IO.Path.GetFileName(path) + "  · [저장]으로 영속";
+                }
                 else
                 { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 적용 실패: " + err; }
             }
@@ -304,6 +310,82 @@ namespace QMC.Vision.Ui.Pages
             }
             catch (Exception ex)
             { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 저장 예외: " + ex.Message; }
+        }
+
+        /// <summary>.mfs(GenApi persistence, "노드명\t값" 텍스트) 파일을 파싱한다. 중복 키는 마지막 값 사용.</summary>
+        private static Dictionary<string, string> ParseMfs(string path)
+        {
+            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var raw in System.IO.File.ReadAllLines(path))
+            {
+                if (string.IsNullOrWhiteSpace(raw) || raw.StartsWith("#")) continue;
+                int t = raw.IndexOf('\t');
+                if (t <= 0) continue;
+                string key = raw.Substring(0, t).Trim();
+                string val = raw.Substring(t + 1).Trim();
+                if (key.Length > 0) d[key] = val;   // 마지막 값 우선
+            }
+            return d;
+        }
+
+        /// <summary>.mfs 파일값을 설정 버퍼(m)에 반영한다. 코어 파라미터(노출/게인/FPS/트리거/픽셀/ROI) +
+        /// 카탈로그 노드. 타입이 맞지 않는 enum형 정수 노드 등은 건너뛴다. 반영한 항목 수 반환.</summary>
+        private int LoadMfsIntoBuffer(string path, AlgorithmCameraMapping m)
+        {
+            int n = 0;
+            try
+            {
+                var v = ParseMfs(path);
+                if (v.Count == 0) return 0;
+
+                if (v.TryGetValue("ExposureTime", out var ex) && double.TryParse(ex, NumberStyles.Any, CultureInfo.InvariantCulture, out var exd)) { m.ExposureUs = exd; n++; }
+                if (v.TryGetValue("Gain", out var g) && double.TryParse(g, NumberStyles.Any, CultureInfo.InvariantCulture, out var gd)) { m.Gain = gd; n++; }
+                if (v.TryGetValue("AcquisitionFrameRate", out var fr) && double.TryParse(fr, NumberStyles.Any, CultureInfo.InvariantCulture, out var frd)) { m.FrameRate = frd; n++; }
+
+                // 트리거: TriggerMode(Off/On) + TriggerSource(Software/Line0..) → CameraTriggerMode 이름으로 합성.
+                if (v.TryGetValue("TriggerMode", out var tm))
+                {
+                    if (tm.Equals("Off", StringComparison.OrdinalIgnoreCase)) { m.TriggerMode = nameof(CameraTriggerMode.Continuous); n++; }
+                    else
+                    {
+                        string src = v.TryGetValue("TriggerSource", out var ts) ? ts : "Software";
+                        m.TriggerMode = string.IsNullOrEmpty(src) ? nameof(CameraTriggerMode.Software) : src;
+                        n++;
+                    }
+                }
+                if (v.TryGetValue("PixelFormat", out var pf) && !string.IsNullOrEmpty(pf)) { m.PixelFormat = pf; n++; }
+                if (v.TryGetValue("Width",   out var w)  && int.TryParse(w,  out var wi)) { m.RoiWidth   = wi;  n++; }
+                if (v.TryGetValue("Height",  out var h)  && int.TryParse(h,  out var hi)) { m.RoiHeight  = hi;  n++; }
+                if (v.TryGetValue("OffsetX", out var ox) && int.TryParse(ox, out var oxi)) { m.RoiOffsetX = oxi; n++; }
+                if (v.TryGetValue("OffsetY", out var oy) && int.TryParse(oy, out var oyi)) { m.RoiOffsetY = oyi; n++; }
+
+                // 카탈로그 노드 — 타입에 맞게만 반영(enum 표기 정수 등 불일치 값은 스킵).
+                foreach (var def in QMC.Vision.Config.CameraNodeCatalog.All)
+                {
+                    if (!v.TryGetValue(def.Node, out var val)) continue;
+                    switch (def.Kind)
+                    {
+                        case CameraParamKind.Bool:
+                            m.SetNode(def.Node, (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase) || val.Equals("on", StringComparison.OrdinalIgnoreCase)) ? "True" : "False");
+                            n++;
+                            break;
+                        case CameraParamKind.Int:
+                            if (int.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out _)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                        case CameraParamKind.Float:
+                            if (double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out _)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                        case CameraParamKind.Enum:
+                            if (!string.IsNullOrEmpty(val)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] LoadMfsIntoBuffer 실패: " + ex.Message);
+            }
+            return n;
         }
 
         /// <summary>스케일/좌표변환 항목 — 전용 그리드(_scaleGrid). 모듈별 Config 스코프.</summary>
