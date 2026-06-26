@@ -458,6 +458,10 @@
     <Compile Include="Ui\Dialogs\VisionMonitorDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\VisionMonitorDialog.Designer.cs">
+      <DependentUpon>VisionMonitorDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ModelessDialogHost.cs" />
     <Compile Include="Ui\Dialogs\VisionModuleTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -473,11 +477,32 @@
     <Compile Include="Ui\Dialogs\TpuVisionTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\TpuVisionTestDialog.Designer.cs">
+      <DependentUpon>TpuVisionTestDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\VisionViewerPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\VisionViewerPanel.Designer.cs">
       <DependentUpon>VisionViewerPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\WaferVisionTestControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\WaferVisionTestControl.Designer.cs">
+      <DependentUpon>WaferVisionTestControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\TpuVisionTestControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\TpuVisionTestControl.Designer.cs">
+      <DependentUpon>TpuVisionTestControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\VisionMonitorControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\VisionMonitorControl.Designer.cs">
+      <DependentUpon>VisionMonitorControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\SideVisionViewerControl.cs">
       <SubType>UserControl</SubType>
@@ -1068,6 +1093,9 @@
     <EmbeddedResource Include="Ui\Controls\JogAxisMoveControl.resx">
       <DependentUpon>JogAxisMoveControl.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Controls\SideVisionViewerControl.resx">
+      <DependentUpon>SideVisionViewerControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\AxisJogPopup.resx">
       <DependentUpon>AxisJogPopup.cs</DependentUpon>
     </EmbeddedResource>
@@ -1088,6 +1116,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\VisionModuleTestDialog.resx">
       <DependentUpon>VisionModuleTestDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\VisionViewDialog.resx">
+      <DependentUpon>VisionViewDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\History\AlarmHistoryPage.resx">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>

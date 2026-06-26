@@ -79,6 +79,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     if (!axis.Supports(kind))
                         continue;
+                    if (kind == StagePositionKind.Reticle &&
+                        !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "EXPANDER Z", StringComparison.OrdinalIgnoreCase))
+                        continue;
 
                     AddTeachingPosition(positions, axis, kind);
                 }
@@ -169,7 +173,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     break;
                 // Reticle 위치 레시피 항목 추가
                 case StagePositionKind.Reticle:
-                    AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
+                    if (string.Equals(axis.AxisLabel, "EXPANDER Z", StringComparison.OrdinalIgnoreCase))
+                        AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
+                    else
+                        AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
                     break;
             }
         }
@@ -1106,7 +1113,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally { }
         }
 
-        // ===== RETICLE: Z축 Avoid 확인 → X → Y → T → Z(체결) =====
+        // ===== RETICLE: ExpanderZ(Process 기준) → VisionX만 이동. 다른 축은 현재 상태를 유지한다. =====
         private async Task<int> MoveReticleSequenceAsync()
         {
             try
@@ -1116,32 +1123,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 CDT320_Machine machine = FindMachine();
                 const StagePositionKind kind = StagePositionKind.Reticle;
                 string title = GetPositionLabel(kind);
-                string reason;
                 int r;
 
-                // 0) 선행: Z축들이 Avoid 위치에 있는지 확인
-                if (!CheckStageZAxesAtAvoid(out reason))
-                    return AbortStage(title, "Z축 " + reason);
-
-                // 1) EXPANDER Z 체결 — ExpanderZ는 VISION X가 Avoid일 때만 이동 가능하므로
-                //    VISION X를 워킹(Reticle)으로 보내기 전에 먼저 수행한다. (직전 VISION X Avoid 보장)
+                // 1) EXPANDER Z를 Process 기준 위치로 이동한다.
+                //    ExpanderZ는 VISION X가 Avoid일 때만 움직일 수 있으므로 MoveExpanderZAsync 내부에서 보장한다.
                 if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
                     return r;
 
-                // 2) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid + 레티클 실린더 Clear 확인
+                // 2) VISION X만 Reticle 위치로 이동한다. WAFER Y/T, Needle, EjectPin은 현재 위치를 유지한다.
                 if ((r = await MoveStageXAxesAsync(kind, title, machine, true)) != 0)
-                    return r;
-
-                // 3) WAFER Y
-                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
-
-                // 4) WAFER T
-                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
-
-                // 5) NeedleZ/EjectPinZ 체결 (ExpanderZ는 1번에서 이미 이동 완료)
-                if ((r = await MoveNeedleAndEjectZAsync(kind, title)) != 0)
                     return r;
 
                 return 0;

@@ -27,6 +27,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             Output
         }
 
+        public static VisionCameraCalibrationDialog Open(IWin32Window owner)
+        {
+            return ModelessDialogHost.Show(
+                "VisionCameraCalibrationDialog",
+                owner,
+                () => new VisionCameraCalibrationDialog());
+        }
+
         public VisionCameraCalibrationDialog()
         {
             try

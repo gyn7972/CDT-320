@@ -1,4 +1,4 @@
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Equipment.Vision;
 

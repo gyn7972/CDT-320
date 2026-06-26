@@ -50,11 +50,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         public static void Open(IWin32Window owner, VisionTcpClient client, string displayName)
         {
-            using (var dialog = new VisionModuleTestDialog())
-            {
-                dialog.Init(client, displayName);
-                dialog.ShowDialog(owner);
-            }
+            string key = "VisionModuleTestDialog:" +
+                         (client != null ? client.ModuleName + ":" + client.Port.ToString() : (displayName ?? "Unknown"));
+
+            ModelessDialogHost.Show(
+                key,
+                owner,
+                () => new VisionModuleTestDialog(client, displayName),
+                dialog => dialog.Init(client, displayName));
         }
 
         public static void AddLaunchers(

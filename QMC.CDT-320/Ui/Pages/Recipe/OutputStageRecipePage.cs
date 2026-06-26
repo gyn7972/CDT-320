@@ -288,7 +288,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddKindGroup(items, "LOAD POSITION", "Load", true, true, true, false);
                 AddKindGroup(items, "PROCESS POSITION", "Process", true, true, true, true);
                 AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
-                AddKindGroup(items, "RETICLE POSITION", "Reticle", false, false, false, true);
+                AddKindGroup(items, "RETICLE POSITION", "Reticle", false, true, false, true);
 
                 // 빈맵(원형) 형상은 BIN DIE MAP CREATE 페이지에서 레시피 맵으로 저장/관리한다.
 
@@ -560,6 +560,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 if (!IsReticleClear(out reason))
                     return AbortSeq(title, "VISION X 전 레티클 " + reason);
+
+                int zResult = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinZ, "Reticle");
+                if (zResult != 0)
+                    return AbortSeq(title, "GOOD Z Reticle 이동 실패");
             }
 
             // 공유레일 → VISION X 이동 전 Front/Rear 픽커 Avoid 확인

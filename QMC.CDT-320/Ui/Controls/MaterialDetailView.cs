@@ -5,24 +5,6 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    public sealed class MaterialDetailRow
-    {
-        public string Key { get; set; } = "";
-        public string Name { get; set; } = "";
-        public string Value { get; set; } = "";
-        public bool Editable { get; set; }
-    }
-
-    public sealed class MaterialDetailEditEventArgs : EventArgs
-    {
-        public MaterialDetailEditEventArgs(MaterialDetailRow row)
-        {
-            Row = row;
-        }
-
-        public MaterialDetailRow Row { get; private set; }
-    }
-
     public sealed partial class MaterialDetailView : UserControl
     {
         public event EventHandler<MaterialDetailEditEventArgs> EditRequested;
@@ -236,5 +218,23 @@ namespace QMC.CDT_320.Ui.Controls
                 }
             }
         }
+    }
+
+    public sealed class MaterialDetailRow
+    {
+        public string Key { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Value { get; set; } = "";
+        public bool Editable { get; set; }
+    }
+
+    public sealed class MaterialDetailEditEventArgs : EventArgs
+    {
+        public MaterialDetailEditEventArgs(MaterialDetailRow row)
+        {
+            Row = row;
+        }
+
+        public MaterialDetailRow Row { get; private set; }
     }
 }
