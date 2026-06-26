@@ -217,6 +217,22 @@ namespace QMC.Vision.Comm
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
+        /// <summary>응답 ACK 의 echo 토큰 선택.
+        /// 동기 도구 계열(MATCH/INSPECT/TRAIN)은 finder/inspector(parts[2])를 echo 하여 핸들러가 어떤 도구 결과인지 식별.
+        /// 비동기 계열(MATCHASYNC/RESULT, INSPECTASYNC/RESULT)은 echo 없음 — 번호(chip_uid)는 저장 키로만 쓰고 응답엔 넣지 않는다.</summary>
+        private static string ResolveEchoToken(string cmd, string[] parts)
+        {
+            switch (cmd)
+            {
+                case "MATCH":
+                case "INSPECT":
+                case "TRAIN":
+                    return parts.Length > 2 ? parts[2] : null;   // finder / inspector
+                default:
+                    return null;                                  // 비동기 계열 등은 echo 없음(예: ACK|MODULE|MATCHASYNC|STARTED)
+            }
+        }
+
         // 명령 실행은 공통 코어(VisionCommandCore)로 위임 — 자체 시퀀서(DirectVisionCommandDispatcher)와 동일 구현 공유.
         private string DoExpose(IVisionModule m) => VisionCommandCore.Grab(m);
 
@@ -227,8 +243,9 @@ namespace QMC.Vision.Comm
             return VisionCommandCore.Match(m, _cfg, finder, chipUid);
         }
 
-        /// <summary>비동기 매칭 시작 — 그랩(동기) 후 즉시 "STARTED"(1차 ACK), 알고리즘은 백그라운드.
-        /// 완료 결과는 <see cref="AsyncMatchStore"/> 에 저장되고 핸들러는 MATCHRESULT 로 폴링한다.</summary>
+        /// <summary>비동기 매칭 시작 — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환, 그랩과 알고리즘은 모두 백그라운드.
+        /// 결과는 <see cref="AsyncMatchStore"/> 에 (모듈,finder,chip_uid) 키로 저장되고 핸들러는 MATCHRESULT|finder|chip_uid 로 폴링한다.
+        /// ※ 그랩 전 ACK 이므로 핸들러는 EPD(촬상완료) 동기화 후 스테이지를 이동해야 한다(요청한 번호의 첫 영상 보장).</summary>
         private string DoMatchAsync(IVisionModule m, string[] parts)
         {
             string finder  = parts.Length > 2 ? parts[2] : "";
@@ -236,34 +253,42 @@ namespace QMC.Vision.Comm
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
             if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
 
-            // 그랩은 동기 — 1차 ACK(STARTED) 전에 영상이 확보돼야 핸들러가 안전하게 다음 스텝 진행.
-            var g = m.GrabForTool(finder);
-            if (g == null || !g.IsSuccess) { try { g?.Dispose(); } catch { } return "fail:" + (g?.ErrorMessage ?? "grab"); }
-
-            AsyncMatchStore.Start(m.Name, finder);
+            AsyncMatchStore.Start(m.Name, finder, chipUid);   // 번호별 기존 결과 무효화 + Running 표시
             var cfg = _cfg;
             System.Threading.Tasks.Task.Run(() =>
             {
                 try
                 {
-                    string res = VisionCommandCore.MatchOnImage(m, cfg, finder, f, g.Image, chipUid);
-                    if (res != null && res.StartsWith("OK;"))
-                        AsyncMatchStore.Complete(m.Name, finder, res.Substring(3));   // 'OK;' 제거 → x=..;y=..;r=..;score=..
-                    else
-                        AsyncMatchStore.Fail(m.Name, finder, res ?? "no result");
+                    var g = m.GrabForTool(finder);            // 그랩도 백그라운드(ACK 이후 수행)
+                    if (g == null || !g.IsSuccess)
+                    {
+                        try { g?.Dispose(); } catch { }
+                        AsyncMatchStore.Fail(m.Name, finder, chipUid, g?.ErrorMessage ?? "grab");
+                        return;
+                    }
+                    try
+                    {
+                        string res = VisionCommandCore.MatchOnImage(m, cfg, finder, f, g.Image, chipUid);
+                        if (res != null && res.StartsWith("OK;"))
+                            AsyncMatchStore.Complete(m.Name, finder, chipUid, res.Substring(3));   // 'OK;' 제거 → x=..;y=..;r=..;score=..
+                        else
+                            AsyncMatchStore.Fail(m.Name, finder, chipUid, res ?? "no result");
+                    }
+                    finally { try { g.Dispose(); } catch { } }
                 }
-                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, finder, ex.Message); }
-                finally { try { g.Dispose(); } catch { } }
+                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, finder, chipUid, ex.Message); }
             });
             return "STARTED";
         }
 
-        /// <summary>비동기 매칭 결과 폴링 — "0"(진행)/"1;x=..;y=..;r=..;score=.."(완료)/"ERR;사유"(실패)/"0"(미시작).</summary>
+        /// <summary>비동기 매칭 결과 폴링 — (모듈,finder,chip_uid) 키로 조회.
+        /// "0"(진행/미시작)/"1;x=..;y=..;r=..;score=.."(완료)/"ERR;사유"(실패).</summary>
         private string DoMatchResult(IVisionModule m, string[] parts)
         {
-            string finder = parts.Length > 2 ? parts[2] : "";
+            string finder  = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
-            var st = AsyncMatchStore.TryGet(m.Name, finder, out string payload);
+            var st = AsyncMatchStore.TryGet(m.Name, finder, chipUid, out string payload);
             switch (st)
             {
                 case AsyncMatchStore.State.Done:    return "1;" + payload;
@@ -280,8 +305,8 @@ namespace QMC.Vision.Comm
             return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
         }
 
-        /// <summary>비동기 검사 시작 — 그랩(동기) 후 즉시 "STARTED"(1차 ACK), 검사 알고리즘은 백그라운드.
-        /// 검사 사용 OFF(게이트)면 그랩 없이 즉시 완료. 결과는 <see cref="AsyncMatchStore"/> 에 저장.</summary>
+        /// <summary>비동기 검사 시작 — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환, 그랩·검사는 백그라운드.
+        /// 검사 사용 OFF면 그랩 없이 즉시 완료(PASS). 결과는 (모듈,inspector,chip_uid) 키로 저장.</summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)
         {
             string insp    = parts.Length > 2 ? parts[2] : "";
@@ -293,37 +318,46 @@ namespace QMC.Vision.Comm
             if (VisionCommandCore.IsInspectionSkipped(m, insp))
             {
                 ModuleResultStore.Record(m.Name, insp, true, "inspection=skip");
-                AsyncMatchStore.Complete(m.Name, insp, "PASS;inspection=skip");
+                AsyncMatchStore.Complete(m.Name, insp, chipUid, "PASS;inspection=skip");
                 return "STARTED";
             }
 
-            var g = m.GrabForTool(insp);
-            if (g == null || !g.IsSuccess) { try { g?.Dispose(); } catch { } return "fail:" + (g?.ErrorMessage ?? "grab"); }
-
-            AsyncMatchStore.Start(m.Name, insp);
+            AsyncMatchStore.Start(m.Name, insp, chipUid);
             var cfg = _cfg;
             System.Threading.Tasks.Task.Run(() =>
             {
                 try
                 {
-                    string res = VisionCommandCore.InspectOnImage(m, cfg, insp, ins, g.Image, chipUid);
-                    if (res != null && (res.StartsWith("PASS") || res.StartsWith("FAIL")))
-                        AsyncMatchStore.Complete(m.Name, insp, res);   // payload = PASS;.. / FAIL;..
-                    else
-                        AsyncMatchStore.Fail(m.Name, insp, res ?? "no result");
+                    var g = m.GrabForTool(insp);              // 그랩도 백그라운드(ACK 이후 수행)
+                    if (g == null || !g.IsSuccess)
+                    {
+                        try { g?.Dispose(); } catch { }
+                        AsyncMatchStore.Fail(m.Name, insp, chipUid, g?.ErrorMessage ?? "grab");
+                        return;
+                    }
+                    try
+                    {
+                        string res = VisionCommandCore.InspectOnImage(m, cfg, insp, ins, g.Image, chipUid);
+                        if (res != null && (res.StartsWith("PASS") || res.StartsWith("FAIL")))
+                            AsyncMatchStore.Complete(m.Name, insp, chipUid, res);   // payload = PASS;.. / FAIL;..
+                        else
+                            AsyncMatchStore.Fail(m.Name, insp, chipUid, res ?? "no result");
+                    }
+                    finally { try { g.Dispose(); } catch { } }
                 }
-                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, insp, ex.Message); }
-                finally { try { g.Dispose(); } catch { } }
+                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, insp, chipUid, ex.Message); }
             });
             return "STARTED";
         }
 
-        /// <summary>비동기 검사 결과 폴링 — "0"(진행)/"1;PASS|FAIL;.."(완료)/"ERR;사유"(실패)/"0"(미시작).</summary>
+        /// <summary>비동기 검사 결과 폴링 — (모듈,inspector,chip_uid) 키로 조회.
+        /// "0"(진행/미시작)/"1;PASS|FAIL;.."(완료)/"ERR;사유"(실패).</summary>
         private string DoInspectResult(IVisionModule m, string[] parts)
         {
-            string insp = parts.Length > 2 ? parts[2] : "";
+            string insp    = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
-            var st = AsyncMatchStore.TryGet(m.Name, insp, out string payload);
+            var st = AsyncMatchStore.TryGet(m.Name, insp, chipUid, out string payload);
             switch (st)
             {
                 case AsyncMatchStore.State.Done:    return "1;" + payload;
