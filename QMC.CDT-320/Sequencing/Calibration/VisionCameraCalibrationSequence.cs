@@ -278,7 +278,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 CalibrationData.Valid = false;
                 PersistMeasuredCalibrationData("Bottom 카메라 Reticle Mark 측정값");
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-BOTTOM",
-                    "Bottom 카메라 Reticle Mark 측정 완료. x=" + measurement.PixelX.ToString("F3") +
+                    "Bottom 카메라 Reticle Mark 측정 완료. " +
+                    "x=" + measurement.PixelX.ToString("F3") +
                     ", y=" + measurement.PixelY.ToString("F3") +
                     ", t=" + measurement.AngleDeg.ToString("F3") +
                     ", score=" + measurement.Score.ToString("F3"));
@@ -816,8 +817,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             measurement.CameraName = ResolveCameraName(target);
             measurement.PixelX = match.X;
             measurement.PixelY = match.Y;
-            measurement.MmX = (match.X - data.ImageCenterPixelX) * data.PixelToMmX;
-            measurement.MmY = (match.Y - data.ImageCenterPixelY) * data.PixelToMmY;
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, ResolveAutoVisionChannel(target));
+            if (match.HasImageSize)
+                camera.ApplyImageSize(match.ImageWidthPixel, match.ImageHeightPixel);
+            measurement.MmX = camera.PixelToMmOffsetX(match.X);
+            measurement.MmY = camera.PixelToMmOffsetY(match.Y);
             measurement.Score = match.Score;
             measurement.AngleDeg = match.AngleDeg;
             measurement.MeasuredAt = DateTime.Now;
@@ -868,11 +872,12 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (IsSimulationMode())
             {
                 VisionCameraCalibrationData data = CalibrationData;
+                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, ResolveAutoVisionChannel(target));
                 return new MatchResultDto
                 {
                     Success = true,
-                    X = data.ImageCenterPixelX,
-                    Y = data.ImageCenterPixelY,
+                    X = camera.ImageCenterPixelX,
+                    Y = camera.ImageCenterPixelY,
                     AngleDeg = 0,
                     Score = 1.0,
                     RawError = "SIM:ReticleFinder"
@@ -895,6 +900,21 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return VisionHub.Bin;
                 default:
                     return null;
+            }
+        }
+
+        private AutoVisionChannel ResolveAutoVisionChannel(VisionCameraCalibrationTarget target)
+        {
+            switch (target)
+            {
+                case VisionCameraCalibrationTarget.Bottom:
+                    return AutoVisionChannel.Bottom;
+                case VisionCameraCalibrationTarget.Input:
+                    return AutoVisionChannel.Wafer;
+                case VisionCameraCalibrationTarget.Output:
+                    return AutoVisionChannel.Bin;
+                default:
+                    return AutoVisionChannel.Bottom;
             }
         }
 

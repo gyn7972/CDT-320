@@ -41,6 +41,52 @@ namespace QMC.CDT320.Calibration
     }
 
     [DataContract]
+    public sealed class VisionCameraPixelCalibration
+    {
+        [DataMember] public double ImageWidthPixel { get; set; } = 640.0;
+        [DataMember] public double ImageHeightPixel { get; set; } = 480.0;
+        [DataMember] public double ImageCenterPixelX { get; set; } = 320.0;
+        [DataMember] public double ImageCenterPixelY { get; set; } = 240.0;
+        [DataMember] public double PixelToMmX { get; set; } = 0.001;
+        [DataMember] public double PixelToMmY { get; set; } = 0.001;
+        [DataMember] public bool ResolutionFromVision { get; set; }
+        [DataMember] public DateTime ResolutionUpdatedAt { get; set; }
+
+        public void EnsureDefaults(double fallbackCenterX, double fallbackCenterY, double fallbackPixelToMmX, double fallbackPixelToMmY)
+        {
+            if (ImageWidthPixel <= 0) ImageWidthPixel = 640.0;
+            if (ImageHeightPixel <= 0) ImageHeightPixel = 480.0;
+            if (ImageCenterPixelX == 0) ImageCenterPixelX = fallbackCenterX != 0 ? fallbackCenterX : ImageWidthPixel / 2.0;
+            if (ImageCenterPixelY == 0) ImageCenterPixelY = fallbackCenterY != 0 ? fallbackCenterY : ImageHeightPixel / 2.0;
+            if (PixelToMmX == 0) PixelToMmX = fallbackPixelToMmX != 0 ? fallbackPixelToMmX : 0.001;
+            if (PixelToMmY == 0) PixelToMmY = fallbackPixelToMmY != 0 ? fallbackPixelToMmY : 0.001;
+        }
+
+        public void ApplyImageSize(double widthPixel, double heightPixel)
+        {
+            if (widthPixel <= 0 || heightPixel <= 0)
+                return;
+
+            ImageWidthPixel = widthPixel;
+            ImageHeightPixel = heightPixel;
+            ImageCenterPixelX = widthPixel / 2.0;
+            ImageCenterPixelY = heightPixel / 2.0;
+            ResolutionFromVision = true;
+            ResolutionUpdatedAt = DateTime.Now;
+        }
+
+        public double PixelToMmOffsetX(double pixelX)
+        {
+            return (pixelX - ImageCenterPixelX) * PixelToMmX;
+        }
+
+        public double PixelToMmOffsetY(double pixelY)
+        {
+            return (pixelY - ImageCenterPixelY) * PixelToMmY;
+        }
+    }
+
+    [DataContract]
     public sealed class VisionCameraCalibrationData
     {
         [DataMember] public VisionReticleMeasurement BottomReticle { get; set; } = new VisionReticleMeasurement();
@@ -54,6 +100,11 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double ImageCenterPixelY { get; set; } = 240.0;
         [DataMember] public double PixelToMmX { get; set; } = 0.001;
         [DataMember] public double PixelToMmY { get; set; } = 0.001;
+        [DataMember] public VisionCameraPixelCalibration BottomCamera { get; set; } = new VisionCameraPixelCalibration();
+        [DataMember] public VisionCameraPixelCalibration InputCamera { get; set; } = new VisionCameraPixelCalibration();
+        [DataMember] public VisionCameraPixelCalibration OutputCamera { get; set; } = new VisionCameraPixelCalibration();
+        [DataMember] public VisionCameraPixelCalibration FrontSideCamera { get; set; } = new VisionCameraPixelCalibration();
+        [DataMember] public VisionCameraPixelCalibration RearSideCamera { get; set; } = new VisionCameraPixelCalibration();
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
         [DataMember] public string UpdatedBy { get; set; }
@@ -73,6 +124,16 @@ namespace QMC.CDT320.Calibration
             if (ImageCenterPixelY == 0) ImageCenterPixelY = 240.0;
             if (PixelToMmX == 0) PixelToMmX = 0.001;
             if (PixelToMmY == 0) PixelToMmY = 0.001;
+            if (BottomCamera == null) BottomCamera = new VisionCameraPixelCalibration();
+            if (InputCamera == null) InputCamera = new VisionCameraPixelCalibration();
+            if (OutputCamera == null) OutputCamera = new VisionCameraPixelCalibration();
+            if (FrontSideCamera == null) FrontSideCamera = new VisionCameraPixelCalibration();
+            if (RearSideCamera == null) RearSideCamera = new VisionCameraPixelCalibration();
+            BottomCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
+            InputCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
+            OutputCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
+            FrontSideCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
+            RearSideCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
             if (UpdatedBy == null) UpdatedBy = string.Empty;
         }
 

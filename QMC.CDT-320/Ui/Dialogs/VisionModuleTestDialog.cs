@@ -116,15 +116,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             try
             {
-                string response = await _client.SendAsync(_client.ModuleName + "|EXPOSE|0", 30000).ConfigureAwait(true);
-                bool ok = response != null && response.StartsWith("ACK|", StringComparison.OrdinalIgnoreCase);
-                string body = string.Empty;
-                string[] parts = (response ?? string.Empty).Split('|');
-                if (parts.Length > 3)
-                    body = parts[3];
-
+                VisionProtocolResponse response = await _client.SendCommandAsync(VisionProtocolCommand.Grab, 30000, System.Threading.CancellationToken.None, 0).ConfigureAwait(true);
+                bool ok = response != null && response.IsAck;
                 _lblGrab.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
-                _lblGrab.Text = ok ? body : (response ?? "응답 없음");
+                _lblGrab.Text = ok ? response.Payload : (response != null ? response.RawLine : "응답 없음");
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-using QMC.CDT320;
+﻿using QMC.CDT320;
 
 namespace QMC.CDT_320.Equipment.Vision
 {
@@ -9,6 +9,7 @@ namespace QMC.CDT_320.Equipment.Vision
     /// </summary>
     public static class VisionViewerPorts
     {
+        // / <summary>기본값. 설정값이 없거나 잘못되면 이 포트로 보정한다.</summary>
         public const int DefaultWafer            = 5200;
         public const int DefaultBottomInspection = 5201;
         public const int DefaultBin              = 5203;

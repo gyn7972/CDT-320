@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -44,6 +43,7 @@ namespace QMC.CDT320.VisionComm
         // 응답 대기 큐 (순차 통신)
         private readonly Queue<TaskCompletionSource<string>> _pending = new Queue<TaskCompletionSource<string>>();
         private readonly StringBuilder _rxBuf = new StringBuilder();
+        private readonly SemaphoreSlim _commandGate = new SemaphoreSlim(1, 1);
         private CancellationTokenSource _rxCts;
 
         public VisionTcpClient(string moduleName, string host, int port)
@@ -124,28 +124,52 @@ namespace QMC.CDT320.VisionComm
         {
             if (!IsConnected) throw new InvalidOperationException("not connected");
             ct.ThrowIfCancellationRequested();
-            var tcs = new TaskCompletionSource<string>();
-            lock (_pending) _pending.Enqueue(tcs);
 
-            var data = Encoding.UTF8.GetBytes(line + "\n");
+            await _commandGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                lock (_ioLock) _stream.Write(data, 0, data.Length);
-                LogMsg("TX: " + line);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-                Disconnect();
-            }
+                var tcs = new TaskCompletionSource<string>();
+                lock (_pending) _pending.Enqueue(tcs);
 
-            if (await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != tcs.Task)
-            {
-                lock (_pending) if (_pending.Count > 0) _pending.Dequeue();
-                ct.ThrowIfCancellationRequested();
-                throw new TimeoutException("vision response timeout: " + line);
+                var data = Encoding.UTF8.GetBytes(line + "\n");
+                try
+                {
+                    lock (_ioLock) _stream.Write(data, 0, data.Length);
+                    LogMsg("TX: " + line);
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                    Disconnect();
+                }
+
+                if (await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != tcs.Task)
+                {
+                    lock (_pending) if (_pending.Count > 0) _pending.Dequeue();
+                    ct.ThrowIfCancellationRequested();
+                    throw new TimeoutException("vision response timeout: " + line);
+                }
+
+                return await tcs.Task.ConfigureAwait(false);
             }
-            return await tcs.Task.ConfigureAwait(false);
+            finally
+            {
+                _commandGate.Release();
+            }
+        }
+
+        public async Task<VisionProtocolResponse> SendCommandAsync(VisionProtocolCommand command, int timeoutMs, CancellationToken ct, params object[] arguments)
+        {
+            VisionProtocolMessage message = VisionProtocolMessage.Create(ModuleName, command, arguments);
+            string response = await SendAsync(message.ToLine(), timeoutMs, ct).ConfigureAwait(false);
+            return VisionProtocolResponse.Parse(response);
+        }
+
+        public async Task<VisionProtocolResponse> SendCommandAsync(string command, int timeoutMs, CancellationToken ct, params object[] arguments)
+        {
+            VisionProtocolMessage message = VisionProtocolMessage.Create(ModuleName, command, arguments);
+            string response = await SendAsync(message.ToLine(), timeoutMs, ct).ConfigureAwait(false);
+            return VisionProtocolResponse.Parse(response);
         }
 
         // ─── High-level helpers ──────────────────────
@@ -154,8 +178,8 @@ namespace QMC.CDT320.VisionComm
         {
             try
             {
-                var r = await SendAsync($"{ModuleName}|PING");
-                return r.StartsWith("ACK|");
+                VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Ping, 5000, CancellationToken.None).ConfigureAwait(false);
+                return response.IsAck;
             }
             catch { return false; }
         }
@@ -167,8 +191,19 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<bool> ExposeAsync(int index, int timeoutMs, CancellationToken ct)
         {
-            var r = await SendAsync($"{ModuleName}|EXPOSE|{index}", timeoutMs, ct).ConfigureAwait(false);
-            return r.StartsWith("ACK|");
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Expose, timeoutMs, ct, index).ConfigureAwait(false);
+            return response.IsAck;
+        }
+
+        public async Task<bool> GrabAsync(int index = 0, int timeoutMs = 5000)
+        {
+            return await GrabAsync(index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> GrabAsync(int index, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Grab, timeoutMs, ct, index).ConfigureAwait(false);
+            return response.IsAck;
         }
 
         public async Task<MatchResultDto> MatchAsync(string finder, int index = 0, int timeoutMs = 5000)
@@ -178,8 +213,8 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<MatchResultDto> MatchAsync(string finder, int index, int timeoutMs, CancellationToken ct)
         {
-            var r = await SendAsync($"{ModuleName}|MATCH|{finder}|{index}", timeoutMs, ct).ConfigureAwait(false);
-            return MatchResultDto.Parse(r);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Match, timeoutMs, ct, finder, index).ConfigureAwait(false);
+            return MatchResultDto.Parse(response.RawLine);
         }
 
         // ── 비동기 MATCH (그랩 후 1차 ACK=STARTED → 백그라운드 알고리즘 → MATCHRESULT 폴링) ──
@@ -187,30 +222,30 @@ namespace QMC.CDT320.VisionComm
         /// <see cref="PollMatchResultAsync"/> 로 알고리즘 완료를 폴링한다.</summary>
         public async Task<bool> MatchAsyncStartAsync(string finder, int index = 0, int timeoutMs = 30000)
         {
-            var r = await SendAsync($"{ModuleName}|MATCHASYNC|{finder}|{index}", timeoutMs).ConfigureAwait(false);
-            return r != null && r.StartsWith("ACK|");
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, CancellationToken.None, finder, index).ConfigureAwait(false);
+            return response.IsAck;
         }
 
         /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>
         public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|MATCHRESULT|{finder}", timeoutMs).ConfigureAwait(false);
-            return AsyncMatchPoll.Parse(r);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, CancellationToken.None, finder).ConfigureAwait(false);
+            return AsyncMatchPoll.Parse(response.RawLine);
         }
 
         // ── 비동기 INSPECT (그랩 후 1차 ACK=STARTED → 백그라운드 검사 → INSPECTRESULT 폴링) ──
         /// <summary>비동기 검사 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 이후 PollInspectResultAsync 로 완료 폴링.</summary>
         public async Task<bool> InspectAsyncStartAsync(string inspector, int index = 0, int timeoutMs = 30000)
         {
-            var r = await SendAsync($"{ModuleName}|INSPECTASYNC|{inspector}|{index}", timeoutMs).ConfigureAwait(false);
-            return r != null && r.StartsWith("ACK|");
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, index).ConfigureAwait(false);
+            return response.IsAck;
         }
 
         /// <summary>비동기 검사 결과 폴링 — Done=false 면 진행 중(반복 폴링), Done=true 면 Result(PASS/FAIL).</summary>
         public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|INSPECTRESULT|{inspector}", timeoutMs).ConfigureAwait(false);
-            return AsyncInspectPoll.Parse(r);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectResult, timeoutMs, CancellationToken.None, inspector).ConfigureAwait(false);
+            return AsyncInspectPoll.Parse(response.RawLine);
         }
 
         public async Task<InspectionResultDto> InspectAsync(string inspector, int index = 0, int timeoutMs = 5000)
@@ -220,8 +255,8 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<InspectionResultDto> InspectAsync(string inspector, int index, int timeoutMs, CancellationToken ct)
         {
-            var r = await SendAsync($"{ModuleName}|INSPECT|{inspector}|{index}", timeoutMs, ct).ConfigureAwait(false);
-            return InspectionResultDto.Parse(r);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Inspect, timeoutMs, ct, inspector, index).ConfigureAwait(false);
+            return InspectionResultDto.Parse(response.RawLine);
         }
 
         public async Task<bool> TrainAsync(string finder, int timeoutMs = 5000)
@@ -231,8 +266,8 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<bool> TrainAsync(string finder, int timeoutMs, CancellationToken ct)
         {
-            var r = await SendAsync($"{ModuleName}|TRAIN|{finder}|0", timeoutMs, ct).ConfigureAwait(false);
-            return r.StartsWith("ACK|");
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Train, timeoutMs, ct, finder).ConfigureAwait(false);
+            return response.IsAck;
         }
 
         /// <summary>
@@ -250,8 +285,50 @@ namespace QMC.CDT320.VisionComm
             if (string.IsNullOrWhiteSpace(recipeName))
                 throw new ArgumentException("recipeName is empty", nameof(recipeName));
 
-            var r = await SendAsync($"{ModuleName}|RECIPE|{recipeNo}|{recipeName}", timeoutMs, ct).ConfigureAwait(false);
-            return r.StartsWith("ACK|");
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Recipe, timeoutMs, ct, recipeNo, recipeName).ConfigureAwait(false);
+            return response.IsAck;
+        }
+
+        public async Task<VisionScaleResult> ScaleAsync(double chipWidthMm, double chipHeightMm, int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Scale, timeoutMs, CancellationToken.None, chipWidthMm, chipHeightMm).ConfigureAwait(false);
+            return VisionScaleResult.Parse(response.RawLine);
+        }
+
+        public async Task<VisionRotationCenterResult> RotationCenterAsync(int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.RotationCenter, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+            return VisionRotationCenterResult.Parse(response.RawLine);
+        }
+
+        public async Task<bool> DistortAsync(int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Distort, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+            return response.IsAck;
+        }
+
+        public async Task<VisionCameraSwitchResult> SwitchCameraAsync(string tool, bool liveOn, int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.CameraSwitch, timeoutMs, CancellationToken.None, tool, liveOn ? 1 : 0).ConfigureAwait(false);
+            return VisionCameraSwitchResult.Parse(response.RawLine);
+        }
+
+        public async Task<VisionFocusStartResult> FocusStartAsync(string camera, string target, int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.FocusStart, timeoutMs, CancellationToken.None, camera, target).ConfigureAwait(false);
+            return VisionFocusStartResult.Parse(response.RawLine);
+        }
+
+        public async Task<VisionFocusValueResult> FocusValueAsync(double motorZ, string camera, string target, int pickupNo, bool initial, int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.FocusValue, timeoutMs, CancellationToken.None, motorZ, camera, target, pickupNo, initial ? 1 : 0).ConfigureAwait(false);
+            return VisionFocusValueResult.Parse(response.RawLine);
+        }
+
+        public async Task<VisionFocusBestResult> FocusBestAsync(string camera, string target, int pickupNo = 0, int timeoutMs = 5000)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.FocusBest, timeoutMs, CancellationToken.None, camera, target, pickupNo).ConfigureAwait(false);
+            return VisionFocusBestResult.Parse(response.RawLine);
         }
 
         // ─── Receive loop ────────────────────────────
@@ -278,22 +355,25 @@ namespace QMC.CDT320.VisionComm
                         {
                             LastRxUtc = DateTime.UtcNow;
                             LogMsg("RX: " + line);
-                            // 비동기 푸시 — EPD/ARM 은 응답 큐와 무관.
-                            if (line.StartsWith("EPD|"))
+                            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+                            // 비동기 푸시 — FPD/EPD/ARM/RECIPEREQ는 응답 큐와 무관하다.
+                            if (response.IsPush &&
+                                (string.Equals(response.Command, VisionProtocolPushCommands.ExposureDone, StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(response.Command, VisionProtocolPushCommands.LegacyExposureDone, StringComparison.OrdinalIgnoreCase)))
                             {
-                                var pp = line.Split('|');
-                                try { ExposureDone?.Invoke(pp.Length > 1 ? pp[1] : ModuleName); } catch { }
+                                try { ExposureDone?.Invoke(!string.IsNullOrWhiteSpace(response.Module) ? response.Module : ModuleName); } catch { }
                                 continue;
                             }
-                            if (line.StartsWith("ARM|"))
+                            if (response.IsPush &&
+                                string.Equals(response.Command, VisionProtocolPushCommands.Alarm, StringComparison.OrdinalIgnoreCase))
                             {
-                                var pp = line.Split('|');
-                                try { Alarmed?.Invoke(pp.Length > 1 ? pp[1] : ModuleName,
-                                                      pp.Length > 2 ? pp[2] : ""); } catch { }
+                                try { Alarmed?.Invoke(!string.IsNullOrWhiteSpace(response.Module) ? response.Module : ModuleName,
+                                                      response.Payload); } catch { }
                                 continue;
                             }
                             // Vision → 핸들러 레시피 요청. 응답 큐와 무관. 구독측이 현재 레시피를 SendRecipeAsync 로 응답.
-                            if (line.StartsWith("RECIPEREQ|"))
+                            if (response.IsPush &&
+                                string.Equals(response.Command, VisionProtocolPushCommands.RecipeRequest, StringComparison.OrdinalIgnoreCase))
                             {
                                 try { RecipeRequested?.Invoke(); } catch { }
                                 continue;
@@ -327,36 +407,79 @@ namespace QMC.CDT320.VisionComm
         public double Y        { get; set; }
         public double AngleDeg { get; set; }
         public double Score    { get; set; }
+        public bool   HasImageSize { get; set; }
+        public double ImageWidthPixel { get; set; }
+        public double ImageHeightPixel { get; set; }
         public string RawError { get; set; }
 
         public static MatchResultDto Parse(string line)
         {
             // "ACK|WaferVision|MATCH|OK;x=..." 또는 finder echo 형 "ACK|WaferVision|MATCH|AlignDieFinder|OK;x=..."
             var r = new MatchResultDto();
-            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { r.RawError = line; return r; }
-            var parts = line.Split('|');
-            if (parts.Length < 4) { r.RawError = line; return r; }
-            var body = parts[parts.Length - 1];   // 마지막 필드 = OK;x=... 페이로드(중간에 finder 가 echo 돼도 견고).
-            var kv = body.Split(';');
-            if (kv.Length > 0 && kv[0] == "OK") r.Success = true;
-            foreach (var s in kv)
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            if (!response.IsAck)
             {
-                var eq = s.IndexOf('=');
-                if (eq <= 0) continue;
-                string k = s.Substring(0, eq), v = s.Substring(eq + 1);
-                switch (k)
-                {
-                    // Vision 결과 X 좌표 파싱
-                    case "x":     double.TryParse(v, out var xx);  r.X        = xx; break;
-                    // Vision 결과 Y 좌표 파싱
-                    case "y":     double.TryParse(v, out var yy);  r.Y        = yy; break;
-                    // Vision 결과 회전각 파싱
-                    case "r":     double.TryParse(v, out var rr);  r.AngleDeg = rr; break;
-                    // Vision 결과 Score 파싱
-                    case "score": double.TryParse(v, out var ss);  r.Score    = ss; break;
-                }
+                r.RawError = response.ErrorMessage.Length > 0 ? response.ErrorMessage : line;
+                return r;
             }
+
+            r.Success = response.IsResult("OK");
+            r.RawError = response.ErrorMessage;
+            response.TryGetDouble("x", out var x);
+            response.TryGetDouble("y", out var y);
+            response.TryGetDouble("r", out var angle);
+            if (angle == 0)
+                response.TryGetDouble("t", out angle);
+            if (angle == 0)
+                response.TryGetDouble("theta", out angle);
+            response.TryGetDouble("score", out var score);
+
+            r.X = x;
+            r.Y = y;
+            r.AngleDeg = angle;
+            r.Score = score;
+            ApplyImageSize(response, r);
             return r;
+        }
+
+        private static void ApplyImageSize(VisionProtocolResponse response, MatchResultDto result)
+        {
+            double width;
+            double height;
+            if (!TryGetImageSize(response, out width, out height))
+                return;
+
+            result.ImageWidthPixel = width;
+            result.ImageHeightPixel = height;
+            result.HasImageSize = true;
+        }
+
+        private static bool TryGetImageSize(VisionProtocolResponse response, out double width, out double height)
+        {
+            width = 0;
+            height = 0;
+            if (response == null)
+                return false;
+
+            if (!response.TryGetDouble("width", out width) &&
+                !response.TryGetDouble("w", out width) &&
+                !response.TryGetDouble("imagew", out width) &&
+                !response.TryGetDouble("imagewidth", out width) &&
+                !response.TryGetDouble("image_width", out width) &&
+                !response.TryGetDouble("resolutionx", out width) &&
+                !response.TryGetDouble("resx", out width))
+                return false;
+
+            if (!response.TryGetDouble("height", out height) &&
+                !response.TryGetDouble("h", out height) &&
+                !response.TryGetDouble("imageh", out height) &&
+                !response.TryGetDouble("imageheight", out height) &&
+                !response.TryGetDouble("image_height", out height) &&
+                !response.TryGetDouble("resolutiony", out height) &&
+                !response.TryGetDouble("resy", out height))
+                return false;
+
+            return width > 0 && height > 0;
         }
     }
 
@@ -371,17 +494,17 @@ namespace QMC.CDT320.VisionComm
         public static AsyncMatchPoll Parse(string line)
         {
             var p = new AsyncMatchPoll { Raw = line };
-            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { p.Error = true; return p; }
-            var parts = line.Split('|');
-            var payload = parts[parts.Length - 1];   // "0" / "1;x=..;y=..;r=..;score=.." / "ERR;사유"
-            if (payload.StartsWith("1"))
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            if (!response.IsAck) { p.Error = true; return p; }
+            string payload = response.Payload;   // "0" / "1;x=..;y=..;r=..;score=.." / "ERR;사유"
+            if (payload.StartsWith("1", StringComparison.OrdinalIgnoreCase))
             {
                 p.Done = true;
                 int semi = payload.IndexOf(';');
                 string body = semi >= 0 ? payload.Substring(semi + 1) : "";
                 p.Result = MatchResultDto.Parse("ACK|x|MATCH|OK;" + body);   // 'OK;본문' 으로 변환해 재사용
             }
-            else if (payload.StartsWith("ERR"))
+            else if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
             {
                 p.Error = true;
             }
@@ -401,17 +524,17 @@ namespace QMC.CDT320.VisionComm
         public static AsyncInspectPoll Parse(string line)
         {
             var p = new AsyncInspectPoll { Raw = line };
-            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) { p.Error = true; return p; }
-            var parts = line.Split('|');
-            var payload = parts[parts.Length - 1];   // "0" / "1;PASS;.." / "ERR;사유"
-            if (payload.StartsWith("1"))
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            if (!response.IsAck) { p.Error = true; return p; }
+            string payload = response.Payload;   // "0" / "1;PASS;.." / "ERR;사유"
+            if (payload.StartsWith("1", StringComparison.OrdinalIgnoreCase))
             {
                 p.Done = true;
                 int semi = payload.IndexOf(';');
                 string body = semi >= 0 ? payload.Substring(semi + 1) : "";   // "PASS;.." / "FAIL;.."
                 p.Result = InspectionResultDto.Parse("ACK|x|INSPECT|" + body);
             }
-            else if (payload.StartsWith("ERR"))
+            else if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
             {
                 p.Error = true;
             }
@@ -422,82 +545,94 @@ namespace QMC.CDT320.VisionComm
     public class InspectionResultDto
     {
         // INSPECT 응답 예:
-        // ACK|Bin|INSPECT|PASS;x=0.001;y=-0.002;t=0.010;score=0.98
-        // x/y/t는 위치 보정 파라미터가 아니라 Vision이 측정한 die offset으로 저장한다.
+        // ACK|Bin|INSPECT|PASS;x=320;y=240;t=0.010;score=0.98;width=640;height=480
+        // x/y는 Vision PC의 pixel 좌표이며 Handler에서 mm로 변환해서 사용한다.
         public bool   IsPass    { get; set; }
         public bool   HasOffset { get; set; }
         public double OffsetX   { get; set; }
         public double OffsetY   { get; set; }
         public double OffsetT   { get; set; }
         public double Score     { get; set; }
+        public bool   HasImageSize { get; set; }
+        public double ImageWidthPixel { get; set; }
+        public double ImageHeightPixel { get; set; }
         public string Raw       { get; set; }
 
         public static InspectionResultDto Parse(string line)
         {
             var r = new InspectionResultDto { Raw = line };
-            if (string.IsNullOrEmpty(line) || !line.StartsWith("ACK|")) return r;
-            var parts = line.Split('|');
-            if (parts.Length < 4) return r;
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            if (!response.IsAck)
+                return r;
 
-            var tokens = parts[parts.Length - 1].Split(';');   // 마지막 필드 = 결과 페이로드(중간 inspector echo 견고).
-            if (tokens.Length == 0) return r;
-
-            string result = tokens[0].Trim();
+            string result = response.ResultToken;
             r.IsPass =
                 string.Equals(result, "PASS", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(result, "OK", StringComparison.OrdinalIgnoreCase);
 
-            foreach (var token in tokens)
+            double parsed;
+            if (TryGetAny(response, out parsed, "x", "dx", "offsetx", "offset_x"))
             {
-                var eq = token.IndexOf('=');
-                if (eq <= 0) continue;
+                r.OffsetX = parsed;
+                r.HasOffset = true;
+            }
 
-                string key = token.Substring(0, eq).Trim();
-                string value = token.Substring(eq + 1).Trim();
-                double parsed;
-                if (!TryParseDouble(value, out parsed))
-                    continue;
+            if (TryGetAny(response, out parsed, "y", "dy", "offsety", "offset_y"))
+            {
+                r.OffsetY = parsed;
+                r.HasOffset = true;
+            }
 
-                switch (key.ToLowerInvariant())
-                {
-                    case "x":
-                    case "dx":
-                    case "offsetx":
-                    case "offset_x":
-                        r.OffsetX = parsed;
-                        r.HasOffset = true;
-                        break;
-                    case "y":
-                    case "dy":
-                    case "offsety":
-                    case "offset_y":
-                        r.OffsetY = parsed;
-                        r.HasOffset = true;
-                        break;
-                    case "r":
-                    case "t":
-                    case "dt":
-                    case "theta":
-                    case "offsett":
-                    case "offset_t":
-                        r.OffsetT = parsed;
-                        r.HasOffset = true;
-                        break;
-                    case "score":
-                        r.Score = parsed;
-                        break;
-                }
+            if (TryGetAny(response, out parsed, "r", "t", "dt", "theta", "offsett", "offset_t"))
+            {
+                r.OffsetT = parsed;
+                r.HasOffset = true;
+            }
+
+            if (response.TryGetDouble("score", out parsed))
+                r.Score = parsed;
+
+            double width;
+            double height;
+            if (TryGetImageSize(response, out width, out height))
+            {
+                r.ImageWidthPixel = width;
+                r.ImageHeightPixel = height;
+                r.HasImageSize = true;
             }
 
             return r;
         }
 
-        private static bool TryParseDouble(string value, out double result)
+        private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)
         {
-            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out result))
-                return true;
+            value = 0;
+            if (response == null || keys == null)
+                return false;
 
-            return double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out result);
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (response.TryGetDouble(keys[i], out value))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryGetImageSize(VisionProtocolResponse response, out double width, out double height)
+        {
+            width = 0;
+            height = 0;
+            if (response == null)
+                return false;
+
+            if (!TryGetAny(response, out width, "width", "w", "imagew", "imagewidth", "image_width", "resolutionx", "resx"))
+                return false;
+
+            if (!TryGetAny(response, out height, "height", "h", "imageh", "imageheight", "image_height", "resolutiony", "resy"))
+                return false;
+
+            return width > 0 && height > 0;
         }
     }
 }

@@ -77,6 +77,7 @@
     <Compile Include="Equipment\Alarms\AlarmStopScope.cs" />
     <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
+    <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\Diagnostics\PickerMoveTimeFileLogger.cs" />
@@ -141,7 +142,7 @@
     <Compile Include="Equipment\Vision\VisionCommLog.cs" />
     <Compile Include="Equipment\Vision\VisionViewerRegistry.cs" />
     <Compile Include="Equipment\Vision\VisionReconnectWatchdog.cs" />
-    <Compile Include="Ui\Controls\EnumPickerDialog.cs">
+    <Compile Include="Ui\Dialogs\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Controls\ParamGrid.cs">
@@ -156,14 +157,14 @@
     <Compile Include="Ui\Controls\UnitConfigGrid.Designer.cs">
       <DependentUpon>UnitConfigGrid.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\ActionCommandItem.cs" />
+    <Compile Include="Ui\Controls\Common\ActionCommandItem.cs" />
     <Compile Include="Ui\Controls\ActionCommandPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\ActionCommandPanelControl.Designer.cs">
       <DependentUpon>ActionCommandPanelControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\JogAxisItem.cs" />
+    <Compile Include="Ui\Controls\Common\JogAxisItem.cs" />
     <Compile Include="Ui\Controls\JogAxisMoveControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -194,27 +195,27 @@
     <Compile Include="Ui\Controls\MaterialDetailView.Designer.cs">
       <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\Common\IoCylinderItem.cs" />
     <Compile Include="Ui\Controls\IoCylinderPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\IoCylinderPanelControl.Designer.cs">
       <DependentUpon>IoCylinderPanelControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\NumericKeypadDialog.cs">
+    <Compile Include="Ui\Dialogs\NumericKeypadDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\NumericKeypadDialog.Designer.cs">
+    <Compile Include="Ui\Dialogs\NumericKeypadDialog.Designer.cs">
       <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
+    <Compile Include="Ui\Controls\Common\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\ParameterGridControl.Designer.cs">
       <DependentUpon>ParameterGridControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\ParameterGridItem.cs" />
+    <Compile Include="Ui\Controls\Common\ParameterGridItem.cs" />
     <Compile Include="Ui\Pages\History\AlarmHistoryPage.Designer.cs">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
     </Compile>
@@ -448,7 +449,7 @@
     <Compile Include="Equipment\Interlocks\Common\MotionGuardService.cs" />
     <Compile Include="Equipment\Interlocks\Common\StandardInterlocks.cs" />
     <!-- Ui / Controls (310 ?�식) -->
-    <Compile Include="Ui\Controls\DieMapView.cs">
+    <Compile Include="Ui\Controls\Styles\DieMapView.cs">
       <SubType>Component</SubType>
     </Compile>
     <!-- Stage 4 ?�규 ??Dialogs + WorkInfo ActiveLot -->
@@ -461,7 +462,7 @@
     <Compile Include="Ui\Dialogs\VisionMonitorDialog.Designer.cs">
       <DependentUpon>VisionMonitorDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Dialogs\ModelessDialogHost.cs" />
+    <Compile Include="Ui\Dialogs\Common\ModelessDialogHost.cs" />
     <Compile Include="Ui\Dialogs\VisionModuleTestDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -598,7 +599,9 @@
     <!-- Equipment / Vision (Vision ?�로?�스 ?�신) -->
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
     <Compile Include="Equipment\Vision\AutoVisionRequestService.cs" />
+    <Compile Include="Equipment\Vision\VisionCommandService.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />
+    <Compile Include="Equipment\Vision\VisionProtocol.cs" />
     <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
@@ -615,16 +618,16 @@
     <Compile Include="Ui\Security\UserLevel.cs" />
     <Compile Include="Ui\Security\UserSession.cs" />
     <!-- UI / Controls -->
-    <Compile Include="Ui\Controls\ActionButton.cs">
+    <Compile Include="Ui\Controls\Styles\ActionButton.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\AlarmBanner.cs">
+    <Compile Include="Ui\Controls\Styles\AlarmBanner.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\BottomMenuButton.cs">
+    <Compile Include="Ui\Controls\Styles\BottomMenuButton.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\IndicatorDot.cs">
+    <Compile Include="Ui\Controls\Styles\IndicatorDot.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\SessionControl.cs">
@@ -633,13 +636,13 @@
     <Compile Include="Ui\Controls\SessionControl.Designer.cs">
       <DependentUpon>SessionControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\SidebarButton.cs">
+    <Compile Include="Ui\Controls\Styles\SidebarButton.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\VerticalLabel.cs">
+    <Compile Include="Ui\Controls\Styles\VerticalLabel.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\LiveLotMapView.cs">
+    <Compile Include="Ui\Controls\Styles\LiveLotMapView.cs">
       <SubType>Component</SubType>
     </Compile>
     <!-- UI / Dialogs -->
@@ -653,6 +656,10 @@
       <DependentUpon>CalibrationSetupDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.ButtonEvents.cs">
+      <DependentUpon>VisionCameraCalibrationDialog.cs</DependentUpon>
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.Designer.cs">
@@ -673,7 +680,7 @@
     <Compile Include="Ui\Dialogs\AxisPositionPopup.Designer.cs">
       <DependentUpon>AxisPositionPopup.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Dialogs\TaskbarHelper.cs" />
+    <Compile Include="Ui\Dialogs\Common\TaskbarHelper.cs" />
     <Compile Include="Ui\Dialogs\CstStatusDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1113,6 +1120,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\MaterialValueEditDialog.resx">
       <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\VisionCameraCalibrationDialog.resx">
+      <DependentUpon>VisionCameraCalibrationDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\VisionModuleTestDialog.resx">
       <DependentUpon>VisionModuleTestDialog.cs</DependentUpon>

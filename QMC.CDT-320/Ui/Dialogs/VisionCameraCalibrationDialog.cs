@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +41,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 InitializeComponent();
                 ApplyText();
-                WireEvents();
                 RefreshData();
             }
             catch (Exception ex)
@@ -113,7 +112,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 lblSequenceGuide.Text =
                     "수행 순서\r\n\r\n" +
                     "1. CHECK READY\r\n" +
-                    "2. RUN CURRENT\r\n" +
+                    "2. PREPARE && FIND BOTTOM\r\n" +
                     "   - Input/Output VisionX Avoid 이동\r\n" +
                     "   - Front/Rear Picker Output Avoid 이동\r\n" +
                     "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
@@ -125,11 +124,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "5. RETICLE BACK\r\n" +
                     "   - Rear Slide 후진 -> Front Slide 후진 -> Lift Down\r\n" +
                     "6. CALC / SAVE\r\n\r\n" +
-                    "RUN CURRENT 후 Reticle은 Bottom 촬영 준비 위치를 유지합니다. 복귀가 필요할 때만 RETICLE BACK을 실행하세요.";
+                    "PREPARE && FIND BOTTOM 후 Reticle은 Bottom 촬영 준비 위치를 유지합니다. 복귀가 필요할 때만 RETICLE BACK을 실행하세요.";
                 lblStatus.Text = "대기 중입니다.";
 
                 toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
-                toolTip.SetToolTip(btnRunAll, "Input/Output VisionX와 Picker를 회피시킨 뒤 Reticle을 Bottom 촬영 위치로 전개합니다.\r\n이 버튼은 Bottom Reticle 측정까지만 수행하고 Input/Output 카메라 자동 이동은 하지 않습니다.");
+                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nInput/Output VisionX와 Picker를 회피시키고 Reticle을 Bottom 촬영 위치로 전개한 뒤 Bottom 측정까지 수행합니다.");
                 toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
                 toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nReticle Bottom 준비, Front/Rear Picker Output Avoid, Input 카메라 Reticle 위치 조건이 필요합니다.");
                 toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nReticle Bottom 준비, Front/Rear Picker Input Avoid, Output 카메라 Reticle 위치 조건이 필요합니다.");
@@ -144,28 +143,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
             }
-        }
-
-        private void WireEvents()
-        {
-            btnCheck.Click += btnCheck_Click;
-            btnRunAll.Click += async delegate { await RunOperationAsync("RUN CURRENT", ct => Sequence.RunAsync(ct)); };
-            btnFindBottom.Click += async delegate { await RunOperationAsync("Bottom Reticle Mark 측정", ct => Sequence.FindBottomReticleAsync(ct), ManualCalibrationReadinessTarget.Bottom); };
-            btnFindInput.Click += async delegate { await RunOperationAsync("Input Reticle Mark 측정", ct => Sequence.FindInputReticleAsync(ct), ManualCalibrationReadinessTarget.Input); };
-            btnFindOutput.Click += async delegate { await RunOperationAsync("Output Reticle Mark 측정", ct => Sequence.FindOutputReticleAsync(ct), ManualCalibrationReadinessTarget.Output); };
-            btnRetractReticle.Click += async delegate { await RunOperationAsync("Reticle 복귀", ct => Sequence.RetractReticleFromBottomCameraAsync(ct)); };
-            btnCalculateSave.Click += async delegate
-            {
-                await RunOperationAsync("Vision Camera Calibration 계산/저장", delegate(CancellationToken ct)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    int result = Sequence.CalculateCalibration();
-                    if (result != 0)
-                        return Task.FromResult(result);
-                    return Task.FromResult(Sequence.SaveCalibration());
-                });
-            };
-            btnClose.Click += delegate { Close(); };
         }
 
         private VisionCameraCalibrationSequence Sequence
