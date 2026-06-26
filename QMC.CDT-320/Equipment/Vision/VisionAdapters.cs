@@ -1,6 +1,8 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+
+using QMC.CDT320.Calibration;
 
 namespace QMC.CDT320.VisionComm
 {
@@ -10,9 +12,6 @@ namespace QMC.CDT320.VisionComm
     /// </summary>
     public class WaferVisionAdapter : IVisionTcpClient
     {
-        private const double ImageCenterX = 320.0;
-        private const double ImageCenterY = 240.0;
-        private const double PixelToMm = 0.001;
         private const double DiePitchMm = 0.15;
         private const double MatchScoreThreshold = 0.7;
         private const int DefaultTimeoutMs = 5000;
@@ -71,11 +70,9 @@ namespace QMC.CDT320.VisionComm
                     DefaultTimeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
 
-                VisionAlignResult align = AutoVisionRequestService.ToAlignResult(
+                VisionAlignResult align = VisionCameraCalibrationTransform.ToAlignResult(
+                    AutoVisionChannel.Wafer,
                     result,
-                    ImageCenterX,
-                    ImageCenterY,
-                    PixelToMm,
                     DiePitchMm);
 
                 if (align != null)
@@ -116,8 +113,6 @@ namespace QMC.CDT320.VisionComm
     /// </summary>
     public class TpuVisionAdapter : IVisionTpuClient
     {
-        private const double ImageCenterX = 320.0;
-        private const double ImageCenterY = 240.0;
         private const double MatchScoreThreshold = 0.7;
         private readonly AutoVisionChannel _sideChannel;
 
@@ -131,12 +126,12 @@ namespace QMC.CDT320.VisionComm
             _sideChannel = sideChannel;
         }
 
-        public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000)
+        public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000)
         {
             return TriggerBottomExposeAsync(pickerNo, timeoutMs, CancellationToken.None);
         }
 
-        public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000, CancellationToken ct = default)
         {
             return AutoVisionRequestService.GrabAsync(
                 AutoVisionChannel.Bottom,
@@ -167,14 +162,7 @@ namespace QMC.CDT320.VisionComm
                         timeoutMs,
                         ct).ConfigureAwait(false);
 
-                    results[i] = new BottomVisionOffset
-                    {
-                        PickerNo = i + 1,
-                        OffsetX = match != null && match.Success ? match.X - ImageCenterX : 0,
-                        OffsetY = match != null && match.Success ? match.Y - ImageCenterY : 0,
-                        OffsetT = match != null && match.Success ? match.AngleDeg : 0,
-                        IsOk = match != null && match.Success && match.Score >= MatchScoreThreshold
-                    };
+                    results[i] = VisionCameraCalibrationTransform.ToBottomVisionOffset(i + 1, match, MatchScoreThreshold);
                 }
                 catch (OperationCanceledException)
                 {
@@ -278,12 +266,14 @@ namespace QMC.CDT320.VisionComm
                 if (!grabbed)
                     return new InspectionResultDto { IsPass = false, Raw = "Bin vision GRAB failed." };
 
-                return await AutoVisionRequestService.InspectAsync(
+                InspectionResultDto result = await AutoVisionRequestService.InspectAsync(
                     AutoVisionChannel.Bin,
                     "PlacementInspector",
                     slotIndex,
                     timeoutMs,
                     ct).ConfigureAwait(false);
+
+                return VisionCameraCalibrationTransform.ToInspectionResult(AutoVisionChannel.Bin, result);
             }
             catch (OperationCanceledException)
             {

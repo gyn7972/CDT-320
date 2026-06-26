@@ -34,17 +34,20 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnInit,       "work.init",       op, OpenInitializationMonitor);
             RegisterActionButton(BtnReady,      "work.ready",      op, () =>
             {
+                if (!EnsureAxesHomeReadyForRun("Ready")) return;
                 if (ConfirmRun("Ready", "모션을 Ready(Avoid) 위치로 이동하시겠습니까?"))
                     RunSafe(async c => await RunReadySequenceWithMessageAsync(c), false);
             });
             RegisterActionButton(BtnStart,      "work.start",      op, () =>
             {
+                if (!EnsureAxesHomeReadyForRun("Start")) return;
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))
                     RunSafe(async c => await c.StartAsync(), false);
             });
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c => await RunStopSequenceWithMessageAsync(c), false));
             RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () =>
             {
+                if (!EnsureAxesHomeReadyForRun("Cycle Run")) return;
                 OpenManualSequenceDialog();
             });
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
@@ -129,6 +132,27 @@ namespace QMC.CDT_320.Ui.Tabs
             finally
             {
             }
+        }
+
+        // 축 이동 운전 버튼(Ready/Start/CycleRun) 전 HOME END(IsHomeDone) 등 전 축 준비 상태 확인.
+        // 미완료면 로그 + 메시지로 안내하고 동작을 막는다(머신 알람은 띄우지 않음).
+        private bool EnsureAxesHomeReadyForRun(string actionName)
+        {
+            if (Host == null || Host.Controller == null)
+                return true; // 컨트롤러 없으면 후속 RunSafe에서 처리
+
+            string reason;
+            if (!Host.Controller.AreAllAxesHomeReady(out reason))
+            {
+                string msg = actionName + " 불가: 축 HOME END(원점복귀)가 완료되지 않았습니다.\n" + reason;
+                QMC.Common.Log.Write("Main", "SYSTEM", "WorkTab",
+                    actionName + " blocked: axes not home-ready. " + reason + " - Blocked");
+                QMC.Common.MessageDialog.Show(FindForm(), msg, "Work",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            return true;
         }
 
         private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task> action, bool showFailureDialog = true)

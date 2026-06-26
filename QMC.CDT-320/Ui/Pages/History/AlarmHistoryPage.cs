@@ -101,8 +101,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             var def = AlarmMaster.Get(a.Code);
             string lang = Localization.Lang.Current ?? "ko";
-            // 메시지 카탈로그에 코드가 있으면 그 문구를 우선, 없으면 알람 메시지를 그대로.
-            string message = MessageCatalog.Resolve(EventKind.Alarm, a.Code, lang, a.Message ?? "");
+            string message = ResolveAlarmMessage(a, def, lang);
+            string cause = ResolveAlarmCause(a, def, lang, message);
+            string action = ResolveAlarmAction(a, def, lang, message);
 
             var row = new DataGridViewRow();
             row.CreateCells(_grid,
@@ -111,10 +112,113 @@ namespace QMC.CDT_320.Ui.Pages.History
                 a.Code,
                 a.Source ?? "",
                 message,
-                def?.GetCause(lang) ?? "",
-                def?.GetAction(lang) ?? "");
+                cause,
+                action);
             row.Tag = a.Id; // 행 ↔ 알람 식별 (후속 상태 표시용)
             return row;
+        }
+
+        private static string ResolveAlarmMessage(AlarmRecord alarm, AlarmDefinition definition, string lang)
+        {
+            try
+            {
+                string rawMessage = alarm != null ? alarm.Message ?? string.Empty : string.Empty;
+                if (!string.IsNullOrWhiteSpace(rawMessage))
+                    return rawMessage;
+
+                string resolved = MessageCatalog.Resolve(EventKind.Alarm, alarm != null ? alarm.Code : string.Empty, lang, rawMessage);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                    return resolved;
+
+                return definition != null ? definition.GetTitle(lang) ?? string.Empty : string.Empty;
+            }
+            catch
+            {
+                return alarm != null ? alarm.Message ?? string.Empty : string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveAlarmCause(AlarmRecord alarm, AlarmDefinition definition, string lang, string message)
+        {
+            try
+            {
+                string code = alarm != null ? alarm.Code ?? string.Empty : string.Empty;
+                string source = alarm != null ? alarm.Source ?? string.Empty : string.Empty;
+                message = message ?? string.Empty;
+
+                if (IsInterlockAlarm(code))
+                {
+                    if (HasDetailedMessage(message))
+                        return "인터락 차단 사유: " + message;
+
+                    return "인터락 조건이 만족되지 않아 " + source + " 동작이 차단되었습니다.";
+                }
+
+                if (IsReticleCylinderAlarm(code))
+                {
+                    if (HasDetailedMessage(message))
+                        return "Reticle 실린더 동작 실패 사유: " + message;
+
+                    return "Reticle 실린더가 목표 센서 상태에 도달하지 못했습니다.";
+                }
+
+                return definition != null ? definition.GetCause(lang) ?? string.Empty : string.Empty;
+            }
+            catch
+            {
+                return definition != null ? definition.GetCause(lang) ?? string.Empty : string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveAlarmAction(AlarmRecord alarm, AlarmDefinition definition, string lang, string message)
+        {
+            try
+            {
+                string code = alarm != null ? alarm.Code ?? string.Empty : string.Empty;
+                string source = alarm != null ? alarm.Source ?? string.Empty : string.Empty;
+
+                if (IsInterlockAlarm(code))
+                    return "Cause의 차단 사유에 나온 축/실린더/센서 상태를 안전 위치로 복구한 뒤 알람 리셋 후 재시도하세요. 대상=" + source;
+
+                if (IsReticleCylinderAlarm(code))
+                    return "Reticle Lift/Slide 센서와 Picker/Camera 회피 위치를 확인하고, Cause의 인터락 사유를 먼저 해소한 뒤 다시 실행하세요.";
+
+                return definition != null ? definition.GetAction(lang) ?? string.Empty : string.Empty;
+            }
+            catch
+            {
+                return definition != null ? definition.GetAction(lang) ?? string.Empty : string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInterlockAlarm(string code)
+        {
+            return string.Equals(code ?? string.Empty, "INTERLOCK", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(code ?? string.Empty, "INTERLOCK-GUARD", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsReticleCylinderAlarm(string code)
+        {
+            return (code ?? string.Empty).StartsWith("VS-RETICLE-CYL", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool HasDetailedMessage(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            string normalized = message.Trim();
+            return !string.Equals(normalized, "인터록 차단", StringComparison.OrdinalIgnoreCase) &&
+                   !string.Equals(normalized, "Interlock blocked", StringComparison.OrdinalIgnoreCase);
         }
 
         private void UpdateCount()

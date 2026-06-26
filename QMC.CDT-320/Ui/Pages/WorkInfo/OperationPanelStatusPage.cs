@@ -71,13 +71,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblGrabResult.Text = name + " GRAB 중...";
             try
             {
-                string resp = await c.SendAsync($"{c.ModuleName}|EXPOSE|0");
-                bool ok = resp != null && resp.StartsWith("ACK|");
-                string body = "";
-                var parts = (resp ?? "").Split('|');
-                if (parts.Length > 3) body = parts[3];
+                VisionProtocolResponse resp = await c.SendCommandAsync(VisionProtocolCommand.Grab, 5000, System.Threading.CancellationToken.None, 0);
+                bool ok = resp != null && resp.IsAck;
+                string body = resp != null ? resp.Payload : "응답 없음";
                 _lblGrabResult.ForeColor = ok ? System.Drawing.Color.SeaGreen : System.Drawing.Color.Firebrick;
-                _lblGrabResult.Text = $"{c.ModuleName} GRAB: {(ok ? body : resp)}";
+                _lblGrabResult.Text = $"{c.ModuleName} GRAB: {(ok ? body : (resp != null ? resp.RawLine : body))}";
             }
             catch (Exception ex)
             {

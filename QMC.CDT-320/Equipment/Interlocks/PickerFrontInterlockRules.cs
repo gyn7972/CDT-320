@@ -33,11 +33,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveFrontPickerX(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerX(request.Machine, out reason);
@@ -153,11 +153,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveFrontPickerY(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerY(request.Machine, out reason);
@@ -200,11 +200,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveFrontPickerT(request.Machine, request.MovingName, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerT(request.Machine, request.MovingName, out reason);
@@ -373,11 +373,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveFrontPickerZ(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerZ(request.Machine, request.MovingName, out reason);

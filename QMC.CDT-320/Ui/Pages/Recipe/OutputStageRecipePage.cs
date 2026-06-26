@@ -288,7 +288,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddKindGroup(items, "LOAD POSITION", "Load", true, true, true, false);
                 AddKindGroup(items, "PROCESS POSITION", "Process", true, true, true, true);
                 AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
-                AddKindGroup(items, "RETICLE POSITION", "Reticle", false, false, false, true);
+                AddKindGroup(items, "RETICLE POSITION", "Reticle", false, true, false, true);
 
                 // 빈맵(원형) 형상은 BIN DIE MAP CREATE 페이지에서 레시피 맵으로 저장/관리한다.
 
@@ -493,6 +493,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string title = (side == BinSide.Ng ? "NG " : "GOOD ") + kind.ToUpperInvariant();
             string reason;
 
+            // 이동 대상 축(해당 빈 Y/Z)의 HOME END(IsHomeDone) 미완료면 차단.
+            if (!CheckBinAxesHomed(side, out reason))
+                return AbortSeq(title, reason);
             if (!CheckClampUp(side, out reason))
                 return AbortSeq(title, reason);
             if (!CheckPickerZClear(out reason))
@@ -538,6 +541,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 5) PROCESS: VisionX 동반 이동 (공유레일 → Front/Rear 픽커 Avoid 선행 확인)
             if (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
             {
+                if (!_outputStageUnit.IsStageAxisHomeDone(BinStageAxis.VisionX))
+                    return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
                 if (!CheckVisionXClear(out reason))
                     return AbortSeq(title, "VISION X 전 " + reason);
                 r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process");
@@ -556,10 +561,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string title = "VISION " + kind.ToUpperInvariant();
             string reason;
 
+            // 이동 대상 축(VISION X)의 HOME END(IsHomeDone) 미완료면 차단.
+            if (!_outputStageUnit.IsStageAxisHomeDone(BinStageAxis.VisionX))
+                return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
+
             if (string.Equals(kind, "Reticle", StringComparison.OrdinalIgnoreCase))
             {
                 if (!IsReticleClear(out reason))
                     return AbortSeq(title, "VISION X 전 레티클 " + reason);
+
+                int zResult = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinZ, "Reticle");
+                if (zResult != 0)
+                    return AbortSeq(title, "GOOD Z Reticle 이동 실패");
             }
 
             // 공유레일 → VISION X 이동 전 Front/Rear 픽커 Avoid 확인
@@ -596,7 +609,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     BinStageAxis axis;
                     string positionName;
                     if (TryGetSelectedTeachingPosition(out axis, out positionName))
+                    {
+                        // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단.
+                        if (!_outputStageUnit.IsStageAxisHomeDone(axis))
+                        {
+                            string homeMsg = optionParameterGrid.SelectedItem.Key + " 불가: " + axis + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                            EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", homeMsg);
+                            QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
                         await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _outputStageUnit.MoveStageAxisToTeachingPosition(axis, positionName, true));
+                    }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
                 {

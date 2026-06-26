@@ -10,6 +10,7 @@ using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
+using QMC.CDT320.Interlocks;
 
 namespace QMC.CDT320
 {
@@ -964,17 +965,43 @@ namespace QMC.CDT320
                 if (cylinder == null)
                     return RaiseVisionAlarm("VS-RETICLE-CYL-MISSING", label + " 실린더 객체가 없습니다.");
 
+                if (IsReticleCylinderAlreadyAtTarget(cylinder, forward))
+                {
+                    EventLogger.Write(
+                        EventKind.Event,
+                        "QMC",
+                        "VS-RETICLE-CYL-SKIP",
+                        label + " 이미 목표 위치입니다. " + BuildReticleCylinderState(cylinder, forward));
+                    return 0;
+                }
+
                 EventLogger.Write(EventKind.Event, "QMC", "VS-RETICLE-CYL", label + " 동작 시작.");
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyCylinderMove(cylinder, forward, out interlockReason))
+                {
+                    return RaiseVisionAlarm(
+                        "VS-RETICLE-CYL-MOVE",
+                        BuildReticleCylinderFailureMessage(failMessage, cylinder, forward, interlockReason));
+                }
+
                 bool commandOk = forward
                     ? await cylinder.MoveFwdAsync(ct).ConfigureAwait(false)
                     : await cylinder.MoveBwdAsync(ct).ConfigureAwait(false);
                 if (!commandOk)
-                    return RaiseVisionAlarm("VS-RETICLE-CYL-MOVE", failMessage + " cylinder=" + cylinder.Name);
+                {
+                    return RaiseVisionAlarm(
+                        "VS-RETICLE-CYL-MOVE",
+                        BuildReticleCylinderFailureMessage(failMessage, cylinder, forward, string.Empty));
+                }
 
                 ct.ThrowIfCancellationRequested();
                 bool finalOk = forward ? cylinder.IsFwd : cylinder.IsBwd;
                 if (!finalOk)
-                    return RaiseVisionAlarm("VS-RETICLE-CYL-CHECK", failMessage + " 최종 센서 확인 실패. cylinder=" + cylinder.Name);
+                {
+                    return RaiseVisionAlarm(
+                        "VS-RETICLE-CYL-CHECK",
+                        BuildReticleCylinderFailureMessage(failMessage + " 최종 센서 확인 실패.", cylinder, forward, string.Empty));
+                }
 
                 EventLogger.Write(EventKind.Event, "QMC", "VS-RETICLE-CYL", label + " 동작 완료.");
                 return 0;
@@ -990,6 +1017,64 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static bool IsReticleCylinderAlreadyAtTarget(BaseCylinder cylinder, bool forward)
+        {
+            try
+            {
+                if (cylinder == null)
+                    return false;
+
+                return forward ? cylinder.IsFwd : cylinder.IsBwd;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildReticleCylinderFailureMessage(
+            string failMessage,
+            BaseCylinder cylinder,
+            bool forward,
+            string interlockReason)
+        {
+            try
+            {
+                string target = forward ? "전진/상승" : "후진/하강";
+                string reason = string.IsNullOrWhiteSpace(interlockReason)
+                    ? "실린더 명령 실패 또는 목표 센서 미도달"
+                    : interlockReason.Trim();
+
+                return (failMessage ?? "Reticle 실린더 동작 실패.") +
+                       " 원인=" + reason +
+                       ", " + BuildReticleCylinderState(cylinder, forward);
+            }
+            catch (Exception ex)
+            {
+                return (failMessage ?? "Reticle 실린더 동작 실패.") + " 원인 메시지 생성 실패: " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildReticleCylinderState(BaseCylinder cylinder, bool forward)
+        {
+            string target = forward ? "전진/상승" : "후진/하강";
+            return "실린더=" + (cylinder != null ? cylinder.Name : "-") +
+                   ", 목표=" + target +
+                   ", FWD센서=" + FormatOnOff(cylinder != null && cylinder.IsFwd) +
+                   ", BWD센서=" + FormatOnOff(cylinder != null && cylinder.IsBwd);
+        }
+
+        private static string FormatOnOff(bool value)
+        {
+            return value ? "ON" : "OFF";
         }
 
         private BaseAxis RegisterAxis(VisionAxis axis, string axisName)

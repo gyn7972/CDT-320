@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.VisionComm;
@@ -12,22 +12,52 @@ namespace QMC.CDT_320.Ui.Dialogs
     /// </summary>
     public sealed partial class VisionViewDialog : Form
     {
+        public enum InitialTab
+        {
+            Default,
+            Side
+        }
+
         public VisionViewDialog()
+            : this(InitialTab.Default)
+        {
+        }
+
+        public VisionViewDialog(InitialTab initialTab)
         {
             InitializeComponent();
+
+            if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime)
+                return;
 
             string host = VisionHub.Host;
             _pnWafer.Configure(host, VisionViewerPorts.Wafer, "Wafer", VisionHub.Wafer);
             _pnBottom.Configure(host, VisionViewerPorts.BottomInspection, "Bottom Inspection", VisionHub.Inspection);
             _pnBin.Configure(host, VisionViewerPorts.Bin, "Bin", VisionHub.Bin);
             _pnSide.Configure(host);
+
+            SelectInitialTab(initialTab);
         }
 
         /// <summary>통합 Vision View 팝업을 연다.</summary>
         public static void Open(IWin32Window owner)
         {
-            using (var dlg = new VisionViewDialog())
-                dlg.ShowDialog(owner);
+            ModelessDialogHost.Show("VisionViewDialog", owner, () => new VisionViewDialog());
+        }
+
+        public static void Open(IWin32Window owner, InitialTab initialTab)
+        {
+            ModelessDialogHost.Show(
+                "VisionViewDialog",
+                owner,
+                () => new VisionViewDialog(initialTab),
+                dialog => dialog.SelectInitialTab(initialTab));
+        }
+
+        public void SelectInitialTab(InitialTab initialTab)
+        {
+            if (initialTab == InitialTab.Side && _tabSide != null)
+                _tabs.SelectedTab = _tabSide;
         }
 
         /// <summary>
@@ -39,7 +69,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (actions == null) return;
 
             if (includeSide)
-                actions.Add(MakeButton("VISION: SIDE(동시)", (s, e) => SideVisionViewerDialog.Open(owner)));
+                actions.Add(MakeButton("VISION: SIDE(동시)", (s, e) => Open(owner, InitialTab.Side)));
 
             actions.Add(MakeButton("VISION VIEW", (s, e) => Open(owner)));
 
@@ -59,6 +89,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             };
             b.Click += onClick;
             return b;
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
         }
     }
 }

@@ -33,11 +33,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerX(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerX(request.Machine, out reason);
@@ -153,11 +153,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerY(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerY(request.Machine, out reason);
@@ -200,11 +200,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerT(request.Machine, request.MovingName, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerT(request.Machine, request.MovingName, out reason);
@@ -351,11 +351,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerZ(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerZ(request.Machine, request.MovingName, out reason);

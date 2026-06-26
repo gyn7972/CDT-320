@@ -58,6 +58,12 @@ namespace QMC.CDT_320
                 else if (args[i] == "--click-test-all") { AuditAll = true; ClickTestAll = true; }
             }
 
+            // 전역 예외 핸들러 — 시작/런타임 중 처리되지 않은 예외가 조용히 프로세스를
+            // 종료시키는 것을 막고, 원인을 로그 + 메시지박스로 남긴다 (AGENTS.md 예외 규칙).
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+            Application.ThreadException += (s, e) => HandleFatalException(e.Exception, "UI-THREAD");
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalException(e.ExceptionObject as Exception, "APP-DOMAIN");
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
@@ -67,6 +73,30 @@ namespace QMC.CDT_320
                 try { _instanceMutex?.ReleaseMutex(); } catch { }
                 try { _instanceMutex?.Dispose(); } catch { }
             }
+        }
+
+        /// <summary>처리되지 않은 예외를 로그에 기록하고 사용자에게 원인을 표시한다.</summary>
+        private static void HandleFatalException(Exception ex, string source)
+        {
+            string detail = ex?.ToString() ?? "Unknown exception (null)";
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "NONE",
+                    "FATAL-" + source,
+                    "Unhandled exception: " + detail);
+            }
+            catch { /* 로깅 실패는 메시지박스 표시를 막지 않는다. */ }
+
+            try
+            {
+                QMC.Common.MessageDialog.Show(
+                    "처리되지 않은 오류가 발생했습니다 (" + source + ").\r\n\r\n" + detail,
+                    "CDT-320 Fatal Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch { /* 메시지박스 표시 실패는 무시. */ }
         }
     }
 }

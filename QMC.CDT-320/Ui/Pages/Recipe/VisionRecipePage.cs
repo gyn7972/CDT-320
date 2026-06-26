@@ -353,17 +353,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         // ===================== 매뉴얼 액션 (Front/Rear 통합 단일 버튼) =====================
         private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition());
+            await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
         }
 
         private async void btnProcessPosition0_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async);
+            await ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
         }
 
         private async void btnProcessPosition90_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async);
+            await ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
         }
 
         // Front/Rear 양측을 각자 Process 위치(0도)로 이동
@@ -394,7 +394,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     VisionAxis axis;
                     string positionName;
                     if (TryGetSelectedTeachingPosition(out axis, out positionName))
-                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _visionUnit.MoveVisionAxisToTeachingPosition(axis, positionName));
+                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _visionUnit.MoveVisionAxisToTeachingPosition(axis, positionName), _visionUnit.ResolveVisionAxis(axis));
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
                 {
@@ -566,7 +566,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return item;
         }
 
-        private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action)
+        // 이동 대상 축의 HOME END(IsHomeDone) 확인 — 미완료면 로그+메시지로 차단.
+        private bool EnsureVisionAxesHomeDone(string actionName, BaseAxis[] targetAxes)
+        {
+            if (targetAxes == null)
+                return true;
+            foreach (BaseAxis ax in targetAxes)
+            {
+                if (ax != null && !ax.IsHomeDone)
+                {
+                    string homeMsg = actionName + " 불가: " + ax.Name + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "VISION", homeMsg);
+                    QMC.Common.MessageDialog.Show(this, homeMsg, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action, params BaseAxis[] targetAxes)
         {
             try
             {
@@ -574,6 +592,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 if (ManualMoveGuard.BlockIfNotReady(this, "Vision"))
+                    return;
+
+                // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단.
+                if (!EnsureVisionAxesHomeDone(actionName, targetAxes))
                     return;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Vision", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

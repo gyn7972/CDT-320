@@ -23,7 +23,7 @@ namespace QMC.CDT320.VisionComm
             {
                 ct.ThrowIfCancellationRequested();
 
-                // 주의: DryRun 은 여기서 바이패스하지 않는다(아래에서 실제 그랩 수행). Sim/Bypass/비전미사용만 생략.
+                // DryRun은 GRAB만 실제 요청하고 결과 요청은 생략한다. Simulation/Bypass/비전 미사용은 GRAB도 생략한다.
                 if (IsSimulationVisionBypassed() || IsVisionDisabled())
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-BYPASS",
@@ -31,17 +31,16 @@ namespace QMC.CDT320.VisionComm
                     return Task.FromResult(true);
                 }
 
-                VisionTcpClient client = ResolveClient(channel);
                 if (IsDryRunMode())
-                    return RunDryRunGrabAsync(client, channel, index, timeoutMs, ct);
+                    return RunDryRunGrabAsync(channel, index, timeoutMs, ct);
 
-                if (!IsReady(client, channel, "GRAB", string.Empty, index))
+                if (!IsReady(channel, "GRAB", string.Empty, index))
                     return Task.FromResult(false);
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB",
                     "Vision GRAB 요청. channel=" + channel + ", index=" + index + ", timeoutMs=" + timeoutMs);
 
-                return client.ExposeAsync(index, timeoutMs, ct);
+                return VisionCommandService.ExposeAsync(channel, index, timeoutMs, ct);
             }
             catch (OperationCanceledException)
             {
@@ -72,8 +71,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassMatchResult(channel, finder, index);
 
-                VisionTcpClient client = ResolveClient(channel);
-                if (!IsReady(client, channel, "MATCH", finder, index))
+                if (!IsReady(channel, "MATCH", finder, index))
                     return BuildMatchFailure("Vision client is not connected.");
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH",
@@ -82,7 +80,7 @@ namespace QMC.CDT320.VisionComm
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                MatchResultDto result = await client.MatchAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto result = await VisionCommandService.MatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
@@ -137,8 +135,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassInspectionResult(channel, inspector, index);
 
-                VisionTcpClient client = ResolveClient(channel);
-                if (!IsReady(client, channel, "INSPECT", inspector, index))
+                if (!IsReady(channel, "INSPECT", inspector, index))
                     return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
@@ -147,7 +144,7 @@ namespace QMC.CDT320.VisionComm
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                InspectionResultDto result = await client.InspectAsync(inspector, index, timeoutMs, ct).ConfigureAwait(false);
+                InspectionResultDto result = await VisionCommandService.InspectAsync(channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.IsPass)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
@@ -204,30 +201,9 @@ namespace QMC.CDT320.VisionComm
             };
         }
 
-        private static VisionTcpClient ResolveClient(AutoVisionChannel channel)
+        private static bool IsReady(AutoVisionChannel channel, string command, string toolName, int index)
         {
-            switch (channel)
-            {
-                case AutoVisionChannel.Wafer:
-                    return VisionHub.Wafer;
-                case AutoVisionChannel.Bottom:
-                    return VisionHub.Inspection;
-                case AutoVisionChannel.Bin:
-                    return VisionHub.Bin;
-                case AutoVisionChannel.Main:
-                    return VisionHub.Main;
-                case AutoVisionChannel.FrontSide:
-                    return VisionHub.TopSide != null && VisionHub.TopSide.IsConnected ? VisionHub.TopSide : VisionHub.Inspection;
-                case AutoVisionChannel.RearSide:
-                    return VisionHub.BottomSide != null && VisionHub.BottomSide.IsConnected ? VisionHub.BottomSide : VisionHub.Inspection;
-                default:
-                    return null;
-            }
-        }
-
-        private static bool IsReady(VisionTcpClient client, AutoVisionChannel channel, string command, string toolName, int index)
-        {
-            if (client != null && client.IsConnected)
+            if (VisionCommandService.IsConnected(channel))
                 return true;
 
             EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-NOT-CONNECTED",
@@ -239,7 +215,6 @@ namespace QMC.CDT320.VisionComm
         }
 
         private static async Task<bool> RunDryRunGrabAsync(
-            VisionTcpClient client,
             AutoVisionChannel channel,
             int index,
             int timeoutMs,
@@ -249,7 +224,7 @@ namespace QMC.CDT320.VisionComm
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (client == null || !client.IsConnected)
+                if (!VisionCommandService.IsConnected(channel))
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-SKIP",
                         "DryRun 모드지만 Vision 연결이 없어 GRAB 요청을 생략하고 진행합니다. channel=" + channel +
@@ -262,7 +237,7 @@ namespace QMC.CDT320.VisionComm
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                bool result = await client.ExposeAsync(index, timeoutMs, ct).ConfigureAwait(false);
+                bool result = await VisionCommandService.ExposeAsync(channel, index, timeoutMs, ct).ConfigureAwait(false);
                 if (!result)
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-FAIL",
@@ -301,7 +276,7 @@ namespace QMC.CDT320.VisionComm
             return settings != null && settings.DryRunMode;
         }
 
-        /// <summary>비전 미사용 설정(UseVision=false) — 연결/요청 없이 통과 처리.</summary>
+        /// <summary>비전 미사용 설정(UseVision=false)일 때 연결/요청 없이 통과 처리한다.</summary>
         private static bool IsVisionDisabled()
         {
             AppSettings settings = AppSettingsStore.Current;
@@ -313,12 +288,12 @@ namespace QMC.CDT320.VisionComm
             return IsSimulationVisionBypassed() || IsDryRunMode() || IsVisionDisabled();
         }
 
-        /// <summary>바이패스 로그용 사유 문자열(정확한 원인 표기).</summary>
+        /// <summary>바이패스 로그에 사용할 사유 문자열.</summary>
         private static string BypassReason()
         {
-            if (IsVisionDisabled())          return "비전 미사용 설정이라";
+            if (IsVisionDisabled()) return "비전 미사용 설정이라";
             if (IsSimulationVisionBypassed()) return "시뮬레이션 모드라";
-            if (IsDryRunMode())              return "DryRun 모드라";
+            if (IsDryRunMode()) return "DryRun 모드라";
             return "바이패스 설정이라";
         }
 
