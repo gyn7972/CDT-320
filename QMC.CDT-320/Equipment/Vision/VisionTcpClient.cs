@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
@@ -15,6 +15,8 @@ namespace QMC.CDT320.VisionComm
     /// </summary>
     public class VisionTcpClient : IDisposable
     {
+        private const int MatchResultPollIntervalMs = 100;
+
         public string Host       { get; }
         public int    Port       { get; }
         public string ModuleName { get; }
@@ -213,23 +215,82 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<MatchResultDto> MatchAsync(string finder, int index, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Match, timeoutMs, ct, finder, index).ConfigureAwait(false);
-            return MatchResultDto.Parse(response.RawLine);
+            ct.ThrowIfCancellationRequested();
+
+            bool started = await MatchAsyncStartAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
+            if (!started)
+            {
+                return new MatchResultDto
+                {
+                    Success = false,
+                    RawError = "MATCHASYNC STARTED ACK failed. finder=" + finder
+                };
+            }
+
+            DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < timeoutAt)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
+                int pollTimeoutMs = Math.Min(1000, remainMs);
+                AsyncMatchPoll poll = await PollMatchResultAsync(finder, pollTimeoutMs, ct).ConfigureAwait(false);
+                if (poll.Error)
+                {
+                    return new MatchResultDto
+                    {
+                        Success = false,
+                        RawError = poll.Raw
+                    };
+                }
+
+                if (poll.Done)
+                {
+                    if (poll.Result != null)
+                        return poll.Result;
+
+                    return new MatchResultDto
+                    {
+                        Success = false,
+                        RawError = poll.Raw
+                    };
+                }
+
+                await Task.Delay(MatchResultPollIntervalMs, ct).ConfigureAwait(false);
+            }
+
+            return new MatchResultDto
+            {
+                Success = false,
+                RawError = "MATCHRESULT timeout. finder=" + finder + ", timeoutMs=" + timeoutMs
+            };
         }
 
-        // ── 비동기 MATCH (그랩 후 1차 ACK=STARTED → 백그라운드 알고리즘 → MATCHRESULT 폴링) ──
+        // ── 비동기 매칭 (MATCHASYNC 1차 ACK=STARTED → 백그라운드 알고리즘 → MATCHRESULT 폴링) ──
         /// <summary>비동기 매칭 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 핸들러는 이후 다음 스텝 진행 +
         /// <see cref="PollMatchResultAsync"/> 로 알고리즘 완료를 폴링한다.</summary>
         public async Task<bool> MatchAsyncStartAsync(string finder, int index = 0, int timeoutMs = 30000)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, CancellationToken.None, finder, index).ConfigureAwait(false);
-            return response.IsAck;
+            return await MatchAsyncStartAsync(finder, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        /// <summary>비동기 매칭 시작 — STARTED ACK만 확인하고 즉시 반환한다.</summary>
+        public async Task<bool> MatchAsyncStartAsync(string finder, int index, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, index).ConfigureAwait(false);
+            return response.IsAck && response.IsResult("STARTED");
         }
 
         /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>
         public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int timeoutMs = 5000)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, CancellationToken.None, finder).ConfigureAwait(false);
+            return await PollMatchResultAsync(finder, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>
+        public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, ct, finder).ConfigureAwait(false);
             return AsyncMatchPoll.Parse(response.RawLine);
         }
 
@@ -414,7 +475,7 @@ namespace QMC.CDT320.VisionComm
 
         public static MatchResultDto Parse(string line)
         {
-            // "ACK|WaferVision|MATCH|OK;x=..." 또는 finder echo 형 "ACK|WaferVision|MATCH|AlignDieFinder|OK;x=..."
+            // "ACK|WaferVision|MATCHRESULT|1;x=..." 완료 응답의 x/y/r/score 본문을 OK 형식으로 정규화해서 파싱한다.
             var r = new MatchResultDto();
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
             if (!response.IsAck)
@@ -502,7 +563,7 @@ namespace QMC.CDT320.VisionComm
                 p.Done = true;
                 int semi = payload.IndexOf(';');
                 string body = semi >= 0 ? payload.Substring(semi + 1) : "";
-                p.Result = MatchResultDto.Parse("ACK|x|MATCH|OK;" + body);   // 'OK;본문' 으로 변환해 재사용
+                p.Result = MatchResultDto.Parse("ACK|x|MATCHRESULT|OK;" + body);   // 'OK;본문' 으로 변환해 재사용
             }
             else if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
             {

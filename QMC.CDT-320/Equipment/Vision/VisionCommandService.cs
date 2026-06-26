@@ -60,6 +60,24 @@ namespace QMC.CDT320.VisionComm
             return await client.MatchAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
         }
 
+        public static async Task<bool> StartMatchAsync(AutoVisionChannel channel, string finder, int index, int timeoutMs, CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return false;
+
+            return await client.MatchAsyncStartAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        public static async Task<AsyncMatchPoll> GetMatchResultAsync(AutoVisionChannel channel, string finder, int timeoutMs, CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return new AsyncMatchPoll { Error = true, Raw = "Vision client is null." };
+
+            return await client.PollMatchResultAsync(finder, timeoutMs, ct).ConfigureAwait(false);
+        }
+
         public static async Task<InspectionResultDto> InspectAsync(AutoVisionChannel channel, string inspector, int index, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
@@ -81,7 +99,7 @@ namespace QMC.CDT320.VisionComm
                 ct,
                 finder,
                 index).ConfigureAwait(false);
-            return response.IsAck;
+            return response.IsAck && response.IsResult("STARTED");
         }
 
         public static async Task<AsyncMatchPoll> PollMatchResultAsync(AutoVisionChannel channel, string finder, int timeoutMs, CancellationToken ct)

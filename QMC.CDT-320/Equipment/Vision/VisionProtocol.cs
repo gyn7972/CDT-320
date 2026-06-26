@@ -11,7 +11,6 @@ namespace QMC.CDT320.VisionComm
         Ping,
         Expose,
         Grab,
-        Match,
         MatchAsync,
         MatchResult,
         Inspect,
@@ -34,7 +33,6 @@ namespace QMC.CDT320.VisionComm
         public const string Ping = "PING";
         public const string Expose = "EXPOSE";
         public const string Grab = "GRAB";
-        public const string Match = "MATCH";
         public const string MatchAsync = "MATCHASYNC";
         public const string MatchResult = "MATCHRESULT";
         public const string Inspect = "INSPECT";
@@ -61,8 +59,6 @@ namespace QMC.CDT320.VisionComm
                     return Expose;
                 case VisionProtocolCommand.Grab:
                     return Grab;
-                case VisionProtocolCommand.Match:
-                    return Match;
                 case VisionProtocolCommand.MatchAsync:
                     return MatchAsync;
                 case VisionProtocolCommand.MatchResult:
@@ -110,8 +106,6 @@ namespace QMC.CDT320.VisionComm
                 return VisionProtocolCommand.Expose;
             if (string.Equals(value, Grab, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.Grab;
-            if (string.Equals(value, Match, StringComparison.OrdinalIgnoreCase))
-                return VisionProtocolCommand.Match;
             if (string.Equals(value, MatchAsync, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.MatchAsync;
             if (string.Equals(value, MatchResult, StringComparison.OrdinalIgnoreCase))

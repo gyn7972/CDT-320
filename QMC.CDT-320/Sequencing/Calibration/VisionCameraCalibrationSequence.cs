@@ -33,6 +33,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private const string ReticleFinderName = "ReticleFinder";
         private const int ReticleFindRetryCount = 3;
         private const int CalibrationMotionTimeoutMs = 10000;
+        private const int ReticleMatchPollIntervalMs = 100;
         private const double CalibrationAxisTolerance = 0.01;
         private readonly CDT320_Machine _machine;
         private readonly Func<string> _userNameProvider;
@@ -1058,11 +1059,24 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             string cameraName = ResolveCameraName(target);
             AutoVisionChannel channel = ResolveAutoVisionChannel(target);
-            if (VisionCommandService.IsConnected(channel))
+            int timeoutMs = ResolveCaptureTimeoutMs();
+
+            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-REQ",
+                cameraName + " Vision에 ReticleFinder MATCHASYNC 시작을 요청합니다.");
+
+            bool started = await AutoVisionRequestService.StartMatchAsync(
+                channel,
+                ReticleFinderName,
+                0,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+
+            if (started)
             {
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCH-REQ",
-                    cameraName + " Vision에 ReticleFinder 실행을 요청합니다.");
-                return await VisionCommandService.MatchAsync(channel, ReticleFinderName, 0, ResolveCaptureTimeoutMs(), ct).ConfigureAwait(false);
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHASYNC-STARTED",
+                    cameraName + " Vision ReticleFinder MATCHASYNC STARTED 응답 또는 bypass 허가를 받았습니다.");
+
+                return await WaitReticleMatchResultAsync(cameraName, channel, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (IsSimulationMode())
@@ -1083,8 +1097,103 @@ namespace QMC.CDT320.Sequencing.Calibration
                 };
             }
 
+            if (VisionCommandService.IsConnected(channel))
+            {
+                return new MatchResultDto
+                {
+                    Success = false,
+                    RawError = cameraName + " ReticleFinder MATCHASYNC STARTED 응답을 받지 못했습니다."
+                };
+            }
+
             Fail("VISION-CAMERA-CAL-VISION-NOT-CONNECTED", cameraName, cameraName + " Vision이 연결되지 않아 ReticleFinder를 실행할 수 없습니다.");
             return null;
+        }
+
+        private async Task<MatchResultDto> WaitReticleMatchResultAsync(
+            string cameraName,
+            AutoVisionChannel channel,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < timeoutAt)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
+                    int pollTimeoutMs = Math.Min(1000, remainMs);
+                    AsyncMatchPoll poll = await AutoVisionRequestService.PollMatchResultAsync(
+                        channel,
+                        ReticleFinderName,
+                        pollTimeoutMs,
+                        ct).ConfigureAwait(false);
+
+                    if (poll == null)
+                    {
+                        return new MatchResultDto
+                        {
+                            Success = false,
+                            RawError = cameraName + " ReticleFinder MATCHRESULT 응답이 없습니다."
+                        };
+                    }
+
+                    if (poll.Error)
+                    {
+                        return new MatchResultDto
+                        {
+                            Success = false,
+                            RawError = cameraName + " ReticleFinder MATCHRESULT 실패: " + (poll.Raw ?? string.Empty)
+                        };
+                    }
+
+                    if (poll.Done)
+                    {
+                        if (poll.Result != null && poll.Result.Success)
+                        {
+                            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCHRESULT-DONE",
+                                cameraName + " Vision ReticleFinder MATCHRESULT 완료. x=" + poll.Result.X.ToString("0.###") +
+                                ", y=" + poll.Result.Y.ToString("0.###") +
+                                ", r=" + poll.Result.AngleDeg.ToString("0.###") +
+                                ", score=" + poll.Result.Score.ToString("0.###"));
+                            return poll.Result;
+                        }
+
+                        return new MatchResultDto
+                        {
+                            Success = false,
+                            RawError = cameraName + " ReticleFinder MATCHRESULT 완료 응답 파싱 실패: " + (poll.Raw ?? string.Empty)
+                        };
+                    }
+
+                    await Task.Delay(ReticleMatchPollIntervalMs, ct).ConfigureAwait(false);
+                }
+
+                return new MatchResultDto
+                {
+                    Success = false,
+                    RawError = cameraName + " ReticleFinder MATCHRESULT 대기 시간이 초과되었습니다. timeoutMs=" + timeoutMs
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return new MatchResultDto
+                {
+                    Success = false,
+                    RawError = cameraName + " ReticleFinder MATCHRESULT 처리 중 예외 발생: " + ex.Message
+                };
+            }
+            finally
+            {
+            }
         }
 
         private AutoVisionChannel ResolveAutoVisionChannel(VisionCameraCalibrationTarget target)

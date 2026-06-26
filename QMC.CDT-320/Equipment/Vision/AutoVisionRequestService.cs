@@ -73,20 +73,15 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassMatchResult(channel, finder, index);
 
-                if (!IsReady(channel, VisionProtocolCommand.Match, finder, index))
-                    return BuildMatchFailure("Vision client is not connected.");
+                bool started = await StartMatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                    return BuildMatchFailure("MATCHASYNC STARTED ACK failed.");
 
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH",
-                    "Vision MATCH 요청. channel=" + channel +
-                    ", finder=" + finder +
-                    ", index=" + index +
-                    ", timeoutMs=" + timeoutMs);
-
-                MatchResultDto result = await VisionCommandService.MatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto result = await WaitMatchResultAsync(channel, finder, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                        "Vision MATCH 실패. channel=" + channel +
+                        "Vision MATCHRESULT 실패. channel=" + channel +
                         ", finder=" + finder +
                         ", index=" + index +
                         ", raw=" + (result != null ? result.RawError : "null"));
@@ -94,7 +89,7 @@ namespace QMC.CDT320.VisionComm
                 else
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH",
-                        "Vision MATCH 완료. channel=" + channel +
+                        "Vision MATCHRESULT 완료. channel=" + channel +
                         ", finder=" + finder +
                         ", index=" + index +
                         ", pixelX=" + result.X.ToString("F6") +
@@ -112,10 +107,161 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
-                    "Vision MATCH 예외 발생. channel=" + channel +
+                    "Vision MATCHASYNC/MATCHRESULT 예외 발생. channel=" + channel +
                     ", finder=" + finder +
                     ", index=" + index +
                     ", error=" + ex.Message);
+                return BuildMatchFailure(ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public static async Task<bool> StartMatchAsync(
+            AutoVisionChannel channel,
+            string finder,
+            int index,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
+                        BypassReason() + " Vision MATCHASYNC 시작 요청을 생략합니다. channel=" + channel +
+                        ", finder=" + finder +
+                        ", index=" + index);
+                    return true;
+                }
+
+                if (!IsReady(channel, VisionProtocolCommand.MatchAsync, finder, index))
+                    return false;
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCHASYNC",
+                    "Vision MATCHASYNC 시작 요청. channel=" + channel +
+                    ", finder=" + finder +
+                    ", index=" + index +
+                    ", timeoutMs=" + timeoutMs);
+
+                bool started = await VisionCommandService.StartMatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
+                        "Vision MATCHASYNC STARTED 응답 실패. channel=" + channel +
+                        ", finder=" + finder +
+                        ", index=" + index);
+                }
+
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
+                    "Vision MATCHASYNC 시작 예외 발생. channel=" + channel +
+                    ", finder=" + finder +
+                    ", index=" + index +
+                    ", error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static async Task<AsyncMatchPoll> PollMatchResultAsync(
+            AutoVisionChannel channel,
+            string finder,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                {
+                    return new AsyncMatchPoll
+                    {
+                        Done = true,
+                        Error = false,
+                        Raw = "BYPASS",
+                        Result = BuildBypassMatchResult(channel, finder, 0)
+                    };
+                }
+
+                if (!IsReady(channel, VisionProtocolCommand.MatchResult, finder, 0))
+                    return new AsyncMatchPoll { Error = true, Raw = "Vision client is not connected." };
+
+                return await VisionCommandService.GetMatchResultAsync(channel, finder, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHRESULT",
+                    "Vision MATCHRESULT 폴링 예외 발생. channel=" + channel +
+                    ", finder=" + finder +
+                    ", error=" + ex.Message);
+                return new AsyncMatchPoll { Error = true, Raw = ex.Message };
+            }
+            finally
+            {
+            }
+        }
+
+        public static async Task<MatchResultDto> WaitMatchResultAsync(
+            AutoVisionChannel channel,
+            string finder,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < timeoutAt)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
+                    int pollTimeoutMs = Math.Min(1000, remainMs);
+                    AsyncMatchPoll poll = await PollMatchResultAsync(channel, finder, pollTimeoutMs, ct).ConfigureAwait(false);
+                    if (poll == null)
+                        return BuildMatchFailure("MATCHRESULT response is null.");
+
+                    if (poll.Error)
+                        return BuildMatchFailure(poll.Raw);
+
+                    if (poll.Done)
+                    {
+                        if (poll.Result != null)
+                            return poll.Result;
+
+                        return BuildMatchFailure("MATCHRESULT completed but result is null.");
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+
+                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", timeoutMs=" + timeoutMs);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
                 return BuildMatchFailure(ex.Message);
             }
             finally
@@ -144,7 +290,7 @@ namespace QMC.CDT320.VisionComm
                     return null;
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL",
-                    "Vision MATCH 보정 완료. channel=" + channel +
+                    "Vision 매칭 보정 완료. channel=" + channel +
                     ", finder=" + finder +
                     ", index=" + index +
                     ", dxMm=" + align.DeltaX.ToString("F6") +
@@ -159,7 +305,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH-CAL-EX",
-                    "Vision MATCH 보정 예외 발생. channel=" + channel +
+                    "Vision 매칭 보정 예외 발생. channel=" + channel +
                     ", finder=" + finder +
                     ", index=" + index +
                     ", error=" + ex.Message);
@@ -441,7 +587,7 @@ namespace QMC.CDT320.VisionComm
         private static MatchResultDto BuildBypassMatchResult(AutoVisionChannel channel, string finder, int index)
         {
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
-                BypassReason() + " Vision MATCH 결과 요청을 생략합니다. channel=" + channel +
+                BypassReason() + " Vision 매칭 결과 요청을 생략합니다. channel=" + channel +
                 ", finder=" + finder +
                 ", index=" + index);
 
@@ -462,7 +608,7 @@ namespace QMC.CDT320.VisionComm
         private static VisionAlignResult BuildBypassAlignResult(AutoVisionChannel channel, string finder, int index, double pitchMm)
         {
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL-BYPASS",
-                BypassReason() + " Vision MATCH 보정을 0으로 통과합니다. channel=" + channel +
+                BypassReason() + " Vision 매칭 보정을 0으로 통과합니다. channel=" + channel +
                 ", finder=" + finder +
                 ", index=" + index);
 
