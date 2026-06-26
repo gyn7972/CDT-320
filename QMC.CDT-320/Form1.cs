@@ -528,7 +528,7 @@ namespace QMC.CDT_320
             // Vision PC 가 레시피를 요청(RECIPEREQ)하면 현재 활성 레시피로 응답 — 핸들러가 먼저 안 보내도 Vision 이 능동 동기화.
             QMC.CDT320.VisionComm.VisionHub.OnVisionRecipeRequest = BroadcastCurrentRecipeToVision;
 
-            if (cfg.VisionAutoConnect && !cfg.SimulationMode)
+            if (cfg.VisionAutoConnect && cfg.UseVision)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
                     cfg.VisionHost,

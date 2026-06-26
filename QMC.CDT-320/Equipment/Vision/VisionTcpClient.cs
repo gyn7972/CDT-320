@@ -302,7 +302,7 @@ namespace QMC.CDT320.VisionComm
             return response.IsAck;
         }
 
-        /// <summary>비동기 검사 결과 폴링 — Done=false 면 진행 중(반복 폴링), Done=true 면 Result(PASS/FAIL).</summary>
+        /// <summary>비동기 검사 결과를 폴링한다.</summary>
         public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int timeoutMs = 5000)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectResult, timeoutMs, CancellationToken.None, inspector).ConfigureAwait(false);
@@ -544,37 +544,40 @@ namespace QMC.CDT320.VisionComm
         }
     }
 
-    /// <summary>비동기 매칭 폴링(MATCHRESULT) 결과 — Done/Error 플래그 + 완료 시 데이터.</summary>
+    /// <summary>비동기 매칭 폴링(MATCHRESULT) 결과를 보관한다.</summary>
     public class AsyncMatchPoll
     {
         public bool          Done;       // 알고리즘 완료(=1)
         public bool          Error;      // 실패(ERR) 또는 비정상 응답
         public string        Raw;        // 원문
-        public MatchResultDto Result;    // Done 일 때 x/y/angle/score
+        public MatchResultDto Result;    // 완료 시 x/y/angle/score
 
         public static AsyncMatchPoll Parse(string line)
         {
             var p = new AsyncMatchPoll { Raw = line };
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
-            if (!response.IsAck) { p.Error = true; return p; }
+            if (!response.IsAck)
+            {
+                p.Error = true;
+                return p;
+            }
+
             string payload = response.Payload;   // "0" / "1;x=..;y=..;r=..;score=.." / "ERR;사유"
             if (payload.StartsWith("1", StringComparison.OrdinalIgnoreCase))
             {
                 p.Done = true;
                 int semi = payload.IndexOf(';');
-                string body = semi >= 0 ? payload.Substring(semi + 1) : "";
-                p.Result = MatchResultDto.Parse("ACK|x|MATCHRESULT|OK;" + body);   // 'OK;본문' 으로 변환해 재사용
+                string body = semi >= 0 ? payload.Substring(semi + 1) : string.Empty;
+                p.Result = MatchResultDto.Parse("ACK|x|MATCHRESULT|OK;" + body);
             }
             else if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
             {
                 p.Error = true;
             }
-            // 그 외("0") → 진행 중: Done=false, Error=false
+
             return p;
         }
     }
-
-    /// <summary>비동기 검사 폴링(INSPECTRESULT) 결과 — Done/Error + 완료 시 InspectionResultDto.</summary>
     public class AsyncInspectPoll
     {
         public bool                Done;       // 검사 완료(=1)

@@ -191,19 +191,16 @@ namespace QMC.CDT320.VisionComm
         private static bool IsVisionLinkBypassed()
         {
             AppSettings settings = AppSettingsStore.Current;
-            return settings != null && (settings.SimulationMode || settings.BypassHardware || !settings.UseVision);
+            return settings != null && !settings.UseVision;
         }
 
         private static string ResolveBypassReason()
         {
             AppSettings settings = AppSettingsStore.Current;
             if (settings != null && !settings.UseVision)
-                return "비전 미사용 설정이라";
-            if (settings != null && settings.SimulationMode)
-                return "시뮬레이션 모드라";
-            if (settings != null && settings.BypassHardware)
-                return "하드웨어 바이패스 설정이라";
-            return "Vision 연결 바이패스 설정이라";
+                return "\uBE44\uC804 \uBBF8\uC0AC\uC6A9 \uC124\uC815\uC774\uB77C";
+
+            return "Vision \uC5F0\uACB0 \uBC14\uC774\uD328\uC2A4 \uC124\uC815\uC774\uB77C";
         }
     }
 }

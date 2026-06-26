@@ -169,15 +169,7 @@ namespace QMC.Vision.Comm
             }
             try
             {
-                string resp = "merong";
-                string target = (cmd == "MATCH" || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
-                                 || cmd == "INSPECT" || cmd == "INSPECTASYNC" || cmd == "INSPECTRESULT"
-                                 || cmd == "TRAIN") && parts.Length > 2 ? parts[2] : null;
-                Send(stream, string.IsNullOrEmpty(target)
-                    ? $"ACK|{mod}|{cmd}|{resp}"
-                    : $"ACK|{mod}|{cmd}|{target}|{resp}");
-
-                 
+                string resp;
                 switch (cmd)
                 {
                     case "PING":       resp = "OK";              break;
@@ -204,12 +196,12 @@ namespace QMC.Vision.Comm
                 {
                     // MATCH(ASYNC/RESULT)/INSPECT/TRAIN 은 대상(finder/inspector)을 응답에 echo → 핸들러가 어떤 도구 결과인지 식별.
                     //   예: ACK|WaferVision|MATCH|AlignDieFinder|OK;x=...;y=...;r=...;score=...
-                    //string target = (cmd == "MATCH" || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
-                    //                 || cmd == "INSPECT" || cmd == "INSPECTASYNC" || cmd == "INSPECTRESULT"
-                    //                 || cmd == "TRAIN") && parts.Length > 2 ? parts[2] : null;
-                    //Send(stream, string.IsNullOrEmpty(target)
-                    //    ? $"ACK|{mod}|{cmd}|{resp}"
-                    //    : $"ACK|{mod}|{cmd}|{target}|{resp}");
+                    string target = (cmd == "MATCH" || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
+                                     || cmd == "INSPECT" || cmd == "INSPECTASYNC" || cmd == "INSPECTRESULT"
+                                     || cmd == "TRAIN") && parts.Length > 2 ? parts[2] : null;
+                    Send(stream, string.IsNullOrEmpty(target)
+                        ? $"ACK|{mod}|{cmd}|{resp}"
+                        : $"ACK|{mod}|{cmd}|{target}|{resp}");
                 }
             }
             catch (Exception ex)
