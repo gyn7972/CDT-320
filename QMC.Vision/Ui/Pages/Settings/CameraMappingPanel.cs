@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
@@ -44,6 +45,12 @@ namespace QMC.Vision.Ui.Pages
         private int _fpsCount;
         private SynchronizationContext _uiCtx;
 
+        // MVS 확장 파라미터 — 그룹별 접이식 그리드(런타임 생성, 기본 접힘). 코어 파라미터 그리드와 분리.
+        private ParameterGridControl _mfsGrid;   // .mfs 파일 경로 + 불러오기/저장(기본 펼침)
+        private ParameterGridControl _imgGrid;
+        private ParameterGridControl _acqGrid;
+        private ParameterGridControl _ioGrid;
+
         public CameraMappingPanel()
         {
             InitializeComponent();
@@ -59,6 +66,7 @@ namespace QMC.Vision.Ui.Pages
             _camPreview.ShowToolbar = true;   // 공용 CameraView 내장 툴바
             UpdateConnectButtons();
             WireLightGrid();
+            InitNodeGroupGrids();
             ApplyWaferLayout();
             Lang.LanguageChanged += OnCamLangChanged;
         }
@@ -104,7 +112,7 @@ namespace QMC.Vision.Ui.Pages
             var pixOptions = Enum.GetNames(typeof(CameraPixelFormat))
                 .Select(v => new ParameterGridOption(v, v));
 
-            return new List<ParameterGridItem>
+            var items = new List<ParameterGridItem>
             {
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.exposure"), "μs", ParameterGridScope.Recipe,
                     () => m.ExposureUs, v => m.ExposureUs = v), 1, 1000000),
@@ -125,7 +133,8 @@ namespace QMC.Vision.Ui.Pages
                     () => m.PixelFormat ?? "Mono8",
                     v => m.PixelFormat = (string)v,
                     pixOptions),
-                WithRange(ParameterGridItem.Int(Lang.T("set.cam.delayGrab"), "ms", ParameterGridScope.Recipe,
+                // 그랩 전 지연: MVS 카메라 노드가 아닌 핸들러 그랩 직전 대기(소프트웨어) — (SW) 표기로 구분.
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.delayGrab") + " (SW)", "ms", ParameterGridScope.Recipe,
                     () => m.DelayBeforeGrabMs, v => m.DelayBeforeGrabMs = v), 0, 60000),
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiOffX"), "px", ParameterGridScope.Recipe,
                     () => m.RoiOffsetX, v => m.RoiOffsetX = v), 0, 8000),
@@ -136,6 +145,247 @@ namespace QMC.Vision.Ui.Pages
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiH"), "px", ParameterGridScope.Recipe,
                     () => m.RoiHeight, v => m.RoiHeight = v), 0, 8000),
             };
+            // 코어 카메라 파라미터(노출/게인/트리거/픽셀/ROI)만 이 그리드에 둔다.
+            // MVS 확장 파라미터는 그룹별 접이식 그리드(_imgGrid/_acqGrid/_ioGrid)로 분리.
+            return items;
+        }
+
+        /// <summary>카메라 노드 카탈로그(<see cref="QMC.Vision.Config.CameraNodeCatalog"/>) → 파라미터 그리드 항목.
+        /// <paramref name="group"/> 에 해당하는 행만 생성한다(그룹별 접이식 그리드용).
+        /// 각 행은 mapping 의 NodeParams(노드명↔값)에 get/set 바인딩된다. 미저장 노드는 카탈로그 기본값을 표시한다.
+        /// 항목 추가/삭제는 카탈로그(<c>All</c>)에서 줄 단위로 — 이 코드는 수정 불필요.</summary>
+        private List<ParameterGridItem> BuildNodeCatalogItems(AlgorithmCameraMapping m, string group)
+        {
+            var list = new List<ParameterGridItem>();
+            foreach (var def in QMC.Vision.Config.CameraNodeCatalog.All)
+            {
+                if (!string.Equals(def.Group, group, StringComparison.OrdinalIgnoreCase)) continue;
+                var d = def;   // 클로저 캡처 안전
+                string label = d.Label;   // 그룹명은 그리드 제목바에 표시되므로 라벨엔 미포함
+                switch (d.Kind)
+                {
+                    case CameraParamKind.Float:
+                        list.Add(WithRange(ParameterGridItem.Double(label, d.Unit, ParameterGridScope.Config,
+                            () => GetNodeDouble(m, d), v => m.SetNode(d.Node, v.ToString(CultureInfo.InvariantCulture))),
+                            d.Min, d.Max));
+                        break;
+                    case CameraParamKind.Int:
+                        list.Add(WithRange(ParameterGridItem.Int(label, d.Unit, ParameterGridScope.Config,
+                            () => GetNodeInt(m, d), v => m.SetNode(d.Node, v.ToString(CultureInfo.InvariantCulture))),
+                            d.Min, d.Max));
+                        break;
+                    case CameraParamKind.Bool:
+                        list.Add(ParameterGridItem.Bool(label, ParameterGridScope.Config,
+                            () => GetNodeBool(m, d), v => m.SetNode(d.Node, v ? "True" : "False")));
+                        break;
+                    case CameraParamKind.Enum:
+                        var opts = (d.Options ?? new string[0]).Select(o => new ParameterGridOption(o, o));
+                        list.Add(ParameterGridItem.Selection(label, d.Unit, ParameterGridScope.Config,
+                            () => m.GetNode(d.Node) ?? d.Default,
+                            v => m.SetNode(d.Node, (string)v),
+                            opts));
+                        break;
+                    // Command 타입은 현재 카탈로그에 없음 — 필요 시 Action 행으로 추가.
+                }
+            }
+            return list;
+        }
+
+        private static double GetNodeDouble(AlgorithmCameraMapping m, QMC.Vision.Config.CameraNodeDef d)
+        {
+            var s = m.GetNode(d.Node) ?? d.Default;
+            return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        }
+
+        private static int GetNodeInt(AlgorithmCameraMapping m, QMC.Vision.Config.CameraNodeDef d)
+        {
+            var s = m.GetNode(d.Node) ?? d.Default;
+            return int.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        }
+
+        private static bool GetNodeBool(AlgorithmCameraMapping m, QMC.Vision.Config.CameraNodeDef d)
+        {
+            var s = m.GetNode(d.Node) ?? d.Default;
+            if (bool.TryParse(s, out var b)) return b;
+            return s == "1" || string.Equals(s, "on", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>.mfs(MVS Feature Save) 경로 + 불러오기/저장 버튼 행. 카메라 전체 노드값 일괄 적용/저장.</summary>
+        private List<ParameterGridItem> BuildMfsItems(AlgorithmCameraMapping m)
+        {
+            return new List<ParameterGridItem>
+            {
+                ParameterGridItem.FilePath("카메라 설정 파일(.mfs)", ParameterGridScope.Config,
+                    () => m.MvsFeatureFilePath ?? "", v => m.MvsFeatureFilePath = v?.Trim() ?? "",
+                    "MVS Feature 파일 (*.mfs)|*.mfs|모든 파일 (*.*)|*.*"),
+                ParameterGridItem.Action(".mfs → 카메라 적용", "불러오기", ParameterGridScope.Config, LoadMfsToCamera),
+                ParameterGridItem.Action("카메라 → .mfs 저장(파일)", "파일저장", ParameterGridScope.Config, SaveCameraToMfs),
+                ParameterGridItem.Action("카메라에 영구 저장(UserSet1)", "카메라저장", ParameterGridScope.Config, SaveToCameraUserSet),
+            };
+        }
+
+        /// <summary>지정된 .mfs 파일을 연결된 카메라에 일괄 적용(FeatureLoad). 연결/정지 상태 확인.</summary>
+        private void LoadMfsToCamera()
+        {
+            try
+            {
+                var m = CurrentMapping();
+                if (m == null) return;
+                string path = m.MvsFeatureFilePath;
+                if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 경로가 비었거나 파일이 없습니다."; return; }
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 .mfs를 적용하세요."; return; }
+                if (_isLive)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "Live 중에는 .mfs 적용 불가 — Live Stop 후 시도하세요."; return; }
+
+                if (_activeCam.LoadFeatures(path, out var err))
+                {
+                    // 카메라뿐 아니라 설정 버퍼/그리드에도 .mfs 값을 반영(파일 직접 파싱). 이후 [저장]으로 영속.
+                    int n = LoadMfsIntoBuffer(path, m);
+                    BindFields();
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = $".mfs 적용 + 설정 반영 완료 ({n}개) — " + System.IO.Path.GetFileName(path) + "  · [저장]으로 영속";
+                }
+                else
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 적용 실패: " + err; }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 적용 예외: " + ex.Message; }
+        }
+
+        /// <summary>현재 연결된 카메라의 전체 노드값을 .mfs로 저장(FeatureSave). 경로 미지정 시 다이얼로그.</summary>
+        private void SaveCameraToMfs()
+        {
+            try
+            {
+                var m = CurrentMapping();
+                if (m == null) return;
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 .mfs로 저장하세요."; return; }
+
+                string path = m.MvsFeatureFilePath;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    using (var dlg = new SaveFileDialog())
+                    {
+                        dlg.Filter = "MVS Feature 파일 (*.mfs)|*.mfs|모든 파일 (*.*)|*.*";
+                        dlg.Title = "카메라 설정 .mfs 저장";
+                        dlg.FileName = (_activeCam.Info?.Model ?? "camera") + ".mfs";
+                        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                        path = dlg.FileName;
+                        m.MvsFeatureFilePath = path;
+                        try { _mfsGrid?.RefreshValues(); } catch { }
+                    }
+                }
+
+                if (_activeCam.SaveFeatures(path, out var err))
+                { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = ".mfs 저장 완료 — " + System.IO.Path.GetFileName(path) + "  (경로 영속하려면 [저장] 클릭)"; }
+                else
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 저장 실패: " + err; }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 저장 예외: " + ex.Message; }
+        }
+
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet1(플래시)에 영구 저장 — 전원 꺼도 유지. 확인 후 실행.</summary>
+        private void SaveToCameraUserSet()
+        {
+            try
+            {
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 카메라에 저장하세요."; return; }
+                if (_isLive)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "Live 중에는 카메라 저장 불가 — Live Stop 후 시도하세요."; return; }
+
+                var confirm = MessageBox.Show(this,
+                    "현재 카메라 값을 카메라 내부 UserSet1에 영구 저장합니다.\n전원을 꺼도 유지되며, 부팅 시 UserSet1로 로드됩니다. 계속할까요?",
+                    "카메라에 영구 저장", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes) return;
+
+                if (_activeCam.SaveToCameraUserSet("UserSet1", out var err))
+                { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = "카메라 UserSet1에 영구 저장 완료(전원 꺼도 유지)."; }
+                else
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 저장 실패: " + err; }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 저장 예외: " + ex.Message; }
+        }
+
+        /// <summary>.mfs(GenApi persistence, "노드명\t값" 텍스트) 파일을 파싱한다. 중복 키는 마지막 값 사용.</summary>
+        private static Dictionary<string, string> ParseMfs(string path)
+        {
+            var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var raw in System.IO.File.ReadAllLines(path))
+            {
+                if (string.IsNullOrWhiteSpace(raw) || raw.StartsWith("#")) continue;
+                int t = raw.IndexOf('\t');
+                if (t <= 0) continue;
+                string key = raw.Substring(0, t).Trim();
+                string val = raw.Substring(t + 1).Trim();
+                if (key.Length > 0) d[key] = val;   // 마지막 값 우선
+            }
+            return d;
+        }
+
+        /// <summary>.mfs 파일값을 설정 버퍼(m)에 반영한다. 코어 파라미터(노출/게인/FPS/트리거/픽셀/ROI) +
+        /// 카탈로그 노드. 타입이 맞지 않는 enum형 정수 노드 등은 건너뛴다. 반영한 항목 수 반환.</summary>
+        private int LoadMfsIntoBuffer(string path, AlgorithmCameraMapping m)
+        {
+            int n = 0;
+            try
+            {
+                var v = ParseMfs(path);
+                if (v.Count == 0) return 0;
+
+                if (v.TryGetValue("ExposureTime", out var ex) && double.TryParse(ex, NumberStyles.Any, CultureInfo.InvariantCulture, out var exd)) { m.ExposureUs = exd; n++; }
+                if (v.TryGetValue("Gain", out var g) && double.TryParse(g, NumberStyles.Any, CultureInfo.InvariantCulture, out var gd)) { m.Gain = gd; n++; }
+                if (v.TryGetValue("AcquisitionFrameRate", out var fr) && double.TryParse(fr, NumberStyles.Any, CultureInfo.InvariantCulture, out var frd)) { m.FrameRate = frd; n++; }
+
+                // 트리거: TriggerMode(Off/On) + TriggerSource(Software/Line0..) → CameraTriggerMode 이름으로 합성.
+                if (v.TryGetValue("TriggerMode", out var tm))
+                {
+                    if (tm.Equals("Off", StringComparison.OrdinalIgnoreCase)) { m.TriggerMode = nameof(CameraTriggerMode.Continuous); n++; }
+                    else
+                    {
+                        string src = v.TryGetValue("TriggerSource", out var ts) ? ts : "Software";
+                        m.TriggerMode = string.IsNullOrEmpty(src) ? nameof(CameraTriggerMode.Software) : src;
+                        n++;
+                    }
+                }
+                if (v.TryGetValue("PixelFormat", out var pf) && !string.IsNullOrEmpty(pf)) { m.PixelFormat = pf; n++; }
+                if (v.TryGetValue("Width",   out var w)  && int.TryParse(w,  out var wi)) { m.RoiWidth   = wi;  n++; }
+                if (v.TryGetValue("Height",  out var h)  && int.TryParse(h,  out var hi)) { m.RoiHeight  = hi;  n++; }
+                if (v.TryGetValue("OffsetX", out var ox) && int.TryParse(ox, out var oxi)) { m.RoiOffsetX = oxi; n++; }
+                if (v.TryGetValue("OffsetY", out var oy) && int.TryParse(oy, out var oyi)) { m.RoiOffsetY = oyi; n++; }
+
+                // 카탈로그 노드 — 타입에 맞게만 반영(enum 표기 정수 등 불일치 값은 스킵).
+                foreach (var def in QMC.Vision.Config.CameraNodeCatalog.All)
+                {
+                    if (!v.TryGetValue(def.Node, out var val)) continue;
+                    switch (def.Kind)
+                    {
+                        case CameraParamKind.Bool:
+                            m.SetNode(def.Node, (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase) || val.Equals("on", StringComparison.OrdinalIgnoreCase)) ? "True" : "False");
+                            n++;
+                            break;
+                        case CameraParamKind.Int:
+                            if (int.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out _)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                        case CameraParamKind.Float:
+                            if (double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out _)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                        case CameraParamKind.Enum:
+                            if (!string.IsNullOrEmpty(val)) { m.SetNode(def.Node, val); n++; }
+                            break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] LoadMfsIntoBuffer 실패: " + ex.Message);
+            }
+            return n;
         }
 
         /// <summary>스케일/좌표변환 항목 — 전용 그리드(_scaleGrid). 모듈별 Config 스코프.</summary>
@@ -181,12 +431,24 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>그리드 값 변경 — 상호의존(Trigger Mode/Source) 표시 동기화.</summary>
         private void OnParamChanged(object sender, ParameterGridChangedEventArgs e)
         {
-            try { _paramGrid.RefreshValues(); } catch { }
+            try { (sender as ParameterGridControl)?.RefreshValues(); } catch { }
         }
 
         private void OnScaleParamChanged(object sender, ParameterGridChangedEventArgs e)
         {
             try { _scaleGrid.RefreshValues(); } catch { }
+            // X반전/Y반전/90°회전 토글 → 미리보기에 즉시 반영(저장 전에도 확인 가능).
+            UpdateDisplayOrientation();
+        }
+
+        /// <summary>현재 버퍼의 X반전/Y반전/90°회전 플래그를 미리보기(_camPreview) 표시 방향변환에 반영.
+        /// 그랩/라이브로 들어오는 이미지가 이 방향으로 표시된다. 저장 시 모듈 Config 로 영속되어 재로드 후에도 유지.</summary>
+        private void UpdateDisplayOrientation()
+        {
+            if (_camPreview == null) return;
+            var m = CurrentMapping();
+            if (m == null) { _camPreview.DisplayOrientation = System.Drawing.RotateFlipType.RotateNoneFlipNone; return; }
+            _camPreview.DisplayOrientation = CameraView.OrientationFromFlags(m.InvertedX, m.InvertedY, m.IsRotated);
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -431,6 +693,10 @@ namespace QMC.Vision.Ui.Pages
                 if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "설정 불러올 수 없음 — 운영 모듈 미해결"; }
                 try { _paramGrid.SetItems(new List<ParameterGridItem>()); } catch { }   // 스테일 행 제거
                 try { _scaleGrid.SetItems(new List<ParameterGridItem>()); } catch { }
+                try { _mfsGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
+                try { _imgGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
+                try { _acqGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
+                try { _ioGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
                 SizeLeftGrids();   // 빈 그리드도 헤더 높이로 축소(120F 빈 박스 방지 — GENERAL 동일)
                 System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 모듈 미해결: " + _algorithm);
                 return;
@@ -442,8 +708,13 @@ namespace QMC.Vision.Ui.Pages
                 SetSelectedById(_cbCameraId, m.CameraId);
                 _paramGrid.SetItems(BuildParamItems(m));   // 카메라 파라미터 = 리스트(항목 추가/삭제 용이)
                 _scaleGrid.SetItems(BuildScaleItems(m));   // 스케일/좌표변환 전용 그리드
+                _mfsGrid?.SetItems(BuildMfsItems(m));                          // .mfs 경로 + 불러오기/저장
+                _imgGrid?.SetItems(BuildNodeCatalogItems(m, "Image Format"));   // MVS 확장 — Image Format 그룹
+                _acqGrid?.SetItems(BuildNodeCatalogItems(m, "Acquisition"));    // MVS 확장 — Acquisition 그룹
+                _ioGrid?.SetItems(BuildNodeCatalogItems(m, "IO Output(Strobe)")); // MVS 확장 — IO Output(Strobe) 그룹
                 SizeLeftGrids();                           // 그리드 행 높이를 내용에 맞춰 고정(GENERAL 동일 — 세로 늘어남 방지)
                 _camPreview.AttachModule(Module());        // 툴바 Grab/Live 대상 = 현재 모듈
+                UpdateDisplayOrientation();                // X반전/Y반전/90°회전 → 미리보기 표시 방향 반영
 
                 var cfg = VisionConfigStore.Current;
                 if (_txtMilDcf != null) _txtMilDcf.Text = cfg?.MilDcfPath ?? "";
@@ -456,15 +727,114 @@ namespace QMC.Vision.Ui.Pages
 
         /// <summary>좌측 파라미터/스케일 그리드 행 높이를 내용에 맞춰 고정(GENERAL SizeGrids 동일).
         /// 행 2=_paramGrid, 행 4=_scaleGrid. 맨 아래 Percent 100 스페이서가 남는 공간 흡수.</summary>
+        /// <summary>MVS 확장 파라미터용 그룹별 접이식 그리드(런타임 생성). 카탈로그 Group 단위로 분리하고
+        /// 기본 접힘으로 시작한다. Designer 미수정(인덱스 의존 코드 보존) — _left 에 행을 동적 추가한다.</summary>
+        private void InitNodeGroupGrids()
+        {
+            _mfsGrid = CreateGroupGrid("[카메라 설정] .mfs 불러오기·파일저장 / 카메라 영구저장(UserSet)");
+            _imgGrid = CreateGroupGrid("[Image Format] 이미지 포맷 (Reverse/Binning/패턴)");
+            _acqGrid = CreateGroupGrid("[Acquisition] 취득/트리거/노출 (HDR 포함)");
+            _ioGrid  = CreateGroupGrid("[IO Output] 스트로브 / 라인");
+            // 코어 카메라 파라미터(_paramGrid) 바로 아래에 오도록 _left 스택을 재구성.
+            RelayoutLeftStack();
+            // 길어 보이지 않도록 MVS 확장 노드 그룹은 기본 접힘. .mfs 그룹은 펼친 상태(주요 동작).
+            _imgGrid.SetCollapsed(true);
+            _acqGrid.SetCollapsed(true);
+            _ioGrid.SetCollapsed(true);
+        }
+
+        /// <summary>그룹 접이식 그리드 1개 생성(제목바 클릭으로 접기/펼치기). 값 변경/접힘 이벤트 연결.</summary>
+        private ParameterGridControl CreateGroupGrid(string title)
+        {
+            var g = new ParameterGridControl
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 1, 0, 4),
+                BackColor = Color.FromArgb(245, 246, 248),
+                Title = title
+            };
+            g.ParameterValueChanged += OnParamChanged;
+            g.CollapsedChanged += OnGroupGridCollapsedChanged;
+            return g;
+        }
+
+        /// <summary>_left 세로 스택을 원하는 순서로 재배치한다. MVS 확장 그룹 그리드를 코어 카메라
+        /// 파라미터(_paramGrid) 바로 아래에 끼워 넣는다. 조명 그리드는 Wrap 으로 감싼 패널(있으면)을 그대로 재배치.
+        /// (행 높이는 SizeLeftGrids/ApplyWaferLayout 가 컨트롤 위치로 다시 조정 — 인덱스 의존 제거.)</summary>
+        private void RelayoutLeftStack()
+        {
+            if (_left == null) return;
+            // 조명 그리드는 CollapsibleGrids.Wrap 으로 감싸져 _left 에는 래퍼 패널이 들어가 있다.
+            Control lightCtrl = (_gridLightAssign?.Parent?.Parent as QMC.Vision.Ui.Controls.CollapsibleGridPanel)
+                                ?? (Control)_gridLightAssign;
+            _left.SuspendLayout();
+            try
+            {
+                _left.Controls.Clear();
+                _left.RowStyles.Clear();
+                _left.RowCount = 14;
+                int r = 0;
+                AddStackRow(ref r, _camRow,          40F);
+                AddStackRow(ref r, _secParam,        28F);
+                AddStackRow(ref r, _paramGrid,       120F);
+                AddStackRow(ref r, _mfsGrid,         120F);   // ← 카메라 파라미터 바로 아래(.mfs 경로/버튼)
+                AddStackRow(ref r, _imgGrid,         120F);
+                AddStackRow(ref r, _acqGrid,         120F);
+                AddStackRow(ref r, _ioGrid,          120F);
+                AddStackRow(ref r, _secScale,        28F);
+                AddStackRow(ref r, _scaleGrid,       120F);
+                AddStackRow(ref r, _milRow,          30F);
+                AddStackRow(ref r, _lblLightAssign,  28F);
+                AddStackRow(ref r, lightCtrl,        170F);
+                AddStackRow(ref r, _lblLightStatus,  22F);
+                _left.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));   // 하단 스페이서
+            }
+            finally { _left.ResumeLayout(); }
+        }
+
+        /// <summary>_left 다음 행에 컨트롤을 배치하고 행 인덱스를 1 증가시킨다.</summary>
+        private void AddStackRow(ref int row, Control c, float height)
+        {
+            _left.RowStyles.Add(new RowStyle(SizeType.Absolute, height));
+            if (c != null) _left.Controls.Add(c, 0, row);
+            row++;
+        }
+
+        /// <summary>그룹 그리드 접힘/펼침 시 행 높이를 다시 맞춰 레이아웃 갱신.</summary>
+        private void OnGroupGridCollapsedChanged(object sender, EventArgs e) => SizeLeftGrids();
+
         private void SizeLeftGrids()
         {
             try
             {
-                _left.RowStyles[2].Height = _paramGrid.PreferredGridHeight;
-                _left.RowStyles[4].Height = _scaleGrid.PreferredGridHeight;
+                // 모든 파라미터 그리드 행 높이를 내용에 맞춰 조정(컨트롤 위치로 행 조회 — 인덱스 의존 제거).
+                SizeGroupGridRow(_paramGrid);
+                SizeGroupGridRow(_mfsGrid);
+                SizeGroupGridRow(_imgGrid);
+                SizeGroupGridRow(_acqGrid);
+                SizeGroupGridRow(_ioGrid);
+                SizeGroupGridRow(_scaleGrid);
                 // _left 가 AutoSize 라 행 높이 변경 시 _leftScroll 가 스크롤 범위를 자동 갱신(스크롤은 좌측 컬럼만, 미리보기 고정).
             }
             catch { }
+        }
+
+        /// <summary>파라미터 그리드의 _left 행 높이를 PreferredGridHeight 로 맞춘다(컨트롤 위치로 행 조회).</summary>
+        private void SizeGroupGridRow(ParameterGridControl g)
+        {
+            if (g == null || _left == null) return;
+            var pos = _left.GetPositionFromControl(g);
+            if (pos.Row >= 0 && pos.Row < _left.RowStyles.Count)
+                _left.RowStyles[pos.Row].Height = g.PreferredGridHeight;
+        }
+
+        /// <summary>_left 에서 특정 컨트롤의 행 높이를 설정(컨트롤 위치로 행 조회).</summary>
+        private void SetLeftRowHeight(Control c, float height)
+        {
+            if (c == null || _left == null) return;
+            var pos = _left.GetPositionFromControl(c);
+            if (pos.Row >= 0 && pos.Row < _left.RowStyles.Count)
+                _left.RowStyles[pos.Row].Height = height;
         }
 
         /// <summary>섹션 제목을 각 그리드의 접기 헤더(주황 라인 포함)로 이동하고, 기존 회색 타이틀 행을 제거한다.</summary>
@@ -480,9 +850,9 @@ namespace QMC.Vision.Ui.Pages
                 // 기존 회색 섹션 타이틀 라벨 숨김 + 해당 행 높이 제거(제목은 접기 헤더로 이동)
                 foreach (var lbl in new Control[] { _secParam, _secScale, _lblLightAssign })
                     if (lbl != null) lbl.Visible = false;
-                _left.RowStyles[1].Height = 0;
-                _left.RowStyles[3].Height = 0;
-                _left.RowStyles[6].Height = 0;
+                SetLeftRowHeight(_secParam, 0F);
+                SetLeftRowHeight(_secScale, 0F);
+                SetLeftRowHeight(_lblLightAssign, 0F);
             }
             catch { }
         }

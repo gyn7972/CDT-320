@@ -39,6 +39,15 @@ namespace QMC.Vision.Ui.Pages
         private bool _langHooked;         // LanguageChanged 중복 구독 방지
         private SidebarButton _projBtn;   // 모듈 레일의 '프로젝트(레시피)' 버튼
 
+        // 레시피 신규 항목(웨이퍼 사양/픽업 순서/INPUT DIE) — 모듈 레일 버튼 + 콘텐츠 스왑
+        private const string WaferSpecKey = "WAFERSPEC";
+        private const string PickupKey = "PICKUP";
+        private const string InputDieKey = "INPUTDIE";
+        private SidebarButton _waferSpecBtn;
+        private SidebarButton _pickupBtn;
+        private SidebarButton _inputDieBtn;
+        private UserControl _customPage;   // 현재 표시 중인 신규 항목 페이지
+
         public RecipePage()
         {
             InitializeComponent();
@@ -145,7 +154,101 @@ namespace QMC.Vision.Ui.Pages
             AddAlgoButton(host.TopSideVisionMod);
             AddAlgoButton(host.BottomSideVisionMod);
 
+            AddRecipeItemButtons();
+
             foreach (var kv in _algoBtns) { SelectAlgorithm(kv.Key); break; }
+        }
+
+        /// <summary>모듈 레일 하단에 레시피 신규 항목(웨이퍼 사양/픽업 순서/INPUT DIE) 버튼을 추가한다.</summary>
+        private void AddRecipeItemButtons()
+        {
+            _waferSpecBtn = new SidebarButton
+            {
+                Text = "웨이퍼 사양",
+                Width = UiTheme.SidebarWidth - 8,
+                Height = 46,
+                ShowStatusDot = false,
+                Margin = new Padding(0, 12, 0, 2)
+            };
+            _waferSpecBtn.Click += new EventHandler((s, e) => ShowWaferSpec());
+            _sideFlow.Controls.Add(_waferSpecBtn);
+
+            _pickupBtn = new SidebarButton
+            {
+                Text = "픽업 순서",
+                Width = UiTheme.SidebarWidth - 8,
+                Height = 46,
+                ShowStatusDot = false,
+                Margin = new Padding(0, 0, 0, 2)
+            };
+            _pickupBtn.Click += new EventHandler((s, e) => ShowPickupSequence());
+            _sideFlow.Controls.Add(_pickupBtn);
+
+            _inputDieBtn = new SidebarButton
+            {
+                Text = "INPUT DIE",
+                Width = UiTheme.SidebarWidth - 8,
+                Height = 46,
+                ShowStatusDot = false,
+                Margin = new Padding(0, 0, 0, 2)
+            };
+            _inputDieBtn.Click += new EventHandler((s, e) => ShowInputDie());
+            _sideFlow.Controls.Add(_inputDieBtn);
+        }
+
+        private void ShowWaferSpec()
+            => ShowCustomPage(WaferSpecKey, _waferSpecBtn, () => new WaferSpecPage());
+
+        private void ShowPickupSequence()
+            => ShowCustomPage(PickupKey, _pickupBtn, () => new PickupSequencePage());
+
+        private void ShowInputDie()
+            => ShowCustomPage(InputDieKey, _inputDieBtn, () => new InputDieMapPage());
+
+        /// <summary>신규 항목 페이지를 콘텐츠 영역에 스왑 표시한다(캐시 재사용).</summary>
+        private void ShowCustomPage(string key, SidebarButton btn, Func<UserControl> factory)
+        {
+            // 기존 finder/inspector 페이지·프로젝트 목록을 숨김.
+            if (_curSetKey != null && _cache.TryGetValue(_curSetKey, out var prev)) { prev.Visible = false; }
+            _curSetKey = null;
+            foreach (var kv in _setBtns) kv.Value.Selected = false;
+            foreach (var kv in _algoBtns) kv.Value.Selected = false;
+            if (_projBtn != null) _projBtn.Selected = false;
+            if (_projRail != null) _projRail.Visible = false;
+            SetFinderRailVisible(false);
+
+            HideCustomPage();
+            DeselectRecipeItemButtons();
+            if (btn != null) btn.Selected = true;
+
+            if (!_cache.TryGetValue(key, out var page))
+            {
+                page = factory();
+                page.Dock = DockStyle.Fill;
+                page.Visible = false;
+                _content.Controls.Add(page);
+                _cache[key] = page;
+            }
+            _customPage = page;
+            page.Visible = true;
+            page.BringToFront();
+            _projectView = false;
+            _hdr.Text = Lang.T("rec.hdrPrefix") + " — " + (btn != null ? btn.Text : "");
+        }
+
+        private void HideCustomPage()
+        {
+            if (_customPage == null) return;
+            try { if (!_customPage.IsDisposed) _customPage.Visible = false; }
+            catch { /* 캐시 폐기로 dispose 된 경우 무시 */ }
+            _customPage = null;
+        }
+
+        private void DeselectRecipeItemButtons()
+        {
+            if (_waferSpecBtn != null) _waferSpecBtn.Selected = false;
+            if (_pickupBtn != null) _pickupBtn.Selected = false;
+            if (_inputDieBtn != null) _inputDieBtn.Selected = false;
         }
 
         private void AddAlgoButton(IVisionModule module)
@@ -177,6 +280,8 @@ namespace QMC.Vision.Ui.Pages
         private void SelectAlgorithm(string algoKey)
         {
             if (!_algoModules.TryGetValue(algoKey, out var module)) return;
+            HideCustomPage();
+            DeselectRecipeItemButtons();
             _projectView = false;
             _projRail.Visible = false;   // 모듈 선택 시 레시피 목록 숨김
             SetFinderRailVisible(true);  // 모듈 = Finder/Inspector 레일 표시
@@ -420,6 +525,8 @@ namespace QMC.Vision.Ui.Pages
         private void ShowRecipeList()
         {
             if (_curSetKey != null && _cache.TryGetValue(_curSetKey, out var prev)) prev.Visible = false;
+            HideCustomPage();
+            DeselectRecipeItemButtons();
             foreach (var kv in _algoBtns) kv.Value.Selected = false;
             if (_projBtn != null) _projBtn.Selected = true;   // 프로젝트 버튼 활성(흰색)
             _setFlow.Controls.Clear();      // 프로젝트엔 finder 없음
@@ -494,6 +601,7 @@ namespace QMC.Vision.Ui.Pages
         {
             foreach (var kv in _cache) { try { _content.Controls.Remove(kv.Value); kv.Value.Dispose(); } catch { } }
             _cache.Clear();
+            _customPage = null;   // 신규 항목 페이지도 캐시와 함께 폐기됨
             _curSetKey = null;
             _setFlow.Controls.Clear();
             BuildCommonGrid();          // 새 레시피의 공통값으로 폼 갱신

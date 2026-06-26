@@ -194,7 +194,9 @@ namespace QMC.Vision.Comm
                     case "ROT_CENTER": resp = DoRotCenter(m);    break;
                     case "DISTORT":    resp = DoDistort(m);      break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
-                    case "FOCUS_VAL":  resp = DoFocusVal(m);     break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
+                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
                     default:           resp = null;              break;
                 }
                 if (resp == null) Send(stream, $"ERR|{mod}|{cmd}|unknown command");
@@ -220,7 +222,8 @@ namespace QMC.Vision.Comm
 
         /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
         private static bool IsGateExemptCommand(string cmd)
-            => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB";
+            => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
+            || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         // 명령 실행은 공통 코어(VisionCommandCore)로 위임 — 자체 시퀀서(DirectVisionCommandDispatcher)와 동일 구현 공유.
         private string DoExpose(IVisionModule m) => VisionCommandCore.Grab(m);

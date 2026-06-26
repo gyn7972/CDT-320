@@ -41,8 +41,11 @@ namespace QMC.Vision.Modules
         /// <summary>true 면 이 도구(Finder/Inspector)의 GRAB 시 <see cref="SimSavedImagePath"/> 저장 이미지를 사용(모듈 설정보다 우선).</summary>
         [DataMember] public bool SimUseSavedImage { get; set; }
 
-        /// <summary>이 도구 전용 시뮬 그랩 이미지 경로(웨이퍼 2점 정렬의 이미지1/이미지2처럼 도구별로 다른 이미지 지정).</summary>
+        /// <summary>이 도구 전용 시뮬 그랩 이미지 경로 — 측면은 채널1(0°). (웨이퍼 2점 정렬 이미지1/2처럼 도구별 지정).</summary>
         [DataMember] public string SimSavedImagePath { get; set; }
+
+        /// <summary>측면 채널2(90°) 전용 시뮬 그랩 이미지 경로. 비면 채널 무관하게 <see cref="SimSavedImagePath"/> 사용.</summary>
+        [DataMember] public string SimSavedImagePathCh2 { get; set; }
 
         /// <summary>true 면 INSPECT 시 검출 오버레이(에지/박스/결함/측정값)를 그린 결과 이미지를 <see cref="DebugSavePath"/>에 저장.</summary>
         [DataMember] public bool DebugSaveEnabled { get; set; }
@@ -51,7 +54,7 @@ namespace QMC.Vision.Modules
         [DataMember] public string DebugSavePath { get; set; }
 
         [OnDeserializing] private void OnDeserializingAlgoSetup(StreamingContext ctx)
-        { SimUseSavedImage = false; SimSavedImagePath = string.Empty; DebugSaveEnabled = false; DebugSavePath = string.Empty; }
+        { SimUseSavedImage = false; SimSavedImagePath = string.Empty; SimSavedImagePathCh2 = string.Empty; DebugSaveEnabled = false; DebugSavePath = string.Empty; }
     }
 
     /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>
@@ -178,6 +181,11 @@ namespace QMC.Vision.Modules
         [DataMember] public double ChippingDepth { get; set; }
         [DataMember] public double ChippingUpperLimit { get; set; }   // 측면 칩핑 상한(NG 기준, 화면 UpperLimit)
         [DataMember] public double ChippingLowerLimit { get; set; }   // 측면 칩핑 하한(화면 LowerLimit)
+        // CDT-310 FindLine 라인검출 조정 파라미터(측면 칩핑)
+        [DataMember] public double ScanRate { get; set; }             // FindTopLineOfChip dMagin
+        [DataMember] public int    EnvelopeBinSize { get; set; }      // FindLine.EnvelopeBinSize
+        [DataMember] public double KeepQuantile { get; set; }         // FindLine.TopKeepQuantile
+        [DataMember] public int    EdgeGap { get; set; }              // 칩핑 에지결합 허용[px]
         [DataMember] public double ChippingLength { get; set; }
         [DataMember] public double ForeignObjectSize { get; set; }
         [DataMember] public int    TopHatRadius { get; set; }
@@ -185,6 +193,12 @@ namespace QMC.Vision.Modules
         [DataMember] public int    MinForeignAreaFilterSize { get; set; }
         [DataMember] public int    MaxForeignAreaFilterSize { get; set; }
         [DataMember] public int    LinkDistance { get; set; }
+        [DataMember] public int    ChipEdgeMargin { get; set; }       // 칩핑 검사영역 오프셋[px] (CDT-310 margin)
+        [DataMember] public int    ForeignEdgeMargin { get; set; }    // 이물 검사영역 오프셋[px] (CDT-310 *MarginForeign)
+        [DataMember] public double WidthUpperLimit  { get; set; }     // 바텀 너비 상/하한[mm] (0=미설정) — 차트 Limit + 사이즈 NG
+        [DataMember] public double WidthLowerLimit  { get; set; }
+        [DataMember] public double HeightUpperLimit { get; set; }     // 바텀 높이 상/하한[mm]
+        [DataMember] public double HeightLowerLimit { get; set; }
         [DataMember] public bool   DarkChip { get; set; }
         [DataMember] public double ChipThickness { get; set; }
         [DataMember] public double BladeWidth { get; set; }
@@ -199,7 +213,8 @@ namespace QMC.Vision.Modules
             PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0;
             // 310 BottomInspectionParameter / SideInspectionParameter 기본값
             ChippingDepth = 0.020; ChippingUpperLimit = 0.050; ChippingLowerLimit = -0.025; ChippingLength = 0.0; ForeignObjectSize = 0.5;
-            TopHatRadius = 21; TopHatThreshold = 30; MinForeignAreaFilterSize = 36; MaxForeignAreaFilterSize = 100000; LinkDistance = 25; DarkChip = false;
+            ScanRate = 0.9; EnvelopeBinSize = 6; KeepQuantile = 0.35; EdgeGap = 6;
+            TopHatRadius = 21; TopHatThreshold = 30; MinForeignAreaFilterSize = 36; MaxForeignAreaFilterSize = 100000; LinkDistance = 25; ChipEdgeMargin = 0; ForeignEdgeMargin = 12; DarkChip = false;
             ChipThickness = 0.25; BladeWidth = 0.048; FirstBladeDepth = 0.050;
             PixelSizeXmmBottom = 0.0; PixelSizeYmmBottom = 0.0;
         }

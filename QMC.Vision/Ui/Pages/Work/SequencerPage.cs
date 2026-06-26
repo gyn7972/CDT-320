@@ -23,8 +23,8 @@ namespace QMC.Vision.Ui.Pages
             SequenceModuleKind.BinVision,
             SequenceModuleKind.BottomInspection,
             SequenceModuleKind.TopSideVision,    // 앞쪽 측면 (각각)
-            SequenceModuleKind.BottomSideVision  // 뒤쪽 측면 (각각)
-            // 측면(앞+뒤) 동시 묶음 제거 — 앞/뒤를 각각 선택·검증
+            SequenceModuleKind.BottomSideVision, // 뒤쪽 측면 (각각)
+            SequenceModuleKind.SideVision        // 측면 앞+뒤 동시(병렬) — 합성 비트마스크
         };
 
         private bool _subscribed;
@@ -60,12 +60,23 @@ namespace QMC.Vision.Ui.Pages
             if (IsDesignerMode()) return;
 
             _cbModule.Items.AddRange(new object[]
-            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면" });
+            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면", "측면(앞+뒤 동시)" });
             _cbModule.SelectedIndex = 0;
             _cbModule.SelectedIndexChanged += (s, e) => { PopulateTools(); BuildMetricsGrid(); };
 
             _cbMode.Items.AddRange(new object[] { "Auto (연속)", "Step (수동)" });
             _cbMode.SelectedIndex = 0;
+
+            // METRICS 그리드를 도구 다중선택으로 — 행(도구) 여러 개 선택 → 동시 실행(Ctrl/Shift). 체크박스 불필요.
+            _metrics.MultiSelect = true;
+            _metrics.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
+            // 도구 드롭다운으로 특정 도구를 고르면 그리드 기본선택을 해제 → 드롭다운 선택이 시작에 반영되게(그리드 우선 충돌 방지).
+            _cbTool.SelectedIndexChanged += (s, e) =>
+            {
+                if (SelectedToolId() != null)
+                    try { _metrics.ClearSelection(); _metrics.CurrentCell = null; } catch { }
+            };
 
             PopulateTools();
             BuildMetricsGrid();
@@ -73,6 +84,17 @@ namespace QMC.Vision.Ui.Pages
         }
 
         private const string AllToolsLabel = "(전체 도구)";
+
+        /// <summary>METRICS 그리드에서 선택된 도구들(모듈+id). 미선택이면 빈 목록.</summary>
+        private System.Collections.Generic.List<ToolKey> SelectedTools()
+        {
+            var list = new System.Collections.Generic.List<ToolKey>();
+            if (_metrics == null) return list;
+            foreach (DataGridViewRow row in _metrics.SelectedRows)
+                if (row?.Tag is ToolKey tk) list.Add(tk);
+            list.Reverse();   // SelectedRows 는 역순 → 화면 순서대로
+            return list;
+        }
 
         /// <summary>선택 모듈의 도구 목록을 도구 콤보에 채운다. '전체' 모듈은 (전체 도구)만.</summary>
         private void PopulateTools()
@@ -126,6 +148,9 @@ namespace QMC.Vision.Ui.Pages
                     _metrics.Rows[r].Tag = new ToolKey { Kind = kind, Id = t.Value };
                 }
             }
+            // 기본 행 자동선택 해제 — 미선택 상태에선 도구 드롭다운(또는 모듈 전체)이 시작을 주도.
+            // (행을 직접 클릭/Ctrl·Shift 선택해야 '선택 도구 동시 실행'이 동작.)
+            try { _metrics.ClearSelection(); _metrics.CurrentCell = null; } catch { }
         }
 
         private QMC.Vision.Form1 Host => FindForm() as QMC.Vision.Form1;
@@ -227,8 +252,21 @@ namespace QMC.Vision.Ui.Pages
         private void OnStartClick(object sender, EventArgs e)
         {
             var host = Host; if (host?.AutoSeq == null) { Append("[UI] 호스트 없음"); return; }
-            var kind = SelectedKind();
             var mode = SelectedMode();
+
+            // 1) METRICS 그리드에서 도구를 선택했으면 — 한 개든 여러 개든 동시 실행(병렬).
+            var tools = SelectedTools();
+            if (tools.Count > 0)
+            {
+                var pairs = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<SequenceModuleKind, string>>();
+                foreach (var tk in tools) pairs.Add(new System.Collections.Generic.KeyValuePair<SequenceModuleKind, string>(tk.Kind, tk.Id));
+                host.AutoSeq.StartTools(pairs, mode, Interval());
+                Append("[UI] 선택 도구 동시 실행 — " + string.Join(", ", tools.ConvertAll(t => t.Id)));
+                return;
+            }
+
+            // 2) 도구 미선택 — 드롭다운 기준(모듈 전체 또는 도구콤보 하나).
+            var kind = SelectedKind();
             string toolId = SelectedToolId();
             if (toolId == null)
                 host.AutoSeq.StartModules(kind, mode, Interval());           // 모듈 전체(모든 도구)

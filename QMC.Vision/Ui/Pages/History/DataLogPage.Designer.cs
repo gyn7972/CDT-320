@@ -67,38 +67,35 @@ namespace QMC.Vision.Ui.Pages
             this._tpLog      = new TabPage();
             this._tpAlarm    = new TabPage();
             this._tpUtility  = new TabPage();
-
-            this._barData       = NewBar();
-            this._lblDataDate   = NewBarLabel("일자");
-            this._dtData        = NewDatePicker();
-            this._btnDataReload = NewBarButton("조회 / 새로고침");
-            this._btnDataExport = NewBarButton("CSV 내보내기");
-            this._txtDataSearch = NewSearchBox();
-            this._gridData      = NewGrid();
-
-            this._barLog        = NewBar();
-            this._lblLogDate    = NewBarLabel("일자");
-            this._dtLog         = NewDatePicker();
-            this._btnLogReload  = NewBarButton("조회 / 새로고침");
-            this._txtLogSearch  = NewSearchBox();
-            this._gridLog       = NewGrid();
-
-            this._barAlarm      = NewBar();
-            this._chkActiveOnly = new CheckBox { Text = "활성 알람만", AutoSize = true, Margin = new Padding(6, 6, 12, 0) };
-            this._btnAlarmReload= NewBarButton("새로고침");
-            this._txtAlarmSearch= NewSearchBox();
-            this._gridAlarm     = NewGrid();
-
-            this._emptyData  = NewEmptyLabel();
-            this._emptyLog   = NewEmptyLabel();
-            this._emptyAlarm = NewEmptyLabel();
-
-            this._flowUtil          = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(16), BackColor = UiTheme.OptionPanelBg };
-            this._btnOpenDataFolder = NewUtilButton("Data Log 폴더 열기");
-            this._btnOpenLogFolder  = NewUtilButton("Event Log 폴더 열기");
-            this._btnRefreshAll     = NewUtilButton("전체 새로고침");
-            this._lblUtilInfo       = new Label { AutoSize = true, Margin = new Padding(6, 16, 0, 0), ForeColor = Color.DimGray };
-
+            this._barData       = new FlowLayoutPanel();
+            this._lblDataDate   = new Label();
+            this._dtData        = new LogDatePicker();
+            this._btnDataReload = new Button();
+            this._btnDataExport = new Button();
+            this._txtDataSearch = new TextBox();
+            this._gridData      = new DataGridView();
+            this._barLog        = new FlowLayoutPanel();
+            this._lblLogDate    = new Label();
+            this._dtLog         = new LogDatePicker();
+            this._btnLogReload  = new Button();
+            this._txtLogSearch  = new TextBox();
+            this._gridLog       = new DataGridView();
+            this._barAlarm      = new FlowLayoutPanel();
+            this._chkActiveOnly = new CheckBox();
+            this._btnAlarmReload= new Button();
+            this._txtAlarmSearch= new TextBox();
+            this._gridAlarm     = new DataGridView();
+            this._emptyData     = new Label();
+            this._emptyLog      = new Label();
+            this._emptyAlarm    = new Label();
+            this._flowUtil          = new FlowLayoutPanel();
+            this._btnOpenDataFolder = new Button();
+            this._btnOpenLogFolder  = new Button();
+            this._btnRefreshAll     = new Button();
+            this._lblUtilInfo       = new Label();
+            ((System.ComponentModel.ISupportInitialize)(this._gridData)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._gridLog)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._gridAlarm)).BeginInit();
             this._tabs.SuspendLayout();
             this.SuspendLayout();
 
@@ -125,13 +122,152 @@ namespace QMC.Vision.Ui.Pages
             this._tabs.Controls.Add(this._tpUtility);
             this._tabs.SelectedIndexChanged += this._tabs_SelectedIndexChanged;
 
+            // ── 공통 바/라벨/입력/그리드 스타일 ──
+            // _barData
+            this._barData.Dock = DockStyle.Top;
+            this._barData.Height = 42;
+            this._barData.WrapContents = false;
+            this._barData.Padding = new Padding(8, 7, 8, 7);
+            this._barData.BackColor = UiTheme.OptionPanelBg;
+            // _lblDataDate
+            this._lblDataDate.Text = "일자";
+            this._lblDataDate.AutoSize = true;
+            this._lblDataDate.Margin = new Padding(2, 8, 6, 0);
+            // _dtData
+            this._dtData.Width = 130; this._dtData.Height = 23; this._dtData.Margin = new Padding(2, 5, 12, 3);
+            // _btnDataReload
+            this._btnDataReload.Text = "조회 / 새로고침";
+            this._btnDataReload.AutoSize = true; this._btnDataReload.Height = 27;
+            this._btnDataReload.Margin = new Padding(2, 1, 6, 1); this._btnDataReload.FlatStyle = FlatStyle.System;
+            // _btnDataExport
+            this._btnDataExport.Text = "CSV 내보내기";
+            this._btnDataExport.AutoSize = true; this._btnDataExport.Height = 27;
+            this._btnDataExport.Margin = new Padding(2, 1, 6, 1); this._btnDataExport.FlatStyle = FlatStyle.System;
+            // _txtDataSearch
+            this._txtDataSearch.Width = 180; this._txtDataSearch.Margin = new Padding(8, 3, 6, 3);
+            // _gridData
+            this._gridData.Dock = DockStyle.Fill;
+            this._gridData.ReadOnly = true;
+            this._gridData.AllowUserToAddRows = false;
+            this._gridData.AllowUserToDeleteRows = false;
+            this._gridData.RowHeadersVisible = false;
+            this._gridData.MultiSelect = false;
+            this._gridData.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            this._gridData.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            this._gridData.AllowUserToResizeRows = false;
+            this._gridData.BorderStyle = BorderStyle.None;
+
+            // _barLog
+            this._barLog.Dock = DockStyle.Top;
+            this._barLog.Height = 42;
+            this._barLog.WrapContents = false;
+            this._barLog.Padding = new Padding(8, 7, 8, 7);
+            this._barLog.BackColor = UiTheme.OptionPanelBg;
+            // _lblLogDate
+            this._lblLogDate.Text = "일자";
+            this._lblLogDate.AutoSize = true;
+            this._lblLogDate.Margin = new Padding(2, 8, 6, 0);
+            // _dtLog
+            this._dtLog.Width = 130; this._dtLog.Height = 23; this._dtLog.Margin = new Padding(2, 5, 12, 3);
+            // _btnLogReload
+            this._btnLogReload.Text = "조회 / 새로고침";
+            this._btnLogReload.AutoSize = true; this._btnLogReload.Height = 27;
+            this._btnLogReload.Margin = new Padding(2, 1, 6, 1); this._btnLogReload.FlatStyle = FlatStyle.System;
+            // _txtLogSearch
+            this._txtLogSearch.Width = 180; this._txtLogSearch.Margin = new Padding(8, 3, 6, 3);
+            // _gridLog
+            this._gridLog.Dock = DockStyle.Fill;
+            this._gridLog.ReadOnly = true;
+            this._gridLog.AllowUserToAddRows = false;
+            this._gridLog.AllowUserToDeleteRows = false;
+            this._gridLog.RowHeadersVisible = false;
+            this._gridLog.MultiSelect = false;
+            this._gridLog.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            this._gridLog.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            this._gridLog.AllowUserToResizeRows = false;
+            this._gridLog.BorderStyle = BorderStyle.None;
+
+            // _barAlarm
+            this._barAlarm.Dock = DockStyle.Top;
+            this._barAlarm.Height = 42;
+            this._barAlarm.WrapContents = false;
+            this._barAlarm.Padding = new Padding(8, 7, 8, 7);
+            this._barAlarm.BackColor = UiTheme.OptionPanelBg;
+            // _chkActiveOnly
+            this._chkActiveOnly.Text = "활성 알람만";
+            this._chkActiveOnly.AutoSize = true;
+            this._chkActiveOnly.Margin = new Padding(6, 6, 12, 0);
+            // _btnAlarmReload
+            this._btnAlarmReload.Text = "새로고침";
+            this._btnAlarmReload.AutoSize = true; this._btnAlarmReload.Height = 27;
+            this._btnAlarmReload.Margin = new Padding(2, 1, 6, 1); this._btnAlarmReload.FlatStyle = FlatStyle.System;
+            // _txtAlarmSearch
+            this._txtAlarmSearch.Width = 180; this._txtAlarmSearch.Margin = new Padding(8, 3, 6, 3);
+            // _gridAlarm
+            this._gridAlarm.Dock = DockStyle.Fill;
+            this._gridAlarm.ReadOnly = true;
+            this._gridAlarm.AllowUserToAddRows = false;
+            this._gridAlarm.AllowUserToDeleteRows = false;
+            this._gridAlarm.RowHeadersVisible = false;
+            this._gridAlarm.MultiSelect = false;
+            this._gridAlarm.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            this._gridAlarm.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            this._gridAlarm.AllowUserToResizeRows = false;
+            this._gridAlarm.BorderStyle = BorderStyle.None;
+
+            // _emptyData
+            this._emptyData.Dock = DockStyle.Bottom;
+            this._emptyData.Height = 26;
+            this._emptyData.Text = "표시할 데이터가 없습니다 — 검사·이벤트·알람이 누적되면 표시됩니다.";
+            this._emptyData.TextAlign = ContentAlignment.MiddleCenter;
+            this._emptyData.ForeColor = Color.DimGray;
+            this._emptyData.BackColor = Color.FromArgb(248, 249, 250);
+            this._emptyData.Visible = false;
+            // _emptyLog
+            this._emptyLog.Dock = DockStyle.Bottom;
+            this._emptyLog.Height = 26;
+            this._emptyLog.Text = "표시할 데이터가 없습니다 — 검사·이벤트·알람이 누적되면 표시됩니다.";
+            this._emptyLog.TextAlign = ContentAlignment.MiddleCenter;
+            this._emptyLog.ForeColor = Color.DimGray;
+            this._emptyLog.BackColor = Color.FromArgb(248, 249, 250);
+            this._emptyLog.Visible = false;
+            // _emptyAlarm
+            this._emptyAlarm.Dock = DockStyle.Bottom;
+            this._emptyAlarm.Height = 26;
+            this._emptyAlarm.Text = "표시할 데이터가 없습니다 — 검사·이벤트·알람이 누적되면 표시됩니다.";
+            this._emptyAlarm.TextAlign = ContentAlignment.MiddleCenter;
+            this._emptyAlarm.ForeColor = Color.DimGray;
+            this._emptyAlarm.BackColor = Color.FromArgb(248, 249, 250);
+            this._emptyAlarm.Visible = false;
+
+            // Utility
+            this._flowUtil.Dock = DockStyle.Fill;
+            this._flowUtil.Padding = new Padding(16);
+            this._flowUtil.BackColor = UiTheme.OptionPanelBg;
+            // _btnOpenDataFolder
+            this._btnOpenDataFolder.Text = "Data Log 폴더 열기";
+            this._btnOpenDataFolder.Width = 200; this._btnOpenDataFolder.Height = 40;
+            this._btnOpenDataFolder.Margin = new Padding(6); this._btnOpenDataFolder.FlatStyle = FlatStyle.System;
+            // _btnOpenLogFolder
+            this._btnOpenLogFolder.Text = "Event Log 폴더 열기";
+            this._btnOpenLogFolder.Width = 200; this._btnOpenLogFolder.Height = 40;
+            this._btnOpenLogFolder.Margin = new Padding(6); this._btnOpenLogFolder.FlatStyle = FlatStyle.System;
+            // _btnRefreshAll
+            this._btnRefreshAll.Text = "전체 새로고침";
+            this._btnRefreshAll.Width = 200; this._btnRefreshAll.Height = 40;
+            this._btnRefreshAll.Margin = new Padding(6); this._btnRefreshAll.FlatStyle = FlatStyle.System;
+            // _lblUtilInfo
+            this._lblUtilInfo.AutoSize = true;
+            this._lblUtilInfo.Margin = new Padding(6, 16, 0, 0);
+            this._lblUtilInfo.ForeColor = Color.DimGray;
+
             // Data Log 탭
             this._barData.Controls.Add(this._lblDataDate);
             this._barData.Controls.Add(this._dtData);
             this._barData.Controls.Add(this._btnDataReload);
             this._barData.Controls.Add(this._btnDataExport);
             this._barData.Controls.Add(this._txtDataSearch);
-            this._txtDataSearch.TextChanged += (s, e) => RenderDataGrid();
+            this._txtDataSearch.TextChanged += this._txtDataSearch_TextChanged;
             this._tpData.Controls.Add(this._gridData);
             this._tpData.Controls.Add(this._emptyData);
             this._tpData.Controls.Add(this._barData);
@@ -144,7 +280,7 @@ namespace QMC.Vision.Ui.Pages
             this._barLog.Controls.Add(this._dtLog);
             this._barLog.Controls.Add(this._btnLogReload);
             this._barLog.Controls.Add(this._txtLogSearch);
-            this._txtLogSearch.TextChanged += (s, e) => ApplyLogView();   // 재읽기 없이 캐시에서 필터(대량 데이터 버벅임 방지)
+            this._txtLogSearch.TextChanged += this._txtLogSearch_TextChanged;
             this._tpLog.Controls.Add(this._gridLog);
             this._tpLog.Controls.Add(this._emptyLog);
             this._tpLog.Controls.Add(this._barLog);
@@ -155,7 +291,7 @@ namespace QMC.Vision.Ui.Pages
             this._barAlarm.Controls.Add(this._chkActiveOnly);
             this._barAlarm.Controls.Add(this._btnAlarmReload);
             this._barAlarm.Controls.Add(this._txtAlarmSearch);
-            this._txtAlarmSearch.TextChanged += (s, e) => LoadAlarms();
+            this._txtAlarmSearch.TextChanged += this._txtAlarmSearch_TextChanged;
             this._tpAlarm.Controls.Add(this._gridAlarm);
             this._tpAlarm.Controls.Add(this._emptyAlarm);
             this._tpAlarm.Controls.Add(this._barAlarm);
@@ -187,62 +323,11 @@ namespace QMC.Vision.Ui.Pages
             this.Controls.Add(this._root);
             this.Name = "DataLogPage";
 
+            ((System.ComponentModel.ISupportInitialize)(this._gridData)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._gridLog)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._gridAlarm)).EndInit();
             this._tabs.ResumeLayout(false);
             this.ResumeLayout(false);
         }
-
-        // ── Designer 보조 팩토리 ──
-        private static FlowLayoutPanel NewBar()
-            => new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                Height = 42,
-                WrapContents = false,
-                Padding = new Padding(8, 7, 8, 7),
-                BackColor = UiTheme.OptionPanelBg
-            };
-
-        private static Label NewBarLabel(string text)
-            => new Label { Text = text, AutoSize = true, Margin = new Padding(2, 8, 6, 0) };
-
-        private static LogDatePicker NewDatePicker()
-            => new LogDatePicker { Width = 130, Height = 23, Margin = new Padding(2, 5, 12, 3) };
-
-        /// <summary>검색 입력 박스(플레이스홀더 비슷한 안내는 PlaceholderText 미지원 .NET FW → 빈 칸).</summary>
-        private static TextBox NewSearchBox()
-            => new TextBox { Width = 180, Margin = new Padding(8, 3, 6, 3) };
-
-        private static Button NewBarButton(string text)
-            => new Button { Text = text, AutoSize = true, Height = 27, Margin = new Padding(2, 1, 6, 1), FlatStyle = FlatStyle.System };
-
-        private static Button NewUtilButton(string text)
-            => new Button { Text = text, Width = 200, Height = 40, Margin = new Padding(6), FlatStyle = FlatStyle.System };
-
-        private static Label NewEmptyLabel()
-            => new Label
-            {
-                Dock = DockStyle.Bottom,
-                Height = 26,
-                Text = "표시할 데이터가 없습니다 — 검사·이벤트·알람이 누적되면 표시됩니다.",
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = Color.DimGray,
-                BackColor = Color.FromArgb(248, 249, 250),
-                Visible = false
-            };
-
-        private static DataGridView NewGrid()
-            => new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                MultiSelect = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,   // 전체 행 측정 방지(버벅임) — 렌더 후 보이는 행만 측정
-                AllowUserToResizeRows = false,
-                BorderStyle = BorderStyle.None
-            };
     }
 }

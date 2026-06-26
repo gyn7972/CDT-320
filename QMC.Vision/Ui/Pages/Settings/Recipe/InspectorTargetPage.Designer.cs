@@ -28,7 +28,17 @@ namespace QMC.Vision.Ui.Pages
         private Label _secParam;
         private ParameterGridControl _params;
         private Label _secRoi;
-        private Panel _roiHost;     // ROI 미세조정 컨트롤(런타임 채움) — 단일 Inspection ROI
+        private Panel _roiHost;     // ROI 미세조정 컨트롤 호스트 — 단일 Inspection ROI
+        private FlowLayoutPanel _roiFlow;
+        private RoiNudgePad _roiPad;
+        private FlowLayoutPanel _roiCol;
+        private Label _lblRoiTitle;
+        private FlowLayoutPanel _roiStepRow;
+        private Label _lblMove;
+        private TextBox _txtMoveStep;
+        private Label _lblSize;
+        private TextBox _txtSizeStep;
+        private Label _roiInfo;
         private Label _secLight;
         private Panel _lightHost;
 
@@ -52,6 +62,16 @@ namespace QMC.Vision.Ui.Pages
             this._btnEditRoi = new System.Windows.Forms.Button();
             this._secRoi = new System.Windows.Forms.Label();
             this._roiHost = new System.Windows.Forms.Panel();
+            this._roiFlow = new System.Windows.Forms.FlowLayoutPanel();
+            this._roiPad = new QMC.Vision.Ui.Controls.RoiNudgePad();
+            this._roiCol = new System.Windows.Forms.FlowLayoutPanel();
+            this._lblRoiTitle = new System.Windows.Forms.Label();
+            this._roiStepRow = new System.Windows.Forms.FlowLayoutPanel();
+            this._lblMove = new System.Windows.Forms.Label();
+            this._txtMoveStep = new System.Windows.Forms.TextBox();
+            this._lblSize = new System.Windows.Forms.Label();
+            this._txtSizeStep = new System.Windows.Forms.TextBox();
+            this._roiInfo = new System.Windows.Forms.Label();
             this._secResult = new System.Windows.Forms.Label();
             this._result = new System.Windows.Forms.DataGridView();
             this._lblVerdict = new System.Windows.Forms.Label();
@@ -266,7 +286,82 @@ namespace QMC.Vision.Ui.Pages
             this._roiHost.Name = "_roiHost";
             this._roiHost.Size = new System.Drawing.Size(548, 144);
             this._roiHost.TabIndex = 3;
-            // 
+            this._roiHost.Controls.Add(this._roiFlow);
+            //
+            // _roiFlow
+            //
+            this._roiFlow.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._roiFlow.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this._roiFlow.WrapContents = false;
+            this._roiFlow.Padding = new System.Windows.Forms.Padding(4);
+            this._roiFlow.Controls.Add(this._roiPad);
+            this._roiFlow.Controls.Add(this._roiCol);
+            //
+            // _roiPad
+            //
+            this._roiPad.Margin = new System.Windows.Forms.Padding(2);
+            this._roiPad.Size = new System.Drawing.Size(280, 104);
+            //
+            // _roiCol
+            //
+            this._roiCol.FlowDirection = System.Windows.Forms.FlowDirection.TopDown;
+            this._roiCol.WrapContents = false;
+            this._roiCol.Size = new System.Drawing.Size(210, 120);
+            this._roiCol.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this._roiCol.Controls.Add(this._lblRoiTitle);
+            this._roiCol.Controls.Add(this._roiStepRow);
+            this._roiCol.Controls.Add(this._roiInfo);
+            //
+            // _lblRoiTitle
+            //
+            this._lblRoiTitle.Text = "Inspection ROI";
+            this._lblRoiTitle.AutoSize = true;
+            this._lblRoiTitle.Font = QMC.Vision.Ui.UiTheme.ButtonFont;
+            this._lblRoiTitle.ForeColor = QMC.Vision.Ui.UiTheme.Accent;
+            this._lblRoiTitle.Margin = new System.Windows.Forms.Padding(0, 2, 0, 2);
+            //
+            // _roiStepRow
+            //
+            this._roiStepRow.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this._roiStepRow.WrapContents = false;
+            this._roiStepRow.AutoSize = true;
+            this._roiStepRow.Margin = new System.Windows.Forms.Padding(0, 4, 0, 0);
+            this._roiStepRow.Controls.Add(this._lblMove);
+            this._roiStepRow.Controls.Add(this._txtMoveStep);
+            this._roiStepRow.Controls.Add(this._lblSize);
+            this._roiStepRow.Controls.Add(this._txtSizeStep);
+            //
+            // _lblMove
+            //
+            this._lblMove.Text = "Move";
+            this._lblMove.AutoSize = true;
+            this._lblMove.Margin = new System.Windows.Forms.Padding(0, 7, 2, 0);
+            //
+            // _txtMoveStep
+            //
+            this._txtMoveStep.Text = "10";
+            this._txtMoveStep.Size = new System.Drawing.Size(44, 23);
+            this._txtMoveStep.TextChanged += new System.EventHandler(this._txtMoveStep_TextChanged);
+            //
+            // _lblSize
+            //
+            this._lblSize.Text = "Size";
+            this._lblSize.AutoSize = true;
+            this._lblSize.Margin = new System.Windows.Forms.Padding(10, 7, 2, 0);
+            //
+            // _txtSizeStep
+            //
+            this._txtSizeStep.Text = "10";
+            this._txtSizeStep.Size = new System.Drawing.Size(44, 23);
+            this._txtSizeStep.TextChanged += new System.EventHandler(this._txtSizeStep_TextChanged);
+            //
+            // _roiInfo
+            //
+            this._roiInfo.AutoSize = true;
+            this._roiInfo.Margin = new System.Windows.Forms.Padding(0, 6, 0, 0);
+            this._roiInfo.Font = QMC.Vision.Ui.UiTheme.ValueFont;
+            this._roiInfo.ForeColor = System.Drawing.Color.DarkSlateGray;
+            //
             // _secResult
             // 
             this._secResult.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));

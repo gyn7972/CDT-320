@@ -37,14 +37,26 @@ namespace QMC.Vision.Core
         /// 칩핑 검사. threshold=칩(밝은 띠)/배경 분리, chipThicknessMm=칩 두께, pxW/pxH=픽셀크기[mm].
         /// 반환값의 TopMm/BottomMm/MaxMm 이 핵심 결과. (NG 판정은 호출측 스펙으로)
         /// </summary>
-        public static Result Inspect(byte[] gray, int w, int h, int threshold,
-                                     double chipThicknessMm, double pxW, double pxH)
+        /// <summary>칩핑 검사 파라미터 — 310 SideInspectionParameter/FindLine 조정값(레시피 노출).</summary>
+        public sealed class Params
+        {
+            public int    Threshold       = 60;        // 칩/배경 분리(310 ChippingThreshold)
+            public double ChipThicknessMm = 0.25;      // 하단 오프셋 폴백
+            public double PxW = 0.003125, PxH = 0.003125;
+            public double ScanRate        = 0.9;       // 310 FindTopLineOfChip dMagin
+            public int    EnvelopeBinSize = 6;         // 310 FindLine.EnvelopeBinSize
+            public double KeepQuantile    = 0.35;      // 310 FindLine.TopKeepQuantile
+            public int    EdgeGap         = 6;         // 칩핑 에지결합 허용[px]
+        }
+
+        public static Result Inspect(byte[] gray, int w, int h, Params p)
         {
             var res = new Result();
-            if (gray == null || w < 8 || h < 8) return res;
+            if (gray == null || w < 8 || h < 8 || p == null) return res;
+            int threshold = p.Threshold; double pxW = p.PxW, pxH = p.PxH;
 
             // 1) 칩 상단 라인 검출(강건 피팅)
-            Line topLine = FindTopLineOfChip(w, h, gray, threshold, 0.9);
+            Line topLine = FindTopLineOfChip(w, h, gray, threshold, p.ScanRate, p.EnvelopeBinSize, p.KeepQuantile);
             if (topLine == null) return res;
 
             // 2) 라인 각도로 이미지 회전(칩을 수평으로) — 310 RotateImage(bilinear)
@@ -52,49 +64,31 @@ namespace QMC.Vision.Core
             byte[] rot = RotateImage(gray, w, h, angle);
 
             // 3) 회전 이미지에서 다시 상단 라인
-            Line rTop = FindTopLineOfChip(w, h, rot, threshold, 0.9);
+            Line rTop = FindTopLineOfChip(w, h, rot, threshold, p.ScanRate, p.EnvelopeBinSize, p.KeepQuantile);
             if (rTop == null) return res;
 
-            // 4) 하단 라인 — 실제 하단 에지를 독립 검출(상단과 동일 강건 피팅). 실패 시에만 상단+칩두께 오프셋 폴백.
-            //    (310은 오프셋만 썼으나, 실제 칩 두께/배율이 ChipThickness와 어긋나면 바닥을 못 잡아 독립검출로 개선)
-            double dOffset = pxW > 0 ? (chipThicknessMm / pxW) : (h * 0.5);
-            Line botLine = FindBottomLineOfChip(w, h, rot, threshold);
-            bool botDetected = botLine != null && botLine.GetY(w / 2.0) > rTop.GetY(w / 2.0) + 4;
-            if (!botDetected) botLine = new Line(rTop.mA, rTop.mB + dOffset);   // 폴백
+            // 4) 하단 라인 — 310 FindLine.FindBottomLineOfChip 로 독립 검출(310 코드). 실패 시 상단+칩두께 오프셋(310 SideChippingInspector) 폴백.
+            double dOffset = pxW > 0 ? (p.ChipThicknessMm / pxW) : (h * 0.5);
+            Line botLine = FindBottomLineOfChip(w, h, rot, threshold, p.EnvelopeBinSize, p.KeepQuantile);
+            if (botLine == null || botLine.GetY(w / 2.0) <= rTop.GetY(w / 2.0) + 4)
+                botLine = new Line(rTop.mA, rTop.mB + dOffset);   // 폴백
 
-            // 5) 컬럼별 실제 에지 프로파일(첫 밝은 픽셀) + 칩 가로 유효 범위
-            var topProf = new int[w]; var botProf = new int[w];
+            // 5) 칩핑 스캔 깊이(마진) — 상단~하단 라인 간격(칩 두께)
+            int margin = (int)Math.Max(8, botLine.GetY(w / 2.0) - rTop.GetY(w / 2.0));
+
+            // 6) 상/하 칩핑 — CDT-310 SideChippingInspector dark-scan (라인 기준 어두운 결손, 양끝 15개 제외 max)
+            int topMaxX, topMaxY;
+            double topMm = InspectTopChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap, out topMaxX, out topMaxY);
+            var info = InspectBottomChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap);
+            double botMm = info.Depth;
+
+            // 칩 가로 유효 범위(밝은 띠가 존재하는 x)
             int xs = -1, xe = -1;
             for (int x = 0; x < w; x++)
             {
-                int t = -1, b = -1;
-                for (int y = 0; y < h; y++)       if (rot[y * w + x] >= threshold) { t = y; break; }
-                for (int y = h - 1; y >= 0; y--)  if (rot[y * w + x] >= threshold) { b = y; break; }
-                topProf[x] = t; botProf[x] = b;
-                if (t >= 0) { if (xs < 0) xs = x; xe = x; }
+                int ty = (int)rTop.GetY(x);
+                if (ty >= 0 && ty < h && rot[ty * w + x] >= threshold) { if (xs < 0) xs = x; xe = x; }
             }
-            if (xs < 0) return res;
-
-            // 6) 칩핑 깊이 = 기준선 대비 실제 에지 프로파일의 편차(상=라인보다 아래로 파임, 하=위로 파임).
-            //    깊은 노치/관통 칩아웃도 그대로 측정되고, 표면 이물은 에지에 영향 없어 자동 제외. (양끝 15개 제외=310)
-            const int trim = 15;
-            int x0 = Math.Min(xs + trim, xe), x1 = Math.Max(xe - trim, xs);
-            double topMaxPx = 0, botMaxPx = 0;
-            int topMaxX = -1, topMaxY = -1, botMaxX = -1, botMaxY = -1;
-            for (int x = x0; x <= x1; x++)
-            {
-                if (topProf[x] >= 0)
-                {
-                    double dev = topProf[x] - rTop.GetY(x);              // +면 상단 칩핑
-                    if (dev > topMaxPx) { topMaxPx = dev; topMaxX = x; topMaxY = topProf[x]; }
-                }
-                if (botProf[x] >= 0)
-                {
-                    double dev = botLine.GetY(x) - botProf[x];          // +면 하단 칩핑
-                    if (dev > botMaxPx) { botMaxPx = dev; botMaxX = x; botMaxY = botProf[x]; }
-                }
-            }
-            double topMm = topMaxPx * pxH, botMm = botMaxPx * pxH;
 
             res.Valid     = true;
             res.TopMm     = topMm;
@@ -102,12 +96,86 @@ namespace QMC.Vision.Core
             res.MaxMm     = Math.Max(topMm, botMm);
             res.TopBaseY  = (int)rTop.GetY(w / 2.0);
             res.BottomBaseY = (int)botLine.GetY(w / 2.0);
-            // NG 마커 위치 — 상/하 중 더 깊은 쪽의 실제 결손 지점
-            if (botMm >= topMm && botMaxX >= 0) { res.MaxX = botMaxX; res.MaxY = botMaxY; }
-            else if (topMaxX >= 0)              { res.MaxX = topMaxX; res.MaxY = topMaxY; }
-            res.XStart = xs;
-            res.XEnd   = xe;
+            res.Contour   = info.Contour;
+            // NG 마커 위치 — 상/하 중 더 깊은 쪽 결손 지점
+            if (botMm >= topMm && info.Contour != null && info.Contour.Count > 0)
+            { res.MaxX = (int)info.Contour.Average(pt => pt.X); res.MaxY = (int)info.Contour.Average(pt => pt.Y); }
+            else if (topMm > 0 && topMaxX >= 0) { res.MaxX = topMaxX; res.MaxY = topMaxY; }
+            res.XStart = xs < 0 ? 0 : xs;
+            res.XEnd   = xe < 0 ? w - 1 : xe;
             return res;
+        }
+
+        // ── CDT-310 SideChippingInspector.InspectTopChipping (dark-scan, 양끝 15 제외 max, 최대위치 회수) ──
+        private static double InspectTopChipping(byte[] image, int w, int h, Line topLine, Line bottomLine,
+                                                 int threshold, int chippingMargin, double pxH, int edgeGap, out int maxX, out int maxY)
+        {
+            maxX = -1; maxY = -1;
+            var vals = new List<double>(); var pxs = new List<int>(); var pys = new List<int>();
+            for (int x = 0; x < w; x++)
+            {
+                double startY = topLine.GetY(x), endY = bottomLine.GetY(x);
+                if (startY < 0 || endY >= h || startY >= endY) continue;
+                int topY = Math.Max(0, (int)startY);
+                bool dark = false; int darkStart = -1;
+                int yEnd = Math.Min(topY + chippingMargin, (int)endY);
+                for (int y = topY; y < yEnd; y++)
+                {
+                    byte v = image[y * w + x];
+                    if (v < threshold && !dark) { if (y - topY > edgeGap) break; dark = true; darkStart = y; }
+                    else if (v >= threshold && dark)
+                    {
+                        int depth = y - darkStart;
+                        if (depth > 0) { vals.Add(depth * pxH); pxs.Add(x); pys.Add((darkStart + y) / 2); }
+                        dark = false; break;
+                    }
+                }
+            }
+            if (vals.Count < 15) return 0;
+            double max = 0;
+            for (int i = 15; i < vals.Count - 15; i++) if (vals[i] > max) { max = vals[i]; maxX = pxs[i]; maxY = pys[i]; }
+            return max;
+        }
+
+        private sealed class ChipInfo { public double Depth; public List<PointF> Contour = new List<PointF>(); }
+
+        // ── CDT-310 SideChippingInspector.InspectBottomChipping (dark-scan + 최대영역 Contour) ──
+        private static ChipInfo InspectBottomChipping(byte[] image, int w, int h, Line topLine, Line bottomLine,
+                                                      int threshold, int chippingMargin, double pxH, int edgeGap)
+        {
+            var list = new List<ChipInfo>();
+            for (int x = 0; x < w; x++)
+            {
+                double startY = topLine.GetY(x), endY = bottomLine.GetY(x);
+                if (startY < 0 || endY >= h || startY >= endY) continue;
+                int bottomY = Math.Min(h - 1, (int)endY);
+                bool dark = false; int darkStart = -1; int scan = 0;
+                int yEnd = Math.Max(bottomY - chippingMargin, (int)startY);
+                for (int y = bottomY; y > yEnd; y--)
+                {
+                    byte v = image[y * w + x];
+                    if (v < threshold && !dark) { if (bottomY - y > edgeGap) break; dark = true; darkStart = y; }
+                    else if (v >= threshold && dark)
+                    {
+                        int depth = darkStart - y;
+                        if (depth > 0) { var ci = new ChipInfo { Depth = depth * pxH }; ci.Contour.Add(new PointF(x, y)); ci.Contour.Add(new PointF(x, bottomY)); list.Add(ci); }
+                        dark = false; break;
+                    }
+                    else { scan++; if (scan > 10) break; }
+                }
+            }
+            var maxInfo = new ChipInfo();
+            if (list.Count < 15) return maxInfo;
+            double max = 0; int maxIdx = 0;
+            for (int i = 15; i < list.Count - 15; i++) if (list[i].Depth > max) { max = list[i].Depth; maxInfo = list[i]; maxIdx = i; }
+            int wR = 0; for (int i = 0; i < 100; i++) { int idx = maxIdx - i; if (idx < 0) break; if (list[idx].Depth > 0.02) wR = i; else break; }
+            int wL = 0; for (int i = 0; i < 100; i++) { int idx = maxIdx + i; if (idx >= list.Count) break; if (list[idx].Depth > 0.02) wL = i; else break; }
+            if (maxInfo.Contour.Count > 0)
+            {
+                int xRef = (int)maxInfo.Contour[0].X; var v = maxInfo.Contour.ToList(); maxInfo.Contour.Clear();
+                for (int i = 0; i < 2; i++) { maxInfo.Contour.Add(new PointF(xRef - wR, v[i].Y)); maxInfo.Contour.Add(new PointF(xRef + wL, v[i].Y)); }
+            }
+            return maxInfo;
         }
 
         // ── 310 RotateImage (bilinear, 크기 유지) ──
@@ -140,38 +208,48 @@ namespace QMC.Vision.Core
             return dst;
         }
 
-        // ── 310 FindLine.FindTopLineOfChip (CPU, envelope + quantile trim + trend line) ──
-        private const int EnvelopeBinSize = 6;
-        private const double TopKeepQuantile = 0.35;
-
-        private static Line FindTopLineOfChip(int w, int h, byte[] image, int threshold, double scanRate)
+        // ── 라인 후보 검출: CUDA(가용 시) 우선, 미가용 시 CPU 스캔(310 FindLine 동일 로직) ──
+        // 반환: 각 열의 상/하 에지 후보 y(-1=없음). 310 CudaWrapper.GetTopBottomLineCandidates 와 동등.
+        private static void GetLineCandidates(byte[] image, int w, int h, int threshold, double scanRate,
+                                              out int[] topC, out int[] botC)
         {
             if (scanRate < 0.3) scanRate = 0.3;
             if (scanRate > 1) scanRate = 0.99;
 
-            var pts = new List<PointF>();
-            int start = Math.Max(2, 10);
-            int end = Math.Min(h - 3, (int)(h * scanRate) - 10);
+            if (CudaInterop.TryGetTopBottomLineCandidates(image, w, h, (byte)threshold, scanRate, out topC, out botC)
+                && topC != null && botC != null)
+            { GpuBackend.Note("SideLine", ComputeBackend.Cuda); return; }   // GPU 경로
+
+            GpuBackend.Note("SideLine", ComputeBackend.Cpu);
+            // CPU 폴백(310 FindLine.cs 동일 교차 검출)
+            topC = new int[w]; botC = new int[w];
+            int tStart = Math.Max(2, 10), tEnd = Math.Min(h - 3, (int)(h * scanRate) - 10);
+            int bStart = Math.Min(h - 3, h - 10), bEnd = Math.Max(2, (int)(h * 0.5) + 10);
             for (int x = 0; x < w; x++)
             {
-                for (int y = start; y <= end; y++)
-                {
-                    if (image[y * w + x] > threshold &&
-                        image[(y - 1) * w + x] <= threshold &&
-                        image[(y - 2) * w + x] <= threshold)
-                    {
-                        pts.Add(new PointF(x, y));
-                        break;  // 첫 교차 = 바깥 에지
-                    }
-                }
+                topC[x] = -1; botC[x] = -1;
+                for (int y = tStart; y <= tEnd; y++)
+                    if (image[y * w + x] > threshold && image[(y - 1) * w + x] <= threshold && image[(y - 2) * w + x] <= threshold)
+                    { topC[x] = y; break; }
+                for (int y = bStart; y >= bEnd; y--)
+                    if (image[y * w + x] > threshold && image[(y + 1) * w + x] <= threshold && image[(y + 2) * w + x] <= threshold)
+                    { botC[x] = y; break; }
             }
+        }
+
+        // ── 310 FindLine.FindTopLineOfChip (envelope + quantile trim + trend line) ──
+        private static Line FindTopLineOfChip(int w, int h, byte[] image, int threshold, double scanRate,
+                                              int binSize, double keepQuantile)
+        {
+            int[] topC, botC;
+            GetLineCandidates(image, w, h, threshold, scanRate, out topC, out botC);
+            var pts = new List<PointF>();
+            for (int x = 0; x < w; x++) if (topC[x] >= 0) pts.Add(new PointF(x, topC[x]));
             if (pts.Count < 2) return null;
-            pts = pts.OrderBy(t => t.X).ToList();
 
-            var env = KeepOuterPerBin(pts, EnvelopeBinSize, takeMinY: true);
+            var env = KeepOuterPerBin(pts, binSize, takeMinY: true);
             var listPoint = (env != null && env.Count >= 2) ? env : pts;
-
-            var trimmed = ReMoveTop(listPoint);
+            var trimmed = ReMoveTop(listPoint, keepQuantile);
             if (trimmed == null || trimmed.Count < 2) trimmed = pts;
 
             double dA, dB;
@@ -179,32 +257,19 @@ namespace QMC.Vision.Core
             return new Line(dA, dB);
         }
 
-        // ── 310 FindLine.FindBottomLineOfChip (CPU, 하단 바깥 에지 강건 피팅) ──
-        private static Line FindBottomLineOfChip(int w, int h, byte[] image, int threshold)
+        // ── 310 FindLine.FindBottomLineOfChip (하단 바깥 에지 강건 피팅) ──
+        private static Line FindBottomLineOfChip(int w, int h, byte[] image, int threshold,
+                                                 int binSize, double keepQuantile)
         {
+            int[] topC, botC;
+            GetLineCandidates(image, w, h, threshold, 0.9, out topC, out botC);
             var pts = new List<PointF>();
-            int start = Math.Min(h - 3, h - 10);
-            int end = Math.Max(2, (int)(h * 0.5) + 10);
-            for (int x = 0; x < w; x++)
-            {
-                for (int y = start; y >= end; y--)
-                {
-                    if (image[y * w + x] > threshold &&
-                        image[(y + 1) * w + x] <= threshold &&
-                        image[(y + 2) * w + x] <= threshold)
-                    {
-                        pts.Add(new PointF(x, y));
-                        break;  // 아래에서 첫 교차 = 바깥 하단 에지
-                    }
-                }
-            }
+            for (int x = 0; x < w; x++) if (botC[x] >= 0) pts.Add(new PointF(x, botC[x]));
             if (pts.Count < 2) return null;
-            pts = pts.OrderBy(t => t.X).ToList();
 
-            var env = KeepOuterPerBin(pts, EnvelopeBinSize, takeMinY: false);   // 하단 = 가장 아래(maxY)
+            var env = KeepOuterPerBin(pts, binSize, takeMinY: false);   // 하단 = 가장 아래(maxY)
             var listPoint = (env != null && env.Count >= 2) ? env : pts;
-
-            var trimmed = ReMoveBottom(listPoint);
+            var trimmed = ReMoveBottom(listPoint, keepQuantile);
             if (trimmed == null || trimmed.Count < 2) trimmed = pts;
 
             double dA, dB;
@@ -213,7 +278,7 @@ namespace QMC.Vision.Core
         }
 
         // ReMoveTop 의 하단 버전(잔차 상위 분위 유지 = 바깥쪽 아래 에지로 수렴)
-        private static List<PointF> ReMoveBottom(List<PointF> listPoint)
+        private static List<PointF> ReMoveBottom(List<PointF> listPoint, double keepQuantile)
         {
             var temp = listPoint?.ToList() ?? new List<PointF>();
             if (temp.Count < 2) return temp;
@@ -229,7 +294,7 @@ namespace QMC.Vision.Core
                 if (temp.Count < 2) break;
                 GetTrendLine(temp, out dA, out dB);
                 residuals = temp.Select(p => p.Y - (dA * p.X + dB)).ToList();
-                cut = Percentile(residuals, 1.0 - TopKeepQuantile);
+                cut = Percentile(residuals, 1.0 - keepQuantile);
                 var next = temp.Where(p => (p.Y - (dA * p.X + dB)) >= cut).ToList();
                 if (next.Count < 2) break;
                 temp = next;
@@ -237,7 +302,7 @@ namespace QMC.Vision.Core
             return temp;
         }
 
-        private static List<PointF> ReMoveTop(List<PointF> listPoint)
+        private static List<PointF> ReMoveTop(List<PointF> listPoint, double keepQuantile)
         {
             var temp = listPoint?.ToList() ?? new List<PointF>();
             if (temp.Count < 2) return temp;
@@ -253,7 +318,7 @@ namespace QMC.Vision.Core
                 if (temp.Count < 2) break;
                 GetTrendLine(temp, out dA, out dB);
                 residuals = temp.Select(p => p.Y - (dA * p.X + dB)).ToList();
-                cut = Percentile(residuals, TopKeepQuantile);
+                cut = Percentile(residuals, keepQuantile);
                 var next = temp.Where(p => (p.Y - (dA * p.X + dB)) <= cut).ToList();
                 if (next.Count < 2) break;
                 temp = next;

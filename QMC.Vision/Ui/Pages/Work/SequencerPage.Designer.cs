@@ -104,12 +104,60 @@ namespace QMC.Vision.Ui.Pages
             //
             // buttons
             //
-            StyleBtn(this._btnStart, "시작", Color.FromArgb(31, 157, 77), Color.White);
-            StyleBtn(this._btnStop,  "정지", Color.FromArgb(90, 34, 34), Color.White);
-            StyleBtn(this._btnStep,  "한 단계", Color.White, Color.Black);
-            StyleBtn(this._btnClear, "로그 Clear", Color.White, Color.Black);
-            StyleBtn(this._btnLoadStart, "부하 체크 시작", Color.FromArgb(33, 102, 172), Color.White);
-            StyleBtn(this._btnLoadStop,  "체크 완료(차트)", Color.White, Color.Black);
+            // _btnStart
+            this._btnStart.Text = "시작";
+            this._btnStart.BackColor = Color.FromArgb(31, 157, 77);
+            this._btnStart.ForeColor = Color.White;
+            this._btnStart.FlatStyle = FlatStyle.Flat;
+            this._btnStart.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnStart.Size = new Size(96, 34);
+            this._btnStart.Margin = new Padding(3, 4, 3, 2);
+            this._btnStart.UseVisualStyleBackColor = false;
+            // _btnStop
+            this._btnStop.Text = "정지";
+            this._btnStop.BackColor = Color.FromArgb(90, 34, 34);
+            this._btnStop.ForeColor = Color.White;
+            this._btnStop.FlatStyle = FlatStyle.Flat;
+            this._btnStop.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnStop.Size = new Size(96, 34);
+            this._btnStop.Margin = new Padding(3, 4, 3, 2);
+            this._btnStop.UseVisualStyleBackColor = false;
+            // _btnStep
+            this._btnStep.Text = "한 단계";
+            this._btnStep.BackColor = Color.White;
+            this._btnStep.ForeColor = Color.Black;
+            this._btnStep.FlatStyle = FlatStyle.Flat;
+            this._btnStep.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnStep.Size = new Size(96, 34);
+            this._btnStep.Margin = new Padding(3, 4, 3, 2);
+            this._btnStep.UseVisualStyleBackColor = false;
+            // _btnClear
+            this._btnClear.Text = "로그 Clear";
+            this._btnClear.BackColor = Color.White;
+            this._btnClear.ForeColor = Color.Black;
+            this._btnClear.FlatStyle = FlatStyle.Flat;
+            this._btnClear.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnClear.Size = new Size(96, 34);
+            this._btnClear.Margin = new Padding(3, 4, 3, 2);
+            this._btnClear.UseVisualStyleBackColor = false;
+            // _btnLoadStart
+            this._btnLoadStart.Text = "부하 체크 시작";
+            this._btnLoadStart.BackColor = Color.FromArgb(33, 102, 172);
+            this._btnLoadStart.ForeColor = Color.White;
+            this._btnLoadStart.FlatStyle = FlatStyle.Flat;
+            this._btnLoadStart.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnLoadStart.Size = new Size(96, 34);
+            this._btnLoadStart.Margin = new Padding(3, 4, 3, 2);
+            this._btnLoadStart.UseVisualStyleBackColor = false;
+            // _btnLoadStop
+            this._btnLoadStop.Text = "체크 완료(차트)";
+            this._btnLoadStop.BackColor = Color.White;
+            this._btnLoadStop.ForeColor = Color.Black;
+            this._btnLoadStop.FlatStyle = FlatStyle.Flat;
+            this._btnLoadStop.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this._btnLoadStop.Size = new Size(96, 34);
+            this._btnLoadStop.Margin = new Padding(3, 4, 3, 2);
+            this._btnLoadStop.UseVisualStyleBackColor = false;
             this._btnLoadStart.Width = 120; this._btnLoadStop.Width = 120;
             this._btnStart.Click += new System.EventHandler(this.OnStartClick);
             this._btnStop.Click  += new System.EventHandler(this.OnStopClick);
@@ -151,13 +199,6 @@ namespace QMC.Vision.Ui.Pages
             this._root.ResumeLayout(false);
             this._bar.ResumeLayout(false);
             this.ResumeLayout(false);
-        }
-
-        private static void StyleBtn(Button b, string text, Color bg, Color fg)
-        {
-            b.Text = text; b.BackColor = bg; b.ForeColor = fg;
-            b.FlatStyle = FlatStyle.Flat; b.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            b.Size = new Size(96, 34); b.Margin = new Padding(3, 4, 3, 2); b.UseVisualStyleBackColor = false;
         }
     }
 }

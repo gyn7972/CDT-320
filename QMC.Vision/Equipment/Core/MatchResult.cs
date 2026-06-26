@@ -11,6 +11,10 @@ namespace QMC.Vision.Core
         public double AngleDeg { get; set; }     // R
         public double Score    { get; set; }     // 0.0 ~ 1.0
         public double Scale    { get; set; } = 1.0;
+        // 검출된 박스(이미지 px) — 0 이면 미지정(소비측이 Train ROI 크기로 폴백).
+        // 플랫 콜렛 파인더는 실제 검출 사각형 크기를 채워 콜렛 전용 오버레이로 그린다.
+        public double BoxW     { get; set; }
+        public double BoxH     { get; set; }
     }
 
     public class MatchResult
@@ -51,6 +55,7 @@ namespace QMC.Vision.Core
         public double Width;    // 바운딩 박스 가로(px). 0 이면 면적으로 추정.
         public double Height;   // 바운딩 박스 세로(px)
         public double Area;     // 결함 면적(px^2)
+        public string Type;     // 결함 종류("Chipping"/"Foreign"/"Size" 등) — 오버레이 NG(종류) 표기용
     }
 
     public class InspectionResult

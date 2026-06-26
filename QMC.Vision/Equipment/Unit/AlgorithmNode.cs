@@ -235,6 +235,12 @@ namespace QMC.Vision.Modules
                     bi.TopHatRadius             = r.TopHatRadius;
                     bi.TopHatThreshold          = r.TopHatThreshold;
                     bi.MinForeignAreaFilterSize = r.MinForeignAreaFilterSize;
+                    if (r.MaxForeignAreaFilterSize > 0) bi.MaxForeignAreaFilterSize = r.MaxForeignAreaFilterSize;
+                    if (r.LinkDistance > 0)             bi.LinkDistance             = r.LinkDistance;
+                    bi.ChipEdgeMargin           = r.ChipEdgeMargin;
+                    bi.ForeignEdgeMargin        = r.ForeignEdgeMargin;
+                    bi.ChipLowerSpecLimit       = new System.Drawing.SizeF((float)r.WidthLowerLimit, (float)r.HeightLowerLimit);
+                    bi.ChipUpperSpecLimit       = new System.Drawing.SizeF((float)r.WidthUpperLimit, (float)r.HeightUpperLimit);
                     bi.DarkChip                 = r.DarkChip;
                     if (r.PixelSizeXmmBottom > 0) bi.PixelSizeWidthMm  = r.PixelSizeXmmBottom;
                     if (r.PixelSizeYmmBottom > 0) bi.PixelSizeHeightMm = r.PixelSizeYmmBottom;
@@ -245,6 +251,10 @@ namespace QMC.Vision.Modules
                     si.ChippingDepth            = r.ChippingDepth;
                     si.ChippingUpperLimit       = r.ChippingUpperLimit;
                     si.ChippingLowerLimit       = r.ChippingLowerLimit;
+                    si.ScanRate                 = r.ScanRate > 0 ? r.ScanRate : si.ScanRate;
+                    si.EnvelopeBinSize          = r.EnvelopeBinSize > 0 ? r.EnvelopeBinSize : si.EnvelopeBinSize;
+                    si.KeepQuantile             = r.KeepQuantile > 0 ? r.KeepQuantile : si.KeepQuantile;
+                    si.EdgeGap                  = r.EdgeGap > 0 ? r.EdgeGap : si.EdgeGap;
                     si.ChippingLength           = r.ChippingLength;
                     si.ForeignObjectSize        = r.ForeignObjectSize;
                     si.ChipThickness            = r.ChipThickness;
@@ -258,6 +268,27 @@ namespace QMC.Vision.Modules
             }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
+
+            // ② 추세 차트 상/하한(Limit) → ChartLimitStore: 레시피 적용 즉시 운영뷰 차트에 반영(검사 실행 전에도 빨간 점선 표시).
+            try
+            {
+                if (_inspector is QMC.Vision.Core.BottomInspector bl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 0, bl.ChipUpperSpecLimit.Width,  bl.ChipLowerSpecLimit.Width);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 1, bl.ChipUpperSpecLimit.Height, bl.ChipLowerSpecLimit.Height);
+                }
+                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector sl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 1, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
+                }
+                else if (_inspector is QMC.Vision.Core.PlacementGapInspector pl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, pl.GapUpperLimit, pl.GapLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, pl.GapUpperLimit, pl.GapLowerLimit);
+                }
+            }
+            catch { }
         }
 
         protected override void CollectFromRuntime()
@@ -289,6 +320,14 @@ namespace QMC.Vision.Modules
                     r.TopHatRadius             = bi.TopHatRadius;
                     r.TopHatThreshold          = bi.TopHatThreshold;
                     r.MinForeignAreaFilterSize = bi.MinForeignAreaFilterSize;
+                    r.MaxForeignAreaFilterSize = bi.MaxForeignAreaFilterSize;
+                    r.LinkDistance             = bi.LinkDistance;
+                    r.ChipEdgeMargin           = bi.ChipEdgeMargin;
+                    r.ForeignEdgeMargin        = bi.ForeignEdgeMargin;
+                    r.WidthLowerLimit          = bi.ChipLowerSpecLimit.Width;
+                    r.HeightLowerLimit         = bi.ChipLowerSpecLimit.Height;
+                    r.WidthUpperLimit          = bi.ChipUpperSpecLimit.Width;
+                    r.HeightUpperLimit         = bi.ChipUpperSpecLimit.Height;
                     r.DarkChip                 = bi.DarkChip;
                     r.PixelSizeXmmBottom       = bi.PixelSizeWidthMm;
                     r.PixelSizeYmmBottom       = bi.PixelSizeHeightMm;
@@ -299,6 +338,10 @@ namespace QMC.Vision.Modules
                     r.ChippingDepth            = si.ChippingDepth;
                     r.ChippingUpperLimit       = si.ChippingUpperLimit;
                     r.ChippingLowerLimit       = si.ChippingLowerLimit;
+                    r.ScanRate                 = si.ScanRate;
+                    r.EnvelopeBinSize          = si.EnvelopeBinSize;
+                    r.KeepQuantile             = si.KeepQuantile;
+                    r.EdgeGap                  = si.EdgeGap;
                     r.ChippingLength           = si.ChippingLength;
                     r.ForeignObjectSize        = si.ForeignObjectSize;
                     r.ChipThickness            = si.ChipThickness;

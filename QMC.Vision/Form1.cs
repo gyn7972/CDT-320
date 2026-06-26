@@ -602,6 +602,7 @@ namespace QMC.Vision
                 AlarmManager.Raise(AlarmSeverity.Error, "VISION-CAMOPEN",
                     "Vision/" + algorithm, $"Camera.Open 실패 [{camId}]: {ex.Message}");
             }
+            // .mfs 전체 로드는 자동으로 하지 않는다 — 사용자가 설정 화면 [불러오기] 버튼을 누를 때만 적용.
             mod.ApplyCameraSettings();
         }
 

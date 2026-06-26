@@ -20,7 +20,7 @@ namespace QMC.Vision.Modules
             : base("BottomInspection", camera, backend)
         {
             Reticle        = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ReticleFinder");
-            Collet         = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ColletFinder");
+            Collet         = AddFinder   <ColletFinderSetup,  ColletFinderConfig,  ColletFinderRecipe> ("ColletFinder");  // 전용 타입(플랫콜렛)
             Die            = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DieFinder");
             Surface        = AddInspector<InspectorAlgoSetup, InspectorAlgoConfig, InspectorAlgoRecipe>("SurfaceInspector");
             Focus          = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("FocusFinder");

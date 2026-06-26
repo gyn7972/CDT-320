@@ -75,7 +75,7 @@ namespace QMC.Vision.Ui.Pages
             BuildChildPanels();
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
             ShowTrainImage();
-            BuildRoiControls();
+            WireRoiPad();
             BuildCamContextMenu();
             if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
             ApplyLanguage();
@@ -104,6 +104,8 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
             try { if (_cam != null) _cam.FrameChanged -= OnCamFrameChanged; } catch { }
+            try { _flatResultImage?.Dispose(); } catch { }
+            try { if (_flatResultForm != null && !_flatResultForm.IsDisposed) _flatResultForm.Close(); } catch { }
             base.OnHandleDestroyed(e);
         }
 
@@ -260,6 +262,30 @@ namespace QMC.Vision.Ui.Pages
                             MarkDirty();
                         }
                     }));
+            }
+
+            // ── 콜렛 전용 — 플랫콜렛 사용 유무 + 플랫 검출 파라미터(콜렛 노드에만 노출) ──
+            //   플랫콜렛 사용 → FlatColletFinder(std-dev→blob→min-area-rect). 일반 콜렛 검사(패턴매치)와 분리.
+            if (_node.Recipe is QMC.Vision.Modules.ColletFinderRecipe)
+            {
+                items.Add(ParameterGridItem.Bool("플랫콜렛 사용", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.ColletFinderRecipe)?.UseFlatCollet ?? false,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.ColletFinderRecipe r) { r.UseFlatCollet = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.Int("플랫 블록크기", "px", ParameterGridScope.Config,
+                    () => (_node.Config as QMC.Vision.Modules.ColletFinderConfig)?.FlatBlockSize ?? 7,
+                    v => { if (_node.Config is QMC.Vision.Modules.ColletFinderConfig c) { c.FlatBlockSize = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.Double("플랫 임계값(StdDev)", "", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.ColletFinderRecipe)?.FlatStdDevThreshold ?? 12.0,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.ColletFinderRecipe r) { r.FlatStdDevThreshold = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.Double("플랫 최소면적", "px", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.ColletFinderRecipe)?.FlatMinAreaPx ?? 500.0,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.ColletFinderRecipe r) { r.FlatMinAreaPx = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.Bool("플랫 CUDA 사용", ParameterGridScope.Config,
+                    () => (_node.Config as QMC.Vision.Modules.ColletFinderConfig)?.FlatUseCuda ?? false,
+                    v => { if (_node.Config is QMC.Vision.Modules.ColletFinderConfig c) { c.FlatUseCuda = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.Bool("플랫 고속모드", ParameterGridScope.Config,
+                    () => (_node.Config as QMC.Vision.Modules.ColletFinderConfig)?.FlatFastMode ?? false,
+                    v => { if (_node.Config is QMC.Vision.Modules.ColletFinderConfig c) { c.FlatFastMode = v; MarkDirty(); } }));
             }
         }
 
@@ -503,75 +529,32 @@ namespace QMC.Vision.Ui.Pages
         private bool   _roiTrainTarget = true;
         private double _moveStepPx = 10.0;   // 소수 허용(미세 조정)
         private double _sizeStepPx = 10.0;
-        private Button _btnTgtTrain, _btnTgtSearch;
-        private TextBox _txtMoveStep, _txtSizeStep;
-        private Label  _roiInfo;
 
         private Roi ActiveRoi()
             => _finder == null ? null : (_roiTrainTarget ? _finder.TrainRoi : _finder.SearchRoi);
 
-        private void BuildRoiControls()
+        // 공용 RoiNudgePad(이동/크기 버튼) 이벤트를 ROI 로직에 연결. 컨트롤 배치는 Designer.
+        private void WireRoiPad()
         {
-            if (_roiHost == null) return;
-            _roiHost.Controls.Clear();
-
-            var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Padding = new Padding(4) };
-
-            // 이동 패드(3×3)
-            var pad = new TableLayoutPanel { Width = 120, Height = 96, ColumnCount = 3, RowCount = 3, Margin = new Padding(2) };
-            for (int i = 0; i < 3; i++) { pad.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f)); pad.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); }
-            pad.Controls.Add(RoiCell("▲", (s, e) => Nudge(0, -1)), 1, 0);
-            pad.Controls.Add(RoiCell("◀", (s, e) => Nudge(-1, 0)), 0, 1);
-            pad.Controls.Add(RoiCell("●", (s, e) => Recenter()),   1, 1);
-            pad.Controls.Add(RoiCell("▶", (s, e) => Nudge(1, 0)),  2, 1);
-            pad.Controls.Add(RoiCell("▼", (s, e) => Nudge(0, 1)),  1, 2);
-
-            // 크기 조정 + Full Size
-            var rz = new TableLayoutPanel { Width = 140, Height = 96, ColumnCount = 2, RowCount = 3, Margin = new Padding(2) };
-            rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f)); rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.34f));
-            rz.Controls.Add(RoiCell("W +", (s, e) => Resize(1, 0)),  0, 0);
-            rz.Controls.Add(RoiCell("W -", (s, e) => Resize(-1, 0)), 1, 0);
-            rz.Controls.Add(RoiCell("H +", (s, e) => Resize(0, 1)),  0, 1);
-            rz.Controls.Add(RoiCell("H -", (s, e) => Resize(0, -1)), 1, 1);
-            var full = RoiCell("Full Size", (s, e) => FullSizeRoi()); rz.Controls.Add(full, 0, 2); rz.SetColumnSpan(full, 2);
-
-            // 우측: 대상 토글 / 스텝 / 표시
-            var col = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, Width = 210, Height = 120, Margin = new Padding(8, 0, 0, 0) };
-            _btnTgtTrain  = RoiFlow("Train ROI",  (s, e) => SetTarget(true),  96);
-            _btnTgtSearch = RoiFlow("Search ROI", (s, e) => SetTarget(false), 96);
-            var tgt = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0) };
-            tgt.Controls.Add(_btnTgtSearch); tgt.Controls.Add(_btnTgtTrain);   // 위치 교체: Search(좌) / Train(우)
-
-            _txtMoveStep = new TextBox { Width = 44, Text = _moveStepPx.ToString() };
-            _txtSizeStep = new TextBox { Width = 44, Text = _sizeStepPx.ToString() };
-            _txtMoveStep.TextChanged += (s, e) => { double v; if (double.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v; };
-            _txtSizeStep.TextChanged += (s, e) => { double v; if (double.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v; };
-            var steps = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0, 4, 0, 0) };
-            steps.Controls.Add(new Label { Text = "Move", AutoSize = true, Margin = new Padding(0, 7, 2, 0) });
-            steps.Controls.Add(_txtMoveStep);
-            steps.Controls.Add(new Label { Text = "Size", AutoSize = true, Margin = new Padding(10, 7, 2, 0) });
-            steps.Controls.Add(_txtSizeStep);
-
-            _roiInfo = new Label { AutoSize = true, Margin = new Padding(0, 6, 0, 0), Font = UiTheme.ValueFont, ForeColor = System.Drawing.Color.DarkSlateGray };
-
-            col.Controls.Add(tgt); col.Controls.Add(steps); col.Controls.Add(_roiInfo);
-
-            flow.Controls.Add(pad); flow.Controls.Add(rz); flow.Controls.Add(col);
-            _roiHost.Controls.Add(flow);
-
+            _roiPad.MoveRequested     += Nudge;
+            _roiPad.ResizeRequested   += Resize;
+            _roiPad.RecenterRequested += Recenter;
+            _roiPad.FullSizeRequested += FullSizeRoi;
             SetTarget(_roiTrainTarget);
         }
 
-        private Button RoiCell(string text, EventHandler on)
+        // 대상 토글(Train/Search) — Designer 에서 Click 배선.
+        private void _btnTgtTrain_Click(object sender, EventArgs e)  { SetTarget(true); }
+        private void _btnTgtSearch_Click(object sender, EventArgs e) { SetTarget(false); }
+
+        // 스텝 입력 — Designer 에서 TextChanged 배선.
+        private void _txtMoveStep_TextChanged(object sender, EventArgs e)
         {
-            var b = new Button { Text = text, Dock = DockStyle.Fill, Margin = new Padding(2), FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            b.Click += on; return b;
+            double v; if (double.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v;
         }
-        private Button RoiFlow(string text, EventHandler on, int w)
+        private void _txtSizeStep_TextChanged(object sender, EventArgs e)
         {
-            var b = new Button { Text = text, Width = w, Height = 28, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            b.Click += on; return b;
+            double v; if (double.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v;
         }
 
         private void SetTarget(bool train)
@@ -702,7 +685,7 @@ namespace QMC.Vision.Ui.Pages
                         " | TrainImage " + (_finder.TrainImage?.Width ?? -1) + "x" + (_finder.TrainImage?.Height ?? -1));
                 }
                 catch { }
-                var r = _finder.Match(img);
+                var r = RunFinderMatch(img);
                 if (r.Success)
                 {
                     // 누적: 최신 결과를 맨 위(0번)에 삽입 → 위에서 아래로 최신→과거.
@@ -713,6 +696,7 @@ namespace QMC.Vision.Ui.Pages
                     RenumberResults();
                 }
                 ShowDetectionResult(r, "MATCH", img);
+                if (_flatResultImage != null) ShowFlatResult(_flatResultImage);   // 콜렛 결과(마스크) 이미지 표시
             }
             catch (Exception ex) { Status("MATCH FAIL: " + ex.Message); }
             finally { _matchBusy = false; }
@@ -722,23 +706,105 @@ namespace QMC.Vision.Ui.Pages
         private void TryShowDetection(Bitmap img, string tag)
         {
             if (_finder == null || img == null) return;
-            try { ShowDetectionResult(_finder.Match(img), tag, img); }
+            try { ShowDetectionResult(RunFinderMatch(img), tag, img); }
             catch (Exception ex) { Status(tag + " 검출 표시 실패: " + ex.Message); }
+        }
+
+        /// <summary>콜렛 인지 매칭 — 플랫콜렛 사용 시 FlatColletFinder, 아니면 일반 패턴매치 finder.
+        /// VisionCommandCore.MatchOnImage(시퀀서/핸들러)와 동일 분기로 수동 테스트에서도 일치하게 동작.</summary>
+        private MatchResult RunFinderMatch(Bitmap img)
+        {
+            if (_node?.Recipe is QMC.Vision.Modules.ColletFinderRecipe cr && cr.UseFlatCollet)
+            {
+                var cc = _node.Config as QMC.Vision.Modules.ColletFinderConfig;
+                _flatResultImage?.Dispose(); _flatResultImage = null;
+                var res = FlatColletFinder.Find(img, _finder.SearchRoi,
+                    cc?.FlatBlockSize ?? 7, cr.FlatStdDevThreshold, cr.FlatMinAreaPx,
+                    cc?.FlatUseCuda ?? false, cc?.FlatFastMode ?? false,
+                    true, out var rimg);   // 결과(마스크) 이미지 동시 생성
+                _flatResultImage = rimg;
+                return res;
+            }
+            _flatResultImage?.Dispose(); _flatResultImage = null;   // 일반 검출이면 결과이미지 없음(스테일 방지)
+            return _finder.Match(img);
+        }
+
+        // ── 콜렛 결과(마스크) 이미지 뷰어 — 테스트 프로그램 우측 패널처럼 std-dev 결과 확인 ──
+        private Bitmap _flatResultImage;
+        private Form _flatResultForm;
+        private PictureBox _flatResultPic;
+
+        private void ShowFlatResult(Bitmap img)
+        {
+            if (img == null) return;
+            if (_flatResultForm == null || _flatResultForm.IsDisposed)
+            {
+                _flatResultForm = new Form
+                {
+                    Text = "콜렛 결과 이미지 — std-dev ≥ 임계값 → 흰색",
+                    Width = 760, Height = 600, StartPosition = FormStartPosition.CenterParent
+                };
+                _flatResultPic = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+                _flatResultForm.Controls.Add(_flatResultPic);
+            }
+            var old = _flatResultPic.Image;
+            _flatResultPic.Image = new Bitmap(img);
+            old?.Dispose();
+            if (!_flatResultForm.Visible) _flatResultForm.Show(this);
+            else { _flatResultForm.BringToFront(); _flatResultPic.Invalidate(); }
+        }
+
+        /// <summary>중심·크기·각도(deg)로 회전 사각형의 4코너(이미지 px)를 계산. 콜렛 검출 오버레이용.</summary>
+        private static System.Drawing.PointF[] RectCorners(double cx, double cy, double w, double h, double angleDeg)
+        {
+            double a = angleDeg * Math.PI / 180.0;
+            double ca = Math.Cos(a), sa = Math.Sin(a);
+            double hw = w / 2.0, hh = h / 2.0;
+            double[,] rel = { { -hw, -hh }, { hw, -hh }, { hw, hh }, { -hw, hh } };
+            var pts = new System.Drawing.PointF[4];
+            for (int i = 0; i < 4; i++)
+            {
+                double rx = rel[i, 0], ry = rel[i, 1];
+                pts[i] = new System.Drawing.PointF(
+                    (float)(cx + rx * ca - ry * sa),
+                    (float)(cy + rx * sa + ry * ca));
+            }
+            return pts;
         }
 
         /// <summary>매칭 결과를 실제 이미지에 오버레이하고 AcceptThreshold 기준 OK/NG 를 표시한다.
         /// AcceptThreshold 가 0 이하이면 게이트 없이 '검출되면 OK'로 본다.</summary>
         private void ShowDetectionResult(MatchResult r, string tag, Bitmap img = null)
         {
-            // 매칭 박스(검출 각도로 회전) 크기 = Train ROI(학습 패턴 크기). 없으면 점+점수만.
-            double boxW = _finder?.TrainRoi?.Width  ?? 0.0;
-            double boxH = _finder?.TrainRoi?.Height ?? 0.0;
-            if (_cam != null) _cam.SetOverlay(_finder?.SearchRoi, r, boxW, boxH);
-
+            var bestInst = r?.Best;
             bool   found = r != null && r.Success && r.Best != null;
             double thr   = _finder?.AcceptThreshold ?? 0.0;
             double score = found ? r.Best.Score : 0.0;
             bool   ok    = found && (thr <= 0.0 || score >= thr);
+
+            // 콜렛 전용(플랫) 검출: 검출 인스턴스가 실제 사각형 크기(BoxW/BoxH)를 들고 오면
+            // 회전 사각형 + 중심점 + "중심(X, Y) 각도 N°" 라벨을 ROI 위에 표시(테스트 프로그램과 동일 표기).
+            // 그 외(일반 패턴매치)는 기존처럼 Train ROI 크기 박스 + 점수.
+            bool flatDet = found && bestInst != null && bestInst.BoxW > 0 && bestInst.BoxH > 0;
+            if (_cam != null)
+            {
+                if (flatDet)
+                {
+                    var corners = RectCorners(bestInst.CenterX, bestInst.CenterY, bestInst.BoxW, bestInst.BoxH, bestInst.AngleDeg);
+                    string lbl = "중심(" + bestInst.CenterX.ToString("F0") + ", " + bestInst.CenterY.ToString("F0")
+                               + ")  각도 " + bestInst.AngleDeg.ToString("F1") + "°";
+                    _cam.SetOverlay((Roi)null, (MatchResult)null);   // 기존 매칭 마크/박스 제거(콜렛 오버레이로 대체)
+                    _cam.SetColletOverlay(_finder?.SearchRoi, corners,
+                        new System.Drawing.PointF((float)bestInst.CenterX, (float)bestInst.CenterY), lbl, ok);
+                }
+                else
+                {
+                    double boxW = _finder?.TrainRoi?.Width  ?? 0.0;
+                    double boxH = _finder?.TrainRoi?.Height ?? 0.0;
+                    _cam.SetOverlay(_finder?.SearchRoi, r, boxW, boxH);
+                    _cam.ClearColletOverlay();
+                }
+            }
 
             string label = !found
                 ? "검출 NG — " + (string.IsNullOrEmpty(r?.ErrorMessage) ? "no match" : r.ErrorMessage)
@@ -819,6 +885,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 _cam.SetOverlay((Roi)null, (MatchResult)null);
                 try { _cam.ClearDetectOverlay(); } catch { }
+                try { _cam.ClearColletOverlay(); } catch { }
                 _cam.InfoText = string.Empty;
             }
         }

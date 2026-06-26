@@ -290,11 +290,64 @@ namespace QMC.Vision.Ui.Pages
                 }
                 catch { }
 
+                // 측면 칩핑 오버레이(에지 프로파일 + 기준선) — 레시피 INSPECT 페이지와 동일하게 작업 뷰에 표시.
+                try
+                {
+                    if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null)
+                    {
+                        if (QMC.Vision.Core.InspectionOverlayStore.TryGet(m.Name, out var geom))
+                        {
+                            var gm = geom;   // 종류별 전용 오버레이(Bottom/Side/Bin) 공용 렌더러로 그린다.
+                            _viewByMod[i].CustomOverlayPaint = (gr, toS) => QMC.Vision.Core.InspectionOverlayRenderer.Draw(gr, toS, gm);
+                        }
+                        else _viewByMod[i].CustomOverlayPaint = null;
+                    }
+                }
+                catch { }
+
+                // 대기(비-LIVE)면 이전 검출 오버레이 제거 — 정지/유휴 중 직전 오버레이가 남지 않게.
+                try
+                {
+                    bool liveNow = (now - _lastActiveTick[i]) <= LiveTimeoutMs;
+                    if (!liveNow && _viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null)
+                    {
+                        _viewByMod[i].CustomOverlayPaint = null;                         // 칩핑 프로파일/기준선
+                        _viewByMod[i].SetOverlay(System.Drawing.RectangleF.Empty, null); // 매치/결함 마크
+                    }
+                }
+                catch { }
+
                 UpdateCardState(i, now);
             }
 
             UpdateRunButton();
             UpdateReadyButton();
+        }
+
+        /// <summary>측면 칩핑 오버레이 — 노랑 검출 기준선(직선) + 초록 실제 에지 프로파일. 레시피 INSPECT 페이지와 동일.</summary>
+        private static void DrawChippingOverlay(System.Drawing.Graphics g,
+            System.Func<System.Drawing.PointF, System.Drawing.PointF> toS, QMC.Vision.Core.InspectionOverlayStore.Geom geom)
+        {
+            if (g == null || toS == null || geom == null) return;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            System.Drawing.PointF[] ToScreen(System.Drawing.PointF[] pts)
+            {
+                if (pts == null) return null;
+                var o = new System.Drawing.PointF[pts.Length];
+                for (int k = 0; k < pts.Length; k++) o[k] = toS(pts[k]);
+                return o;
+            }
+            if (geom.RefCorners != null && geom.RefCorners.Length >= 4)
+                using (var refp = new System.Drawing.Pen(System.Drawing.Color.Gold, 1f))
+                {
+                    var c = ToScreen(geom.RefCorners);
+                    g.DrawLine(refp, c[0], c[1]); g.DrawLine(refp, c[3], c[2]);
+                }
+            using (var green = new System.Drawing.Pen(System.Drawing.Color.LimeGreen, 2f))
+            {
+                if (geom.TopProfile != null && geom.TopProfile.Length >= 2) g.DrawLines(green, ToScreen(geom.TopProfile));
+                if (geom.BotProfile != null && geom.BotProfile.Length >= 2) g.DrawLines(green, ToScreen(geom.BotProfile));
+            }
         }
 
         /// <summary>최근 Grab 활동(시퀀스 변화)이 있으면 LIVE, 없으면 READY.

@@ -88,6 +88,8 @@ namespace QMC.Vision.Modules
             m.ReturnMmCoordinates = c.ReturnMmCoordinates;
             m.CalibChipWidthMm = c.CalibChipWidthMm; m.CalibChipHeightMm = c.CalibChipHeightMm;
             m.SimUseSavedImage = c.SimUseSavedImage; m.SimSavedImagePath = c.SimSavedImagePath;
+            m.NodeParams = c.NodeParams?.Select(p => p.Clone()).ToList() ?? new List<CameraNodeParam>();
+            m.MvsFeatureFilePath = c.MvsFeatureFilePath;
             m.ExposureUs = r.Exposure;
             return m;
         }
@@ -132,6 +134,8 @@ namespace QMC.Vision.Modules
             c.ReturnMmCoordinates = m.ReturnMmCoordinates;
             c.CalibChipWidthMm = m.CalibChipWidthMm; c.CalibChipHeightMm = m.CalibChipHeightMm;
             c.SimUseSavedImage = m.SimUseSavedImage; c.SimSavedImagePath = m.SimSavedImagePath;
+            c.NodeParams = m.NodeParams?.Select(p => p.Clone()).ToList() ?? new List<CameraNodeParam>();
+            c.MvsFeatureFilePath = m.MvsFeatureFilePath;
             r.Exposure = m.ExposureUs;
         }
 
@@ -357,8 +361,13 @@ namespace QMC.Vision.Modules
                 LogGrab("toolId='" + toolId + "' SimUseSavedImage=false → 폴백");
                 return null;
             }
-            LogGrab("toolId='" + toolId + "' SimUseSavedImage=true, 경로='" + (s.SimSavedImagePath ?? "") + "' → 저장이미지 로드 시도");
-            return LoadImageAsGrab(s.SimSavedImagePath);
+            // 측면 채널2(90°)면 Ch2 전용 이미지 사용(있을 때). 채널 홀수(1=Front ch2, 3=Back ch2)=90°.
+            string path = s.SimSavedImagePath;
+            int ch = QMC.Vision.Core.VisionCommandCore.CurrentInspectChannel;
+            if ((ch % 2) == 1 && !string.IsNullOrWhiteSpace(s.SimSavedImagePathCh2))
+                path = s.SimSavedImagePathCh2;
+            LogGrab("toolId='" + toolId + "' SimUseSavedImage=true, ch=" + ch + ", 경로='" + (path ?? "") + "' → 저장이미지 로드 시도");
+            return LoadImageAsGrab(path);
         }
 
         /// <summary>그랩(도구 저장이미지/폴백) 진단 로그 — Vision DataLog(EventLogger)로 남긴다.</summary>

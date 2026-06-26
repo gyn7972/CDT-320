@@ -351,17 +351,5 @@ namespace QMC.Vision.Ui.Pages
             this._bar.ResumeLayout(false);
             this.ResumeLayout(false);
         }
-
-        // ── 툴바 버튼 공통 스타일(미사용 — 인라인 전환됨, 호환 위해 정의 유지) ──
-        private static void ConfigureBarBtn(Button b, string text, int width, bool primary)
-        {
-            b.Size = new Size(width, 32);
-            b.Margin = new Padding(0, 0, 6, 0);
-            b.Text = text;
-            b.FlatStyle = FlatStyle.Flat;
-            b.Font = UiTheme.ButtonFont;
-            b.BackColor = primary ? UiTheme.Accent : Color.White;
-            b.ForeColor = primary ? Color.White : Color.Black;
-        }
     }
 }

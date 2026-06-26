@@ -31,52 +31,18 @@ namespace QMC.Vision.Ui.Pages
         private static readonly Color BtnNav       = Color.FromArgb(0x3A, 0x3A, 0x3E);
         private static readonly Color BtnNavActive = Color.FromArgb(0xD9, 0x77, 0x06);
 
-        private Button MakeNavButton(string text)
-        {
-            var b = new Button
-            {
-                Width = 80,
-                Height = 54,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold),
-                ForeColor = UiTheme.BottomBarFg,
-                BackColor = BtnNav,
-                Margin = new Padding(0, 0, 0, 12),   // 버튼끼리 세로 간격
-                Text = text,
-                UseVisualStyleBackColor = false
-            };
-            b.FlatAppearance.BorderColor = Color.FromArgb(0x55, 0x55, 0x5A);
-            return b;
-        }
-
-        private Button MakeHeaderButton(string text)
-        {
-            return new Button
-            {
-                Dock = DockStyle.Right,
-                Width = 92,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold),
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(0x55, 0x55, 0x55),
-                Margin = new Padding(0),
-                Text = text,
-                UseVisualStyleBackColor = false
-            };
-        }
-
         private void InitializeComponent()
         {
             _header      = new Panel();
             _lblHeader   = new Label();
-            _btnRun      = MakeHeaderButton("RUN");
-            _btnReady    = MakeHeaderButton("READY");
+            _btnRun      = new Button();
+            _btnReady    = new Button();
             _contentHost = new Panel();
             _btnBar      = new Panel();
             _btnFlow     = new FlowLayoutPanel();
-            _btnWork     = MakeNavButton("작업");
-            _btnSide     = MakeNavButton("Side");
-            _btnDie      = MakeNavButton("Die gap");
+            _btnWork     = new Button();
+            _btnSide     = new Button();
+            _btnDie      = new Button();
 
             SuspendLayout();
 
@@ -98,6 +64,28 @@ namespace QMC.Vision.Ui.Pages
             _lblHeader.Padding = new Padding(12, 0, 0, 0);
             _lblHeader.Text = "작업 — 모니터링        레시피 —     Lot ID —     Wafer ID —     Judge —";
 
+            // _btnRun (RUN/STOP)
+            _btnRun.Dock = DockStyle.Right;
+            _btnRun.Width = 92;
+            _btnRun.FlatStyle = FlatStyle.Flat;
+            _btnRun.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            _btnRun.ForeColor = Color.White;
+            _btnRun.BackColor = Color.FromArgb(0x55, 0x55, 0x55);
+            _btnRun.Margin = new Padding(0);
+            _btnRun.Text = "RUN";
+            _btnRun.UseVisualStyleBackColor = false;
+
+            // _btnReady
+            _btnReady.Dock = DockStyle.Right;
+            _btnReady.Width = 92;
+            _btnReady.FlatStyle = FlatStyle.Flat;
+            _btnReady.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            _btnReady.ForeColor = Color.White;
+            _btnReady.BackColor = Color.FromArgb(0x55, 0x55, 0x55);
+            _btnReady.Margin = new Padding(0);
+            _btnReady.Text = "READY";
+            _btnReady.UseVisualStyleBackColor = false;
+
             // ── 메인 표시 영역(나머지 채움) — 먼저 추가(뒤) ──
             _contentHost.Dock = DockStyle.Fill;
             _contentHost.BackColor = UiTheme.MainBg;
@@ -116,6 +104,43 @@ namespace QMC.Vision.Ui.Pages
             _btnFlow.AutoSize = true;
             _btnFlow.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             _btnFlow.Padding = new Padding(8, 0, 8, 12);
+
+            // _btnWork (nav)
+            _btnWork.Width = 80;
+            _btnWork.Height = 54;
+            _btnWork.FlatStyle = FlatStyle.Flat;
+            _btnWork.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            _btnWork.ForeColor = UiTheme.BottomBarFg;
+            _btnWork.BackColor = BtnNav;
+            _btnWork.Margin = new Padding(0, 0, 0, 12);
+            _btnWork.Text = "작업";
+            _btnWork.UseVisualStyleBackColor = false;
+            _btnWork.FlatAppearance.BorderColor = Color.FromArgb(0x55, 0x55, 0x5A);
+
+            // _btnSide (nav)
+            _btnSide.Width = 80;
+            _btnSide.Height = 54;
+            _btnSide.FlatStyle = FlatStyle.Flat;
+            _btnSide.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            _btnSide.ForeColor = UiTheme.BottomBarFg;
+            _btnSide.BackColor = BtnNav;
+            _btnSide.Margin = new Padding(0, 0, 0, 12);
+            _btnSide.Text = "Side";
+            _btnSide.UseVisualStyleBackColor = false;
+            _btnSide.FlatAppearance.BorderColor = Color.FromArgb(0x55, 0x55, 0x5A);
+
+            // _btnDie (nav)
+            _btnDie.Width = 80;
+            _btnDie.Height = 54;
+            _btnDie.FlatStyle = FlatStyle.Flat;
+            _btnDie.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+            _btnDie.ForeColor = UiTheme.BottomBarFg;
+            _btnDie.BackColor = BtnNav;
+            _btnDie.Margin = new Padding(0, 0, 0, 12);
+            _btnDie.Text = "Die gap";
+            _btnDie.UseVisualStyleBackColor = false;
+            _btnDie.FlatAppearance.BorderColor = Color.FromArgb(0x55, 0x55, 0x5A);
+
             _btnFlow.Controls.Add(_btnWork);
             _btnFlow.Controls.Add(_btnSide);
             _btnFlow.Controls.Add(_btnDie);

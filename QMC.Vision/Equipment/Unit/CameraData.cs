@@ -1,4 +1,6 @@
 using QMC.Common;
+using QMC.Common.Recipes;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace QMC.Vision.Modules
@@ -55,6 +57,13 @@ namespace QMC.Vision.Modules
         /// <summary>모듈 GRAB 시 사용할 저장 이미지 경로(<see cref="SimUseSavedImage"/>=true 일 때).</summary>
         [DataMember] public string SimSavedImagePath { get; set; }
 
+        // ── 제네릭 카메라 노드 파라미터(노드 카탈로그 정의 항목의 값). MVS Feature Tree 확장 파라미터. ──
+        /// <summary>GenICam 노드명↔저장값 목록. 노드 타입/옵션은 카메라 노드 카탈로그가 정의한다.</summary>
+        [DataMember] public List<CameraNodeParam> NodeParams { get; set; }
+
+        /// <summary>MVS Feature Save 파일(.mfs) 경로 — 카메라 전체 노드값 일괄 적용/저장.</summary>
+        [DataMember] public string MvsFeatureFilePath { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
         private void SetDefaults()
         {
@@ -70,6 +79,8 @@ namespace QMC.Vision.Modules
             ReturnMmCoordinates = false;
             CalibChipWidthMm = 0; CalibChipHeightMm = 0;
             SimUseSavedImage = false; SimSavedImagePath = string.Empty;
+            NodeParams = new List<CameraNodeParam>();
+            MvsFeatureFilePath = string.Empty;
         }
 
         public CameraConfig() { SetDefaults(); }

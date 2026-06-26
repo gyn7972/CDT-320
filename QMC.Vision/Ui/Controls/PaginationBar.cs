@@ -10,18 +10,10 @@ namespace QMC.Vision.Ui.Controls
     /// 데이터(메모리)는 호스트가 보유하고, 본 바는 현재 페이지/페이지 크기만 관리한다.
     /// 페이지·크기 변경 시 <see cref="PageChanged"/> 를 발생시키면, 호스트가
     /// <see cref="PageSlice{T}"/> 로 현재 페이지 구간만 그리드에 바인딩한다(= 한 번에 다 안 그려 버퍼링 방지).
+    /// 레이아웃/컨트롤 = PaginationBar.Designer.cs. 본 파일은 로직(페이지 계산/이벤트)만.
     /// </summary>
-    public class PaginationBar : FlowLayoutPanel
+    public partial class PaginationBar : FlowLayoutPanel
     {
-        private readonly ComboBox _cmbSize = new ComboBox();
-        private readonly Button   _btnFirst = new Button();
-        private readonly Button   _btnPrev  = new Button();
-        private readonly TextBox  _txtPage  = new TextBox();
-        private readonly Button   _btnGo    = new Button();
-        private readonly Label    _lblTotal = new Label();
-        private readonly Button   _btnNext  = new Button();
-        private readonly Button   _btnLast  = new Button();
-
         private int _total;
 
         /// <summary>페이지 또는 페이지 크기 변경 알림(호스트가 현재 페이지 구간을 다시 렌더).</summary>
@@ -29,48 +21,7 @@ namespace QMC.Vision.Ui.Controls
 
         public PaginationBar()
         {
-            Dock = DockStyle.Bottom;
-            Height = 36;
-            WrapContents = false;
-            FlowDirection = FlowDirection.LeftToRight;
-            Padding = new Padding(8, 5, 8, 5);
-
-            _cmbSize.DropDownStyle = ComboBoxStyle.DropDownList;
-            _cmbSize.Width = 90;
-            _cmbSize.Margin = new Padding(2, 2, 12, 2);
-            _cmbSize.Items.AddRange(new object[] { "100행", "200행", "500행", "1000행" });
-            _cmbSize.SelectedIndex = 0;   // 기본 100행(대량 로드 버벅임 방지) — 필요 시 드롭다운으로 확대
-            _cmbSize.SelectedIndexChanged += (s, e) => { CurrentPage = 1; Raise(); };
-
-            InitButton(_btnFirst, "◀◀", () => { CurrentPage = 1; Raise(); });
-            InitButton(_btnPrev,  "◀",  () => { CurrentPage -= 1; Raise(); });
-
-            _txtPage.Width = 48;
-            _txtPage.Margin = new Padding(4, 4, 2, 2);
-            _txtPage.TextAlign = HorizontalAlignment.Center;
-            _txtPage.KeyDown += (s, e) =>
-            {
-                if (e.KeyCode == Keys.Enter) { GoToTyped(); e.SuppressKeyPress = true; }
-            };
-
-            InitButton(_btnGo, "이동", GoToTyped);
-
-            _lblTotal.AutoSize = true;
-            _lblTotal.Margin = new Padding(6, 8, 10, 2);
-            _lblTotal.Text = "/ 1 (0행)";
-
-            InitButton(_btnNext, "▶",  () => { CurrentPage += 1; Raise(); });
-            InitButton(_btnLast, "▶▶", () => { CurrentPage = TotalPages; Raise(); });
-
-            Controls.Add(_cmbSize);
-            Controls.Add(_btnFirst);
-            Controls.Add(_btnPrev);
-            Controls.Add(_txtPage);
-            Controls.Add(_btnGo);
-            Controls.Add(_lblTotal);
-            Controls.Add(_btnNext);
-            Controls.Add(_btnLast);
-
+            InitializeComponent();
             CurrentPage = 1;
             UpdateView();
         }
@@ -129,6 +80,18 @@ namespace QMC.Vision.Ui.Controls
             return all.Skip(start).Take(PageSize);
         }
 
+        // ── 이벤트 핸들러(Designer 에서 배선) ──
+        private void _cmbSize_SelectedIndexChanged(object sender, EventArgs e) { CurrentPage = 1; Raise(); }
+        private void _btnFirst_Click(object sender, EventArgs e) { CurrentPage = 1; Raise(); }
+        private void _btnPrev_Click(object sender, EventArgs e)  { CurrentPage -= 1; Raise(); }
+        private void _btnGo_Click(object sender, EventArgs e)    { GoToTyped(); }
+        private void _btnNext_Click(object sender, EventArgs e)  { CurrentPage += 1; Raise(); }
+        private void _btnLast_Click(object sender, EventArgs e)  { CurrentPage = TotalPages; Raise(); }
+        private void _txtPage_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter) { GoToTyped(); e.SuppressKeyPress = true; }
+        }
+
         private void GoToTyped()
         {
             if (int.TryParse(_txtPage.Text.Trim(), out var p))
@@ -153,15 +116,6 @@ namespace QMC.Vision.Ui.Controls
             _lblTotal.Text = "/ " + TotalPages + " (" + _total + "행)";
             _btnFirst.Enabled = _btnPrev.Enabled = CurrentPage > 1;
             _btnNext.Enabled  = _btnLast.Enabled = CurrentPage < TotalPages;
-        }
-
-        private void InitButton(Button b, string text, Action onClick)
-        {
-            b.Text = text;
-            b.Width = text.Length <= 2 ? 38 : 50;
-            b.Margin = new Padding(2, 2, 2, 2);
-            b.FlatStyle = FlatStyle.System;
-            b.Click += (s, e) => onClick();
         }
     }
 }

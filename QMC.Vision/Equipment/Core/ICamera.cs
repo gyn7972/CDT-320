@@ -59,7 +59,26 @@ namespace QMC.Vision.Core
         /// <summary>백엔드별 원시 파라미터 접근 (GenICam 노드명 등).</summary>
         string GetRawParameter(string key);
         void   SetRawParameter(string key, string value);
+
+        // ─── 제네릭 노드 파라미터 ─────────────────────
+        /// <summary>타입을 명시해 임의 GenICam 노드를 적용한다(노드 카탈로그 기반 설정 적용용).
+        /// 미지원 카메라/노드는 조용히 무시(로그 후)된다.</summary>
+        void SetParameterTyped(string node, CameraParamKind kind, string value);
+
+        // ─── MVS Feature(.mfs) 일괄 적용/저장 ─────────
+        /// <summary>MVS Feature Save 파일(.mfs)의 전체 노드값을 카메라에 일괄 적용. 성공 true.
+        /// 미지원 백엔드는 false + error 반환.</summary>
+        bool LoadFeatures(string filePath, out string error);
+        /// <summary>현재 카메라의 전체 노드값을 MVS Feature Save 파일(.mfs)로 저장. 성공 true.</summary>
+        bool SaveFeatures(string filePath, out string error);
+
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet(플래시)에 영구 저장하고, 부팅 시 로드될 기본 셋으로 지정.
+        /// 전원을 꺼도 유지된다. 미지원 백엔드는 false + error 반환.</summary>
+        bool SaveToCameraUserSet(string userSet, out string error);
     }
 
     public enum CameraConnectionEvent { Opened, Closed, Lost, Reconnected, Error }
+
+    /// <summary>제네릭 카메라 노드 값 타입 — GenICam 노드 set 시 호출 메서드(Float/Int/Enum/Bool/Command) 결정.</summary>
+    public enum CameraParamKind { Float, Int, Enum, Bool, Command }
 }

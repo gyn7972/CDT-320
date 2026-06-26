@@ -22,64 +22,75 @@ namespace QMC.Vision.Core
 
         /// <summary>이물 블롭 검출. radius=커널반경, threshold=Black-Hat 임계, minSize/maxSize=면적[px²], mergeDistance=근접병합 px.</summary>
         public static List<Blob> Detect(byte[] gray, int w, int h, int radius, int threshold, int minSize, int maxSize, int mergeDistance)
+            => Detect(gray, w, h, radius, threshold, minSize, maxSize, mergeDistance, out _);
+
+        /// <summary>위와 동일 + Black-Hat 이진 결과(디버그 단계 이미지용)를 out 으로 반환.</summary>
+        public static List<Blob> Detect(byte[] gray, int w, int h, int radius, int threshold, int minSize, int maxSize, int mergeDistance, out byte[] binary)
         {
+            binary = null;
             if (gray == null || w <= 0 || h <= 0) return new List<Blob>();
             radius = Math.Max(1, radius);
 
             byte[] closing = Erode(Dilate(gray, w, h, radius), w, h, radius);
-            var binary = new byte[gray.Length];
+            var bin = new byte[gray.Length];
             Parallel.For(0, gray.Length, i =>
             {
                 int blackhat = closing[i] - gray[i];      // Black-Hat: 어두운 점일수록 큼
-                binary[i] = (blackhat >= threshold) ? (byte)1 : (byte)0;
+                bin[i] = (blackhat >= threshold) ? (byte)1 : (byte)0;
             });
+            binary = bin;
 
-            var blobs = FindBlobs(binary, w, h, minSize, maxSize);
+            var blobs = FindBlobs(bin, w, h, minSize, maxSize);
             return MergeCloseBlobs(blobs, mergeDistance);
         }
 
+        // CUDA 가용 시 GPU 박스 모폴로지, 아니면 CPU(분리형). 원칙: "CUDA 가능하면 CUDA, 아니면 CPU 폴백".
+        // 박스(정사각) 모폴로지는 가로·세로로 분리 가능 → 1D 슬라이딩 윈도우 최대/최소(단조 deque, 픽셀당 O(1)).
+        // 커널 반경과 무관하게 O(w·h) — naive O(w·h·r²) 대비 r=21 이면 ~1800배 적은 내부연산(TopHatRadius 증가에도 평탄).
+        // 결과는 기존 clamped 박스 모폴로지와 완전히 동일(Python 등가성 검증).
         private static byte[] Dilate(byte[] src, int w, int h, int radius)
         {
+            if (CudaInterop.TryBoxMorph(src, w, h, radius, true, out var gpu)) { GpuBackend.Note("Contamination", ComputeBackend.Cuda); return gpu; }
+            GpuBackend.Note("Contamination", ComputeBackend.Cpu);
+            return SepMorph(src, w, h, radius, true);
+        }
+        private static byte[] Erode(byte[] src, int w, int h, int radius)
+        {
+            if (CudaInterop.TryBoxMorph(src, w, h, radius, false, out var gpu)) { GpuBackend.Note("Contamination", ComputeBackend.Cuda); return gpu; }
+            GpuBackend.Note("Contamination", ComputeBackend.Cpu);
+            return SepMorph(src, w, h, radius, false);
+        }
+
+        private static byte[] SepMorph(byte[] src, int w, int h, int radius, bool isMax)
+        {
+            var tmp = new byte[src.Length];
+            Parallel.For(0, h, y => Line1D(src, tmp, y * w, 1, w, radius, isMax));  // 가로 패스
             var res = new byte[src.Length];
-            Parallel.For(0, h, y =>
-            {
-                int yMin = Math.Max(0, y - radius), yMax = Math.Min(h - 1, y + radius);
-                int rowIndex = y * w;
-                for (int x = 0; x < w; x++)
-                {
-                    int xMin = Math.Max(0, x - radius), xMax = Math.Min(w - 1, x + radius);
-                    byte max = 0;
-                    for (int yy = yMin; yy <= yMax; yy++)
-                    {
-                        int row = yy * w;
-                        for (int xx = xMin; xx <= xMax; xx++) { byte v = src[row + xx]; if (v > max) max = v; }
-                    }
-                    res[rowIndex + x] = max;
-                }
-            });
+            Parallel.For(0, w, x => Line1D(tmp, res, x, w, h, radius, isMax));       // 세로 패스
             return res;
         }
 
-        private static byte[] Erode(byte[] src, int w, int h, int radius)
+        /// <summary>한 라인(baseIdx+stride 간격, n개)에 대해 윈도우 [i-r, i+r](경계 clamp) 최대/최소를 단조 deque 로 O(n) 계산.</summary>
+        private static void Line1D(byte[] src, byte[] dst, int baseIdx, int stride, int n, int r, bool isMax)
         {
-            var res = new byte[src.Length];
-            Parallel.For(0, h, y =>
+            var dq = new int[n];   // 라인 위치 인덱스 deque(앞=현 윈도우의 최댓/최솟값 후보)
+            int head = 0, tail = 0, j = 0;
+            for (int i = 0; i < n; i++)
             {
-                int yMin = Math.Max(0, y - radius), yMax = Math.Min(h - 1, y + radius);
-                int rowIndex = y * w;
-                for (int x = 0; x < w; x++)
+                int hi = Math.Min(n - 1, i + r), lo = Math.Max(0, i - r);
+                while (j <= hi)
                 {
-                    int xMin = Math.Max(0, x - radius), xMax = Math.Min(w - 1, x + radius);
-                    byte min = 255;
-                    for (int yy = yMin; yy <= yMax; yy++)
+                    byte v = src[baseIdx + j * stride];
+                    while (tail > head)
                     {
-                        int row = yy * w;
-                        for (int xx = xMin; xx <= xMax; xx++) { byte v = src[row + xx]; if (v < min) min = v; }
+                        byte b = src[baseIdx + dq[tail - 1] * stride];
+                        if (isMax ? (b <= v) : (b >= v)) tail--; else break;
                     }
-                    res[rowIndex + x] = min;
+                    dq[tail++] = j; j++;
                 }
-            });
-            return res;
+                while (dq[head] < lo) head++;
+                dst[baseIdx + i * stride] = src[baseIdx + dq[head] * stride];
+            }
         }
 
         private static List<Blob> FindBlobs(byte[] binary, int w, int h, int minSize, int maxSize)

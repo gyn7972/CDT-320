@@ -37,9 +37,20 @@ namespace QMC.Vision.Sequencing
         public string ToolId { get; }
         public string Name { get; }
         public bool IsFinder => Cmd == "MATCH";
+        /// <summary>측면(앞/뒤) 검사 INSPECT — 픽커 1~4 분배(핸들러 TCP 픽커 인덱스 모사).</summary>
+        private bool IsSideInspect()
+            => !IsFinder && (Kind == SequenceModuleKind.TopSideVision || Kind == SequenceModuleKind.BottomSideVision);
+
+        private bool IsBottomInspect()
+            => !IsFinder && Kind == SequenceModuleKind.BottomInspection;
 
         public SequenceRunMode Mode { get; private set; } = SequenceRunMode.Auto;
         public int CycleIntervalMs { get; set; } = 500;
+
+        // 측면 시뮬: 다이 인덱스(실제는 핸들러가 부여). X 고정 + Y 증가로 운영뷰처럼 다이 누적.
+        private const int DieIndexX = 27;
+        private int _dieSeq;
+        private int _curPicker, _curDie;   // 직전 스텝의 픽업/다이(로그 표시용)
 
         /// <summary>직전 사이클 소요(ms).</summary>
         public double LastCycleMs { get; private set; }
@@ -97,7 +108,39 @@ namespace QMC.Vision.Sequencing
 
                 ct.ThrowIfCancellationRequested();
                 string[] args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
-                string result = Context.Dispatch(Module, Cmd, args);
+
+                string result;
+                if (IsSideInspect())
+                {
+                    // 실제 동작: 픽업 4열이 X로 지나가며 한 스텝에 픽업 1개를 찍는다(다음 스텝 = 다음 픽업).
+                    // 그 픽업을 Front/Back 카메라가 "동시" 촬영하고 각 카메라가 채널 0°/90° 2장 → 이 모듈은 ch1(0°)+ch2(90°).
+                    int baseCh = (Kind == SequenceModuleKind.BottomSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
+                    int dieY = ++_dieSeq;                       // 이번 스텝 = 다이 1개(X 고정/Y 증가)
+                    int picker = ((dieY - 1) % 4) + 1;          // 픽업 1→2→3→4 순환(4열을 차례로 통과)
+                    _curPicker = picker; _curDie = dieY;        // 로그 표시용
+                    string last = null;
+                    for (int chOff = 0; chOff <= 1 && !ct.IsCancellationRequested; chOff++)   // ch1(0°)→ch2(90°)
+                    {
+                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, baseCh + chOff, DieIndexX, dieY);
+                        last = Context.Dispatch(Module, Cmd, args);   // INSPECT=GrabForTool(채널별 시뮬 이미지)+검사
+                    }
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
+                    result = last;
+                }
+                else if (IsBottomInspect())
+                {
+                    // 바텀도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 운영뷰 맵/그리드가 픽업별로 누적되도록 컨텍스트 부여.
+                    int dieY = ++_dieSeq;
+                    int picker = ((dieY - 1) % 4) + 1;
+                    _curPicker = picker; _curDie = dieY;
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, -1, DieIndexX, dieY);
+                    result = Context.Dispatch(Module, Cmd, args);
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
+                }
+                else
+                {
+                    result = Context.Dispatch(Module, Cmd, args);
+                }
                 LastResult = result ?? string.Empty;
 
                 int rc = Judge(result);
@@ -144,13 +187,15 @@ namespace QMC.Vision.Sequencing
             }
             // 4) 정상.
             Status = "OK";
-            if (Mode != SequenceRunMode.Auto) Log("OK (" + Trim(result) + ")");   // Auto 는 정상 로그 생략
+            Log("OK (" + Trim(result) + ")");   // 정상 로그도 표시(Auto 포함). 추후 On/Off 토글로 제어 예정
             return 0;
         }
 
         private void Log(string verdict)
         {
-            string line = "[SEQ-" + Name + "] " + (IsFinder ? "MATCH" : "INSPECT") + " " + ToolId + " → " + verdict;
+            // 측면 INSPECT 는 어떤 픽업/다이였는지 함께 표시(운영뷰 대응).
+            string pk = (IsSideInspect() || IsBottomInspect()) ? " [Picker " + _curPicker + " / Die " + _curDie + "]" : "";
+            string line = "[SEQ-" + Name + "] " + (IsFinder ? "MATCH" : "INSPECT") + " " + ToolId + pk + " → " + verdict;
             WriteLog(Name, line);
             Context.LogPublic(line);
         }

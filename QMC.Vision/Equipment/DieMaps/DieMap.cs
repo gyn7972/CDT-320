@@ -1,0 +1,71 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace QMC.Vision.DieMaps
+{
+    /// <summary>다이 검사 결과(핸들러 QMC.CDT320.Materials.DieResult 이식).</summary>
+    [DataContract]
+    public enum DieResult
+    {
+        [EnumMember] Unknown,
+        [EnumMember] Good,
+        [EnumMember] NG
+    }
+
+    /// <summary>다이 맵의 한 셀(핸들러 QMC.CDT320.DieMaps.DieMapEntry 이식).</summary>
+    [DataContract]
+    public class DieMapEntry
+    {
+        [DataMember] public int Index { get; set; }
+
+        /// <summary>픽업/공정 순번. 1부터 시작, 0이면 순번 미지정 또는 비대상.</summary>
+        [DataMember] public int SequenceNo { get; set; }
+
+        [DataMember] public int DieMapX { get; set; }
+        [DataMember] public int DieMapY { get; set; }
+
+        /// <summary>true 면 이 위치는 처리 대상(good die candidate).</summary>
+        [DataMember] public bool IsTarget { get; set; } = true;
+
+        [DataMember] public DieResult Result { get; set; } = DieResult.Unknown;
+        [DataMember] public int BinCode { get; set; } = 0;
+
+        /// <summary>모터 좌표(mm).</summary>
+        [DataMember] public double PosX { get; set; }
+        [DataMember] public double PosY { get; set; }
+
+        /// <summary>해당 셀에 매핑된 Die.Uid(없으면 빈 문자열).</summary>
+        [DataMember] public string DieUid { get; set; } = "";
+    }
+
+    /// <summary>웨이퍼 다이 맵(핸들러 QMC.CDT320.DieMaps.DieMap 이식).</summary>
+    [DataContract]
+    public class DieMap
+    {
+        [DataMember] public string FrameObjId { get; set; } = "";
+        [DataMember] public int DieMapX { get; set; }
+        [DataMember] public int DieMapY { get; set; }
+        [DataMember] public double PitchX { get; set; }
+        [DataMember] public double PitchY { get; set; }
+        [DataMember] public double OriginX { get; set; }
+        [DataMember] public double OriginY { get; set; }
+        [DataMember] public List<DieMapEntry> Entries { get; set; } = new List<DieMapEntry>();
+        [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public int TotalCells => DieMapX * DieMapY;
+
+        /// <summary>(gx, gy) 셀을 가져옴(없으면 null).</summary>
+        public DieMapEntry GetCell(int gx, int gy)
+        {
+            if (Entries == null) return null;
+            foreach (var e in Entries)
+                if (e != null && e.DieMapX == gx && e.DieMapY == gy) return e;
+            return null;
+        }
+
+        /// <summary>인덱스 i 셀.</summary>
+        public DieMapEntry GetByIndex(int i)
+            => (Entries != null && i >= 0 && i < Entries.Count) ? Entries[i] : null;
+    }
+}
