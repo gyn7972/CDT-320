@@ -137,12 +137,12 @@ namespace QMC.CDT320.Calibration
             switch (channel)
             {
                 case AutoVisionChannel.Wafer:
-                    offsetX -= data.InputToBottomOffsetX;
-                    offsetY -= data.InputToBottomOffsetY;
+                    offsetX += data.InputToBottomOffsetX;
+                    offsetY += data.InputToBottomOffsetY;
                     break;
                 case AutoVisionChannel.Bin:
-                    offsetX -= data.OutputToBottomOffsetX;
-                    offsetY -= data.OutputToBottomOffsetY;
+                    offsetX += data.OutputToBottomOffsetX;
+                    offsetY += data.OutputToBottomOffsetY;
                     break;
             }
         }

@@ -25,6 +25,7 @@ namespace QMC.CDT320.VisionComm
         FocusStart,
         FocusValue,
         FocusBest,
+        CameraSetting,
         Recipe
     }
 
@@ -47,6 +48,7 @@ namespace QMC.CDT320.VisionComm
         public const string FocusStart = "FOCUS_START";
         public const string FocusValue = "FOCUS_VAL";
         public const string FocusBest = "FOCUS_BEST";
+        public const string CameraSetting = "CAM_SETTING";
         public const string Recipe = "RECIPE";
 
         public static string ToText(VisionProtocolCommand command)
@@ -87,6 +89,8 @@ namespace QMC.CDT320.VisionComm
                     return FocusValue;
                 case VisionProtocolCommand.FocusBest:
                     return FocusBest;
+                case VisionProtocolCommand.CameraSetting:
+                    return CameraSetting;
                 case VisionProtocolCommand.Recipe:
                     return Recipe;
                 default:
@@ -134,6 +138,10 @@ namespace QMC.CDT320.VisionComm
                 return VisionProtocolCommand.FocusValue;
             if (string.Equals(value, FocusBest, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.FocusBest;
+            if (string.Equals(value, CameraSetting, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "CAMERA_SETTING", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "CAM_SETTING_REQ", StringComparison.OrdinalIgnoreCase))
+                return VisionProtocolCommand.CameraSetting;
             if (string.Equals(value, Recipe, StringComparison.OrdinalIgnoreCase))
                 return VisionProtocolCommand.Recipe;
 
@@ -477,6 +485,38 @@ namespace QMC.CDT320.VisionComm
             response.TryGetDoubleAny(out var scaleY, "scaleY", "scale_y", "sy", "pixelToMmY", "pixel_to_mm_y", "resolutionY", "resY");
             result.ScaleX = scaleX;
             result.ScaleY = scaleY;
+            return result;
+        }
+    }
+
+    public sealed class VisionCameraSettingResult
+    {
+        public bool Success { get; set; }
+        public double WidthPixel { get; set; }
+        public double HeightPixel { get; set; }
+        public double ScaleX { get; set; }
+        public double ScaleY { get; set; }
+        public string Raw { get; set; }
+
+        public static VisionCameraSettingResult Parse(string line)
+        {
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            var result = new VisionCameraSettingResult();
+            result.Success = response.IsAck && response.IsResult("OK");
+            result.Raw = line;
+
+            response.TryGetDoubleAny(out var width, "w", "width", "imageW", "imageWidth", "image_width", "imgW");
+            response.TryGetDoubleAny(out var height, "h", "height", "imageH", "imageHeight", "image_height", "imgH");
+            response.TryGetDoubleAny(out var scaleX, "scaleX", "scale_x", "sx", "pixelToMmX", "pixel_to_mm_x", "mmPerPixelX", "mm_per_pixel_x", "resolutionX", "resX");
+            response.TryGetDoubleAny(out var scaleY, "scaleY", "scale_y", "sy", "pixelToMmY", "pixel_to_mm_y", "mmPerPixelY", "mm_per_pixel_y", "resolutionY", "resY");
+
+            result.WidthPixel = width;
+            result.HeightPixel = height;
+            result.ScaleX = scaleX;
+            result.ScaleY = scaleY;
+            if (result.Success && (result.WidthPixel <= 0 || result.HeightPixel <= 0 || result.ScaleX == 0 || result.ScaleY == 0))
+                result.Success = false;
+
             return result;
         }
     }

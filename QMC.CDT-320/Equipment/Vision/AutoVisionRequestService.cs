@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
@@ -23,7 +24,8 @@ namespace QMC.CDT320.VisionComm
             {
                 ct.ThrowIfCancellationRequested();
 
-                // DryRun은 GRAB만 실제 요청하고 결과 요청은 생략한다. Simulation/Bypass/비전 미사용은 GRAB도 생략한다.
+                // Simulation/Bypass/UseVision=false는 Vision 요청 자체를 생략한다.
+                // DryRun은 실제 Vision 연결이 있으면 GRAB만 요청하고 결과 요청은 생략한다.
                 if (IsSimulationVisionBypassed() || IsVisionDisabled())
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-BYPASS",
@@ -34,13 +36,13 @@ namespace QMC.CDT320.VisionComm
                 if (IsDryRunMode())
                     return RunDryRunGrabAsync(channel, index, timeoutMs, ct);
 
-                if (!IsReady(channel, "GRAB", string.Empty, index))
+                if (!IsReady(channel, VisionProtocolCommand.Grab, string.Empty, index))
                     return Task.FromResult(false);
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB",
                     "Vision GRAB 요청. channel=" + channel + ", index=" + index + ", timeoutMs=" + timeoutMs);
 
-                return VisionCommandService.ExposeAsync(channel, index, timeoutMs, ct);
+                return VisionCommandService.GrabAsync(channel, index, timeoutMs, ct);
             }
             catch (OperationCanceledException)
             {
@@ -71,7 +73,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassMatchResult(channel, finder, index);
 
-                if (!IsReady(channel, "MATCH", finder, index))
+                if (!IsReady(channel, VisionProtocolCommand.Match, finder, index))
                     return BuildMatchFailure("Vision client is not connected.");
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH",
@@ -95,8 +97,8 @@ namespace QMC.CDT320.VisionComm
                         "Vision MATCH 완료. channel=" + channel +
                         ", finder=" + finder +
                         ", index=" + index +
-                        ", x=" + result.X.ToString("F6") +
-                        ", y=" + result.Y.ToString("F6") +
+                        ", pixelX=" + result.X.ToString("F6") +
+                        ", pixelY=" + result.Y.ToString("F6") +
                         ", t=" + result.AngleDeg.ToString("F6") +
                         ", score=" + result.Score.ToString("F6"));
                 }
@@ -121,6 +123,98 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        public static async Task<VisionAlignResult> MatchAlignAsync(
+            AutoVisionChannel channel,
+            string finder,
+            int index,
+            double pitchMm,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return BuildBypassAlignResult(channel, finder, index, pitchMm);
+
+                MatchResultDto match = await MatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                VisionAlignResult align = VisionCameraCalibrationTransform.ToAlignResult(channel, match, pitchMm);
+                if (align == null)
+                    return null;
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL",
+                    "Vision MATCH 보정 완료. channel=" + channel +
+                    ", finder=" + finder +
+                    ", index=" + index +
+                    ", dxMm=" + align.DeltaX.ToString("F6") +
+                    ", dyMm=" + align.DeltaY.ToString("F6") +
+                    ", dt=" + align.DeltaTheta.ToString("F6"));
+                return align;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH-CAL-EX",
+                    "Vision MATCH 보정 예외 발생. channel=" + channel +
+                    ", finder=" + finder +
+                    ", index=" + index +
+                    ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static async Task<BottomVisionOffset> MatchBottomOffsetAsync(
+            int pickerNo,
+            string finder,
+            int index,
+            double scoreThreshold,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return new BottomVisionOffset { PickerNo = pickerNo, OffsetX = 0.0, OffsetY = 0.0, OffsetT = 0.0, IsOk = true };
+
+                MatchResultDto match = await MatchAsync(AutoVisionChannel.Bottom, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, match, scoreThreshold);
+                if (offset != null)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-CAL",
+                        "Bottom Vision 보정 완료. pickerNo=" + pickerNo +
+                        ", index=" + index +
+                        ", ok=" + offset.IsOk +
+                        ", dxMm=" + offset.OffsetX.ToString("F6") +
+                        ", dyMm=" + offset.OffsetY.ToString("F6") +
+                        ", dt=" + offset.OffsetT.ToString("F6"));
+                }
+
+                return offset;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-BOTTOM-CAL-EX",
+                    "Bottom Vision 보정 예외 발생. pickerNo=" + pickerNo + ", index=" + index + ", error=" + ex.Message);
+                return new BottomVisionOffset { PickerNo = pickerNo, IsOk = false };
+            }
+            finally
+            {
+            }
+        }
+
         public static async Task<InspectionResultDto> InspectAsync(
             AutoVisionChannel channel,
             string inspector,
@@ -135,7 +229,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassInspectionResult(channel, inspector, index);
 
-                if (!IsReady(channel, "INSPECT", inspector, index))
+                if (!IsReady(channel, VisionProtocolCommand.Inspect, inspector, index))
                     return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
@@ -160,8 +254,8 @@ namespace QMC.CDT320.VisionComm
                         ", inspector=" + inspector +
                         ", index=" + index +
                         ", pass=" + result.IsPass +
-                        ", offsetX=" + result.OffsetX.ToString("F6") +
-                        ", offsetY=" + result.OffsetY.ToString("F6") +
+                        ", pixelX=" + result.OffsetX.ToString("F6") +
+                        ", pixelY=" + result.OffsetY.ToString("F6") +
                         ", offsetT=" + result.OffsetT.ToString("F6") +
                         ", score=" + result.Score.ToString("F6"));
                 }
@@ -176,6 +270,53 @@ namespace QMC.CDT320.VisionComm
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
                     "Vision INSPECT 예외 발생. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", index=" + index +
+                    ", error=" + ex.Message);
+                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+            }
+            finally
+            {
+            }
+        }
+
+        public static async Task<InspectionResultDto> InspectCalibratedAsync(
+            AutoVisionChannel channel,
+            string inspector,
+            int index,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return BuildBypassInspectionResult(channel, inspector, index);
+
+                InspectionResultDto raw = await InspectAsync(channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
+                InspectionResultDto calibrated = VisionCameraCalibrationTransform.ToInspectionResult(channel, raw);
+                if (calibrated != null && calibrated.HasOffset)
+                {
+                    EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-CAL",
+                        "Vision INSPECT 보정 완료. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", index=" + index +
+                        ", offsetXmm=" + calibrated.OffsetX.ToString("F6") +
+                        ", offsetYmm=" + calibrated.OffsetY.ToString("F6") +
+                        ", offsetT=" + calibrated.OffsetT.ToString("F6"));
+                }
+
+                return calibrated;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT-CAL-EX",
+                    "Vision INSPECT 보정 예외 발생. channel=" + channel +
                     ", inspector=" + inspector +
                     ", index=" + index +
                     ", error=" + ex.Message);
@@ -201,14 +342,14 @@ namespace QMC.CDT320.VisionComm
             };
         }
 
-        private static bool IsReady(AutoVisionChannel channel, string command, string toolName, int index)
+        private static bool IsReady(AutoVisionChannel channel, VisionProtocolCommand command, string toolName, int index)
         {
             if (VisionCommandService.IsConnected(channel))
                 return true;
 
             EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-NOT-CONNECTED",
                 "Vision 연결이 없어 요청을 수행할 수 없습니다. channel=" + channel +
-                ", command=" + command +
+                ", command=" + VisionProtocolCommands.ToText(command) +
                 ", tool=" + toolName +
                 ", index=" + index);
             return false;
@@ -237,7 +378,7 @@ namespace QMC.CDT320.VisionComm
                     ", index=" + index +
                     ", timeoutMs=" + timeoutMs);
 
-                bool result = await VisionCommandService.ExposeAsync(channel, index, timeoutMs, ct).ConfigureAwait(false);
+                bool result = await VisionCommandService.GrabAsync(channel, index, timeoutMs, ct).ConfigureAwait(false);
                 if (!result)
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-GRAB-DRYRUN-FAIL",
@@ -276,7 +417,7 @@ namespace QMC.CDT320.VisionComm
             return settings != null && settings.DryRunMode;
         }
 
-        /// <summary>비전 미사용 설정(UseVision=false)일 때 연결/요청 없이 통과 처리한다.</summary>
+        /// <summary>비전 미사용 설정(UseVision=false)에서는 연결/요청 없이 통과 처리한다.</summary>
         private static bool IsVisionDisabled()
         {
             AppSettings settings = AppSettingsStore.Current;
@@ -311,7 +452,27 @@ namespace QMC.CDT320.VisionComm
                 Y = 240.0,
                 AngleDeg = 0.0,
                 Score = 1.0,
+                HasImageSize = true,
+                ImageWidthPixel = 640.0,
+                ImageHeightPixel = 480.0,
                 RawError = "BYPASS:SimulationOrDryRun"
+            };
+        }
+
+        private static VisionAlignResult BuildBypassAlignResult(AutoVisionChannel channel, string finder, int index, double pitchMm)
+        {
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL-BYPASS",
+                BypassReason() + " Vision MATCH 보정을 0으로 통과합니다. channel=" + channel +
+                ", finder=" + finder +
+                ", index=" + index);
+
+            return new VisionAlignResult
+            {
+                DeltaX = 0.0,
+                DeltaY = 0.0,
+                DeltaTheta = 0.0,
+                PitchX = pitchMm,
+                PitchY = pitchMm
             };
         }
 

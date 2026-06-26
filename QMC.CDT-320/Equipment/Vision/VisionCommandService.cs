@@ -181,6 +181,16 @@ namespace QMC.CDT320.VisionComm
             return VisionScaleResult.Parse(response.RawLine);
         }
 
+        public static async Task<VisionCameraSettingResult> CameraSettingAsync(AutoVisionChannel channel, int timeoutMs, CancellationToken ct)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            if (client == null)
+                return new VisionCameraSettingResult { Success = false, Raw = "Vision client is null." };
+
+            VisionProtocolResponse response = await client.SendCommandAsync(VisionProtocolCommand.CameraSetting, timeoutMs, ct).ConfigureAwait(false);
+            return VisionCameraSettingResult.Parse(response.RawLine);
+        }
+
         public static async Task<VisionRotationCenterResult> RotationCenterAsync(AutoVisionChannel channel, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);

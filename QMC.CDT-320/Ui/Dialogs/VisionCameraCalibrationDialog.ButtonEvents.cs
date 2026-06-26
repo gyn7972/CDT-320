@@ -18,12 +18,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnFindInput_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("FIND INPUT", ct => Sequence.FindInputReticleAsync(ct), ManualCalibrationReadinessTarget.Input);
+            _ = RunOperationAsync("FIND INPUT", ct => Sequence.PrepareAndFindInputReticleAsync(ct));
         }
 
         private void btnFindOutput_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("FIND OUTPUT", ct => Sequence.FindOutputReticleAsync(ct), ManualCalibrationReadinessTarget.Output);
+            _ = RunOperationAsync("FIND OUTPUT", ct => Sequence.PrepareAndFindOutputReticleAsync(ct));
         }
 
         private void btnRetractReticle_Click(object sender, EventArgs e)

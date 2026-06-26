@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Settings
+﻿namespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class SimulatorLinkPage
     {
@@ -57,7 +57,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1416, 980);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -68,7 +68,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1400, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1662, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "SIMULATOR";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -78,11 +78,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpLink.Controls.Add(this.linkLayout);
             this.grpLink.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLink.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpLink.Location = new System.Drawing.Point(8, 40);
+            this.grpLink.Location = new System.Drawing.Point(8, 38);
             this.grpLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpLink.Name = "grpLink";
             this.grpLink.Padding = new System.Windows.Forms.Padding(10);
-            this.grpLink.Size = new System.Drawing.Size(1400, 292);
+            this.grpLink.Size = new System.Drawing.Size(1662, 292);
             this.grpLink.TabIndex = 1;
             this.grpLink.TabStop = false;
             this.grpLink.Text = "Simulator";
@@ -104,13 +104,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.linkLayout.Controls.Add(this._lblStatus, 1, 1);
             this.linkLayout.Controls.Add(this._txtLog, 0, 2);
             this.linkLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.linkLayout.Location = new System.Drawing.Point(10, 33);
+            this.linkLayout.Location = new System.Drawing.Point(10, 28);
             this.linkLayout.Name = "linkLayout";
             this.linkLayout.RowCount = 3;
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.linkLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.linkLayout.Size = new System.Drawing.Size(1380, 249);
+            this.linkLayout.Size = new System.Drawing.Size(1642, 254);
             this.linkLayout.TabIndex = 0;
             // 
             // lblHost
@@ -130,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._tbHost.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbHost.Location = new System.Drawing.Point(83, 3);
             this._tbHost.Name = "_tbHost";
-            this._tbHost.Size = new System.Drawing.Size(174, 27);
+            this._tbHost.Size = new System.Drawing.Size(174, 23);
             this._tbHost.TabIndex = 1;
             this._tbHost.Text = "127.0.0.1";
             // 
@@ -151,7 +151,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._tbPort.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this._tbPort.Location = new System.Drawing.Point(333, 3);
             this._tbPort.Name = "_tbPort";
-            this._tbPort.Size = new System.Drawing.Size(94, 27);
+            this._tbPort.Size = new System.Drawing.Size(94, 23);
             this._tbPort.TabIndex = 3;
             this._tbPort.Text = "7001";
             // 
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this._btnConnect.Location = new System.Drawing.Point(433, 3);
             this._btnConnect.Name = "_btnConnect";
-            this._btnConnect.Size = new System.Drawing.Size(944, 34);
+            this._btnConnect.Size = new System.Drawing.Size(1206, 34);
             this._btnConnect.TabIndex = 4;
             this._btnConnect.Text = "CONNECT";
             // 
@@ -185,7 +185,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._lblStatus.ForeColor = System.Drawing.Color.IndianRed;
             this._lblStatus.Location = new System.Drawing.Point(83, 40);
             this._lblStatus.Name = "_lblStatus";
-            this._lblStatus.Size = new System.Drawing.Size(1294, 36);
+            this._lblStatus.Size = new System.Drawing.Size(1556, 36);
             this._lblStatus.TabIndex = 6;
             this._lblStatus.Text = "Disconnected";
             this._lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -200,7 +200,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._txtLog.Location = new System.Drawing.Point(3, 79);
             this._txtLog.Name = "_txtLog";
             this._txtLog.ReadOnly = true;
-            this._txtLog.Size = new System.Drawing.Size(1374, 167);
+            this._txtLog.Size = new System.Drawing.Size(1636, 172);
             this._txtLog.TabIndex = 7;
             this._txtLog.Text = "";
             this._txtLog.WordWrap = false;

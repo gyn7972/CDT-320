@@ -1,11 +1,13 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Equipment.Vision;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -78,11 +80,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void ApplyRuntimeUi()
         {
-            lblHeader.Text = Lang.T("set.simulator");
-            lblHeader.Tag = "i18n:set.simulator";
+            lblHeader.Text = Lang.T("set.visionLink");
+            lblHeader.Tag = "i18n:set.visionLink";
             lblHeader.BackColor = UiTheme.StatusBarBg;
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
+
+            grpLink.Text = "TCP 포트 / 상태 (명령=Handler ↔ Vision, Viewer=영상 스트림)";
+            grpLog.Text = "통신 로그 (TX / RX / EPD / ARM)";
+            lblColModule.Text = "Module";
+            lblColCmd.Text = "Command Port";
+            lblColViewer.Text = "Viewer Port";
+            lblColStatus.Text = "Status";
+            lblColRx.Text = "RX";
+            lblColViewerStatus.Text = "Viewer Status";
+            _btnClearLog.Text = "CLEAR LOG";
+            _btnCameraScale.Text = "CAMERA SCALE SETUP";
         }
 
         private void LoadSettings()
@@ -103,6 +116,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _tbBotV.Text   = cfg.VisionBottomSideViewerPort.ToString();
 
             _cbAuto.Checked = cfg.VisionAutoConnect;
+        }
+
+        private void _btnCameraScale_Click(object sender, EventArgs e)
+        {
+            VisionCameraScaleDialog.Open(this);
         }
 
         private void WireEvents()
@@ -160,6 +178,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private static int ParsePort(TextBox tb, int fallback)
             => int.TryParse(tb.Text, out var p) && p > 0 && p < 65536 ? p : fallback;
+
+        private Form1 FindHostForm()
+        {
+            try
+            {
+                foreach (Form form in Application.OpenForms)
+                {
+                    Form1 host = form as Form1;
+                    if (host != null)
+                        return host;
+                }
+
+                return FindForm() as Form1;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
 
         private async Task DoPing()
         {

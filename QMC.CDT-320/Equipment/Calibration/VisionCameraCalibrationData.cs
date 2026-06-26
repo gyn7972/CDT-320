@@ -155,10 +155,10 @@ namespace QMC.CDT320.Calibration
                 return false;
             }
 
-            InputToBottomOffsetX = InputReticle.MmX - BottomReticle.MmX;
-            InputToBottomOffsetY = InputReticle.MmY - BottomReticle.MmY;
-            OutputToBottomOffsetX = OutputReticle.MmX - BottomReticle.MmX;
-            OutputToBottomOffsetY = OutputReticle.MmY - BottomReticle.MmY;
+            InputToBottomOffsetX = BottomReticle.MmX - InputReticle.MmX;
+            InputToBottomOffsetY = BottomReticle.MmY - InputReticle.MmY;
+            OutputToBottomOffsetX = BottomReticle.MmX - OutputReticle.MmX;
+            OutputToBottomOffsetY = BottomReticle.MmY - OutputReticle.MmY;
             UpdatedAt = DateTime.Now;
             UpdatedBy = updatedBy ?? string.Empty;
             Valid = true;

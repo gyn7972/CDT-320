@@ -33,17 +33,15 @@ namespace QMC.CDT320.Sequencing.Calibration
         private const string ReticleFinderName = "ReticleFinder";
         private const int ReticleFindRetryCount = 3;
         private const int CalibrationMotionTimeoutMs = 10000;
+        private const double CalibrationAxisTolerance = 0.01;
         private readonly CDT320_Machine _machine;
-        private readonly Action _saveSettings;
         private readonly Func<string> _userNameProvider;
 
         public VisionCameraCalibrationSequence(
             CDT320_Machine machine,
-            Action saveSettings,
             Func<string> userNameProvider)
         {
             _machine = machine;
-            _saveSettings = saveSettings;
             _userNameProvider = userNameProvider;
         }
 
@@ -334,6 +332,47 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        public async Task<int> PrepareAndFindInputReticleAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = CheckUnit();
+                if (result != 0)
+                    return result;
+
+                result = await EnsureOutputVisionAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsurePickersOutputAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureReticleBottomReadyAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputCameraToReticleAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await FindInputReticleAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-CAMERA-CAL-INPUT-PREP-FIND-EX", "VisionCameraCalibrationSequence", "Input 카메라 Reticle 측정 준비/촬영 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> FindOutputReticleAsync(CancellationToken ct)
         {
             try
@@ -370,6 +409,47 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        public async Task<int> PrepareAndFindOutputReticleAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = CheckUnit();
+                if (result != 0)
+                    return result;
+
+                result = await EnsureInputVisionAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsurePickersInputAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureReticleBottomReadyAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveOutputCameraToReticleAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await FindOutputReticleAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-CAMERA-CAL-OUTPUT-PREP-FIND-EX", "VisionCameraCalibrationSequence", "Output 카메라 Reticle 측정 준비/촬영 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public int CalculateCalibration()
         {
             try
@@ -382,9 +462,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return Fail("VISION-CAMERA-CAL-CALC", "VisionUnit", "Vision Camera Calibration 계산 실패. Bottom/Input/Output Reticle Mark 측정값이 모두 필요합니다.");
 
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-CALC",
-                    "Vision Camera Calibration 계산 완료. InputOffset=(" +
+                    "Vision Camera Calibration 계산 완료. Bottom-InputOffset=(" +
                     CalibrationData.InputToBottomOffsetX.ToString("F6") + "," +
-                    CalibrationData.InputToBottomOffsetY.ToString("F6") + "), OutputOffset=(" +
+                    CalibrationData.InputToBottomOffsetY.ToString("F6") + "), Bottom-OutputOffset=(" +
                     CalibrationData.OutputToBottomOffsetX.ToString("F6") + "," +
                     CalibrationData.OutputToBottomOffsetY.ToString("F6") + ")");
                 return 0;
@@ -409,7 +489,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (!CalibrationData.Valid)
                     return Fail("VISION-CAMERA-CAL-SAVE-NOT-VALID", "VisionUnit", "Vision Camera Calibration 저장 불가: 계산 완료된 유효 데이터가 없습니다.");
 
-                SaveMachineSettings();
+                if (!SaveMachineSettings())
+                    return Fail("VISION-CAMERA-CAL-SAVE-FAIL", "VisionUnit", "Vision Camera Calibration 저장 실패: VisionUnit Config 파일 저장에 실패했습니다.");
+
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SAVE", "Vision Camera Calibration 데이터를 VisionUnit Config에 저장했습니다.");
                 return 0;
             }
@@ -467,14 +549,32 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private Task<int> MoveInputCameraToReticleAsync(CancellationToken ct)
+        private async Task<int> MoveInputCameraToReticleAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-INPUT-MOVE-SKIP",
-                    "Input 카메라 Reticle 자동 이동은 아직 보류합니다. Input 카메라가 Reticle Mark를 볼 수 있는 위치에서 측정합니다.");
-                return Task.FromResult(0);
+
+                InputStageUnit stage = _machine != null ? _machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+                    return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-MISSING", "InputStageUnit", "InputVisionX Reticle 위치 이동을 위한 축/Recipe 정보가 없습니다.");
+
+                double target = stage.Recipe.VisionX.ReticlePosition;
+                if (IsAxisInPosition(stage.CameraX, target))
+                    return 0;
+
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, true).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-MOVE", "InputStageUnit", "InputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
+
+                int wait = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, CalibrationMotionTimeoutMs, ct).ConfigureAwait(false);
+                if (wait != 0)
+                    return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-WAIT", "InputStageUnit", "InputVisionX Reticle 위치 이동 완료 확인 실패. result=" + wait + ", target=" + target.ToString("F3"));
+
+                if (!IsAxisInPosition(stage.CameraX, target))
+                    return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-CHECK", "InputStageUnit", "InputVisionX Reticle 최종 위치 확인 실패. actual=" + stage.CameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
+
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -482,21 +582,39 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail("VISION-CAMERA-CAL-INPUT-MOVE-EX", "InputStageUnit", "Input 카메라 Reticle 이동 준비 예외 발생: " + ex.Message));
+                return Fail("VISION-CAMERA-CAL-INPUT-MOVE-EX", "InputStageUnit", "Input 카메라 Reticle 이동 준비 예외 발생: " + ex.Message);
             }
             finally
             {
             }
         }
 
-        private Task<int> MoveOutputCameraToReticleAsync(CancellationToken ct)
+        private async Task<int> MoveOutputCameraToReticleAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-OUTPUT-MOVE-SKIP",
-                    "Output 카메라 Reticle 자동 이동은 아직 보류합니다. Output 카메라가 Reticle Mark를 볼 수 있는 위치에서 측정합니다.");
-                return Task.FromResult(0);
+
+                OutputStageUnit stage = _machine != null ? _machine.OutputStageUnit : null;
+                if (stage == null || stage.OutputCameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+                    return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MISSING", "OutputStageUnit", "OutputVisionX Reticle 위치 이동을 위한 축/Recipe 정보가 없습니다.");
+
+                double target = stage.Recipe.VisionX.ReticlePosition;
+                if (IsAxisInPosition(stage.OutputCameraX, target))
+                    return 0;
+
+                int result = await stage.MoveStageAxis(BinStageAxis.VisionX, target, true).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MOVE", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
+
+                AxisMoveWaitResult wait = await stage.WaitStageAxisMoveDoneInPosition(BinStageAxis.VisionX, target, CalibrationMotionTimeoutMs, ct).ConfigureAwait(false);
+                if (wait == null || !wait.Success)
+                    return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-WAIT", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 완료 확인 실패. target=" + target.ToString("F3"));
+
+                if (!IsAxisInPosition(stage.OutputCameraX, target))
+                    return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-CHECK", "OutputStageUnit", "OutputVisionX Reticle 최종 위치 확인 실패. actual=" + stage.OutputCameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
+
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -504,7 +622,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail("VISION-CAMERA-CAL-OUTPUT-MOVE-EX", "OutputStageUnit", "Output 카메라 Reticle 이동 준비 예외 발생: " + ex.Message));
+                return Fail("VISION-CAMERA-CAL-OUTPUT-MOVE-EX", "OutputStageUnit", "Output 카메라 Reticle 이동 준비 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -645,6 +763,66 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        private async Task<int> EnsurePickersInputAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (_machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null)
+                    return Fail("VISION-CAMERA-CAL-PICKER-MISSING", "PickerUnit", "Picker Input-side Avoid 이동을 위한 Picker Unit이 없습니다.");
+
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerLoadPosition(true);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerLoadPosition(true);
+                int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+                if (results[0] != 0 || results[1] != 0)
+                    return Fail("VISION-CAMERA-CAL-PICKER-INPUT-AVOID", "PickerUnit", "Picker Input-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);
+
+                ct.ThrowIfCancellationRequested();
+                if (!_machine.PickerFrontUnit.IsPickerInLoadPosition() || !_machine.PickerRearUnit.IsPickerInLoadPosition())
+                    return Fail("VISION-CAMERA-CAL-PICKER-INPUT-CHECK", "PickerUnit", "Picker Input-side Avoid 최종 위치 확인 실패. front=" + _machine.PickerFrontUnit.IsPickerInLoadPosition() + ", rear=" + _machine.PickerRearUnit.IsPickerInLoadPosition());
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-CAMERA-CAL-PICKER-INPUT-EX", "PickerUnit", "Picker Input-side Avoid 이동 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureReticleBottomReadyAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                VisionUnit vision = _machine != null ? _machine.VisionUnit : null;
+                if (vision == null)
+                    return Fail("VISION-CAMERA-CAL-RETICLE-NO-VISION", "VisionUnit", "Reticle 준비 상태 확인을 위한 VisionUnit이 없습니다.");
+
+                if (IsReticleBottomReady(vision))
+                    return 0;
+
+                return await DeployReticleToBottomCameraAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-CAMERA-CAL-RETICLE-READY-EX", "VisionUnit", "Reticle Bottom 준비 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> DeployReticleToBottomCameraAsync(CancellationToken ct)
         {
             try
@@ -771,6 +949,24 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        private static bool IsAxisInPosition(BaseAxis axis, double target)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                return Math.Abs(axis.ActualPosition - target) <= CalibrationAxisTolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<VisionReticleMeasurement> FindReticleWithRetryAsync(VisionCameraCalibrationTarget target, CancellationToken ct)
         {
             try
@@ -860,19 +1056,19 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             ct.ThrowIfCancellationRequested();
 
-            VisionTcpClient client = ResolveClient(target);
             string cameraName = ResolveCameraName(target);
-            if (client != null && client.IsConnected)
+            AutoVisionChannel channel = ResolveAutoVisionChannel(target);
+            if (VisionCommandService.IsConnected(channel))
             {
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MATCH-REQ",
                     cameraName + " Vision에 ReticleFinder 실행을 요청합니다.");
-                return await client.MatchAsync(ReticleFinderName, 0, ResolveCaptureTimeoutMs(), ct).ConfigureAwait(false);
+                return await VisionCommandService.MatchAsync(channel, ReticleFinderName, 0, ResolveCaptureTimeoutMs(), ct).ConfigureAwait(false);
             }
 
             if (IsSimulationMode())
             {
                 VisionCameraCalibrationData data = CalibrationData;
-                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, ResolveAutoVisionChannel(target));
+                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, channel);
                 return new MatchResultDto
                 {
                     Success = true,
@@ -880,27 +1076,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                     Y = camera.ImageCenterPixelY,
                     AngleDeg = 0,
                     Score = 1.0,
+                    HasImageSize = true,
+                    ImageWidthPixel = camera.ImageWidthPixel,
+                    ImageHeightPixel = camera.ImageHeightPixel,
                     RawError = "SIM:ReticleFinder"
                 };
             }
 
             Fail("VISION-CAMERA-CAL-VISION-NOT-CONNECTED", cameraName, cameraName + " Vision이 연결되지 않아 ReticleFinder를 실행할 수 없습니다.");
             return null;
-        }
-
-        private VisionTcpClient ResolveClient(VisionCameraCalibrationTarget target)
-        {
-            switch (target)
-            {
-                case VisionCameraCalibrationTarget.Bottom:
-                    return VisionHub.Inspection;
-                case VisionCameraCalibrationTarget.Input:
-                    return VisionHub.Wafer;
-                case VisionCameraCalibrationTarget.Output:
-                    return VisionHub.Bin;
-                default:
-                    return null;
-            }
         }
 
         private AutoVisionChannel ResolveAutoVisionChannel(VisionCameraCalibrationTarget target)
@@ -1000,8 +1184,10 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
-                SaveMachineSettings();
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MEASURE-SAVE", label + "을 VisionUnit Config에 저장했습니다.");
+                if (SaveMachineSettings())
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MEASURE-SAVE", label + "을 VisionUnit Config에 저장했습니다.");
+                else
+                    EventLogger.Write(EventKind.Alarm, "CAL", "VISION-CAMERA-CAL-MEASURE-SAVE-FAIL", label + " 저장 실패: VisionUnit Config 파일 저장에 실패했습니다.");
             }
             catch (Exception ex)
             {
@@ -1012,12 +1198,22 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private void SaveMachineSettings()
+        private bool SaveMachineSettings()
         {
-            if (_saveSettings != null)
-                _saveSettings();
-            else
-                _machine.SaveSettings();
+            try
+            {
+                if (_machine == null)
+                    return false;
+
+                return _machine.SaveSettings();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private string GetUserName()

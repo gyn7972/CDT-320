@@ -16,7 +16,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         private DataGridViewTextBoxColumn colAngle;
         private DataGridViewTextBoxColumn colAxis;
         private DataGridViewTextBoxColumn colScore;
-        private Label lblSequenceGuide;
+        private TableLayoutPanel valuePanel;
+        private Label lblValueTitle;
+        private DataGridView gridAppliedValues;
+        private DataGridViewTextBoxColumn colValueName;
+        private DataGridViewTextBoxColumn colSavedValue;
+        private DataGridViewTextBoxColumn colCurrentValue;
+        private DataGridViewTextBoxColumn colApplyValue;
+        private TableLayoutPanel valueButtonLayout;
+        private Button btnLoadValues;
+        private Button btnSaveReticleValues;
         private Label lblOffsets;
         private Label lblStatus;
         private Panel buttonPanel;
@@ -28,6 +37,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private Button btnRunAll;
         private Button btnRetractReticle;
         private Button btnCalculateSave;
+        private Button btnHelp;
         private Button btnClose;
         private ToolTip toolTip;
 
@@ -52,7 +62,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colAngle = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.lblSequenceGuide = new System.Windows.Forms.Label();
+            this.valuePanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblValueTitle = new System.Windows.Forms.Label();
+            this.gridAppliedValues = new System.Windows.Forms.DataGridView();
+            this.colValueName = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colSavedValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colCurrentValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colApplyValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.valueButtonLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnLoadValues = new System.Windows.Forms.Button();
+            this.btnSaveReticleValues = new System.Windows.Forms.Button();
             this.lblOffsets = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
             this.buttonPanel = new System.Windows.Forms.Panel();
@@ -64,11 +83,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnFindOutput = new System.Windows.Forms.Button();
             this.btnRetractReticle = new System.Windows.Forms.Button();
             this.btnCalculateSave = new System.Windows.Forms.Button();
+            this.btnHelp = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridMeasurements)).BeginInit();
+            this.valuePanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridAppliedValues)).BeginInit();
+            this.valueButtonLayout.SuspendLayout();
             this.buttonPanel.SuspendLayout();
             this.buttonLayout.SuspendLayout();
             this.SuspendLayout();
@@ -125,10 +148,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // contentLayout
             // 
             this.contentLayout.ColumnCount = 2;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 72F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 28F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 64F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 36F));
             this.contentLayout.Controls.Add(this.gridMeasurements, 0, 0);
-            this.contentLayout.Controls.Add(this.lblSequenceGuide, 1, 0);
+            this.contentLayout.Controls.Add(this.valuePanel, 1, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(12, 107);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(12, 4, 12, 8);
@@ -161,7 +184,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.gridMeasurements.RowHeadersVisible = false;
             this.gridMeasurements.RowTemplate.Height = 26;
             this.gridMeasurements.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridMeasurements.Size = new System.Drawing.Size(769, 313);
+            this.gridMeasurements.Size = new System.Drawing.Size(683, 313);
             this.gridMeasurements.TabIndex = 0;
             // 
             // colItem
@@ -206,18 +229,133 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colScore.ReadOnly = true;
             this.colScore.Width = 80;
             // 
-            // lblSequenceGuide
+            // valuePanel
             // 
-            this.lblSequenceGuide.BackColor = System.Drawing.Color.White;
-            this.lblSequenceGuide.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblSequenceGuide.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSequenceGuide.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
-            this.lblSequenceGuide.Location = new System.Drawing.Point(785, 0);
-            this.lblSequenceGuide.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblSequenceGuide.Name = "lblSequenceGuide";
-            this.lblSequenceGuide.Padding = new System.Windows.Forms.Padding(12);
-            this.lblSequenceGuide.Size = new System.Drawing.Size(295, 313);
-            this.lblSequenceGuide.TabIndex = 1;
+            this.valuePanel.BackColor = System.Drawing.Color.White;
+            this.valuePanel.CellBorderStyle = System.Windows.Forms.TableLayoutPanelCellBorderStyle.Single;
+            this.valuePanel.ColumnCount = 1;
+            this.valuePanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.valuePanel.Controls.Add(this.lblValueTitle, 0, 0);
+            this.valuePanel.Controls.Add(this.gridAppliedValues, 0, 1);
+            this.valuePanel.Controls.Add(this.valueButtonLayout, 0, 2);
+            this.valuePanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.valuePanel.Location = new System.Drawing.Point(699, 0);
+            this.valuePanel.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.valuePanel.Name = "valuePanel";
+            this.valuePanel.RowCount = 3;
+            this.valuePanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.valuePanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.valuePanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.valuePanel.Size = new System.Drawing.Size(381, 313);
+            this.valuePanel.TabIndex = 1;
+            // 
+            // lblValueTitle
+            // 
+            this.lblValueTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblValueTitle.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
+            this.lblValueTitle.Location = new System.Drawing.Point(4, 1);
+            this.lblValueTitle.Name = "lblValueTitle";
+            this.lblValueTitle.Size = new System.Drawing.Size(373, 34);
+            this.lblValueTitle.TabIndex = 0;
+            this.lblValueTitle.Text = "FIDUCIAL OFFSET";
+            this.lblValueTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // gridAppliedValues
+            // 
+            this.gridAppliedValues.AllowUserToAddRows = false;
+            this.gridAppliedValues.AllowUserToDeleteRows = false;
+            this.gridAppliedValues.AllowUserToResizeRows = false;
+            this.gridAppliedValues.BackgroundColor = System.Drawing.Color.White;
+            this.gridAppliedValues.ColumnHeadersVisible = false;
+            this.gridAppliedValues.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridAppliedValues.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colValueName,
+            this.colSavedValue,
+            this.colCurrentValue,
+            this.colApplyValue});
+            this.gridAppliedValues.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridAppliedValues.Location = new System.Drawing.Point(4, 39);
+            this.gridAppliedValues.MultiSelect = false;
+            this.gridAppliedValues.Name = "gridAppliedValues";
+            this.gridAppliedValues.ReadOnly = true;
+            this.gridAppliedValues.RowHeadersVisible = false;
+            this.gridAppliedValues.RowTemplate.Height = 24;
+            this.gridAppliedValues.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridAppliedValues.Size = new System.Drawing.Size(373, 225);
+            this.gridAppliedValues.TabIndex = 1;
+            // 
+            // colValueName
+            // 
+            this.colValueName.HeaderText = "항목";
+            this.colValueName.Name = "colValueName";
+            this.colValueName.ReadOnly = true;
+            this.colValueName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colValueName.Width = 185;
+            // 
+            // colSavedValue
+            // 
+            this.colSavedValue.HeaderText = "SAVED";
+            this.colSavedValue.Name = "colSavedValue";
+            this.colSavedValue.ReadOnly = true;
+            this.colSavedValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colSavedValue.Visible = false;
+            this.colSavedValue.Width = 66;
+            // 
+            // colCurrentValue
+            // 
+            this.colCurrentValue.HeaderText = "CURRENT";
+            this.colCurrentValue.Name = "colCurrentValue";
+            this.colCurrentValue.ReadOnly = true;
+            this.colCurrentValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colCurrentValue.Visible = false;
+            this.colCurrentValue.Width = 70;
+            // 
+            // colApplyValue
+            // 
+            this.colApplyValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colApplyValue.HeaderText = "값";
+            this.colApplyValue.Name = "colApplyValue";
+            this.colApplyValue.ReadOnly = true;
+            this.colApplyValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // valueButtonLayout
+            // 
+            this.valueButtonLayout.ColumnCount = 2;
+            this.valueButtonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.valueButtonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.valueButtonLayout.Controls.Add(this.btnLoadValues, 0, 0);
+            this.valueButtonLayout.Controls.Add(this.btnSaveReticleValues, 1, 0);
+            this.valueButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.valueButtonLayout.Location = new System.Drawing.Point(4, 271);
+            this.valueButtonLayout.Name = "valueButtonLayout";
+            this.valueButtonLayout.RowCount = 1;
+            this.valueButtonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.valueButtonLayout.Size = new System.Drawing.Size(373, 38);
+            this.valueButtonLayout.TabIndex = 2;
+            // 
+            // btnLoadValues
+            // 
+            this.btnLoadValues.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadValues.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoadValues.Location = new System.Drawing.Point(3, 3);
+            this.btnLoadValues.Name = "btnLoadValues";
+            this.btnLoadValues.Size = new System.Drawing.Size(180, 32);
+            this.btnLoadValues.TabIndex = 0;
+            this.btnLoadValues.Text = "LOAD";
+            this.btnLoadValues.UseVisualStyleBackColor = true;
+            this.btnLoadValues.Click += new System.EventHandler(this.btnLoadValues_Click);
+            // 
+            // btnSaveReticleValues
+            // 
+            this.btnSaveReticleValues.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSaveReticleValues.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSaveReticleValues.Location = new System.Drawing.Point(189, 3);
+            this.btnSaveReticleValues.Name = "btnSaveReticleValues";
+            this.btnSaveReticleValues.Size = new System.Drawing.Size(181, 32);
+            this.btnSaveReticleValues.TabIndex = 1;
+            this.btnSaveReticleValues.Text = "SAVE POS";
+            this.btnSaveReticleValues.UseVisualStyleBackColor = true;
+            this.btnSaveReticleValues.Click += new System.EventHandler(this.btnSaveReticleValues_Click);
             // 
             // lblOffsets
             // 
@@ -277,6 +415,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.buttonLayout.Controls.Add(this.btnFindOutput, 4, 0);
             this.buttonLayout.Controls.Add(this.btnRetractReticle, 5, 0);
             this.buttonLayout.Controls.Add(this.btnCalculateSave, 6, 0);
+            this.buttonLayout.Controls.Add(this.btnHelp, 7, 0);
             this.buttonLayout.Controls.Add(this.btnClose, 8, 0);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonLayout.Location = new System.Drawing.Point(0, 0);
@@ -381,6 +520,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnCalculateSave.UseVisualStyleBackColor = false;
             this.btnCalculateSave.Click += new System.EventHandler(this.btnCalculateSave_Click);
             // 
+            // btnHelp
+            // 
+            this.btnHelp.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnHelp.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
+            this.btnHelp.Location = new System.Drawing.Point(946, 6);
+            this.btnHelp.Margin = new System.Windows.Forms.Padding(6);
+            this.btnHelp.Name = "btnHelp";
+            this.btnHelp.Size = new System.Drawing.Size(40, 40);
+            this.btnHelp.TabIndex = 7;
+            this.btnHelp.Text = "?";
+            this.btnHelp.UseVisualStyleBackColor = true;
+            this.btnHelp.Click += new System.EventHandler(this.btnHelp_Click);
+            // 
             // btnClose
             // 
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -389,7 +541,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnClose.Margin = new System.Windows.Forms.Padding(6);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(76, 40);
-            this.btnClose.TabIndex = 7;
+            this.btnClose.TabIndex = 8;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
@@ -406,6 +558,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridMeasurements)).EndInit();
+            this.valuePanel.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridAppliedValues)).EndInit();
+            this.valueButtonLayout.ResumeLayout(false);
             this.buttonPanel.ResumeLayout(false);
             this.buttonLayout.ResumeLayout(false);
             this.ResumeLayout(false);

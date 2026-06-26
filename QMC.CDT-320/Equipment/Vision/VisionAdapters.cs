@@ -2,8 +2,6 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-using QMC.CDT320.Calibration;
-
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
@@ -63,17 +61,13 @@ namespace QMC.CDT320.VisionComm
                 if (!grabbed)
                     return null;
 
-                MatchResultDto result = await AutoVisionRequestService.MatchAsync(
+                VisionAlignResult align = await AutoVisionRequestService.MatchAlignAsync(
                     AutoVisionChannel.Wafer,
                     finder,
                     0,
+                    DiePitchMm,
                     DefaultTimeoutMs,
                     CancellationToken.None).ConfigureAwait(false);
-
-                VisionAlignResult align = VisionCameraCalibrationTransform.ToAlignResult(
-                    AutoVisionChannel.Wafer,
-                    result,
-                    DiePitchMm);
 
                 if (align != null)
                     QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(alignTargetId, align);
@@ -155,14 +149,13 @@ namespace QMC.CDT320.VisionComm
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    MatchResultDto match = await AutoVisionRequestService.MatchAsync(
-                        AutoVisionChannel.Bottom,
+                    results[i] = await AutoVisionRequestService.MatchBottomOffsetAsync(
+                        i + 1,
                         "DieFinder",
                         i,
+                        MatchScoreThreshold,
                         timeoutMs,
                         ct).ConfigureAwait(false);
-
-                    results[i] = VisionCameraCalibrationTransform.ToBottomVisionOffset(i + 1, match, MatchScoreThreshold);
                 }
                 catch (OperationCanceledException)
                 {
@@ -266,14 +259,14 @@ namespace QMC.CDT320.VisionComm
                 if (!grabbed)
                     return new InspectionResultDto { IsPass = false, Raw = "Bin vision GRAB failed." };
 
-                InspectionResultDto result = await AutoVisionRequestService.InspectAsync(
+                InspectionResultDto result = await AutoVisionRequestService.InspectCalibratedAsync(
                     AutoVisionChannel.Bin,
                     "PlacementInspector",
                     slotIndex,
                     timeoutMs,
                     ct).ConfigureAwait(false);
 
-                return VisionCameraCalibrationTransform.ToInspectionResult(AutoVisionChannel.Bin, result);
+                return result;
             }
             catch (OperationCanceledException)
             {
