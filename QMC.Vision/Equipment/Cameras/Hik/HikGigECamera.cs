@@ -365,6 +365,37 @@ namespace QMC.Vision.Cameras.Hik
             }
         }
 
+        /// <summary>현재 카메라 값을 UserSet(플래시)에 영구 저장하고 부팅 기본 셋으로 지정.
+        /// UserSetSelector 선택 → UserSetSave 실행 → UserSetDefault 지정. Grabbing 중에는 거부.</summary>
+        public override bool SaveToCameraUserSet(string userSet, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!IsOpen) { error = "카메라가 열려 있지 않습니다."; return false; }
+                if (IsGrabbing) { error = "Live/Grabbing 중에는 UserSet 저장 불가 — 정지 후 시도하세요."; return false; }
+                if (string.IsNullOrEmpty(userSet)) userSet = "UserSet1";
+
+                int r = InvokeFirst(new[] { "MV_CC_SetEnumValueByString_NET", "MV_CC_SetEnumValueByString" },
+                                    new object[] { "UserSetSelector", userSet });
+                if (r != 0) { error = "UserSetSelector(" + userSet + ") 설정 실패 0x" + r.ToString("X8"); return false; }
+
+                r = InvokeFirst(new[] { "MV_CC_SetCommandValue_NET", "MV_CC_SetCommandValue" }, new object[] { "UserSetSave" });
+                if (r != 0) { error = "UserSetSave 실행 실패 0x" + r.ToString("X8"); return false; }
+
+                // 부팅 시 이 셋을 로드하도록 기본값 지정(실패는 경고 — 저장 자체는 성공).
+                InvokeFirst(new[] { "MV_CC_SetEnumValueByString_NET", "MV_CC_SetEnumValueByString" },
+                            new object[] { "UserSetDefault", userSet });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[HikGigECamera] SaveToCameraUserSet 실패: " + ex.Message);
+                return false;
+            }
+        }
+
         // ──────────────────────────────────────────
         //  Enum (디바이스 검색)
         // ──────────────────────────────────────────

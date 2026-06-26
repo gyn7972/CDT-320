@@ -71,6 +71,10 @@ namespace QMC.Vision.Core
         bool LoadFeatures(string filePath, out string error);
         /// <summary>현재 카메라의 전체 노드값을 MVS Feature Save 파일(.mfs)로 저장. 성공 true.</summary>
         bool SaveFeatures(string filePath, out string error);
+
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet(플래시)에 영구 저장하고, 부팅 시 로드될 기본 셋으로 지정.
+        /// 전원을 꺼도 유지된다. 미지원 백엔드는 false + error 반환.</summary>
+        bool SaveToCameraUserSet(string userSet, out string error);
     }
 
     public enum CameraConnectionEvent { Opened, Closed, Lost, Reconnected, Error }

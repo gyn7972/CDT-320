@@ -95,6 +95,9 @@ namespace QMC.Vision.Core
         /// <summary>기본 미지원 — .mfs 저장은 SDK 백엔드(HikGigECamera)만 지원.</summary>
         public virtual bool SaveFeatures(string filePath, out string error) { error = "이 카메라는 .mfs 저장을 지원하지 않습니다."; return false; }
 
+        /// <summary>기본 미지원 — UserSet 영구 저장은 SDK 백엔드(HikGigECamera)만 지원.</summary>
+        public virtual bool SaveToCameraUserSet(string userSet, out string error) { error = "이 카메라는 UserSet 저장을 지원하지 않습니다."; return false; }
+
         // ─── 이벤트 발행 헬퍼 ─────────────────────
         protected void RaiseFrame(GrabResult r)
         {

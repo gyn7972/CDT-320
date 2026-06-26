@@ -219,7 +219,8 @@ namespace QMC.Vision.Ui.Pages
                     () => m.MvsFeatureFilePath ?? "", v => m.MvsFeatureFilePath = v?.Trim() ?? "",
                     "MVS Feature 파일 (*.mfs)|*.mfs|모든 파일 (*.*)|*.*"),
                 ParameterGridItem.Action(".mfs → 카메라 적용", "불러오기", ParameterGridScope.Config, LoadMfsToCamera),
-                ParameterGridItem.Action("카메라 → .mfs 저장", "저장", ParameterGridScope.Config, SaveCameraToMfs),
+                ParameterGridItem.Action("카메라 → .mfs 저장(파일)", "파일저장", ParameterGridScope.Config, SaveCameraToMfs),
+                ParameterGridItem.Action("카메라에 영구 저장(UserSet1)", "카메라저장", ParameterGridScope.Config, SaveToCameraUserSet),
             };
         }
 
@@ -279,6 +280,30 @@ namespace QMC.Vision.Ui.Pages
             }
             catch (Exception ex)
             { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = ".mfs 저장 예외: " + ex.Message; }
+        }
+
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet1(플래시)에 영구 저장 — 전원 꺼도 유지. 확인 후 실행.</summary>
+        private void SaveToCameraUserSet()
+        {
+            try
+            {
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 카메라에 저장하세요."; return; }
+                if (_isLive)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "Live 중에는 카메라 저장 불가 — Live Stop 후 시도하세요."; return; }
+
+                var confirm = MessageBox.Show(this,
+                    "현재 카메라 값을 카메라 내부 UserSet1에 영구 저장합니다.\n전원을 꺼도 유지되며, 부팅 시 UserSet1로 로드됩니다. 계속할까요?",
+                    "카메라에 영구 저장", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes) return;
+
+                if (_activeCam.SaveToCameraUserSet("UserSet1", out var err))
+                { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = "카메라 UserSet1에 영구 저장 완료(전원 꺼도 유지)."; }
+                else
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 저장 실패: " + err; }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 저장 예외: " + ex.Message; }
         }
 
         /// <summary>스케일/좌표변환 항목 — 전용 그리드(_scaleGrid). 모듈별 Config 스코프.</summary>
@@ -624,7 +649,7 @@ namespace QMC.Vision.Ui.Pages
         /// 기본 접힘으로 시작한다. Designer 미수정(인덱스 의존 코드 보존) — _left 에 행을 동적 추가한다.</summary>
         private void InitNodeGroupGrids()
         {
-            _mfsGrid = CreateGroupGrid("[카메라 설정 파일] .mfs 불러오기 / 저장");
+            _mfsGrid = CreateGroupGrid("[카메라 설정] .mfs 불러오기·파일저장 / 카메라 영구저장(UserSet)");
             _imgGrid = CreateGroupGrid("[Image Format] 이미지 포맷 (Reverse/Binning/패턴)");
             _acqGrid = CreateGroupGrid("[Acquisition] 취득/트리거/노출 (HDR 포함)");
             _ioGrid  = CreateGroupGrid("[IO Output] 스트로브 / 라인");
