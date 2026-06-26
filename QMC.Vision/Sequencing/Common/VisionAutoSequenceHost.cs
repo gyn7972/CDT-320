@@ -82,6 +82,19 @@ namespace QMC.Vision.Sequencing
             }
         }
 
+        /// <summary>선택한 여러 도구(모듈 무관)를 동시에 시작한다 — 한 개든 여러 개든 병렬 연속 실행. 기존 실행 먼저 정지.</summary>
+        public void StartTools(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<SequenceModuleKind, string>> tools,
+                               SequenceRunMode mode, int cycleIntervalMs)
+        {
+            try
+            {
+                Stop();
+                EnsureCoordinator(cycleIntervalMs);
+                _coordinator.StartTools(tools, mode);
+            }
+            catch (Exception ex) { LogSink("[SEQ] 선택 도구 시작 실패: " + ex.Message); }
+        }
+
         /// <summary>Step/Manual — 지정 도구를 1회 실행한다(코디네이터 없으면 생성).</summary>
         public void StepTool(SequenceModuleKind kind, string toolId, int cycleIntervalMs)
         {

@@ -1,4 +1,3 @@
-using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -9,47 +8,17 @@ namespace QMC.Vision.Ui.Controls
     ///  • 단일: VisionImageView 1개(검출 오버레이 포함)
     ///  • 4채널: Front ch1/ch2, Back ch1/ch2 (측면 이미지 4000×700 스트립) — 라벨 + VisionImageView 4개
     /// 크로스라인 ON/OFF 는 하위 모든 뷰에 전파된다.
+    /// 레이아웃/컨트롤 = PickerView.Designer.cs. 본 파일은 로직(표시 모드/오버레이)만.
     /// </summary>
-    public class PickerView : UserControl
+    public partial class PickerView : UserControl
     {
-        private static readonly string[] ChannelNames =
-            { "Front channel 1", "Front channel 2", "Back channel 1", "Back channel 2" };
-
-        private readonly VisionImageView _single = new VisionImageView();
-        private readonly TableLayoutPanel _channelHost = new TableLayoutPanel();
-        private readonly VisionImageView[] _ch = new VisionImageView[4];
+        // Designer 의 채널 뷰 4개를 인덱스 접근용 배열로 묶는다(_ch[0..3]).
+        private readonly VisionImageView[] _ch;
 
         public PickerView()
         {
-            BackColor = Color.FromArgb(0x1A, 0x1A, 0x1E);
-
-            _single.Dock = DockStyle.Fill;
-            Controls.Add(_single);
-
-            _channelHost.Dock = DockStyle.Fill;
-            _channelHost.BackColor = Color.FromArgb(0x1A, 0x1A, 0x1E);
-            _channelHost.ColumnCount = 1;
-            _channelHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            _channelHost.RowCount = 4;
-            for (int i = 0; i < 4; i++)
-            {
-                _channelHost.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
-                var cell = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 2), BackColor = Color.FromArgb(0x14, 0x14, 0x17) };
-                var lbl = new Label
-                {
-                    Dock = DockStyle.Top, Height = 14,
-                    Text = ChannelNames[i],
-                    ForeColor = Color.Gainsboro,
-                    Font = new Font("Segoe UI", 7.5F),
-                    Padding = new Padding(4, 1, 0, 0)
-                };
-                _ch[i] = new VisionImageView { Dock = DockStyle.Fill };
-                cell.Controls.Add(_ch[i]);
-                cell.Controls.Add(lbl);
-                _channelHost.Controls.Add(cell, 0, i);
-            }
-            _channelHost.Visible = false;
-            Controls.Add(_channelHost);
+            InitializeComponent();
+            _ch = new[] { _ch0, _ch1, _ch2, _ch3 };
         }
 
         /// <summary>단일 이미지 모드(Bottom/Bin) — 이미지 + 검출 오버레이.</summary>
@@ -76,13 +45,14 @@ namespace QMC.Vision.Ui.Controls
             ShowChannels();
         }
 
-        /// <summary>4채널 중 한 채널 이미지+검출 오버레이 설정(Side 시퀀서/실데이터).</summary>
-        public void SetChannel(int idx, Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks)
+        /// <summary>4채널 중 한 채널 이미지+검출 오버레이 설정(Side 시퀀서/실데이터). 반환: 이미지 표시 성공.</summary>
+        public bool SetChannel(int idx, Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks)
         {
-            if (idx < 0 || idx >= 4) return;
-            _ch[idx].SetImage(bmp);
+            if (idx < 0 || idx >= 4) return false;
+            bool ok = _ch[idx].SetImage(bmp);
             _ch[idx].SetOverlay(box, pass, verdict, lines, marks);
             ShowChannels();
+            return ok;
         }
 
         private void ShowSingle()

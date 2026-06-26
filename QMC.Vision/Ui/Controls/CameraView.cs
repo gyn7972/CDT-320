@@ -45,6 +45,23 @@ namespace QMC.Vision.Ui.Controls
         /// <summary>그랩 결과 표시(기존 API).</summary>
         public void SetFrame(GrabResult r) { if (r != null && r.Image != null) SetImage(r.Image); }
 
+        /// <summary>스케일/캘리브레이션 플래그(X반전/Y반전/90° 회전) → 표시 방향변환(<see cref="System.Drawing.RotateFlipType"/>).
+        /// 90° 회전이면 가로/세로가 스왑된다. 8가지 조합 모두 단일 RotateFlipType 으로 표현 가능.</summary>
+        public static System.Drawing.RotateFlipType OrientationFromFlags(bool invertedX, bool invertedY, bool rotated90)
+        {
+            if (!rotated90)
+            {
+                if (!invertedX && !invertedY) return System.Drawing.RotateFlipType.RotateNoneFlipNone;
+                if ( invertedX && !invertedY) return System.Drawing.RotateFlipType.RotateNoneFlipX;
+                if (!invertedX &&  invertedY) return System.Drawing.RotateFlipType.RotateNoneFlipY;
+                return System.Drawing.RotateFlipType.RotateNoneFlipXY;
+            }
+            if (!invertedX && !invertedY) return System.Drawing.RotateFlipType.Rotate90FlipNone;
+            if ( invertedX && !invertedY) return System.Drawing.RotateFlipType.Rotate90FlipX;
+            if (!invertedX &&  invertedY) return System.Drawing.RotateFlipType.Rotate90FlipY;
+            return System.Drawing.RotateFlipType.Rotate90FlipXY;
+        }
+
         /// <summary>ROI 사각형 + 매칭 결과 오버레이(기존 API — 점+점수만).</summary>
         public void SetOverlay(Roi roi, MatchResult result)
         {
@@ -111,6 +128,7 @@ namespace QMC.Vision.Ui.Controls
         {
             base.OnPaint(e);
             DrawDetectOverlay(e);   // 검출(안착) 오버레이
+            DrawColletOverlay(e);   // 콜렛 전용 오버레이(회전 사각형+중심십자+노란 라벨)
             if (!ShowCursorReadout || !_cursorIn || CurrentFrame == null) return;
             var dst = DisplayRect();
             if (dst.Width <= 0 || dst.Height <= 0 || !dst.Contains(_cursorPt)) return;
@@ -190,6 +208,71 @@ namespace QMC.Vision.Ui.Controls
                 using (var bg = new SolidBrush(Color.FromArgb(160, 0, 0, 0))) g.FillRectangle(bg, tx - 2, ty - 1, sz.Width + 4, sz.Height + 2);
                 using (var tb = new SolidBrush(col)) g.DrawString(t, f, tb, tx, ty);
             }
+        }
+
+        // ── 콜렛 전용 오버레이: 검출 회전 사각형 + 중심 십자 + 노란 "중심/각도" 라벨 ──
+        //    (테스트 프로그램 'Collet Finder' 와 동일 표기. 안착검사 detect 오버레이와 독립.)
+        private bool       _colShow;
+        private PointF[]   _colCorners;            // 이미지 좌표 4점
+        private PointF     _colCenter;             // 이미지 좌표
+        private string     _colLabel = "";
+        private System.Drawing.RectangleF _colRoi; // 검색 ROI(이미지 좌표)
+        private bool       _colOk = true;
+
+        /// <summary>콜렛 검출 오버레이 — 회전 사각형 4코너(이미지 px)+중심+라벨. corners=4점이어야 표시.</summary>
+        public void SetColletOverlay(Roi searchRoi, PointF[] cornersImg, PointF centerImg, string label, bool ok)
+        {
+            _colRoi     = RectOf(searchRoi);
+            _colCorners = cornersImg;
+            _colCenter  = centerImg;
+            _colLabel   = label ?? "";
+            _colOk      = ok;
+            _colShow    = cornersImg != null && cornersImg.Length == 4;
+            Invalidate();
+        }
+
+        /// <summary>콜렛 오버레이 제거.</summary>
+        public void ClearColletOverlay() { _colShow = false; Invalidate(); }
+
+        private void DrawColletOverlay(PaintEventArgs e)
+        {
+            if (!_colShow || CurrentFrame == null) return;
+            var dst = DisplayRect();
+            if (dst.Width <= 0 || dst.Height <= 0) return;
+            double rx = (double)dst.Width / CurrentFrame.Width, ry = (double)dst.Height / CurrentFrame.Height;
+            var g = e.Graphics;
+
+            // 검색 ROI(초록 점선)
+            if (_colRoi.Width > 0)
+                using (var rp = new Pen(Color.FromArgb(170, 90, 200, 90), 1f)
+                       { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
+                    g.DrawRectangle(rp, dst.Left + (float)(_colRoi.X * rx), dst.Top + (float)(_colRoi.Y * ry),
+                                    (float)(_colRoi.Width * rx), (float)(_colRoi.Height * ry));
+
+            // 검출 사각형(초록 실선 — OK / 주황 — NG)
+            var poly = new PointF[4];
+            for (int i = 0; i < 4; i++)
+                poly[i] = new PointF((float)(dst.Left + _colCorners[i].X * rx), (float)(dst.Top + _colCorners[i].Y * ry));
+            using (var pen = new Pen(_colOk ? Color.Lime : Color.OrangeRed, 2.2f)) g.DrawPolygon(pen, poly);
+
+            // 중심 빨간 십자(+)
+            float ccx = (float)(dst.Left + _colCenter.X * rx), ccy = (float)(dst.Top + _colCenter.Y * ry);
+            using (var cp = new Pen(Color.Red, 2f))
+            {
+                g.DrawLine(cp, ccx - 9, ccy, ccx + 9, ccy);
+                g.DrawLine(cp, ccx, ccy - 9, ccx, ccy + 9);
+            }
+
+            // 노란 라벨(중심 아래, 가운데정렬, 어두운 배경) — "중심(X, Y)  각도 N°"
+            if (!string.IsNullOrEmpty(_colLabel))
+                using (var f = new Font("맑은 고딕", 10f, FontStyle.Bold))
+                {
+                    var sz = g.MeasureString(_colLabel, f);
+                    float tx = ccx - sz.Width / 2f, ty = ccy + 12;
+                    using (var bg = new SolidBrush(Color.FromArgb(175, 0, 0, 0)))
+                        g.FillRectangle(bg, tx - 4, ty - 1, sz.Width + 8, sz.Height + 2);
+                    using (var tb = new SolidBrush(Color.Yellow)) g.DrawString(_colLabel, f, tb, tx, ty);
+                }
         }
 
         private static System.Drawing.RectangleF RectOf(Roi roi)

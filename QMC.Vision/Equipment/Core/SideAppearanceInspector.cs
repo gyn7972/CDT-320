@@ -39,6 +39,16 @@ namespace QMC.Vision.Core
         /// <summary>칩 두께[mm] — 하단 라인 오프셋 산출.</summary>
         public double ChipThickness     { get; set; } = 0.25;
 
+        // ── CDT-310 FindLine 라인검출 조정 파라미터 ──
+        /// <summary>라인 스캔 비율(310 FindTopLineOfChip dMagin, 측면 0.9).</summary>
+        public double ScanRate          { get; set; } = 0.9;
+        /// <summary>에지 envelope x-binning(310 FindLine.EnvelopeBinSize).</summary>
+        public int    EnvelopeBinSize   { get; set; } = 6;
+        /// <summary>라인 피팅 잔차 유지 분위(310 FindLine.TopKeepQuantile, 0~1).</summary>
+        public double KeepQuantile      { get; set; } = 0.35;
+        /// <summary>칩핑 에지결합 허용[px] — 어두운 결손이 에지에서 이내 시작해야 칩핑(표면이물 제외).</summary>
+        public int    EdgeGap           { get; set; } = 6;
+
         // ── 표면 이물(오염) — 310 ContaminationInspector(Black-Hat 블롭) 파라미터 ──
         public int    TopHatRadius             { get; set; } = 21;
         public int    TopHatThreshold          { get; set; } = 30;
@@ -132,7 +142,13 @@ namespace QMC.Vision.Core
             // ── 칩핑 역할(앞쪽 칩핑) — CDT-310 SideChippingInspector 알고리즘(라인검출+회전+상/하 스캔) ──
             if (_doChipping)
             {
-                var cc = SideChippingCore.Inspect(g, w, h, ChipThreshold, ChipThickness, PixelSizeWidthMm, PixelSizeHeightMm);
+                var cc = SideChippingCore.Inspect(g, w, h, new SideChippingCore.Params
+                {
+                    Threshold = ChipThreshold, ChipThicknessMm = ChipThickness,
+                    PxW = PixelSizeWidthMm, PxH = PixelSizeHeightMm,
+                    ScanRate = ScanRate, EnvelopeBinSize = EnvelopeBinSize,
+                    KeepQuantile = KeepQuantile, EdgeGap = EdgeGap
+                });
                 if (cc.Valid)
                 {
                     topMm = cc.TopMm; botMm = cc.BottomMm; maxMm = cc.MaxMm;   // 310 결과로 대체

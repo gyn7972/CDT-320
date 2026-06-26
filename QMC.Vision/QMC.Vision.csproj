@@ -81,6 +81,9 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Equipment\Core\GrabResult.cs" />
+    <Compile Include="Equipment\Core\AutoFocusCore.cs" />
+    <Compile Include="Equipment\Core\AutoFocusSession.cs" />
+    <Compile Include="Equipment\Core\AutoFocusStore.cs" />
     <Compile Include="Equipment\Core\Roi.cs" />
     <Compile Include="Equipment\Core\MatchResult.cs" />
     <Compile Include="Equipment\Core\MatchOverlayStore.cs" />
@@ -96,9 +99,16 @@
     <Compile Include="Equipment\Core\CameraVector.cs" />
     <Compile Include="Equipment\Core\VisionScale.cs" />
     <Compile Include="Equipment\Core\VisionCommandCore.cs" />
+    <Compile Include="Equipment\Core\FlatColletFinder.cs" />
+    <Compile Include="Equipment\Core\Collet\ColletStdDevFilter.cs" />
+    <Compile Include="Equipment\Core\Collet\ColletBlobRectFinder.cs" />
+    <Compile Include="Equipment\Core\Collet\ColletNativeCuda.cs" />
     <Compile Include="Equipment\Core\ResourceMonitor.cs" />
     <Compile Include="Equipment\Core\ModuleResultStore.cs" />
     <Compile Include="Equipment\Core\InspectionResultStore.cs" />
+    <Compile Include="Equipment\Core\InspectionOverlayStore.cs" />
+    <Compile Include="Equipment\Core\InspectionOverlayRenderer.cs" />
+    <Compile Include="Equipment\Core\ChartLimitStore.cs" />
     <Compile Include="Equipment\Core\IStepImageProvider.cs" />
     <Compile Include="Equipment\Core\ContaminationDetector.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />
@@ -106,6 +116,8 @@
     <Compile Include="Equipment\Core\BottomInspector.cs" />
     <Compile Include="Equipment\Core\SideAppearanceInspector.cs" />
     <Compile Include="Equipment\Core\SideChippingCore.cs" />
+    <Compile Include="Equipment\Core\CudaInterop.cs" />
+    <Compile Include="Equipment\Core\GpuBackend.cs" />
     <Compile Include="Equipment\Core\DomainInspectorFactory.cs" />
     <Compile Include="Equipment\Core\ActiveRecipeContext.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
@@ -134,6 +146,7 @@
     <Compile Include="Equipment\Unit\IVisionModule.cs" />
     <Compile Include="Equipment\Unit\AlgorithmNode.cs" />
     <Compile Include="Equipment\Unit\AlgorithmData.cs" />
+    <Compile Include="Equipment\Unit\ColletAlgorithmData.cs" />
     <Compile Include="Equipment\Unit\VisionMachineData.cs" />
     <Compile Include="Equipment\Unit\VisionMachine.cs" />
     <Compile Include="Equipment\Unit\CameraData.cs" />
@@ -243,6 +256,9 @@
     <Compile Include="Ui\Controls\PaginationBar.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\PaginationBar.Designer.cs">
+      <DependentUpon>PaginationBar.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\LogDatePicker.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -287,6 +303,12 @@
     <Compile Include="Ui\Controls\JogBox.Designer.cs">
       <DependentUpon>JogBox.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Controls\RoiNudgePad.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\RoiNudgePad.Designer.cs">
+      <DependentUpon>RoiNudgePad.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Work\OperationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -300,11 +322,23 @@
     <Compile Include="Ui\Controls\PickerView.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\PickerView.Designer.cs">
+      <DependentUpon>PickerView.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\SpcTrendChart.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\SpcTrendChart.Designer.cs">
+      <DependentUpon>SpcTrendChart.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\SampleData.cs" />
     <Compile Include="Ui\Controls\WaferMapPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\PositionMapPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\PositionMapStrip.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\InspectionViewerControl.cs">
@@ -345,6 +379,12 @@
     </Compile>
     <Compile Include="Ui\Pages\Settings\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\AutoFocusPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\AutoFocusPanel.Designer.cs">
+      <DependentUpon>AutoFocusPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\ConfigurationPage.Designer.cs">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
@@ -421,6 +461,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ScaleCalibrationDialog.resx">
+      <DependentUpon>ScaleCalibrationDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\CameraMappingPanel.resx">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>

@@ -694,6 +694,9 @@ namespace QMC.Vision.Ui.Pages
         private void _btnAlarmReload_Click(object sender, EventArgs e)       { LoadAlarms(); }
         private void _chkActiveOnly_CheckedChanged(object sender, EventArgs e) { LoadAlarms(); }
         private void _btnRefreshAll_Click(object sender, EventArgs e)        { RefreshAll(); }
+        private void _txtDataSearch_TextChanged(object sender, EventArgs e)  { RenderDataGrid(); }
+        private void _txtLogSearch_TextChanged(object sender, EventArgs e)   { ApplyLogView(); }   // 재읽기 없이 캐시 필터(버벅임 방지)
+        private void _txtAlarmSearch_TextChanged(object sender, EventArgs e) { LoadAlarms(); }
 
         private void _btnDataExport_Click(object sender, EventArgs e)
         {

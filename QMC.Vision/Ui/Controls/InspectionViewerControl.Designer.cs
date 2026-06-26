@@ -32,7 +32,7 @@ namespace QMC.Vision.Ui.Controls
         private SpcTrendChart _chart1, _chart2;
         private Panel _mapHost;
         private Label _mapTitle;
-        private WaferMapPanel _waferMap;
+        private PositionMapStrip _waferMap;   // 위치별 4-맵(Width·Height·1ch·2ch ChippingSize)
         private DataGridView _grid;
 
         private static readonly Color HeaderBg = Color.FromArgb(0x2C, 0x30, 0x3A);
@@ -52,7 +52,7 @@ namespace QMC.Vision.Ui.Controls
             _pk1 = new PickerView(); _pk2 = new PickerView();
             _pk3 = new PickerView(); _pk4 = new PickerView();
             _chart1 = new SpcTrendChart(); _chart2 = new SpcTrendChart();
-            _mapHost = new Panel(); _mapTitle = new Label(); _waferMap = new WaferMapPanel();
+            _mapHost = new Panel(); _mapTitle = new Label(); _waferMap = new PositionMapStrip();
             _grid = new DataGridView();
 
             // _root : 헤더(36) + 본문
@@ -120,7 +120,10 @@ namespace QMC.Vision.Ui.Controls
             _pickerHost.RowCount = 2;
             _pickerHost.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
             _pickerHost.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            foreach (var pk in new[] { _pk1, _pk2, _pk3, _pk4 }) { pk.Dock = DockStyle.Fill; pk.Margin = new Padding(3); }
+            _pk1.Dock = DockStyle.Fill; _pk1.Margin = new Padding(3);
+            _pk2.Dock = DockStyle.Fill; _pk2.Margin = new Padding(3);
+            _pk3.Dock = DockStyle.Fill; _pk3.Margin = new Padding(3);
+            _pk4.Dock = DockStyle.Fill; _pk4.Margin = new Padding(3);
             _pickerHost.Controls.Add(_pk1, 0, 0);
             _pickerHost.Controls.Add(_pk2, 1, 0);
             _pickerHost.Controls.Add(_pk3, 0, 1);

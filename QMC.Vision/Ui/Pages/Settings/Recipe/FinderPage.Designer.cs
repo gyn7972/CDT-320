@@ -28,6 +28,7 @@ namespace QMC.Vision.Ui.Pages
         private TableLayoutPanel _actionPanel;
         private Button _btnGrab, _btnLoad, _btnSave, _btnTrain, _btnMatch, _btnEditSearch, _btnEditTrain;
         private Label  _lblStatus;
+        private Panel  _ulCam, _ulResult, _ulAction;   // 섹션 라벨 주황 밑줄
 
         protected override void Dispose(bool disposing)
         {
@@ -63,6 +64,9 @@ namespace QMC.Vision.Ui.Pages
             this._btnEditSearch = new Button();
             this._btnEditTrain = new Button();
             this._lblStatus = new Label();
+            this._ulCam = new Panel();
+            this._ulResult = new Panel();
+            this._ulAction = new Panel();
             this._root.SuspendLayout();
             this._main.SuspendLayout();
             this._left.SuspendLayout();
@@ -83,10 +87,43 @@ namespace QMC.Vision.Ui.Pages
             this._title.TextAlign = ContentAlignment.MiddleLeft;
             this._title.Padding = new Padding(10, 0, 0, 0);
 
-            // ── 섹션 라벨(공통 주황) ──
-            ConfigureSection(this._secCam, "CAMERA");
-            ConfigureSection(this._secResult, "MATCH RESULT");
-            ConfigureSection(this._secAction, "ACTION");
+            // ── 섹션 라벨(공통: 회색 배경 + 주황 밑줄) ──
+            // _secCam
+            this._secCam.Dock = DockStyle.Fill;
+            this._secCam.Text = "CAMERA";
+            this._secCam.BackColor = Color.FromArgb(232, 234, 237);
+            this._secCam.ForeColor = Color.FromArgb(48, 52, 58);
+            this._secCam.Font = UiTheme.SectionFont;
+            this._secCam.TextAlign = ContentAlignment.MiddleLeft;
+            this._secCam.Padding = new Padding(8, 0, 0, 0);
+            this._ulCam.Dock = DockStyle.Bottom;
+            this._ulCam.Height = 2;
+            this._ulCam.BackColor = Color.FromArgb(217, 119, 6);
+            this._secCam.Controls.Add(this._ulCam);
+            // _secResult
+            this._secResult.Dock = DockStyle.Fill;
+            this._secResult.Text = "MATCH RESULT";
+            this._secResult.BackColor = Color.FromArgb(232, 234, 237);
+            this._secResult.ForeColor = Color.FromArgb(48, 52, 58);
+            this._secResult.Font = UiTheme.SectionFont;
+            this._secResult.TextAlign = ContentAlignment.MiddleLeft;
+            this._secResult.Padding = new Padding(8, 0, 0, 0);
+            this._ulResult.Dock = DockStyle.Bottom;
+            this._ulResult.Height = 2;
+            this._ulResult.BackColor = Color.FromArgb(217, 119, 6);
+            this._secResult.Controls.Add(this._ulResult);
+            // _secAction
+            this._secAction.Dock = DockStyle.Fill;
+            this._secAction.Text = "ACTION";
+            this._secAction.BackColor = Color.FromArgb(232, 234, 237);
+            this._secAction.ForeColor = Color.FromArgb(48, 52, 58);
+            this._secAction.Font = UiTheme.SectionFont;
+            this._secAction.TextAlign = ContentAlignment.MiddleLeft;
+            this._secAction.Padding = new Padding(8, 0, 0, 0);
+            this._ulAction.Dock = DockStyle.Bottom;
+            this._ulAction.Height = 2;
+            this._ulAction.BackColor = Color.FromArgb(217, 119, 6);
+            this._secAction.Controls.Add(this._ulAction);
 
             // ── 좌: 카메라 ──
             this._cam.Dock = DockStyle.Fill; this._cam.BackColor = Color.Black;
@@ -132,14 +169,70 @@ namespace QMC.Vision.Ui.Pages
             this._result.Columns.Add("R", "R");
             this._result.Columns.Add("Score", "Score");
 
-            // ── 우: 액션 버튼(균일 3×3) ──
-            ConfigureActionBtn(this._btnGrab, "GRAB", ActionKind.Neutral, this.OnGrabClick);
-            ConfigureActionBtn(this._btnLoad, "LOAD", ActionKind.Neutral, this.OnLoadClick);
-            ConfigureActionBtn(this._btnSave, "SAVE", ActionKind.Neutral, this.OnSaveClick);
-            ConfigureActionBtn(this._btnTrain, "TRAIN", ActionKind.Primary, this.OnTrainClick);
-            ConfigureActionBtn(this._btnMatch, "MATCH", ActionKind.Primary, this.OnMatchClick);
-            ConfigureActionBtn(this._btnEditSearch, "Edit SEARCH ROI", ActionKind.Edit, this.OnEditSearchClick);
-            ConfigureActionBtn(this._btnEditTrain, "Edit TRAIN ROI", ActionKind.Edit, this.OnEditTrainClick);
+            // ── 우: 액션 버튼(균일 3×3) — Neutral=흰/검, Primary=주황/흰, Edit=연노랑/검 ──
+            // _btnGrab (Neutral)
+            this._btnGrab.Dock = DockStyle.Fill;
+            this._btnGrab.Margin = new Padding(3);
+            this._btnGrab.Text = "GRAB";
+            this._btnGrab.FlatStyle = FlatStyle.Flat;
+            this._btnGrab.Font = UiTheme.ButtonFont;
+            this._btnGrab.BackColor = Color.White;
+            this._btnGrab.ForeColor = Color.Black;
+            this._btnGrab.Click += new EventHandler(this.OnGrabClick);
+            // _btnLoad (Neutral)
+            this._btnLoad.Dock = DockStyle.Fill;
+            this._btnLoad.Margin = new Padding(3);
+            this._btnLoad.Text = "LOAD";
+            this._btnLoad.FlatStyle = FlatStyle.Flat;
+            this._btnLoad.Font = UiTheme.ButtonFont;
+            this._btnLoad.BackColor = Color.White;
+            this._btnLoad.ForeColor = Color.Black;
+            this._btnLoad.Click += new EventHandler(this.OnLoadClick);
+            // _btnSave (Neutral)
+            this._btnSave.Dock = DockStyle.Fill;
+            this._btnSave.Margin = new Padding(3);
+            this._btnSave.Text = "SAVE";
+            this._btnSave.FlatStyle = FlatStyle.Flat;
+            this._btnSave.Font = UiTheme.ButtonFont;
+            this._btnSave.BackColor = Color.White;
+            this._btnSave.ForeColor = Color.Black;
+            this._btnSave.Click += new EventHandler(this.OnSaveClick);
+            // _btnTrain (Primary)
+            this._btnTrain.Dock = DockStyle.Fill;
+            this._btnTrain.Margin = new Padding(3);
+            this._btnTrain.Text = "TRAIN";
+            this._btnTrain.FlatStyle = FlatStyle.Flat;
+            this._btnTrain.Font = UiTheme.ButtonFont;
+            this._btnTrain.BackColor = UiTheme.Accent;
+            this._btnTrain.ForeColor = Color.White;
+            this._btnTrain.Click += new EventHandler(this.OnTrainClick);
+            // _btnMatch (Primary)
+            this._btnMatch.Dock = DockStyle.Fill;
+            this._btnMatch.Margin = new Padding(3);
+            this._btnMatch.Text = "MATCH";
+            this._btnMatch.FlatStyle = FlatStyle.Flat;
+            this._btnMatch.Font = UiTheme.ButtonFont;
+            this._btnMatch.BackColor = UiTheme.Accent;
+            this._btnMatch.ForeColor = Color.White;
+            this._btnMatch.Click += new EventHandler(this.OnMatchClick);
+            // _btnEditSearch (Edit)
+            this._btnEditSearch.Dock = DockStyle.Fill;
+            this._btnEditSearch.Margin = new Padding(3);
+            this._btnEditSearch.Text = "Edit SEARCH ROI";
+            this._btnEditSearch.FlatStyle = FlatStyle.Flat;
+            this._btnEditSearch.Font = UiTheme.ButtonFont;
+            this._btnEditSearch.BackColor = Color.LightYellow;
+            this._btnEditSearch.ForeColor = Color.Black;
+            this._btnEditSearch.Click += new EventHandler(this.OnEditSearchClick);
+            // _btnEditTrain (Edit)
+            this._btnEditTrain.Dock = DockStyle.Fill;
+            this._btnEditTrain.Margin = new Padding(3);
+            this._btnEditTrain.Text = "Edit TRAIN ROI";
+            this._btnEditTrain.FlatStyle = FlatStyle.Flat;
+            this._btnEditTrain.Font = UiTheme.ButtonFont;
+            this._btnEditTrain.BackColor = Color.LightYellow;
+            this._btnEditTrain.ForeColor = Color.Black;
+            this._btnEditTrain.Click += new EventHandler(this.OnEditTrainClick);
 
             this._actionPanel.Dock = DockStyle.Fill; this._actionPanel.Margin = Padding.Empty;
             this._actionPanel.ColumnCount = 3; this._actionPanel.RowCount = 3;
@@ -210,44 +303,5 @@ namespace QMC.Vision.Ui.Pages
             this.ResumeLayout(false);
         }
 
-        // ── Designer 로컬 스타일 헬퍼(공통 룩 — 페이지 내 일관) ──
-        private enum ActionKind { Neutral, Primary, Edit }
-
-        private static void ConfigureSection(Label lbl, string text)
-        {
-            lbl.Dock = DockStyle.Fill;
-            lbl.Text = text;
-            // GENERAL 섹션 타이틀 스타일 — 회색 배경 + 명칭 + 주황 밑줄.
-            lbl.BackColor = Color.FromArgb(232, 234, 237);
-            lbl.ForeColor = Color.FromArgb(48, 52, 58);
-            lbl.Font = UiTheme.SectionFont;
-            lbl.TextAlign = ContentAlignment.MiddleLeft;
-            lbl.Padding = new Padding(8, 0, 0, 0);
-            lbl.Controls.Add(new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 2,
-                BackColor = Color.FromArgb(217, 119, 6)
-            });
-        }
-
-        private void ConfigureActionBtn(Button b, string text, ActionKind kind, EventHandler onClick)
-        {
-            b.Dock = DockStyle.Fill;
-            b.Margin = new Padding(3);
-            b.Text = text;
-            b.FlatStyle = FlatStyle.Flat;
-            b.Font = UiTheme.ButtonFont;
-            switch (kind)
-            {
-                case ActionKind.Primary:
-                    b.BackColor = UiTheme.Accent; b.ForeColor = Color.White; break;
-                case ActionKind.Edit:
-                    b.BackColor = Color.LightYellow; b.ForeColor = Color.Black; break;
-                default:
-                    b.BackColor = Color.White; b.ForeColor = Color.Black; break;
-            }
-            b.Click += onClick;
-        }
     }
 }

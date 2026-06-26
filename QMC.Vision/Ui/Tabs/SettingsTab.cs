@@ -19,6 +19,7 @@ namespace QMC.Vision.Ui.Tabs
         private CameraMappingPanel   _camPanel;         // 카메라 셋업(모듈)
         private LightSystemSetupPage _lightSetupPage;   // 조명 셋업
         private CommLinkPage         _commPage;         // 통신(TCP) — 포트 편집 + 접속 상태
+        private AutoFocusPanel       _autoFocusPanel;   // 오토 포커스 — 카메라별 BEST 표 + 4색 그래프
         private Control              _currentEditor;
 
         private readonly List<SidebarButton> _sideButtons = new List<SidebarButton>();
@@ -44,6 +45,9 @@ namespace QMC.Vision.Ui.Tabs
 
             _commPage = new CommLinkPage { Dock = DockStyle.Fill, Visible = false };
             PnlContent.Controls.Add(_commPage);
+
+            _autoFocusPanel = new AutoFocusPanel { Dock = DockStyle.Fill, Visible = false };
+            PnlContent.Controls.Add(_autoFocusPanel);
         }
 
         private void BuildSidebar()
@@ -60,6 +64,8 @@ namespace QMC.Vision.Ui.Tabs
             AddButton("조명 셋업", (s, e) => { Select((SidebarButton)s); SwapEditor(_lightSetupPage); });
 
             AddButton("통신", (s, e) => { Select((SidebarButton)s); SwapEditor(_commPage); });
+
+            AddButton("오토 포커스", (s, e) => { Select((SidebarButton)s); SwapEditor(_autoFocusPanel); });
 
             if (_sideButtons.Count > 0)
             {

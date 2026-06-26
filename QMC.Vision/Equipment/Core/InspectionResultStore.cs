@@ -33,8 +33,24 @@ namespace QMC.Vision.Core
             public DateTime Time = DateTime.Now;
         }
 
+        /// <summary>다이 1개(Index X/Y) 단위 집계 — 실제 운영뷰처럼 한 다이에 Front/Back max 칩핑을 모은다.
+        /// 채널(0~1=Front, 2~3=Back) 결과가 들어올 때마다 해당 측 max 갱신. 그리드/추세 차트가 이걸 읽는다.</summary>
+        public sealed class DieRecord
+        {
+            public int Picker, IndexX, IndexY;
+            public double FrontMax, BackMax;
+            public bool HasFront, HasBack;
+            public DateTime Time = DateTime.Now;
+        }
+
         private const int MaxHistory = 300;
         private static readonly object _lock = new object();
+        // 모드 → (다이키 → 집계) + 입력순서 리스트(차트 X축)
+        private static readonly Dictionary<string, Dictionary<long, DieRecord>> _dieMap =
+            new Dictionary<string, Dictionary<long, DieRecord>>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, List<DieRecord>> _dieOrder =
+            new Dictionary<string, List<DieRecord>>(StringComparer.OrdinalIgnoreCase);
+        private static long DieKey(int ix, int iy) => ((long)ix << 32) ^ (uint)iy;
         private static readonly Dictionary<string, List<Item>> _history =
             new Dictionary<string, List<Item>>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, Item[]> _latest =
@@ -84,8 +100,33 @@ namespace QMC.Vision.Core
                         { try { oldc.Image?.Dispose(); } catch { } }
                     }
                 }
+
+                // 다이 단위 집계(측면 칩핑) — Front(채널0~1)/Back(채널2~3) max 누적.
+                if (it.Channel >= 0 && it.Channel <= 3 && it.Values.TryGetValue("Max Chipping Depth", out double mc))
+                {
+                    if (!_dieMap.TryGetValue(it.Mode, out var map))
+                    { map = new Dictionary<long, DieRecord>(); _dieMap[it.Mode] = map; _dieOrder[it.Mode] = new List<DieRecord>(); }
+                    long key = DieKey(it.IndexX, it.IndexY);
+                    if (!map.TryGetValue(key, out var die))
+                    {
+                        die = new DieRecord { IndexX = it.IndexX, IndexY = it.IndexY, Picker = it.Picker };
+                        map[key] = die;
+                        var ord = _dieOrder[it.Mode];
+                        ord.Add(die);
+                        if (ord.Count > MaxHistory) { var rm = ord[0]; ord.RemoveAt(0); map.Remove(DieKey(rm.IndexX, rm.IndexY)); }
+                    }
+                    die.Picker = it.Picker; die.Time = DateTime.Now;
+                    if (it.Channel <= 1) { die.FrontMax = Math.Max(die.FrontMax, mc); die.HasFront = true; }
+                    else                 { die.BackMax  = Math.Max(die.BackMax,  mc); die.HasBack  = true; }
+                }
             }
             try { Changed?.Invoke(it.Mode); } catch { }
+        }
+
+        /// <summary>해당 모드의 다이 집계 목록(입력순=차트 X축). 그리드 한 행=한 다이.</summary>
+        public static List<DieRecord> Dies(string mode)
+        {
+            lock (_lock) { return _dieOrder.TryGetValue(mode, out var list) ? new List<DieRecord>(list) : new List<DieRecord>(); }
         }
 
         /// <summary>해당 모드 picker(1~4)·channel(0~3)의 최신 결과(없으면 null).</summary>
@@ -126,6 +167,17 @@ namespace QMC.Vision.Core
             }
         }
 
+        /// <summary>채널 범위[chMin..chMax]로 필터한 지표 시계열(측면 Front=0~1 / Back=2~3 분리 차트용).</summary>
+        public static double[] Series(string mode, string key, int chMin, int chMax)
+        {
+            lock (_lock)
+            {
+                if (!_history.TryGetValue(mode, out var list)) return new double[0];
+                return list.Where(i => i.Channel >= chMin && i.Channel <= chMax && i.Values.ContainsKey(key))
+                           .Select(i => i.Values[key]).ToArray();
+            }
+        }
+
         public static void Clear(string mode)
         {
             lock (_lock)
@@ -136,6 +188,8 @@ namespace QMC.Vision.Core
                 if (_latestCh.TryGetValue(mode, out var grid))
                     for (int p = 0; p < grid.Length; p++)
                         for (int c = 0; c < grid[p].Length; c++) grid[p][c] = null;
+                if (_dieMap.TryGetValue(mode, out var dm)) dm.Clear();
+                if (_dieOrder.TryGetValue(mode, out var dord)) dord.Clear();
             }
             try { Changed?.Invoke(mode); } catch { }
         }
@@ -168,8 +222,55 @@ namespace QMC.Vision.Core
                 }
             it.Lines = lines.ToArray();
             it.Defects = r?.Defects;
-            if (image != null) { try { it.Image = (Bitmap)image.Clone(); } catch { } }
+            // 표시용 이미지는 썸네일로 축소 보관(원본 12000²=432MB → OOM 방지). 뷰어 픽커 패널은 작아 충분.
+            // 박스/결함 좌표도 같은 배율로 축소해 이미지와 정합. 원본(r.Defects)은 보존(클론 축소).
+            if (image != null)
+            {
+                try
+                {
+                    int f = ThumbFactor(image.Width, image.Height, 1600);
+                    it.Image = MakeThumb(image, f);
+                    if (f > 1)
+                    {
+                        if (it.Defects != null)
+                        {
+                            var sc = new List<DefectMark>(it.Defects.Count);
+                            foreach (var d in it.Defects)
+                                sc.Add(new DefectMark { X = d.X / f, Y = d.Y / f, Width = d.Width / f, Height = d.Height / f, Area = d.Area, Type = d.Type });
+                            it.Defects = sc;
+                        }
+                        if (it.Box != null)
+                        {
+                            var bx = new PointF[it.Box.Length];
+                            for (int i = 0; i < bx.Length; i++) bx[i] = new PointF(it.Box[i].X / f, it.Box[i].Y / f);
+                            it.Box = bx;
+                        }
+                    }
+                }
+                catch { }
+            }
             return it;
+        }
+
+        private static int ThumbFactor(int w, int h, int maxDim)
+        {
+            int f = 1; while (w / f > maxDim || h / f > maxDim) f++;
+            return f;
+        }
+
+        /// <summary>정수배 축소 썸네일(24bpp). f<=1 이면 단순 클론.</summary>
+        private static Bitmap MakeThumb(Bitmap src, int f)
+        {
+            if (f <= 1) return (Bitmap)src.Clone();
+            int tw = Math.Max(1, src.Width / f), th = Math.Max(1, src.Height / f);
+            var bmp = new Bitmap(tw, th, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                g.PixelOffsetMode   = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.DrawImage(src, new Rectangle(0, 0, tw, th), new Rectangle(0, 0, src.Width, src.Height), GraphicsUnit.Pixel);
+            }
+            return bmp;
         }
     }
 }

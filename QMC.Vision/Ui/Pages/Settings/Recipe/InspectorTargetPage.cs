@@ -74,7 +74,7 @@ namespace QMC.Vision.Ui.Pages
             BuildParams();
             LoadTarget();
             BuildChildPanels();
-            BuildRoiControls();
+            WireRoiPad();
             BuildCamContextMenu();
             if (_inspector != null) _cam.SetOverlay(_inspector.InspectionRoi, null);
             UpdateRoiInfo();
@@ -134,63 +134,27 @@ namespace QMC.Vision.Ui.Pages
         // ── ROI 제어(단일 Inspection ROI — Finder 와 동일 UX, Train 토글 없음) ───────────
         private int  _moveStepPx = 10;
         private int  _sizeStepPx = 10;
-        private TextBox _txtMoveStep, _txtSizeStep;
-        private Label  _roiInfo;
 
         private Roi ActiveRoi() => _inspector?.InspectionRoi;
 
-        private void BuildRoiControls()
+        // 공용 RoiNudgePad(이동/크기 버튼) 이벤트를 ROI 로직에 연결. 컨트롤 배치는 Designer.
+        private void WireRoiPad()
         {
-            if (_roiHost == null) return;
-            _roiHost.Controls.Clear();
-
-            var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Padding = new Padding(4) };
-
-            // 이동 패드(3×3)
-            var pad = new TableLayoutPanel { Width = 120, Height = 96, ColumnCount = 3, RowCount = 3, Margin = new Padding(2) };
-            for (int i = 0; i < 3; i++) { pad.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f)); pad.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); }
-            pad.Controls.Add(RoiCell("▲", (s, e) => Nudge(0, -1)), 1, 0);
-            pad.Controls.Add(RoiCell("◀", (s, e) => Nudge(-1, 0)), 0, 1);
-            pad.Controls.Add(RoiCell("●", (s, e) => Recenter()),   1, 1);
-            pad.Controls.Add(RoiCell("▶", (s, e) => Nudge(1, 0)),  2, 1);
-            pad.Controls.Add(RoiCell("▼", (s, e) => Nudge(0, 1)),  1, 2);
-
-            // 크기 조정 + Full Size
-            var rz = new TableLayoutPanel { Width = 140, Height = 96, ColumnCount = 2, RowCount = 3, Margin = new Padding(2) };
-            rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f)); rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.34f));
-            rz.Controls.Add(RoiCell("W +", (s, e) => Resize(1, 0)),  0, 0);
-            rz.Controls.Add(RoiCell("W -", (s, e) => Resize(-1, 0)), 1, 0);
-            rz.Controls.Add(RoiCell("H +", (s, e) => Resize(0, 1)),  0, 1);
-            rz.Controls.Add(RoiCell("H -", (s, e) => Resize(0, -1)), 1, 1);
-            var full = RoiCell("Full Size", (s, e) => FullSizeRoi()); rz.Controls.Add(full, 0, 2); rz.SetColumnSpan(full, 2);
-
-            // 우측: 라벨(단일 ROI) / 스텝 / 표시
-            var col = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, Width = 210, Height = 120, Margin = new Padding(8, 0, 0, 0) };
-            col.Controls.Add(new Label { Text = "Inspection ROI", AutoSize = true, Font = UiTheme.ButtonFont, ForeColor = UiTheme.Accent, Margin = new Padding(0, 2, 0, 2) });
-
-            _txtMoveStep = new TextBox { Width = 44, Text = _moveStepPx.ToString() };
-            _txtSizeStep = new TextBox { Width = 44, Text = _sizeStepPx.ToString() };
-            _txtMoveStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v; };
-            _txtSizeStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v; };
-            var steps = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0, 4, 0, 0) };
-            steps.Controls.Add(new Label { Text = "Move", AutoSize = true, Margin = new Padding(0, 7, 2, 0) });
-            steps.Controls.Add(_txtMoveStep);
-            steps.Controls.Add(new Label { Text = "Size", AutoSize = true, Margin = new Padding(10, 7, 2, 0) });
-            steps.Controls.Add(_txtSizeStep);
-
-            _roiInfo = new Label { AutoSize = true, Margin = new Padding(0, 6, 0, 0), Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray };
-            col.Controls.Add(steps); col.Controls.Add(_roiInfo);
-
-            flow.Controls.Add(pad); flow.Controls.Add(rz); flow.Controls.Add(col);
-            _roiHost.Controls.Add(flow);
+            _roiPad.MoveRequested     += Nudge;
+            _roiPad.ResizeRequested   += Resize;
+            _roiPad.RecenterRequested += Recenter;
+            _roiPad.FullSizeRequested += FullSizeRoi;
             UpdateRoiInfo();
         }
 
-        private Button RoiCell(string text, EventHandler on)
+        // 스텝 입력 — Designer 에서 TextChanged 배선.
+        private void _txtMoveStep_TextChanged(object sender, EventArgs e)
         {
-            var b = new Button { Text = text, Dock = DockStyle.Fill, Margin = new Padding(2), FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            b.Click += on; return b;
+            int v; if (int.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v;
+        }
+        private void _txtSizeStep_TextChanged(object sender, EventArgs e)
+        {
+            int v; if (int.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v;
         }
 
         private void Nudge(int dx, int dy)
@@ -357,10 +321,20 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => bi.ChipThreshold, v => { bi.ChipThreshold = v; }));
                 items.Add(ParameterGridItem.Bool  ("Dark Chip", ParameterGridScope.Recipe, () => bi.DarkChip, v => { bi.DarkChip = v; }));
                 items.Add(ParameterGridItem.Double("Chipping Depth", "mm", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }));
+                items.Add(ParameterGridItem.Int   ("Chip Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ChipEdgeMargin, v => { bi.ChipEdgeMargin = v; }));
+                // 너비/높이 상·하한[mm] (0=미설정) — 차트 Limit 점선 + 사이즈 NG 기준.
+                items.Add(ParameterGridItem.Double("Width Lower",  "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); }));
+                items.Add(ParameterGridItem.Double("Width Upper",  "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Width,  v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipUpperSpecLimit.Height); }));
+                items.Add(ParameterGridItem.Double("Height Lower", "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Height, v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF(bi.ChipLowerSpecLimit.Width, (float)v); }));
+                items.Add(ParameterGridItem.Double("Height Upper", "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Height, v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF(bi.ChipUpperSpecLimit.Width, (float)v); }));
                 items.Add(ParameterGridItem.Double("Foreign Size", "mm", ParameterGridScope.Recipe, () => bi.ForeignObjectSize, v => { bi.ForeignObjectSize = v; }));
+                items.Add(ParameterGridItem.Int   ("Foreign Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ForeignEdgeMargin, v => { bi.ForeignEdgeMargin = v; }));
                 items.Add(ParameterGridItem.Int   ("TopHat Radius", "px", ParameterGridScope.Recipe, () => bi.TopHatRadius, v => { bi.TopHatRadius = v; }));
                 items.Add(ParameterGridItem.Int   ("TopHat Threshold", "", ParameterGridScope.Recipe, () => bi.TopHatThreshold, v => { bi.TopHatThreshold = v; }));
                 items.Add(ParameterGridItem.Int   ("Min Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MinForeignAreaFilterSize, v => { bi.MinForeignAreaFilterSize = v; }));
+                items.Add(ParameterGridItem.Int   ("Max Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MaxForeignAreaFilterSize, v => { bi.MaxForeignAreaFilterSize = v; }));
+                items.Add(ParameterGridItem.Int   ("Link Distance", "px", ParameterGridScope.Recipe, () => bi.LinkDistance, v => { bi.LinkDistance = v; }));
+                items.Add(ParameterGridItem.Bool  ("Use Contamination", ParameterGridScope.Recipe, () => bi.UseContaminationInspection, v => { bi.UseContaminationInspection = v; }));
                 items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeWidthMm, v => { bi.PixelSizeWidthMm = v; }));
                 items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeHeightMm, v => { bi.PixelSizeHeightMm = v; }));
             }
@@ -373,6 +347,11 @@ namespace QMC.Vision.Ui.Pages
                     items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; }));
                     items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; }));
                     items.Add(ParameterGridItem.Double("Chip Thickness", "mm", ParameterGridScope.Recipe, () => si.ChipThickness, v => { si.ChipThickness = v; }));
+                    // CDT-310 FindLine 라인검출 조정값
+                    items.Add(ParameterGridItem.Double("Scan Rate", "", ParameterGridScope.Recipe, () => si.ScanRate, v => { si.ScanRate = v; }));
+                    items.Add(ParameterGridItem.Int   ("Envelope Bin", "px", ParameterGridScope.Recipe, () => si.EnvelopeBinSize, v => { si.EnvelopeBinSize = v; }));
+                    items.Add(ParameterGridItem.Double("Keep Quantile", "", ParameterGridScope.Recipe, () => si.KeepQuantile, v => { si.KeepQuantile = v; }));
+                    items.Add(ParameterGridItem.Int   ("Edge Gap", "px", ParameterGridScope.Recipe, () => si.EdgeGap, v => { si.EdgeGap = v; }));
                     items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => si.PixelSizeHeightMm, v => { si.PixelSizeHeightMm = v; }));
                 }
                 if (si.IsSurfaceRole)
@@ -414,10 +393,15 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Bool("시뮬 저장이미지 사용", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
-                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로", ParameterGridScope.Setup,
+                string imgFilter = "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*";
+                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로 Ch1(0°)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
-                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
+                    imgFilter));
+                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로 Ch2(90°)", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePathCh2 ?? "",
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePathCh2 = v?.Trim() ?? ""; MarkDirty(); } },
+                    imgFilter));
 
                 // INSPECT 결과(검출 오버레이) 이미지 저장 — 사용 여부 + 폴더 경로.
                 items.Add(ParameterGridItem.Bool("결과 저장 사용", ParameterGridScope.Setup,
@@ -673,7 +657,8 @@ namespace QMC.Vision.Ui.Pages
                         int i = 1;
                         foreach (var d in r.Defects)
                         {
-                            lines.Add(string.Format("NG: #{0} ({1:F0},{2:F0}) {3:F0}x{4:F0}px", i, d.X, d.Y, d.Width, d.Height));
+                            string ng = string.IsNullOrEmpty(d.Type) ? "NG" : ("NG(" + d.Type + ")");
+                            lines.Add(string.Format("{0}: #{1} ({2:F0},{3:F0}) {4:F0}x{5:F0}px", ng, i, d.X, d.Y, d.Width, d.Height));
                             cols.Add(red);
                             i++;
                         }
@@ -716,13 +701,36 @@ namespace QMC.Vision.Ui.Pages
             if (g == null || toS == null || r == null) return;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
+            // 바텀(SurfaceInspector) 전용 오버레이 — 작업 모니터와 동일한 공용 렌더러로 그린다(구조 일원화).
+            if (insp is QMC.Vision.Core.BottomInspector biTop && biTop.LastValid)
+            {
+                string cap = null;
+                { string wv = null, hv = null, av = null;
+                  if (r.Items != null) foreach (var it in r.Items)
+                  { if (it.Name == "Width") wv = it.Value; else if (it.Name == "Height") hv = it.Value; else if (it.Name == "Angle") av = it.Value; }
+                  if (wv != null || hv != null) cap = "W " + (wv ?? "?") + " H " + (hv ?? "?") + (av != null ? (" θ" + av) : ""); }
+                QMC.Vision.Core.InspectionOverlayRenderer.Draw(g, toS, new QMC.Vision.Core.InspectionOverlayStore.Geom
+                {
+                    Kind = QMC.Vision.Core.InspectionOverlayStore.OverlayKind.Bottom,
+                    Corners = biTop.LastCorners, Defects = r.Defects, Caption = cap, Pass = r.IsPass
+                });
+                return;
+            }
+
             using (var green = new System.Drawing.Pen(System.Drawing.Color.LimeGreen, 2f))
             using (var red   = new System.Drawing.Pen(System.Drawing.Color.Red, 2f))
             {
                 // 검출 기하(초록) — 검사기 타입별로 다르게
                 if (insp is QMC.Vision.Core.SideAppearanceInspector si && si.LastValid && si.IsChippingRole)
                 {
-                    // 평균 직선이 아니라 컬럼별 실제 굴곡 에지 프로파일을 그림
+                    // 검출 기준선(강건 피팅 직선) — 얇은 노랑. 칩핑 = 이 선 대비 프로파일의 벗어남.
+                    if (si.LastCorners != null && si.LastCorners.Length >= 4)
+                        using (var refp = new System.Drawing.Pen(System.Drawing.Color.Gold, 1f))
+                        {
+                            var c = ToScreenArr(si.LastCorners, toS);
+                            g.DrawLine(refp, c[0], c[1]); g.DrawLine(refp, c[3], c[2]);
+                        }
+                    // 컬럼별 실제 굴곡 에지 프로파일(초록) — 노치/톱니를 그대로 따라감
                     if (si.LastTopProfile != null && si.LastTopProfile.Length >= 2) g.DrawLines(green, ToScreenArr(si.LastTopProfile, toS));
                     if (si.LastBotProfile != null && si.LastBotProfile.Length >= 2) g.DrawLines(green, ToScreenArr(si.LastBotProfile, toS));
                 }
@@ -751,6 +759,73 @@ namespace QMC.Vision.Ui.Pages
             // 상세값 텍스트는 영상에 그리지 않음 — 기존 결과라인(SetResultLines, 우측하단 핑크) 사용.
         }
 
+        /// <summary>바텀(SurfaceInspector) 전용 오버레이 — 공용 박스/결함 대신 다이 박스 + 사이즈 라벨 +
+        /// 칩핑(주황)·이물(자홍) 구분 마커. 검출종류(DefectMark.Type)에 따라 색·모양·접두(C/F)를 다르게 그린다.</summary>
+        private static void DrawBottomOverlay(System.Drawing.Graphics g,
+            System.Func<System.Drawing.PointF, System.Drawing.PointF> toS, QMC.Vision.Core.BottomInspector bi, InspectionResult r)
+        {
+            string ItemVal(string name)
+            {
+                if (r.Items != null) foreach (var it in r.Items) if (it.Name == name) return it.Value;
+                return null;
+            }
+            bool ok = r.IsPass;
+
+            using (var die    = new System.Drawing.Pen(ok ? System.Drawing.Color.LimeGreen : System.Drawing.Color.Orange, 2.5f))
+            using (var chipPen= new System.Drawing.Pen(System.Drawing.Color.DarkOrange, 2f))
+            using (var forPen = new System.Drawing.Pen(System.Drawing.Color.Magenta, 2f))
+            using (var corner = new System.Drawing.SolidBrush(System.Drawing.Color.LimeGreen))
+            using (var fChip  = new System.Drawing.SolidBrush(System.Drawing.Color.DarkOrange))
+            using (var fFor   = new System.Drawing.SolidBrush(System.Drawing.Color.Magenta))
+            using (var fLbl   = new System.Drawing.Font("Consolas", 9f, System.Drawing.FontStyle.Bold))
+            {
+                // 다이 박스(검출 사각형) + 코너 점
+                if (bi.LastCorners != null && bi.LastCorners.Length >= 4)
+                {
+                    var c = ToScreenArr(bi.LastCorners, toS);
+                    g.DrawPolygon(die, c);
+                    foreach (var p in c) g.FillEllipse(corner, p.X - 3, p.Y - 3, 6, 6);
+
+                    // 사이즈 라벨(좌상단 코너 근처) — Width × Height mm + 각도
+                    string wv = ItemVal("Width"), hv = ItemVal("Height"), av = ItemVal("Angle");
+                    if (wv != null && hv != null)
+                    {
+                        string label = "DIE " + wv + " x " + hv + " mm" + (av != null ? ("  θ" + av + "°") : "");
+                        var anchor = c[0];
+                        using (var bg = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(150, 0, 0, 0)))
+                        {
+                            var sz = g.MeasureString(label, fLbl);
+                            g.FillRectangle(bg, anchor.X, anchor.Y - sz.Height - 4, sz.Width + 6, sz.Height + 2);
+                        }
+                        g.DrawString(label, fLbl, ok ? corner : fChip, anchor.X + 3, anchor.Y - g.MeasureString(label, fLbl).Height - 3);
+                    }
+                }
+
+                // 결함 — 종류별로 모양/색 구분(칩핑=주황 사각, 이물=자홍 원)
+                if (r.Defects != null)
+                {
+                    int ic = 1, ifn = 1;
+                    foreach (var d in r.Defects)
+                    {
+                        var p1 = toS(new System.Drawing.PointF((float)(d.X - d.Width / 2), (float)(d.Y - d.Height / 2)));
+                        var p2 = toS(new System.Drawing.PointF((float)(d.X + d.Width / 2), (float)(d.Y + d.Height / 2)));
+                        float ww = System.Math.Max(8, p2.X - p1.X), hh = System.Math.Max(8, p2.Y - p1.Y);
+                        bool isForeign = string.Equals(d.Type, "Foreign", System.StringComparison.OrdinalIgnoreCase);
+                        if (isForeign)
+                        {
+                            g.DrawEllipse(forPen, p1.X, p1.Y, ww, hh);
+                            g.DrawString("F" + (ifn++), fLbl, fFor, p1.X, p1.Y - 14);
+                        }
+                        else   // 칩핑(또는 미지정)
+                        {
+                            g.DrawRectangle(chipPen, p1.X, p1.Y, ww, hh);
+                            g.DrawString("C" + (ic++), fLbl, fChip, p1.X, p1.Y - 14);
+                        }
+                    }
+                }
+            }
+        }
+
         /// <summary>우측 하단 상세값 패널 — 기본 초록, 에러(스펙 초과 항목·검출 결함)만 빨강. 항목 + 결함별 좌표/크기.</summary>
         private static void DrawDetailPanel(System.Drawing.Graphics g, IInspector insp, InspectionResult r)
         {
@@ -771,7 +846,7 @@ namespace QMC.Vision.Ui.Pages
                 int i = 1;
                 foreach (var d in r.Defects)
                 {
-                    Add(string.Format("#{0}  ({1:F0},{2:F0})  {3:F0}x{4:F0}px", i, d.X, d.Y, d.Width, d.Height), red);
+                    Add(string.Format("#{0} {1} ({2:F0},{3:F0})  {4:F0}x{5:F0}px", i, string.IsNullOrEmpty(d.Type) ? "" : ("[" + d.Type + "]"), d.X, d.Y, d.Width, d.Height), red);
                     if (++i > 20) { Add("  ...", red); break; }
                 }
             }
@@ -825,6 +900,10 @@ namespace QMC.Vision.Ui.Pages
                 {
                     if (_inspector is QMC.Vision.Core.SideAppearanceInspector si && si.LastValid)
                     {
+                        // 검출 기준선(직선) — 얇은 노랑. 칩핑 = 이 선 대비 프로파일 벗어남.
+                        if (si.LastCorners != null && si.LastCorners.Length >= 4)
+                            using (var refp = new System.Drawing.Pen(System.Drawing.Color.Gold, 1f))
+                            { g.DrawLine(refp, si.LastCorners[0], si.LastCorners[1]); g.DrawLine(refp, si.LastCorners[3], si.LastCorners[2]); }
                         // 컬럼별 실제 굴곡 에지 프로파일(평균 직선 아님)
                         if (si.LastTopProfile != null && si.LastTopProfile.Length >= 2) g.DrawLines(gp, si.LastTopProfile);
                         if (si.LastBotProfile != null && si.LastBotProfile.Length >= 2) g.DrawLines(gp, si.LastBotProfile);
@@ -836,11 +915,19 @@ namespace QMC.Vision.Ui.Pages
                         g.DrawPolygon(gp, pg.LastCorners);
                 }
 
-                // 결함 마크(빨강 박스)
+                // 결함 마크 — 종류별 구분(이물=자홍 원, 칩핑/기타=주황 사각). 저장 이미지도 라이브 오버레이와 동일 표기.
                 if (r.Defects != null)
-                    using (var dp = new System.Drawing.Pen(System.Drawing.Color.Red, 2f))
+                    using (var chipPen = new System.Drawing.Pen(System.Drawing.Color.DarkOrange, 2f))
+                    using (var forPen  = new System.Drawing.Pen(System.Drawing.Color.Magenta, 2f))
                         foreach (var d in r.Defects)
-                            g.DrawRectangle(dp, (float)(d.X - d.Width / 2), (float)(d.Y - d.Height / 2), (float)Math.Max(8, d.Width), (float)Math.Max(8, d.Height));
+                        {
+                            float dx = (float)(d.X - d.Width / 2), dy = (float)(d.Y - d.Height / 2);
+                            float dw = (float)Math.Max(8, d.Width), dh = (float)Math.Max(8, d.Height);
+                            if (string.Equals(d.Type, "Foreign", System.StringComparison.OrdinalIgnoreCase))
+                                g.DrawEllipse(forPen, dx, dy, dw, dh);
+                            else
+                                g.DrawRectangle(chipPen, dx, dy, dw, dh);
+                        }
 
                 // 측정값 + 판정 텍스트
                 int ty = 6;

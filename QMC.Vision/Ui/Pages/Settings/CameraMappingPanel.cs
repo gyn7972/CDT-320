@@ -187,6 +187,18 @@ namespace QMC.Vision.Ui.Pages
         private void OnScaleParamChanged(object sender, ParameterGridChangedEventArgs e)
         {
             try { _scaleGrid.RefreshValues(); } catch { }
+            // X반전/Y반전/90°회전 토글 → 미리보기에 즉시 반영(저장 전에도 확인 가능).
+            UpdateDisplayOrientation();
+        }
+
+        /// <summary>현재 버퍼의 X반전/Y반전/90°회전 플래그를 미리보기(_camPreview) 표시 방향변환에 반영.
+        /// 그랩/라이브로 들어오는 이미지가 이 방향으로 표시된다. 저장 시 모듈 Config 로 영속되어 재로드 후에도 유지.</summary>
+        private void UpdateDisplayOrientation()
+        {
+            if (_camPreview == null) return;
+            var m = CurrentMapping();
+            if (m == null) { _camPreview.DisplayOrientation = System.Drawing.RotateFlipType.RotateNoneFlipNone; return; }
+            _camPreview.DisplayOrientation = CameraView.OrientationFromFlags(m.InvertedX, m.InvertedY, m.IsRotated);
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -444,6 +456,7 @@ namespace QMC.Vision.Ui.Pages
                 _scaleGrid.SetItems(BuildScaleItems(m));   // 스케일/좌표변환 전용 그리드
                 SizeLeftGrids();                           // 그리드 행 높이를 내용에 맞춰 고정(GENERAL 동일 — 세로 늘어남 방지)
                 _camPreview.AttachModule(Module());        // 툴바 Grab/Live 대상 = 현재 모듈
+                UpdateDisplayOrientation();                // X반전/Y반전/90°회전 → 미리보기 표시 방향 반영
 
                 var cfg = VisionConfigStore.Current;
                 if (_txtMilDcf != null) _txtMilDcf.Text = cfg?.MilDcfPath ?? "";

@@ -7,15 +7,12 @@ namespace QMC.Vision.Ui.Controls
 {
     /// <summary>
     /// SPC 추세 차트 — 값 시리즈 + 상/하한(UpperLimit/LowerLimit) 점선.
-    /// 마우스 휠 줌(+드래그 선택 줌), 우클릭 리셋, 우상단 "확대" 버튼 → 새 큰 창.
+    /// 마우스 휠 줌(+드래그 선택 줌), 더블클릭 리셋, 우상단 "확대" 버튼 → 새 큰 창.
     /// 데이터는 SetData 로 주입(없으면 빈 차트).
+    /// 레이아웃/컨트롤 = SpcTrendChart.Designer.cs. 본 파일은 로직(차트 구성/줌/팝업)만.
     /// </summary>
-    public class SpcTrendChart : UserControl
+    public partial class SpcTrendChart : UserControl
     {
-        private readonly Chart _chart = new Chart();
-        private readonly Button _btnZoom = new Button();
-        private readonly Button _btnClear = new Button();
-
         private double[] _vals;
         private double _upper, _lower;
         private string _title = "";
@@ -23,42 +20,22 @@ namespace QMC.Vision.Ui.Controls
 
         public SpcTrendChart()
         {
-            BackColor = Color.White;
-            _chart.Dock = DockStyle.Fill;
+            InitializeComponent();
             BuildArea(_chart, _title);
-            _chart.MouseWheel += Chart_MouseWheel;
-            _chart.MouseEnter += (s, e) => _chart.Focus();   // 휠 이벤트 수신
-            _chart.DoubleClick += (s, e) => { ResetZoom(_chart); ClearCursor(_chart); }; // 더블클릭 = 줌/커서 초기화
-
-            StyleTopButton(_btnZoom, "⤢");
-            _btnZoom.Click += (s, e) => ShowPopout();
-            StyleTopButton(_btnClear, "✕");                  // 클릭 커서(빨간선) 지우기
-            _btnClear.Click += (s, e) => ClearCursor(_chart);
-
-            Controls.Add(_btnClear);
-            Controls.Add(_btnZoom);
-            Controls.Add(_chart);
-            _btnZoom.BringToFront();
-            _btnClear.BringToFront();
-            Resize += (s, e) => LayoutButtons();
             LayoutButtons();
         }
+
+        // ── 이벤트 핸들러(Designer 에서 배선) ──
+        private void _chart_MouseEnter(object sender, EventArgs e) { _chart.Focus(); }   // 휠 이벤트 수신
+        private void _chart_DoubleClick(object sender, EventArgs e) { ResetZoom(_chart); ClearCursor(_chart); }  // 줌/커서 초기화
+        private void _btnZoom_Click(object sender, EventArgs e) { ShowPopout(); }
+        private void _btnClear_Click(object sender, EventArgs e) { ClearCursor(_chart); }
+        private void SpcTrendChart_Resize(object sender, EventArgs e) { LayoutButtons(); }
 
         private void LayoutButtons()
         {
             _btnZoom.Location  = new Point(Width - _btnZoom.Width - 4, 4);
             _btnClear.Location = new Point(Width - _btnZoom.Width - _btnClear.Width - 8, 4);
-        }
-
-        private static void StyleTopButton(Button b, string text)
-        {
-            b.Text = text;
-            b.Size = new Size(26, 22);
-            b.FlatStyle = FlatStyle.Flat;
-            b.BackColor = Color.FromArgb(0x3A, 0x40, 0x4C);
-            b.ForeColor = Color.White;
-            b.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            b.Cursor = Cursors.Hand;
         }
 
         /// <summary>클릭으로 생긴 커서선(빨강) + 선택영역 제거.</summary>
@@ -125,13 +102,26 @@ namespace QMC.Vision.Ui.Controls
                 for (int i = 0; i < vals.Length; i++) s.Points.AddXY(i + 1, vals[i]);
             chart.Series.Add(s);
 
-            AddLimit(area, upper);
-            AddLimit(area, lower);
+            bool hasLim = upper > lower && !(upper == 0 && lower == 0);
+            if (hasLim) { AddLimit(area, upper); AddLimit(area, lower); }
 
-            // Y 범위를 상/하한 바깥으로 약간 여유
-            double margin = Math.Max(0.0001, (upper - lower) * 0.6);
-            area.AxisY.Minimum = lower - margin;
-            area.AxisY.Maximum = upper + margin;
+            // Y 범위 = 실데이터 + (있으면)상/하한 모두 포함하도록 오토스케일.
+            // (고정 상/하한만 쓰면 데이터가 한참 벗어난 경우 라인이 화면 밖으로 사라짐 — 실제 증상 수정.)
+            double dMin = double.NaN, dMax = double.NaN;
+            if (vals != null)
+                foreach (double v in vals)
+                {
+                    if (double.IsNaN(v) || double.IsInfinity(v)) continue;
+                    if (double.IsNaN(dMin) || v < dMin) dMin = v;
+                    if (double.IsNaN(dMax) || v > dMax) dMax = v;
+                }
+            double yMin, yMax;
+            if (double.IsNaN(dMin)) { yMin = hasLim ? lower : 0; yMax = hasLim ? upper : 1; }
+            else { yMin = dMin; yMax = dMax; if (hasLim) { yMin = Math.Min(yMin, lower); yMax = Math.Max(yMax, upper); } }
+            if (yMax <= yMin) yMax = yMin + Math.Max(0.001, Math.Abs(yMin) * 0.01);
+            double margin = Math.Max(0.0001, (yMax - yMin) * 0.1);
+            area.AxisY.Minimum = yMin - margin;
+            area.AxisY.Maximum = yMax + margin;
         }
 
         private static void AddLimit(ChartArea area, double value)

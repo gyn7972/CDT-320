@@ -13,7 +13,9 @@ namespace QMC.Common.Ui.Controls
     /// </summary>
     public class CameraViewBase : Control
     {
-        private Bitmap _frame;
+        private Bitmap _frame;        // 표시(방향 적용 후) 프레임 — 그리기/오버레이/좌표변환의 기준.
+        private Bitmap _srcFrame;     // 원본(방향 미적용) 프레임 — 방향 토글 시 _frame 재생성용.
+        private RotateFlipType _displayOrientation = RotateFlipType.RotateNoneFlipNone;
         private RectangleF _overlayRoi;
         private bool _hasOverlayRoi;
         private OverlayMark[] _overlayMarks;
@@ -55,6 +57,47 @@ namespace QMC.Common.Ui.Controls
 
         /// <summary>STAGE/No image/Live 글자색(프로젝트별 테마). 기본 LightGreen.</summary>
         public Color InfoForeColor { get; set; } = Color.LightGreen;
+
+        /// <summary>표시 방향 변환(X반전/Y반전/90° 회전). 그랩·라이브로 들어온 원본 프레임에 적용해
+        /// 화면에 보이는 이미지를 회전/반전한다. 기본 <see cref="RotateFlipType.RotateNoneFlipNone"/>(무변환).
+        /// 변경 시 현재 표시 중인 프레임도 즉시 재변환한다.</summary>
+        public RotateFlipType DisplayOrientation
+        {
+            get { return _displayOrientation; }
+            set
+            {
+                if (_displayOrientation == value) return;
+                _displayOrientation = value;
+                RebuildOrientedFrame();
+                RaiseFrameChangedIfSizeChanged();
+                if (IsHandleCreated) BeginInvoke(new Action(() => { UpdateMagLabel(); Invalidate(); }));
+                else Invalidate();
+            }
+        }
+
+        /// <summary>원본(_srcFrame) → 방향 적용 표시 프레임(_frame) 재생성.
+        /// 무변환이면 _frame 은 _srcFrame 을 그대로 참조(추가 메모리 없음).</summary>
+        private void RebuildOrientedFrame()
+        {
+            // 직전 oriented 복사본(원본과 다른 인스턴스)만 해제 — 원본은 별도 관리.
+            if (_frame != null && !ReferenceEquals(_frame, _srcFrame))
+            {
+                try { _frame.Dispose(); } catch { }
+            }
+            if (_srcFrame == null) { _frame = null; return; }
+            if (_displayOrientation == RotateFlipType.RotateNoneFlipNone) { _frame = _srcFrame; return; }
+            try
+            {
+                var clone = (Bitmap)_srcFrame.Clone();
+                clone.RotateFlip(_displayOrientation);
+                _frame = clone;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[CameraViewBase] RotateFlip 실패: " + ex.Message);
+                _frame = _srcFrame;   // 변환 실패 시 원본 표시(빈 화면 방지)
+            }
+        }
 
         /// <summary>표시 프레임의 크기가 바뀌면 발생(그랩/로드/첫 라이브 프레임). 페이지가 STAGE/ROI 자동맞춤에 사용.</summary>
         public event Action FrameChanged;
@@ -124,7 +167,12 @@ namespace QMC.Common.Ui.Controls
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { try { _frame?.Dispose(); } catch { } _frame = null; }
+            if (disposing)
+            {
+                if (_frame != null && !ReferenceEquals(_frame, _srcFrame)) { try { _frame.Dispose(); } catch { } }
+                try { _srcFrame?.Dispose(); } catch { }
+                _frame = null; _srcFrame = null;
+            }
             base.Dispose(disposing);
         }
 
@@ -310,11 +358,19 @@ namespace QMC.Common.Ui.Controls
         public void ZoomFit() { _zoom = 0; _panX = _panY = 0; UpdateMagLabel(); Invalidate(); }
         protected override void OnResize(EventArgs e) { base.OnResize(e); UpdateMagLabel(); }
 
-        /// <summary>비트맵을 표시(내부 복제 — 원본은 호출자가 Dispose 가능).</summary>
+        /// <summary>비트맵을 표시(내부 복제 — 원본은 호출자가 Dispose 가능).
+        /// <see cref="DisplayOrientation"/> 가 설정돼 있으면 그 방향변환을 적용해 표시한다.</summary>
         public void SetImage(Bitmap bmp)
         {
-            _frame?.Dispose();
-            _frame = bmp != null ? (Bitmap)bmp.Clone() : null;
+            // 이전 oriented 복사본(원본과 다른 인스턴스)부터 해제 → 그 다음 원본 해제(이중 해제 방지).
+            if (_frame != null && !ReferenceEquals(_frame, _srcFrame))
+            {
+                try { _frame.Dispose(); } catch { }
+            }
+            _frame = null;
+            try { _srcFrame?.Dispose(); } catch { }
+            _srcFrame = bmp != null ? (Bitmap)bmp.Clone() : null;
+            RebuildOrientedFrame();
             RaiseFrameChangedIfSizeChanged();
             if (IsHandleCreated) BeginInvoke(new Action(() => { UpdateMagLabel(); Invalidate(); })); else Invalidate();
         }
@@ -440,7 +496,9 @@ namespace QMC.Common.Ui.Controls
 
             g.InterpolationMode = scale >= 1.0 ? InterpolationMode.NearestNeighbor : InterpolationMode.Bilinear;
             g.PixelOffsetMode   = PixelOffsetMode.Half;
-            g.DrawImage(_frame, visible, sx, sy, sw, sh, GraphicsUnit.Pixel);
+            // 배경 스레드가 프레임을 교체/해제하는 순간과 겹치면 GDI "개체 사용 중" 예외 → 한 프레임 건너뜀.
+            try { g.DrawImage(_frame, visible, sx, sy, sw, sh, GraphicsUnit.Pixel); }
+            catch { }
         }
 
         protected override void OnPaint(PaintEventArgs e)

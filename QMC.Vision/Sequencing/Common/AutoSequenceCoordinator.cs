@@ -112,6 +112,32 @@ namespace QMC.Vision.Sequencing
             }
         }
 
+        /// <summary>선택한 여러 도구(모듈 무관)를 동시에 시작 — 각 도구가 독립 연속 시퀀서로 병렬 실행.
+        /// 한 개만 선택해도 동일하게 동작. 기존 실행은 먼저 정지.</summary>
+        public void StartTools(IEnumerable<KeyValuePair<SequenceModuleKind, string>> tools, SequenceRunMode mode)
+        {
+            try
+            {
+                Stop();
+                _mode = mode;
+                _cts = new CancellationTokenSource();
+                CancellationToken ct = _cts.Token;
+                int n = 0;
+                if (tools != null)
+                    foreach (var kv in tools)
+                    {
+                        var ts = Find(kv.Key, kv.Value);
+                        if (ts == null) { _ctx.LogPublic("[SEQ] 도구 없음: " + kv.Key + "." + kv.Value); continue; }
+                        ts.Configure(mode);
+                        if (mode == SequenceRunMode.Auto)
+                        { _running.Add(Task.Run(() => ts.RunAutoAsync(ct))); n++; }
+                    }
+                _ctx.LogPublic("[SEQ] 선택 도구 동시 시작 — " + n + "개 / " + mode
+                    + (mode == SequenceRunMode.Auto ? "" : " ('한 단계'로 진행)"));
+            }
+            catch (Exception ex) { _ctx.LogPublic("[SEQ] 선택 도구 시작 실패: " + ex.Message); }
+        }
+
         // 모듈의 도구들을 순서대로 1회 통과(연속 루프의 한 패스).
         private async Task RunModuleLoopAsync(List<ToolSequence> tools, CancellationToken ct)
         {
@@ -175,7 +201,8 @@ namespace QMC.Vision.Sequencing
             var cts = _cts;
             _cts = null;
             try { cts?.Cancel(); } catch { }
-            try { cts?.Dispose(); } catch { }
+            // CTS 는 즉시 Dispose 하지 않는다 — 병렬 실행 태스크가 아직 토큰(Task.Delay/ThrowIfCancellationRequested)을
+            // 참조 중이면 즉시 Dispose 시 ObjectDisposedException 레이스로 정지가 깔끔히 안 된다. GC 에 맡긴다.
             _running.Clear();
         }
 

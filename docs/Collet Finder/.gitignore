@@ -1,0 +1,18 @@
+# C# build outputs
+ColletFinder/bin/
+ColletFinder/obj/
+
+# CUDA build artifacts
+ColletFinderCuda/*.dll
+ColletFinderCuda/*.lib
+ColletFinderCuda/*.exp
+ColletFinderCuda/*.obj
+ColletFinderCuda/*.pdb
+ColletFinderCuda/x64/
+ColletFinderCuda/*.vcxproj.user
+.vs/
+
+# temp test folders
+_gputest/
+_selftest/
+_blobtest/

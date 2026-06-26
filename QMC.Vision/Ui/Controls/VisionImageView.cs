@@ -66,12 +66,25 @@ namespace QMC.Vision.Ui.Controls
         /// <summary>확대 버튼 숨김(팝업 인스턴스에서 중첩 방지).</summary>
         public void HideZoomButton() => _btnZoom.Visible = false;
 
-        /// <summary>표시 이미지 설정(null 이면 검은 창). 호출 시 줌/팬 리셋.</summary>
-        public void SetImage(Bitmap bmp)
+        /// <summary>표시 이미지 설정(null 이면 검은 창). 호출 시 줌/팬 리셋.
+        /// 외부(스토어)가 원본을 Dispose 해도 안전하도록 뷰 자체 복사본을 보관(동시접근 GDI 충돌 방지).
+        /// 반환: 이미지가 실제로 표시됐으면 true. 클론 실패 시 기존 이미지를 유지(블랭크하지 않음)하고 false.</summary>
+        public bool SetImage(Bitmap bmp)
         {
-            _img = bmp;
-            _zoom = 1f; _pan = PointF.Empty;
-            Invalidate();
+            if (bmp == null)
+            {
+                var o0 = _img; _img = null;
+                if (o0 != null) { try { o0.Dispose(); } catch { } }
+                _zoom = 1f; _pan = PointF.Empty; Invalidate();
+                return false;
+            }
+            Bitmap copy;
+            try { copy = (Bitmap)bmp.Clone(); }
+            catch { return _img != null; }   // 클론 실패(동시 Dispose 등) → 기존 유지, 호출측이 재시도하도록 false
+            var old = _img; _img = copy;
+            if (old != null) { try { old.Dispose(); } catch { } }
+            _zoom = 1f; _pan = PointF.Empty; Invalidate();
+            return true;
         }
 
         /// <summary>검출 오버레이 설정 — 박스 코너/판정/측정 텍스트/마크(모두 이미지 좌표).</summary>
@@ -109,7 +122,9 @@ namespace QMC.Vision.Ui.Controls
             _drawOrigin = new PointF(ox, oy);
 
             g.InterpolationMode = _zoom >= 1f ? InterpolationMode.NearestNeighbor : InterpolationMode.HighQualityBilinear;
-            g.DrawImage(_img, ox, oy, dw, dh);
+            // 외부 스레드가 비트맵을 교체/해제하는 순간과 겹치면 GDI 가 "개체 사용 중" 예외 → 한 프레임 건너뜀.
+            try { g.DrawImage(_img, ox, oy, dw, dh); }
+            catch { return; }
 
             // 크로스라인(이미지 중심 십자선) — ON 일 때
             if (_crossline)
@@ -141,15 +156,22 @@ namespace QMC.Vision.Ui.Controls
                         g.DrawEllipse(pen, p.X - 9, p.Y - 9, 18, 18);
                     }
             }
-            // 측정값 패널
+            // 측정값 패널 — 불투명 검정 박스(반투명이면 제품이 비쳐 지저분), 텍스트 폭에 딱 맞춰 제품 가림 최소화.
             if (_lines != null && _lines.Length > 0)
             {
-                int y = 8;
-                using (var bg = new SolidBrush(Color.FromArgb(170, 0, 0, 0)))
-                    g.FillRectangle(bg, 6, 6, 190, 16 + _lines.Length * 16);
+                int maxW = 0;
                 foreach (string ln in _lines)
                 {
-                    TextRenderer.DrawText(g, ln, Font, new Point(12, y), Color.White);
+                    int w = TextRenderer.MeasureText(g, ln, Font).Width;
+                    if (w > maxW) maxW = w;
+                }
+                int boxW = maxW + 10, boxH = 6 + _lines.Length * 16;
+                using (var bg = new SolidBrush(Color.Black))   // 완전 불투명
+                    g.FillRectangle(bg, 6, 6, boxW, boxH);
+                int y = 8;
+                foreach (string ln in _lines)
+                {
+                    TextRenderer.DrawText(g, ln, Font, new Point(10, y), Color.White);
                     y += 16;
                 }
             }
