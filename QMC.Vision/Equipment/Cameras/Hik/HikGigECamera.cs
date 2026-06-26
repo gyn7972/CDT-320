@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -284,6 +285,84 @@ namespace QMC.Vision.Cameras.Hik
         {
             if (double.TryParse(value, out var dv)) TrySetFloat(key, (float)dv);
             else                                    TrySetEnumByName(key, value);
+        }
+
+        /// <summary>노드 카탈로그 기반 제네릭 노드 적용 — 타입별 SDK set 메서드로 디스패치.
+        /// 미오픈/미지원 노드는 무시(실패는 Debug 로그). 값 파싱은 InvariantCulture.</summary>
+        public override void SetParameterTyped(string node, CameraParamKind kind, string value)
+        {
+            if (!IsOpen || string.IsNullOrEmpty(node)) return;
+            try
+            {
+                switch (kind)
+                {
+                    case CameraParamKind.Float:
+                        if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var f))
+                            TrySetFloat(node, (float)f);
+                        break;
+                    case CameraParamKind.Int:
+                        if (int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var i))
+                            TrySetInt(node, i);
+                        break;
+                    case CameraParamKind.Bool:
+                        TrySetBool(node, ParseBool(value));
+                        break;
+                    case CameraParamKind.Enum:
+                        if (!string.IsNullOrEmpty(value)) TrySetEnumByName(node, value);
+                        break;
+                    case CameraParamKind.Command:
+                        InvokeFirst(new[] { "MV_CC_SetCommandValue_NET", "MV_CC_SetCommandValue" }, new object[] { node });
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[HikGigECamera] SetParameterTyped({node},{kind}) 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>MVS Feature Save 파일(.mfs)을 카메라에 일괄 적용(MV_CC_FeatureLoad). Grabbing 중에는 거부.</summary>
+        public override bool LoadFeatures(string filePath, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!IsOpen) { error = "카메라가 열려 있지 않습니다."; return false; }
+                if (IsGrabbing) { error = "Live/Grabbing 중에는 .mfs 적용 불가 — 정지 후 시도하세요."; return false; }
+                if (string.IsNullOrWhiteSpace(filePath) || !System.IO.File.Exists(filePath))
+                { error = "파일을 찾을 수 없습니다: " + filePath; return false; }
+
+                int r = InvokeFirst(new[] { "MV_CC_FeatureLoad_NET", "MV_CC_FeatureLoad" }, new object[] { filePath });
+                if (r != 0) { error = "MV_CC_FeatureLoad 실패 0x" + r.ToString("X8"); return false; }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[HikGigECamera] LoadFeatures 실패: " + ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>현재 카메라의 전체 노드값을 MVS Feature Save 파일(.mfs)로 저장(MV_CC_FeatureSave).</summary>
+        public override bool SaveFeatures(string filePath, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!IsOpen) { error = "카메라가 열려 있지 않습니다."; return false; }
+                if (string.IsNullOrWhiteSpace(filePath)) { error = "저장 경로가 비어 있습니다."; return false; }
+
+                int r = InvokeFirst(new[] { "MV_CC_FeatureSave_NET", "MV_CC_FeatureSave" }, new object[] { filePath });
+                if (r != 0) { error = "MV_CC_FeatureSave 실패 0x" + r.ToString("X8"); return false; }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[HikGigECamera] SaveFeatures 실패: " + ex.Message);
+                return false;
+            }
         }
 
         // ──────────────────────────────────────────
@@ -633,6 +712,15 @@ namespace QMC.Vision.Cameras.Hik
         private void TrySetInt     (string key, int v)     { try { InvokeFirst(new[] { "MV_CC_SetIntValue_NET",   "MV_CC_SetIntValue"   }, new object[] { key, (uint)v }); } catch { } }
         private void TrySetEnum    (string key, uint v)    { try { InvokeFirst(new[] { "MV_CC_SetEnumValue_NET",  "MV_CC_SetEnumValue"  }, new object[] { key, v }); } catch { } }
         private void TrySetEnumByName(string key, string v){ try { InvokeFirst(new[] { "MV_CC_SetEnumValueByString_NET", "MV_CC_SetEnumValueByString" }, new object[] { key, v }); } catch { } }
+        private void TrySetBool    (string key, bool v)    { try { InvokeFirst(new[] { "MV_CC_SetBoolValue_NET",  "MV_CC_SetBoolValue"  }, new object[] { key, v }); } catch { } }
+
+        /// <summary>"True"/"False"/"1"/"0"/"on" 등을 bool 로 파싱.</summary>
+        private static bool ParseBool(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return false;
+            if (bool.TryParse(v, out var b)) return b;
+            return v == "1" || v.Equals("on", StringComparison.OrdinalIgnoreCase);
+        }
 
         private void EnsureSuccess(int r, string op)
         {

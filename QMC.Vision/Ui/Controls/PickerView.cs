@@ -29,6 +29,14 @@ namespace QMC.Vision.Ui.Controls
             ShowSingle();
         }
 
+        /// <summary>단일 이미지 모드 빈칸(Bottom/Bin 기본) — NO IMAGE + 오버레이 제거. 실데이터가 채움.</summary>
+        public void ClearSingle()
+        {
+            _single.SetImage(null);
+            _single.ClearOverlay();
+            ShowSingle();
+        }
+
         /// <summary>4채널 모드(Side) — Front ch1/2, Back ch1/2 이미지.</summary>
         public void SetChannels(Bitmap[] images)
         {

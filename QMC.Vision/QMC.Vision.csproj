@@ -166,6 +166,7 @@
     <Compile Include="Equipment\Tools\CameraConnectTest.cs" />
     <Compile Include="Equipment\Config\VisionConfig.cs" />
     <Compile Include="Equipment\Config\AlgorithmCameraBinder.cs" />
+    <Compile Include="Equipment\Config\CameraNodeCatalog.cs" />
     <Compile Include="Equipment\Optics\ILightController.cs" />
     <Compile Include="Equipment\Optics\LightControllerFactory.cs" />
     <Compile Include="Equipment\Optics\Sim\SimLightController.cs" />
@@ -332,6 +333,14 @@
       <DependentUpon>SpcTrendChart.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\SampleData.cs" />
+    <Compile Include="Equipment\DieMaps\DieMap.cs" />
+    <Compile Include="Equipment\DieMaps\PickupSubset.cs" />
+    <Compile Include="Equipment\DieMaps\PickupSequenceGenerator.cs" />
+    <Compile Include="Equipment\DieMaps\DieMapBuilder.cs" />
+    <Compile Include="Equipment\DieMaps\TapeFrameSpec.cs" />
+    <Compile Include="Ui\Controls\DieMapView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Ui\Controls\WaferMapPanel.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -394,6 +403,24 @@
     </Compile>
     <Compile Include="Ui\Pages\Settings\CommLinkPage.Designer.cs">
       <DependentUpon>CommLinkPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\WaferSpecPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\WaferSpecPage.Designer.cs">
+      <DependentUpon>WaferSpecPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\PickupSequencePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\PickupSequencePage.Designer.cs">
+      <DependentUpon>PickupSequencePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\InputDieMapPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\InputDieMapPage.Designer.cs">
+      <DependentUpon>InputDieMapPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\RecipePage.cs">
       <SubType>UserControl</SubType>
@@ -524,5 +551,23 @@
       <MvsRuntimeX64 Include="C:\Program Files (x86)\Common Files\MVS\Runtime\Win64_x64\*.dll;C:\Program Files (x86)\Common Files\MVS\Runtime\Win64_x64\*.cti" />
     </ItemGroup>
     <Copy SourceFiles="@(MvsRuntimeX64)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" Condition="'@(MvsRuntimeX64)' != ''" />
+  </Target>
+  <!--
+    ColletFinderCuda.dll(플랫콜렛 CUDA 백엔드)을 출력 폴더로 자동 복사 — 매번 수동 이동 불필요.
+    이 DLL 은 x64 + CUDA/CRT 정적 링크라 의존 DLL 이 없다(이 한 파일만 exe 옆에 있으면 됨).
+    QMC.Vision 은 x64 빌드라 64bit DLL 로드 가능. 없으면 자동 skip → CUDA 비활성(CPU 폴백, 안전).
+    우선순위: NativeDeps(커밋된 영구 위치) → docs 프리빌트(있으면).
+    DLL 갱신은 docs\Collet Finder\ColletFinderCuda\build.bat 로 재빌드 후 NativeDeps\ 에 덮어쓰면 된다.
+  -->
+  <Target Name="CopyColletFinderCuda" AfterTargets="Build">
+    <PropertyGroup>
+      <ColletCudaDll Condition="Exists('$(ProjectDir)NativeDeps\ColletFinderCuda.dll')">$(ProjectDir)NativeDeps\ColletFinderCuda.dll</ColletCudaDll>
+      <ColletCudaDll Condition="'$(ColletCudaDll)' == '' And Exists('$(ProjectDir)..\docs\Collet Finder\ColletFinderCuda\ColletFinderCuda.dll')">$(ProjectDir)..\docs\Collet Finder\ColletFinderCuda\ColletFinderCuda.dll</ColletCudaDll>
+      <ColletCudaDll Condition="'$(ColletCudaDll)' == '' And Exists('$(ProjectDir)..\docs\Collet Finder\ColletFinderCuda\x64\$(Configuration)\ColletFinderCuda.dll')">$(ProjectDir)..\docs\Collet Finder\ColletFinderCuda\x64\$(Configuration)\ColletFinderCuda.dll</ColletCudaDll>
+      <ColletCudaDll Condition="'$(ColletCudaDll)' == '' And Exists('$(ProjectDir)..\docs\Collet Finder\ColletFinder\bin\$(Configuration)\ColletFinderCuda.dll')">$(ProjectDir)..\docs\Collet Finder\ColletFinder\bin\$(Configuration)\ColletFinderCuda.dll</ColletCudaDll>
+    </PropertyGroup>
+    <Copy Condition="'$(ColletCudaDll)' != ''" SourceFiles="$(ColletCudaDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Condition="'$(ColletCudaDll)' != ''" Text="[Collet] ColletFinderCuda.dll → $(OutDir)  (원본: $(ColletCudaDll))" />
+    <Message Importance="high" Condition="'$(ColletCudaDll)' == ''" Text="[Collet] ColletFinderCuda.dll 없음 → CUDA 비활성(CPU 폴백). QMC.Vision\NativeDeps\ 에 두면 자동 배포." />
   </Target>
 </Project>

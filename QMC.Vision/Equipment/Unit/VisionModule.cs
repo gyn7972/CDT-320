@@ -88,6 +88,8 @@ namespace QMC.Vision.Modules
             m.ReturnMmCoordinates = c.ReturnMmCoordinates;
             m.CalibChipWidthMm = c.CalibChipWidthMm; m.CalibChipHeightMm = c.CalibChipHeightMm;
             m.SimUseSavedImage = c.SimUseSavedImage; m.SimSavedImagePath = c.SimSavedImagePath;
+            m.NodeParams = c.NodeParams?.Select(p => p.Clone()).ToList() ?? new List<CameraNodeParam>();
+            m.MvsFeatureFilePath = c.MvsFeatureFilePath;
             m.ExposureUs = r.Exposure;
             return m;
         }
@@ -132,6 +134,8 @@ namespace QMC.Vision.Modules
             c.ReturnMmCoordinates = m.ReturnMmCoordinates;
             c.CalibChipWidthMm = m.CalibChipWidthMm; c.CalibChipHeightMm = m.CalibChipHeightMm;
             c.SimUseSavedImage = m.SimUseSavedImage; c.SimSavedImagePath = m.SimSavedImagePath;
+            c.NodeParams = m.NodeParams?.Select(p => p.Clone()).ToList() ?? new List<CameraNodeParam>();
+            c.MvsFeatureFilePath = m.MvsFeatureFilePath;
             r.Exposure = m.ExposureUs;
         }
 

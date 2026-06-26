@@ -53,10 +53,12 @@ namespace QMC.Vision.Ui.Controls
                 }
 
                 if (mode == InspectionMode.Side)
-                    PopulateBlankSide();   // Side 는 기본 빈칸(시퀀서가 채움)
+                    PopulateBlankSide();      // Side 는 기본 빈칸(시퀀서가 채움)
+                else if (mode == InspectionMode.Bottom)
+                    PopulateBlankBottom();    // Bottom 도 기본 빈칸 — 값 없으면 없는대로, 실데이터가 채움
                 else
-                    PopulateSample(mode);  // Bottom/Bin 샘플(폴백)
-                RefreshFromStore();        // 실데이터 있으면 채움/덮어쓰기
+                    PopulateSample(mode);     // Bin 샘플(폴백)
+                RefreshFromStore();           // 실데이터 있으면 채움/덮어쓰기
             }
             catch (Exception ex)
             {
@@ -98,6 +100,25 @@ namespace QMC.Vision.Ui.Controls
             _grid.Rows.Clear();
             foreach (string[] row in SampleData.Rows(mode))
                 _grid.Rows.Add((object[])row);
+        }
+
+        /// <summary>Bottom 기본 빈칸 — 픽커 NO IMAGE, 차트는 상/하한선만(데이터 없음), 그리드·맵 비움.
+        /// 값이 없으면 없는대로 표시하고, 시퀀서/실데이터(InspectionResultStore)가 들어오면 채워진다.</summary>
+        private void PopulateBlankBottom()
+        {
+            foreach (var pk in new[] { _pk1, _pk2, _pk3, _pk4 })
+            {
+                pk.ClearSingle();
+                pk.SetCrossline(_chkCross.Checked);
+            }
+            System.Array.Clear(_boundCh, 0, _boundCh.Length);
+            double up, lo; string title; Color col;
+            SampleData.Series(InspectionMode.Bottom, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
+            _chart1.SetData(new double[0], up, lo, title, col);
+            SampleData.Series(InspectionMode.Bottom, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
+            _chart2.SetData(new double[0], up, lo, title, col);
+            _grid.Rows.Clear();
+            _waferMap?.SetMaps(null, null, null, null);
         }
 
         /// <summary>Side 기본 빈칸 — 4채널 NO IMAGE, 차트는 상/하한선만, 그리드 비움. 시퀀서 동작 시 채워짐.</summary>

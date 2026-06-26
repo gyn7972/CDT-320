@@ -86,6 +86,15 @@ namespace QMC.Vision.Core
         public virtual string GetRawParameter(string key) => null;
         public virtual void   SetRawParameter(string key, string value) { }
 
+        /// <summary>기본 no-op — 노드 적용을 지원하지 않는 백엔드(Sim 등)는 무시한다.
+        /// 실 SDK 백엔드(HikGigECamera)에서 override 하여 타입별 set 메서드로 디스패치한다.</summary>
+        public virtual void SetParameterTyped(string node, CameraParamKind kind, string value) { }
+
+        /// <summary>기본 미지원 — .mfs 일괄 적용은 SDK 백엔드(HikGigECamera)만 지원.</summary>
+        public virtual bool LoadFeatures(string filePath, out string error) { error = "이 카메라는 .mfs 불러오기를 지원하지 않습니다."; return false; }
+        /// <summary>기본 미지원 — .mfs 저장은 SDK 백엔드(HikGigECamera)만 지원.</summary>
+        public virtual bool SaveFeatures(string filePath, out string error) { error = "이 카메라는 .mfs 저장을 지원하지 않습니다."; return false; }
+
         // ─── 이벤트 발행 헬퍼 ─────────────────────
         protected void RaiseFrame(GrabResult r)
         {

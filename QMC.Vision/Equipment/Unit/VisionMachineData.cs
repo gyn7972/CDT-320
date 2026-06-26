@@ -1,5 +1,6 @@
 using System.Runtime.Serialization;
 using QMC.Common;
+using QMC.Vision.DieMaps;
 
 namespace QMC.Vision.Modules
 {
@@ -79,6 +80,34 @@ namespace QMC.Vision.Modules
         // 오염검사 사용(구 UseContaminationInspection)은 검사기별 InspectorAlgoRecipe.UseInspection 으로 이전 — 품목 공통 필드 제거(도구 단위 일원화).
         // 이미지 저장 경로는 장비 단위 전역 설정(VisionSettings.ImageLogPath, 설정→일반)으로 일원화 — 레시피 필드 제거(중복 제거).
 
+        // ── 웨이퍼 사양(TapeFrame) — 핸들러 TapeFrameSubset 기준. Grid 개수 + Pitch + 직경 + Rotate + Edge skip ──
+        /// <summary>적용된 TapeFrame Spec 명칭(저장 스펙 라이브러리 참조용).</summary>
+        [DataMember] public string FrameSpecName { get; set; } = "";
+        /// <summary>웨이퍼 격자 X 개수(Grid X count).</summary>
+        [DataMember] public int WaferGridX { get; set; } = 45;
+        /// <summary>웨이퍼 격자 Y 개수(Grid Y count).</summary>
+        [DataMember] public int WaferGridY { get; set; } = 45;
+        /// <summary>다이 X 피치(mm).</summary>
+        [DataMember] public double WaferPitchX { get; set; } = 1.0;
+        /// <summary>다이 Y 피치(mm).</summary>
+        [DataMember] public double WaferPitchY { get; set; } = 1.0;
+        /// <summary>웨이퍼 외경(mm). 격자 내접 원 외에 보조 직경 제한으로 사용.</summary>
+        [DataMember] public double WaferOuterDiameterMm { get; set; } = 290.0;
+        /// <summary>회전(None/R90/R180/R270 문자열).</summary>
+        [DataMember] public string WaferRotate { get; set; } = "None";
+        /// <summary>좌우(Side) edge skip 열 수.</summary>
+        [DataMember] public int WaferSideEdgeSkip { get; set; } = 0;
+        /// <summary>상하(Top/Bottom) edge skip 행 수.</summary>
+        [DataMember] public int WaferTopBottomEdgeSkip { get; set; } = 0;
+
+        /// <summary>웨이퍼(입력) 픽업 순서 옵션(시작 코너/방향/지그재그).</summary>
+        [DataMember] public PickupSubset Pickup { get; set; } = new PickupSubset();
+        /// <summary>Bin(출력) 픽업 순서 옵션.</summary>
+        [DataMember] public PickupSubset OutputPickup { get; set; } = new PickupSubset();
+
+        /// <summary>편집/저장된 INPUT DIE 맵(없으면 null → 웨이퍼 사양으로 생성).</summary>
+        [DataMember] public DieMap InputDieMap { get; set; }
+
         // 구버전 키 마이그레이션 — 구 json 의 "SaveGoodImage"(bool) 가 있으면 ImageSaveMode 로 이전 후 비운다(다음 Save 시 사라짐).
         [DataMember(Name = "SaveGoodImage", EmitDefaultValue = false)]
         public bool? LegacySaveGoodImage { get; set; }
@@ -91,6 +120,17 @@ namespace QMC.Vision.Modules
         {
             LogEnable     = true;
             ImageSaveMode = ImageSaveMode.ALL;
+            // 구 json 에 없는 신규 웨이퍼 사양 키는 default(0) 대신 안전 기본값으로 보존.
+            WaferGridX           = 45;
+            WaferGridY           = 45;
+            WaferPitchX          = 1.0;
+            WaferPitchY          = 1.0;
+            WaferOuterDiameterMm = 290.0;
+            WaferRotate          = "None";
+            WaferSideEdgeSkip    = 0;
+            WaferTopBottomEdgeSkip = 0;
+            Pickup               = new PickupSubset();
+            OutputPickup         = new PickupSubset();
         }
 
         [OnDeserialized]
@@ -118,6 +158,12 @@ namespace QMC.Vision.Modules
             MaxChippingDepthMm = d.MaxChippingDepthMm; MaxChippingLengthMm = d.MaxChippingLengthMm;
             MaxForeignSizeMm = d.MaxForeignSizeMm;
             LogEnable = d.LogEnable; ImageSaveMode = d.ImageSaveMode;
+            FrameSpecName = d.FrameSpecName;
+            WaferGridX = d.WaferGridX; WaferGridY = d.WaferGridY;
+            WaferPitchX = d.WaferPitchX; WaferPitchY = d.WaferPitchY;
+            WaferOuterDiameterMm = d.WaferOuterDiameterMm; WaferRotate = d.WaferRotate;
+            WaferSideEdgeSkip = d.WaferSideEdgeSkip; WaferTopBottomEdgeSkip = d.WaferTopBottomEdgeSkip;
+            Pickup = new PickupSubset(); OutputPickup = new PickupSubset(); InputDieMap = null;
         }
     }
 }

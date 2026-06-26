@@ -36,6 +36,12 @@ namespace QMC.Vision.Config
             error = null;
             if (cam == null || m == null) { error = "camera or mapping is null"; return false; }
             var sb = new StringBuilder();
+            // .mfs 베이스 적용(경로 지정 시) — 카메라 전체 노드값을 먼저 깔고, 아래 관리 파라미터가 그 위에 덮어쓴다.
+            if (!string.IsNullOrWhiteSpace(m.MvsFeatureFilePath) && System.IO.File.Exists(m.MvsFeatureFilePath))
+            {
+                if (!cam.LoadFeatures(m.MvsFeatureFilePath, out var mfsErr))
+                    sb.Append("mfs:" + mfsErr + "; ");
+            }
             try { cam.ExposureUs           = m.ExposureUs; } catch (Exception ex) { sb.Append("Exposure:" + ex.Message + "; "); }
             try { cam.Gain                 = m.Gain;       } catch (Exception ex) { sb.Append("Gain:"     + ex.Message + "; "); }
             try { cam.AcquisitionFrameRate = m.FrameRate;  } catch (Exception ex) { sb.Append("FPS:"      + ex.Message + "; "); }
@@ -44,6 +50,15 @@ namespace QMC.Vision.Config
             if (!m.IsRoiFull)
             {
                 try { cam.Roi = m.ToRectangle(); } catch (Exception ex) { sb.Append("ROI:" + ex.Message + "; "); }
+            }
+            // 제네릭 노드 파라미터 — 카탈로그 순서대로(LineSelector 등 selector 가 먼저) 적용.
+            // 사용자가 설정에서 지정(저장)한 노드만 적용하고, 미지정 노드는 카메라 현재값을 유지한다.
+            foreach (var def in CameraNodeCatalog.All)
+            {
+                var v = m.GetNode(def.Node);
+                if (v == null) continue;
+                try { cam.SetParameterTyped(def.Node, def.Kind, v); }
+                catch (Exception ex) { sb.Append(def.Node + ":" + ex.Message + "; "); }
             }
             if (sb.Length > 0) { error = sb.ToString().TrimEnd(' ', ';'); return false; }
             return true;

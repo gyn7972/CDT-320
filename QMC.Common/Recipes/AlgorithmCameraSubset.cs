@@ -35,6 +35,19 @@ namespace QMC.Common.Recipes
         }
     }
 
+    /// <summary>제네릭 카메라 노드 파라미터(GenICam 노드명 ↔ 저장값).
+    /// 노드의 타입/옵션/범위는 Vision 측 카메라 노드 카탈로그가 정의하고, 여기에는 값만 보관한다.</summary>
+    [DataContract]
+    public sealed class CameraNodeParam
+    {
+        /// <summary>GenICam 노드명 (예: "AcquisitionBurstFrameCount", "StrobeEnable").</summary>
+        [DataMember] public string Node  { get; set; } = "";
+        /// <summary>저장값 — 문자열로 보관(Float/Int/Bool/Enum 모두 문자열 직렬화).</summary>
+        [DataMember] public string Value { get; set; } = "";
+
+        public CameraNodeParam Clone() => new CameraNodeParam { Node = Node, Value = Value };
+    }
+
     /// <summary>알고리즘 1 개에 묶이는 카메라 + 카메라 파라미터.</summary>
     [DataContract]
     public class AlgorithmCameraMapping
@@ -72,9 +85,30 @@ namespace QMC.Common.Recipes
         [DataMember] public bool   SimUseSavedImage   { get; set; } = false;
         [DataMember] public string SimSavedImagePath  { get; set; } = "";
 
+        // 제네릭 카메라 노드 파라미터(노드 카탈로그 정의 항목들의 값). 모듈 Config 스코프로 영속.
+        [DataMember] public List<CameraNodeParam> NodeParams { get; set; } = new List<CameraNodeParam>();
+
+        // MVS Feature Save 파일(.mfs) 경로 — 카메라 전체 노드값 일괄 적용/저장용. 모듈(카메라)별.
+        // 지정 시 시작/적용 때 이 파일을 카메라에 베이스로 먼저 적용한 뒤, 관리 파라미터가 그 위에 덮어쓴다.
+        [DataMember] public string MvsFeatureFilePath { get; set; } = "";
+
         public bool IsRoiFull => RoiWidth <= 0 || RoiHeight <= 0;
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
+
+        /// <summary>노드 저장값 조회 — 없으면 null.</summary>
+        public string GetNode(string node)
+            => NodeParams?.FirstOrDefault(p => string.Equals(p.Node, node, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        /// <summary>노드 저장값 설정 — 항목 없으면 추가.</summary>
+        public void SetNode(string node, string value)
+        {
+            if (string.IsNullOrEmpty(node)) return;
+            if (NodeParams == null) NodeParams = new List<CameraNodeParam>();
+            var e = NodeParams.FirstOrDefault(p => string.Equals(p.Node, node, StringComparison.OrdinalIgnoreCase));
+            if (e == null) { e = new CameraNodeParam { Node = node }; NodeParams.Add(e); }
+            e.Value = value ?? "";
+        }
 
         // (C3b-1) 검사별 카메라 override 제거. (C3b-2) 검사별 조명(InspectionLights/InspectionLightOverride)도
         // 노드 Recipe(LightSettings) SSOT 로 대체되어 제거 → AlgorithmCameraMapping = 순수 카메라 DTO.
@@ -92,7 +126,9 @@ namespace QMC.Common.Recipes
                 IsRotated = IsRotated, InvertedX = InvertedX, InvertedY = InvertedY,
                 ReturnMmCoordinates = ReturnMmCoordinates,
                 CalibChipWidthMm = CalibChipWidthMm, CalibChipHeightMm = CalibChipHeightMm,
-                SimUseSavedImage = SimUseSavedImage, SimSavedImagePath = SimSavedImagePath
+                SimUseSavedImage = SimUseSavedImage, SimSavedImagePath = SimSavedImagePath,
+                NodeParams = NodeParams?.Select(p => p.Clone()).ToList() ?? new List<CameraNodeParam>(),
+                MvsFeatureFilePath = MvsFeatureFilePath
             };
     }
 

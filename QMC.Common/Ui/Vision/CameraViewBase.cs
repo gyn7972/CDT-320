@@ -27,6 +27,15 @@ namespace QMC.Common.Ui.Controls
         // ── 측정(Measure) 상태 ──
         private bool _measuring, _haveA, _haveB, _measureDone;
         private PointF _measA, _measB;   // 이미지 좌표
+        private PointF _measMouse;       // 둘째 점 클릭 전 마우스 위치(이미지 좌표) — 미리보기용
+        private bool   _haveMouse;       // _measMouse 유효 여부
+        /// <summary>완료된 측정 세그먼트(이미지 좌표). 측정 클리어 전까지(측정 해제해도) 영구 오버레이.</summary>
+        private readonly List<MeasureSeg> _measSegs = new List<MeasureSeg>();
+        private struct MeasureSeg
+        {
+            public PointF A, B;
+            public MeasureSeg(PointF a, PointF b) { A = a; B = b; }
+        }
         /// <summary>측정용 스케일(mm/pixel). 0 이면 px 로 표시.</summary>
         public double MmPerPixelX { get; set; }
         public double MmPerPixelY { get; set; }
@@ -127,7 +136,7 @@ namespace QMC.Common.Ui.Controls
 
         // ── 내장 툴바 ──
         private ToolStrip       _tools;
-        private ToolStripButton _tbGrab, _tbLive, _tbStop, _tbSave, _tbLoad, _tbMeasure, _tbFit, _tbCross;
+        private ToolStripButton _tbGrab, _tbLive, _tbStop, _tbSave, _tbLoad, _tbMeasure, _tbMeasClear, _tbFit, _tbCross;
         private ToolStripLabel  _tbMag;
         private ICameraViewSource _source;
         private bool _live;
@@ -193,6 +202,7 @@ namespace QMC.Common.Ui.Controls
             _tbSave    = new ToolStripButton("Save")  { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbLoad    = new ToolStripButton("Load")  { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbMeasure = new ToolStripButton("측정")  { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true };
+            _tbMeasClear = new ToolStripButton("측정 클리어") { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbFit     = new ToolStripButton("맞춤")  { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbCross   = new ToolStripButton("CrossLine") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true, Checked = _showCrosshair };
             _tbMag     = new ToolStripLabel("Mag. 1.00x");
@@ -203,6 +213,7 @@ namespace QMC.Common.Ui.Controls
             _tbSave.Click    += (s, e) => DoToolbarSave();
             _tbLoad.Click    += (s, e) => DoToolbarLoad();
             _tbMeasure.Click += (s, e) => { if (_tbMeasure.Checked) { RefreshMeasureScale(); BeginMeasure(); } else EndMeasure(); };
+            _tbMeasClear.Click += (s, e) => ClearMeasurements();
             _tbFit.Click     += (s, e) => ZoomFit();
             _tbCross.Click   += (s, e) => ShowCrosshair = _tbCross.Checked;
 
@@ -210,7 +221,7 @@ namespace QMC.Common.Ui.Controls
             {
                 _tbGrab, _tbLive, _tbStop, new ToolStripSeparator(),
                 _tbSave, _tbLoad, new ToolStripSeparator(),
-                _tbMeasure, _tbFit, _tbCross, new ToolStripSeparator(), _tbMag
+                _tbMeasure, _tbMeasClear, _tbFit, _tbCross, new ToolStripSeparator(), _tbMag
             });
             Controls.Add(_tools);
         }
@@ -300,11 +311,15 @@ namespace QMC.Common.Ui.Controls
 
         private void OnMouseDownEditing(object s, MouseEventArgs e)
         {
+            bool ctrl = (Control.ModifierKeys & Keys.Control) == Keys.Control;
+            // 측정/편집 중에도 Ctrl+좌클릭(또는 휠클릭) 드래그로 이미지 이동(팬) 허용 — 확대 후 다른 영역으로 이동해 측정하기 위함.
             if (_frame != null && _zoom > 0 &&
                 (e.Button == MouseButtons.Middle ||
+                 (e.Button == MouseButtons.Left && ctrl) ||
                  (e.Button == MouseButtons.Left && !_measuring && !_editing)))
             { _panning = true; _panLast = e.Location; Cursor = Cursors.SizeAll; return; }
-            if (_measuring && e.Button == MouseButtons.Left && _frame != null) { HandleMeasureClick(e.Location); return; }
+            if (_measuring && e.Button == MouseButtons.Left && _frame != null)
+            { HandleMeasureClick(e.Location, (Control.ModifierKeys & Keys.Shift) == Keys.Shift); return; }
             if (!_editing || e.Button != MouseButtons.Left || _frame == null) return;
             _dragStart = e.Location;
             _dragNow   = e.Location;
@@ -312,6 +327,19 @@ namespace QMC.Common.Ui.Controls
         private void OnMouseMoveEditing(object s, MouseEventArgs e)
         {
             if (_panning) { _panX += e.X - _panLast.X; _panY += e.Y - _panLast.Y; _panLast = e.Location; Invalidate(); return; }
+            // 측정 중 첫 점만 찍힌 상태면 마우스 위치를 추적해 미리보기 라인(+Shift 직선 스냅) 표시.
+            if (_measuring && _haveA && !_haveB && _frame != null)
+            {
+                var dstm = DisplayRect();
+                if (dstm.Width > 0 && dstm.Height > 0)
+                {
+                    double mx = (double)_frame.Width / dstm.Width, my = (double)_frame.Height / dstm.Height;
+                    _measMouse = new PointF((float)((e.X - dstm.Left) * mx), (float)((e.Y - dstm.Top) * my));
+                    _haveMouse = true;
+                    Invalidate();
+                }
+                return;
+            }
             if (!_editing || e.Button != MouseButtons.Left || _frame == null) return;
             _dragNow = e.Location;
             Invalidate();
@@ -440,7 +468,7 @@ namespace QMC.Common.Ui.Controls
         // ── 측정(Measure) ──
         public void BeginMeasure()
         {
-            _measuring = true; _editing = false; _haveA = false; _haveB = false; _measureDone = false;
+            _measuring = true; _editing = false; _haveA = false; _haveB = false; _measureDone = false; _haveMouse = false;
             Cursor = Cursors.Cross;
             Invalidate();
         }
@@ -449,28 +477,55 @@ namespace QMC.Common.Ui.Controls
 
         public void EndMeasure()
         {
-            _measuring = false; _haveA = false; _haveB = false; _measureDone = false;
+            _measuring = false; _haveA = false; _haveB = false; _measureDone = false; _haveMouse = false;
             Cursor = Cursors.Default;
             Invalidate();
         }
 
-        private void HandleMeasureClick(Point scr)
+        private void HandleMeasureClick(Point scr, bool shift)
         {
-            if (_measureDone) return;
             var dst = DisplayRect();
             if (dst.Width <= 0 || dst.Height <= 0) return;
             double sx = (double)_frame.Width / dst.Width, sy = (double)_frame.Height / dst.Height;
             var p = new PointF((float)((scr.X - dst.Left) * sx), (float)((scr.Y - dst.Top) * sy));
-            if (!_haveA || _haveB) { _measA = p; _haveA = true; _haveB = false; }
+            // 첫 점이 없거나 직전 측정이 끝난 상태(_haveB/_measureDone)면 새 측정을 시작 — 추가 클릭으로 연속 측정.
+            if (!_haveA || _haveB || _measureDone)
+            {
+                _measA = p; _haveA = true; _haveB = false; _measureDone = false; _haveMouse = false;
+            }
             else
             {
-                _measB = p; _haveB = true;
-                _measureDone = true;
+                // Shift 누르면 둘째 점을 수평/수직/45° 직선으로 스냅.
+                _measB = shift ? ConstrainStraight(_measA, p) : p;
                 double dx = _measB.X - _measA.X, dy = _measB.Y - _measA.Y;
                 LastMeasurePixels = Math.Sqrt(dx * dx + dy * dy);
+                // 완료 세그먼트를 리스트에 누적(클리어 전까지 보존) → 클릭할 때마다 사라지지 않고 계속 쌓임.
+                _measSegs.Add(new MeasureSeg(_measA, _measB));
                 MeasureCompleted?.Invoke(LastMeasurePixels);
+                // 활성 점 초기화 → 다음 클릭이 새 측정의 첫 점이 됨.
+                _haveA = false; _haveB = false; _measureDone = false; _haveMouse = false;
             }
             Invalidate();
+        }
+
+        /// <summary>누적된 측정 오버레이를 모두 지우고 진행 중 상태도 초기화.</summary>
+        public void ClearMeasurements()
+        {
+            _measSegs.Clear();
+            _haveA = false; _haveB = false; _measureDone = false; _haveMouse = false;
+            Invalidate();
+        }
+
+        /// <summary>앵커 a 기준으로 점 p 를 가장 가까운 45° 방향(수평/수직/대각) 직선 위로 스냅.</summary>
+        private static PointF ConstrainStraight(PointF a, PointF p)
+        {
+            double dx = p.X - a.X, dy = p.Y - a.Y;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) return p;
+            double step = Math.PI / 4.0;                       // 45°
+            double snapped = Math.Round(Math.Atan2(dy, dx) / step) * step;
+            return new PointF((float)(a.X + len * Math.Cos(snapped)),
+                              (float)(a.Y + len * Math.Sin(snapped)));
         }
 
         private void DrawFrameFast(Graphics g, Rectangle dst)
@@ -560,7 +615,7 @@ namespace QMC.Common.Ui.Controls
                     g.DrawString($"-- Editing {_editKind} ROI: drag a rectangle --", f, br, 10, Height - 26);
             }
 
-            if (_measuring) DrawMeasure(g);
+            DrawMeasure(g);
 
             if (!string.IsNullOrEmpty(_verdict))
                 using (var f  = new Font("Segoe UI", 26F, FontStyle.Bold))
@@ -594,43 +649,56 @@ namespace QMC.Common.Ui.Controls
 
         private void DrawMeasure(Graphics g)
         {
-            if (_frame == null || !_haveA) return;
+            if (_frame == null) return;
             var dst = DisplayRect();
             if (dst.Width <= 0 || dst.Height <= 0) return;
             double rx = (double)dst.Width / _frame.Width, ry = (double)dst.Height / _frame.Height;
-            Point A = new Point(dst.Left + (int)(_measA.X * rx), dst.Top + (int)(_measA.Y * ry));
 
+            // 1) 완료된 측정 세그먼트(클리어 전까지 영구 — 측정 모드 해제와 무관하게 표시).
+            for (int i = 0; i < _measSegs.Count; i++)
+                DrawMeasureSegment(g, dst, rx, ry, _measSegs[i].A, _measSegs[i].B);
+
+            // 2) 진행 중(측정 모드에서 첫 점만 찍힌 상태)인 미리보기.
+            if (!_measuring || !_haveA || _haveB) return;
+            Point A = new Point(dst.Left + (int)(_measA.X * rx), dst.Top + (int)(_measA.Y * ry));
             using (var br = new SolidBrush(Color.Red))
                 g.FillEllipse(br, A.X - 4, A.Y - 4, 8, 8);
 
-            if (!_haveB)
+            if (_haveMouse)
             {
-                using (var br = new SolidBrush(Color.Red))
-                using (var f = new Font("Consolas", 9F, FontStyle.Bold))
-                    g.DrawString("둘째 점 클릭", f, br, A.X + 6, A.Y + 6);
-                return;
+                bool shift = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
+                var pm = shift ? ConstrainStraight(_measA, _measMouse) : _measMouse;
+                Point M = new Point(dst.Left + (int)(pm.X * rx), dst.Top + (int)(pm.Y * ry));
+                using (var pen = new Pen(Color.FromArgb(180, 255, 0, 0), 1.5f) { DashStyle = DashStyle.Dash })
+                    g.DrawLine(pen, A, M);
+                string pv = FormatMeasureText(pm.X - _measA.X, pm.Y - _measA.Y);
+                using (var f = new Font("Consolas", 10F, FontStyle.Bold))
+                {
+                    var sz = g.MeasureString(pv, f);
+                    using (var bg = new SolidBrush(Color.FromArgb(150, 0, 0, 0)))
+                        g.FillRectangle(bg, M.X + 8, M.Y - 10, sz.Width + 6, sz.Height + 2);
+                    using (var br = new SolidBrush(Color.Red))
+                        g.DrawString(pv, f, br, M.X + 11, M.Y - 9);
+                }
             }
+            using (var br = new SolidBrush(Color.Red))
+            using (var f = new Font("Consolas", 9F, FontStyle.Bold))
+                g.DrawString("둘째 점 클릭 (Shift: 직선)", f, br, A.X + 6, A.Y + 6);
+        }
 
-            Point B = new Point(dst.Left + (int)(_measB.X * rx), dst.Top + (int)(_measB.Y * ry));
+        /// <summary>완료된 측정 1건(두 점 + 직선 + 거리 라벨)을 화면에 그린다.</summary>
+        private void DrawMeasureSegment(Graphics g, Rectangle dst, double rx, double ry, PointF a, PointF b)
+        {
+            Point A = new Point(dst.Left + (int)(a.X * rx), dst.Top + (int)(a.Y * ry));
+            Point B = new Point(dst.Left + (int)(b.X * rx), dst.Top + (int)(b.Y * ry));
             using (var pen = new Pen(Color.Red, 2.5f))
                 g.DrawLine(pen, A, B);
             using (var br = new SolidBrush(Color.Red))
+            {
+                g.FillEllipse(br, A.X - 4, A.Y - 4, 8, 8);
                 g.FillEllipse(br, B.X - 4, B.Y - 4, 8, 8);
-
-            double dxpx = _measB.X - _measA.X, dypx = _measB.Y - _measA.Y;
-            string txt;
-            if (MmPerPixelX > 0 || MmPerPixelY > 0)
-            {
-                double mmx = MmPerPixelX > 0 ? MmPerPixelX : MmPerPixelY;
-                double mmy = MmPerPixelY > 0 ? MmPerPixelY : MmPerPixelX;
-                double dmm = Math.Sqrt(dxpx * mmx * dxpx * mmx + dypx * mmy * dypx * mmy);
-                txt = dmm.ToString("F3") + " mm";
             }
-            else
-            {
-                txt = Math.Sqrt(dxpx * dxpx + dypx * dypx).ToString("F1") + " px";
-            }
-
+            string txt = FormatMeasureText(b.X - a.X, b.Y - a.Y);
             using (var f = new Font("Consolas", 11F, FontStyle.Bold))
             {
                 var sz = g.MeasureString(txt, f);
@@ -639,6 +707,19 @@ namespace QMC.Common.Ui.Controls
                 using (var br = new SolidBrush(Color.Red))
                     g.DrawString(txt, f, br, B.X + 11, B.Y - 9);
             }
+        }
+
+        /// <summary>두 점 간 픽셀 변위(dxpx,dypx)를 거리 문자열로. 스케일 있으면 mm, 없으면 px.</summary>
+        private string FormatMeasureText(double dxpx, double dypx)
+        {
+            if (MmPerPixelX > 0 || MmPerPixelY > 0)
+            {
+                double mmx = MmPerPixelX > 0 ? MmPerPixelX : MmPerPixelY;
+                double mmy = MmPerPixelY > 0 ? MmPerPixelY : MmPerPixelX;
+                double dmm = Math.Sqrt(dxpx * mmx * dxpx * mmx + dypx * mmy * dypx * mmy);
+                return dmm.ToString("F3") + " mm";
+            }
+            return Math.Sqrt(dxpx * dxpx + dypx * dypx).ToString("F1") + " px";
         }
 
         private void DrawOverlays(Graphics g, Rectangle dst)
