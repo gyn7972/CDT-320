@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -114,7 +114,7 @@ namespace QMC.Common.Logging
                 }
             }
         }
-
+         
         public static bool FlushPending(int timeoutMs)
         {
             try

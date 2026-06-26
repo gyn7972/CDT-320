@@ -1491,6 +1491,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null || axis == null)
                     return -1;
 
+                // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단 — 모든 이동(move-to-position·시퀀스)의 단일 경로.
+                if (!axis.IsHomeDone)
+                {
+                    string homeMsg = axis.Name + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", homeMsg);
+                    _lastAbortReason = homeMsg;
+                    return -1;
+                }
+
                 WaferStageAxis stageAxis;
                 if (TryResolveStageAxis(axis, out stageAxis))
                     return await _InputStageUnit.MoveInputStageAxis(stageAxis, target, bFine);

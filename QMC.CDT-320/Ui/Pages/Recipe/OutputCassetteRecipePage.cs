@@ -512,6 +512,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_OutCassetteUnit == null) return;
+                if (!EnsureOutputLifterZHomeDone(actionName)) return;
                 await RunSafeAsync(async () =>
                 {
                     await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
@@ -533,6 +534,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_OutCassetteUnit == null) return;
+                if (!EnsureOutputLifterZHomeDone(actionName)) return;
                 await RunSafeAsync(async () =>
                 {
                     double target = _OutCassetteUnit.CalculateBinCassetteSlotTargetPosition(cassette, 0) + offset;
@@ -548,6 +550,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // 이동 대상 축(Output Lifter Z)의 HOME END(IsHomeDone) 미완료면 차단.
+        private bool EnsureOutputLifterZHomeDone(string actionName)
+        {
+            if (_OutCassetteUnit != null && _OutCassetteUnit.OutputLifterZ != null && !_OutCassetteUnit.OutputLifterZ.IsHomeDone)
+            {
+                string homeMsg = actionName + " 불가: Output Lifter Z 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", homeMsg);
+                QMC.Common.MessageDialog.Show(this, homeMsg, actionName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            return true;
         }
 
         private async Task RunSafeAsync(Func<Task<int>> action, string actionName)

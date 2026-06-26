@@ -410,6 +410,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 if (_outputFeederUnit == null) return;
 
+                // 이동 대상 축(Output Feeder Y)의 HOME END(IsHomeDone) 미완료면 차단.
+                if (_outputFeederUnit.FeederY != null && !_outputFeederUnit.FeederY.IsHomeDone)
+                {
+                    string homeMsg = actionName + " 불가: Output Feeder Y 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-FEEDER", homeMsg);
+                    QMC.Common.MessageDialog.Show(this, homeMsg, "Output Feeder Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 DialogResult result = QMC.Common.MessageDialog.Show(
                     this, actionName + " 진행하시겠습니까?", "Output Feeder Move", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
