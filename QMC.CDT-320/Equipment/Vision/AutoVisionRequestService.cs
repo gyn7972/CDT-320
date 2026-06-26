@@ -77,7 +77,7 @@ namespace QMC.CDT320.VisionComm
                 if (!started)
                     return BuildMatchFailure("MATCHASYNC STARTED ACK failed.");
 
-                MatchResultDto result = await WaitMatchResultAsync(channel, finder, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto result = await WaitMatchResultAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
@@ -179,6 +179,7 @@ namespace QMC.CDT320.VisionComm
         public static async Task<AsyncMatchPoll> PollMatchResultAsync(
             AutoVisionChannel channel,
             string finder,
+            int index,
             int timeoutMs,
             CancellationToken ct)
         {
@@ -193,14 +194,14 @@ namespace QMC.CDT320.VisionComm
                         Done = true,
                         Error = false,
                         Raw = "BYPASS",
-                        Result = BuildBypassMatchResult(channel, finder, 0)
+                        Result = BuildBypassMatchResult(channel, finder, index)
                     };
                 }
 
-                if (!IsReady(channel, VisionProtocolCommand.MatchResult, finder, 0))
+                if (!IsReady(channel, VisionProtocolCommand.MatchResult, finder, index))
                     return new AsyncMatchPoll { Error = true, Raw = "Vision client is not connected." };
 
-                return await VisionCommandService.GetMatchResultAsync(channel, finder, timeoutMs, ct).ConfigureAwait(false);
+                return await VisionCommandService.GetMatchResultAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -222,6 +223,7 @@ namespace QMC.CDT320.VisionComm
         public static async Task<MatchResultDto> WaitMatchResultAsync(
             AutoVisionChannel channel,
             string finder,
+            int index,
             int timeoutMs,
             CancellationToken ct)
         {
@@ -236,7 +238,7 @@ namespace QMC.CDT320.VisionComm
 
                     int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
                     int pollTimeoutMs = Math.Min(1000, remainMs);
-                    AsyncMatchPoll poll = await PollMatchResultAsync(channel, finder, pollTimeoutMs, ct).ConfigureAwait(false);
+                    AsyncMatchPoll poll = await PollMatchResultAsync(channel, finder, index, pollTimeoutMs, ct).ConfigureAwait(false);
                     if (poll == null)
                         return BuildMatchFailure("MATCHRESULT response is null.");
 
@@ -254,7 +256,7 @@ namespace QMC.CDT320.VisionComm
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
-                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", timeoutMs=" + timeoutMs);
+                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", index=" + index + ", timeoutMs=" + timeoutMs);
             }
             catch (OperationCanceledException)
             {

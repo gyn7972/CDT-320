@@ -1130,6 +1130,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     AsyncMatchPoll poll = await AutoVisionRequestService.PollMatchResultAsync(
                         channel,
                         ReticleFinderName,
+                        0,
                         pollTimeoutMs,
                         ct).ConfigureAwait(false);
 

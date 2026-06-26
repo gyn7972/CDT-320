@@ -234,7 +234,7 @@ namespace QMC.CDT320.VisionComm
 
                 int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
                 int pollTimeoutMs = Math.Min(1000, remainMs);
-                AsyncMatchPoll poll = await PollMatchResultAsync(finder, pollTimeoutMs, ct).ConfigureAwait(false);
+                AsyncMatchPoll poll = await PollMatchResultAsync(finder, index, pollTimeoutMs, ct).ConfigureAwait(false);
                 if (poll.Error)
                 {
                     return new MatchResultDto
@@ -290,7 +290,13 @@ namespace QMC.CDT320.VisionComm
         /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>
         public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, ct, finder).ConfigureAwait(false);
+            return await PollMatchResultAsync(finder, 0, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>MATCHASYNC에서 사용한 chip id(index)를 포함해 MATCHRESULT를 폴링한다.</summary>
+        public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, int index, int timeoutMs, CancellationToken ct)
+        {
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, ct, finder, index).ConfigureAwait(false);
             return AsyncMatchPoll.Parse(response.RawLine);
         }
 
