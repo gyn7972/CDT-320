@@ -31,6 +31,9 @@ namespace QMC.Vision.Ui.Windows
             _viewer.SetMode(InspectionMode.Bottom);
             Controls.Add(_viewer);
 
+            // Dock=Fill 뷰어가 뒤로 가도록 최소화 버튼을 항상 앞면에 유지.
+            btnMinimize.BringToFront();
+
             SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         }
 
@@ -80,10 +83,36 @@ namespace QMC.Vision.Ui.Windows
                 TopMost = (target != primary);
 
                 Bounds = target.Bounds;   // 작업표시줄까지 덮는 전체 화면
+
+                PositionMinimizeButton();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[BottomInspectionWindow] PlaceOnTargetScreen 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>최소화 버튼을 클라이언트 영역 우상단에 고정 배치하고 앞면으로 올린다.</summary>
+        private void PositionMinimizeButton()
+        {
+            if (btnMinimize == null) return;
+            btnMinimize.Location = new System.Drawing.Point(ClientSize.Width - btnMinimize.Width - 8, 8);
+            btnMinimize.BringToFront();
+        }
+
+        /// <summary>최소화: 단일 모니터에서 화면을 모두 가릴 때 잠시 내려둘 수 있게 한다.</summary>
+        private void btnMinimize_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // 최소화 상태에서 다시 띄울 수 있도록 작업표시줄 버튼을 노출하고 TopMost 해제.
+                ShowInTaskbar = true;
+                TopMost = false;
+                WindowState = FormWindowState.Minimized;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[BottomInspectionWindow] 최소화 실패: " + ex.Message);
             }
         }
 

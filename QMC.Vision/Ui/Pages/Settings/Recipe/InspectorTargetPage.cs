@@ -307,8 +307,8 @@ namespace QMC.Vision.Ui.Pages
             else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
             {
                 items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => pg.Threshold,     v => { pg.Threshold = v; }));
-                items.Add(ParameterGridItem.Double("Gap Lower", "px", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; }));
-                items.Add(ParameterGridItem.Double("Gap Upper", "px", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; }));
+                items.Add(ParameterGridItem.Double("Gap Lower", "px", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Gap Upper", "px", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
                 items.Add(ParameterGridItem.Double("Gap Offset","px", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
                 items.Add(ParameterGridItem.Bool("Dark Die", ParameterGridScope.Recipe, () => pg.DarkDie, v => { pg.DarkDie = v; }));
                 items.Add(ParameterGridItem.Int("Edge Step", "px", ParameterGridScope.Recipe, () => pg.EdgeStep, v => { pg.EdgeStep = v; }));
@@ -323,10 +323,10 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Double("Chipping Depth", "mm", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }));
                 items.Add(ParameterGridItem.Int   ("Chip Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ChipEdgeMargin, v => { bi.ChipEdgeMargin = v; }));
                 // 너비/높이 상·하한[mm] (0=미설정) — 차트 Limit 점선 + 사이즈 NG 기준.
-                items.Add(ParameterGridItem.Double("Width Lower",  "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); }));
-                items.Add(ParameterGridItem.Double("Width Upper",  "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Width,  v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipUpperSpecLimit.Height); }));
-                items.Add(ParameterGridItem.Double("Height Lower", "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Height, v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF(bi.ChipLowerSpecLimit.Width, (float)v); }));
-                items.Add(ParameterGridItem.Double("Height Upper", "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Height, v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF(bi.ChipUpperSpecLimit.Width, (float)v); }));
+                items.Add(ParameterGridItem.Double("Width Lower",  "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Width Upper",  "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Width,  v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipUpperSpecLimit.Height); PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Height Lower", "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Height, v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF(bi.ChipLowerSpecLimit.Width, (float)v); PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Height Upper", "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Height, v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF(bi.ChipUpperSpecLimit.Width, (float)v); PushChartLimits(); }));
                 items.Add(ParameterGridItem.Double("Foreign Size", "mm", ParameterGridScope.Recipe, () => bi.ForeignObjectSize, v => { bi.ForeignObjectSize = v; }));
                 items.Add(ParameterGridItem.Int   ("Foreign Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ForeignEdgeMargin, v => { bi.ForeignEdgeMargin = v; }));
                 items.Add(ParameterGridItem.Int   ("TopHat Radius", "px", ParameterGridScope.Recipe, () => bi.TopHatRadius, v => { bi.TopHatRadius = v; }));
@@ -344,8 +344,8 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => si.ChipThreshold, v => { si.ChipThreshold = v; }));
                 if (si.IsChippingRole)
                 {
-                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; }));
-                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; }));
+                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; PushChartLimits(); }));
+                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; PushChartLimits(); }));
                     items.Add(ParameterGridItem.Double("Chip Thickness", "mm", ParameterGridScope.Recipe, () => si.ChipThickness, v => { si.ChipThickness = v; }));
                     // CDT-310 FindLine 라인검출 조정값
                     items.Add(ParameterGridItem.Double("Scan Rate", "", ParameterGridScope.Recipe, () => si.ScanRate, v => { si.ScanRate = v; }));
@@ -693,6 +693,30 @@ namespace QMC.Vision.Ui.Pages
             var a = new System.Drawing.PointF[pts.Length];
             for (int i = 0; i < pts.Length; i++) a[i] = toS(pts[i]);
             return a;
+        }
+
+        /// <summary>현재 검사기의 상/하한(Limit)을 운영뷰 차트 스토어로 즉시 송출 — 레시피에서 값 바꾸면 바로 빨간 점선 반영.</summary>
+        private void PushChartLimits()
+        {
+            try
+            {
+                if (_inspector is QMC.Vision.Core.BottomInspector b)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 0, b.ChipUpperSpecLimit.Width,  b.ChipLowerSpecLimit.Width);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 1, b.ChipUpperSpecLimit.Height, b.ChipLowerSpecLimit.Height);
+                }
+                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector s)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, s.ChippingUpperLimit, s.ChippingLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 1, s.ChippingUpperLimit, s.ChippingLowerLimit);
+                }
+                else if (_inspector is QMC.Vision.Core.PlacementGapInspector p)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, p.GapUpperLimit, p.GapLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, p.GapUpperLimit, p.GapLowerLimit);
+                }
+            }
+            catch { }
         }
 
         private static void DrawInspectorOverlay(System.Drawing.Graphics g,

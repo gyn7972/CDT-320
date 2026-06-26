@@ -268,6 +268,27 @@ namespace QMC.Vision.Modules
             }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
+
+            // ② 추세 차트 상/하한(Limit) → ChartLimitStore: 레시피 적용 즉시 운영뷰 차트에 반영(검사 실행 전에도 빨간 점선 표시).
+            try
+            {
+                if (_inspector is QMC.Vision.Core.BottomInspector bl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 0, bl.ChipUpperSpecLimit.Width,  bl.ChipLowerSpecLimit.Width);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 1, bl.ChipUpperSpecLimit.Height, bl.ChipLowerSpecLimit.Height);
+                }
+                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector sl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Side", 1, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
+                }
+                else if (_inspector is QMC.Vision.Core.PlacementGapInspector pl)
+                {
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, pl.GapUpperLimit, pl.GapLowerLimit);
+                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, pl.GapUpperLimit, pl.GapLowerLimit);
+                }
+            }
+            catch { }
         }
 
         protected override void CollectFromRuntime()
