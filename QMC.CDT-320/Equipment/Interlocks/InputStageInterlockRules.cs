@@ -40,11 +40,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
+                
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveWaferStageY(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferStageY(request.Machine, out reason);
@@ -169,11 +170,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveWaferStageT(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferStageT(request.Machine, out reason);
@@ -302,11 +303,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveWaferExpandingZ(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferExpandingZ(request.Machine, out reason);
@@ -456,11 +457,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveInputVisionX(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeInputVisionX(request.Machine, out reason);
@@ -589,11 +590,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveNeedleX(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeNeedleX(request.Machine, out reason);
@@ -773,11 +774,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveNeedleZ(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeNeedleZ(request.Machine, out reason);
@@ -811,11 +812,11 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 일반 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
                 // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveEjectPinZ(request, out reason);
+                // 일반 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeEjectPinZ(request.Machine, out reason);

@@ -1211,6 +1211,13 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>전 축의 운전 준비 상태(ServoOn·!Alarm·HOME END(IsHomeDone)·!Moving)를 라이브로 확인한다.
+        /// UI 등 외부 게이트에서 호출하는 공개 래퍼. 준비 안 됐으면 false + 사유.</summary>
+        public bool AreAllAxesHomeReady(out string reason)
+        {
+            return AreAllAxesInitializedAndReady(out reason);
+        }
+
         // ??????????????????????????????????????????
         //  濡쒗듃?ы듃 ?쒗???ы띁
         // ??????????????????????????????????????????
@@ -5260,10 +5267,7 @@ namespace QMC.CDT320
                 if (!EnsureMachineInitializedForRun("StartAsync"))
                     return -1;
 
-                foreach (var ax in EnumerateAxes())
-                    ax.ServoOn();
-
-                Log("[START] Servo ON complete. Process auto sequence start.");
+                Log("[START] Process auto sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
 
                 await StartSequenceAsync(

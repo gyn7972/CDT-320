@@ -344,6 +344,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_inputFeederUnit == null) return;
+                if (!EnsureFeederYHomeDone(actionName)) return;
 
                 DialogResult result = QMC.Common.MessageDialog.Show(
                     this, actionName + " 진행하시겠습니까?", "Input Feeder Move", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -369,6 +370,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // 이동 대상 축(Input Feeder Y)의 HOME END(IsHomeDone) 미완료면 차단.
+        private bool EnsureFeederYHomeDone(string actionName)
+        {
+            if (_inputFeederUnit != null && _inputFeederUnit.FeederY != null && !_inputFeederUnit.FeederY.IsHomeDone)
+            {
+                string homeMsg = actionName + " 불가: Input Feeder Y 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", homeMsg);
+                QMC.Common.MessageDialog.Show(this, homeMsg, "Input Feeder Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+            return true;
         }
 
         private async Task RunSafeAsync(Func<Task<int>> action, string actionName)
@@ -461,6 +475,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_inputFeederUnit == null) return;
+                if (!EnsureFeederYHomeDone(positionName)) return;
 
                 await RunSafeAsync(async () =>
                 {

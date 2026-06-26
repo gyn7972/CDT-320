@@ -501,7 +501,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             PositionItem item = positionItems[key];
-            await ConfirmMoveAsync(item.DisplayName, delegate { return unit.MovePickerAxisToTeachingPosition(item.Axis, item.PositionName, IsFineMove()); });
+            await ConfirmMoveAsync(item.DisplayName, delegate { return unit.MovePickerAxisToTeachingPosition(item.Axis, item.PositionName, IsFineMove()); }, item.Axis);
         }
 
         // ===================== 인터락 시퀀스 (FrontPicker) =====================
@@ -798,7 +798,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             RefreshView();
         }
 
-        private async Task ConfirmMoveAsync(string actionName, Func<Task<int>> move)
+        private static readonly PickerAxis[] AllPickerAxesForHomeCheck =
+        {
+            PickerAxis.PickerX, PickerAxis.PickerY,
+            PickerAxis.PickerT0, PickerAxis.PickerT1, PickerAxis.PickerT2, PickerAxis.PickerT3,
+            PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3
+        };
+
+        private async Task ConfirmMoveAsync(string actionName, Func<Task<int>> move, params PickerAxis[] targetAxes)
         {
             if (unit == null || move == null)
                 return;
@@ -806,11 +813,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (ManualMoveGuard.BlockIfNotReady(this, "Front Picker"))
                 return;
 
+            // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단 — 우클릭 move / 액션 버튼 공통.
+            if (!EnsureTargetAxesHomeDone(actionName, targetAxes))
+                return;
+
             DialogResult result = QMC.Common.MessageDialog.Show(this, actionName + " move?", "Front Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result != DialogResult.Yes)
                 return;
 
             await RunSafeAsync(move, actionName);
+        }
+
+        // 이동 대상 축의 HOME END(IsHomeDone) 확인. targetAxes 미지정(액션 버튼)이면 FrontPicker 전 축을 본다.
+        private bool EnsureTargetAxesHomeDone(string actionName, PickerAxis[] targetAxes)
+        {
+            PickerAxis[] axes = (targetAxes != null && targetAxes.Length > 0) ? targetAxes : AllPickerAxesForHomeCheck;
+            foreach (PickerAxis ax in axes)
+            {
+                if (!unit.IsPickerAxisHomeDone(ax))
+                {
+                    string axisName = "Front" + ax.ToString().Replace("Picker", "");
+                    string msg = actionName + " 불가: " + axisName + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", msg);
+                    QMC.Common.MessageDialog.Show(this, msg, "Front Picker", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+            }
+            return true;
         }
 
         private async Task RunSafeAsync(Func<Task<int>> action, string actionName)

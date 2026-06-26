@@ -380,6 +380,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_InputCassetteUnit == null) return;
+
+                // 이동 대상 축(Input Lifter Z)의 HOME END(IsHomeDone) 미완료면 차단.
+                if (_InputCassetteUnit.InputLifterZ != null && !_InputCassetteUnit.InputLifterZ.IsHomeDone)
+                {
+                    string homeMsg = actionName + " 불가: Input Lifter Z 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", homeMsg);
+                    QMC.Common.MessageDialog.Show(this, homeMsg, actionName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 await RunSafeAsync(async () =>
                 {
                     int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());

@@ -493,6 +493,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string title = (side == BinSide.Ng ? "NG " : "GOOD ") + kind.ToUpperInvariant();
             string reason;
 
+            // 이동 대상 축(해당 빈 Y/Z)의 HOME END(IsHomeDone) 미완료면 차단.
+            if (!CheckBinAxesHomed(side, out reason))
+                return AbortSeq(title, reason);
             if (!CheckClampUp(side, out reason))
                 return AbortSeq(title, reason);
             if (!CheckPickerZClear(out reason))
@@ -538,6 +541,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 5) PROCESS: VisionX 동반 이동 (공유레일 → Front/Rear 픽커 Avoid 선행 확인)
             if (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
             {
+                if (!_outputStageUnit.IsStageAxisHomeDone(BinStageAxis.VisionX))
+                    return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
                 if (!CheckVisionXClear(out reason))
                     return AbortSeq(title, "VISION X 전 " + reason);
                 r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process");
@@ -555,6 +560,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             string title = "VISION " + kind.ToUpperInvariant();
             string reason;
+
+            // 이동 대상 축(VISION X)의 HOME END(IsHomeDone) 미완료면 차단.
+            if (!_outputStageUnit.IsStageAxisHomeDone(BinStageAxis.VisionX))
+                return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
 
             if (string.Equals(kind, "Reticle", StringComparison.OrdinalIgnoreCase))
             {
@@ -600,7 +609,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     BinStageAxis axis;
                     string positionName;
                     if (TryGetSelectedTeachingPosition(out axis, out positionName))
+                    {
+                        // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단.
+                        if (!_outputStageUnit.IsStageAxisHomeDone(axis))
+                        {
+                            string homeMsg = optionParameterGrid.SelectedItem.Key + " 불가: " + axis + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                            EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", homeMsg);
+                            QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
                         await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _outputStageUnit.MoveStageAxisToTeachingPosition(axis, positionName, true));
+                    }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
                 {

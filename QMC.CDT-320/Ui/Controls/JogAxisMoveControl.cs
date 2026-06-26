@@ -2459,6 +2459,17 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item == null)
                     return;
 
+                // HOME END(IsHomeDone) 미완료 축은 조그 불가 — 알람 띄우고 차단(step·연속 공통).
+                if (item.Axis != null && !item.Axis.IsHomeDone)
+                {
+                    string homeEndMsg = (item.AxisName ?? "Axis") +
+                        " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";
+                    EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", homeEndMsg);
+                    QMC.Common.MessageDialog.Show(this, homeEndMsg, "Jog Axis",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 isStepMode = rdoStep.Checked;
                 if (!isStepMode)
                 {
