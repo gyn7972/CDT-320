@@ -47,6 +47,11 @@ namespace QMC.Vision.Ui.Pages
         public CameraMappingPanel()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._gridLightAssign, Lang.T("set.cam.secLight"));
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
             _paramGrid.ParameterValueChanged += OnParamChanged;
@@ -54,6 +59,7 @@ namespace QMC.Vision.Ui.Pages
             _camPreview.ShowToolbar = true;   // 공용 CameraView 내장 툴바
             UpdateConnectButtons();
             WireLightGrid();
+            ApplyWaferLayout();
             Lang.LanguageChanged += OnCamLangChanged;
         }
 
@@ -77,6 +83,7 @@ namespace QMC.Vision.Ui.Pages
                         BindFields();
                     }
                     Lang.Apply(this);
+                    ApplyWaferLayout();
                 }));
             }
             catch { }
@@ -456,6 +463,26 @@ namespace QMC.Vision.Ui.Pages
                 _left.RowStyles[2].Height = _paramGrid.PreferredGridHeight;
                 _left.RowStyles[4].Height = _scaleGrid.PreferredGridHeight;
                 // _left 가 AutoSize 라 행 높이 변경 시 _leftScroll 가 스크롤 범위를 자동 갱신(스크롤은 좌측 컬럼만, 미리보기 고정).
+            }
+            catch { }
+        }
+
+        /// <summary>섹션 제목을 각 그리드의 접기 헤더(주황 라인 포함)로 이동하고, 기존 회색 타이틀 행을 제거한다.</summary>
+        private void ApplyWaferLayout()
+        {
+            try
+            {
+                _paramGrid.Title = Lang.T("set.cam.secParam");
+                _scaleGrid.Title = Lang.T("set.cam.secScale");
+                var lightPanel = _gridLightAssign.Parent?.Parent as QMC.Vision.Ui.Controls.CollapsibleGridPanel;
+                if (lightPanel != null) lightPanel.Title = Lang.T("set.cam.secLight");
+
+                // 기존 회색 섹션 타이틀 라벨 숨김 + 해당 행 높이 제거(제목은 접기 헤더로 이동)
+                foreach (var lbl in new Control[] { _secParam, _secScale, _lblLightAssign })
+                    if (lbl != null) lbl.Visible = false;
+                _left.RowStyles[1].Height = 0;
+                _left.RowStyles[3].Height = 0;
+                _left.RowStyles[6].Height = 0;
             }
             catch { }
         }

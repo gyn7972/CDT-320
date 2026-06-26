@@ -27,6 +27,11 @@ namespace QMC.Vision.Ui.Pages
         public InspectorPage()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "RESULT");
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             BuildChildPanels();
         }
@@ -35,6 +40,11 @@ namespace QMC.Vision.Ui.Pages
         {
             _module = module; _inspector = inspector;
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "RESULT");
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             BuildChildPanels();
             Text = module.Name + " / " + inspector.Id;

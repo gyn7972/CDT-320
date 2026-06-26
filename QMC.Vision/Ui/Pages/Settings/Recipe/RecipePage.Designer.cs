@@ -29,9 +29,10 @@ namespace QMC.Vision.Ui.Pages
         private Panel           _projRail;
         private Panel           _projLeft, _projRight;   // 2분할: 좌 목록 / 우 공통설정
         private Label           _projHdr;
+        private Panel           _lnProj, _lnSide, _lnSet;   // 섹션 타이틀 주황 밑줄(GENERAL 스타일)
         private ListBox         _projList;
         private FlowLayoutPanel _projBtnBar;
-        private Button          _btnRecApply, _btnRecNew, _btnRecCopy, _btnRecSaveAs, _btnRecDelete;
+        private Button          _btnRecApply, _btnRecNew, _btnRecCopy, _btnRecSaveAs, _btnRecDelete, _btnRecLoad;
         private Label           _commonHdr;
         private QMC.Vision.Ui.Controls.ParameterGridControl _commonGrid;
         private Panel           _commonBar;
@@ -65,7 +66,11 @@ namespace QMC.Vision.Ui.Pages
             this._btnRecCopy = new System.Windows.Forms.Button();
             this._btnRecSaveAs = new System.Windows.Forms.Button();
             this._btnRecDelete = new System.Windows.Forms.Button();
+            this._btnRecLoad = new System.Windows.Forms.Button();
             this._projHdr = new System.Windows.Forms.Label();
+            this._lnProj = new System.Windows.Forms.Panel();
+            this._lnSide = new System.Windows.Forms.Panel();
+            this._lnSet = new System.Windows.Forms.Panel();
             this._finderRail = new System.Windows.Forms.Panel();
             this._setFlow = new System.Windows.Forms.FlowLayoutPanel();
             this._recipeBar = new System.Windows.Forms.Panel();
@@ -130,12 +135,14 @@ namespace QMC.Vision.Ui.Pages
             this._contentHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this._contentHost.Controls.Add(this._hdrPanel, 0, 0);
             this._contentHost.Controls.Add(this._content, 0, 1);
+            this._contentHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this._contentHost.Dock = System.Windows.Forms.DockStyle.Fill;
             this._contentHost.Location = new System.Drawing.Point(0, 0);
             this._contentHost.Margin = new System.Windows.Forms.Padding(0);
+            this._contentHost.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
             this._contentHost.Name = "_contentHost";
             this._contentHost.RowCount = 2;
-            this._contentHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this._contentHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this._contentHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this._contentHost.Size = new System.Drawing.Size(681, 696);
             this._contentHost.TabIndex = 0;
@@ -146,7 +153,7 @@ namespace QMC.Vision.Ui.Pages
             this._hdrPanel.Controls.Add(this._hdr);
             this._hdrPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this._hdrPanel.Location = new System.Drawing.Point(0, 0);
-            this._hdrPanel.Margin = new System.Windows.Forms.Padding(0);
+            this._hdrPanel.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this._hdrPanel.Name = "_hdrPanel";
             this._hdrPanel.Size = new System.Drawing.Size(681, 40);
             this._hdrPanel.TabIndex = 0;
@@ -155,7 +162,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._hdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this._hdr.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._hdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this._hdr.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this._hdr.ForeColor = System.Drawing.Color.White;
             this._hdr.Location = new System.Drawing.Point(0, 0);
             this._hdr.Name = "_hdr";
@@ -196,6 +203,7 @@ namespace QMC.Vision.Ui.Pages
             this._projRight.Controls.Add(this._commonBar);
             this._projRight.Controls.Add(this._commonHdr);
             this._projRight.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._projRight.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this._projRight.Location = new System.Drawing.Point(280, 0);
             this._projRight.Name = "_projRight";
             this._projRight.Size = new System.Drawing.Size(401, 656);
@@ -206,7 +214,7 @@ namespace QMC.Vision.Ui.Pages
             this._commonGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this._commonGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._commonGrid.Location = new System.Drawing.Point(0, 30);
-            this._commonGrid.Margin = new System.Windows.Forms.Padding(0);
+            this._commonGrid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this._commonGrid.Name = "_commonGrid";
             this._commonGrid.Size = new System.Drawing.Size(401, 580);
             this._commonGrid.TabIndex = 0;
@@ -227,7 +235,7 @@ namespace QMC.Vision.Ui.Pages
             this._btnCommonSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this._btnCommonSave.Dock = System.Windows.Forms.DockStyle.Right;
             this._btnCommonSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnCommonSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._btnCommonSave.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
             this._btnCommonSave.ForeColor = System.Drawing.Color.White;
             this._btnCommonSave.Location = new System.Drawing.Point(233, 8);
             this._btnCommonSave.Name = "_btnCommonSave";
@@ -283,6 +291,7 @@ namespace QMC.Vision.Ui.Pages
             this._projBtnBar.Controls.Add(this._btnRecCopy);
             this._projBtnBar.Controls.Add(this._btnRecSaveAs);
             this._projBtnBar.Controls.Add(this._btnRecDelete);
+            this._projBtnBar.Controls.Add(this._btnRecLoad);
             this._projBtnBar.Dock = System.Windows.Forms.DockStyle.Bottom;
             this._projBtnBar.Location = new System.Drawing.Point(0, 576);
             this._projBtnBar.Name = "_projBtnBar";
@@ -294,7 +303,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._btnRecApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this._btnRecApply.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRecApply.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this._btnRecApply.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
             this._btnRecApply.ForeColor = System.Drawing.Color.White;
             this._btnRecApply.Location = new System.Drawing.Point(8, 8);
             this._btnRecApply.Margin = new System.Windows.Forms.Padding(2);
@@ -309,7 +318,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._btnRecNew.BackColor = System.Drawing.Color.White;
             this._btnRecNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRecNew.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._btnRecNew.Font = new System.Drawing.Font("맑은 고딕", 10.5F);
             this._btnRecNew.Location = new System.Drawing.Point(97, 8);
             this._btnRecNew.Margin = new System.Windows.Forms.Padding(2);
             this._btnRecNew.Name = "_btnRecNew";
@@ -323,7 +332,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._btnRecCopy.BackColor = System.Drawing.Color.White;
             this._btnRecCopy.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRecCopy.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._btnRecCopy.Font = new System.Drawing.Font("맑은 고딕", 10.5F);
             this._btnRecCopy.Location = new System.Drawing.Point(186, 8);
             this._btnRecCopy.Margin = new System.Windows.Forms.Padding(2);
             this._btnRecCopy.Name = "_btnRecCopy";
@@ -337,7 +346,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._btnRecSaveAs.BackColor = System.Drawing.Color.White;
             this._btnRecSaveAs.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRecSaveAs.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._btnRecSaveAs.Font = new System.Drawing.Font("맑은 고딕", 10.5F);
             this._btnRecSaveAs.Location = new System.Drawing.Point(8, 42);
             this._btnRecSaveAs.Margin = new System.Windows.Forms.Padding(2);
             this._btnRecSaveAs.Name = "_btnRecSaveAs";
@@ -351,7 +360,7 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._btnRecDelete.BackColor = System.Drawing.Color.White;
             this._btnRecDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnRecDelete.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this._btnRecDelete.Font = new System.Drawing.Font("맑은 고딕", 10.5F);
             this._btnRecDelete.Location = new System.Drawing.Point(97, 42);
             this._btnRecDelete.Margin = new System.Windows.Forms.Padding(2);
             this._btnRecDelete.Name = "_btnRecDelete";
@@ -360,18 +369,39 @@ namespace QMC.Vision.Ui.Pages
             this._btnRecDelete.Text = "삭제";
             this._btnRecDelete.UseVisualStyleBackColor = false;
             this._btnRecDelete.Click += new System.EventHandler(this.OnRecipeDeleteClick);
+            //
+            // _btnRecLoad
+            //
+            this._btnRecLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(46)))), ((int)(((byte)(125)))), ((int)(((byte)(80)))));
+            this._btnRecLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnRecLoad.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
+            this._btnRecLoad.ForeColor = System.Drawing.Color.White;
+            this._btnRecLoad.Location = new System.Drawing.Point(186, 42);
+            this._btnRecLoad.Margin = new System.Windows.Forms.Padding(2);
+            this._btnRecLoad.Name = "_btnRecLoad";
+            this._btnRecLoad.Size = new System.Drawing.Size(85, 30);
+            this._btnRecLoad.TabIndex = 5;
+            this._btnRecLoad.Text = "LOAD";
+            this._btnRecLoad.UseVisualStyleBackColor = false;
+            this._btnRecLoad.Click += new System.EventHandler(this.OnRecipeLoadClick);
             // 
             // _projHdr
             // 
             this._projHdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this._projHdr.Dock = System.Windows.Forms.DockStyle.Top;
-            this._projHdr.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._projHdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this._projHdr.ForeColor = System.Drawing.Color.Black;
             this._projHdr.Location = new System.Drawing.Point(0, 0);
             this._projHdr.Name = "_projHdr";
+            this._projHdr.Controls.Add(this._lnProj);
+            this._lnProj.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this._lnProj.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this._lnProj.Name = "_lnProj";
+            this._lnProj.Size = new System.Drawing.Size(280, 2);
             this._projHdr.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this._projHdr.Size = new System.Drawing.Size(280, 44);
+            this._projHdr.Size = new System.Drawing.Size(280, 50);
             this._projHdr.TabIndex = 2;
+            this._projHdr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this._projHdr.Text = "레시피 (품목)";
             this._projHdr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -420,11 +450,11 @@ namespace QMC.Vision.Ui.Pages
             this._btnSaveRecipe.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this._btnSaveRecipe.FlatAppearance.BorderSize = 0;
             this._btnSaveRecipe.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnSaveRecipe.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._btnSaveRecipe.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
             this._btnSaveRecipe.ForeColor = System.Drawing.Color.White;
             this._btnSaveRecipe.Location = new System.Drawing.Point(6, 6);
             this._btnSaveRecipe.Name = "_btnSaveRecipe";
-            this._btnSaveRecipe.Size = new System.Drawing.Size(188, 36);
+            this._btnSaveRecipe.Size = new System.Drawing.Size(188, 30);
             this._btnSaveRecipe.TabIndex = 0;
             this._btnSaveRecipe.Text = "레시피 저장 (품목별)";
             this._btnSaveRecipe.UseVisualStyleBackColor = false;
@@ -437,11 +467,11 @@ namespace QMC.Vision.Ui.Pages
             this._btnLoadRecipe.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(70)))), ((int)(((byte)(110)))), ((int)(((byte)(160)))));
             this._btnLoadRecipe.FlatAppearance.BorderSize = 0;
             this._btnLoadRecipe.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnLoadRecipe.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._btnLoadRecipe.Font = new System.Drawing.Font("맑은 고딕", 10.5F, System.Drawing.FontStyle.Bold);
             this._btnLoadRecipe.ForeColor = System.Drawing.Color.White;
             this._btnLoadRecipe.Location = new System.Drawing.Point(6, 48);
             this._btnLoadRecipe.Name = "_btnLoadRecipe";
-            this._btnLoadRecipe.Size = new System.Drawing.Size(188, 36);
+            this._btnLoadRecipe.Size = new System.Drawing.Size(188, 30);
             this._btnLoadRecipe.TabIndex = 1;
             this._btnLoadRecipe.Text = "불러오기 (되돌리기)";
             this._btnLoadRecipe.UseVisualStyleBackColor = false;
@@ -455,6 +485,11 @@ namespace QMC.Vision.Ui.Pages
             this._setHdr.ForeColor = System.Drawing.Color.Black;
             this._setHdr.Location = new System.Drawing.Point(0, 0);
             this._setHdr.Name = "_setHdr";
+            this._setHdr.Controls.Add(this._lnSet);
+            this._lnSet.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this._lnSet.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this._lnSet.Name = "_lnSet";
+            this._lnSet.Size = new System.Drawing.Size(200, 2);
             this._setHdr.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this._setHdr.Size = new System.Drawing.Size(200, 44);
             this._setHdr.TabIndex = 2;
@@ -490,13 +525,19 @@ namespace QMC.Vision.Ui.Pages
             // 
             this._sideHdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this._sideHdr.Dock = System.Windows.Forms.DockStyle.Top;
-            this._sideHdr.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this._sideHdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this._sideHdr.ForeColor = System.Drawing.Color.Black;
             this._sideHdr.Location = new System.Drawing.Point(0, 0);
             this._sideHdr.Name = "_sideHdr";
-            this._sideHdr.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this._sideHdr.Size = new System.Drawing.Size(210, 44);
+            this._sideHdr.Controls.Add(this._lnSide);
+            this._lnSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this._lnSide.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this._lnSide.Name = "_lnSide";
+            this._lnSide.Size = new System.Drawing.Size(210, 2);
+            this._sideHdr.Padding = new System.Windows.Forms.Padding(0, 0, 16, 0);
+            this._sideHdr.Size = new System.Drawing.Size(210, 50);
             this._sideHdr.TabIndex = 1;
+            this._sideHdr.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this._sideHdr.Text = "모듈 (Module)";
             this._sideHdr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 

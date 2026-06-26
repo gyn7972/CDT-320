@@ -98,8 +98,15 @@
     <Compile Include="Equipment\Core\VisionCommandCore.cs" />
     <Compile Include="Equipment\Core\ResourceMonitor.cs" />
     <Compile Include="Equipment\Core\ModuleResultStore.cs" />
+    <Compile Include="Equipment\Core\InspectionResultStore.cs" />
+    <Compile Include="Equipment\Core\IStepImageProvider.cs" />
+    <Compile Include="Equipment\Core\ContaminationDetector.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />
     <Compile Include="Equipment\Core\PlacementGapInspector.cs" />
+    <Compile Include="Equipment\Core\BottomInspector.cs" />
+    <Compile Include="Equipment\Core\SideAppearanceInspector.cs" />
+    <Compile Include="Equipment\Core\SideChippingCore.cs" />
+    <Compile Include="Equipment\Core\DomainInspectorFactory.cs" />
     <Compile Include="Equipment\Core\ActiveRecipeContext.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
     <Compile Include="Equipment\Core\DataLogSaver.cs" />
@@ -217,6 +224,14 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\GridTheme.cs" />
+    <Compile Include="Ui\Controls\CollapsibleGridPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\CollapsibleGridPanel.Designer.cs">
+      <DependentUpon>CollapsibleGridPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\CollapsibleGrids.cs" />
+    <Compile Include="Ui\Controls\SectionHeaderStyle.cs" />
     <Compile Include="Ui\Controls\ActionButton.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -277,6 +292,44 @@
     </Compile>
     <Compile Include="Ui\Pages\Work\OperationPage.Designer.cs">
       <DependentUpon>OperationPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\InspectionMode.cs" />
+    <Compile Include="Ui\Controls\VisionImageView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\PickerView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\SpcTrendChart.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\SampleData.cs" />
+    <Compile Include="Ui\Controls\WaferMapPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\InspectionViewerControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\InspectionViewerControl.Designer.cs">
+      <DependentUpon>InspectionViewerControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Windows\BottomInspectionWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Windows\BottomInspectionWindow.Designer.cs">
+      <DependentUpon>BottomInspectionWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\InspectionWorkPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\InspectionWorkPage.Designer.cs">
+      <DependentUpon>InspectionWorkPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WorkMirrorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\WorkMirrorForm.Designer.cs">
+      <DependentUpon>WorkMirrorForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Work\SequencerPage.cs">
       <SubType>UserControl</SubType>

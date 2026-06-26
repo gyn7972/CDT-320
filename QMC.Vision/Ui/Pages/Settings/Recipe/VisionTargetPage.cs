@@ -40,6 +40,15 @@ namespace QMC.Vision.Ui.Pages
         public VisionTargetPage()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "MATCH RESULT");
+                this._params.Title = "PARAMETERS";
+                this._secMatch.Visible = false; this._center.RowStyles[4].Height = 0;
+                this._secParam.Visible = false; this._right.RowStyles[0].Height = 0;
+                QMC.Vision.Ui.Controls.SectionHeaderStyle.Apply(_secCam, _secAction, _secTrain, _secRoi, _secLight);
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             WireCamera();
         }
@@ -49,6 +58,15 @@ namespace QMC.Vision.Ui.Pages
             _module = module; _finder = finder;
             RecipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName;
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "MATCH RESULT");
+                this._params.Title = "PARAMETERS";
+                this._secMatch.Visible = false; this._center.RowStyles[4].Height = 0;
+                this._secParam.Visible = false; this._right.RowStyles[0].Height = 0;
+                QMC.Vision.Ui.Controls.SectionHeaderStyle.Apply(_secCam, _secAction, _secTrain, _secRoi, _secLight);
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _node = _module?.Algorithms.FirstOrDefault(a => a.Finder == _finder);
             WireCamera();

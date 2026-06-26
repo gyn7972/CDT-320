@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDT-320 Vision 검사 결과 뷰어 — 신규 구현 계획 (2026-06-24)</title>
+<style>
+  :root{--bg:#0f1115;--card:#171a21;--line:#2a2f3a;--fg:#e6e9ef;--mut:#9aa3b2;--ok:#3ecf8e;--warn:#f0a33e;--accent:#5b9dff;--danger:#ff6b6b;--new:#3ecf8e;--edit:#f0a33e;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI","맑은 고딕",sans-serif;line-height:1.65;padding:32px;}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:17px;margin:30px 0 10px;border-left:4px solid var(--accent);padding-left:10px}
+  h3{font-size:14px;margin:18px 0 6px;color:var(--accent)}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:12px 0}
+  code{background:#0c0e12;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-family:Consolas,monospace;font-size:12.5px;color:#cfe3ff}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#11141a;color:var(--mut);font-weight:600}
+  ul{margin:6px 0 6px 0;padding-left:20px} li{margin:4px 0}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-right:6px}
+  .new{background:rgba(62,207,142,.15);color:var(--new);border:1px solid rgba(62,207,142,.4)}
+  .edit{background:rgba(240,163,62,.15);color:var(--edit);border:1px solid rgba(240,163,62,.4)}
+  .reuse{background:rgba(91,157,255,.15);color:var(--accent);border:1px solid rgba(91,157,255,.4)}
+  .files{font-family:Consolas,monospace;font-size:12px;color:#bcd;margin:3px 0}
+  .note{color:var(--mut);font-size:12.5px}
+  .flow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0;font-size:12.5px}
+  .box{background:#0c0e12;border:1px solid var(--line);border-radius:6px;padding:8px 11px}
+  .arr{color:var(--accent);font-weight:700}
+  .warnbox{background:rgba(240,163,62,.08);border:1px solid rgba(240,163,62,.35);border-radius:8px;padding:12px 14px;margin:12px 0}
+</style>
+</head>
+<body>
+
+<h1>CDT-320 Vision 검사 결과 뷰어 — 신규 구현 계획</h1>
+<div class="sub">2026-06-24 · 대상: <code>QMC.Vision</code> (작업 모니터링 화면) · 참조 데이터모델: <code>QMc.Vision.Inspector</code> (CDT-310_Vision) · 프로토콜: <code>Vision Protocol_20250529.xlsx</code></div>
+
+<div class="warnbox">
+  <b>전제</b> — 스크린샷의 운영 뷰어 화면을 그리는 소스는 마운트된 어느 코드베이스(CDT-300/310/320)에도 <b>없음</b>. 따라서 <b>신규 구현</b>한다. 재사용 가능한 자산은 두 가지: ① <code>QMc.Vision.Inspector</code>의 검사 결과 클래스(데이터 모델), ② <code>QMC.Vision</code>의 <code>OperationPage</code>·<code>CameraView</code>·모듈/프레임 인프라(UI 골격).
+</div>
+
+<h2>0. 목표 요약 (듀얼 모니터)</h2>
+<div class="card">
+  <ul>
+    <li><b>모니터 2개</b> 구성. <b>위(2번) 모니터 = Bottom 검사 전용</b> 풀스크린 고정 창, <b>아래(1번) 모니터 = 메인 프로그램 상주</b>.</li>
+    <li><b>Bottom Inspection</b>은 프로그램 실행 시 <b>자동</b>으로 위 모니터에 <b>테두리 없는 풀스크린 새 창</b>으로 띄우고 <b>이동/리사이즈 잠금·상시</b> 유지. 모드 전환 없음(Bottom 전용).</li>
+    <li><b>아래 작업화면(작업 탭, 상시)</b>의 <b>메인 표시 영역</b>은 <b>우측에 세로로 배치한 3개 버튼(작업 · Side · Die)</b>으로 전환된다. <b>Bottom 버튼은 없음</b>(Bottom은 위 모니터 전용 창이 담당).</li>
+    <li><b>"작업" 버튼 = 기존 작업 모니터 UI</b>(현행 <code>OperationPage</code> 카드형: BOTTOM 메인 + 4모듈 2×2 + RUN/READY) — <b>기본 표시</b>. <b>Side · Die</b> 버튼은 메인 영역을 측면/Bin 검사 화면으로 <b>교체</b>.</li>
+  </ul>
+</div>
+
+<h2>1. 아키텍처 — 데이터는 TCP가 아니라 로컬 결과 객체에 바인딩</h2>
+<div class="card">
+  <p>프로토콜 분석 결과, 핸들러로 가는 TCP REPLY는 <b>축약 데이터</b>만 담는다:</p>
+  <ul>
+    <li><code>BCI</code>(Bottom, 5101) REPLY: Offset X/Y, Theta, Result Code(NG 코드 n개). <span class="note">→ Width/Height·칩핑·이물 <b>미포함</b></span></li>
+    <li><code>OCI</code>(Output/Bin, 5103) REPLY: Offset X/Y, Rotate Angle, Top/Left/Bottom/Right Gap의 Min/Max.</li>
+    <li><code>SCI</code>(Side) REPLY: 판정 중심.</li>
+  </ul>
+  <p>반면 스크린샷의 화면은 <b>너비/높이 추세, ChippingSize Map, 이물, per-die 결과표</b>까지 보여준다 → 이는 <b>비전 PC 로컬 검사 결과 객체</b>(<code>BottomResult</code> 등)를 직접 렌더한 것. 비전 PC가 곧 검사 주체이므로, 뷰어는 <b>로컬 결과 스토어</b>에 바인딩한다.</p>
+  <div class="flow">
+    <div class="box">Inspector 실행<br><span class="note">BCI/SCI/OCI</span></div>
+    <span class="arr">▶</span>
+    <div class="box"><b>BottomResult / SideResult / DieGapResult</b><br><span class="note">전체 측정값</span></div>
+    <span class="arr">▶</span>
+    <div class="box" style="border-color:var(--new)"><b>InspectionResultStore</b> (신규)<br><span class="note">per-die 누적 + 이벤트</span></div>
+    <span class="arr">▶</span>
+    <div class="box">뷰어 페이지<br><span class="note">패널/그래프/Map/그리드</span></div>
+    <span class="arr">▶</span>
+    <div class="box">TCP REPLY<br><span class="note">축약본(핸들러)</span></div>
+  </div>
+  <p class="note">기존 <code>ModuleResultStore</code>는 <b>판정 + 텍스트 라인</b>만 보관(per-die 구조화 없음). 추세 그래프·결과 그리드·Map을 위해 <b>구조화 per-die 스토어</b>를 신설한다.</p>
+</div>
+
+<h2>2. 결과 데이터 모델 매핑 <span class="tag reuse">재사용</span></h2>
+<div class="card">
+  <p>출처: <code>QMc.Vision.Inspector</code> (CDT-310_Vision). 화면 요소 ↔ 필드 매핑.</p>
+  <table>
+    <tr><th>화면(모드)</th><th>화면 요소</th><th>결과 클래스 · 필드</th></tr>
+    <tr><td rowspan="5"><b>Bottom</b><br>(사이즈·칩핑·이물)</td><td>Picker W/H 라벨, 너비/높이 그래프</td><td><code>BottomResult.Width</code>, <code>.Height</code></td></tr>
+    <tr><td>1·2 Channel ChippingSize Map</td><td><code>.Channel1ChippingSize</code>, <code>.Channel2ChippingSize</code></td></tr>
+    <tr><td>칩핑(상/하/좌/우)</td><td><code>.ChppingTopSize/BottomSize/LeftSize/RightSize</code>, <code>.ChippingInfos</code></td></tr>
+    <tr><td>이물</td><td><code>.ForeingSize</code>, <code>.MaxDefactSize</code></td></tr>
+    <tr><td>결과표(Angle·OffX·OffY), 판정</td><td><code>.Angle</code>, <code>.Offset</code>, <code>.DefectCode</code>, 이미지 <code>.DisplayImage</code></td></tr>
+    <tr><td rowspan="2"><b>Side</b><br>(칩핑)</td><td>Front/Back max chipping depth 그래프·표</td><td><code>SideResult.MaxChippingDepth</code> (Front/Back 2개 인스턴스), <code>.ChippingInfos</code></td></tr>
+    <tr><td>Channel1/2 토글, 판정</td><td>채널 2개 × Front/Back, <code>.DefectCode</code></td></tr>
+    <tr><td rowspan="2"><b>Bin</b><br>(DieGap·위치)</td><td>Top/Right/Bottom gap min·max 그래프·표</td><td><code>DieGapResult.Gaps</code> = <code>GapSet{Left,Top,Right,Bottom}</code>, 각 <code>Gap{Min,Max}</code></td></tr>
+    <tr><td>위치검사(OffX·OffY·Angle), 판정</td><td><code>.Offset</code>, <code>.Angle</code>, <code>.Corners</code>, <code>.DefectCode</code></td></tr>
+  </table>
+  <p class="note">공통 인덱스(<code>IndexX</code>, <code>IndexY</code>, <code>Picker index</code>)는 <code>InspectionParameterBase</code> 및 프로토콜 공통 필드. 결과표 좌측 3컬럼(Index X / Index Y / Picker number)에 사용.</p>
+</div>
+
+<h2>3. 레이아웃 구조 (듀얼 모니터)</h2>
+<div class="card">
+  <p><b>위 모니터</b> = Bottom 전용 풀스크린 <b>창</b>(고정). <b>아래 작업화면(상시)</b> = 메인 표시 영역 + <b>우측 세로 3버튼</b>(작업·Side·Die). "작업"=기존 모니터 UI(기본), Side/Die=검사화면 교체. 검사화면은 공통 콘텐츠 컨트롤을 공유.</p>
+  <table>
+    <tr><th>영역</th><th>Bottom <span class="note">(위 창 전용)</span></th><th>Side <span class="note">(작업화면)</span></th><th>Bin <span class="note">(작업화면)</span></th></tr>
+    <tr><td>상단 토글</td><td>너비와 높이</td><td>Channel1 / Channel2</td><td>위·좌 / 아래·우</td></tr>
+    <tr><td>Picker 1~4 패널</td><td>이미지 + W/H + Good</td><td>Front/Back ch1·2 라인</td><td>이미지 + Top gap min/max</td></tr>
+    <tr><td>그래프 ①②</td><td>너비 / 높이 [mm]</td><td>Front / Back max chipping depth</td><td>오른쪽 갭 / 아래쪽 갭 [mm]</td></tr>
+    <tr><td>Map</td><td>Width·Height·1ch·2ch Chipping</td><td>없음</td><td>없음</td></tr>
+    <tr><td>결과 그리드 컬럼</td><td>X·Y·Pk·W·H·Ang·OffX·OffY</td><td>X·Y·Pk·Front·Back</td><td>X·Y·Pk·Rmax·Rmin·Bot·OffX·OffY·Ang</td></tr>
+    <tr><td>전환 버튼</td><td>버튼 없음(위 창)</td><td colspan="2">작업화면 <b>우측 세로 버튼</b>: <b>작업</b>(기존 UI·기본) · <b>Side</b> · <b>Die</b> — 누르면 메인 영역 교체, 활성 버튼 하이라이트</td></tr>
+  </table>
+  <p><b>기본 동작</b>: 프로그램 시작 시 위 모니터에 Bottom 창 자동 표시(상시). 작업화면은 상시 떠 있고 <b>기본=기존 작업 모니터 UI</b>; Side/Die 버튼으로 측면/Bin 검사 화면으로 교체(<code>SetMode</code>).</p>
+</div>
+
+<h2>3-1. 듀얼 모니터 — Bottom 전용 풀스크린 창 <span class="tag new">신규 핵심</span></h2>
+<div class="card">
+  <div class="files">+ Ui\Windows\BottomInspectionWindow.cs / .Designer.cs</div>
+  <ul>
+    <li><code>Form</code> 파생. <code>FormBorderStyle = None</code>, <code>StartPosition = Manual</code>, <code>ShowInTaskbar = false</code>, <code>ControlBox = false</code>.</li>
+    <li><b>대상 모니터 선택</b>: <code>Screen.AllScreens</code>에서 보조(비-Primary) 또는 Primary 위쪽(<code>Bounds.Y &lt; primary.Y</code>) 화면 선택. 인덱스는 <code>AppSettings</code>로 설정 가능, 단일 모니터면 Primary 폴백.</li>
+    <li><b>꽉 채움</b>: <code>Bounds = targetScreen.Bounds</code> 직접 지정(테두리 없음 → 작업표시줄까지 덮음). <code>TopMost = true</code>로 상시 전면.</li>
+    <li><b>이동/리사이즈 잠금</b>: 테두리 None으로 기본 차단 + <code>WndProc</code>에서 <code>WM_SYSCOMMAND</code>의 <code>SC_MOVE/SC_SIZE</code> 무시. 닫힘 방지(<code>FormClosing</code>에서 종료 외 취소) — 메인 종료 시에만 닫힘.</li>
+    <li><b>자동 기동</b>: <code>Form1</code>(메인) 초기화 후 <code>Show()</code>. 디스플레이 변경(<code>SystemEvents.DisplaySettingsChanged</code>) 시 위치 재적용.</li>
+    <li>내용 = Bottom 모드 뷰어 콘텐츠(§4 공통 컨트롤 재사용). <code>InspectionResultStore(Bottom)</code> 구독.</li>
+  </ul>
+</div>
+
+<h2>4. 기능별 구현 항목</h2>
+
+<div class="card">
+  <h3>4-1. 구조화 결과 스토어 <span class="tag new">신규</span></h3>
+  <div class="files">+ Equipment\Core\InspectionResultStore.cs</div>
+  <ul>
+    <li>모드(Bottom/Side/Bin)별 <b>per-die 레코드 리스트</b> 보관: <code>{IndexX, IndexY, Picker, 측정값..., DefectCode, Time}</code>.</li>
+    <li><code>Record(mode, record)</code> + <code>ResultsAdded</code> 이벤트(리비전 증가). 뷰어가 구독하여 그래프/그리드/Map 갱신.</li>
+    <li>Lot 시작 시 <code>Clear(mode)</code>. 최신 N개(예: 250) 링버퍼로 추세 그래프 X축 구성.</li>
+    <li><span class="note">결과 객체는 Inspector 어댑터(BCI/SCI/OCI 처리부)에서 <b>TCP REPLY 직전</b>에 push.</span></li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-2. 공유 뷰어 콘텐츠 컨트롤 + 호스팅 <span class="tag new">신규</span></h3>
+  <div class="files">+ Ui\Controls\InspectionViewerControl.cs / .Designer.cs &nbsp;(UserControl, 공통 프레임)</div>
+  <div class="files">+ 작업화면(WorkTab/OperationPage) 우측 <b>세로 버튼바</b>(작업·Side·Die) + 메인 영역 전환</div>
+  <ul>
+    <li><b>핵심 분리</b>: 검사 화면 콘텐츠(헤더·Picker·그래프·Map·그리드)는 <code>InspectionViewerControl</code>(UserControl) 하나로 만들고, <b>위 모니터 창</b>(<code>BottomInspectionWindow</code> = Bottom 고정)과 <b>작업화면 메인 영역</b>(Side/Bin)이 <b>각각 인스턴스를 호스팅</b>.</li>
+    <li><b>작업화면 우측 세로 버튼바</b>: 작업 탭 우측에 고정폭 컬럼(<code>FlowLayoutPanel</code> 세로 또는 <code>TableLayoutPanel</code> 1열 3행), 버튼 <b>작업 · Side · Die</b>. <b>Bottom 버튼 없음.</b></li>
+    <li><b>메인 영역 전환</b>: <b>"작업"</b> = 기존 <code>OperationPage</code> 모니터 콘텐츠(카드형) 그대로 표시(기본). <b>"Side"/"Die"</b> = 같은 영역에 <code>InspectionViewerControl</code>(<code>SetMode(Side/Bin)</code>) 표시. 같은 호스트 패널에서 자식 컨트롤만 교체(<code>Visible</code>/<code>BringToFront</code>).</li>
+    <li><b>Designer 규칙</b>(AGENTS.md): 컨트롤은 <code>.Designer.cs</code> 인라인, 로직 <code>.cs</code>. <code>partial</code>·클래스명=파일명. 버튼 이벤트 <code>btnWork_Click</code>/<code>btnSide_Click</code>/<code>btnDie_Click</code>, 활성 버튼 하이라이트.</li>
+    <li><code>SetMode(InspectionMode)</code> 하나로 라벨·패널·그래프 시리즈·그리드 컬럼·Map 표시여부를 모드 데이터로 스왑(목업의 <code>sel()</code>과 동일 개념). 위 창은 <code>SetMode(Bottom)</code> 고정.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-3. Picker 1~4 패널 <span class="tag reuse">재사용</span></h3>
+  <ul>
+    <li>기존 <code>CameraView</code> 재사용: <code>SetFrame(GrabResult)</code>(이미지), <code>SetVerdict("OK/NG", pass)</code>(Good/NG), <code>SetResultLines(string[])</code>(W/H·gap 텍스트), <code>SetOverlay(roi, marks)</code>(녹색 박스/코너).</li>
+    <li>이미지 소스: <code>BottomResult.DisplayImage</code> 직접 or 기존 <code>IVisionModule.AcquireViewerFrame()</code> 비침습 탭(<code>ViewerFrameSeq</code>) 경로.</li>
+    <li>Picker index → 패널 인덱스 매핑(1~4).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-4. 추세 그래프(SPC) ①② <span class="tag new">신규 컨트롤</span></h3>
+  <ul>
+    <li>X=die 순번, Y=측정값, UpperLimit/LowerLimit 점선(레시피 규격). 모드별 시리즈: 너비·높이 / Front·Back chipping depth / Right·Bottom gap.</li>
+    <li>구현 옵션 — <b>(A)</b> <code>System.Windows.Forms.DataVisualization.Charting.Chart</code>(MS Chart, .NET FW 4.7.2 내장) 권장, <b>(B)</b> 경량 커스텀 <code>Panel.OnPaint</code> 폴리라인. <span class="note">규격선은 레시피의 상/하한에서 가져옴(<code>RecipeStore</code>/MaterialSpecs).</span></li>
+    <li><code>InspectionResultStore.ResultsAdded</code> 구독 시 최신 윈도우로 다시 그림.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-5. Map(Bottom 전용) <span class="tag new">신규</span></h3>
+  <ul>
+    <li>Width/Height/1ch/2ch ChippingSize를 die 격자에 히트맵(값↑=진한 빨강) 표시. <code>Panel.OnPaint</code> 격자 렌더.</li>
+    <li>좌표=die <code>IndexX/IndexY</code>, 값=<code>Channel1/2ChippingSize</code> 등.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-6. 결과 그리드 <span class="tag reuse">재사용</span></h3>
+  <ul>
+    <li><code>DataGridView</code>(또는 기존 <code>SortableBindingList</code>/<code>GridTheme</code>) — 모드별 컬럼셋. <code>InspectionResultStore</code> 레코드 바인딩.</li>
+    <li>최신 행이 위로(역순). 컬럼은 §3 표 기준.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>4-7. 헤더 · 토글 · 하단 메뉴 <span class="tag edit">수정</span></h3>
+  <ul>
+    <li>헤더: 레시피명/Lot ID/Wafer ID = 현재 Lot 컨텍스트에서. Judge/Normal = 누적 판정.</li>
+    <li>상단 토글: 모드별 라벨(너비와높이 / Channel1·2 / 위·좌·아래·우) — 보기 옵션 전환(그래프 대상 채널/방향 선택).</li>
+    <li>하단 메뉴(작업/구성/조작/레시피/데이터로그)는 기존 탭 셸(<code>WorkTab</code> 등) 재사용.</li>
+  </ul>
+</div>
+
+<h2>5. 데이터 흐름(시퀀스)</h2>
+<div class="card">
+  <ol>
+    <li>핸들러 → 비전: <code>BCI/SCI/OCI</code> REQUEST (STX <code>TID,REQUEST,CMD,cnt,args</code> ETX).</li>
+    <li>Inspector 실행 → <code>BottomResult/SideResult/DieGapResult</code> 생성.</li>
+    <li>어댑터: ① <b>InspectionResultStore.Record()</b> (전체값) → ② TCP REPLY(축약값) 핸들러 전송.</li>
+    <li>뷰어: <code>ResultsAdded</code> 수신 → 현재 모드면 Picker/그래프/Map/그리드 갱신. <span class="note">UI 스레드 마샬링(<code>BeginInvoke</code>), 비침습.</span></li>
+  </ol>
+</div>
+
+<h2>6. 신규/수정 파일 요약</h2>
+<div class="card">
+  <table>
+    <tr><th>구분</th><th>파일</th><th>역할</th></tr>
+    <tr><td><span class="tag new">신규</span></td><td class="files">Equipment\Core\InspectionResultStore.cs</td><td>모드별 per-die 결과 누적 + 이벤트</td></tr>
+    <tr><td><span class="tag new">신규</span></td><td class="files">Ui\Controls\InspectionViewerControl.cs / .Designer.cs</td><td>공통 뷰어 콘텐츠(UserControl) + SetMode</td></tr>
+    <tr><td><span class="tag new">신규</span></td><td class="files">Ui\Windows\BottomInspectionWindow.cs / .Designer.cs</td><td><b>위 모니터 전용</b> 풀스크린 고정 창(Bottom)</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">Ui\Pages\Work\OperationPage(.Designer).cs / WorkTab</td><td>우측 세로 버튼(작업·Side·Die) + 메인 영역 전환(기존 UI ↔ ViewerControl)</td></tr>
+    <tr><td><span class="tag new">신규</span></td><td class="files">Ui\Controls\SpcTrendChart.cs (.Designer)</td><td>상/하한 점선 추세 그래프</td></tr>
+    <tr><td><span class="tag new">신규</span></td><td class="files">Ui\Controls\DefectMapPanel.cs</td><td>die 격자 히트맵(Bottom)</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">Form1.cs (메인)</td><td>시작 시 BottomInspectionWindow 기동·보조모니터 배치</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">Equipment\Vision\*Adapter (BCI/SCI/OCI 처리부)</td><td>REPLY 직전 ResultStore.Record</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">Ui\Tabs\WorkTab.cs</td><td>작업화면 메인 영역 + 우측 세로 버튼바 영역 확보</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">AppSettings (뷰어 모니터 인덱스)</td><td>위 모니터 화면 선택·폴백 설정</td></tr>
+    <tr><td><span class="tag reuse">재사용</span></td><td class="files">Ui\Controls\CameraView.cs, ModuleResultStore.cs, QMc.Vision.Inspector.*</td><td>패널/오버레이/판정/데이터모델</td></tr>
+    <tr><td><span class="tag edit">수정</span></td><td class="files">QMC.Vision.csproj</td><td>신규 파일 등록(수동)</td></tr>
+  </table>
+</div>
+
+<h2>7. 규칙 준수 체크 (AGENTS.md)</h2>
+<div class="card">
+  <ul>
+    <li><b>Designer</b>: 컨트롤은 <code>.Designer.cs</code> 인라인, 로직은 <code>.cs</code>. <code>partial</code>·클래스명=파일명.</li>
+    <li><b>예외</b>: <code>try/catch/finally</code>, <code>catch{}</code> 금지. 실패 시 로그(+UI면 메시지박스).</li>
+    <li><b>스레드</b>: 시퀀스/타이머에서 UI 갱신은 <code>BeginInvoke</code>. <code>Thread.Sleep</code>·무한 while로 UI 제어 금지.</li>
+    <li><b>명명</b>: 컨트롤 prefix(btn/lbl/grid…), 이벤트 <code>컨트롤명_이벤트명</code>, 메소드 동사 시작, bool은 Is/Can/Check.</li>
+    <li><b>인코딩</b>: 모든 파일 UTF-8. <span class="note">단, 참조 원본 <code>QMc.Vision.Inspector</code>의 일부 <code>.cs</code>는 CP949 깨짐(예: BottomResult/InspectionParameterBase 헤더) — 이식 시 한글 복원 후 UTF-8 저장.</span></li>
+  </ul>
+</div>
+
+<h2>8. 진행 순서(제안)</h2>
+<div class="card">
+  <ol>
+    <li><b>InspectionResultStore</b> + 어댑터 push (데이터 파이프라인 먼저).</li>
+    <li><b>InspectionViewerControl</b> 골격 + <b>Bottom 모드</b> 풀구현(헤더·Picker·너비/높이 그래프·Map·그리드).</li>
+    <li><b>BottomInspectionWindow</b>(위 모니터 풀스크린 고정) + <code>Form1</code> 자동 기동 → 실행 시 상시 표시·보조모니터 배치 확인.</li>
+    <li><b>SideBinViewerPage</b>(아래 메인) + Side/Bin 버튼 전환 + Side·Bin 콘텐츠.</li>
+    <li>SPC 상/하한 = 레시피 규격 연동, 판정/색상 마감.</li>
+    <li>VS2022 빌드 → 5모듈 결과 연동 + 듀얼모니터 배치 테스트(<code>perl tools/verify_vision_features.pl</code>).</li>
+  </ol>
+  <p class="note">코드 실제 편집은 <b>빌드 기준 저장소</b>에 반영해야 동기화로 되돌려지지 않음(작업 저장소 경로 확인 필요). 본 문서는 설계/계획 산출물.</p>
+</div>
+
+</body>
+</html>

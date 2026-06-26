@@ -41,6 +41,15 @@ namespace QMC.Vision.Ui.Pages
         public InspectorTargetPage()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "검사 결과");
+                this._params.Title = "PARAMETERS";
+                this._secResult.Visible = false; this._center.RowStyles[4].Height = 0;
+                this._secParam.Visible = false; this._right.RowStyles[0].Height = 0;
+                QMC.Vision.Ui.Controls.SectionHeaderStyle.Apply(_secCam, _secAction, _secRoi, _secLight);
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             WireCamera();
         }
@@ -50,6 +59,15 @@ namespace QMC.Vision.Ui.Pages
             _module = module; _inspector = inspector;
             RecipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName;
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._result, "검사 결과");
+                this._params.Title = "PARAMETERS";
+                this._secResult.Visible = false; this._center.RowStyles[4].Height = 0;
+                this._secParam.Visible = false; this._right.RowStyles[0].Height = 0;
+                QMC.Vision.Ui.Controls.SectionHeaderStyle.Apply(_secCam, _secAction, _secRoi, _secLight);
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _node = _module?.Algorithms.FirstOrDefault(a => a.Inspector == _inspector);
             WireCamera();
@@ -89,7 +107,7 @@ namespace QMC.Vision.Ui.Pages
             if (img == null) return;
             if (_cam != null) _cam.InfoText = "STAGE\r\nW:" + img.Width + " H:" + img.Height;
             bool changed = FitDefaultRoiToImage(img);
-            if (_cam != null) _cam.SetOverlay(_inspector?.InspectionRoi, null);
+            if (_cam != null) { _cam.CustomOverlayPaint = null; _cam.SetOverlay(_inspector?.InspectionRoi, null); }   // 새 이미지 → 이전 검출 오버레이 제거
             _params?.RefreshValues();
             if (changed) MarkDirty();
         }
@@ -333,6 +351,41 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Double("Band Trim", "", ParameterGridScope.Recipe, () => pg.BandTrim, v => { pg.BandTrim = v; }));
                 items.Add(ParameterGridItem.Double("Outlier Sigma", "", ParameterGridScope.Recipe, () => pg.OutlierSigma, v => { pg.OutlierSigma = v; }));
             }
+            else if (_inspector is QMC.Vision.Core.BottomInspector bi)
+            {
+                // Bottom 사이즈·칩핑·이물 (CDT-310 BottomInspectionParameter)
+                items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => bi.ChipThreshold, v => { bi.ChipThreshold = v; }));
+                items.Add(ParameterGridItem.Bool  ("Dark Chip", ParameterGridScope.Recipe, () => bi.DarkChip, v => { bi.DarkChip = v; }));
+                items.Add(ParameterGridItem.Double("Chipping Depth", "mm", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }));
+                items.Add(ParameterGridItem.Double("Foreign Size", "mm", ParameterGridScope.Recipe, () => bi.ForeignObjectSize, v => { bi.ForeignObjectSize = v; }));
+                items.Add(ParameterGridItem.Int   ("TopHat Radius", "px", ParameterGridScope.Recipe, () => bi.TopHatRadius, v => { bi.TopHatRadius = v; }));
+                items.Add(ParameterGridItem.Int   ("TopHat Threshold", "", ParameterGridScope.Recipe, () => bi.TopHatThreshold, v => { bi.TopHatThreshold = v; }));
+                items.Add(ParameterGridItem.Int   ("Min Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MinForeignAreaFilterSize, v => { bi.MinForeignAreaFilterSize = v; }));
+                items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeWidthMm, v => { bi.PixelSizeWidthMm = v; }));
+                items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeHeightMm, v => { bi.PixelSizeHeightMm = v; }));
+            }
+            else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
+            {
+                // Side 측면 칩핑 (CDT-310 SideInspectionParameter)
+                items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => si.ChipThreshold, v => { si.ChipThreshold = v; }));
+                if (si.IsChippingRole)
+                {
+                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; }));
+                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; }));
+                    items.Add(ParameterGridItem.Double("Chip Thickness", "mm", ParameterGridScope.Recipe, () => si.ChipThickness, v => { si.ChipThickness = v; }));
+                    items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => si.PixelSizeHeightMm, v => { si.PixelSizeHeightMm = v; }));
+                }
+                if (si.IsSurfaceRole)
+                {
+                    // 이물/오염(Black-Hat 블롭) — 310 ContaminationInspector 파라미터
+                    items.Add(ParameterGridItem.Int("TopHat Radius", "px", ParameterGridScope.Recipe, () => si.TopHatRadius, v => { si.TopHatRadius = v; }));
+                    items.Add(ParameterGridItem.Int("TopHat Threshold", "", ParameterGridScope.Recipe, () => si.TopHatThreshold, v => { si.TopHatThreshold = v; }));
+                    items.Add(ParameterGridItem.Int("Min Foreign Area", "px", ParameterGridScope.Recipe, () => si.MinForeignAreaFilterSize, v => { si.MinForeignAreaFilterSize = v; }));
+                    items.Add(ParameterGridItem.Int("Max Foreign Area", "px", ParameterGridScope.Recipe, () => si.MaxForeignAreaFilterSize, v => { si.MaxForeignAreaFilterSize = v; }));
+                    items.Add(ParameterGridItem.Int("Link Distance", "px", ParameterGridScope.Recipe, () => si.LinkDistance, v => { si.LinkDistance = v; }));
+                }
+                items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => si.PixelSizeWidthMm, v => { si.PixelSizeWidthMm = v; }));
+            }
             AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
             _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
@@ -365,6 +418,14 @@ namespace QMC.Vision.Ui.Pages
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
+
+                // INSPECT 결과(검출 오버레이) 이미지 저장 — 사용 여부 + 폴더 경로.
+                items.Add(ParameterGridItem.Bool("결과 저장 사용", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.DebugSaveEnabled ?? false,
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.DebugSaveEnabled = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.FolderPath("결과 저장 경로", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.DebugSavePath ?? "",
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.DebugSavePath = v?.Trim() ?? ""; MarkDirty(); } }));
             }
 
             // 예) if (_node?.Recipe is SurfaceInspectorRecipe r)
@@ -568,6 +629,11 @@ namespace QMC.Vision.Ui.Pages
             if (img == null) { Status("INSPECT: no image"); return; }
             try
             {
+                // 결과 저장 ON 이면 단계 이미지 캡처 활성화.
+                var dbg = _node?.Setup as QMC.Vision.Modules.AlgoSetupBase;
+                if (_inspector is QMC.Vision.Core.IStepImageProvider sp)
+                    sp.CaptureDebug = dbg != null && dbg.DebugSaveEnabled;
+
                 var r = _inspector.Inspect(img);
                 _result.Rows.Clear();
                 if (r.Items != null)
@@ -580,26 +646,217 @@ namespace QMC.Vision.Ui.Pages
 
                 Status($"INSPECT {(r.IsPass ? "OK" : "FAIL")} — {r.Items?.Count ?? 0} item(s)" +
                        (string.IsNullOrEmpty(r.ErrorMessage) ? "" : " | " + r.ErrorMessage));
-                if (_inspector is QMC.Vision.Core.PlacementGapInspector pgv && pgv.LastValid)
-                    _cam.SetDetectOverlay(_inspector.InspectionRoi, pgv.LastCorners, pgv.LastCenter, pgv.LastPass, pgv.LastGapText);
-                else
+                // 공용은 ROI(노랑)만, 검출 기하·결함·상세값은 검사기별 전용 오버레이(CustomOverlayPaint)로 그린다.
                 {
-                    // 검출된 모든 결함을 박스로 오버레이(인덱스 + 박스). ROI 는 노란 박스.
                     var roi = _inspector.InspectionRoi;
                     var rrect = (roi != null && roi.Width > 0 && roi.Height > 0)
                         ? new System.Drawing.RectangleF((float)(roi.CenterX - roi.Width / 2.0), (float)(roi.CenterY - roi.Height / 2.0), (float)roi.Width, (float)roi.Height)
                         : System.Drawing.RectangleF.Empty;
-                    System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
-                    if (r.Defects != null && r.Defects.Count > 0)
-                    {
-                        marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(r.Defects.Count);
-                        foreach (var d in r.Defects)
-                            marks.Add(new QMC.Common.Ui.Controls.OverlayMark(d.X, d.Y, d.Area, 0, d.Width, d.Height));
-                    }
-                    _cam.SetOverlay(rrect, marks);
+                    _cam.SetOverlay(rrect, null);
+                    var insp = _inspector; var res = r;
+                    _cam.CustomOverlayPaint = (gr, toScreen) => DrawInspectorOverlay(gr, toScreen, insp, res);
+                    _cam.Invalidate();
                 }
+
+                // 상세값 = 기존 결과라인 스타일(우측 하단 정렬·동일 색·폰트) 그대로. 항목 + 결함별 NG 라인.
+                try
+                {
+                    _cam.SetVerdict(r.IsPass ? "OK" : "NG", r.IsPass);
+                    var lines = new System.Collections.Generic.List<string>();
+                    var cols  = new System.Collections.Generic.List<Color>();
+                    Color green = Color.FromArgb(120, 230, 120);   // 일반
+                    Color red   = Color.FromArgb(255, 90, 90);     // 에러(NG)
+                    if (r.Items != null)
+                        foreach (var it in r.Items) { lines.Add(it.Name + ": " + it.Value); cols.Add(green); }
+                    if (r.Defects != null)
+                    {
+                        int i = 1;
+                        foreach (var d in r.Defects)
+                        {
+                            lines.Add(string.Format("NG: #{0} ({1:F0},{2:F0}) {3:F0}x{4:F0}px", i, d.X, d.Y, d.Width, d.Height));
+                            cols.Add(red);
+                            i++;
+                        }
+                    }
+                    _cam.SetResultLines(lines.ToArray(), cols.ToArray());
+                }
+                catch { }
+
+                // 결과(검출 오버레이) 이미지 저장 — 레시피 'Setup' 의 결과 저장 사용/경로.
+                try
+                {
+                    var setup = _node?.Setup as QMC.Vision.Modules.AlgoSetupBase;
+                    if (setup != null && setup.DebugSaveEnabled && !string.IsNullOrWhiteSpace(setup.DebugSavePath))
+                        SaveDebugImage(img, r, setup.DebugSavePath);
+                }
+                catch (Exception ex) { Status("결과 저장 실패: " + ex.Message); }
             }
             catch (Exception ex) { Status("INSPECT FAIL: " + ex.Message); }
+        }
+
+        private static System.Drawing.PointF AvgPoint(System.Drawing.PointF[] pts)
+        {
+            if (pts == null || pts.Length == 0) return System.Drawing.PointF.Empty;
+            float x = 0, y = 0;
+            foreach (var p in pts) { x += p.X; y += p.Y; }
+            return new System.Drawing.PointF(x / pts.Length, y / pts.Length);
+        }
+
+        // ── 검사기별 전용 오버레이(이미지 위) + 우측 상세값 패널 ──
+        private static System.Drawing.PointF[] ToScreenArr(System.Drawing.PointF[] pts, System.Func<System.Drawing.PointF, System.Drawing.PointF> toS)
+        {
+            var a = new System.Drawing.PointF[pts.Length];
+            for (int i = 0; i < pts.Length; i++) a[i] = toS(pts[i]);
+            return a;
+        }
+
+        private static void DrawInspectorOverlay(System.Drawing.Graphics g,
+            System.Func<System.Drawing.PointF, System.Drawing.PointF> toS, IInspector insp, InspectionResult r)
+        {
+            if (g == null || toS == null || r == null) return;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            using (var green = new System.Drawing.Pen(System.Drawing.Color.LimeGreen, 2f))
+            using (var red   = new System.Drawing.Pen(System.Drawing.Color.Red, 2f))
+            {
+                // 검출 기하(초록) — 검사기 타입별로 다르게
+                if (insp is QMC.Vision.Core.SideAppearanceInspector si && si.LastValid && si.IsChippingRole)
+                {
+                    // 평균 직선이 아니라 컬럼별 실제 굴곡 에지 프로파일을 그림
+                    if (si.LastTopProfile != null && si.LastTopProfile.Length >= 2) g.DrawLines(green, ToScreenArr(si.LastTopProfile, toS));
+                    if (si.LastBotProfile != null && si.LastBotProfile.Length >= 2) g.DrawLines(green, ToScreenArr(si.LastBotProfile, toS));
+                }
+                else if (insp is QMC.Vision.Core.BottomInspector bi && bi.LastValid && bi.LastCorners != null && bi.LastCorners.Length >= 3)
+                    g.DrawPolygon(green, ToScreenArr(bi.LastCorners, toS));
+                else if (insp is QMC.Vision.Core.PlacementGapInspector pg && pg.LastValid && pg.LastCorners != null && pg.LastCorners.Length >= 3)
+                    g.DrawPolygon(green, ToScreenArr(pg.LastCorners, toS));
+
+                // 결함(빨강 박스 + 번호)
+                if (r.Defects != null)
+                {
+                    int i = 1;
+                    using (var f  = new System.Drawing.Font("Consolas", 8f, System.Drawing.FontStyle.Bold))
+                    using (var br = new System.Drawing.SolidBrush(System.Drawing.Color.Red))
+                        foreach (var d in r.Defects)
+                        {
+                            var p1 = toS(new System.Drawing.PointF((float)(d.X - d.Width / 2), (float)(d.Y - d.Height / 2)));
+                            var p2 = toS(new System.Drawing.PointF((float)(d.X + d.Width / 2), (float)(d.Y + d.Height / 2)));
+                            float w = System.Math.Max(6, p2.X - p1.X), h = System.Math.Max(6, p2.Y - p1.Y);
+                            g.DrawRectangle(red, p1.X, p1.Y, w, h);
+                            g.DrawString(i.ToString(), f, br, p1.X, p1.Y - 12);
+                            i++;
+                        }
+                }
+            }
+            // 상세값 텍스트는 영상에 그리지 않음 — 기존 결과라인(SetResultLines, 우측하단 핑크) 사용.
+        }
+
+        /// <summary>우측 하단 상세값 패널 — 기본 초록, 에러(스펙 초과 항목·검출 결함)만 빨강. 항목 + 결함별 좌표/크기.</summary>
+        private static void DrawDetailPanel(System.Drawing.Graphics g, IInspector insp, InspectionResult r)
+        {
+            var green = System.Drawing.Color.LimeGreen;
+            var red   = System.Drawing.Color.Red;
+
+            // (텍스트, 색) 줄 누적 — 통과=초록, 에러=빨강.
+            var lines = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, System.Drawing.Color>>();
+            void Add(string t, System.Drawing.Color c) => lines.Add(new System.Collections.Generic.KeyValuePair<string, System.Drawing.Color>(t, c));
+
+            Add("[ " + (insp != null ? insp.Id : "") + " ]   " + (r.IsPass ? "OK" : "NG"), r.IsPass ? green : red);
+            if (r.Items != null)
+                foreach (var it in r.Items)
+                    Add("  " + it.Name + " : " + it.Value, it.IsPass ? green : red);   // 항목별 합/불 색
+            if (r.Defects != null && r.Defects.Count > 0)
+            {
+                Add("- Defects (" + r.Defects.Count + ") -", red);
+                int i = 1;
+                foreach (var d in r.Defects)
+                {
+                    Add(string.Format("#{0}  ({1:F0},{2:F0})  {3:F0}x{4:F0}px", i, d.X, d.Y, d.Width, d.Height), red);
+                    if (++i > 20) { Add("  ...", red); break; }
+                }
+            }
+
+            // 박스/테두리 없이 우측 하단에 텍스트만 — 줄마다 색(기본 초록 / 에러 빨강), 아래로 누적(하단 정렬).
+            var cb = g.ClipBounds;
+            float lh = 15f, pw = 300f;
+            float px = cb.Right - pw - 8f;
+            if (px < cb.Left + 4) px = cb.Left + 4;
+            float startY = cb.Bottom - 8f - lines.Count * lh;
+            if (startY < cb.Top + 4) startY = cb.Top + 4;
+            using (var f = new System.Drawing.Font("Consolas", 8.5f, System.Drawing.FontStyle.Bold))
+            {
+                float yy = startY;
+                foreach (var ln in lines)
+                    using (var br = new System.Drawing.SolidBrush(ln.Value))
+                    { g.DrawString(ln.Key, f, br, px, yy); yy += lh; }
+            }
+        }
+
+        /// <summary>검출 오버레이(ROI·에지/박스·결함·측정값·판정)를 그린 결과 이미지를 폴더에 저장.</summary>
+        private void SaveDebugImage(System.Drawing.Bitmap src, InspectionResult r, string pathOrDir)
+        {
+            string dir = pathOrDir;
+            try { if (System.IO.Path.HasExtension(dir)) dir = System.IO.Path.GetDirectoryName(dir); } catch { }
+            if (string.IsNullOrWhiteSpace(dir)) return;
+            System.IO.Directory.CreateDirectory(dir);
+
+            string baseName = (_inspector?.Id ?? "inspect").Replace('/', '_').Replace('\\', '_')
+                              + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
+
+            // 0. 원본
+            try { src.Save(System.IO.Path.Combine(dir, baseName + "_0_original.png"), System.Drawing.Imaging.ImageFormat.Png); } catch { }
+            // 1..n 처리 단계(그레이/임계/블롭 등) — 검사기가 제공
+            if (_inspector is QMC.Vision.Core.IStepImageProvider sp && sp.DebugSteps != null)
+                foreach (var st in sp.DebugSteps)
+                    try { st.Value?.Save(System.IO.Path.Combine(dir, baseName + "_" + st.Key + ".png"), System.Drawing.Imaging.ImageFormat.Png); } catch { }
+
+            using (var bmp = new System.Drawing.Bitmap(src))
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                var roi = _inspector?.InspectionRoi;
+                // ROI(노랑)
+                if (roi != null && roi.Width > 0 && roi.Height > 0)
+                    using (var pen = new System.Drawing.Pen(System.Drawing.Color.Yellow, 1.5f))
+                        g.DrawRectangle(pen, (float)(roi.CenterX - roi.Width / 2.0), (float)(roi.CenterY - roi.Height / 2.0), (float)roi.Width, (float)roi.Height);
+
+                // 검출 기하 — Side: 에지 상/하 기준선, Bottom/Gap: 검출 박스
+                using (var gp = new System.Drawing.Pen(r.IsPass ? System.Drawing.Color.LimeGreen : System.Drawing.Color.Orange, 2f))
+                {
+                    if (_inspector is QMC.Vision.Core.SideAppearanceInspector si && si.LastValid)
+                    {
+                        // 컬럼별 실제 굴곡 에지 프로파일(평균 직선 아님)
+                        if (si.LastTopProfile != null && si.LastTopProfile.Length >= 2) g.DrawLines(gp, si.LastTopProfile);
+                        if (si.LastBotProfile != null && si.LastBotProfile.Length >= 2) g.DrawLines(gp, si.LastBotProfile);
+                        if (si.LastCorners != null) g.DrawString("edge profile", Font, System.Drawing.Brushes.LimeGreen, si.LastCorners[0]);
+                    }
+                    else if (_inspector is QMC.Vision.Core.BottomInspector bi && bi.LastValid && bi.LastCorners != null)
+                        g.DrawPolygon(gp, bi.LastCorners);
+                    else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg && pg.LastValid && pg.LastCorners != null)
+                        g.DrawPolygon(gp, pg.LastCorners);
+                }
+
+                // 결함 마크(빨강 박스)
+                if (r.Defects != null)
+                    using (var dp = new System.Drawing.Pen(System.Drawing.Color.Red, 2f))
+                        foreach (var d in r.Defects)
+                            g.DrawRectangle(dp, (float)(d.X - d.Width / 2), (float)(d.Y - d.Height / 2), (float)Math.Max(8, d.Width), (float)Math.Max(8, d.Height));
+
+                // 측정값 + 판정 텍스트
+                int ty = 6;
+                using (var bg = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(160, 0, 0, 0)))
+                    g.FillRectangle(bg, 4, 4, 260, 20 + (r.Items?.Count ?? 0) * 16);
+                using (var f = new System.Drawing.Font("Consolas", 9f))
+                {
+                    g.DrawString((r.IsPass ? "OK" : "NG"), new System.Drawing.Font("Consolas", 11f, System.Drawing.FontStyle.Bold),
+                        r.IsPass ? System.Drawing.Brushes.LimeGreen : System.Drawing.Brushes.OrangeRed, 8, ty); ty += 18;
+                    if (r.Items != null) foreach (var it in r.Items) { g.DrawString(it.Name + " : " + it.Value, f, System.Drawing.Brushes.White, 8, ty); ty += 16; }
+                }
+
+                string full = System.IO.Path.Combine(dir, baseName + "_9_result.png");
+                bmp.Save(full, System.Drawing.Imaging.ImageFormat.Png);
+                Status("결과 저장됨(원본+단계+결과): " + dir);
+            }
         }
 
         private void BeginEditRoi()

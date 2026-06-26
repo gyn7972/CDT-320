@@ -226,6 +226,35 @@ namespace QMC.Vision.Modules
                     pg.BandTrim      = r.BandTrim;
                     pg.OutlierSigma  = r.OutlierSigma;
                 }
+                else if (_inspector is QMC.Vision.Core.BottomInspector bi)
+                {
+                    bi.ChipThreshold            = (int)r.Threshold;
+                    bi.ChippingDepth            = r.ChippingDepth;
+                    bi.ChippingLength           = r.ChippingLength;
+                    bi.ForeignObjectSize        = r.ForeignObjectSize;
+                    bi.TopHatRadius             = r.TopHatRadius;
+                    bi.TopHatThreshold          = r.TopHatThreshold;
+                    bi.MinForeignAreaFilterSize = r.MinForeignAreaFilterSize;
+                    bi.DarkChip                 = r.DarkChip;
+                    if (r.PixelSizeXmmBottom > 0) bi.PixelSizeWidthMm  = r.PixelSizeXmmBottom;
+                    if (r.PixelSizeYmmBottom > 0) bi.PixelSizeHeightMm = r.PixelSizeYmmBottom;
+                }
+                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
+                {
+                    si.ChipThreshold            = (int)r.Threshold;
+                    si.ChippingDepth            = r.ChippingDepth;
+                    si.ChippingUpperLimit       = r.ChippingUpperLimit;
+                    si.ChippingLowerLimit       = r.ChippingLowerLimit;
+                    si.ChippingLength           = r.ChippingLength;
+                    si.ForeignObjectSize        = r.ForeignObjectSize;
+                    si.ChipThickness            = r.ChipThickness;
+                    si.TopHatRadius             = r.TopHatRadius;
+                    si.TopHatThreshold          = r.TopHatThreshold;
+                    si.MinForeignAreaFilterSize = r.MinForeignAreaFilterSize;
+                    si.MaxForeignAreaFilterSize = r.MaxForeignAreaFilterSize;
+                    si.LinkDistance             = r.LinkDistance;
+                    if (r.PixelSizeXmmBottom > 0) si.PixelSizeWidthMm  = r.PixelSizeXmmBottom;
+                }
             }
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
@@ -250,6 +279,35 @@ namespace QMC.Vision.Modules
                     r.EdgeStep      = pg.EdgeStep;
                     r.BandTrim      = pg.BandTrim;
                     r.OutlierSigma  = pg.OutlierSigma;
+                }
+                else if (_inspector is QMC.Vision.Core.BottomInspector bi)
+                {
+                    r.Threshold                = bi.ChipThreshold;
+                    r.ChippingDepth            = bi.ChippingDepth;
+                    r.ChippingLength           = bi.ChippingLength;
+                    r.ForeignObjectSize        = bi.ForeignObjectSize;
+                    r.TopHatRadius             = bi.TopHatRadius;
+                    r.TopHatThreshold          = bi.TopHatThreshold;
+                    r.MinForeignAreaFilterSize = bi.MinForeignAreaFilterSize;
+                    r.DarkChip                 = bi.DarkChip;
+                    r.PixelSizeXmmBottom       = bi.PixelSizeWidthMm;
+                    r.PixelSizeYmmBottom       = bi.PixelSizeHeightMm;
+                }
+                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
+                {
+                    r.Threshold                = si.ChipThreshold;
+                    r.ChippingDepth            = si.ChippingDepth;
+                    r.ChippingUpperLimit       = si.ChippingUpperLimit;
+                    r.ChippingLowerLimit       = si.ChippingLowerLimit;
+                    r.ChippingLength           = si.ChippingLength;
+                    r.ForeignObjectSize        = si.ForeignObjectSize;
+                    r.ChipThickness            = si.ChipThickness;
+                    r.TopHatRadius             = si.TopHatRadius;
+                    r.TopHatThreshold          = si.TopHatThreshold;
+                    r.MinForeignAreaFilterSize = si.MinForeignAreaFilterSize;
+                    r.MaxForeignAreaFilterSize = si.MaxForeignAreaFilterSize;
+                    r.LinkDistance             = si.LinkDistance;
+                    r.PixelSizeXmmBottom       = si.PixelSizeWidthMm;
                 }
             }
             if (_inspector is IAlgoParamSync s) s.CollectParams(Recipe, Config, Setup);

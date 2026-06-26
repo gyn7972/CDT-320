@@ -33,6 +33,18 @@ namespace QMC.Vision.Ui.Pages
         public LightSystemSetupPage()
         {
             InitializeComponent();
+            // __COLLAPSIBLE_WRAP__
+            if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
+            {
+                // 섹션 제목을 그리드 접기 헤더(주황 라인 포함)로 이동
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._gridCtrl, _lblSecCtrl.Text);
+                QMC.Vision.Ui.Controls.CollapsibleGrids.Wrap(this._gridLabel, _lblSecLabel.Text);
+                // 기존 회색 섹션 타이틀 라벨 숨김 + 해당 행 높이 제거
+                _lblSecCtrl.Visible = false;
+                _lblSecLabel.Visible = false;
+                _body.RowStyles[0].Height = 0;
+                _body.RowStyles[3].Height = 0;
+            }
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             LoadFromStore();
         }

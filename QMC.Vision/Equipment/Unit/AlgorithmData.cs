@@ -44,8 +44,14 @@ namespace QMC.Vision.Modules
         /// <summary>이 도구 전용 시뮬 그랩 이미지 경로(웨이퍼 2점 정렬의 이미지1/이미지2처럼 도구별로 다른 이미지 지정).</summary>
         [DataMember] public string SimSavedImagePath { get; set; }
 
+        /// <summary>true 면 INSPECT 시 검출 오버레이(에지/박스/결함/측정값)를 그린 결과 이미지를 <see cref="DebugSavePath"/>에 저장.</summary>
+        [DataMember] public bool DebugSaveEnabled { get; set; }
+
+        /// <summary>결과(디버그) 이미지 저장 폴더 경로. 비면 저장 안 함.</summary>
+        [DataMember] public string DebugSavePath { get; set; }
+
         [OnDeserializing] private void OnDeserializingAlgoSetup(StreamingContext ctx)
-        { SimUseSavedImage = false; SimSavedImagePath = string.Empty; }
+        { SimUseSavedImage = false; SimSavedImagePath = string.Empty; DebugSaveEnabled = false; DebugSavePath = string.Empty; }
     }
 
     /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>
@@ -168,7 +174,34 @@ namespace QMC.Vision.Modules
         /// <summary>gap 이상치 제거 σ배수(기본 2.0).</summary>
         [DataMember] public double OutlierSigma { get; set; }
 
+        // ── Bottom/Side 검사기(310 포팅) 파라미터 ──
+        [DataMember] public double ChippingDepth { get; set; }
+        [DataMember] public double ChippingUpperLimit { get; set; }   // 측면 칩핑 상한(NG 기준, 화면 UpperLimit)
+        [DataMember] public double ChippingLowerLimit { get; set; }   // 측면 칩핑 하한(화면 LowerLimit)
+        [DataMember] public double ChippingLength { get; set; }
+        [DataMember] public double ForeignObjectSize { get; set; }
+        [DataMember] public int    TopHatRadius { get; set; }
+        [DataMember] public int    TopHatThreshold { get; set; }
+        [DataMember] public int    MinForeignAreaFilterSize { get; set; }
+        [DataMember] public int    MaxForeignAreaFilterSize { get; set; }
+        [DataMember] public int    LinkDistance { get; set; }
+        [DataMember] public bool   DarkChip { get; set; }
+        [DataMember] public double ChipThickness { get; set; }
+        [DataMember] public double BladeWidth { get; set; }
+        [DataMember] public double FirstBladeDepth { get; set; }
+        [DataMember] public double PixelSizeXmmBottom { get; set; }   // 0=검사기 기본 사용
+        [DataMember] public double PixelSizeYmmBottom { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { UseInspection = true; Threshold = 128.0; GapLowerLimit = 0.0; GapUpperLimit = 50.0; GapOffset = 0.0; PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0; }
+        private void SetDefaults()
+        {
+            UseInspection = true; Threshold = 128.0; GapLowerLimit = 0.0; GapUpperLimit = 50.0; GapOffset = 0.0;
+            PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0;
+            // 310 BottomInspectionParameter / SideInspectionParameter 기본값
+            ChippingDepth = 0.020; ChippingUpperLimit = 0.050; ChippingLowerLimit = -0.025; ChippingLength = 0.0; ForeignObjectSize = 0.5;
+            TopHatRadius = 21; TopHatThreshold = 30; MinForeignAreaFilterSize = 36; MaxForeignAreaFilterSize = 100000; LinkDistance = 25; DarkChip = false;
+            ChipThickness = 0.25; BladeWidth = 0.048; FirstBladeDepth = 0.050;
+            PixelSizeXmmBottom = 0.0; PixelSizeYmmBottom = 0.0;
+        }
     }
 }

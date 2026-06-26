@@ -52,6 +52,19 @@ namespace QMC.Vision.Ui.Pages
             InitializeComponent();
         }
 
+        /// <summary>자체 상단 헤더(작업—모니터링 + RUN/READY)를 숨긴다.
+        /// 작업화면 호스트(InspectionWorkPage)가 공용 상단 헤더를 제공할 때 중복 방지용.</summary>
+        public void HideOwnHeader()
+        {
+            try
+            {
+                if (_hdr != null) _hdr.Visible = false;
+                if (_root != null && _root.RowStyles.Count > 0)
+                    _root.RowStyles[0].Height = 0;   // 헤더 행 높이 0으로 접기
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[OperationPage] HideOwnHeader 실패: " + ex.Message); }
+        }
+
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);

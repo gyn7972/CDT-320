@@ -775,6 +775,9 @@ namespace QMC.Vision
         private void btnHistory_Click(object sender, EventArgs e)  => ShowTab(Tab.History);
         private void btnSettings_Click(object sender, EventArgs e) => ShowTab(Tab.Settings);
         private void btnUser_Click(object sender, EventArgs e)     => ShowTab(Tab.User);
+
+        // 작업 화면을 보조 모니터에 보기 전용으로 복제해 띄운다(독립 이동 가능).
+        private void btnPopout_Click(object sender, EventArgs e)   => QMC.Vision.Ui.Dialogs.WorkMirrorForm.Open(this);
         private void btnExit_Click(object sender, EventArgs e)     => this.Close();
 
         // ── 하단바 우측 버튼 런타임 배치 ──
@@ -852,8 +855,17 @@ namespace QMC.Vision
             catch { }
         }
 
+        // 시작 시 위(보조) 모니터에 Bottom 검사 전용 풀스크린 창을 자동 표시.
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            try { QMC.Vision.Ui.Windows.BottomInspectionWindow.ShowFor(this); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Form1] BottomInspectionWindow 기동 실패: " + ex.Message); }
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            try { QMC.Vision.Ui.Windows.BottomInspectionWindow.CloseInstance(); } catch { }
             try { _resTimer?.Dispose(); _resTimer = null; } catch { }
             try { _autoSeqHost?.Stop(); }      catch { }
             try { _viewWafer?.Dispose(); }     catch { }
