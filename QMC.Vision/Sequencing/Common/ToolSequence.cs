@@ -44,6 +44,9 @@ namespace QMC.Vision.Sequencing
         private bool IsBottomInspect()
             => !IsFinder && Kind == SequenceModuleKind.BottomInspection;
 
+        private bool IsBinInspect()
+            => !IsFinder && Kind == SequenceModuleKind.BinVision;
+
         public SequenceRunMode Mode { get; private set; } = SequenceRunMode.Auto;
         public int CycleIntervalMs { get; set; } = 500;
 
@@ -127,9 +130,9 @@ namespace QMC.Vision.Sequencing
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
                     result = last;
                 }
-                else if (IsBottomInspect())
+                else if (IsBottomInspect() || IsBinInspect())
                 {
-                    // 바텀도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 운영뷰 맵/그리드가 픽업별로 누적되도록 컨텍스트 부여.
+                    // 바텀/Die gap(Bin)도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 운영뷰 그리드/차트가 픽업별로 누적되도록 컨텍스트 부여.
                     int dieY = ++_dieSeq;
                     int picker = ((dieY - 1) % 4) + 1;
                     _curPicker = picker; _curDie = dieY;
@@ -194,7 +197,7 @@ namespace QMC.Vision.Sequencing
         private void Log(string verdict)
         {
             // 측면 INSPECT 는 어떤 픽업/다이였는지 함께 표시(운영뷰 대응).
-            string pk = (IsSideInspect() || IsBottomInspect()) ? " [Picker " + _curPicker + " / Die " + _curDie + "]" : "";
+            string pk = (IsSideInspect() || IsBottomInspect() || IsBinInspect()) ? " [Picker " + _curPicker + " / Die " + _curDie + "]" : "";
             string line = "[SEQ-" + Name + "] " + (IsFinder ? "MATCH" : "INSPECT") + " " + ToolId + pk + " → " + verdict;
             WriteLog(Name, line);
             Context.LogPublic(line);

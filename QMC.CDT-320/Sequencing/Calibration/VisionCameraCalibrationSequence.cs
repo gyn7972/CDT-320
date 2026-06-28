@@ -973,7 +973,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 VisionReticleMeasurement lastMeasurement = null;
-                for (int attempt = 1; attempt <= ReticleFindRetryCount; attempt++)
+                //for (int attempt = 1; attempt <= ReticleFindRetryCount; attempt++)
                 {
                     ct.ThrowIfCancellationRequested();
                     lastMeasurement = await FindReticleAsync(target, ct).ConfigureAwait(false);
@@ -981,7 +981,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         return lastMeasurement;
 
                     EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-RETICLE-RETRY",
-                        ResolveCameraName(target) + " ReticleFinder 결과가 NG입니다. retry=" + attempt + "/" + ReticleFindRetryCount);
+                        ResolveCameraName(target) + " ReticleFinder 결과가 NG입니다. retry=" + "0" + "/" + ReticleFindRetryCount);
                 }
 
                 return lastMeasurement;

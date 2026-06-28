@@ -877,17 +877,28 @@ namespace QMC.Vision.Ui.Pages
                 _result.Rows[i].Cells[0].Value = i;
         }
 
-        private void OnClearResultClick(object sender, EventArgs e)
+        private void OnClearResultClick(object sender, EventArgs e) => ClearMatchResult(false);
+
+        /// <summary>매칭 결과 표시 전체 초기화 — 그리드 + 카메라 오버레이(검출/콜렛/판정/결과라인/전용)·InfoText.
+        /// keepSearchRoi=true 면 설정용 SearchRoi(노랑) 박스는 남긴다("Result overlay clear" 용).</summary>
+        private void ClearMatchResult(bool keepSearchRoi)
         {
-            _result.Rows.Clear();
-            // 그리드뿐 아니라 카메라 오버레이(노란 ROI 박스 + 매칭 마크 + 판정 텍스트)도 함께 제거.
-            if (_cam != null)
+            try
             {
-                _cam.SetOverlay((Roi)null, (MatchResult)null);
-                try { _cam.ClearDetectOverlay(); } catch { }
-                try { _cam.ClearColletOverlay(); } catch { }
-                _cam.InfoText = string.Empty;
+                _result?.Rows.Clear();
+                if (_cam != null)
+                {
+                    try { _cam.ClearDetectOverlay(); } catch { }
+                    try { _cam.ClearColletOverlay(); } catch { }
+                    try { _cam.ClearResultOverlay(); } catch { }   // 판정 OK/NG + 결과라인
+                    _cam.CustomOverlayPaint = null;
+                    if (keepSearchRoi) _cam.SetOverlay(_finder?.SearchRoi, (MatchResult)null);
+                    else               _cam.SetOverlay((Roi)null,          (MatchResult)null);
+                    _cam.InfoText = string.Empty;
+                    _cam.Invalidate();
+                }
             }
+            catch { }
         }
 
         // ── 측정(Measure) — 토글 ──
@@ -936,7 +947,7 @@ namespace QMC.Vision.Ui.Pages
             _measureMenuItem = new ToolStripMenuItem(Lang.T("rec.measureMenu"));
             _measureMenuItem.Click += (s, e) => OnMeasureClick(s, e);
             cms.Items.Add(_measureMenuItem);
-            cms.Items.Add("Result overlay clear", null, (s, e) => { if (_cam != null) _cam.SetOverlay(_finder?.SearchRoi, null); });
+            cms.Items.Add("Result overlay clear", null, (s, e) => ClearMatchResult(true));
             cms.Items.Add(new ToolStripSeparator());
             // 줌은 CameraView 제자리(휠=확대/축소, 가운데드래그=이동, 더블클릭=맞춤). 메뉴는 배율 프리셋만 제공.
             cms.Items.Add("Image auto fit", null, (s, e) => _cam?.ZoomFit());

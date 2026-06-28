@@ -307,13 +307,17 @@ namespace QMC.Vision.Ui.Pages
             else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
             {
                 items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => pg.Threshold,     v => { pg.Threshold = v; }));
-                items.Add(ParameterGridItem.Double("Gap Lower", "px", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Upper", "px", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Offset","px", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
+                // Gap Lower/Upper·Offset 단위 = Pixel Size 가 0이면 px, >0이면 mm (아래 Pixel Size 로 단위 결정).
+                items.Add(ParameterGridItem.Double("Gap Lower", "px/mm", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Gap Upper", "px/mm", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Gap Offset","px/mm", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
                 items.Add(ParameterGridItem.Bool("Dark Die", ParameterGridScope.Recipe, () => pg.DarkDie, v => { pg.DarkDie = v; }));
                 items.Add(ParameterGridItem.Int("Edge Step", "px", ParameterGridScope.Recipe, () => pg.EdgeStep, v => { pg.EdgeStep = v; }));
                 items.Add(ParameterGridItem.Double("Band Trim", "", ParameterGridScope.Recipe, () => pg.BandTrim, v => { pg.BandTrim = v; }));
                 items.Add(ParameterGridItem.Double("Outlier Sigma", "", ParameterGridScope.Recipe, () => pg.OutlierSigma, v => { pg.OutlierSigma = v; }));
+                // 단위 설정 — 0이면 px 표시/판정, >0(mm/px)이면 갭·한계·차트가 mm 로 환산된다.
+                items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => pg.PixelSizeXmm, v => { pg.PixelSizeXmm = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => pg.PixelSizeYmm, v => { pg.PixelSizeYmm = v; PushChartLimits(); }));
             }
             else if (_inspector is QMC.Vision.Core.BottomInspector bi)
             {
@@ -489,7 +493,7 @@ namespace QMC.Vision.Ui.Pages
             cms.Items.Add("Image load", null, (s, e) => DoLoad());
             cms.Items.Add("Image save", null, (s, e) => DoSaveImage());
             cms.Items.Add(new ToolStripSeparator());
-            cms.Items.Add("Result overlay clear", null, (s, e) => { _cam.ClearDetectOverlay(); _cam.SetOverlay(_inspector?.InspectionRoi, null); });
+            cms.Items.Add("Result overlay clear", null, (s, e) => ClearInspectResult());
             cms.Items.Add(new ToolStripSeparator());
             cms.Items.Add("Image auto fit", null, (s, e) => _cam?.ZoomFit());
             cms.Items.Add("x2", null, (s, e) => _cam?.SetZoom(2));
@@ -715,6 +719,27 @@ namespace QMC.Vision.Ui.Pages
                     QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, p.GapUpperLimit, p.GapLowerLimit);
                     QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, p.GapUpperLimit, p.GapLowerLimit);
                 }
+            }
+            catch { }
+        }
+
+        /// <summary>검사 결과 표시 전체 초기화 — 카메라 오버레이(검출/판정/결과라인) + 결과 그리드 + PASS/FAIL 패널.
+        /// "Result overlay clear" 가 결과값까지 모두 지우도록(이전엔 검출 오버레이만 지움).</summary>
+        private void ClearInspectResult()
+        {
+            try
+            {
+                if (_cam != null)
+                {
+                    _cam.ClearDetectOverlay();          // 검출 박스/콜렛 오버레이
+                    _cam.ClearResultOverlay();          // 우상단 OK/NG + 우하단 결과라인
+                    _cam.CustomOverlayPaint = null;     // 검사기 전용 오버레이(다이박스/갭/프로파일)
+                    _cam.SetOverlay(_inspector?.InspectionRoi, (MatchResult)null);  // ROI(노랑)만 유지
+                    _cam.Invalidate();
+                }
+                _result?.Rows.Clear();                  // 검사 결과 그리드
+                if (_lblVerdict != null)
+                { _lblVerdict.Text = ""; _lblVerdict.BackColor = System.Drawing.Color.FromArgb(0x33, 0x33, 0x33); }
             }
             catch { }
         }

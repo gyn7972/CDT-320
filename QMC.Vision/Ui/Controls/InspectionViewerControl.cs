@@ -54,10 +54,8 @@ namespace QMC.Vision.Ui.Controls
 
                 if (mode == InspectionMode.Side)
                     PopulateBlankSide();      // Side 는 기본 빈칸(시퀀서가 채움)
-                else if (mode == InspectionMode.Bottom)
-                    PopulateBlankBottom();    // Bottom 도 기본 빈칸 — 값 없으면 없는대로, 실데이터가 채움
                 else
-                    PopulateSample(mode);     // Bin 샘플(폴백)
+                    PopulateBlank(mode);      // Bottom/Bin 기본 빈칸 — 값 없으면 없는대로, 실데이터가 채움
                 RefreshFromStore();           // 실데이터 있으면 채움/덮어쓰기
             }
             catch (Exception ex)
@@ -102,9 +100,9 @@ namespace QMC.Vision.Ui.Controls
                 _grid.Rows.Add((object[])row);
         }
 
-        /// <summary>Bottom 기본 빈칸 — 픽커 NO IMAGE, 차트는 상/하한선만(데이터 없음), 그리드·맵 비움.
+        /// <summary>Bottom/Bin 기본 빈칸 — 픽커 NO IMAGE, 차트는 상/하한선만(데이터 없음), 그리드·맵 비움.
         /// 값이 없으면 없는대로 표시하고, 시퀀서/실데이터(InspectionResultStore)가 들어오면 채워진다.</summary>
-        private void PopulateBlankBottom()
+        private void PopulateBlank(InspectionMode mode)
         {
             foreach (var pk in new[] { _pk1, _pk2, _pk3, _pk4 })
             {
@@ -113,12 +111,12 @@ namespace QMC.Vision.Ui.Controls
             }
             System.Array.Clear(_boundCh, 0, _boundCh.Length);
             double up, lo; string title; Color col;
-            SampleData.Series(InspectionMode.Bottom, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
+            SampleData.Series(mode, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
             _chart1.SetData(new double[0], up, lo, title, col);
-            SampleData.Series(InspectionMode.Bottom, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
+            SampleData.Series(mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
             _chart2.SetData(new double[0], up, lo, title, col);
             _grid.Rows.Clear();
-            _waferMap?.SetMaps(null, null, null, null);
+            if (mode == InspectionMode.Bottom) _waferMap?.SetMaps(null, null, null, null);
         }
 
         /// <summary>Side 기본 빈칸 — 4채널 NO IMAGE, 차트는 상/하한선만, 그리드 비움. 시퀀서 동작 시 채워짐.</summary>
@@ -279,44 +277,92 @@ namespace QMC.Vision.Ui.Controls
             if (Mode == InspectionMode.Bottom) BuildBottomMaps();   // 위치별 4-맵 갱신
         }
 
-        // ── 4-맵(Width · Height · 1ch · 2ch ChippingSize) — Bottom 전용, 열=Picker(1~4)·행=사이클 ──
-        // 픽업이 1→2→3→4 순차 진행되므로 각 픽업을 열로 두고 사이클마다 아래로 누적(레퍼런스 세로 스트립 형태).
+        // ── 4-맵(Width · Height · 1ch · 2ch ChippingSize) — Bottom 전용 ──
+        // 条件1: 맵은 레시피 웨이퍼 사양(Grid X/Y) 좌표에 각 결과(Index X/Index Y)를 배치해 그린다.
+        // 条件2: 셀 색은 레시피 리밋 근접도(흰색=공칭/0, 빨강=상·하한 또는 칩핑 최대 근접)로 그라데이션.
         private void BuildBottomMaps()
         {
             if (Mode != InspectionMode.Bottom || _waferMap == null) return;
             var hist = InspectionResultStore.History(InspectionResultStore.Bottom);
             if (hist.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
 
-            // 픽업(1~4)별로 시퀀스 순서대로 분류
-            var byP = new System.Collections.Generic.List<InspectionResultStore.Item>[4];
-            for (int i = 0; i < 4; i++) byP[i] = new System.Collections.Generic.List<InspectionResultStore.Item>();
-            bool anyPicker = false; int rows = 0;
+            // 웨이퍼 격자 크기 — 레시피 사양 우선, 결과 인덱스가 벗어나면 그만큼 확장.
+            // 활성 레시피 SSOT(ActiveRecipeContext) — 호스트 창(Form1/별도 Bottom 창)과 무관하게 동작.
+            var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
+            int gridX = recipe != null ? recipe.WaferGridX : 0;
+            int gridY = recipe != null ? recipe.WaferGridY : 0;
             foreach (var it in hist)
-                if (it.Picker >= 1 && it.Picker <= 4) { byP[it.Picker - 1].Add(it); anyPicker = true; }
-            if (!anyPicker) { _waferMap.SetMaps(null, null, null, null); return; }   // 픽업 미지정(컨텍스트 전) → 빈 맵
-            for (int i = 0; i < 4; i++) if (byP[i].Count > rows) rows = byP[i].Count;
-            if (rows <= 0) { _waferMap.SetMaps(null, null, null, null); return; }
-            if (rows > 200) rows = 200;   // 표시 한도
-
-            double[,] w = NewNaN(rows, 4), h = NewNaN(rows, 4), c1 = NewNaN(rows, 4), c2 = NewNaN(rows, 4);
-            double V(InspectionResultStore.Item it, string k) => it.Values.TryGetValue(k, out double v) ? v : double.NaN;
-            for (int p = 0; p < 4; p++)
             {
-                var list = byP[p];
-                int start = list.Count > rows ? list.Count - rows : 0;   // 최근 rows 개
-                for (int r = 0; r + start < list.Count && r < rows; r++)
-                {
-                    var it = list[start + r];
-                    w[r, p] = V(it, "Width");
-                    h[r, p] = V(it, "Height");
-                    // 1 Channel = 상/하 에지 칩핑 max, 2 Channel = 좌/우 에지 칩핑 max (장비 정의 확인 시 조정).
-                    c1[r, p] = MaxNaN(V(it, "Chipping Top"),  V(it, "Chipping Bottom"));
-                    c2[r, p] = MaxNaN(V(it, "Chipping Left"), V(it, "Chipping Right"));
-                }
+                if (it.IndexX + 1 > gridX) gridX = it.IndexX + 1;
+                if (it.IndexY + 1 > gridY) gridY = it.IndexY + 1;
             }
-            // Width/Height=평균 대비 편차 크기, Chipping=절대 크기로 정규화(0=흰색, 1=적색).
-            _waferMap.SetMaps(NormDev(w), NormDev(h), NormMag(c1), NormMag(c2));
+            if (gridX <= 0 || gridY <= 0) { _waferMap.SetMaps(null, null, null, null); return; }
+            if (gridX > 600) gridX = 600;
+            if (gridY > 600) gridY = 600;
+
+            // 레시피 리밋(상/하한, 칩핑 최대). 폭/높이는 리밋 밴드 중심=흰색, 상·하한 근접=빨강. 미설정 시 폴백.
+            double wLo = recipe != null ? recipe.ChipWidthLowerMm : 0;
+            double wUp = recipe != null ? recipe.ChipWidthUpperMm : 0;
+            double hLo = recipe != null ? recipe.ChipHeightLowerMm : 0;
+            double hUp = recipe != null ? recipe.ChipHeightUpperMm : 0;
+            double chipLimit = recipe != null ? recipe.MaxChippingDepthMm : 0;
+
+            // 원본 측정값을 웨이퍼 좌표(Index Y=행, Index X=열)에 배치.
+            double[,] wraw = NewNaN(gridY, gridX), hraw = NewNaN(gridY, gridX);
+            double[,] c1raw = NewNaN(gridY, gridX), c2raw = NewNaN(gridY, gridX);
+            foreach (var it in hist)
+            {
+                int cx = it.IndexX, cy = it.IndexY;
+                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
+                wraw[cy, cx] = Val(it, "Width");
+                hraw[cy, cx] = Val(it, "Height");
+                c1raw[cy, cx] = MaxNaN(Val(it, "Chipping Top"), Val(it, "Chipping Bottom"));
+                c2raw[cy, cx] = MaxNaN(Val(it, "Chipping Left"), Val(it, "Chipping Right"));
+            }
+
+            _waferMap.SetMaps(
+                NormByLimit(wraw, wLo, wUp),
+                NormByLimit(hraw, hLo, hUp),
+                NormByMax(c1raw, chipLimit),
+                NormByMax(c2raw, chipLimit));
         }
+
+        private static double Val(InspectionResultStore.Item it, string k)
+            => it.Values.TryGetValue(k, out double v) ? v : double.NaN;
+
+        /// <summary>리밋 밴드 중심(=흰색)에서 상/하한(=빨강)까지의 근접도로 대칭 정규화. 리밋 미설정 시 상대 편차 폴백.</summary>
+        private static double[,] NormByLimit(double[,] raw, double lo, double up)
+        {
+            if (!(up > lo)) return NormDev(raw);   // 리밋 미설정/역전 → 상대 편차로 표시
+            double center = (lo + up) / 2.0;
+            double half = (up - lo) / 2.0;
+            int rows = raw.GetLength(0), cols = raw.GetLength(1);
+            var o = NewNaN(rows, cols);
+            for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++)
+            {
+                double v = raw[r, c];
+                if (double.IsNaN(v)) continue;
+                o[r, c] = half > 1e-9 ? Clamp01(System.Math.Abs(v - center) / half) : 0;
+            }
+            return o;
+        }
+
+        /// <summary>절대 크기를 리밋 대비 비율(0~1)로 정규화. 리밋 미설정 시 상대 최대 폴백(칩핑/이물).</summary>
+        private static double[,] NormByMax(double[,] raw, double limit)
+        {
+            if (limit <= 1e-9) return NormMag(raw);   // 리밋 미설정 → 상대 최대로 표시
+            int rows = raw.GetLength(0), cols = raw.GetLength(1);
+            var o = NewNaN(rows, cols);
+            for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++)
+            {
+                double v = raw[r, c];
+                if (double.IsNaN(v)) continue;
+                o[r, c] = Clamp01(v / limit);
+            }
+            return o;
+        }
+
+        private static double Clamp01(double v) => v < 0 ? 0 : (v > 1 ? 1 : v);
 
         private static double[,] NewNaN(int rows, int cols)
         {
