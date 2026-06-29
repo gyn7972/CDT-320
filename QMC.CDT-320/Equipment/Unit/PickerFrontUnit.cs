@@ -1203,8 +1203,9 @@ namespace QMC.CDT320
                     }
 
                     if (result != 0 || item.IsAlarm)
-                        return RaisePickerAlarm(
+                        return ReportPickerMoveFailure(
                             "PK-MOVE",
+                            result,
                             axis + " 이동 명령 실패. result=" + result +
                             ", alarm=" + item.IsAlarm +
                             BuildAxisLastMotionFailure(item));
@@ -1282,8 +1283,9 @@ namespace QMC.CDT320
                     }
 
                     if (result != 0 || item.IsAlarm)
-                        return RaisePickerAlarm(
+                        return ReportPickerMoveFailure(
                             "PK-MOVE",
+                            result,
                             axis + " 이동 명령 실패. result=" + result +
                             ", alarm=" + item.IsAlarm +
                             BuildAxisLastMotionFailure(item));
@@ -1338,8 +1340,9 @@ namespace QMC.CDT320
                     if (result != 0 || item.IsAlarm)
                     {
                         //WritePickerMoveElapsed(axis, startPos, targetPos, targetName, bFine, velocity, acceleration, deceleration, result, commandMs, verifyMs, totalWatch.ElapsedMilliseconds, null);
-                        return RaisePickerAlarm(
+                        return ReportPickerMoveFailure(
                             "PK-MOVE",
+                            result,
                             axis + " 이동 명령 실패. result=" + result +
                             ", alarm=" + item.IsAlarm +
                             BuildAxisLastMotionFailure(item));
@@ -2705,6 +2708,18 @@ namespace QMC.CDT320
             EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
+        }
+
+        // 이동 실패 보고: 인터락/공유레일 차단(result == -11)은 하위 가드가 이미 동일 사유로
+        // 알람 1회를 올렸으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다.
+        private int ReportPickerMoveFailure(string code, int result, string message)
+        {
+            if (result == -11)
+            {
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", Name, message);
+                return result;
+            }
+            return RaisePickerAlarm(code, message);
         }
 
         public Task<int> MoveFrontPickerAxis(PickerAxis axis, double targetPos, bool bFine = false)

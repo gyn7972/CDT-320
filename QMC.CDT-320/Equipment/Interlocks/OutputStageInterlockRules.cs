@@ -52,12 +52,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveOutputGoodStageY(request.Machine, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoOutputGoodStageY(request.Machine, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanMoveOutputGoodStageY(request.Machine, out reason);
+                    return CanManualOutputGoodStageY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageY(request.Machine, out reason);
@@ -66,7 +66,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveOutputGoodStageY(CDT320_Machine machine, out string reason)
+        private static bool CanAutoOutputGoodStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
@@ -243,12 +243,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveOutputGoodStageZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoOutputGoodStageZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanMoveOutputGoodStageZ(request, out reason);
+                    return CanManualOutputGoodStageZ(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageZ(request.Machine, out reason);
@@ -276,7 +276,30 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualOutputGoodStageZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+                return false;
+
+            // OutputFeederY가 Avoid 위치여야 이동 가능.
+            if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            // OutputFeeder 상태 — 세 조건 개별 확인.
+            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            return true;
+        }
+
+        private static bool CanAutoOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
@@ -322,12 +345,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveOutputNgStageY(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoOutputNgStageY(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanMoveOutputNgStageY(request, out reason);
+                    return CanManualOutputNgStageY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputNgStageY(request.Machine, out reason);
@@ -336,7 +359,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveOutputNgStageY(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoOutputNgStageY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
@@ -375,12 +398,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveOutputVisionX(request.Machine, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoOutputVisionX(request.Machine, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanMoveOutputVisionX(request.Machine, out reason);
+                    return CanManualOutputVisionX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputVisionX(request.Machine, out reason);
@@ -389,7 +412,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveOutputVisionX(CDT320_Machine machine, out string reason)
+        private static bool CanAutoOutputVisionX(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeOutputVisionX(machine, out reason))
                 return false;
@@ -398,6 +421,42 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputVisionX", out reason);
+        }
+
+        private static bool CanManualOutputVisionX(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
+
+                OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+                if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (outputFeeder != null && !outputFeeder.IsFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. OutputFeeder lift cylinder must be down.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputVisionX",
+                    "Exception occurred while verifying OutputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool CanHomeOutputVisionX(CDT320_Machine machine, out string reason)
@@ -428,6 +487,51 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     "OutputVisionX",
                     "Exception occurred while verifying OutputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualOutputGoodStageY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage != null && outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputGoodStageY",
+                        "OutputGoodStageY HOME blocked. OutputGoodStageZ must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
+                    return false;
+
+                // OutputFeederY가 Avoid 위치여야 이동 가능.
+                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                // OutputFeeder 상태 — 세 조건 개별 확인.
+                if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputGoodStageY",
+                    "Exception occurred while verifying OutputGoodStageY home rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -473,6 +577,71 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     "OutputGoodStageY",
                     "Exception occurred while verifying OutputGoodStageY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualOutputNgStageY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage == null)
+                    return true;
+
+                if (outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                        out reason);
+
+                if (!RefreshRequiredHardwareInput(outputStage.GoodBinGuideDownSensor, "OutputNGStageY", "GoodBinGuideDown", out reason))
+                    return false;
+                if (outputStage.GoodBinGuideDownSensor != null &&
+                    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                    !outputStage.GoodBinGuideDownSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. Good Bin Guide cylinder must be down.",
+                        out reason);
+
+                if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
+                    return false;
+                if (outputStage.NgBinClampUpSensor != null &&
+                    !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
+                    !outputStage.NgBinClampUpSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. NG Bin Clamp cylinder must be up.",
+                        out reason);
+
+                // OutputFeederY가 Avoid 위치여야 이동 가능.
+                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                // OutputFeeder 상태 — 세 조건 개별 확인.
+                if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputNGStageY",
+                    "Exception occurred while verifying OutputNGStageY home rules: " + ex.Message,
                     out reason);
             }
             finally

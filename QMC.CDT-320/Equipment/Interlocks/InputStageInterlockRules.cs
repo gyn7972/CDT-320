@@ -1,4 +1,5 @@
-﻿using QMC.Common.Motion;
+﻿using QMC.Common;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -41,11 +42,12 @@ namespace QMC.CDT320.Interlocks
             switch (request.MoveKind)
             {
                 
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveWaferStageY(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoWaferStageY(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualWaferStageY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferStageY(request.Machine, out reason);
@@ -54,7 +56,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveWaferStageY(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoWaferStageY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "WaferStageY", out reason))
@@ -170,11 +172,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveWaferStageT(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoWaferStageT(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualWaferStageT(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferStageT(request.Machine, out reason);
@@ -183,7 +186,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveWaferStageT(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoWaferStageT(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "WaferStageT", out reason))
@@ -303,11 +306,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveWaferExpandingZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoWaferExpandingZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualWaferExpandingZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferExpandingZ(request.Machine, out reason);
@@ -322,7 +326,39 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveWaferExpandingZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualWaferExpandingZ(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            bool positiveMove = IsExpanderZPositiveMove(request, stage);
+
+            if (!VerifyInputFeederClear(machine, "ExpanderZ", out reason))
+                return false;
+
+            // InputFeederY가 Avoid 또는 (Stage)Unload 위치여야만 ExpanderZ 이동 가능.
+            if (!VerifyFeederYAvoidOrUnloadForExpanderZ(machine, out reason))
+                return false;
+
+            // Front/Rear Picker Z0~Z3가 모두 Avoid여야만 ExpanderZ 이동 가능.
+            if (!VerifyFrontRearPickerZAvoidForExpanderZ(machine, out reason))
+                return false;
+
+            if (!VerifyWaferFeederReadyForStageY(machine, "Expander Z", out reason))
+                return false;
+
+            if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
+                return false;
+
+            if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
+                return false;
+
+            if (!VerifyRearPickerClearForExpanderZ(machine, machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
+                return false;
+
+            return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
+        }
+
+        private static bool CanAutoWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
@@ -457,11 +493,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveInputVisionX(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoInputVisionX(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualInputVisionX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeInputVisionX(request.Machine, out reason);
@@ -470,7 +507,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveInputVisionX(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoInputVisionX(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "InputVisionX", out reason))
@@ -590,11 +627,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveNeedleX(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoNeedleX(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualNeedleX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeNeedleX(request.Machine, out reason);
@@ -603,7 +641,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveNeedleX(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoNeedleX(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "NeedleX", out reason))
@@ -616,6 +654,44 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleX", out reason);
+        }
+
+        private static bool CanManualInputVisionX(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (feeder != null && !feeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX HOME blocked. InputFeeder lift cylinder must be down.",
+                        out reason);
+
+                // Picker 전체 Avoid를 강제하지 않는다. 실제 Input 존 점유/간섭만 차단한다.
+                if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputVisionX",
+                    "Exception occurred while verifying InputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool CanHomeInputVisionX(CDT320_Machine machine, out string reason)
@@ -644,6 +720,93 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     "InputVisionX",
                     "Exception occurred while verifying InputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualWaferStageY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageY", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageY", "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputStageY",
+                    "Exception occurred while verifying InputStageY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualWaferStageT(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageT",
+                        "InputStageT HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyInputFeederYAvoid(machine, "WaferStageT", out reason))
+                    return false;
+
+                if (!VerifyEjectPinZNotAboveProcess(machine, "WaferStageT", out reason))
+                    return false;
+
+                if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageT", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageT", "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageT", "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputStageT",
+                    "Exception occurred while verifying InputStageT home rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -740,6 +903,34 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool CanManualNeedleX(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "NeedleX",
+                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "NeedleX",
+                    "Exception occurred while verifying NeedleX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
         private static bool CanHomeNeedleX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -774,11 +965,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveNeedleZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoNeedleZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualNeedleZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeNeedleZ(request.Machine, out reason);
@@ -793,7 +985,18 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveNeedleZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualNeedleZ(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+
+            if (!IsContinuousJogMove(request) &&
+                !VerifyInputStageWorkArea(request, WaferStageAxis.NeedleZ, "NeedleZ", out reason))
+                return false;
+
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleZ", out reason);
+        }
+
+        private static bool CanAutoNeedleZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "NeedleZ", out reason))
@@ -812,11 +1015,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveEjectPinZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoEjectPinZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualEjectPinZ(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeEjectPinZ(request.Machine, out reason);
@@ -831,7 +1035,13 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveEjectPinZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualEjectPinZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanAutoEjectPinZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "EjectPinZ", out reason))

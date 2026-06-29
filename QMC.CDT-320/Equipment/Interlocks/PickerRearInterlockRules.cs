@@ -33,11 +33,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveRearPickerX(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoRearPickerX(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualRearPickerX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerX(request.Machine, out reason);
@@ -46,7 +47,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveRearPickerX(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoRearPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -67,6 +68,61 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     "RearPickerX",
                     "RearPickerX 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualRearPickerX(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                string axisReason;
+                if (stage != null &&
+                    !MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(stage.CameraX, "InputVisionX", out axisReason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+                }
+
+                if (stage != null && !IsExpanderZHomeAvoidProcessOrReady(stage))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. InputExpandingZ must be at Home(0), Avoid, Process or Ready position.",
+                        out reason);
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        out reason);
+
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. RearPickerY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyRearPickerZAxesAvoid(rear, "RearPickerX", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "Exception occurred while verifying RearPickerX home rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -153,11 +209,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveRearPickerY(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoRearPickerY(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualRearPickerY(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerY(request.Machine, out reason);
@@ -166,7 +223,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveRearPickerY(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!IsInspectionZHoldMove(request) &&
@@ -194,17 +251,59 @@ namespace QMC.CDT320.Interlocks
             return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason);
         }
 
+        private static bool CanManualRearPickerY(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                CDT320_Machine machine = request != null ? request.Machine : null;
+
+                if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+                    return false;
+
+                if (!VerifyReticleCylinderClear(machine, "RearPickerY", out reason))
+                    return false;
+
+                PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (RequiresOutputStageZSafeForPickerY(targetZone) &&
+                    outputStage != null &&
+                    !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerY",
+                        "RearPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                        out reason);
+                }
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerY",
+                    "Exception occurred while verifying RearPickerY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
         private static bool VerifyRearPickerT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveRearPickerT(request.Machine, request.MovingName, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoRearPickerT(request.Machine, request.MovingName, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualRearPickerT(request.Machine, request.MovingName, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerT(request.Machine, request.MovingName, out reason);
@@ -213,7 +312,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveRearPickerT(CDT320_Machine machine, string movingName, out string reason)
+        private static bool CanAutoRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
 
@@ -226,6 +325,38 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " T축 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualRearPickerT(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                PickerAxis zAxis;
+                if (!TryResolvePairedZAxis(movingName, out zAxis))
+                    return true;
+
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                if (rear != null && !rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying " + movingName + " home rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -351,11 +482,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveRearPickerZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoRearPickerZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualRearPickerZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerZ(request.Machine, request.MovingName, out reason);
@@ -370,7 +502,57 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveRearPickerZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualRearPickerZ(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            string movingName = request != null ? request.MovingName : "RearPickerZ";
+            PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+
+            if (!CanHomeRearPickerZ(machine, movingName, out reason))
+                return false;
+
+            // PickerZ는 현재 작업 존 기준으로 필요한 feeder만 확인한다.
+            // Avoid 복귀는 Z가 안전 위치로 올라가는 동작이므로 feeder 위치로 차단하지 않는다.
+            // 존을 알 수 없으면 기존처럼 양쪽 feeder를 모두 확인한다.
+            InputFeederUnit inputFeeder = machine != null ? machine.InputFeederUnit : null;
+            OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+
+            if (RequiresInputFeederAvoid(targetZone) &&
+                inputFeeder != null &&
+                !inputFeeder.IsWaferFeederYInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            if (RequiresOutputFeederAvoid(targetZone) &&
+                outputFeeder != null &&
+                !outputFeeder.IsBinFeederYInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            // Input PickUp 존에서만 ExpanderZ와 직접 간섭을 확인한다.
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (RequiresInputStageZSafe(targetZone) &&
+                stage != null &&
+                !IsExpanderZAvoidProcessOrReady(stage))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
+        }
+
+        private static bool CanAutoRearPickerZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             string movingName = request != null ? request.MovingName : "RearPickerZ";

@@ -1296,7 +1296,7 @@ namespace QMC.CDT320
                         ", target=" + targetPos +
                         FormatAxisLastMotionFailure(item);
                     LastStageMoveFailureMessage = message;
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, message);
+                    return ReportStageMoveFailure("IN-STAGE-MOVE", result, message);
                 }
 
                 AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
@@ -1351,18 +1351,8 @@ namespace QMC.CDT320
                     return 0;
                 }
 
-                string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
-                {
-                    string message = axis + " move command blocked by interlock. target=" + targetPos + ". " + interlockReason;
-                    LastStageMoveFailureMessage = message;
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Error,
-                        "IN-STAGE-MOVE-INTERLOCK",
-                        Name,
-                        message);
-                }
-
+                // 인터락 사전검사는 실제 이동(MoveAxisAsync)의 BaseAxis.MotionGuard 훅에서 1번 수행한다.
+                // 차단 시 result != 0 으로 반환되어 아래에서 처리된다. 여기서 중복 호출하지 않는다.
                 double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
                 double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
                 bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
@@ -1397,7 +1387,7 @@ namespace QMC.CDT320
                         ", target=" + targetPos +
                         FormatAxisLastMotionFailure(item);
                     LastStageMoveFailureMessage = message;
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, message);
+                    return ReportStageMoveFailure("IN-STAGE-MOVE", result, message);
                 }
 
                 LastStageMoveFailureMessage = string.Empty;
@@ -2722,6 +2712,19 @@ namespace QMC.CDT320
         //        NeedleVacuum.Off();
         //    }
         //}
+
+        // 이동 실패 보고: 인터락/공유레일 차단(result == -11)은 하위 가드가 이미 동일 사유로
+        // 알람 1회 + 로그를 남겼으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다.
+        // 비-인터락 실패(타임아웃·축알람 등)만 유닛 알람으로 보고한다.
+        private int ReportStageMoveFailure(string code, int result, string message)
+        {
+            if (result == -11)
+            {
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", Name, message);
+                return result;
+            }
+            return RaiseStageAlarm(AlarmSeverity.Error, code, Name, message);
+        }
 
         private int RaiseStageAlarm(AlarmSeverity severity, string code, string source, string message)
         {

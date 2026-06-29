@@ -34,11 +34,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveOutputFeederY(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoOutputFeederY(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualOutputFeederY(machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputFeederY(machine, out reason);
@@ -47,7 +48,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveOutputFeederY(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoOutputFeederY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -95,7 +96,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanHomeOutputFeederY(CDT320_Machine machine, out string reason)
+        private static bool CanManualOutputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -106,7 +107,113 @@ namespace QMC.CDT320.Interlocks
 
                 string axisReason;
 
+                if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                OutputCassetteUnit cassette = machine.OutputCassetteUnit;
+                if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputLifterZ is moving. OutputFeederY home is blocked.",
+                        out reason);
+
+                if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
+                        out reason);
+
+                OutputStageUnit outputStage = machine.OutputStageUnit;
+
+                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                        out reason);
+
+                if (outputStage != null &&
+                    outputStage.GoodBinGuideDownSensor != null &&
+                    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                    !outputStage.GoodBinGuideDownSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. Good Bin Guide must be down.",
+                        out reason);
+
+                OutputFeederUnit feeder = machine.OutputFeederUnit;
+                if (feeder == null)
+                    return true;
+
+                if (!VerifyOutputFeederEmptyForHome(feeder, out reason))
+                    return false;
+
+                if (feeder.IsFeederOverload())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
+                        out reason);
+
+                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUnclamp(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
+                        out reason);
+
+                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder must be up.",
+                        out reason);
+
+                if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder ring check is detected.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "Exception occurred while verifying OutputFeederY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanHomeOutputFeederY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (machine == null)
+                    return true;
+
+
                 //픽커를 홈 잡기전에.. 피더를 먼저 잡는데 이게 어떻게 되지?
+
+                //string axisReason;
                 //if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
                 //    return MotionGuardRuleHelpers.Block(
                 //        "OutputFeederY",

@@ -54,9 +54,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
                 materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
                 materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
-                actionsLayout.Resize += (s, e) => AlignStopButton();
                 EnsureStopButtonLast();
-                AlignStopButton();
             }
             catch (Exception ex)
             {
@@ -175,7 +173,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 btnStop.Enabled = true;
                 EnsureStopButtonLast();
-                AlignStopButton();
             }
         }
 
@@ -197,27 +194,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void AlignStopButton()
-        {
-            return; // STOP은 우측 고정존(actionRightPanel)에 위치 — 정렬 불필요
-            if (actionsLayout == null || btnStop == null)
-                return;
-
-            EnsureStopButtonLast();
-
-            int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
-            foreach (Control control in actionsLayout.Controls)
-            {
-                if (ReferenceEquals(control, btnStop))
-                    continue;
-                usedWidth += control.Width + control.Margin.Left + control.Margin.Right;
-            }
-
-            int stopWidth = btnStop.Width + 6;
-            int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
-            btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
         }
 
         private void EnsureStopButtonLast()
