@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,7 +8,7 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
-    internal sealed class PickerBottomSideInspectionSequence : PickerSequenceBase<PickerBottomSideInspectionStep>
+    internal sealed class PickerBottomAndSideInspectionSequence : PickerSequenceBase<PickerBottomAndSideInspectionStep>
     {
         private const int VisionInspectionSettleDelayMs = 100;
         private const int SideInspectionTurnSettleDelayMs = 100;
@@ -55,15 +55,15 @@ namespace QMC.CDT320.Sequencing
             public Task<int> MoveTask;
         }
 
-        public PickerBottomSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
-            : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerBottomSideInspectionSequence" : "RearPickerBottomSideInspectionSequence")
+        public PickerBottomAndSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
+            : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerBottomAndSideInspectionSequence" : "RearPickerBottomAndSideInspectionSequence")
         {
-            CurrentStep = PickerBottomSideInspectionStep.CheckUnit;
+            CurrentStep = PickerBottomAndSideInspectionStep.CheckUnit;
         }
 
         public bool IsComplete
         {
-            get { return CurrentStep == PickerBottomSideInspectionStep.Complete; }
+            get { return CurrentStep == PickerBottomAndSideInspectionStep.Complete; }
         }
 
         public void Abort()
@@ -75,7 +75,7 @@ namespace QMC.CDT320.Sequencing
                 _sideReadyPickerIndexes.Clear();
                 _pendingT0Returns.Clear();
                 _pendingZAvoids.Clear();
-                CurrentStep = PickerBottomSideInspectionStep.Complete;
+                CurrentStep = PickerBottomAndSideInspectionStep.Complete;
             }
             catch
             {
@@ -92,39 +92,39 @@ namespace QMC.CDT320.Sequencing
                 if (Options != null && Options.RunMode != SequenceRunMode.Auto)
                     return Fail("PICKER-BOTTOM-SIDE-MANUAL-NOT-SUPPORTED", Name, "Bottom/Side 통합 검사는 Auto 전용 시퀀스입니다. 기존 Bottom 또는 Side 메뉴얼 시퀀스를 사용하세요.");
 
-                CurrentStep = PickerBottomSideInspectionStep.CheckUnit;
+                CurrentStep = PickerBottomAndSideInspectionStep.CheckUnit;
                 int result = CheckUnit();
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.BuildPickedPickerList;
+                CurrentStep = PickerBottomAndSideInspectionStep.BuildPickedPickerList;
                 result = BuildPickedPickerList();
-                if (result != 0 || CurrentStep == PickerBottomSideInspectionStep.Complete)
+                if (result != 0 || CurrentStep == PickerBottomAndSideInspectionStep.Complete)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.AcquireInspectionArea;
+                CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
                 result = await AcquireInspectionAreaAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
+                CurrentStep = PickerBottomAndSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
                 result = await MoveOppositePickerToAvoidAndVerifyAsync(
                     "Bottom/Side 통합 검사 진입 전 상대 Picker Avoid 확인",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.RunBottomPipeline;
+                CurrentStep = PickerBottomAndSideInspectionStep.RunBottomPipeline;
                 result = await RunBottomPipelineAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.RunSidePipeline;
+                CurrentStep = PickerBottomAndSideInspectionStep.RunSidePipeline;
                 result = await RunSidePipelineAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.MoveFinalZToAvoid;
+                CurrentStep = PickerBottomAndSideInspectionStep.MoveFinalZToAvoid;
                 result = await CompletePendingZAvoidAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -133,12 +133,12 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.CompletePendingT0Return;
+                CurrentStep = PickerBottomAndSideInspectionStep.CompletePendingT0Return;
                 result = await CompletePendingT0ReturnAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.MoveFinalYToAvoid;
+                CurrentStep = PickerBottomAndSideInspectionStep.MoveFinalYToAvoid;
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
                     GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
@@ -148,7 +148,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.MoveFinalXToAvoid;
+                CurrentStep = PickerBottomAndSideInspectionStep.MoveFinalXToAvoid;
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
                     GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
@@ -158,7 +158,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                CurrentStep = PickerBottomSideInspectionStep.Complete;
+                CurrentStep = PickerBottomAndSideInspectionStep.Complete;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -175,7 +175,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
-                if (CurrentStep == PickerBottomSideInspectionStep.Complete)
+                if (CurrentStep == PickerBottomAndSideInspectionStep.Complete)
                     ReleaseInspectionArea();
             }
         }
@@ -184,12 +184,12 @@ namespace QMC.CDT320.Sequencing
         {
             if (!IsPickerSideEnabled())
             {
-                CurrentStep = PickerBottomSideInspectionStep.Complete;
-                WriteLog("PickerBottomSideInspectionSequence", Name + " Picker 사용 설정이 꺼져 있어 Bottom/Side 통합 검사를 완료 처리합니다. side=" + Side + " - Check");
+                CurrentStep = PickerBottomAndSideInspectionStep.Complete;
+                WriteLog("PickerBottomAndSideInspectionSequence", Name + " Picker 사용 설정이 꺼져 있어 Bottom/Side 통합 검사를 완료 처리합니다. side=" + Side + " - Check");
                 return 0;
             }
 
-            CurrentStep = PickerBottomSideInspectionStep.BuildPickedPickerList;
+            CurrentStep = PickerBottomAndSideInspectionStep.BuildPickedPickerList;
             return 0;
         }
 
@@ -203,16 +203,16 @@ namespace QMC.CDT320.Sequencing
             _bottomInspectionYReady = false;
             _sideInspectionYReady = false;
 
-            _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomSideInspectionSequence"));
+            _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomAndSideInspectionSequence"));
             if (_pickedPickerIndexes.Count == 0)
             {
-                CurrentStep = PickerBottomSideInspectionStep.Complete;
+                CurrentStep = PickerBottomAndSideInspectionStep.Complete;
                 return 0;
             }
 
-            WriteLog("PickerBottomSideInspectionSequence",
+            WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom/Side 통합 검사 대상 구성 완료. count=" + _pickedPickerIndexes.Count + " - Ok");
-            CurrentStep = PickerBottomSideInspectionStep.AcquireInspectionArea;
+            CurrentStep = PickerBottomAndSideInspectionStep.AcquireInspectionArea;
             return 0;
         }
 
@@ -226,13 +226,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     _inspectionAreaLease = await AcquireResourceAsync(
                         SequenceResourceKind.InspectionArea,
-                        Name + ":BottomSide",
+                        Name + ":RearSide",
                         ct).ConfigureAwait(false);
                     if (_inspectionAreaLease == null)
                         return -1;
                 }
 
-                EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "BottomSideInspection");
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "BottomAndSideInspection");
 
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync("Bottom/Side 통합 검사 진입 전 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
                 if (result != 0)
@@ -259,7 +259,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RunBottomPipelineAsync(CancellationToken ct)
         {
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "BottomSideInspection:Bottom");
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "BottomAndSideInspection:Bottom");
 
             for (int i = 0; i < _pickedPickerIndexes.Count; i++)
             {
@@ -274,7 +274,7 @@ namespace QMC.CDT320.Sequencing
                     if (!_sideReadyPickerIndexes.Contains(target.PickerIndex))
                         _sideReadyPickerIndexes.Add(target.PickerIndex);
 
-                    WriteLog("PickerBottomSideInspectionSequence",
+                    WriteLog("PickerBottomAndSideInspectionSequence",
                         Name + " 기존 Bottom 검사 결과가 있어 Bottom shot을 생략하고 SideReady로 등록합니다. " +
                         "die=" + target.Die.DieId +
                         ", pickerNo=" + target.PickerNo + " - Check");
@@ -300,7 +300,7 @@ namespace QMC.CDT320.Sequencing
                 }
             }
 
-            WriteLog("PickerBottomSideInspectionSequence",
+            WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom shot 전체 완료. pendingResult=" + CountPendingBottomResults() + " - Ok");
             return 0;
         }
@@ -396,7 +396,7 @@ namespace QMC.CDT320.Sequencing
                     ", timeoutMs=" + timeoutMs);
             }
 
-            WriteLog("PickerBottomSideInspectionSequence",
+            WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom 검사 노출 완료. die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
                 ", pendingResult=" + (_pendingBottomShots.Count + 1) + " - Ok");
@@ -452,7 +452,7 @@ namespace QMC.CDT320.Sequencing
             if (!_sideReadyPickerIndexes.Contains(shot.Target.PickerIndex))
                 _sideReadyPickerIndexes.Add(shot.Target.PickerIndex);
 
-            WriteLog("PickerBottomSideInspectionSequence",
+            WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom 결과 적용 및 SideReady 등록 완료. die=" + shot.Target.Die.DieId +
                 ", pickerNo=" + shot.Target.PickerNo +
                 ", sideReadyCount=" + _sideReadyPickerIndexes.Count + " - Ok");
@@ -511,7 +511,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> RunSidePipelineAsync(CancellationToken ct)
         {
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "BottomSideInspection:Side");
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "BottomAndSideInspection:Side");
             _sideInspectionYReady = false;
 
             for (int i = 0; i < _pickedPickerIndexes.Count; i++)
@@ -530,7 +530,7 @@ namespace QMC.CDT320.Sequencing
                 if (HasInspectionResult(target.Die, "Side0") &&
                     HasInspectionResult(target.Die, "Side90"))
                 {
-                    WriteLog("PickerBottomSideInspectionSequence",
+                    WriteLog("PickerBottomAndSideInspectionSequence",
                         Name + " 기존 Side 검사 결과가 있어 Side shot을 생략합니다. " +
                         "die=" + target.Die.DieId +
                         ", pickerNo=" + target.PickerNo + " - Check");
@@ -786,7 +786,7 @@ namespace QMC.CDT320.Sequencing
                 ok ? "" : "SIDE_NG",
                 "SideInspection");
 
-            WriteLog("PickerBottomSideInspectionSequence",
+            WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Side 결과 적용 완료. die=" + target.Die.DieId +
                 ", pickerNo=" + target.PickerNo +
                 ", ok0=" + ok0 +
@@ -850,7 +850,7 @@ namespace QMC.CDT320.Sequencing
                     pending.Target,
                     "DieSideZAvoidDeferred[" + pending.PickerIndex + "]");
 
-                WriteLog("PickerBottomSideInspectionSequence",
+                WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) + " - Ok");
             }
         }
@@ -920,7 +920,7 @@ namespace QMC.CDT320.Sequencing
                     pending.Target,
                     "DieSideT0ReturnDeferred[" + pending.PickerIndex + "]");
 
-                WriteLog("PickerBottomSideInspectionSequence",
+                WriteLog("PickerBottomAndSideInspectionSequence",
                     Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) + " - Ok");
             }
         }
@@ -1010,7 +1010,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                WriteLog("PickerBottomSideInspectionSequence", "InspectionArea lease release failed: " + ex.Message + " - Failed");
+                WriteLog("PickerBottomAndSideInspectionSequence", "InspectionArea lease release failed: " + ex.Message + " - Failed");
             }
             finally
             {

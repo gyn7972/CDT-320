@@ -431,6 +431,7 @@ namespace QMC.CDT320
         public const int MaxPickerCount = 4;
         public const int MaxIoPickerCount = 8;
         private const int CompletedMoveVerifyTimeoutMs = 1000;
+        private const int PickerMoveInPositionSettleMs = 0;
 
         private readonly Dictionary<PickerAxis, BaseAxis> axes = new Dictionary<PickerAxis, BaseAxis>();
         private readonly string side;
@@ -1708,7 +1709,7 @@ namespace QMC.CDT320
                     targetPos,
                     tolerance,
                     timeoutMs,
-                    0,
+                    PickerMoveInPositionSettleMs,
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

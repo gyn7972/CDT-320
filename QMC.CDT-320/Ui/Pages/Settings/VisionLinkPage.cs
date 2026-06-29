@@ -11,7 +11,7 @@ using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
-    /// <summary>Settings - QMC.Vision TCP link. 6 채널(Wafer/BottomInspection/Bin/Main/TopSide/BottomSide) 연결·Ping·상태.</summary>
+    /// <summary>Settings - QMC.Vision TCP link. 6 채널(Wafer/BottomInspection/Bin/Main/FrontSideVision/RearSideVision) 연결·Ping·상태.</summary>
     public partial class VisionLinkPage : PageBase
     {
         /// <summary>접속돼 있는데 이 시간(초) 이상 무통신이면 RX 경과를 경고색으로 표시.</summary>
@@ -106,14 +106,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _tbInsp.Text  = cfg.VisionInspectionPort.ToString();
             _tbBin.Text   = cfg.VisionBinPort.ToString();
             _tbMain.Text  = cfg.VisionMainPort.ToString();
-            _tbTop.Text   = cfg.VisionTopSidePort.ToString();
-            _tbBot.Text   = cfg.VisionBottomSidePort.ToString();
+            _tbTop.Text   = cfg.VisionFrontSidePort.ToString();
+            _tbBot.Text   = cfg.VisionRearSidePort.ToString();
 
             _tbWaferV.Text = cfg.VisionWaferViewerPort.ToString();
             _tbInspV.Text  = cfg.VisionInspectionViewerPort.ToString();
             _tbBinV.Text   = cfg.VisionBinViewerPort.ToString();
-            _tbTopV.Text   = cfg.VisionTopSideViewerPort.ToString();
-            _tbBotV.Text   = cfg.VisionBottomSideViewerPort.ToString();
+            _tbTopV.Text   = cfg.VisionFrontSideViewerPort.ToString();
+            _tbBotV.Text   = cfg.VisionRearSideViewerPort.ToString();
 
             _cbAuto.Checked = cfg.VisionAutoConnect;
         }
@@ -149,15 +149,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             cfg.VisionInspectionPort = ParsePort(_tbInsp,  cfg.VisionInspectionPort);
             cfg.VisionBinPort        = ParsePort(_tbBin,   cfg.VisionBinPort);
             cfg.VisionMainPort       = ParsePort(_tbMain,  cfg.VisionMainPort);
-            cfg.VisionTopSidePort    = ParsePort(_tbTop,   cfg.VisionTopSidePort);
-            cfg.VisionBottomSidePort = ParsePort(_tbBot,   cfg.VisionBottomSidePort);
+            cfg.VisionFrontSidePort    = ParsePort(_tbTop,   cfg.VisionFrontSidePort);
+            cfg.VisionRearSidePort = ParsePort(_tbBot,   cfg.VisionRearSidePort);
 
             // 뷰어(이미지) 포트 — 연결과 무관하지만 같은 페이지에서 함께 저장한다.
             cfg.VisionWaferViewerPort      = ParsePort(_tbWaferV, cfg.VisionWaferViewerPort);
             cfg.VisionInspectionViewerPort = ParsePort(_tbInspV,  cfg.VisionInspectionViewerPort);
             cfg.VisionBinViewerPort        = ParsePort(_tbBinV,   cfg.VisionBinViewerPort);
-            cfg.VisionTopSideViewerPort    = ParsePort(_tbTopV,   cfg.VisionTopSideViewerPort);
-            cfg.VisionBottomSideViewerPort = ParsePort(_tbBotV,   cfg.VisionBottomSideViewerPort);
+            cfg.VisionFrontSideViewerPort    = ParsePort(_tbTopV,   cfg.VisionFrontSideViewerPort);
+            cfg.VisionRearSideViewerPort = ParsePort(_tbBotV,   cfg.VisionRearSideViewerPort);
             AppSettingsStore.Save();
 
             _btnConnect.Enabled = false;
@@ -165,7 +165,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 await VisionHub.ConnectAllAsync(cfg.VisionHost,
                     cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                    cfg.VisionMainPort, cfg.VisionTopSidePort, cfg.VisionBottomSidePort);
+                    cfg.VisionMainPort, cfg.VisionFrontSidePort, cfg.VisionRearSidePort);
             }
             catch { }
             finally
@@ -207,8 +207,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             await PingOne(VisionHub.Inspection);
             await PingOne(VisionHub.Bin);
             await PingOne(VisionHub.Main);
-            await PingOne(VisionHub.TopSide);
-            await PingOne(VisionHub.BottomSide);
+            await PingOne(VisionHub.FrontSideVision);
+            await PingOne(VisionHub.RearSideVision);
             OnConnChanged();
         }
 
@@ -238,8 +238,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             SetCh(1, VisionHub.Inspection, cfg.VisionInspectionPort, VisionViewerPorts.BottomInspection);
             SetCh(2, VisionHub.Bin,        cfg.VisionBinPort,        VisionViewerPorts.Bin);
             SetCh(3, VisionHub.Main,       cfg.VisionMainPort,       0);
-            SetCh(4, VisionHub.TopSide,    cfg.VisionTopSidePort,    VisionViewerPorts.TopSide);
-            SetCh(5, VisionHub.BottomSide, cfg.VisionBottomSidePort, VisionViewerPorts.BottomSide);
+            SetCh(4, VisionHub.FrontSideVision, cfg.VisionFrontSidePort,    VisionViewerPorts.FrontSideVision);
+            SetCh(5, VisionHub.RearSideVision,  cfg.VisionRearSidePort, VisionViewerPorts.RearSideVision);
         }
 
         private void SetCh(int i, VisionTcpClient c, int cfgPort, int viewerPort)

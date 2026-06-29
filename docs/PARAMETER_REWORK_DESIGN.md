@@ -1,4 +1,4 @@
-# Vision 파라미터 재작업 — 설계·계획 (SSOT 3계층 스토어)
+﻿# Vision 파라미터 재작업 — 설계·계획 (SSOT 3계층 스토어)
 
 > 작성 2026-06-09. **설계·계획 단계 — 본 구현 금지(문서 내 스케치만).** `docs/PARAMETER_ANALYSIS.md` 후속.
 > 확정 방향: SSOT 디스크립터 + 3계층 ParameterStore. 페이지: SettingsPage=Setup+Config / RecipePage=Recipe. 제품 선택기=나중(`<default>`).
@@ -124,7 +124,7 @@ Handler 실태 조사 결과(전부 `QMC.Common` 공용, Vision 도 이미 QMC.C
 → **Vision 직렬화 결정(확정)**: Newtonsoft 미도입. **Read=DataContractJsonSerializer / Write=JsonPrettySerializer**. 전 파라미터·레시피 POCO 에 **`[OnDeserializing]` 기본값 주입 의무화**(② 5종 + 신 디스크립터 POCO). Recipe 계층은 **`UnitRecipeStore<T>` 직접 재사용**(product=`<default>`, storageKey=정규 target id). → G1(스텁)·G9(함정) 동시 해소 + Handler 와 포맷·디렉터리 일관.
 
 ### 3-2a. Handler RecipeProject 가 이미 Vision 파라미터 보유 — [확인 필요]
-`RecipeProject`(`RecipeStore.cs:210`)는 이미 Vision 관련 항목 포함: `InspectionSubset`×3(BottomInsp/TopSideInsp/BottomSideInsp — Enable/ExposureMs/LightIntensity/ChippingDepthMaxMm/ScratchAreaMaxMm2/MinDieCenterScore 등 `:288-299`), `DieSubset`(ChipSpecLimit·ChippingDepth/Length·ForeignSizeMax `:303-318`).
+`RecipeProject`(`RecipeStore.cs:210`)는 이미 Vision 관련 항목 포함: `InspectionSubset`×3(BottomInsp/FrontSideInsp/RearSideInsp — Enable/ExposureMs/LightIntensity/ChippingDepthMaxMm/ScratchAreaMaxMm2/MinDieCenterScore 등 `:288-299`), `DieSubset`(ChipSpecLimit·ChippingDepth/Length·ForeignSizeMax `:303-318`).
 - **[확인 필요] (아키텍처)**: Vision 이 (가) Handler 의 `Recipes/<name>.Project` 를 **공유 읽기**(SSOT=Handler 레시피, 별도 프로세스 간 파일 공유)할지, vs (나) **패턴만 미러한 별도 Vision 레시피 스토어**(Vision 전용 항목만)로 둘지. 도메인·운영 결정 필요(두 프로세스 레시피 동기화 정책).
 
 ### 3-3. SaveParameters/LoadParameters 스텁 제거 (G1)

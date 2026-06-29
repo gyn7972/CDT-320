@@ -16,8 +16,8 @@ namespace QMC.Vision.Sequencing
         {
             yield return Step("GRAB", null);
             yield return Step("MATCH",   "DieEdgeFinder");
-            yield return Step("INSPECT", "TopSurfaceInspector");
-            yield return Step("INSPECT", "TopChippingInspector");
+            yield return Step("INSPECT", "FrontSurfaceInspector");
+            yield return Step("INSPECT", "FrontChippingInspector");
             yield return Step("MATCH",   "FocusFinder");
         }
     }

@@ -31,7 +31,7 @@ namespace QMC.CDT320
     public enum PickerInspectionPipelineMode
     {
         SerialBottomThenSide,
-        BottomSidePipeline
+        BottomAndSidePipeline
     }
 
     [DataContract]

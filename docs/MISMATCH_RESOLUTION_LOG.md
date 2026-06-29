@@ -154,18 +154,18 @@
 
 | ID | 위치 | 내용 | 처리 |
 |---|---|---|---|
-| M-62-2 | VisionConfig.cs:30-32 | TopSide/BottomSide 카메라 ID 필드 없음 | AlgorithmCameraSubset (QMC.Common.Recipes) 신설로 보완. 구버전 VisionSettings 의 3 필드는 EnsureDefaults fallback 으로만 사용 |
+| M-62-2 | VisionConfig.cs:30-32 | FrontSide/RearSide 카메라 ID 필드 없음 | AlgorithmCameraSubset (QMC.Common.Recipes) 신설로 보완. 구버전 VisionSettings 의 3 필드는 EnsureDefaults fallback 으로만 사용 |
 | M-62-3 | AlgorithmCameraMapping | ROI 필드 누락 | Stage 62 에서 RoiOffsetX/Y/Width/Height 4 필드 추가 + IsRoiFull/ToRectangle 헬퍼 |
 | M-62-5 | AlarmMaster.cs Vision 카테고리 | prefix 혼재 (VISION-/Vision/EXPOSE-/ALIGN-) | 신규 코드는 VISION-* 로 통일: VISION-MAPMISS / VISION-PARAMFAIL / VISION-CAMOPEN 3건 추가 |
 | M-62-E | AlarmManager 위치 | Vision 측이 직접 호출 불가 (네임스페이스 분리) | QMC.Common.Alarms 로 이동. Lang.Current 의존성은 LanguageProvider 콜백으로 추상화. Handler/Vision 양쪽 공유 사용 |
 | M-62-G | Recipe-Vision 분리 | Project별 카메라 설정 불가 | RecipeProject.VisionCameras (AlgorithmCameraSubset) 필드 추가. 모델은 QMC.Common.Recipes 에 위치 |
 
 
-## STAGE 63 — TopSide/BottomSide → FrontSide/RearSide 리네임 (2026-05-28)
+## STAGE 63 — FrontSide/RearSide → FrontSide/RearSide 리네임 (2026-05-28)
 
 | ID | 위치 | 내용 | 처리 |
 |---|---|---|---|
-| M-63-1 | 전 코드베이스 (Common/Vision/Handler) | 검사 이름 의미 불일치 — Top/Bottom 은 수직면을 암시하나 실제는 다이 앞/뒤 측면 카메라 검사 | TopSide/BottomSide → FrontSide/RearSide 로 전수 리네임. 라벨 "상면/하면 검사" → "앞쪽/뒤쪽 측면 검사" |
+| M-63-1 | 전 코드베이스 (Common/Vision/Handler) | 검사 이름 의미 불일치 — Top/Bottom 은 수직면을 암시하나 실제는 다이 앞/뒤 측면 카메라 검사 | FrontSide/RearSide → FrontSide/RearSide 로 전수 리네임. 라벨 "상면/하면 검사" → "앞쪽/뒤쪽 측면 검사" |
 | M-63-2 | 설정 파일 (algorithm_camera.json / vision.json / settings.json / Recipe) | 구버전 키 잔존 시 로드 깨짐 | 자동 마이그레이션: AlgorithmCameraSubset.MigrateLegacyAlgorithmNames + [DataMember(Name=old)] Legacy 프로퍼티 + OnDeserialized. Load 가 정규화 재저장 → 구 키 1회 로드 후 소멸 |
 | M-63-3 | inspector 내부 id (TopSurfaceInspector 등) | 모듈은 FrontSide 인데 내부 id 는 Top* | 백엔드 호환 위해 inspector 내부 id 는 의도적 유지 (외부 노출 X). RESULT 보고서에 명시 |
 
@@ -191,14 +191,14 @@
 | M-66-2 | 매뉴얼(2) vs io_set.lightSource.json(COM1/2/3) vs LFineConfig(단일) | 컨트롤러 개수 불일치 | 확인 필요 #5 — 단수/List 결정 후 Config 확정 |
 | M-66-3 | IlluminatorPanel.cs(4채널 더미) vs io_set.json(8채널) | 채널 수 불일치 | 채널 가변화 (구현 Stage) |
 | M-66-4 | LightControl 코드 = Part/IlluminatorConfig/ListParam/SerialComm 레거시 의존 | 직접 포팅 불가 | 현 CDT-320 패턴으로 신규 작성 (프로토콜만 차용) |
-| M-66-5 | io_set.json 채널 6/7 = "TOP/BOTTOM SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 불일치 | 라벨 정합 검토 (구현 Stage) |
+| M-66-5 | io_set.json 채널 6/7 = "TOP/REAR SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 불일치 | 라벨 정합 검토 (구현 Stage) |
 
 ## STAGE 67 — LFine 조명 컨트롤러 구현 (2026-05-29)
 
 | ID | 위치 | 내용 | 처리 |
 |---|---|---|---|
 | M-67-1 | io_set.lightSource.json(8채널/COM1·2·3) → 컨트롤러 2개 | #5 컨트롤러 2개 확정에 따라 8채널을 COM1 4 + COM2 4 로 분배 | LFineLightSetup.CreateDefault 기본값. 실 결선 시 포트/채널 조정 필요 |
-| M-67-2 | io_set 채널 6/7 "TOP/BOTTOM SIDE VISION" | Stage 63 리네임 정합 | 기본값에서 "FRONT SIDE VISION"/"REAR SIDE VISION" 으로 반영 |
+| M-67-2 | io_set 채널 6/7 "TOP/REAR SIDE VISION" | Stage 63 리네임 정합 | 기본값에서 "FRONT SIDE VISION"/"REAR SIDE VISION" 으로 반영 |
 
 ## STAGE 68 — 검사별 조명 매핑 SPEC (2026-05-29)
 

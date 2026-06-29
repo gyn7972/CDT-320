@@ -1,4 +1,4 @@
-# 오토포커스 FOCUS 프로토콜 (Handler ↔ Vision)
+﻿# 오토포커스 FOCUS 프로토콜 (Handler ↔ Vision)
 
 대상: CDT-320 오토포커스 — **Bottom / Front / Back 카메라**.
 실행 위치: **QMC.Vision** (프레임당 Score 계산 + 세션 누적).
@@ -54,8 +54,8 @@ MODULE|FOCUS_BEST|<camera>|<target>|[pickupNo]
 | camera | 와이어 모듈명(`MODULE`) | 기본 포트 | 타깃 |
 |---|---|---|---|
 | `BOTTOM` | `BottomInspection` | 5101 | `COLLET`, `DIE` (Pickup1~4) |
-| `FRONT`  | `TopSideVision`    | 5105 | `SIDE` (Pickup1~4) |
-| `BACK`   | `BottomSideVision` | 5106 | `SIDE` (Pickup1~4) |
+| `FRONT`  | `FrontSideVision`    | 5105 | `SIDE` (Pickup1~4) |
+| `BACK`   | `RearSideVision` | 5106 | `SIDE` (Pickup1~4) |
 
 > Vision 은 명령이 도착한 **모듈의 카메라로 현재 보이는 위치에서 1장 grab** 해 채점한다(모션 없음). 모터 이동·다음 스텝은 핸들러가 수행.
 

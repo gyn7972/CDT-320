@@ -162,13 +162,13 @@ namespace QMC.Common.Recipes
             { "BottomInspection|DistortionCompensation","왜곡 보정" },
             // FrontSide (4) — 앞쪽 측면
             { "FrontSide|DieEdgeFinder",         "다이 에지" },
-            { "FrontSide|TopSurfaceInspector",   "앞쪽 면" },
-            { "FrontSide|TopChippingInspector",  "앞쪽 칩핑" },
+            { "FrontSide|FrontSurfaceInspector",   "앞쪽 면" },
+            { "FrontSide|FrontChippingInspector",  "앞쪽 칩핑" },
             { "FrontSide|FocusFinder",           "포커스" },
             // RearSide (4) — 뒤쪽 측면
             { "RearSide|DieEdgeFinder",          "다이 에지" },
-            { "RearSide|BottomSurfaceInspector", "뒤쪽 면" },
-            { "RearSide|BottomChippingInspector","뒤쪽 칩핑" },
+            { "RearSide|RearSurfaceInspector", "뒤쪽 면" },
+            { "RearSide|RearChippingInspector","뒤쪽 칩핑" },
             { "RearSide|FocusFinder",            "포커스" },
         };
 
@@ -192,9 +192,9 @@ namespace QMC.Common.Recipes
                     return new[] { "ReticleFinder", "ColletFinder", "DieFinder", "SurfaceInspector",
                                    "FocusFinder", "ScaleFinder", "DistortionCompensation" };
                 case VisionAlgorithm.FrontSide:
-                    return new[] { "DieEdgeFinder", "TopSurfaceInspector", "TopChippingInspector", "FocusFinder" };
+                    return new[] { "DieEdgeFinder", "FrontSurfaceInspector", "FrontChippingInspector", "FocusFinder" };
                 case VisionAlgorithm.RearSide:
-                    return new[] { "DieEdgeFinder", "BottomSurfaceInspector", "BottomChippingInspector", "FocusFinder" };
+                    return new[] { "DieEdgeFinder", "RearSurfaceInspector", "RearChippingInspector", "FocusFinder" };
                 default:
                     return new string[0];
             }
@@ -216,7 +216,7 @@ namespace QMC.Common.Recipes
 
         /// <summary>
         /// 구버전 알고리즘 이름 자동 마이그레이션.
-        /// TopSide → FrontSide, BottomSide → RearSide (Algorithm + Sim CameraId 값).
+        /// FrontSide → FrontSide, RearSide → RearSide (Algorithm + Sim CameraId 값).
         /// 변경이 발생하면 true 반환 (호출자가 즉시 Save 하도록).
         /// </summary>
         public bool MigrateLegacyAlgorithmNames()
@@ -225,17 +225,17 @@ namespace QMC.Common.Recipes
             bool changed = false;
             foreach (var m in Items)
             {
-                if (string.Equals(m.Algorithm, "TopSide", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(m.Algorithm, "FrontSide", StringComparison.OrdinalIgnoreCase))
                 {
                     m.Algorithm = VisionAlgorithm.FrontSide; changed = true;
                 }
-                else if (string.Equals(m.Algorithm, "BottomSide", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(m.Algorithm, "RearSide", StringComparison.OrdinalIgnoreCase))
                 {
                     m.Algorithm = VisionAlgorithm.RearSide; changed = true;
                 }
                 // Sim fallback CameraId 만 변환 — 실 IP/실값은 건드리지 않음.
-                if (m.CameraId == "Sim/TopSide")    { m.CameraId = "Sim/FrontSide"; changed = true; }
-                if (m.CameraId == "Sim/BottomSide") { m.CameraId = "Sim/RearSide";  changed = true; }
+                if (m.CameraId == "Sim/FrontSide")    { m.CameraId = "Sim/FrontSide"; changed = true; }
+                if (m.CameraId == "Sim/RearSide") { m.CameraId = "Sim/RearSide";  changed = true; }
             }
             // Migrate 후 동일 algorithm 이 중복되면 첫 항목만 유지.
             if (changed)

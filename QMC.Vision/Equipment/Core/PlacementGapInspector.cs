@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
+using VI = global::QMC.Vision.Inspector;   // 원본 검사 라이브러리(QMc.Vision.Inspector) 별칭
 
 namespace QMC.Vision.Core
 {
@@ -48,13 +49,149 @@ namespace QMC.Vision.Core
         public bool     LastPass    { get; private set; }
         public string   LastGapText { get; private set; }
 
+        /// <summary>true(기본)=원본 QMc.Vision.Inspector.CDTInspector.DieGapInspect 사용, false=기존 C# 구현(InspectLegacy).</summary>
+        public bool UseInspectorLib { get; set; } = true;
+        private VI.CDTInspector _libInspector;
+
         public PlacementGapInspector(string id)
         {
             Id = id;
             InspectionRoi = new Roi { Name = id + ".Roi", CenterX = 320, CenterY = 240, Width = 400, Height = 300 };
         }
 
+        /// <summary>
+        /// 안착/갭 검사 — 원본 <c>QMc.Vision.Inspector.CDTInspector.DieGapInspect</c> 사용(4변 갭/오프셋/각도/코너).
+        /// 단일 Bitmap → ROI 그레이 → (다이=밝으면 반전) → DieGapInspectionParameter → InspectionResult 매핑.
+        /// <c>UseInspectorLib=false</c> 거나 lib 예외 시 기존 C#(<see cref="InspectLegacy"/>)으로 폴백.
+        /// </summary>
         public InspectionResult Inspect(Bitmap image)
+        {
+            if (!UseInspectorLib) return InspectLegacy(image);
+
+            var res = new InspectionResult { RoiName = Id };
+            LastValid = false;
+            if (image == null) { res.IsPass = false; res.ErrorMessage = "no image"; return res; }
+            try
+            {
+                Rectangle roi = ClampRoi(InspectionRoi, image.Width, image.Height);
+                if (roi.Width < 16 || roi.Height < 16) { res.IsPass = false; res.ErrorMessage = "ROI too small"; return res; }
+
+                byte[,] img = ToGray(image, roi);   // [y, x]
+                int th = (int)Math.Round(Math.Max(0, Math.Min(255, Threshold)));
+                // 다이가 배경보다 밝으면 반전 — lib FindDieGap 은 '다이=어두움(threshold 미만)' 기준.
+                if (!DarkDie)
+                {
+                    int hh = img.GetLength(0), ww = img.GetLength(1);
+                    for (int yy = 0; yy < hh; yy++)
+                        for (int xx = 0; xx < ww; xx++)
+                            img[yy, xx] = (byte)(255 - img[yy, xx]);
+                    th = 255 - th;
+                }
+                int gw2 = img.GetLength(1), gh2 = img.GetLength(0);
+                var flat = new byte[gw2 * gh2];
+                System.Buffer.BlockCopy(img, 0, flat, 0, flat.Length);
+
+                var param = new VI.DieGapInspectionParameter
+                {
+                    Image = flat,
+                    ImageWidth = gw2,
+                    ImageHeight = gh2,
+                    Roi = new Rectangle(0, 0, gw2, gh2),
+                    Threshold = th,
+                    UpperLimit = GapUpperLimit,
+                    LowerLimit = GapLowerLimit,
+                    WaferID = "Empty",
+                    IndexX = 1,
+                    IndexY = 1,
+                };
+                VI.DieGapResult dg = GetLibInspector().DieGapInspect(param);
+                if (dg != null && dg.Gaps != null)
+                {
+                    MapDieGapResult(dg, res, roi);
+                    return res;
+                }
+
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "PlacementGapInspector", Id + " DieGapInspect 결과 없음 → 레거시 폴백");
+                return InspectLegacy(image);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "PlacementGapInspector", Id + " DieGapInspect 실패 → 레거시 폴백: " + ex.Message);
+                try { return InspectLegacy(image); }
+                catch (Exception ex2) { return new InspectionResult { RoiName = Id, IsPass = false, ErrorMessage = "placement gap inspect: " + ex2.Message }; }
+            }
+        }
+
+        /// <summary>원본 검사기 1회 생성 + VisionConfig(TargetVision 픽셀사이즈) 주입. px 모드(픽셀사이즈 0)면 1.0 → 갭이 px 로 유지.</summary>
+        private VI.CDTInspector GetLibInspector()
+        {
+            if (_libInspector == null)
+            {
+                _libInspector = new VI.CDTInspector();
+                var cfg = new VI.VisionConfig();
+                cfg.TargetVision.PixelSizeWidthMm  = PixelSizeXmm > 0 ? PixelSizeXmm : 1.0;
+                cfg.TargetVision.PixelSizeHeightMm = PixelSizeYmm > 0 ? PixelSizeYmm : 1.0;
+                _libInspector.SetVisionConfig(cfg);
+            }
+            return _libInspector;
+        }
+
+        /// <summary>DieGapResult → InspectionResult(Items/오버레이 기하). 항목명은 기존(InspectLegacy)과 동일 — 그리드/자재추적 호환.</summary>
+        private void MapDieGapResult(VI.DieGapResult dg, InspectionResult res, Rectangle roi)
+        {
+            var gaps = dg.Gaps;
+            double sx = PixelSizeXmm > 0 ? PixelSizeXmm : 1.0;
+            double sy = PixelSizeYmm > 0 ? PixelSizeYmm : 1.0;
+
+            bool okL = JudgeGap(gaps.Left), okR = JudgeGap(gaps.Right), okT = JudgeGap(gaps.Top), okB = JudgeGap(gaps.Bottom);
+            bool pass = dg.DefectCode == 0;
+            res.IsPass = pass;
+
+            // 코너: lib 는 Roi=(0,0,..) 로 호출했으므로 ROI-로컬 좌표 → 이미지 좌표로 평행이동.
+            PointF[] ic;
+            if (dg.Corners != null && dg.Corners.Length == 4)
+            {
+                ic = new PointF[4];
+                for (int i = 0; i < 4; i++) ic[i] = new PointF(dg.Corners[i].X + roi.X, dg.Corners[i].Y + roi.Y);
+            }
+            else
+            {
+                ic = new[] { new PointF(roi.X, roi.Y), new PointF(roi.Right, roi.Y), new PointF(roi.Right, roi.Bottom), new PointF(roi.X, roi.Bottom) };
+            }
+            PointF center = new PointF((ic[0].X + ic[1].X + ic[2].X + ic[3].X) / 4f, (ic[0].Y + ic[1].Y + ic[2].Y + ic[3].Y) / 4f);
+
+            double nomX = roi.X + roi.Width / 2.0, nomY = roi.Y + roi.Height / 2.0;
+            double offX = (center.X - nomX) * sx, offY = (center.Y - nomY) * sy;
+
+            void AddG(string n, double v, bool ok) => res.Items.Add(new InspectionItem { Name = n, Value = v.ToString("F3"), IsPass = ok });
+            AddG("Top gap min", gaps.Top.Min, okT);     AddG("Top gap max", gaps.Top.Max, okT);
+            AddG("Right max",   gaps.Right.Max, okR);   AddG("Right min",  gaps.Right.Min, okR);
+            AddG("Bottom gap",  gaps.Bottom.Max, okB);  AddG("Bottom min", gaps.Bottom.Min, okB);
+            AddG("Left max",    gaps.Left.Max, okL);     AddG("Left min",  gaps.Left.Min, okL);
+            res.Items.Add(new InspectionItem { Name = "Offset X", Value = offX.ToString("F4"), IsPass = true });
+            res.Items.Add(new InspectionItem { Name = "Offset Y", Value = offY.ToString("F4"), IsPass = true });
+            res.Items.Add(new InspectionItem { Name = "Angle",    Value = dg.Angle.ToString("F4"), IsPass = true });
+            AddG("Top Gap Avg", gaps.Top.Avg, okT);     AddG("Bottom Gap Avg", gaps.Bottom.Avg, okB);
+            AddG("Left Gap Avg", gaps.Left.Avg, okL);   AddG("Right Gap Avg",  gaps.Right.Avg, okR);
+
+            LastValid = true;
+            LastCorners = ic;
+            LastCenter = center;
+            LastPass = pass;
+            LastGapText = "L" + gaps.Left.Avg.ToString("F0") + " T" + gaps.Top.Avg.ToString("F0") +
+                          " R" + gaps.Right.Avg.ToString("F0") + " B" + gaps.Bottom.Avg.ToString("F0");
+        }
+
+        private bool JudgeGap(VI.Gap g)
+        {
+            if (g == null) return false;
+            if (g.Avg == 0) return true;
+            if (g.Avg < GapLowerLimit || GapUpperLimit < g.Avg) return false;
+            return true;
+        }
+
+        // ===== [LEGACY] 기존 순수 C# 구현 — UseInspectorLib=false 또는 lib 예외 시 폴백 =====
+        private InspectionResult InspectLegacy(Bitmap image)
         {
             var res = new InspectionResult { RoiName = Id };
             LastValid = false;

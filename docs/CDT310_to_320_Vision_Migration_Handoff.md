@@ -1,4 +1,4 @@
-# CDT-310 → CDT-320 Vision 이식 핸드오프
+﻿# CDT-310 → CDT-320 Vision 이식 핸드오프
 
 > 목적: CDT-310(실구동) 비전 기능을 CDT-320(신규) 구조로 이식. 이 문서는 "CDT-310 → CDT-320 구현 진행 중" 채팅에서 실제 구현에 사용하는 작업 기준서다.
 > 시각 자료: `docs/CDT310_to_320_Vision_Migration.html` (기능별 매핑·모듈별 표·코드 예시 포함).
@@ -35,7 +35,7 @@ QMC.Vision/Equipment/
 ├─ Backends/{Cognex,OpenCv,Sim}/   PatternFinder · Inspector
 │   └─ Cognex/ + Caliper · Histogram · ColorMatch (구현 있음, 팩토리 미배선)
 ├─ Unit/        VisionModule, AlgorithmNode, AlgorithmData,
-│               {Wafer,Bin,Bottom,TopSide,BottomSide}VisionModule, VisionMachine
+│               {Wafer,Bin,Bottom,FrontSide,RearSide}VisionModule, VisionMachine
 ├─ Cameras/{Hik,Mil,Sim}, Optics/{LFine,Leesos,Sim}, Comm/, Config/, Tools/
 Ui/Pages/Recipe/  RecipePage, VisionTargetPage(finder), InspectorTargetPage(inspector), Helper
 ```

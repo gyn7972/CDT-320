@@ -81,8 +81,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 new CameraRow { Index=1, Channel="BottomInspection", Role="DiePresence", Host="127.0.0.1", Port=5101, ExposureMs=300, LightLevel=0.7, Trigger="Software" },
                 new CameraRow { Index=2, Channel="Bin", Role="PlacementInspector", Host="127.0.0.1", Port=5103, ExposureMs=300, LightLevel=0.5, Trigger="Software" },
                 new CameraRow { Index=3, Channel="Main", Role="MainComm", Host="127.0.0.1", Port=5104, ExposureMs=0, LightLevel=0.0, Trigger="None" },
-                new CameraRow { Index=4, Channel="TopSide", Role="TopSide4Side", Host="127.0.0.1", Port=5105, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
-                new CameraRow { Index=5, Channel="BottomSide", Role="BottomSide4Side", Host="127.0.0.1", Port=5106, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
+                new CameraRow { Index=4, Channel="FrontSide", Role="FrontSide4Side", Host="127.0.0.1", Port=5105, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
+                new CameraRow { Index=5, Channel="RearSide", Role="RearSide4Side", Host="127.0.0.1", Port=5106, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
             };
         }
 
@@ -208,10 +208,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         case "Bin": cfg.VisionBinPort = it.Port; break;
                         // Main 카메라 AppSettings 적용
                         case "Main": cfg.VisionMainPort = it.Port; break;
-                        // Top Side 카메라 AppSettings 적용
-                        case "TopSide": cfg.VisionTopSidePort = it.Port; break;
-                        // Bottom Side 카메라 AppSettings 적용
-                        case "BottomSide": cfg.VisionBottomSidePort = it.Port; break;
+                        // Front Side 카메라 AppSettings 적용
+                        case "FrontSide": cfg.VisionFrontSidePort = it.Port; break;
+                        // Rear Side 카메라 AppSettings 적용
+                        case "RearSide": cfg.VisionRearSidePort = it.Port; break;
                     }
                 }
                 QMC.CDT320.AppSettingsStore.Save();

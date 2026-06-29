@@ -1,4 +1,4 @@
-# 파라미터 계층 배정 — 12건 결정 (Cowork 검토 2026-06-09)
+﻿# 파라미터 계층 배정 — 12건 결정 (Cowork 검토 2026-06-09)
 
 > 근거: 실코드 직접 확인. [확정 권장]=바로 진행 가능 / [영남 확인]=도메인·운영 판단 필요.
 
@@ -46,7 +46,7 @@ mm/px·방향 캘리브, 장비·제품 무관. (`VisionConfig.cs:107-115`)
 `Config/Setup/vision_setup.json`(내부 타깃 섹션). Setup 항목 적고 장비 글로벌 → 파일 1개가 단순. Handler `EquipmentDataStore`/`JsonDataStore<T>` 패턴.
 
 **#11 Recipe 아키텍처 — [영남 결정 필수, 최우선]**
-⚠ Handler `RecipeProject`(`RecipeStore.cs:210, 288-318`)가 **이미 Vision 검사 파라미터 보유**: InspectionSubset×3(BottomInsp/TopSideInsp/BottomSideInsp — Enable/ExposureMs/LightIntensity/ChippingDepthMaxMm/ScratchAreaMaxMm2/MinDieCenterScore), DieSubset(ChipSpecLimit·ChippingDepth/Length·ForeignSizeMax). 즉 **제품 레시피의 검사 파라미터를 Handler가 이미 소유.**
+⚠ Handler `RecipeProject`(`RecipeStore.cs:210, 288-318`)가 **이미 Vision 검사 파라미터 보유**: InspectionSubset×3(BottomInsp/FrontSideInsp/RearSideInsp — Enable/ExposureMs/LightIntensity/ChippingDepthMaxMm/ScratchAreaMaxMm2/MinDieCenterScore), DieSubset(ChipSpecLimit·ChippingDepth/Length·ForeignSizeMax). 즉 **제품 레시피의 검사 파라미터를 Handler가 이미 소유.**
 - (가) Vision이 Handler `.Project` 공유 읽기 (SSOT=Handler) — 제품=Handler 소유라 개념적으로 옳고 중복 0. 단 팀이 Handler 작업 중이라 파일·스키마 결합 위험.
 - (나) Vision 별도 스토어(패턴 미러) — 결합 0이나 **같은 제품 검사 파라미터가 Handler·Vision 두 곳 → 발산 위험**.
 - **제 lean(절충)**: (나)로 시작하되 ① Handler InspectionSubset/DieSubset 과 **1:1 매핑 가능한 스키마**로(나중 (가) 수렴 대비), ② 중복 필드(ExposureMs/LightIntensity/ChipSpecLimit/Chipping…)는 **어느 쪽이 SSOT인지 운영 규칙 1줄 명시**. → 운영 정책이라 영남 최종 결정.

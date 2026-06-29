@@ -38,8 +38,8 @@ TCP listen:
   0.0.0.0:5100 (WaferVision) ✅
   0.0.0.0:5101 (BottomInspection) ✅
   0.0.0.0:5103 (BinVision) ✅
-  0.0.0.0:5105 (TopSideInspection) ✅
-  0.0.0.0:5106 (BottomSideInspection) ✅
+  0.0.0.0:5105 (FrontSideInspection) ✅
+  0.0.0.0:5106 (BottomAndSideInspection) ✅
   (5104 MainCommunicator 미 listen — 비핵심)
 ```
 

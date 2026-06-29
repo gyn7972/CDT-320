@@ -60,8 +60,8 @@ namespace QMC.CDT_320.Ui.Controls
                     new ModulePort(VisionModuleNames.Wafer, VisionViewerPorts.DefaultWafer),
                     new ModulePort(VisionModuleNames.BottomInspection, VisionViewerPorts.DefaultBottomInspection),
                     new ModulePort(VisionModuleNames.Bin, VisionViewerPorts.DefaultBin),
-                    new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.DefaultTopSide),
-                    new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.DefaultBottomSide),
+                    new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.DefaultFrontSideVision),
+                    new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.DefaultRearSideVision),
                 };
             }
 
@@ -70,8 +70,8 @@ namespace QMC.CDT_320.Ui.Controls
                 new ModulePort(VisionModuleNames.Wafer, VisionViewerPorts.Wafer),
                 new ModulePort(VisionModuleNames.BottomInspection, VisionViewerPorts.BottomInspection),
                 new ModulePort(VisionModuleNames.Bin, VisionViewerPorts.Bin),
-                new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.TopSide),
-                new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.BottomSide),
+                new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.FrontSideVision),
+                new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.RearSideVision),
             };
         }
 
