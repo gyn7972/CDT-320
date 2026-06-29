@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320
 {
@@ -45,6 +46,8 @@ namespace QMC.CDT320
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; }
         [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
+        [DataMember] public VisionFocusCalibrationData FocusCalibration { get; set; } = new VisionFocusCalibrationData();
+        [DataMember] public ColletCalibrationData ColletCalibration { get; set; } = new ColletCalibrationData();
 
         public bool IsSimulationMode
         {
@@ -62,8 +65,14 @@ namespace QMC.CDT320
         {
             if (CameraCalibration == null)
                 CameraCalibration = new VisionCameraCalibrationData();
+            if (FocusCalibration == null)
+                FocusCalibration = new VisionFocusCalibrationData();
+            if (ColletCalibration == null)
+                ColletCalibration = new ColletCalibrationData();
 
             CameraCalibration.EnsureObjects();
+            FocusCalibration.EnsureObjects();
+            ColletCalibration.EnsureObjects();
         }
     }
 
@@ -259,6 +268,66 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseVisionAlarm("VS-MOVE-EX", axis + " move exception: " + ex.Message);
+            }
+        }
+
+        public async Task<int> MoveVisionAxisCommandWithMotion(
+            VisionAxis axis,
+            double targetPos,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string targetName)
+        {
+            try
+            {
+                BaseAxis item = ResolveVisionAxis(axis);
+                if (!CheckVisionAxisMoveReady(axis))
+                    return RaiseVisionAlarm("VS-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
+                if (!ValidateVisionTargetPosition(item, targetPos))
+                    return RaiseVisionAlarm("VS-SOFT-LIMIT", axis + " 목표 위치가 소프트 리밋을 벗어났습니다. target=" + targetPos);
+
+                double moveVelocity = velocity > 0.0 ? velocity : ResolveMoveVelocity(item, false);
+                double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
+                double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
+                bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
+
+                EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE-CMD",
+                    axis + " target=" + targetPos +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", velocity=" + moveVelocity +
+                    ", acc=" + acceleration +
+                    ", dec=" + deceleration);
+
+                try
+                {
+                    if (useCustomAccel)
+                    {
+                        item.Config.Acceleration = acceleration;
+                        item.Config.Deceleration = deceleration;
+                    }
+
+                    int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, moveVelocity).ConfigureAwait(false);
+                    if (result != 0 || item.IsAlarm)
+                        return RaiseVisionAlarm("VS-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+
+                    return 0;
+                }
+                finally
+                {
+                    if (useCustomAccel)
+                    {
+                        item.Config.Acceleration = oldAcceleration;
+                        item.Config.Deceleration = oldDeceleration;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-MOVE-EX", axis + " 이동 명령 예외: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 

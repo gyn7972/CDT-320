@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using QMC.Common.Logging;
 
@@ -74,14 +74,14 @@ namespace QMC.CDT320.VisionComm
             DisconnectAll();
             Host = host;
 
-            Wafer = New("WaferVision", host, waferPort);
-            Inspection = New("BottomInspection", host, inspectionPort);
-            Bin = New("BinVision", host, binPort);
-            Main = New("MainComm", host, mainPort);
+            Wafer = New(VisionModuleNames.Wafer, host, waferPort);
+            Inspection = New(VisionModuleNames.BottomInspection, host, inspectionPort);
+            Bin = New(VisionModuleNames.Bin, host, binPort);
+            Main = New(VisionModuleNames.Main, host, mainPort);
             if (Main != null)
                 Main.RecipeRequested += () => { try { OnVisionRecipeRequest?.Invoke(); } catch { } };
-            TopSide = New("TopSideVision", host, topSidePort);
-            BottomSide = New("BottomSideVision", host, bottomSidePort);
+            TopSide = New(VisionModuleNames.FrontSide, host, topSidePort);
+            BottomSide = New(VisionModuleNames.RearSide, host, bottomSidePort);
 
             bool[] required = await Task.WhenAll(
                 Wafer.ConnectAsync(),

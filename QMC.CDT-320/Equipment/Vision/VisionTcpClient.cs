@@ -560,28 +560,79 @@ namespace QMC.CDT320.VisionComm
 
         public static AsyncMatchPoll Parse(string line)
         {
+            string normalizedLine = NormalizeProtocolLine(line);
             var p = new AsyncMatchPoll { Raw = line };
-            VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            VisionProtocolResponse response = VisionProtocolResponse.Parse(normalizedLine);
             if (!response.IsAck)
             {
                 p.Error = true;
                 return p;
             }
 
-            string payload = response.Payload;   // "0" / "1;x=..;y=..;r=..;score=.." / "ERR;사유"
-            if (payload.StartsWith("1", StringComparison.OrdinalIgnoreCase))
+            string payload = ResolveMatchResultPayload(response);
+            string token = ResolvePayloadToken(payload);
+            if (string.Equals(token, "1", StringComparison.OrdinalIgnoreCase))
             {
                 p.Done = true;
                 int semi = payload.IndexOf(';');
                 string body = semi >= 0 ? payload.Substring(semi + 1) : string.Empty;
                 p.Result = MatchResultDto.Parse("ACK|x|MATCHRESULT|OK;" + body);
             }
-            else if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(token, "ERR", StringComparison.OrdinalIgnoreCase))
             {
                 p.Error = true;
             }
 
             return p;
+        }
+
+        private static string NormalizeProtocolLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                return string.Empty;
+
+            string value = line.Trim();
+            int ack = value.IndexOf("ACK|", StringComparison.OrdinalIgnoreCase);
+            int err = value.IndexOf("ERR|", StringComparison.OrdinalIgnoreCase);
+            int start = -1;
+            if (ack >= 0 && err >= 0)
+                start = Math.Min(ack, err);
+            else if (ack >= 0)
+                start = ack;
+            else if (err >= 0)
+                start = err;
+
+            return start > 0 ? value.Substring(start) : value;
+        }
+
+        private static string ResolveMatchResultPayload(VisionProtocolResponse response)
+        {
+            if (response == null || response.Fields == null || response.Fields.Length == 0)
+                return string.Empty;
+
+            for (int i = 0; i < response.Fields.Length; i++)
+            {
+                string field = response.Fields[i];
+                string token = ResolvePayloadToken(field);
+                if (string.Equals(token, "0", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(token, "1", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(token, "ERR", StringComparison.OrdinalIgnoreCase))
+                {
+                    return field ?? string.Empty;
+                }
+            }
+
+            return response.Payload ?? string.Empty;
+        }
+
+        private static string ResolvePayloadToken(string payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload))
+                return string.Empty;
+
+            string value = payload.Trim();
+            int index = value.IndexOf(';');
+            return (index >= 0 ? value.Substring(0, index) : value).Trim();
         }
     }
     public class AsyncInspectPoll

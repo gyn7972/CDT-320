@@ -486,8 +486,8 @@ namespace QMC.Vision
             _svrWafer            = new VisionTcpServer(WaferMod,            cfg.WaferVisionPort);
             _svrBin              = new VisionTcpServer(BinMod,              cfg.BinVisionPort);
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
-            _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.TopSideVisionPort);
-            _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.BottomSideVisionPort);
+            _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.FrontSidePort);
+            _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.RearSidePort);
             // READY 게이트 — READY(작업자 승인 + RUN 활성) 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
             foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrTopSideVision, _svrBottomSideVision })
             {

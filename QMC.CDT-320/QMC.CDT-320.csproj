@@ -78,6 +78,8 @@
     <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
+    <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />
+    <Compile Include="Equipment\Calibration\VisionFocusCalibrationData.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\Diagnostics\PickerMoveTimeFileLogger.cs" />
@@ -139,6 +141,7 @@
     <Compile Include="Equipment\Vision\WaferVisionInspectionResult.cs" />
     <Compile Include="Equipment\Vision\WaferVisionResultStore.cs" />
     <Compile Include="Equipment\Vision\VisionViewerPorts.cs" />
+    <Compile Include="Equipment\Vision\VisionModuleNames.cs" />
     <Compile Include="Equipment\Vision\VisionCommLog.cs" />
     <Compile Include="Equipment\Vision\VisionViewerRegistry.cs" />
     <Compile Include="Equipment\Vision\VisionReconnectWatchdog.cs" />
@@ -338,6 +341,9 @@
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
+    <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceOptions.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequence.cs" />
@@ -670,6 +676,18 @@
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraScaleDialog.Designer.cs">
       <DependentUpon>VisionCameraScaleDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionFocusCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\VisionFocusCalibrationDialog.Designer.cs">
+      <DependentUpon>VisionFocusCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
+      <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
@@ -1120,6 +1138,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
       <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\NumericKeypadDialog.resx">
+      <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>

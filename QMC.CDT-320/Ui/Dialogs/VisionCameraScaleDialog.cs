@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -47,7 +47,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void BuildCameraRows()
         {
             _cameraRows.Clear();
-            _cameraRows.Add(new CameraScaleRowInfo("Bottom Camera", "Bottom", AutoVisionChannel.Bottom));
+            _cameraRows.Add(new CameraScaleRowInfo("Bottom Camera", "Bottom", AutoVisionChannel.BottomInspection));
             _cameraRows.Add(new CameraScaleRowInfo("Input Camera", "Input", AutoVisionChannel.Wafer));
             _cameraRows.Add(new CameraScaleRowInfo("Output Camera", "Output", AutoVisionChannel.Bin));
             _cameraRows.Add(new CameraScaleRowInfo("Front Side Camera", "FrontSide", AutoVisionChannel.FrontSide));

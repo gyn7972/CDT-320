@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
@@ -9,7 +9,7 @@ namespace QMC.CDT320.VisionComm
     public enum AutoVisionChannel
     {
         Wafer,
-        Bottom,
+        BottomInspection,
         Bin,
         Main,
         FrontSide,
@@ -333,7 +333,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return new BottomVisionOffset { PickerNo = pickerNo, OffsetX = 0.0, OffsetY = 0.0, OffsetT = 0.0, IsOk = true };
 
-                MatchResultDto match = await MatchAsync(AutoVisionChannel.Bottom, finder, index, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto match = await MatchAsync(AutoVisionChannel.BottomInspection, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, match, scoreThreshold);
                 if (offset != null)
                 {

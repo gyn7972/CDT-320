@@ -206,8 +206,9 @@ namespace QMC.Vision.Comm
                     case "ROT_CENTER": resp = DoRotCenter(m); break;
                     case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
-                    case "FOCUS_START": resp = VisionCommandCore.FocusStart(parts); break;
-                    case "FOCUS_VAL": resp = VisionCommandCore.FocusValue(m, parts); break;
+                    case "CAM_SETTING":resp = DoCameraSetting(m); break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
                     case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
                     default: resp = null; break;
                 }
@@ -215,8 +216,8 @@ namespace QMC.Vision.Comm
                 // ── 3단계: 동기/폴링 결과 ACK (비동기 시작은 1단계에서 이미 보냈으므로 제외) ──
                 if (!isAsyncStart)                       // ★ 빠져 있던 부분
                 {
-                    if (resp == null) { Send(stream, $"ERR|{mod}|{cmd}|unknown command"); return; }
-                    Send(stream, string.IsNullOrEmpty(echo)
+                    string target = ResolveEchoToken(cmd, parts);
+                    Send(stream, string.IsNullOrEmpty(target)
                         ? $"ACK|{mod}|{cmd}|{resp}"
                         : $"ACK|{mod}|{cmd}|{echo}|{resp}");
                 }
@@ -232,6 +233,7 @@ namespace QMC.Vision.Comm
         /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
+            || cmd == "CAM_SETTING"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>응답 ACK 의 echo 토큰 선택.
@@ -429,6 +431,31 @@ namespace QMC.Vision.Comm
             string liveOn   = parts[3];
             // 단일 카메라 모듈에서는 no-op. 멀티 카메라 모듈에서 override 가능.
             return $"OK;tool={toolName};live={liveOn}";
+        }
+
+        private static string DoCameraSetting(IVisionModule m)
+        {
+            var map = m.ExportCameraMapping();
+            int width = 0;
+            int height = 0;
+            try
+            {
+                if (m.Camera != null)
+                {
+                    var resolution = m.Camera.Resolution;
+                    width = resolution.Width;
+                    height = resolution.Height;
+                }
+            }
+            catch { }
+
+            if (width <= 0 || height <= 0)
+            {
+                width = map.RoiWidth > 0 ? map.RoiWidth : 640;
+                height = map.RoiHeight > 0 ? map.RoiHeight : 480;
+            }
+
+            return $"OK|w={width};h={height};scaleX={map.ScaleX:F9};scaleY={map.ScaleY:F9}";
         }
 
         private static string DoFocusVal(IVisionModule m)

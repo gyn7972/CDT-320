@@ -9,10 +9,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     public partial class CalibrationPage : PageBase
     {
         private VisionCameraCalibrationDialog _visionCameraDialog;
-        private CalibrationSetupDialog _colletDialog;
+        private ColletCalibrationDialog _colletDialog;
         private CalibrationSetupDialog _needleDialog;
         private CalibrationSetupDialog _colletZHeightDialog;
-        private CalibrationSetupDialog _visionFocusDialog;
+        private VisionFocusCalibrationDialog _visionFocusDialog;
         private CalibrationSetupDialog _colletRotationCenterDialog;
 
         public CalibrationPage()
@@ -43,7 +43,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 headerPanel.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("맑은 고딕", 13F, FontStyle.Bold);
+                lblHeader.Font = new Font("Malgun Gothic", 13F, FontStyle.Bold);
                 lblStatus.ForeColor = Color.FromArgb(40, 40, 40);
             }
             catch (Exception ex)
@@ -110,13 +110,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void btnColletCal_Click(object sender, EventArgs e)
         {
-            ShowDialogOnce(
-                ref _colletDialog,
-                "COLLET CAL",
-                "Bottom 카메라로 Front/Rear 콜렛 1~4번의 X/Y/T 보정값을 찾는 캘리브레이션입니다.",
-                "저장 제안: 콜렛별 물리 보정값은 Config에 저장하고, 레시피별 교체 조건은 별도 Recipe 연동을 검토합니다.");
-        }
+            try
+            {
+                Form host = FindForm();
+                if (_colletDialog == null || _colletDialog.IsDisposed)
+                {
+                    _colletDialog = ColletCalibrationDialog.Open(host);
+                    _colletDialog.StartPosition = FormStartPosition.Manual;
+                    _colletDialog.Location = ResolveDialogLocation(_colletDialog);
+                    lblStatus.Text = "COLLET CAL 설정창을 열었습니다.";
+                    return;
+                }
 
+                if (!_colletDialog.Visible)
+                    _colletDialog.Show(host);
+
+                _colletDialog.Activate();
+                _colletDialog.BringToFront();
+                lblStatus.Text = "COLLET CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "COLLET-CAL-OPEN", "COLLET CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "COLLET CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
         private void btnNeedleCal_Click(object sender, EventArgs e)
         {
             ShowDialogOnce(
@@ -137,11 +158,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void btnVisionFocusCal_Click(object sender, EventArgs e)
         {
-            ShowDialogOnce(
-                ref _visionFocusDialog,
-                "VISION FOCUS CAL",
-                "Bottom, Front Side, Rear Side 카메라의 Focus Score를 스캔하여 최적 위치를 찾는 캘리브레이션입니다.",
-                "저장 제안: 스캔 범위와 Step 기본값은 Config, 제품별 Focus 위치가 다르면 Recipe override를 둡니다.");
+            try
+            {
+                Form host = FindForm();
+                if (_visionFocusDialog == null || _visionFocusDialog.IsDisposed)
+                {
+                    _visionFocusDialog = VisionFocusCalibrationDialog.Open(host);
+                    _visionFocusDialog.StartPosition = FormStartPosition.Manual;
+                    _visionFocusDialog.Location = ResolveDialogLocation(_visionFocusDialog);
+                    lblStatus.Text = "VISION FOCUS CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                if (!_visionFocusDialog.Visible)
+                    _visionFocusDialog.Show(host);
+
+                _visionFocusDialog.Activate();
+                _visionFocusDialog.BringToFront();
+                lblStatus.Text = "VISION FOCUS CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-FOCUS-CAL-OPEN", "VISION FOCUS CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "VISION FOCUS CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private void btnColletRotationCenterCal_Click(object sender, EventArgs e)

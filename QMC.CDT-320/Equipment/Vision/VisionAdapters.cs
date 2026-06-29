@@ -111,7 +111,7 @@ namespace QMC.CDT320.VisionComm
         private readonly AutoVisionChannel _sideChannel;
 
         public TpuVisionAdapter()
-            : this(AutoVisionChannel.Bottom)
+            : this(AutoVisionChannel.BottomInspection)
         {
         }
 
@@ -128,7 +128,7 @@ namespace QMC.CDT320.VisionComm
         public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000, CancellationToken ct = default)
         {
             return AutoVisionRequestService.GrabAsync(
-                AutoVisionChannel.Bottom,
+                AutoVisionChannel.BottomInspection,
                 pickerNo,
                 timeoutMs,
                 ct);

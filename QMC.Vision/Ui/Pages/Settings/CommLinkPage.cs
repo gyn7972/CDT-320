@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -131,7 +131,7 @@ namespace QMC.Vision.Ui.Pages
             int[] cmd =
             {
                 cfg.WaferVisionPort, cfg.InspectionVisionPort, cfg.BinVisionPort,
-                cfg.MainCommPort, cfg.TopSideVisionPort, cfg.BottomSideVisionPort
+                cfg.MainCommPort, cfg.FrontSidePort, cfg.RearSidePort
             };
             int[] view =
             {
@@ -157,8 +157,8 @@ namespace QMC.Vision.Ui.Pages
                 cfg.InspectionVisionPort = ParseCell(1, colCmdPort, cfg.InspectionVisionPort);
                 cfg.BinVisionPort        = ParseCell(2, colCmdPort, cfg.BinVisionPort);
                 cfg.MainCommPort         = ParseCell(3, colCmdPort, cfg.MainCommPort);
-                cfg.TopSideVisionPort    = ParseCell(4, colCmdPort, cfg.TopSideVisionPort);
-                cfg.BottomSideVisionPort = ParseCell(5, colCmdPort, cfg.BottomSideVisionPort);
+                cfg.FrontSidePort    = ParseCell(4, colCmdPort, cfg.FrontSidePort);
+                cfg.RearSidePort = ParseCell(5, colCmdPort, cfg.RearSidePort);
                 // 뷰어 포트(5200대) — Main 제외
                 cfg.WaferViewerPort      = ParseCell(0, colViewPort, cfg.WaferViewerPort);
                 cfg.InspectionViewerPort = ParseCell(1, colViewPort, cfg.InspectionViewerPort);
