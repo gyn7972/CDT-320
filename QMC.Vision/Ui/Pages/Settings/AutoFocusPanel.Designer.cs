@@ -35,6 +35,8 @@ namespace QMC.Vision.Ui.Pages
         private Button btnRoi2;
         private Button btnRoi3;
         private Button btnRoiClear;
+        private Button btnRoiJog;
+        private Button btnProcImg;
 
         private Panel pnlTest;
         private Button btnTestScan;
@@ -46,6 +48,8 @@ namespace QMC.Vision.Ui.Pages
         private Button btnClearLog;
 
         private DataGridView grid;
+        private Label lblHdrTact;
+        private TextBox txtTact;
         private TextBox txtLog;
         private Chart chart;
         private TableLayoutPanel chartSplit;
@@ -85,6 +89,8 @@ namespace QMC.Vision.Ui.Pages
             this.btnRoi2 = new Button();
             this.btnRoi3 = new Button();
             this.btnRoiClear = new Button();
+            this.btnRoiJog = new Button();
+            this.btnProcImg = new Button();
             this.pnlTest = new Panel();
             this.btnTestScan = new Button();
             this.btnTcpScan = new Button();
@@ -94,6 +100,8 @@ namespace QMC.Vision.Ui.Pages
             this.btnReset = new Button();
             this.btnClearLog = new Button();
             this.grid = new DataGridView();
+            this.lblHdrTact = new Label();
+            this.txtTact = new TextBox();
             this.txtLog = new TextBox();
             this.chart = new Chart();
             this.chartSplit = new TableLayoutPanel();
@@ -197,7 +205,7 @@ namespace QMC.Vision.Ui.Pages
             this.btnReset.BackColor = Color.White;
             this.btnReset.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
             // btnClearLog
-            this.btnClearLog.Text = "🗑 통신 로그 지우기";
+            this.btnClearLog.Text = "🗑 로그 지우기";
             this.btnClearLog.Location = new Point(6, 236);
             this.btnClearLog.Size = new Size(184, 32);
             this.btnClearLog.FlatStyle = FlatStyle.Flat;
@@ -232,6 +240,8 @@ namespace QMC.Vision.Ui.Pages
             this.flowNav.Controls.Add(this.btnRoi1);
             this.flowNav.Controls.Add(this.btnRoi2);
             this.flowNav.Controls.Add(this.btnRoi3);
+            this.flowNav.Controls.Add(this.btnRoiJog);
+            this.flowNav.Controls.Add(this.btnProcImg);
             this.flowNav.Controls.Add(this.btnRoiClear);
 
             // btnNav0
@@ -288,6 +298,22 @@ namespace QMC.Vision.Ui.Pages
             this.btnRoi3.BackColor = Color.White;
             this.btnRoi3.ForeColor = Color.ForestGreen;
             this.btnRoi3.TextAlign = ContentAlignment.MiddleLeft;
+            // btnRoiJog (ROI 조그 팝업)
+            this.btnRoiJog.Text = "⊹ ROI 조그/크기";
+            this.btnRoiJog.Width = 184; this.btnRoiJog.Height = 30; this.btnRoiJog.Margin = new Padding(0, 6, 0, 3);
+            this.btnRoiJog.FlatStyle = FlatStyle.Flat;
+            this.btnRoiJog.Font = UiTheme.ButtonFont;
+            this.btnRoiJog.BackColor = Color.White;
+            this.btnRoiJog.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnRoiJog.TextAlign = ContentAlignment.MiddleLeft;
+            // btnProcImg (처리 이미지 팝업)
+            this.btnProcImg.Text = "🔎 처리 이미지 보기";
+            this.btnProcImg.Width = 184; this.btnProcImg.Height = 30; this.btnProcImg.Margin = new Padding(0, 0, 0, 3);
+            this.btnProcImg.FlatStyle = FlatStyle.Flat;
+            this.btnProcImg.Font = UiTheme.ButtonFont;
+            this.btnProcImg.BackColor = Color.White;
+            this.btnProcImg.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnProcImg.TextAlign = ContentAlignment.MiddleLeft;
             // btnRoiClear (현재 타깃 ROI 전체 지우기)
             this.btnRoiClear.Text = "✕ ROI 전체 지우기";
             this.btnRoiClear.Width = 184; this.btnRoiClear.Height = 30; this.btnRoiClear.Margin = new Padding(0, 6, 0, 3);
@@ -307,6 +333,8 @@ namespace QMC.Vision.Ui.Pages
             this.pnlBest.Dock = DockStyle.Left;
             this.pnlBest.Width = 440;
             this.pnlBest.Padding = new Padding(6, 6, 3, 6);
+            this.pnlBest.Controls.Add(this.txtTact);
+            this.pnlBest.Controls.Add(this.lblHdrTact);
             this.pnlBest.Controls.Add(this.grid);
             this.pnlBest.Controls.Add(this.lblHdrBest);
 
@@ -320,11 +348,33 @@ namespace QMC.Vision.Ui.Pages
             this.lblHdrBest.TextAlign = ContentAlignment.MiddleLeft;
             this.lblHdrBest.Padding = new Padding(10, 0, 0, 0);
 
-            this.grid.Dock = DockStyle.Fill;
+            this.grid.Dock = DockStyle.Top;
+            this.grid.Height = 150;
             this.grid.ReadOnly = true;
             this.grid.AllowUserToAddRows = false;
             this.grid.RowHeadersVisible = false;
             this.grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+
+            // lblHdrTact (Tact Time 헤더)
+            this.lblHdrTact.Dock = DockStyle.Top;
+            this.lblHdrTact.Height = 28;
+            this.lblHdrTact.Text = "Tact Time (사이클 / 스텝)";
+            this.lblHdrTact.BackColor = UiTheme.StatusBarBg;
+            this.lblHdrTact.ForeColor = UiTheme.StatusBarFg;
+            this.lblHdrTact.Font = UiTheme.SectionFont;
+            this.lblHdrTact.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblHdrTact.Padding = new Padding(10, 0, 0, 0);
+
+            // txtTact (Tact Time 로그)
+            this.txtTact.Dock = DockStyle.Fill;
+            this.txtTact.Multiline = true;
+            this.txtTact.ReadOnly = true;
+            this.txtTact.WordWrap = false;
+            this.txtTact.ScrollBars = ScrollBars.Both;
+            this.txtTact.BackColor = UiTheme.VisionBg;
+            this.txtTact.ForeColor = UiTheme.VisionInfoFg;
+            this.txtTact.BorderStyle = BorderStyle.None;
+            this.txtTact.Font = new Font("Consolas", 9F);
 
             // pnlLog (우)
             this.pnlLog.Dock = DockStyle.Fill;

@@ -41,7 +41,8 @@ namespace QMC.Vision.Core
                 int w, h;
                 byte[] gray = ToGrayscale(bmp, out w, out h);
                 if (gray == null || w <= 2 * FocusStep || h <= 2 * FocusStep) return 0;
-                return ScoreFocus(gray, w, h, bgThreshold, objThreshold);
+                // 전체 프레임: 중앙 1/3 만 채점(배경 제외 휴리스틱).
+                return ScoreFocus(gray, w, h, bgThreshold, objThreshold, 1.0 / 3.0, out _);
             }
             catch
             {
@@ -50,7 +51,7 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>
-        /// ROI 기준 Score 측정. ROI 를 잘라낸 뒤 전체 프레임 알고리즘을 적용.
+        /// ROI 기준 Score 측정. 사용자가 그린 ROI 는 **전체를 채점**(중앙 1/3 제외 안 함).
         /// </summary>
         public static double Score(Bitmap bmp, Rectangle roi, int objThreshold = 100, int bgThreshold = 100)
         {
@@ -61,7 +62,12 @@ namespace QMC.Vision.Core
                 if (bounds.Width <= 2 * FocusStep || bounds.Height <= 2 * FocusStep) return 0;
 
                 using (Bitmap sub = bmp.Clone(bounds, bmp.PixelFormat))
-                    return Score(sub, objThreshold, bgThreshold);
+                {
+                    int w, h;
+                    byte[] gray = ToGrayscale(sub, out w, out h);
+                    if (gray == null) return 0;
+                    return ScoreFocus(gray, w, h, bgThreshold, objThreshold, 0.0, out _);   // 0.0 = ROI 전체
+                }
             }
             catch
             {
@@ -69,11 +75,20 @@ namespace QMC.Vision.Core
             }
         }
 
-        /// <summary>
-        /// CDT-310 ScoreFocus 직접 이식. 입력은 8bit grayscale 버퍼(길이 w*h).
-        /// </summary>
+        /// <summary>CDT-310 ScoreFocus(중앙 1/3 채점) — 하위호환 시그니처.</summary>
         public static double ScoreFocus(byte[] buffer, int w, int h, int bgThreshold, int objThreshold)
         {
+            return ScoreFocus(buffer, w, h, bgThreshold, objThreshold, 1.0 / 3.0, out _);
+        }
+
+        /// <summary>
+        /// ScoreFocus 본체. <paramref name="marginFraction"/> 만큼 가장자리를 제외하고 채점
+        /// (전체프레임=1/3, ROI=0). <paramref name="respMap"/> 에 엣지 응답 맵(처리이미지)을 반환.
+        /// </summary>
+        public static double ScoreFocus(byte[] buffer, int w, int h, int bgThreshold, int objThreshold,
+                                        double marginFraction, out byte[] respMap)
+        {
+            respMap = null;
             if (buffer == null || buffer.Length < w * h) return 0;
 
             int nStep = FocusStep;
@@ -81,11 +96,12 @@ namespace QMC.Vision.Core
             byte[] gate = (byte[])buffer.Clone();// 게이트 판정용(310 buffer2)
             byte[] resp = new byte[w * h];       // 응답 맵(310 buffer3)
 
-            // 중앙 영역만 채점(좌우/상하 1/3 제외) — 310 동일.
-            int startX = Math.Max(nStep + w / 3, 0);
-            int startY = Math.Max(nStep + h / 3, 0);
-            int endX = Math.Min(w - nStep - 1 - w / 3, w);
-            int endY = Math.Min(h - nStep - 1 - h / 3, h);
+            int mx = (int)(w * marginFraction);
+            int my = (int)(h * marginFraction);
+            int startX = Math.Max(nStep + mx, nStep);
+            int startY = Math.Max(nStep + my, nStep);
+            int endX = Math.Min(w - nStep - 1 - mx, w);
+            int endY = Math.Min(h - nStep - 1 - my, h);
 
             int w2 = w * nStep;
 
@@ -114,8 +130,88 @@ namespace QMC.Vision.Core
                 }
             }
 
-            // 응답 상위 200픽셀 평균 — 310 동일.
-            return resp.OrderByDescending(t => t).Take(TopPixelCount).Average(t => (double)t);
+            respMap = resp;
+            // 응답 상위 200픽셀 평균 — 히스토그램으로 O(N)(대형 이미지 정렬 멈춤 방지, 결과 동일).
+            int[] hist = new int[256];
+            for (int i = 0; i < resp.Length; i++) hist[resp[i]]++;
+            long sumTop = 0; int need = TopPixelCount, taken = 0;
+            for (int v = 255; v >= 0 && need > 0; v--)
+            {
+                int take = Math.Min(hist[v], need);
+                sumTop += (long)v * take;
+                taken += take;
+                need -= take;
+            }
+            return taken > 0 ? (double)sumTop / taken : 0.0;
+        }
+
+        /// <summary>
+        /// 처리(엣지 응답) 이미지를 생성한다. <paramref name="roi"/> 지정 시 그 영역만(전체 채점),
+        /// 없으면 전체 프레임(중앙 1/3). 팝업으로 알고리즘이 무엇을 보는지 확인하는 용도.
+        /// </summary>
+        public static Bitmap BuildResponseImage(Bitmap bmp, Rectangle? roi, int objThreshold = 100, int bgThreshold = 100)
+        {
+            double s; return BuildResponseImage(bmp, roi, objThreshold, out s);
+        }
+
+        /// <summary>처리 이미지 + Score 를 한 번의 패스로 반환(중복 채점 방지).</summary>
+        public static Bitmap BuildResponseImage(Bitmap bmp, Rectangle? roi, int objThreshold, out double score)
+        {
+            score = 0;
+            if (bmp == null) return null;
+            try
+            {
+                Bitmap region;
+                bool ownRegion = false;
+                double margin;
+                if (roi.HasValue)
+                {
+                    Rectangle bounds = Rectangle.Intersect(roi.Value, new Rectangle(0, 0, bmp.Width, bmp.Height));
+                    if (bounds.Width <= 2 * FocusStep || bounds.Height <= 2 * FocusStep) return null;
+                    region = bmp.Clone(bounds, bmp.PixelFormat);
+                    ownRegion = true;
+                    margin = 0.0;
+                }
+                else { region = bmp; margin = 1.0 / 3.0; }
+
+                try
+                {
+                    int w, h;
+                    byte[] gray = ToGrayscale(region, out w, out h);
+                    if (gray == null) return null;
+                    byte[] map;
+                    score = ScoreFocus(gray, w, h, objThreshold, objThreshold, margin, out map);
+                    return GrayToBitmap(map, w, h);
+                }
+                finally { if (ownRegion) region.Dispose(); }
+            }
+            catch { return null; }
+        }
+
+        /// <summary>8bit grayscale 버퍼 → 24bpp Bitmap(회색 복제).</summary>
+        private static Bitmap GrayToBitmap(byte[] gray, int w, int h)
+        {
+            if (gray == null || gray.Length < w * h) return null;
+            Bitmap bmp = new Bitmap(w, h, PixelFormat.Format24bppRgb);
+            BitmapData bd = bmp.LockBits(new Rectangle(0, 0, w, h), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
+            try
+            {
+                int stride = bd.Stride;
+                byte[] row = new byte[stride];
+                for (int y = 0; y < h; y++)
+                {
+                    int gy = y * w;
+                    for (int x = 0; x < w; x++)
+                    {
+                        byte v = gray[gy + x];
+                        int i = x * 3;
+                        row[i] = v; row[i + 1] = v; row[i + 2] = v;
+                    }
+                    System.Runtime.InteropServices.Marshal.Copy(row, 0, System.IntPtr.Add(bd.Scan0, y * stride), stride);
+                }
+            }
+            finally { bmp.UnlockBits(bd); }
+            return bmp;
         }
 
         /// <summary>

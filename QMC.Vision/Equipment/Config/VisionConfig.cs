@@ -191,6 +191,8 @@ namespace QMC.Vision.Config
         [DataMember] public bool   OffAfterGrabWhenAutoFocus{ get; set; } = false;
         /// <summary>오토포커스 ROI 셋업값 — (카메라×타깃)별 ROI1~4. [설정 &gt; 오토 포커스] 에서만 지정.</summary>
         [DataMember] public List<AutoFocusRoiSet> AutoFocusRois { get; set; } = new List<AutoFocusRoiSet>();
+        /// <summary>오토포커스 채점 밝기 임계값(310 nThreadCollet). 이 값 초과 픽셀만 채점. 기본 100.</summary>
+        [DataMember] public int    AutoFocusThreshold       { get; set; } = 100;
         /// <summary>[LEGACY 미사용] 응답 픽셀→mm 변환 포함 여부. SSOT=모듈 CameraConfig.ReturnMmCoordinates.</summary>
         [DataMember] public bool   ReturnMmCoordinates      { get; set; } = false;
 

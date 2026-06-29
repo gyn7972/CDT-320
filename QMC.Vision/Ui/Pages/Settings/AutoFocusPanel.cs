@@ -18,6 +18,7 @@ using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui;
 using QMC.Vision.Ui.Controls;
+using QMC.Vision.Ui.Dialogs;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -39,6 +40,7 @@ namespace QMC.Vision.Ui.Pages
         private FocusCamera _camera = FocusCamera.Bottom;
         private FocusTarget _target = FocusTarget.Collet;
         private long _lastLogRev = -1;
+        private long _lastTactRev = -1;
         private readonly Random _rng = new Random();
 
         public AutoFocusPanel()
@@ -71,7 +73,11 @@ namespace QMC.Vision.Ui.Pages
             btnImgSeq.Click += (s, e) => RunImageSequence();
             btnTestStep.Click += (s, e) => SimulateStep();
             btnReset.Click += (s, e) => ResetSession();
-            btnClearLog.Click += (s, e) => { VisionCommLog.Clear(); _lastLogRev = -1; RefreshLog(); };
+            btnClearLog.Click += (s, e) =>
+            {
+                VisionCommLog.Clear(); _lastLogRev = -1; RefreshLog();
+                AutoFocusTactLog.Clear(); _lastTactRev = -1; RefreshTact();
+            };
 
             // ROI1~4 지정(이미지 드래그) + 전체 지우기 — 현재 선택 타깃에 저장.
             _roiBtns = new[] { btnRoi0, btnRoi1, btnRoi2, btnRoi3 };
@@ -81,6 +87,8 @@ namespace QMC.Vision.Ui.Pages
                 _roiBtns[i].Click += (s, e) => BeginEditRoi(idx);
             }
             btnRoiClear.Click += (s, e) => ClearCurrentRois();
+            btnRoiJog.Click += (s, e) => OpenRoiJog();
+            btnProcImg.Click += (s, e) => OpenProcImg();
             camView.RoiEdited += camView_RoiEdited;
 
             timer.Tick += (s, e) => RefreshView();
@@ -97,6 +105,8 @@ namespace QMC.Vision.Ui.Pages
 
         private void SelectTarget(int idx)
         {
+            CloseRoiPopups();   // 이전 타깃에 묶인 팝업 닫기
+            ClearSimGrabOverride();   // 이전 카메라 grab 오버라이드 해제
             _camera = _navCam[idx];
             _target = _navTgt[idx];
             for (int i = 0; i < _navBtns.Length; i++)
@@ -165,6 +175,48 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
+        private RoiJogDialog _roiJogDlg;
+        private ProcessedImageDialog _procDlg;
+
+        /// <summary>ROI 조그 팝업 열기(모덜리스). 변경 시 오버레이 갱신.</summary>
+        private void OpenRoiJog()
+        {
+            try
+            {
+                if (_roiJogDlg != null && !_roiJogDlg.IsDisposed) { _roiJogDlg.Activate(); return; }
+                _roiJogDlg = new RoiJogDialog(_camera, _target);
+                _roiJogDlg.RoiChanged += () => { try { UpdateRoiOverlay(); } catch { } };
+                _roiJogDlg.Show(FindForm());
+            }
+            catch (Exception ex) { VisionCommLog.Add("[AutoFocusPanel] ROI 조그 열기 실패: " + ex.Message); }
+        }
+
+        /// <summary>처리 이미지 팝업 열기(모덜리스). 현재 카메라 프레임을 처리해 표시.</summary>
+        private void OpenProcImg()
+        {
+            try
+            {
+                if (_procDlg != null && !_procDlg.IsDisposed) { _procDlg.Activate(); return; }
+                // 처리 대상 = 카메라뷰에 현재 표시된 원본 프레임(Grab/Live/Load 모두 반영, 오버레이 없음).
+                Func<Bitmap> provider = () =>
+                {
+                    try { Bitmap f = camView.CurrentFrame; return f != null ? (Bitmap)f.Clone() : null; }
+                    catch { return null; }
+                };
+                _procDlg = new ProcessedImageDialog(_camera, _target, provider);
+                _procDlg.Show(FindForm());
+            }
+            catch (Exception ex) { VisionCommLog.Add("[AutoFocusPanel] 처리 이미지 열기 실패: " + ex.Message); }
+        }
+
+        /// <summary>타깃 전환 시 열려있는 팝업은 닫는다(이전 타깃에 묶여 있으므로).</summary>
+        private void CloseRoiPopups()
+        {
+            try { if (_roiJogDlg != null && !_roiJogDlg.IsDisposed) _roiJogDlg.Close(); } catch { }
+            try { if (_procDlg != null && !_procDlg.IsDisposed) _procDlg.Close(); } catch { }
+            _roiJogDlg = null; _procDlg = null;
+        }
+
         /// <summary>현재 타깃의 ROI1~4 를 카메라뷰에 4색 오버레이로 표시.</summary>
         private void UpdateRoiOverlay()
         {
@@ -191,6 +243,17 @@ namespace QMC.Vision.Ui.Pages
             RefreshGrid(sess);
             RefreshChart(sess);
             RefreshLog();
+            RefreshTact();
+        }
+
+        private void RefreshTact()
+        {
+            long rev = AutoFocusTactLog.Revision;
+            if (rev == _lastTactRev) return;
+            _lastTactRev = rev;
+            txtTact.Lines = AutoFocusTactLog.Snapshot();
+            txtTact.SelectionStart = txtTact.TextLength;
+            txtTact.ScrollToCaret();
         }
 
         private static IVisionModule ModuleFor(Form1 host, FocusCamera cam)
@@ -404,12 +467,40 @@ namespace QMC.Vision.Ui.Pages
         private void ResetSession()
         {
             AutoFocusStore.Start(_camera, _target);
+            ClearSimGrabOverride();
             VisionCommLog.Add(ModuleName() + "|FOCUS_RESET|" +
                 _camera.ToString().ToUpperInvariant() + "|" + _target.ToString().ToUpperInvariant());
             RefreshView();
         }
 
         // ── 실 TCP 통신 테스트(핸들러처럼 자기 자신 서버 포트로 접속) ─────────
+
+        /// <summary>TCP 테스트 시 화면(camView)에 표시된 프레임을 모듈 grab 소스로 주입 — ROI 좌표 일치.</summary>
+        private void ApplySimGrabFromView()
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                if (host == null) return;
+                IVisionModule vm = ModuleFor(host, _camera);
+                Bitmap f = camView.CurrentFrame;
+                if (vm != null && f != null) vm.SetSimOverrideImage(f);
+            }
+            catch { }
+        }
+
+        /// <summary>grab 오버라이드 해제(테스트 종료/타깃 전환 시).</summary>
+        private void ClearSimGrabOverride()
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                if (host == null) return;
+                IVisionModule vm = ModuleFor(host, _camera);
+                if (vm != null) vm.SetSimOverrideImage(null);
+            }
+            catch { }
+        }
 
         private static int PortFor(FocusCamera cam)
         {
@@ -458,6 +549,7 @@ namespace QMC.Vision.Ui.Pages
             string tgtS = tgt.ToString().ToUpperInvariant();
             var inv = CultureInfo.InvariantCulture;
 
+            ApplySimGrabFromView();   // 화면 프레임을 grab 소스로(ROI 정렬)
             SetTestButtonsEnabled(false);
             Task.Run(() =>
             {
@@ -512,6 +604,7 @@ namespace QMC.Vision.Ui.Pages
             bool finish = _tcpStepZ > 22.0 + 1e-9;
             if (finish) { _tcpStepZ = 18.0; _tcpStepNeedStart = true; }
 
+            ApplySimGrabFromView();   // 화면 프레임을 grab 소스로(ROI 정렬)
             Task.Run(() =>
             {
                 try
@@ -562,6 +655,7 @@ namespace QMC.Vision.Ui.Pages
                 {
                     imgs = LoadFocusImages(dir);
                     AutoFocusStore.Start(cam, tgt);
+                    AutoFocusTactLog.MarkCycleStart("ImageSeq " + cam + "/" + tgt);
                     VisionCommLog.Add("[ImageSeq] START cam=" + cam + " target=" + tgt +
                                       " imgs=" + imgs.Count + " (" + (Directory.Exists(dir) ? "파일" : "메모리생성") + ")");
 
@@ -576,6 +670,9 @@ namespace QMC.Vision.Ui.Pages
                         sw.Stop();
                         sumMs += sw.ElapsedMilliseconds;
                         AutoFocusStore.AddSample(cam, tgt, 1, z, Math.Round(score), k == 0);
+                        AutoFocusTactLog.Add("z=" + z.ToString("F2", inv) +
+                                             "  algo=" + sw.ElapsedMilliseconds + "ms" +
+                                             "  score=" + score.ToString("F1", inv));
                         VisionCommLog.Add("[ImageSeq] " + (k + 1).ToString("00") + "/" + imgs.Count +
                                           "  z=" + z.ToString("F2", inv) +
                                           "  score=" + score.ToString("F0") +
@@ -583,6 +680,7 @@ namespace QMC.Vision.Ui.Pages
                     }
                     swTotal.Stop();
                     long avg = imgs.Count > 0 ? sumMs / imgs.Count : 0;
+                    AutoFocusTactLog.MarkCycleEnd("ImageSeq " + cam + "/" + tgt);
                     VisionCommLog.Add("[ImageSeq] DONE  total=" + swTotal.ElapsedMilliseconds +
                                       "ms  avg=" + avg + "ms/step  (" + imgs.Count + " steps)");
                 }

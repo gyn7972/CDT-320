@@ -84,6 +84,7 @@
     <Compile Include="Equipment\Core\AutoFocusCore.cs" />
     <Compile Include="Equipment\Core\AutoFocusSession.cs" />
     <Compile Include="Equipment\Core\AutoFocusStore.cs" />
+    <Compile Include="Equipment\Core\AutoFocusTactLog.cs" />
     <Compile Include="Equipment\Core\AutoFocusRoiStore.cs" />
     <Compile Include="Equipment\Core\Roi.cs" />
     <Compile Include="Equipment\Core\MatchResult.cs" />
@@ -473,6 +474,18 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ScaleCalibrationDialog.Designer.cs">
       <DependentUpon>ScaleCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\RoiJogDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\RoiJogDialog.Designer.cs">
+      <DependentUpon>RoiJogDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ProcessedImageDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ProcessedImageDialog.Designer.cs">
+      <DependentUpon>ProcessedImageDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\LoadChartDialog.cs">
       <SubType>Form</SubType>
