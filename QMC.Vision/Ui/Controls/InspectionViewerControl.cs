@@ -286,6 +286,8 @@ namespace QMC.Vision.Ui.Controls
         private void BuildPositionMaps(InspectionMode mode)
         {
             if (_waferMap == null) return;
+            // Bottom 은 위치별 누적 스토어(BottomCells, 이력 한도와 무관)로 그려 한 랏 전체 위치 유지(스크롤/사라짐 없음).
+            if (mode == InspectionMode.Bottom) { BuildBottomPositionMaps(); return; }
             var hist = InspectionResultStore.History(StoreKeyOf(mode));
             if (hist.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
 
@@ -342,6 +344,44 @@ namespace QMC.Vision.Ui.Controls
                 _waferMap.SetMap(2, "", null);
                 _waferMap.SetMap(3, "", null);
             }
+        }
+
+        /// <summary>Bottom 위치 고정 맵 — 위치별 누적 스토어(BottomCells)에서 Index X/Y 격자로 그린다.
+        /// 롤링 이력과 무관해 다이가 많아도 오래된 위치가 사라지지 않는다(스크롤/리셋 없음).</summary>
+        private void BuildBottomPositionMaps()
+        {
+            var cells = InspectionResultStore.BottomCells(InspectionResultStore.Bottom);
+            if (cells.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
+
+            var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
+            int gridX = recipe != null ? recipe.WaferGridX : 0;
+            int gridY = recipe != null ? recipe.WaferGridY : 0;
+            foreach (var c in cells)
+            {
+                if (c.IndexX + 1 > gridX) gridX = c.IndexX + 1;
+                if (c.IndexY + 1 > gridY) gridY = c.IndexY + 1;
+            }
+            if (gridX <= 0 || gridY <= 0) { _waferMap.SetMaps(null, null, null, null); return; }
+            if (gridX > 600) gridX = 600;
+            if (gridY > 600) gridY = 600;
+
+            double up0, lo0, up1, lo1; string t; Color col;
+            SampleData.Series(InspectionMode.Bottom, 0, out up0, out lo0, out t, out col); ApplyChartLimits(0, ref up0, ref lo0);
+            SampleData.Series(InspectionMode.Bottom, 1, out up1, out lo1, out t, out col); ApplyChartLimits(1, ref up1, ref lo1);
+            double chipLimit = recipe != null ? recipe.MaxChippingDepthMm : 0;
+
+            double[,] m0 = NewNaN(gridY, gridX), m1 = NewNaN(gridY, gridX), c1 = NewNaN(gridY, gridX), c2 = NewNaN(gridY, gridX);
+            foreach (var c in cells)
+            {
+                int cx = c.IndexX, cy = c.IndexY;
+                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
+                m0[cy, cx] = c.Width; m1[cy, cx] = c.Height;
+                c1[cy, cx] = c.Chip1; c2[cy, cx] = c.Chip2;
+            }
+            _waferMap.SetMap(0, "Width", NormAuto(m0, lo0, up0));
+            _waferMap.SetMap(1, "Height", NormAuto(m1, lo1, up1));
+            _waferMap.SetMap(2, "1 Channel ChippingSize", NormByMax(c1, chipLimit));
+            _waferMap.SetMap(3, "2 Channel ChippingSize", NormByMax(c2, chipLimit));
         }
 
         private static string StoreKeyOf(InspectionMode mode)

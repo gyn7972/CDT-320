@@ -46,6 +46,8 @@ namespace QMC.Vision.Ui.Windows
             BackColor = Color.FromArgb(0x2C, 0x30, 0x3A);
             Name = "BottomInspectionWindow";
             Text = "Bottom Inspection";
+            // 상단 40px 스트립을 비워 최소화 버튼 전용 영역 확보(Dock=Fill 뷰어 헤더 버튼과 겹침 방지).
+            Padding = new Padding(0, 40, 0, 0);
 
             Controls.Add(btnMinimize);
 

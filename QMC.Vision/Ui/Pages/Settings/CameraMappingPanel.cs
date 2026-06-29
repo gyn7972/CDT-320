@@ -236,7 +236,6 @@ namespace QMC.Vision.Ui.Pages
                     v => { if (VisionConfigStore.Current != null) VisionConfigStore.Current.MilDcfPath = v?.Trim() ?? ""; },
                     "Matrox DCF (*.dcf)|*.dcf|모든 파일 (*.*)|*.*"),
                 ParameterGridItem.Action("DCF 적용(카메라 재오픈)", "적용", ParameterGridScope.Config, ApplyDcfReopen),
-                ParameterGridItem.Action("카메라에 영구 저장(UserSet1)", "카메라저장", ParameterGridScope.Config, SaveToCameraUserSet),
             };
         }
 
