@@ -43,8 +43,19 @@ namespace QMC.Vision.Core
             public DateTime Time = DateTime.Now;
         }
 
+        /// <summary>바텀 위치(Index X/Y) 1칸 누적 — 위치 고정 맵용. 같은 위치에 새 다이 오면 최신값으로 갱신.
+        /// 롤링 이력(MaxHistory)과 무관하게 '한 랏의 모든 위치'를 유지(Clear 시 초기화).</summary>
+        public sealed class BottomCell
+        {
+            public int IndexX, IndexY, Picker;
+            public double Width, Height, Chip1, Chip2;
+        }
+
         private const int MaxHistory = 300;
         private static readonly object _lock = new object();
+        // 모드 → (위치키 → 바텀 셀) : 위치 고정 맵(Index X/Y). 이력과 별개로 누적.
+        private static readonly Dictionary<string, Dictionary<long, BottomCell>> _bottomMap =
+            new Dictionary<string, Dictionary<long, BottomCell>>(StringComparer.OrdinalIgnoreCase);
         // 모드 → (다이키 → 집계) + 입력순서 리스트(차트 X축)
         private static readonly Dictionary<string, Dictionary<long, DieRecord>> _dieMap =
             new Dictionary<string, Dictionary<long, DieRecord>>(StringComparer.OrdinalIgnoreCase);
@@ -138,6 +149,21 @@ namespace QMC.Vision.Core
                     if (it.Channel <= 1) { die.FrontMax = Math.Max(die.FrontMax, mc); die.HasFront = true; }
                     else                 { die.BackMax  = Math.Max(die.BackMax,  mc); die.HasBack  = true; }
                 }
+
+                // 바텀 위치 고정 맵 — Width/Height 있으면(바텀 결과) 위치(Index X/Y) 셀을 최신값으로 갱신(이력과 무관).
+                if (it.Values.ContainsKey("Width") && it.Values.ContainsKey("Height"))
+                {
+                    if (!_bottomMap.TryGetValue(it.Mode, out var bmap))
+                    { bmap = new Dictionary<long, BottomCell>(); _bottomMap[it.Mode] = bmap; }
+                    long bkey = DieKey(it.IndexX, it.IndexY);
+                    if (!bmap.TryGetValue(bkey, out var cell))
+                    { cell = new BottomCell { IndexX = it.IndexX, IndexY = it.IndexY }; bmap[bkey] = cell; }
+                    double V(string k) => it.Values.TryGetValue(k, out var v) ? v : 0;
+                    cell.Picker = it.Picker;
+                    cell.Width  = V("Width");  cell.Height = V("Height");
+                    cell.Chip1  = Math.Max(V("Chipping Top"),  V("Chipping Bottom"));
+                    cell.Chip2  = Math.Max(V("Chipping Left"), V("Chipping Right"));
+                }
             }
             try { Changed?.Invoke(it.Mode); } catch { }
         }
@@ -146,6 +172,12 @@ namespace QMC.Vision.Core
         public static List<DieRecord> Dies(string mode)
         {
             lock (_lock) { return _dieOrder.TryGetValue(mode, out var list) ? new List<DieRecord>(list) : new List<DieRecord>(); }
+        }
+
+        /// <summary>해당 모드의 바텀 위치 셀 전체(위치 고정 맵용). 이력과 무관하게 누적된 한 랏의 모든 위치.</summary>
+        public static List<BottomCell> BottomCells(string mode)
+        {
+            lock (_lock) { return _bottomMap.TryGetValue(mode, out var m) ? new List<BottomCell>(m.Values) : new List<BottomCell>(); }
         }
 
         /// <summary>해당 모드 picker(1~4)·channel(0~3)의 최신 결과(없으면 null).</summary>
@@ -209,6 +241,7 @@ namespace QMC.Vision.Core
                         for (int c = 0; c < grid[p].Length; c++) grid[p][c] = null;
                 if (_dieMap.TryGetValue(mode, out var dm)) dm.Clear();
                 if (_dieOrder.TryGetValue(mode, out var dord)) dord.Clear();
+                if (_bottomMap.TryGetValue(mode, out var bm)) bm.Clear();
             }
             try { Changed?.Invoke(mode); } catch { }
         }
