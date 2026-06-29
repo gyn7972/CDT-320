@@ -564,7 +564,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (IsAxisInPosition(stage.CameraX, target))
                     return 0;
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, true).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-MOVE", "InputStageUnit", "InputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -604,7 +604,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (IsAxisInPosition(stage.OutputCameraX, target))
                     return 0;
 
-                int result = await stage.MoveStageAxis(BinStageAxis.VisionX, target, true).ConfigureAwait(false);
+                int result = await stage.MoveStageAxis(BinStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MOVE", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -671,7 +671,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, true).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-INPUT-VISION-AVOID", "InputStageUnit", "InputVisionX Avoid 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -709,7 +709,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(CalibrationMotionTimeoutMs, true, ct).ConfigureAwait(false);
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(CalibrationMotionTimeoutMs, JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-VISION-AVOID", "OutputStageUnit", "OutputVisionX Avoid 이동 실패. result=" + result);
 
@@ -739,8 +739,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (_machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null)
                     return Fail("VISION-CAMERA-CAL-PICKER-MISSING", "PickerUnit", "Picker Output-side Avoid 이동을 위한 Picker Unit이 없습니다.");
 
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerUnloadPosition(true);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerUnloadPosition(true);
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerUnloadPosition(JogSpeedType.Fine, 0.0);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerUnloadPosition(JogSpeedType.Fine, 0.0);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-OUTPUT-AVOID", "PickerUnit", "Picker Output-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);
@@ -772,8 +772,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (_machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null)
                     return Fail("VISION-CAMERA-CAL-PICKER-MISSING", "PickerUnit", "Picker Input-side Avoid 이동을 위한 Picker Unit이 없습니다.");
 
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerLoadPosition(true);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerLoadPosition(true);
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerLoadPosition(JogSpeedType.Fine, 0.0);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerLoadPosition(JogSpeedType.Fine, 0.0);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-INPUT-AVOID", "PickerUnit", "Picker Input-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);

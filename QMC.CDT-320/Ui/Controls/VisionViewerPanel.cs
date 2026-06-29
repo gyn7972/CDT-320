@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
+using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.Common.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT_320.Ui.Controls
@@ -21,6 +24,11 @@ namespace QMC.CDT_320.Ui.Controls
         private int _port;
         private VisionTcpClient _cmd;   // 툴바 Grab 시 Vision 에 촬상(EXPOSE) 명령. null 이면 수동 수신만.
         private VisionViewerSource _source;
+        private bool _useSavedPixelScale;
+        private double _savedPixelScaleX;
+        private double _savedPixelScaleY;
+        private double _savedWidthPixel;
+        private double _savedHeightPixel;
 
         public VisionViewerPanel()
         {
@@ -52,6 +60,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _source.Status += OnStatus;
                 _cam.AttachSource(_source);   // 툴바 Grab/Live/Stop이 이 소스를 제어(접속·촬상은 누를 때).
                 _lblStat.Text = "대기 — Grab/뷰어 ON을 누르면 연결";
+                RefreshSavedPixelScale();
                 SetViewerToggle(false);       // 재구성 시 토글은 OFF(라이브 미시작)로 초기화
                 _chkViewer.Enabled = true;
             }
@@ -120,6 +129,31 @@ namespace QMC.CDT_320.Ui.Controls
         /// <summary>판정(OK/NG, 우측상단) 오버레이 — 내부 카메라뷰로 위임.</summary>
         public void SetVerdictText(string text, bool pass) { if (IsDisposed) return; try { _cam.SetVerdict(text, pass); } catch { } }
 
+        public void RefreshSavedPixelScale()
+        {
+            try
+            {
+                VisionCameraPixelCalibration camera = ResolveSavedPixelCalibration();
+                if (camera == null || camera.PixelToMmX == 0 || camera.PixelToMmY == 0)
+                {
+                    _useSavedPixelScale = false;
+                    return;
+                }
+
+                _savedPixelScaleX = camera.PixelToMmX;
+                _savedPixelScaleY = camera.PixelToMmY;
+                _savedWidthPixel = camera.ImageWidthPixel;
+                _savedHeightPixel = camera.ImageHeightPixel;
+                _useSavedPixelScale = true;
+                _cam.MmPerPixelX = _savedPixelScaleX;
+                _cam.MmPerPixelY = _savedPixelScaleY;
+            }
+            catch
+            {
+                _useSavedPixelScale = false;
+            }
+        }
+
         // ── 소스 상태 메시지(촬상 OK / READY 거부 등) → 상태줄 ──
         private void OnStatus(string s)
         {
@@ -139,14 +173,84 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                _cam.MmPerPixelX = meta.ScaleX;
-                _cam.MmPerPixelY = meta.ScaleY;
-                _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + meta.Width + " H:" + meta.Height;
+                double scaleX = _useSavedPixelScale ? _savedPixelScaleX : meta.ScaleX;
+                double scaleY = _useSavedPixelScale ? _savedPixelScaleY : meta.ScaleY;
+                _cam.MmPerPixelX = scaleX;
+                _cam.MmPerPixelY = scaleY;
+
+                int width = _useSavedPixelScale && _savedWidthPixel > 0 ? (int)Math.Round(_savedWidthPixel) : meta.Width;
+                int height = _useSavedPixelScale && _savedHeightPixel > 0 ? (int)Math.Round(_savedHeightPixel) : meta.Height;
+                _cam.InfoText = (meta.Module ?? "") + "\r\nW:" + width + " H:" + height;
                 _cam.SetVerdict(meta.Verdict, meta.VerdictPass);
                 _cam.SetResultLines(meta.ResultLines);
                 _cam.SetOverlay(RoiOf(meta), MarksOf(meta));
             }
             catch { }
+        }
+
+        private VisionCameraPixelCalibration ResolveSavedPixelCalibration()
+        {
+            VisionCameraCalibrationData data;
+            if (!VisionCameraScaleStore.TryLoad(out data))
+                data = ResolveMachineCameraCalibration();
+
+            if (data == null)
+                return null;
+
+            data.EnsureObjects();
+            return ResolveSavedPixelCalibration(data);
+        }
+
+        private VisionCameraCalibrationData ResolveMachineCameraCalibration()
+        {
+            Form1 host = FindHostForm();
+            if (host == null ||
+                host.Machine == null ||
+                host.Machine.VisionUnit == null ||
+                host.Machine.VisionUnit.Config == null ||
+                host.Machine.VisionUnit.Config.CameraCalibration == null)
+                return null;
+
+            VisionCameraCalibrationData data = host.Machine.VisionUnit.Config.CameraCalibration;
+            data.EnsureObjects();
+            return data;
+        }
+
+        private VisionCameraPixelCalibration ResolveSavedPixelCalibration(VisionCameraCalibrationData data)
+        {
+            if (_port == VisionViewerPorts.BottomInspection)
+                return data.BottomCamera;
+            if (_port == VisionViewerPorts.Wafer)
+                return data.InputCamera;
+            if (_port == VisionViewerPorts.Bin)
+                return data.OutputCamera;
+            if (_port == VisionViewerPorts.FrontSideVision)
+                return data.FrontSideCamera;
+            if (_port == VisionViewerPorts.RearSideVision)
+                return data.RearSideCamera;
+
+            return null;
+        }
+
+        private Form1 FindHostForm()
+        {
+            Control current = this;
+            while (current != null)
+            {
+                Form1 host = current as Form1;
+                if (host != null)
+                    return host;
+                current = current.Parent;
+            }
+
+            foreach (Form form in Application.OpenForms)
+            {
+                Form1 host = form as Form1;
+                if (host != null)
+                    return host;
+            }
+
+            return null;
         }
 
         /// <summary>메타의 ROI(검색/검사 영역, 이미지 좌표 top-left) → RectangleF. 없으면 Empty.</summary>

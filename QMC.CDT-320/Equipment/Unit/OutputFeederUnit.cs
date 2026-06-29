@@ -6,6 +6,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
+using QMC.CDT320.Motion.SharedRailX;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -176,7 +177,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = FeederY.ActualPosition + signedDistance;
-            return MoveBinFeederY(target, speedType == JogSpeedType.Fine);
+            return MoveBinFeederY(target, speedType, customSpeed);
         }
 
         public Task<int> JogContinuousAsync(
@@ -205,6 +206,11 @@ namespace QMC.CDT320
         public Task<int> MoveBinFeederY(double targetPos, bool bFine = false)
         {
             return MoveBinFeederYAsync(targetPos, bFine);
+        }
+
+        public Task<int> MoveBinFeederY(double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveBinFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed));
         }
 
         public async Task<int> MoveBinFeederYAsync(double targetPos, bool bFine = false)
@@ -250,9 +256,61 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveBinFeederYAsync(double targetPos, double velocity)
+        {
+            try
+            {
+                string readyReason;
+                if (!CheckBinFeederYMoveReady(out readyReason))
+                    return RaiseFeederAlarm("BF-Y-READY", "OutputFeederY 조그 속도 이동 준비 조건이 맞지 않습니다. " + readyReason);
+
+                if (!ValidateBinFeederYTargetPosition(targetPos))
+                    return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 조그 속도 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
+
+                if (IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
+                {
+                    EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
+                        "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
+                    return 0;
+                }
+
+                EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "OutputFeederY 조그 속도 이동 시작. target=" + targetPos + ", velocity=" + velocity);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                    FeederY,
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(FeederY),
+                    UnitJogVelocityResolver.ResolveDeceleration(FeederY)).ConfigureAwait(false);
+                if (result != 0 || FeederY.IsAlarm)
+                    return RaiseFeederAlarm(
+                        "BF-Y-MOVE",
+                        "OutputFeederY 조그 속도 이동 명령이 실패했습니다. result=" + result +
+                        ", alarm=" + FeederY.IsAlarm +
+                        FormatAxisLastMotionFailure());
+
+                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(targetPos, ResolveBinFeederYMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseFeederAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("BF-Y-MOVE", waitResult),
+                        "OutputFeederY 조그 속도 이동 완료 확인이 실패했습니다. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-Y-MOVE-EX", "OutputFeederY 조그 속도 이동 중 예외가 발생했습니다. " + ex.Message);
+            }
+        }
+
         public Task<int> MoveBinFeederYToTeachingPosition(string positionName, bool bFine = false)
         {
             return MoveBinFeederYNamedPositionAsync(GetTeachingPosition(positionName), "OutputFeederY." + positionName, bFine);
+        }
+
+        public Task<int> MoveBinFeederYToTeachingPosition(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveBinFeederYNamedPositionAsync(GetTeachingPosition(positionName), "OutputFeederY." + positionName, speedType, customSpeed);
         }
 
         public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederYNamedPositionAsync(Recipe.AvoidPosition, "OutputFeederY.AvoidPosition", bFine); }
@@ -333,6 +391,14 @@ namespace QMC.CDT320
             using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
             {
                 return await MoveBinFeederYAsync(targetPosition, bFine).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<int> MoveBinFeederYNamedPositionAsync(double targetPosition, string targetName, JogSpeedType speedType, double customSpeed)
+        {
+            using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
+            {
+                return await MoveBinFeederYAsync(targetPosition, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed)).ConfigureAwait(false);
             }
         }
 

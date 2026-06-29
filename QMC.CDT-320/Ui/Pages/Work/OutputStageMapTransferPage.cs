@@ -1063,7 +1063,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 // 2) 행(Y): 스테이지 Y축
                 BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 int rowResult = await AwaitManualMoveStepAsync(
-                    unit.MoveStageAxis(yAxis, absY, true),
+                    unit.MoveStageAxis(yAxis, absY, JogSpeedType.Fine, 0.0),
                     timeoutMs,
                     "빈 슬롯 행(Y) 이동",
                     () => StopManualMapMove(host, "Output Y move timeout")).ConfigureAwait(true);
@@ -1077,7 +1077,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 // 3) 열(X): VisionX(카메라)
                 int colResult = await AwaitManualMoveStepAsync(
-                    unit.MoveStageAxis(BinStageAxis.VisionX, absX, true),
+                    unit.MoveStageAxis(BinStageAxis.VisionX, absX, JogSpeedType.Fine, 0.0),
                     timeoutMs,
                     "빈 슬롯 열(VisionX) 이동",
                     () => StopManualMapMove(host, "Output VisionX move timeout")).ConfigureAwait(true);
@@ -1205,7 +1205,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return prepareResult;
 
                 BinStageAxis yAxis = outputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
-                int stageResult = await unit.MoveStageAxis(yAxis, targets.OutputStageY, true).ConfigureAwait(true);
+                int stageResult = await unit.MoveStageAxis(yAxis, targets.OutputStageY, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (stageResult != 0)
                     return stageResult;
 
@@ -1281,7 +1281,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
                 if (IsFrontPickerInOutputZone(front) && !front.IsFrontPickerInAvoidPosition())
                 {
-                    int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                    int frontResult = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                     if (frontResult != 0)
                         return frontResult;
                     if (!front.IsFrontPickerInAvoidPosition())
@@ -1291,7 +1291,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 PickerRearUnit rear = host.Machine.PickerRearUnit;
                 if (IsRearPickerInOutputZone(rear) && !rear.IsRearPickerInAvoidPosition())
                 {
-                    int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                    int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                     if (rearResult != 0)
                         return rearResult;
                     if (!rear.IsRearPickerInAvoidPosition())
@@ -1325,7 +1325,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (pickerAvoidResult != 0)
                     return pickerAvoidResult;
 
-                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, true).ConfigureAwait(true);
+                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
@@ -1391,7 +1391,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (!IsRearPickerInOutputZone(rear))
                         return 0;
 
-                    int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                    int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                     if (rearResult != 0)
                         return rearResult;
 
@@ -1402,7 +1402,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!IsFrontPickerInOutputZone(front))
                     return 0;
 
-                int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                int frontResult = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (frontResult != 0)
                     return frontResult;
 
@@ -1453,7 +1453,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (alreadyReady)
                         return 0;
 
-                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, true).ConfigureAwait(true);
+                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                     if (zResult != 0)
                         return zResult;
 
@@ -1599,11 +1599,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (side == PickerSequenceSide.Front)
             {
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                return front != null ? front.MoveFrontPickerAxis(axis, target, true, targetName) : Task.FromResult(-1);
+                return front != null ? front.MoveFrontPickerAxis(axis, target, JogSpeedType.Fine, 0.0, targetName) : Task.FromResult(-1);
             }
 
             PickerRearUnit rear = host.Machine.PickerRearUnit;
-            return rear != null ? rear.MoveRearPickerAxis(axis, target, true, targetName) : Task.FromResult(-1);
+            return rear != null ? rear.MoveRearPickerAxis(axis, target, JogSpeedType.Fine, 0.0, targetName) : Task.FromResult(-1);
         }
 
         private static async Task<int> WaitPickerAxisInPositionAsync(Form1 host, PickerSequenceSide side, PickerAxis axis, double target, int timeoutMs)

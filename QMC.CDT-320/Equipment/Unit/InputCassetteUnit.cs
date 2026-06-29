@@ -220,9 +220,20 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                // 인터락 사전검사는 실제 이동(MoveAbsoluteAsync)의 BaseAxis.MotionGuard 훅에서
-                // InputCassetteInterlockRules.Verify로 1번 수행한다. 여기서 중복 호출하지 않는다.
-                return await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine), ct).ConfigureAwait(false);
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
+                {
+                    LastWaferLifterMoveFailureMessage = interlockReason;
+                    return -11;
+                }
+
+                await MoveWithProtrusionWatch(
+                    targetPos,
+                    ResolveWaferLifterZMoveVelocity(bFine),
+                    ResolveWaferLifterZMoveAcceleration(bFine),
+                    ResolveWaferLifterZMoveDeceleration(bFine),
+                    ct).ConfigureAwait(false);
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -236,6 +247,38 @@ namespace QMC.CDT320
                     "Input cassette Z move failed. target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CheckWaferLifterZInterlock(double targetPos, MotionGuardMoveKind moveKind, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                bool allowed = InputCassetteInterlockRules.VerifyWaferLifterZ(
+                    Machine,
+                    targetPos,
+                    moveKind,
+                    out reason);
+
+                if (allowed)
+                    return true;
+
+                if (string.IsNullOrWhiteSpace(reason))
+                    reason = "InputLifterZ 이동 인터락 조건이 만족되지 않습니다.";
+
+                RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-INTERLOCK", reason);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputLifterZ 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-INTERLOCK-EX", reason);
+                return false;
             }
             finally
             {
@@ -256,7 +299,13 @@ namespace QMC.CDT320
 
                 // 인터락 사전검사는 실제 이동의 BaseAxis.MotionGuard 훅에서 1번 수행한다. 중복 호출하지 않는다.
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
-                return await MoveWithProtrusionWatch(targetPos, velocity);
+                await MoveWithProtrusionWatch(
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(InputLifterZ),
+                    UnitJogVelocityResolver.ResolveDeceleration(InputLifterZ),
+                    CancellationToken.None).ConfigureAwait(false);
+                return 0;
             }
             catch (Exception ex)
             {
@@ -276,6 +325,21 @@ namespace QMC.CDT320
             try
             {
                 return await MoveWaferLifterZ(GetTeachingPosition(positionName), bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveWaferLifterZToTeachingPosition(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                return await MoveWaferLifterZ(GetTeachingPosition(positionName), speedType, customSpeed).ConfigureAwait(false);
             }
             catch
             {
@@ -1783,6 +1847,26 @@ namespace QMC.CDT320
             }
         }
 
+        private double ResolveWaferLifterZMoveAcceleration(bool bFine)
+        {
+            if (InputLifterZ == null || InputLifterZ.Config == null)
+                return 0.0;
+
+            return bFine && InputLifterZ.Config.JogAcceleration > 0.0
+                ? InputLifterZ.Config.JogAcceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Acceleration);
+        }
+
+        private double ResolveWaferLifterZMoveDeceleration(bool bFine)
+        {
+            if (InputLifterZ == null || InputLifterZ.Config == null)
+                return 0.0;
+
+            return bFine && InputLifterZ.Config.JogDeceleration > 0.0
+                ? InputLifterZ.Config.JogDeceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Deceleration);
+        }
+
         public int ResolveWaferLifterZMoveTimeoutMs()
         {
             try
@@ -1924,6 +2008,19 @@ namespace QMC.CDT320
 
         private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
         {
+            return await MoveWithProtrusionWatch(targetPosition, velocity, 0.0, 0.0, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWithProtrusionWatch(
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            CancellationToken ct)
+        {
+            double oldAcceleration = 0.0;
+            double oldDeceleration = 0.0;
+            bool useCustomAcceleration = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -1935,6 +2032,15 @@ namespace QMC.CDT320
                     Log.Write("Main", "MOTION", Name,
                         "Input cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
                     return -1;
+                }
+
+                oldAcceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Acceleration : 0.0;
+                oldDeceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Deceleration : 0.0;
+                useCustomAcceleration = InputLifterZ.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                if (useCustomAcceleration)
+                {
+                    InputLifterZ.Config.Acceleration = acceleration;
+                    InputLifterZ.Config.Deceleration = deceleration;
                 }
 
                 Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
@@ -1955,6 +2061,13 @@ namespace QMC.CDT320
                 }
 
                 int moveResult = await moveTask.ConfigureAwait(false);
+                if (useCustomAcceleration)
+                {
+                    InputLifterZ.Config.Acceleration = oldAcceleration;
+                    InputLifterZ.Config.Deceleration = oldDeceleration;
+                    useCustomAcceleration = false;
+                }
+
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                 {
                     LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 명령 실패. result=" + moveResult +
@@ -1989,6 +2102,11 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (useCustomAcceleration && InputLifterZ != null && InputLifterZ.Config != null)
+                {
+                    InputLifterZ.Config.Acceleration = oldAcceleration;
+                    InputLifterZ.Config.Deceleration = oldDeceleration;
+                }
             }
         }
 
@@ -2067,19 +2185,19 @@ namespace QMC.CDT320
             return slotCount * ResolveCassetteLevelCount();
         }
 
-        /// <summary>Config.SlotCount??留욎떠 Recipe.SlotPosition 踰꾪띁瑜?蹂댁옣?⑸땲??</summary>
+        /// <summary>Config.SlotCount에 맞춰 Recipe.SlotPosition 버퍼를 보장합니다.</summary>
         public void EnsureSlotPositionBuffer()
         {
             Recipe.EnsureSlotPositionBuffer(ResolveMappingSlotCount());
         }
 
-        /// <summary>Mapping ??SlotPosition 踰꾪띁瑜?珥덇린?뷀빀?덈떎.</summary>
+        /// <summary>Mapping용 SlotPosition 버퍼를 초기화합니다.</summary>
         public void ResetSlotPositionsForMapping()
         {
             Recipe.ResizeSlotPositions(ResolveMappingSlotCount());
         }
 
-        /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
+        /// <summary>지정 Slot의 Mapping 위치를 갱신합니다.</summary>
         public void UpdateSlotPosition(int slotIndex, double position)
         {
             ValidateMappingSlotIndex(slotIndex);
@@ -2087,7 +2205,7 @@ namespace QMC.CDT320
             Recipe.UpdateSlotPosition(slotIndex, position);
         }
 
-        /// <summary>Mapping 寃곌낵媛 ?놁쓣 ???ъ슜??紐낅ぉ Slot ?꾩튂瑜?怨꾩궛?⑸땲??</summary>
+        /// <summary>Mapping 결과가 없을 때 사용할 명목 Slot 위치를 계산합니다.</summary>
         public double CalculateNominalSlotPosition(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);

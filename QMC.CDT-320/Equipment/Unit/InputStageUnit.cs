@@ -242,6 +242,36 @@ namespace QMC.CDT320
                 ? axis.Config.JogFineVelocity
                 : ResolveAxisVelocity(axis);
         }
+
+        private static double ResolveAxisAcceleration(BaseAxis axis)
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(
+                axis != null && axis.Config != null && axis.Config.Acceleration > 0.0
+                    ? axis.Config.Acceleration
+                    : 100.0);
+        }
+
+        private static double ResolveAxisDeceleration(BaseAxis axis)
+        {
+            return MotionSpeedScale.ApplyDefaultAccelerationScale(
+                axis != null && axis.Config != null && axis.Config.Deceleration > 0.0
+                    ? axis.Config.Deceleration
+                    : 100.0);
+        }
+
+        private static double ResolveAxisFineAcceleration(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.JogAcceleration > 0.0
+                ? axis.Config.JogAcceleration
+                : ResolveAxisAcceleration(axis);
+        }
+
+        private static double ResolveAxisFineDeceleration(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.JogDeceleration > 0.0
+                ? axis.Config.JogDeceleration
+                : ResolveAxisDeceleration(axis);
+        }
     }
 
     // ??????????????????????????????????????????????????????????????????????????
@@ -1222,11 +1252,11 @@ namespace QMC.CDT320
             WaferStageAxis stageAxis;
             if (TryResolveInputStageAxis(axis, out stageAxis))
             {
-                int result = await MoveInputStageAxis(stageAxis, target, speedType == JogSpeedType.Fine).ConfigureAwait(false);
+                int result = await MoveInputStageAxis(stageAxis, target, speedType, customSpeed).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                return await WaitInputStageAxisInPosition(stageAxis, target, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                return 0;
             }
 
             return -1;
@@ -1284,7 +1314,9 @@ namespace QMC.CDT320
                 }
 
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                double acceleration = ResolveInputStageMoveAcceleration(axis, bFine);
+                double deceleration = ResolveInputStageMoveDeceleration(axis, bFine);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
                 {
                     string message = axis + " move failed. result=" + result +
@@ -1328,6 +1360,52 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveInputStageAxis(WaferStageAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                BaseAxis item = ResolveInputStageAxis(axis);
+                if (item == null)
+                {
+                    LastStageMoveFailureMessage = axis + " 조그 속도 위치 이동 실패. 축 정보가 없습니다. target=" + targetPos;
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+                }
+
+                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+                double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                int result = await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
+                    axis,
+                    targetPos,
+                    ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    LastStageMoveFailureMessage = axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
+                    return RaiseStageAlarm(
+                        AlarmSeverity.Error,
+                        AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
+                        Name,
+                        LastStageMoveFailureMessage);
+                }
+
+                LastStageMoveFailureMessage = string.Empty;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastStageMoveFailureMessage = axis + " 조그 속도 위치 이동 예외. target=" + targetPos + ". " + ex.Message;
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE-EX", Name, LastStageMoveFailureMessage);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveInputStageAxisCommandWithVelocity(WaferStageAxis axis, double targetPos, double velocity)
         {
             return await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, 0.0, 0.0).ConfigureAwait(false);
@@ -1351,30 +1429,24 @@ namespace QMC.CDT320
                     return 0;
                 }
 
-                // 인터락 사전검사는 실제 이동(MoveAxisAsync)의 BaseAxis.MotionGuard 훅에서 1번 수행한다.
-                // 차단 시 result != 0 으로 반환되어 아래에서 처리된다. 여기서 중복 호출하지 않는다.
-                double oldAcceleration = item.Config != null ? item.Config.Acceleration : 0.0;
-                double oldDeceleration = item.Config != null ? item.Config.Deceleration : 0.0;
-                bool useCustomAccel = item.Config != null && acceleration > 0.0 && deceleration > 0.0;
-                int result;
-                try
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
                 {
-                    if (useCustomAccel)
-                    {
-                        item.Config.Acceleration = acceleration;
-                        item.Config.Deceleration = deceleration;
-                    }
+                    string message = axis + " move command blocked by interlock. target=" + targetPos + ". " + interlockReason;
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(
+                        AlarmSeverity.Error,
+                        "IN-STAGE-MOVE-INTERLOCK",
+                        Name,
+                        message);
+                }
 
-                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
-                }
-                finally
-                {
-                    if (useCustomAccel)
-                    {
-                        item.Config.Acceleration = oldAcceleration;
-                        item.Config.Deceleration = oldDeceleration;
-                    }
-                }
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                    item,
+                    targetPos,
+                    velocity,
+                    acceleration,
+                    deceleration).ConfigureAwait(false);
 
                 if (result != 0 || item.IsAlarm)
                 {
@@ -1652,6 +1724,24 @@ namespace QMC.CDT320
             return bFine ? ResolveAxisFineVelocity(StageY) : ResolveAxisVelocity(StageY);
         }
 
+        private double ResolveInputStageMoveAcceleration(WaferStageAxis axis, bool bFine)
+        {
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+                return ResolveAxisAcceleration(ResolveInputStageAxis(axis));
+
+            BaseAxis item = ResolveInputStageAxis(axis);
+            return bFine ? ResolveAxisFineAcceleration(item) : ResolveAxisAcceleration(item);
+        }
+
+        private double ResolveInputStageMoveDeceleration(WaferStageAxis axis, bool bFine)
+        {
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+                return ResolveAxisDeceleration(ResolveInputStageAxis(axis));
+
+            BaseAxis item = ResolveInputStageAxis(axis);
+            return bFine ? ResolveAxisFineDeceleration(item) : ResolveAxisDeceleration(item);
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         //  §5. UI 연동 ? 컨펌 신호 수신 메서드
         // ──────────────────────────────────────────────────────────────────────
@@ -1792,7 +1882,8 @@ namespace QMC.CDT320
                 int centerRow = map.RowCount / 2;
                 int centerCol = map.ColumnCount / 2;
 
-                result = await MoveToDieAsync(centerRow, centerCol, true).ConfigureAwait(false);
+                bool useEstimatedDiePosition = true;
+                result = await MoveToDieAsync(centerRow, centerCol, useEstimatedDiePosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
@@ -1816,7 +1907,7 @@ namespace QMC.CDT320
                         break;
                 }
 
-                result = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, true).ConfigureAwait(false);
+                result = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, useEstimatedDiePosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1").ConfigureAwait(false);
@@ -1827,7 +1918,7 @@ namespace QMC.CDT320
                 double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
                 double ref1Y = StageY.ActualPosition + ref1Result.DeltaY;
 
-                result = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, true).ConfigureAwait(false);
+                result = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, useEstimatedDiePosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2").ConfigureAwait(false);
@@ -2528,7 +2619,25 @@ namespace QMC.CDT320
             return Config != null && Config.SequenceMoveTimeoutMs > 0 ? Config.SequenceMoveTimeoutMs : 10000;
         }
 
-        public async Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, bool bFine = true, string source = null)
+        public Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, bool bFine = false, string source = null)
+        {
+            return MoveVisionPointSafelyAsync(
+                targetX,
+                targetY,
+                (axis, target) => MoveInputStageAxis(axis, target, bFine),
+                source);
+        }
+
+        public Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, JogSpeedType speedType, double customSpeed, string source = null)
+        {
+            return MoveVisionPointSafelyAsync(
+                targetX,
+                targetY,
+                (axis, target) => MoveInputStageAxis(axis, target, speedType, customSpeed),
+                source);
+        }
+
+        private async Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, Func<WaferStageAxis, double, Task<int>> moveAxisAsync, string source = null)
         {
             try
             {
@@ -2550,21 +2659,21 @@ namespace QMC.CDT320
                 string xFirstReason;
                 if (IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason))
                 {
-                    int result = await MoveInputStageAxis(WaferStageAxis.VisionX, targetX, bFine).ConfigureAwait(false);
+                    int result = await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
-                    return await MoveInputStageAxis(WaferStageAxis.WaferY, targetY, bFine).ConfigureAwait(false);
+                    return await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
                 }
 
                 string yFirstReason;
                 if (IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason))
                 {
-                    int result = await MoveInputStageAxis(WaferStageAxis.WaferY, targetY, bFine).ConfigureAwait(false);
+                    int result = await moveAxisAsync(WaferStageAxis.WaferY, targetY).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
-                    return await MoveInputStageAxis(WaferStageAxis.VisionX, targetX, bFine).ConfigureAwait(false);
+                    return await moveAxisAsync(WaferStageAxis.VisionX, targetX).ConfigureAwait(false);
                 }
 
                 return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-PATH", moveSource,
@@ -2595,7 +2704,7 @@ namespace QMC.CDT320
         /// true이면 원점/피치 미수립 상태에서 Recipe 기본 피치로 좌표를 추정한다.<br/>
         /// false이면 수립된 <see cref="OriginX"/>, <see cref="OriginY"/>, <see cref="PitchX"/>, <see cref="PitchY"/>를 사용한다.
         /// </param>
-        private async Task<int> MoveToDieAsync(int row, int col, bool useEstimate = false)
+        private async Task<int> MoveToDieAsync(int row, int col, bool useEstimate = false, bool bFine = false)
         {
             try
             {
@@ -2612,7 +2721,7 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-AREA", "InputStageUnit.MoveToDieAsync",
                         "Die target is outside input stage work area. row=" + row + ", col=" + col + ". " + areaReason);
 
-                return await MoveVisionPointSafelyAsync(targetX, targetY, true, "InputStageUnit.MoveToDieAsync").ConfigureAwait(false);
+                return await MoveVisionPointSafelyAsync(targetX, targetY, bFine, "InputStageUnit.MoveToDieAsync").ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Ui.Controls;
 using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
@@ -57,6 +58,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnReload_Click(object sender, EventArgs e)
         {
             LoadCameraScaleSettings();
+            RefreshOpenVisionViewers();
         }
 
         private async void btnCameraSettingReq_Click(object sender, EventArgs e)
@@ -230,6 +232,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
+                if (gridCameraScale.IsCurrentCellDirty)
+                    gridCameraScale.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                gridCameraScale.EndEdit();
+
                 Form1 host = FindHostForm();
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null || host.Machine.VisionUnit.Config == null)
                     throw new InvalidOperationException("VisionUnit Config가 준비되지 않아 Camera Scale을 저장할 수 없습니다.");
@@ -279,7 +285,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.UpdatedBy = "CameraScaleDialog";
 
                 host.SaveMachineSettings();
-                EventLogger.Write(EventKind.Event, "VISION", "VISION-CAMERA-SCALE-SAVE", "카메라 Pixel Scale을 VisionUnit Config에 저장했습니다.");
+                string saveReason;
+                if (!VisionCameraScaleStore.Save(data, out saveReason))
+                    throw new InvalidOperationException("Camera Scale 전용 저장 파일 쓰기에 실패했습니다. path=" + VisionCameraScaleStore.FilePath + ", reason=" + saveReason);
+
+                RefreshOpenVisionViewers();
+                EventLogger.Write(EventKind.Event, "VISION", "VISION-CAMERA-SCALE-SAVE",
+                    "카메라 Pixel Scale을 저장했습니다. path=" + VisionCameraScaleStore.FilePath);
                 if (showMessage)
                     QMC.Common.MessageDialog.Show(this, "카메라 Pixel Scale을 저장했습니다.\r\nCenter는 Width/2, Height/2로 자동 계산됩니다.\r\nVision Camera Cal Offset은 CALC/SAVE를 다시 실행해 갱신하세요.", "VISION", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return true;
@@ -306,6 +318,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (host.Machine.VisionUnit.Config.CameraCalibration == null)
                 host.Machine.VisionUnit.Config.CameraCalibration = new VisionCameraCalibrationData();
+
+            VisionCameraCalibrationData saved;
+            if (VisionCameraScaleStore.TryLoad(out saved))
+                host.Machine.VisionUnit.Config.CameraCalibration = saved;
 
             host.Machine.VisionUnit.Config.CameraCalibration.EnsureObjects();
             return host.Machine.VisionUnit.Config.CameraCalibration;
@@ -385,6 +401,31 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             return null;
+        }
+
+        private static void RefreshOpenVisionViewers()
+        {
+            try
+            {
+                foreach (Form form in Application.OpenForms)
+                    RefreshVisionViewers(form);
+            }
+            catch
+            {
+            }
+        }
+
+        private static void RefreshVisionViewers(Control root)
+        {
+            if (root == null)
+                return;
+
+            VisionViewerPanel viewer = root as VisionViewerPanel;
+            if (viewer != null)
+                viewer.RefreshSavedPixelScale();
+
+            foreach (Control child in root.Controls)
+                RefreshVisionViewers(child);
         }
 
         private void SetBusy(bool busy)

@@ -328,7 +328,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (position == null)
                     return;
 
-                await ConfirmFeederMoveAsync(position.DisplayName, () => _inputFeederUnit.MoveWaferFeederYToTeachingPosition(position.PositionName, IsFineMove()));
+                await ConfirmFeederMoveAsync(
+                    position.DisplayName,
+                    () => _inputFeederUnit.MoveWaferFeederYToTeachingPosition(
+                        position.PositionName,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(_inputFeederUnit.FeederY)));
             }
             catch
             {
@@ -479,7 +484,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 await RunSafeAsync(async () =>
                 {
-                    int moveResult = await _inputFeederUnit.MoveWaferFeederYToTeachingPosition(positionName, IsFineMove());
+                    int moveResult = await _inputFeederUnit.MoveWaferFeederYToTeachingPosition(
+                        positionName,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(_inputFeederUnit.FeederY));
                     if (moveResult != 0)
                         return moveResult;
 
@@ -592,7 +600,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     try
                     {
                         double target = _inputFeederUnit.FeederY.ActualPosition + (direction * axisStepDistance);
-                        int moveResult = await _inputFeederUnit.MoveWaferFeederY(target, false);
+                        int moveResult = await _inputFeederUnit.MoveWaferFeederY(target, speedType, customSpeed);
                         if (moveResult != 0)
                             return moveResult;
 
@@ -775,21 +783,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch
             {
-            }
-            finally
-            {
-            }
-        }
-
-        private bool IsFineMove()
-        {
-            try
-            {
-                return true;
-            }
-            catch
-            {
-                return true;
             }
             finally
             {

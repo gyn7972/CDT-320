@@ -900,7 +900,7 @@ namespace QMC.CDT320
 
             BinStageAxis stageAxis;
             if (TryResolveStageAxis(axis, out stageAxis))
-                return await MoveStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
+                return await MoveStageAxis(stageAxis, target, speedType, customSpeed).ConfigureAwait(false);
 
             return -1;
         }
@@ -942,6 +942,8 @@ namespace QMC.CDT320
 
                 BaseAxis item = ResolveStageAxis(axis);
                 double velocity = ResolveStageAxisVelocity(item, bFine);
+                double acceleration = ResolveStageAxisAcceleration(item, bFine);
+                double deceleration = ResolveStageAxisDeceleration(item, bFine);
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
 
                 int result;
@@ -984,6 +986,44 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return 0;
+
+                BaseAxis item = ResolveStageAxis(axis);
+                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+                double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " 조그 속도 위치 이동 시작. target=" + targetPos + ", velocity=" + velocity);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                if (result != 0 || item.IsAlarm)
+                    return RaiseOutputStageAlarm(
+                        "OS-MOVE",
+                        axis + " 조그 속도 위치 이동 명령 실패. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        FormatStageAxisLastMotionFailure(item));
+
+                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    item.Setup != null && item.Setup.MoveTimeoutMs > 0 ? item.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseOutputStageAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
+                        axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " 조그 속도 위치 이동 중 예외가 발생했습니다. " + ex.Message);
+            }
+        }
+
         private static string FormatStageAxisLastMotionFailure(BaseAxis axis)
         {
             if (axis == null ||
@@ -997,6 +1037,11 @@ namespace QMC.CDT320
         public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false)
         {
             return MoveStageAxis(axis, GetStageTeachingPosition(axis, positionName), bFine);
+        }
+
+        public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveStageAxis(axis, GetStageTeachingPosition(axis, positionName), speedType, customSpeed);
         }
 
         public async Task<int> MoveToStageAvoidPosition(bool bFine = false)
@@ -1456,6 +1501,27 @@ namespace QMC.CDT320
                 ct.ThrowIfCancellationRequested();
                 Recipe.EnsurePositionObjects();
                 return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-VISION-AVOID-EX", "OutputVisionX avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, JogSpeedType speedType, double customSpeed, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, timeoutMs, speedType, customSpeed, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1940,6 +2006,27 @@ namespace QMC.CDT320
             return 0;
         }
 
+        private async Task<int> MoveStageAxisAndVerifyAsync(BinStageAxis axis, double targetPos, int timeoutMs, JogSpeedType speedType, double customSpeed, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!HasStageAxis(axis))
+                return 0;
+
+            int result = await MoveStageAxis(axis, targetPos, speedType, customSpeed).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return RaiseOutputStageAlarm(
+                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
+                    axis + " 조그 속도 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
+                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
+            return 0;
+        }
+
         private bool CheckStageAxisInPosition(BinStageAxis axis, double targetPos)
         {
             if (!HasStageAxis(axis))
@@ -2245,6 +2332,26 @@ namespace QMC.CDT320
                 return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
 
             return MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
+        }
+
+        private double ResolveStageAxisAcceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return MotionSpeedScale.ApplyDefaultAccelerationScale(100.0);
+
+            return bFine && axis.Config.JogAcceleration > 0.0
+                ? axis.Config.JogAcceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+        }
+
+        private double ResolveStageAxisDeceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return MotionSpeedScale.ApplyDefaultAccelerationScale(100.0);
+
+            return bFine && axis.Config.JogDeceleration > 0.0
+                ? axis.Config.JogDeceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
         }
 
         private StageAxisPositions ResolveRecipePositions(BinStageAxis axis)

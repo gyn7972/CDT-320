@@ -234,7 +234,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = OutputLifterZ.ActualPosition + signedDistance;
-            await MoveBinLifterZ(target, speedType == JogSpeedType.Fine);
+            await MoveBinLifterZ(target, speedType, customSpeed).ConfigureAwait(false);
             return 0;
         }
 
@@ -302,9 +302,42 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveBinLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
+        {
+            try
+            {
+                double velocity = UnitJogVelocityResolver.Resolve(OutputLifterZ, speedType, customSpeed);
+                if (velocity <= 0.0)
+                    velocity = OutputLifterZ != null && OutputLifterZ.Config != null ? OutputLifterZ.Config.JogFineVelocity : 1.0;
+
+                return await MoveWithProtrusionWatch(
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(OutputLifterZ),
+                    UnitJogVelocityResolver.ResolveDeceleration(OutputLifterZ),
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                LastBinLifterMoveFailureMessage = "Bin Lifter Z 조그 속도 이동 예외. target=" + targetPos + ", error=" + ex.Message;
+                QMC.Common.Log.Write("Main", "MOTION", Name,
+                    "Output Cassette Z 조그 속도 이동이 실패했습니다. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         public Task<int> MoveBinLifterZToTeachingPosition(string positionName, bool bFine = false)
         {
             return MoveBinLifterZ(GetTeachingPosition(positionName), bFine);
+        }
+
+        public Task<int> MoveBinLifterZToTeachingPosition(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveBinLifterZ(GetTeachingPosition(positionName), speedType, customSpeed);
         }
 
         public Task<int> MoveToCassetteAvoidPosition(bool bFine = false) { return MoveToBinCassetteAvoidPosition(bFine); }
@@ -1069,7 +1102,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await MoveBinLifterZ(Recipe.MappingEndPosition, true, ct).ConfigureAwait(false);
+                int result = await MoveBinLifterZ(Recipe.MappingEndPosition, false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1106,7 +1139,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await MoveBinLifterZ(Recipe.MappingStartPosition, true, ct).ConfigureAwait(false);
+                int result = await MoveBinLifterZ(Recipe.MappingStartPosition, false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1872,6 +1905,19 @@ namespace QMC.CDT320
 
         private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
         {
+            return await MoveWithProtrusionWatch(targetPosition, velocity, 0.0, 0.0, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWithProtrusionWatch(
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            CancellationToken ct)
+        {
+            double oldAcceleration = 0.0;
+            double oldDeceleration = 0.0;
+            bool useCustomAcceleration = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -1883,6 +1929,15 @@ namespace QMC.CDT320
                     QMC.Common.Log.Write("Main", "MOTION", Name,
                         "Output cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
                     return -1;
+                }
+
+                oldAcceleration = OutputLifterZ.Config != null ? OutputLifterZ.Config.Acceleration : 0.0;
+                oldDeceleration = OutputLifterZ.Config != null ? OutputLifterZ.Config.Deceleration : 0.0;
+                useCustomAcceleration = OutputLifterZ.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                if (useCustomAcceleration)
+                {
+                    OutputLifterZ.Config.Acceleration = acceleration;
+                    OutputLifterZ.Config.Deceleration = deceleration;
                 }
 
                 Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
@@ -1903,6 +1958,13 @@ namespace QMC.CDT320
                 }
 
                 int moveResult = await moveTask.ConfigureAwait(false);
+                if (useCustomAcceleration)
+                {
+                    OutputLifterZ.Config.Acceleration = oldAcceleration;
+                    OutputLifterZ.Config.Deceleration = oldDeceleration;
+                    useCustomAcceleration = false;
+                }
+
                 if (moveResult != 0 || OutputLifterZ.IsAlarm)
                 {
                     LastBinLifterMoveFailureMessage = "Bin Lifter Z 이동 명령 실패. result=" + moveResult +
@@ -1940,6 +2002,11 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (useCustomAcceleration && OutputLifterZ != null && OutputLifterZ.Config != null)
+                {
+                    OutputLifterZ.Config.Acceleration = oldAcceleration;
+                    OutputLifterZ.Config.Deceleration = oldDeceleration;
+                }
             }
         }
 

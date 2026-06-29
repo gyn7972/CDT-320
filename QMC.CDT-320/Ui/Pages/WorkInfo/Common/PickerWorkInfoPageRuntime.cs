@@ -182,11 +182,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void WireEvents()
         {
-            _btnInput.Click += async (s, e) => await RunSequenceAction(SideName + " PICK UP", SequenceRunMode.Auto, PickerManualSequenceKind.PickUp);
-            _btnInspect.Click += async (s, e) => await RunSequenceAction(SideName + " INSPECT", SequenceRunMode.Auto, PickerManualSequenceKind.Inspect);
-            _btnBottom.Click += async (s, e) => await RunSequenceAction(SideName + " BOTTOM", SequenceRunMode.Auto, PickerManualSequenceKind.Bottom);
-            _btnSide.Click += async (s, e) => await RunSequenceAction(SideName + " SIDE", SequenceRunMode.Auto, PickerManualSequenceKind.Side);
-            _btnOutput.Click += async (s, e) => await RunSequenceAction(SideName + " PLACE", SequenceRunMode.Auto, PickerManualSequenceKind.Place);
+            _btnInput.Click += async (s, e) => await RunSequenceAction(SideName + " PICK UP", SequenceRunMode.Manual, PickerManualSequenceKind.PickUp);
+            _btnInspect.Click += async (s, e) => await RunSequenceAction(SideName + " INSPECT", SequenceRunMode.Manual, PickerManualSequenceKind.Inspect);
+            _btnBottom.Click += async (s, e) => await RunSequenceAction(SideName + " BOTTOM", SequenceRunMode.Manual, PickerManualSequenceKind.Bottom);
+            _btnSide.Click += async (s, e) => await RunSequenceAction(SideName + " SIDE", SequenceRunMode.Manual, PickerManualSequenceKind.Side);
+            _btnOutput.Click += async (s, e) => await RunSequenceAction(SideName + " PLACE", SequenceRunMode.Manual, PickerManualSequenceKind.Place);
             if (_btnPickUpTest != null)
                 _btnPickUpTest.Click += (s, e) => ShowPickUpTestDialog();
             if (_btnPickZTest != null)
@@ -1179,7 +1179,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = source != null ? source.RunMode : SequenceRunMode.Auto;
             options.StartMode = source != null ? source.StartMode : SequenceStartMode.Resume;
-            options.FineMove = true;
+            options.FineMove = source != null && source.FineMove;
             options.MoveTimeoutMs = source != null ? source.MoveTimeoutMs : 30000;
             options.ResourceTimeoutMs = source != null ? source.ResourceTimeoutMs : 30000;
             options.PickerNo = source != null ? source.PickerNo : 0;
@@ -1210,8 +1210,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             ct.ThrowIfCancellationRequested();
             int result = _side == PickerSequenceSide.Front
-                ? await machine.PickerFrontUnit.MovePickerAxes(targets, true, positionName).ConfigureAwait(false)
-                : await machine.PickerRearUnit.MovePickerAxes(targets, true, positionName).ConfigureAwait(false);
+                ? await machine.PickerFrontUnit.MovePickerAxes(targets, JogSpeedType.Fine, 0.0, positionName).ConfigureAwait(false)
+                : await machine.PickerRearUnit.MovePickerAxes(targets, JogSpeedType.Fine, 0.0, positionName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

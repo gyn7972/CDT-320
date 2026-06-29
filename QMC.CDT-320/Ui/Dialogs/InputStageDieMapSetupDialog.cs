@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 using QMC.CDT320;
 
 namespace QMC.CDT_320.Ui.Dialogs
@@ -234,8 +235,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return Fail("IN-STAGE-DIEMAP-MOVE-AREA", pointName + " target is outside input stage work area. " + areaReason);
 
                 SetStatus(pointName + " move command...");
-                Task<int> moveY = _stage.MoveInputStageAxis(WaferStageAxis.WaferY, stageY, true);
-                Task<int> moveX = _stage.MoveInputStageAxis(WaferStageAxis.VisionX, visionX, true);
+                Task<int> moveY = _stage.MoveInputStageAxis(WaferStageAxis.WaferY, stageY, JogSpeedType.Fine, 0.0);
+                Task<int> moveX = _stage.MoveInputStageAxis(WaferStageAxis.VisionX, visionX, JogSpeedType.Fine, 0.0);
                 int[] moveResults = await Task.WhenAll(moveY, moveX);
                 if (moveResults[0] != 0)
                     return Fail("IN-STAGE-DIEMAP-MOVE-Y", pointName + " StageY move command failed. target=" + stageY + ", result=" + moveResults[0]);

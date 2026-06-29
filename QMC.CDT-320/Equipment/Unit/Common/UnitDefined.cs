@@ -1,4 +1,5 @@
 ﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
@@ -225,7 +226,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            await MoveAxisAsync(unitAxis, target, speedType == JogSpeedType.Fine);
+            await MoveAxisAsync(unitAxis, target, speedType, customSpeed).ConfigureAwait(false);
             return 0;
         }
 
@@ -338,6 +339,52 @@ namespace QMC.CDT320
             {
                 Log.Write("Main", "MOTION", Name,
                     "Axis move command exception. axis=" + axis +
+                    ", target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveAxisAsync(TAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                var item = GetAxis(axis);
+                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                    item,
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(item),
+                    UnitJogVelocityResolver.ResolveDeceleration(item)).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    Log.Write("Main", "MOTION", Name,
+                        "축 조그 속도 이동 명령이 실패했습니다. axis=" + axis +
+                        ", target=" + targetPos +
+                        ", velocity=" + velocity +
+                        ", result=" + result + " - Failed");
+                    return result;
+                }
+
+                if (item.IsAlarm)
+                {
+                    Log.Write("Main", "MOTION", Name,
+                        "축 조그 속도 이동 명령 후 알람이 발생했습니다. axis=" + axis +
+                        ", target=" + targetPos +
+                        ", alarmCode=" + item.AlarmCode + " - Failed");
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "MOTION", Name,
+                    "축 조그 속도 이동 명령 중 예외가 발생했습니다. axis=" + axis +
                     ", target=" + targetPos +
                     ", error=" + ex.Message + " - Failed");
                 return -1;

@@ -625,7 +625,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogAxisMoveControl.ButtonAreaMinHeight = 72;
             this.jogAxisMoveControl.ButtonAreaMinWidth = 112;
             this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogAxisMoveControl.LayoutMode = QMC.CDT_320.Ui.Controls.JogAxisMoveLayoutMode.AxisColumns;
             this.jogAxisMoveControl.Location = new System.Drawing.Point(3, 139);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
             this.jogAxisMoveControl.ShowCurrentSpeedMode = true;

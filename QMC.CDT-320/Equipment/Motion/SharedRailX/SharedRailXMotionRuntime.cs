@@ -46,6 +46,28 @@ namespace QMC.CDT320.Motion.SharedRailX
             return axis.MoveAbsoluteAsync(targetPosition, velocity);
         }
 
+        public static Task<int> MoveAxisAsync(
+            BaseAxis axis,
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration)
+        {
+            if (axis == null)
+                return Task.FromResult(-1);
+
+            SharedRailXMotionService service = ResolveService(null);
+            SharedRailXAxis railAxis;
+            if (service != null && service.TryResolve(axis, out railAxis))
+            {
+                SharedRailXMovePlan plan = SharedRailXMovePlan.Create("SingleAxisGuard", velocity)
+                    .Add(railAxis, targetPosition, velocity, acceleration, deceleration);
+                return service.MoveAsync(plan);
+            }
+
+            return MoveAxisWithTemporaryMotionAsync(axis, targetPosition, velocity, acceleration, deceleration);
+        }
+
         public static void MoveJogContinuous(BaseAxis axis, int direction, double speed)
         {
             if (axis == null)
@@ -120,6 +142,39 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return service;
 
             return machine != null ? new SharedRailXMotionService(machine) : null;
+        }
+
+        internal static async Task<int> MoveAxisWithTemporaryMotionAsync(
+            BaseAxis axis,
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration)
+        {
+            if (axis == null)
+                return -1;
+
+            bool useCustomAcceleration = axis.Config != null && acceleration > 0.0 && deceleration > 0.0;
+            double oldAcceleration = useCustomAcceleration ? axis.Config.Acceleration : 0.0;
+            double oldDeceleration = useCustomAcceleration ? axis.Config.Deceleration : 0.0;
+            try
+            {
+                if (useCustomAcceleration)
+                {
+                    axis.Config.Acceleration = acceleration;
+                    axis.Config.Deceleration = deceleration;
+                }
+
+                return await axis.MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (useCustomAcceleration)
+                {
+                    axis.Config.Acceleration = oldAcceleration;
+                    axis.Config.Deceleration = oldDeceleration;
+                }
+            }
         }
 
         private static void StartJogGuard(BaseAxis axis, int direction, SharedRailXMotionService service)

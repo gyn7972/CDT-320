@@ -398,7 +398,6 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
-                Log.Write("PickerPlaceSequence", Name + " StopPickerMoveBecauseAlarmActive. side=" + Side + ", step=" + CurrentStep);
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     targets,
                     targetName,
@@ -415,7 +414,6 @@ namespace QMC.CDT320.Sequencing
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 var commandDetails = new List<PickerMoveAxisLogDetail>();
-                Log.Write("PickerPlaceSequence", Name + " WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync. side=" + Side + ", step=" + CurrentStep);
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -424,9 +422,12 @@ namespace QMC.CDT320.Sequencing
 
                     if (IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
                     {
-                        WriteLog("PickerMove",
-                            Name + " " + description + " move skipped. Axis already in position. " +
-                            BuildPickerAxisState(pair.Key, pair.Value) + " - Ok");
+                        if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                        {
+                            WriteLog("PickerMove",
+                                Name + " " + description + " move skipped. Axis already in position. " +
+                                BuildPickerAxisState(pair.Key, pair.Value) + " - Ok");
+                        }
                         continue;
                     }
 
@@ -435,7 +436,6 @@ namespace QMC.CDT320.Sequencing
                     commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
                 }
 
-                Log.Write("PickerPlaceSequence", Name + " foreach (KeyValuePair<PickerAxis, double> pair in targets). side=" + Side + ", step=" + CurrentStep);
                 if (commandTasks.Count > 0)
                 {
                     Stopwatch commandWatch = Stopwatch.StartNew();
@@ -471,7 +471,6 @@ namespace QMC.CDT320.Sequencing
                         }
                     }
                 }
-                Log.Write("PickerPlaceSequence", Name + " foreach (KeyValuePair<PickerAxis, double> pair in targets) Before" + Side + ", step=" + CurrentStep);
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     if (!IsPickerAxisInPosition(pair.Key, pair.Value))
@@ -482,8 +481,7 @@ namespace QMC.CDT320.Sequencing
                             BuildPickerAxisState(pair.Key, pair.Value));
                     }
                 }
-                Log.Write("PickerPlaceSequence", Name + " WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, 0, commandMs, waitMs, totalWatch.ElapsedMilliseconds, \"Ok\");" + Side + ", step=" + CurrentStep);
-                if (commandTargets.Count > 0)
+                if (commandTargets.Count > 0 && (waitMs >= 200 || totalWatch.ElapsedMilliseconds >= 250))
                     WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, 0, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "Ok");
 
                 ct.ThrowIfCancellationRequested();
@@ -1521,6 +1519,60 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        protected async Task DelayBeforeVisionInspectionAsync(CancellationToken ct)
+        {
+            if (ShouldSkipVisionInspectionDelay())
+                return;
+
+            int delayMs = ResolveVisionInspectionSettleMs();
+            if (delayMs > 0)
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+        }
+
+        protected async Task DelaySideInspectionTurnSettleAsync(CancellationToken ct)
+        {
+            if (ShouldSkipVisionInspectionDelay())
+                return;
+
+            int delayMs = ResolveSideInspectionTurnSettleMs();
+            if (delayMs > 0)
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+        }
+
+        private bool ShouldSkipVisionInspectionDelay()
+        {
+            if (Options != null && Options.SimulateVisionResult)
+                return true;
+
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null && !settings.UseVision)
+                return true;
+
+            return false;
+        }
+
+        private int ResolveVisionInspectionSettleMs()
+        {
+            int value = 0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                value = FrontPicker.Config.VisionInspectionSettleMs;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                value = RearPicker.Config.VisionInspectionSettleMs;
+
+            return value > 0 ? value : 0;
+        }
+
+        private int ResolveSideInspectionTurnSettleMs()
+        {
+            int value = 0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                value = FrontPicker.Config.SideInspectionTurnSettleMs;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                value = RearPicker.Config.SideInspectionTurnSettleMs;
+
+            return value > 0 ? value : 0;
+        }
+
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
         {
             return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
@@ -2130,7 +2182,7 @@ namespace QMC.CDT320.Sequencing
                         waitLogged = true;
                     }
 
-                    await Task.Delay(100, ct).ConfigureAwait(false);
+                    await Task.Delay(20, ct).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)

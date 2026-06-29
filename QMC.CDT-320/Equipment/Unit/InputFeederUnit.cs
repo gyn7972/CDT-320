@@ -5,6 +5,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.Materials;
 using System;
 using System.Collections.Generic;
@@ -160,7 +161,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = FeederY.ActualPosition + signedDistance;
-            return MoveWaferFeederY(target, speedType == JogSpeedType.Fine);
+            return MoveWaferFeederY(target, speedType, customSpeed);
         }
 
         public Task<int> JogContinuousAsync(
@@ -189,6 +190,11 @@ namespace QMC.CDT320
         public Task<int> MoveWaferFeederY(double targetPos, bool bFine = false)
         {
             return MoveWaferFeederYAsync(targetPos, bFine);
+        }
+
+        public Task<int> MoveWaferFeederY(double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveWaferFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed), string.Empty);
         }
 
         public async Task<int> MoveWaferFeederYAsync(double targetPos, bool bFine = false)
@@ -272,6 +278,11 @@ namespace QMC.CDT320
             return MoveWaferFeederYToTeachingPositionAsync(positionName, bFine);
         }
 
+        public Task<int> MoveWaferFeederYToTeachingPosition(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveWaferFeederYToTeachingPositionAsync(positionName, speedType, customSpeed);
+        }
+
         public async Task<int> MoveWaferFeederYToTeachingPositionAsync(string positionName, bool bFine = false)
         {
             try
@@ -282,6 +293,97 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseFeederAlarm("WF-TEACH-MOVE", "InputFeederY teaching move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveWaferFeederYAsync(double targetPos, double velocity, string targetName)
+        {
+            try
+            {
+                string readyReason;
+                if (!CheckWaferFeederYMoveReady(out readyReason))
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 준비 조건이 맞지 않습니다. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + readyReason;
+                    return RaiseFeederAlarm("WF-Y-READY", LastWaferFeederMoveFailureMessage);
+                }
+
+                if (!ValidateWaferFeederYTargetPosition(targetPos))
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + BuildFeederYAxisSummary();
+                    return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
+                }
+
+                if (IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
+                {
+                    LastWaferFeederMoveFailureMessage = string.Empty;
+                    EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
+                        "InputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + GetWaferFeederTransferState());
+                    return 0;
+                }
+
+                EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
+                    "InputFeederY 조그 속도 이동 시작. target=" + targetPos + FormatTargetName(targetName) +
+                    ", velocity=" + velocity);
+
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                    FeederY,
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(FeederY),
+                    UnitJogVelocityResolver.ResolveDeceleration(FeederY)).ConfigureAwait(false);
+                if (result != 0 || FeederY.IsAlarm)
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 명령이 실패했습니다. result=" + result +
+                        ", target=" + targetPos +
+                        FormatTargetName(targetName) +
+                        ", velocity=" + velocity +
+                        ", alarm=" + FeederY.IsAlarm +
+                        FormatAxisLastMotionFailure(FeederY) +
+                        ". " + GetWaferFeederTransferState();
+                    return RaiseFeederAlarm("WF-Y-MOVE", LastWaferFeederMoveFailureMessage);
+                }
+
+                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(targetPos, ResolveWaferFeederYMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 완료 확인이 실패했습니다. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState());
+                    return RaiseFeederAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("WF-Y-MOVE", waitResult),
+                        LastWaferFeederMoveFailureMessage);
+                }
+
+                LastWaferFeederMoveFailureMessage = string.Empty;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 중 예외가 발생했습니다. target=" + targetPos +
+                    FormatTargetName(targetName) + ", error=" + ex.Message;
+                return RaiseFeederAlarm("WF-Y-MOVE-EX", LastWaferFeederMoveFailureMessage);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveWaferFeederYToTeachingPositionAsync(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                double targetPosition = GetTeachingPosition(positionName);
+                return await MoveWaferFeederYNamedPositionAsync(targetPosition, positionName, speedType, customSpeed);
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("WF-TEACH-MOVE", "InputFeederY 티칭 위치 이동이 실패했습니다. " + ex.Message);
             }
             finally
             {
@@ -384,6 +486,14 @@ namespace QMC.CDT320
             using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
             {
                 return await MoveWaferFeederYAsync(targetPosition, bFine, targetName);
+            }
+        }
+
+        private async Task<int> MoveWaferFeederYNamedPositionAsync(double targetPosition, string targetName, JogSpeedType speedType, double customSpeed)
+        {
+            using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
+            {
+                return await MoveWaferFeederYAsync(targetPosition, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed), targetName);
             }
         }
 

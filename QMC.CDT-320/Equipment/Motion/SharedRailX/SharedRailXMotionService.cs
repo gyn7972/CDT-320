@@ -286,7 +286,19 @@ namespace QMC.CDT320.Motion.SharedRailX
                         return RaiseBlocked("SharedRailX target axis is not mapped. axis=" + target.Axis);
 
                     double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
-                    tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                    if (target.Acceleration.HasValue && target.Deceleration.HasValue)
+                    {
+                        tasks.Add(SharedRailXMotionRuntime.MoveAxisWithTemporaryMotionAsync(
+                            setting.Axis,
+                            target.TargetPosition,
+                            velocity,
+                            target.Acceleration.Value,
+                            target.Deceleration.Value));
+                    }
+                    else
+                    {
+                        tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                    }
                 }
 
                 int[] results = await Task.WhenAll(tasks);

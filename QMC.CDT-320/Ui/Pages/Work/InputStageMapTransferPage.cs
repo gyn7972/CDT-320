@@ -1088,7 +1088,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     stage.MoveVisionPointSafelyAsync(
                         entry.PosX,
                         entry.PosY,
-                        true,
+                        JogSpeedType.Fine,
+                        0.0,
                         "InputStageMapTransferPage.MoveSelectedDieAsync"),
                     ResolveManualMoveTimeoutMs(host),
                     "선택 다이 Vision 좌표 이동",
@@ -1232,12 +1233,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     stage,
                     entry.PosX,
                     targetStageY,
-                    true,
+                    JogSpeedType.Fine,
+                    0.0,
                     "InputStageMapTransferPickerMove");
                 string pickerTargetName = "DiePickPosition[" + (pickerNo - 1) + "];ManualInputDieMapMove";
                 Task<int> movePickerX = side == PickerSequenceSide.Front
-                    ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, true, pickerTargetName)
-                    : host.Machine.PickerRearUnit.MoveRearPickerAxis(PickerAxis.PickerX, targetPickerX, true, pickerTargetName);
+                    ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, JogSpeedType.Fine, 0.0, pickerTargetName)
+                    : host.Machine.PickerRearUnit.MoveRearPickerAxis(PickerAxis.PickerX, targetPickerX, JogSpeedType.Fine, 0.0, pickerTargetName);
                 int[] moveResults = await Task.WhenAll(moveStageY, movePickerX).ConfigureAwait(true);
 
                 if (moveResults[0] != 0)
@@ -1382,7 +1384,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 stage.Recipe.EnsurePositionObjects();
                 double avoidTarget = stage.Recipe.VisionX.AvoidPosition;
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, avoidTarget, true).ConfigureAwait(true);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, avoidTarget, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
@@ -1438,7 +1440,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (front.IsFrontPickerInAvoidPosition())
                         return 0;
 
-                    int result = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                    int result = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                     if (result != 0)
                     {
                         QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
@@ -1467,7 +1469,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (rear.IsRearPickerInAvoidPosition())
                     return 0;
 
-                int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
                 if (rearResult != 0)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",

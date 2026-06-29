@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,6 +73,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private readonly List<double> _scanPositions = new List<double>();
         private readonly Random _simRandom = new Random();
         private IDisposable _focusWorkAreaScope;
+        private bool _useSimulatedVisionFocus;
 
         public VisionFocusScanSequence(CDT320_Machine machine, VisionFocusScanRequest request)
         {
@@ -90,6 +91,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 CurrentStep = VisionFocusScanStep.CheckUnit;
+                _useSimulatedVisionFocus = false;
 
                 while (CurrentStep != VisionFocusScanStep.Complete &&
                        CurrentStep != VisionFocusScanStep.Error)
@@ -465,22 +467,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
                 var stage = _machine != null ? _machine.InputStageUnit : null;
                 if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid 이동을 위한 축/Recipe 정보가 없습니다.");
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9\uC744 \uC704\uD55C \uCD95/Recipe \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, true).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uBA85\uB839 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
                 result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-WAIT", "InputStageUnit", "InputCamera Avoid 이동 완료 확인 실패. result=" + result + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-WAIT", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uC644\uB8CC \uD655\uC778 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
                 if (!stage.IsVisionXInAvoidPosition())
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-CHECK", "InputStageUnit", "InputCamera Avoid 최종 위치 확인 실패. actual=" + stage.CameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-CHECK", "InputStageUnit", "InputCamera Avoid \uCD5C\uC885 \uC704\uCE58 \uD655\uC778 \uC2E4\uD328. actual=" + stage.CameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
 
                 return 0;
             }
@@ -509,7 +511,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveMotionTimeoutMs(), true, ct).ConfigureAwait(false);
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveMotionTimeoutMs(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit", "OutputCamera Avoid 이동 실패. result=" + result);
 
@@ -971,7 +973,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveFrontPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, true, targetName).ConfigureAwait(false);
+            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -994,7 +996,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveRearPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, true, targetName).ConfigureAwait(false);
+            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1310,18 +1312,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsVisionBypassed())
+                AutoVisionChannel channel = ResolveChannel();
+                _useSimulatedVisionFocus = !VisionCommandService.IsConnected(channel);
+                if (_useSimulatedVisionFocus)
                 {
-                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BYPASS",
-                        "Simulation/DryRun 상태라 FOCUS_START 통신을 생략합니다. 대상=" + BuildTargetLabel());
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SIM",
+                        "VisionPC가 연결되어 있지 않아 Focus Scan 점수를 시뮬레이션으로 생성합니다. channel=" +
+                        channel + ", 대상=" + BuildTargetLabel());
                     CurrentStep = VisionFocusScanStep.MoveAndMeasure;
                     return 0;
                 }
-
-                AutoVisionChannel channel = ResolveChannel();
-                if (!VisionCommandService.IsConnected(channel))
-                    return Fail("VISION-FOCUS-CAL-NOT-CONNECTED", "VisionFocusScanSequence",
-                        "VisionPC가 연결되어 있지 않아 Focus 측정을 실행할 수 없습니다. channel=" + channel);
 
                 VisionFocusStartResult result = await VisionCommandService.FocusStartAsync(
                     channel,
@@ -1396,7 +1396,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsVisionBypassed())
+                if (_useSimulatedVisionFocus)
                 {
                     ApplyBestFromSamples();
                     CurrentStep = VisionFocusScanStep.SaveBest;
@@ -1629,7 +1629,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<VisionFocusScanSample> MeasureFocusValueAsync(int no, double position, bool initial, CancellationToken ct)
         {
-            if (IsVisionBypassed())
+            if (_useSimulatedVisionFocus)
             {
                 double distance = position - _request.DefaultPosition;
                 double score = Math.Max(0.0, 1.0 - Math.Abs(distance) * 1.0 + _simRandom.NextDouble() * 0.01);
@@ -1706,14 +1706,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return data.GetColletRecord(_request.PickerSide, _request.PickerNo);
 
             return data.GetSideRecord(_request.Kind);
-        }
-
-        private bool IsVisionBypassed()
-        {
-            return _machine != null &&
-                   _machine.VisionUnit != null &&
-                   _machine.VisionUnit.Config != null &&
-                   _machine.VisionUnit.Config.bDryRun;
         }
 
         private AutoVisionChannel ResolveChannel()

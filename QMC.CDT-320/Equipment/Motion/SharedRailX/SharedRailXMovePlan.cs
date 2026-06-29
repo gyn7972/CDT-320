@@ -32,6 +32,17 @@ namespace QMC.CDT320.Motion.SharedRailX
             return this;
         }
 
+        public SharedRailXMovePlan Add(SharedRailXAxis axis, double targetPosition, double velocity, double acceleration, double deceleration)
+        {
+            _targets.Add(new SharedRailXTarget(axis, targetPosition)
+            {
+                Velocity = velocity,
+                Acceleration = acceleration,
+                Deceleration = deceleration
+            });
+            return this;
+        }
+
         public bool TryGetTarget(SharedRailXAxis axis, out double targetPosition)
         {
             SharedRailXTarget target = _targets.LastOrDefault(x => x.Axis == axis);

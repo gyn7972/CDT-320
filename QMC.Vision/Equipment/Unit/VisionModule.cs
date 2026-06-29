@@ -305,12 +305,15 @@ namespace QMC.Vision.Modules
             if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
             
             var g = Camera.Grab(timeoutMs);
-            //if (g.IsSuccess)
-            //{
-            //    if (g.Image != null) TapFrame(g.Image);
-            //    if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
-            //}
-            //else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
+            if (g != null && g.IsSuccess)
+            {
+                if (g.Image != null)
+                    TapFrame(g.Image);
+            }
+            else
+            {
+                try { Alarmed?.Invoke(Name, g != null ? g.ErrorMessage : "카메라 Grab 결과가 없습니다."); } catch { }
+            }
             return g;
         }
 
