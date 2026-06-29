@@ -57,6 +57,7 @@ namespace QMC.CDT320.Interlocks
                     return CanMoveOutputGoodStageY(request.Machine, out reason);
                 // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanMoveOutputGoodStageY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageY(request.Machine, out reason);
@@ -247,6 +248,7 @@ namespace QMC.CDT320.Interlocks
                     return CanMoveOutputGoodStageZ(request, out reason);
                 // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanMoveOutputGoodStageZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageZ(request.Machine, out reason);
@@ -325,6 +327,7 @@ namespace QMC.CDT320.Interlocks
                     return CanMoveOutputNgStageY(request, out reason);
                 // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanMoveOutputNgStageY(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputNgStageY(request.Machine, out reason);
@@ -377,6 +380,7 @@ namespace QMC.CDT320.Interlocks
                     return CanMoveOutputVisionX(request.Machine, out reason);
                 // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanMoveOutputVisionX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputVisionX(request.Machine, out reason);

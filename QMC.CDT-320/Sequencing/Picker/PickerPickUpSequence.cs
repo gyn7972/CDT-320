@@ -1177,7 +1177,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
                 PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
-                string targetName = "DiePickPosition[" + _currentPickerIndex + "]";
+                string targetName = BuildPickMoveTargetName();
 
                 string areaReason;
                 if (!stage.IsInputStageWorkPointInArea(_pickTarget.TargetX, _targetStageY, out areaReason))
@@ -1263,6 +1263,15 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string BuildPickMoveTargetName()
+        {
+            string targetName = "DiePickPosition[" + _currentPickerIndex + "]";
+            if (Options != null && Options.RunMode == SequenceRunMode.Auto && _pickCursor > 0)
+                return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input";
+
+            return targetName;
         }
 
         private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)

@@ -545,11 +545,17 @@ namespace QMC.CDT320.Interlocks
             if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
+            // Auto 검사/Place 연속 동작에서는 같은 존 안에서 다음 다이로 X축만 이동할 수 있다.
+            // 메뉴얼/단독 이동은 InspectionContinuous 태그가 없으므로 기존 Y Avoid 조건을 그대로 탄다.
             bool allowedTransition =
+                (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Input) ||
                 (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
+                (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Bottom) ||
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output);
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output) ||
+                (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Output);
 
             if (!allowedTransition)
                 return false;
