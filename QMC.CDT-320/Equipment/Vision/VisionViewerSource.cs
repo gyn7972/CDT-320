@@ -78,7 +78,10 @@ namespace QMC.CDT320.VisionComm
                 OnStatus("촬상 OK");
                 // 라이브 중이면 RecvLoop 가 새 프레임을 표시하므로 여기선 null. 아니면 단발로 받아 반환.
                 if (_running) return null;
-                return ReadSingleFrame();
+                Bitmap frame = ReadSingleFrame();
+                if (frame == null)
+                    OnStatus("촬상 OK, 영상 프레임 수신 실패 — Viewer 포트/스트림 상태를 확인하세요.");
+                return frame;
             }
 
             // 명령 채널 없음: 기존 동작 — 라이브 중이면 최근 프레임, 아니면 단발 수신.

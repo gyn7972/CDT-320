@@ -6,6 +6,8 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class VisionReticleMeasurement
     {
+        private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
+
         [DataMember] public bool Valid { get; set; }
         [DataMember] public string CameraName { get; set; }
         [DataMember] public double PixelX { get; set; }
@@ -35,14 +37,29 @@ namespace QMC.CDT320.Calibration
             StageYPosition = 0;
             HasVisionXPosition = false;
             HasStageYPosition = false;
-            MeasuredAt = DateTime.MinValue;
+            MeasuredAt = SafeUnsetDateTime;
             Raw = string.Empty;
+        }
+
+        public void EnsureSerializableDateTimes()
+        {
+            MeasuredAt = EnsureSerializableDateTime(MeasuredAt);
+        }
+
+        private static DateTime EnsureSerializableDateTime(DateTime value)
+        {
+            if (value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                return SafeUnsetDateTime;
+
+            return value;
         }
     }
 
     [DataContract]
     public sealed class VisionCameraPixelCalibration
     {
+        private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
+
         [DataMember] public double ImageWidthPixel { get; set; } = 640.0;
         [DataMember] public double ImageHeightPixel { get; set; } = 480.0;
         [DataMember] public double ImageCenterPixelX { get; set; } = 320.0;
@@ -60,6 +77,7 @@ namespace QMC.CDT320.Calibration
             if (ImageCenterPixelY == 0) ImageCenterPixelY = fallbackCenterY != 0 ? fallbackCenterY : ImageHeightPixel / 2.0;
             if (PixelToMmX == 0) PixelToMmX = fallbackPixelToMmX != 0 ? fallbackPixelToMmX : 0.001;
             if (PixelToMmY == 0) PixelToMmY = fallbackPixelToMmY != 0 ? fallbackPixelToMmY : 0.001;
+            ResolutionUpdatedAt = EnsureSerializableDateTime(ResolutionUpdatedAt);
         }
 
         public void ApplyImageSize(double widthPixel, double heightPixel)
@@ -73,6 +91,19 @@ namespace QMC.CDT320.Calibration
             ImageCenterPixelY = heightPixel / 2.0;
             ResolutionFromVision = true;
             ResolutionUpdatedAt = DateTime.Now;
+        }
+
+        public void EnsureSerializableDateTimes()
+        {
+            ResolutionUpdatedAt = EnsureSerializableDateTime(ResolutionUpdatedAt);
+        }
+
+        private static DateTime EnsureSerializableDateTime(DateTime value)
+        {
+            if (value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                return SafeUnsetDateTime;
+
+            return value;
         }
 
         public double PixelToMmOffsetX(double pixelX)
@@ -89,6 +120,8 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class VisionCameraCalibrationData
     {
+        private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
+
         [DataMember] public VisionReticleMeasurement BottomReticle { get; set; } = new VisionReticleMeasurement();
         [DataMember] public VisionReticleMeasurement InputReticle { get; set; } = new VisionReticleMeasurement();
         [DataMember] public VisionReticleMeasurement OutputReticle { get; set; } = new VisionReticleMeasurement();
@@ -134,7 +167,29 @@ namespace QMC.CDT320.Calibration
             OutputCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
             FrontSideCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
             RearSideCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
+            EnsureSerializableDateTimes();
             if (UpdatedBy == null) UpdatedBy = string.Empty;
+        }
+
+        public void EnsureSerializableDateTimes()
+        {
+            BottomReticle.EnsureSerializableDateTimes();
+            InputReticle.EnsureSerializableDateTimes();
+            OutputReticle.EnsureSerializableDateTimes();
+            BottomCamera.EnsureSerializableDateTimes();
+            InputCamera.EnsureSerializableDateTimes();
+            OutputCamera.EnsureSerializableDateTimes();
+            FrontSideCamera.EnsureSerializableDateTimes();
+            RearSideCamera.EnsureSerializableDateTimes();
+            UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
+        }
+
+        private static DateTime EnsureSerializableDateTime(DateTime value)
+        {
+            if (value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                return SafeUnsetDateTime;
+
+            return value;
         }
 
         public bool CanCalculate

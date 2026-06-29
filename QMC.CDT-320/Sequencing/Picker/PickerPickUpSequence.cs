@@ -25,8 +25,6 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
-        private const int VisionInspectionSettleDelayMs = 100;
-
         private readonly List<int> _enabledPickerIndexes = new List<int>();
         private readonly List<PickUpBatchItem> _pickBatchItems = new List<PickUpBatchItem>();
         private int _inspectionCursor;
@@ -3200,10 +3198,10 @@ namespace QMC.CDT320.Sequencing
             if (stage == null)
                 return null;
 
-            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
-
             if (IsSimulationOrDryRun(stage))
                 return SimulateInputVisionOffset();
+
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             if (stage.Vision == null)
                 return null;

@@ -12,8 +12,6 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
-        private const int VisionInspectionSettleDelayMs = 50;
-
         private readonly List<int> _enabledPickerIndexes;
         private readonly List<InputDieVisionPreparedItem> _preparedItems = new List<InputDieVisionPreparedItem>();
         private readonly HashSet<int> _preInspectionOccupiedPickerNos = new HashSet<int>();
@@ -931,10 +929,10 @@ namespace QMC.CDT320.Sequencing
             if (stage == null)
                 return null;
 
-            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
-
             if (IsSimulationOrDryRun(stage))
                 return SimulateInputVisionOffset();
+
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             if (stage.Vision == null)
                 return null;

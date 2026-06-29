@@ -1519,6 +1519,60 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        protected async Task DelayBeforeVisionInspectionAsync(CancellationToken ct)
+        {
+            if (ShouldSkipVisionInspectionDelay())
+                return;
+
+            int delayMs = ResolveVisionInspectionSettleMs();
+            if (delayMs > 0)
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+        }
+
+        protected async Task DelaySideInspectionTurnSettleAsync(CancellationToken ct)
+        {
+            if (ShouldSkipVisionInspectionDelay())
+                return;
+
+            int delayMs = ResolveSideInspectionTurnSettleMs();
+            if (delayMs > 0)
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+        }
+
+        private bool ShouldSkipVisionInspectionDelay()
+        {
+            if (Options != null && Options.SimulateVisionResult)
+                return true;
+
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null && !settings.UseVision)
+                return true;
+
+            return false;
+        }
+
+        private int ResolveVisionInspectionSettleMs()
+        {
+            int value = 0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                value = FrontPicker.Config.VisionInspectionSettleMs;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                value = RearPicker.Config.VisionInspectionSettleMs;
+
+            return value > 0 ? value : 0;
+        }
+
+        private int ResolveSideInspectionTurnSettleMs()
+        {
+            int value = 0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                value = FrontPicker.Config.SideInspectionTurnSettleMs;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                value = RearPicker.Config.SideInspectionTurnSettleMs;
+
+            return value > 0 ? value : 0;
+        }
+
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
         {
             return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);

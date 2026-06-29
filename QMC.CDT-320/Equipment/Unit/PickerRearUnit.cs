@@ -61,6 +61,8 @@ namespace QMC.CDT320
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig();
         [DataMember] public PickerBottomInspectionMotionConfig BottomInspection { get; set; } = new PickerBottomInspectionMotionConfig();
+        [DataMember] public int VisionInspectionSettleMs { get; set; } = 0;
+        [DataMember] public int SideInspectionTurnSettleMs { get; set; } = 0;
 
         [Category("PickUp")]
         [DisplayName("PickUp Z Motion Mode")]
@@ -146,6 +148,14 @@ namespace QMC.CDT320
         [DisplayName("Bottom Flying Z Start X Remaining Distance")]
         public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
 
+        [Category("Vision")]
+        [DisplayName("Vision Inspection Settle Ms")]
+        public int VisionInspectionSettleDelayMs { get { return VisionInspectionSettleMs; } set { VisionInspectionSettleMs = value < 0 ? 0 : value; } }
+
+        [Category("Vision")]
+        [DisplayName("Side Turn Settle Ms")]
+        public int SideInspectionTurnSettleDelayMs { get { return SideInspectionTurnSettleMs; } set { SideInspectionTurnSettleMs = value < 0 ? 0 : value; } }
+
         public bool IsSimulationMode
         {
             get { return bDryRun; }
@@ -185,6 +195,11 @@ namespace QMC.CDT320
             if (BottomInspection == null)
                 BottomInspection = new PickerBottomInspectionMotionConfig();
             BottomInspection.Ensure();
+
+            if (VisionInspectionSettleMs < 0)
+                VisionInspectionSettleMs = 0;
+            if (SideInspectionTurnSettleMs < 0)
+                SideInspectionTurnSettleMs = 0;
         }
 
         private PickerPickUpMotionConfig EnsurePickUpConfig()

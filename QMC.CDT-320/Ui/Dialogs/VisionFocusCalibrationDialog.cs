@@ -369,7 +369,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                SaveSettingsFromUi(false);
+                if (!SaveSettingsFromUi(false))
+                    return;
+
                 gridSamples.Rows.Clear();
 
                 VisionFocusScanRequest request = BuildRequest(true);
@@ -451,7 +453,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _motionTimeoutMs = settings.MotionTimeoutMs;
                 _visionTimeoutMs = settings.VisionTimeoutMs;
                 _returnToDefaultAfterScan = settings.ReturnToDefaultAfterScan;
-                _defaultPosition = ResolveTeachingDefaultPosition(host.Machine);
+                _defaultPosition = ResolveSavedOrTeachingDefaultPosition(host.Machine);
             }
             catch (Exception ex)
             {
@@ -464,16 +466,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void SaveSettingsFromUi(bool showMessage)
+        private bool SaveSettingsFromUi(bool showMessage)
         {
             try
             {
+                if (!ApplyAllSettingRowsFromGrid())
+                    return false;
+
                 string reason;
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
                     lblStatus.Text = reason;
-                    return;
+                    return false;
                 }
 
                 VisionFocusScanSettings settings = ResolveSettings(host.Machine, _selectedKind);
@@ -491,17 +496,61 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 VisionFocusPositionRecord record = ResolveSelectedRecord(host.Machine);
                 if (record != null)
+                {
                     record.DefaultPosition = _defaultPosition;
+                    record.UpdatedAt = DateTime.Now;
+                    record.UpdatedBy = UserSession.Name ?? string.Empty;
+                }
 
                 host.SaveMachineSettings();
                 RefreshSavedGrid();
                 if (showMessage)
                     lblStatus.Text = "Vision Focus Cal 설정값을 저장했습니다.";
+                return true;
             }
             catch (Exception ex)
             {
                 lblStatus.Text = "Vision Focus Cal 설정 저장 실패: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-SAVE", lblStatus.Text);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ApplyAllSettingRowsFromGrid()
+        {
+            try
+            {
+                if (gridSettings.IsCurrentCellDirty)
+                    gridSettings.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                gridSettings.EndEdit();
+
+                foreach (DataGridViewRow row in gridSettings.Rows)
+                {
+                    if (row == null || row.IsNewRow || row.ReadOnly)
+                        continue;
+
+                    SettingRowInfo info = row.Tag as SettingRowInfo;
+                    if (info == null)
+                        continue;
+
+                    string value = Convert.ToString(row.Cells[colSettingValue.Index].Value, CultureInfo.InvariantCulture);
+                    if (info.Numeric)
+                        ApplyNumericSetting(info, value);
+                    else
+                        ApplySettingValue(row);
+                }
+
+                RefreshSettingGrid();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Focus 설정값 적용 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "VISION-FOCUS-CAL-APPLY-UI", lblStatus.Text);
+                return false;
             }
             finally
             {
@@ -792,6 +841,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_selectedKind == VisionFocusScanKind.RearSide0)
                 return machine.VisionUnit.Recipe.RearSideVision.Process0Position;
             return machine.VisionUnit.Recipe.RearSideVision.Process90Position;
+        }
+
+        private double ResolveSavedOrTeachingDefaultPosition(CDT320_Machine machine)
+        {
+            VisionFocusPositionRecord record = ResolveSelectedRecord(machine);
+            if (HasSavedDefaultPosition(record))
+                return record.DefaultPosition;
+
+            return ResolveTeachingDefaultPosition(machine);
+        }
+
+        private static bool HasSavedDefaultPosition(VisionFocusPositionRecord record)
+        {
+            if (record == null)
+                return false;
+
+            return record.Valid ||
+                   record.UpdatedAt != default(DateTime) ||
+                   Math.Abs(record.DefaultPosition) > 0.0000001;
         }
 
         private PickerAxis ResolveSelectedPickerZAxis()

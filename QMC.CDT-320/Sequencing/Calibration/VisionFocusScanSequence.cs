@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,6 +73,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private readonly List<double> _scanPositions = new List<double>();
         private readonly Random _simRandom = new Random();
         private IDisposable _focusWorkAreaScope;
+        private bool _useSimulatedVisionFocus;
 
         public VisionFocusScanSequence(CDT320_Machine machine, VisionFocusScanRequest request)
         {
@@ -90,6 +91,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ct.ThrowIfCancellationRequested();
                 CurrentStep = VisionFocusScanStep.CheckUnit;
+                _useSimulatedVisionFocus = false;
 
                 while (CurrentStep != VisionFocusScanStep.Complete &&
                        CurrentStep != VisionFocusScanStep.Error)
@@ -1310,18 +1312,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsVisionBypassed())
+                AutoVisionChannel channel = ResolveChannel();
+                _useSimulatedVisionFocus = !VisionCommandService.IsConnected(channel);
+                if (_useSimulatedVisionFocus)
                 {
-                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-BYPASS",
-                        "Simulation/DryRun 상태라 FOCUS_START 통신을 생략합니다. 대상=" + BuildTargetLabel());
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-SIM",
+                        "VisionPC가 연결되어 있지 않아 Focus Scan 점수를 시뮬레이션으로 생성합니다. channel=" +
+                        channel + ", 대상=" + BuildTargetLabel());
                     CurrentStep = VisionFocusScanStep.MoveAndMeasure;
                     return 0;
                 }
-
-                AutoVisionChannel channel = ResolveChannel();
-                if (!VisionCommandService.IsConnected(channel))
-                    return Fail("VISION-FOCUS-CAL-NOT-CONNECTED", "VisionFocusScanSequence",
-                        "VisionPC가 연결되어 있지 않아 Focus 측정을 실행할 수 없습니다. channel=" + channel);
 
                 VisionFocusStartResult result = await VisionCommandService.FocusStartAsync(
                     channel,
@@ -1396,7 +1396,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsVisionBypassed())
+                if (_useSimulatedVisionFocus)
                 {
                     ApplyBestFromSamples();
                     CurrentStep = VisionFocusScanStep.SaveBest;
@@ -1629,7 +1629,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<VisionFocusScanSample> MeasureFocusValueAsync(int no, double position, bool initial, CancellationToken ct)
         {
-            if (IsVisionBypassed())
+            if (_useSimulatedVisionFocus)
             {
                 double distance = position - _request.DefaultPosition;
                 double score = Math.Max(0.0, 1.0 - Math.Abs(distance) * 1.0 + _simRandom.NextDouble() * 0.01);
@@ -1706,14 +1706,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return data.GetColletRecord(_request.PickerSide, _request.PickerNo);
 
             return data.GetSideRecord(_request.Kind);
-        }
-
-        private bool IsVisionBypassed()
-        {
-            return _machine != null &&
-                   _machine.VisionUnit != null &&
-                   _machine.VisionUnit.Config != null &&
-                   _machine.VisionUnit.Config.bDryRun;
         }
 
         private AutoVisionChannel ResolveChannel()

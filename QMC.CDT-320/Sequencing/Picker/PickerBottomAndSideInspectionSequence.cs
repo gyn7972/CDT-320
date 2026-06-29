@@ -10,9 +10,6 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerBottomAndSideInspectionSequence : PickerSequenceBase<PickerBottomAndSideInspectionStep>
     {
-        private const int VisionInspectionSettleDelayMs = 100;
-        private const int SideInspectionTurnSettleDelayMs = 100;
-
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private readonly List<BottomShot> _pendingBottomShots = new List<BottomShot>();
         private readonly List<int> _sideReadyPickerIndexes = new List<int>();
@@ -381,7 +378,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> TriggerBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
         {
-            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             int timeoutMs = ResolveTimeout();
             bool triggered = Side == PickerSequenceSide.Front
@@ -594,7 +591,7 @@ namespace QMC.CDT320.Sequencing
             if (side0Result == null)
                 return Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", "Vision", "Side 0도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
 
-            await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
+            await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
 
             result = await MoveSideT90AndVision90PositionAsync(target, ct).ConfigureAwait(false);
             if (result != 0)
@@ -604,7 +601,7 @@ namespace QMC.CDT320.Sequencing
             if (side90Result == null)
                 return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
 
-            await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
+            await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
 
             ApplySideInspectionResult(target, side0Result, side90Result);
             QueuePendingZAvoid(target.PickerIndex);
@@ -728,7 +725,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<SideVisionResult> TriggerAndGetSideResultAsync(InspectionTarget target, int angleDeg, CancellationToken ct)
         {
-            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
+            await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
             int timeoutMs = ResolveTimeout();
             bool triggered = Side == PickerSequenceSide.Front

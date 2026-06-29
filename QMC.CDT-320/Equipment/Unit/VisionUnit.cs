@@ -174,6 +174,50 @@ namespace QMC.CDT320
             Components.Add(NeedleVacuumOutput);
         }
 
+        public override bool SaveSettings()
+        {
+            try
+            {
+                if (Config != null)
+                    Config.EnsureCalibrationObjects();
+
+                bool ok = base.SaveSettings();
+                if (Config != null && Config.CameraCalibration != null)
+                    ok &= VisionCameraScaleStore.Save(Config.CameraCalibration);
+
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public override void LoadSettings()
+        {
+            try
+            {
+                base.LoadSettings();
+                if (Config != null)
+                {
+                    Config.EnsureCalibrationObjects();
+                    VisionCameraCalibrationData saved;
+                    if (VisionCameraScaleStore.TryLoad(out saved))
+                        Config.CameraCalibration = saved;
+                    Config.EnsureCalibrationObjects();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         public IReadOnlyDictionary<VisionAxis, BaseAxis> Axes { get { return axes; } }
 
         public bool CanHandleJogAxis(BaseAxis axis)

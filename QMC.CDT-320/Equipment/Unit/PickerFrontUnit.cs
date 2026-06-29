@@ -184,6 +184,8 @@ namespace QMC.CDT320
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true }; // Picker0~3 각각의 사용 여부를 저장합니다.
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig(); // PickUp Z축 세부 모션 조건입니다.
         [DataMember] public PickerBottomInspectionMotionConfig BottomInspection { get; set; } = new PickerBottomInspectionMotionConfig(); // Bottom 검사 중 X/Y 이동과 PickerZ 선행 Down 동작 조건입니다.
+        [DataMember] public int VisionInspectionSettleMs { get; set; } = 0; // 실제 비전 검사 트리거 전 안정화 대기 시간입니다. 시뮬/비전 미사용에서는 적용하지 않습니다.
+        [DataMember] public int SideInspectionTurnSettleMs { get; set; } = 0; // Side 0/90도 전환 후 안정화 대기 시간입니다. 시뮬/비전 미사용에서는 적용하지 않습니다.
 
         [Category("PickUp")]
         [DisplayName("PickUp Z Motion Mode")]
@@ -269,6 +271,14 @@ namespace QMC.CDT320
         [DisplayName("Bottom Flying Z Start X Remaining Distance")]
         public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
 
+        [Category("Vision")]
+        [DisplayName("Vision Inspection Settle Ms")]
+        public int VisionInspectionSettleDelayMs { get { return VisionInspectionSettleMs; } set { VisionInspectionSettleMs = value < 0 ? 0 : value; } }
+
+        [Category("Vision")]
+        [DisplayName("Side Turn Settle Ms")]
+        public int SideInspectionTurnSettleDelayMs { get { return SideInspectionTurnSettleMs; } set { SideInspectionTurnSettleMs = value < 0 ? 0 : value; } }
+
         public bool IsSimulationMode
         {
             get { return bDryRun; }
@@ -308,6 +318,11 @@ namespace QMC.CDT320
             if (BottomInspection == null)
                 BottomInspection = new PickerBottomInspectionMotionConfig();
             BottomInspection.Ensure();
+
+            if (VisionInspectionSettleMs < 0)
+                VisionInspectionSettleMs = 0;
+            if (SideInspectionTurnSettleMs < 0)
+                SideInspectionTurnSettleMs = 0;
         }
 
         private PickerPickUpMotionConfig EnsurePickUpConfig()
