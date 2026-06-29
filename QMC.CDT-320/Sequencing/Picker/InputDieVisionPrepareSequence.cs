@@ -12,7 +12,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
-        private const int VisionInspectionSettleDelayMs = 100;
+        private const int VisionInspectionSettleDelayMs = 50;
 
         private readonly List<int> _enabledPickerIndexes;
         private readonly List<InputDieVisionPreparedItem> _preparedItems = new List<InputDieVisionPreparedItem>();

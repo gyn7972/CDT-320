@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -707,8 +707,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (project.UnloadFrame == null) project.UnloadFrame = new UnloadTapeFrameSubset();
             if (project.Module == null) project.Module = new ModuleSubset();
             if (project.BottomInsp == null) project.BottomInsp = new InspectionSubset();
-            if (project.TopSideInsp == null) project.TopSideInsp = new InspectionSubset();
-            if (project.BottomSideInsp == null) project.BottomSideInsp = new InspectionSubset();
+            if (project.FrontSideInsp == null) project.FrontSideInsp = new InspectionSubset();
+            if (project.RearSideInsp == null) project.RearSideInsp = new InspectionSubset();
             if (project.Output == null) project.Output = new OutputSubset();
             if (project.Pickup == null) project.Pickup = new PickupSubset();
             if (project.InputPickup == null) project.InputPickup = ClonePickup(project.Pickup);

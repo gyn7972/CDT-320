@@ -60,8 +60,8 @@ LFine 디지털 조명 컨트롤러를 **시리얼(RS-232C)** 로 제어하는 *
 - `QMC.CDT-320\bin\Debug\Config\io_set.lightSource.json` — 8채널 실 매핑 (COM1/2/3 3포트):
   ```
   1 INPUT STAGE RING   COM1 128    5 BIN VISION         COM3 140
-  2 BOTTOM VISION      COM2 180    6 TOP SIDE VISION    COM3 200
-  3 SIDE VISION 1      COM2 200    7 BOTTOM SIDE VISION COM3 200
+  2 BOTTOM VISION      COM2 180    6 FRONT SIDE VISION    COM3 200
+  3 SIDE VISION 1      COM2 200    7 REAR SIDE VISION COM3 200
   4 SIDE VISION 2      COM2 200    8 ALIGN MARK ILLUM   COM1 100
   ```
 
@@ -162,8 +162,8 @@ public class LFineChannel
 ---
 
 ## 6. 채널 매핑 (확인 필요 #5 의 다중 컨트롤러 결정에 따름)
-- 기본 8채널 (io_set.json 기준): INPUT STAGE RING / BOTTOM VISION / SIDE VISION 1 / SIDE VISION 2 / BIN VISION / TOP SIDE VISION / BOTTOM SIDE VISION / ALIGN MARK ILLUM
-- ⚠ 채널 6/7 라벨 "TOP/BOTTOM SIDE VISION" — Stage 63 리네임(FrontSide/RearSide) 과 라벨 정합 검토 필요 (M-66-5)
+- 기본 8채널 (io_set.json 기준): INPUT STAGE RING / BOTTOM VISION / SIDE VISION 1 / SIDE VISION 2 / BIN VISION / FRONT SIDE VISION / REAR SIDE VISION / ALIGN MARK ILLUM
+- ⚠ 채널 6/7 라벨 "TOP/REAR SIDE VISION" — Stage 63 리네임(FrontSide/RearSide) 과 라벨 정합 검토 필요 (M-66-5)
 - 알고리즘/검사 ↔ 조명 채널 매핑은 별도 Stage
 
 ---
@@ -223,7 +223,7 @@ public class LFineChannel
 | M-66-2 | 매뉴얼(2 컨트롤러) vs io_set.json(COM1/2/3, 3포트) vs LFineConfig(단일 COM1) | 컨트롤러 개수 불일치 — 확인 필요 #5 |
 | M-66-3 | `IlluminatorPanel.cs`(4채널 더미) vs io_set.json(8채널) | 채널 수 가변화 필요 |
 | M-66-4 | LightControl 코드 = `Part/IlluminatorConfig/ListParam/SerialComm` 레거시 의존 | 신규 작성 — 직접 포팅 불가 |
-| M-66-5 | io_set.json 채널 6/7 = "TOP/BOTTOM SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 정합 검토 |
+| M-66-5 | io_set.json 채널 6/7 = "TOP/REAR SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 정합 검토 |
 
 ---
 

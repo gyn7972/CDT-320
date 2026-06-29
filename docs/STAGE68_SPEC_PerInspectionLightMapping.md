@@ -55,8 +55,8 @@
 | Idx | Name | Port | Lv | Idx | Name | Port | Lv |
 |---|---|---|---|---|---|---|---|
 | 1 | INPUT STAGE RING | COM1 | 128 | 5 | BIN VISION | COM3 | 140 |
-| 2 | BOTTOM VISION | COM2 | 180 | 6 | TOP SIDE VISION | COM3 | 200 |
-| 3 | SIDE VISION 1 | COM2 | 200 | 7 | BOTTOM SIDE VISION | COM3 | 200 |
+| 2 | BOTTOM VISION | COM2 | 180 | 6 | FRONT SIDE VISION | COM3 | 200 |
+| 3 | SIDE VISION 1 | COM2 | 200 | 7 | REAR SIDE VISION | COM3 | 200 |
 | 4 | SIDE VISION 2 | COM2 | 200 | 8 | ALIGN MARK ILLUM | COM1 | 100 |
 
 → io_set = **3 포트**, 본 장비 결정 = **2 컨트롤러** → 마이그레이션 시 재매핑 필요 (M-68-4, 확인 필요 #1).
@@ -213,7 +213,7 @@ Apply (수동, LightHub):
 
 ## 7. 마이그레이션 (io_set.lightSource.json → light_system.json)
 - PORT 별 그룹핑 → LightControllerEntry 생성 + ChannelLabels/DefaultLevel 채움.
-- 채널 이름 휴리스틱 → AlgorithmWirings 자동 채움: WAFER→Wafer, BIN→Bin, "BOTTOM VISION"/"BOTTOM INSP"→BottomInspection, "TOP SIDE"/"FRONT SIDE"→FrontSide, "BOTTOM SIDE"/"REAR SIDE"→RearSide. "RING"/"ALIGN MARK" 모호 → 자동 결선 안 함, 사용자 검토 안내 (확인 필요 #5).
+- 채널 이름 휴리스틱 → AlgorithmWirings 자동 채움: WAFER→Wafer, BIN→Bin, "BOTTOM VISION"/"BOTTOM INSP"→BottomInspection, "FRONT SIDE"/"FRONT SIDE"→FrontSide, "REAR SIDE"/"REAR SIDE"→RearSide. "RING"/"ALIGN MARK" 모호 → 자동 결선 안 함, 사용자 검토 안내 (확인 필요 #5).
 - ⚠ io_set 3 포트 → 본 장비 2 컨트롤러 재매핑 필요 (M-68-4).
 - 원본 백업 `io_set.lightSource.json.bak.YYYYMMDD` (확인 필요 #7).
 

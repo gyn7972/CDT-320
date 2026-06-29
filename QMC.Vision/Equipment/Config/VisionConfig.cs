@@ -57,15 +57,13 @@ namespace QMC.Vision.Config
         [DataMember] public int WaferVisionPort             { get; set; } = 5100;
         [DataMember] public int InspectionVisionPort        { get; set; } = 5101;
         [DataMember] public int BinVisionPort               { get; set; } = 5103;
-        // Stage 44 — 매뉴얼 호환 추가 채널. 핸들러 기준 모듈명 통일: TopSideVision(5105)/BottomSideVision(5106)
+        // Stage 44 — 매뉴얼 호환 추가 채널. 핸들러 기준 모듈명 통일: FrontSideVision(5105)/RearSideVision(5106)
         [DataMember] public int FrontSidePort           { get; set; } = 5105;
         [DataMember] public int RearSidePort        { get; set; } = 5106;
         // 전역 통신(MainComm) 포트 — 핸들러 VisionHub.Main(5104) 과 짝. 레시피/전역 명령 수신.
         [DataMember] public int MainCommPort                { get; set; } = 5104;
 
         // 구버전 키 마이그레이션 (값 있으면 OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움 → 다음 Save 시 사라짐)
-        [DataMember(Name = "TopSideInspectionPort",    EmitDefaultValue = false)] public int LegacyTopSideInspectionPort    { get; set; }
-        [DataMember(Name = "BottomSideInspectionPort", EmitDefaultValue = false)] public int LegacyBottomSideInspectionPort { get; set; }
         [DataMember(Name = "FrontSideInspectionPort",  EmitDefaultValue = false)] public int LegacyFrontSideInspectionPort  { get; set; }
         [DataMember(Name = "RearSideInspectionPort",   EmitDefaultValue = false)] public int LegacyRearSideInspectionPort   { get; set; }
 
@@ -95,8 +93,6 @@ namespace QMC.Vision.Config
         [OnDeserialized]
         internal void OnDeserialized(StreamingContext ctx)
         {
-            if (LegacyTopSideInspectionPort != 0)    { FrontSidePort    = LegacyTopSideInspectionPort;    LegacyTopSideInspectionPort    = 0; }
-            if (LegacyBottomSideInspectionPort != 0) { RearSidePort = LegacyBottomSideInspectionPort; LegacyBottomSideInspectionPort = 0; }
             if (LegacyFrontSideInspectionPort != 0)  { FrontSidePort    = LegacyFrontSideInspectionPort;  LegacyFrontSideInspectionPort  = 0; }
             if (LegacyRearSideInspectionPort != 0)   { RearSidePort = LegacyRearSideInspectionPort;   LegacyRearSideInspectionPort   = 0; }
 

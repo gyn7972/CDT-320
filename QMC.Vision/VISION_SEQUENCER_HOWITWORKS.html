@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -98,7 +98,7 @@ host.AutoSeq.Message += OnSeqMessage;          <span class="c">// 실시간 로�
   <pre><span class="c">// 생성자: 존재하는 모듈마다 전용 시퀀스 등록</span>
 Register(<span class="t">SequenceModuleKind</span>.WaferVision, ctx.Machine.WaferVision != <span class="k">null</span> ? <span class="k">new</span> <span class="t">WaferVisionSequence</span>(ctx) : <span class="k">null</span>);
 Register(<span class="t">SequenceModuleKind</span>.BinVision,   ctx.Machine.BinVision   != <span class="k">null</span> ? <span class="k">new</span> <span class="t">BinVisionSequence</span>(ctx)   : <span class="k">null</span>);
-<span class="c">// … Bottom / TopSide / BottomSide …</span>
+<span class="c">// … Bottom / FrontSide / RearSide …</span>
 
 <span class="k">public void</span> Start(<span class="t">SequenceModuleKind</span> selected, <span class="t">SequenceRunMode</span> mode){
     Stop();

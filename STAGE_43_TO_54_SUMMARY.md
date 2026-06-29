@@ -11,8 +11,8 @@
 | 매뉴얼 항목 | 구현 Stage | 클래스/메서드 |
 |---|---|---|
 | MainCommunicator (5104) | 43 | VisionHub.Main |
-| TopSide Inspection Vision (5105) | 43 + 52 | VisionHub.TopSide + TopSideInspectionModule |
-| BottomSide Inspection Vision (5106) | 43 + 52 | VisionHub.BottomSide + BottomSideInspectionModule |
+| FrontSide Inspection Vision (5105) | 43 + 52 | VisionHub.FrontSide + FrontSideInspectionModule |
+| RearSide Inspection Vision (5106) | 43 + 52 | VisionHub.RearSide + BottomAndSideInspectionModule |
 | Wafer Barcode Communicator (Serial 4) | 43 | BarcodeSerialAdapter |
 | Bin Barcode Communicator (Serial 6) | 43 + 50 | BarcodeSerialAdapter + BinBarcodeReader |
 | Eject Pin Z (axis 8) | 44 | InputStageUnit.EjectPinZ |
@@ -30,7 +30,7 @@
 | Good Plate | 49 | Plate + PlateRegistry.GoodPlate |
 | Bin Barcode Reader | 50 | NullBarcodeReader (어댑터) |
 | Inspection Subset (Bottom) | 51 | RecipeProject.BottomInsp |
-| Inspection Subset (Top/BottomSide) | 51 | RecipeProject.TopSideInsp + BottomSideInsp |
+| Inspection Subset (Top/RearSide) | 51 | RecipeProject.FrontSideInsp + RearSideInsp |
 | Eject + Side 사이클 통합 | 53 | DoOneDieAsync 시퀀스 |
 | Recipe Output Subset | 54 | OutputSubset (DiesPerWafer 등) |
 
@@ -46,8 +46,8 @@
 - `Equipment/IonizerUnit.cs` (Stage 47)
 - `Equipment/PostPnpTransferUnit.cs` (Stage 48)
 - `Equipment/Plate.cs` (Stage 49)
-- `QMC.Vision/Modules/TopSideInspectionModule.cs` (Stage 52)
-- `QMC.Vision/Modules/BottomSideInspectionModule.cs` (Stage 52)
+- `QMC.Vision/Modules/FrontSideInspectionModule.cs` (Stage 52)
+- `QMC.Vision/Modules/BottomAndSideInspectionModule.cs` (Stage 52)
 
 ### 수정
 - `Equipment/AppSettings.cs` — 5104/5105/5106 + Wafer/BinBarcodeSerialPort 추가
@@ -60,7 +60,7 @@
 - `Equipment/Recipes/RecipeStore.cs` — InspectionSubset/OutputSubset 추가
 - `Form1.cs` — 6 채널 자동 연결
 - `QMC.Vision/Config/VisionConfig.cs` — 5105/5106 포트 추가
-- `QMC.Vision/Form1.cs` — TopSide/BottomSide 모듈 + TCP 서버
+- `QMC.Vision/Form1.cs` — FrontSide/RearSide 모듈 + TCP 서버
 
 ---
 
@@ -97,7 +97,7 @@ PlateRegistry: Good Plate Slot[0,1,2] / NG Plate Slot[0]
 
 ## 다음 작업 후보 (Stage 55+)
 
-1. **Recipe ModuleSubset UI** — Bottom/TopSide/BottomSide Inspection 옵션 노출
+1. **Recipe ModuleSubset UI** — Bottom/FrontSide/RearSide Inspection 옵션 노출
 2. **Plate Status UI** — 현재 NG/Good Plate 적재 현황 페이지
 3. **Resource Sensor 알람 UI** — CDA/Vacuum 라인 비정상 시 화면 표시
 4. **Operation Panel 실 버튼 연동** — 시뮬에서 키보드 → 버튼 매핑

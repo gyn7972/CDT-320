@@ -1,4 +1,4 @@
-# verify 스위트 재정립 — 정찰 인벤토리 (읽기 전용)
+﻿# verify 스위트 재정립 — 정찰 인벤토리 (읽기 전용)
 
 > 생성: 2026-06-08. **읽기 전용 정찰** — 원본 스크립트·코드 미수정. 비침습 repoint 사본(`tmp_verify_recon`, 측정 후 삭제)으로 1회 측정.
 > 후속: `PROMPT_VerifyAll_Repoint_Rebaseline.md` 가 본 결과로 repoint·트리아지·베이스라인 확정.
@@ -30,7 +30,7 @@ TOTAL 198 / PASS 117 / FAIL 80
   - `stage2 ParameterEditorBase+Host`: `abstract class` 패턴 0 — 실제는 `public abstract **partial** class ParameterEditorBase`(Phase2 partial 삽입). abstract 메서드 BuildEditor/Load/Save 전부 존재.
   - `stage2 ZoomDialog`: `MouseWheel` 0 — 이벤트 배선이 **ZoomDialog.Designer.cs 로 이동**(`_canvas.MouseWheel += OnWheel`), 줌로직(`_zoom*delta`)·DoubleClick .cs 잔존.
   - `stage2 ConfigurationPage`: 라벨 문구 `Cognex VisionPro diagnostics` 만 0 — ProbeCognex·CognexBackend·CognexLoaded 전부 존재(기능 무손상).
-  - `stage52 Form1`: 모듈 **명칭 변경** — `TopSide/BottomSideInspectionModule` → 실제 `Bottom/Front/RearSideInspectionModule`(현 Modules 디렉토리 확인).
+  - `stage52 Form1`: 모듈 **명칭 변경** — `FrontSide/BottomAndSideInspectionModule` → 실제 `Bottom/Front/RearSideInspectionModule`(현 Modules 디렉토리 확인).
 - **Handler 9건 — 내가 미수정, 팀 권위 코드와 구 AI 심볼명 불일치:**
   - `MachineController.cs`(팀 코드 **4761줄**)에 구 패턴 `MaxRetries`/`while(attempt<MaxRetries)`(PickRetry)·`JobQueue.Enqueue`·`BinCodeMap.ConvertToBinCode` 부재(반면 `DoOneDieAsync`·`MoveAxisAsync` 는 존재). handler_features/stage29/30/31.
   - `CDT320Machine.cs`(stage48 PostPnp), `DieMapPage.cs`(handler_features), `RemoteViewerDialog.cs`(stage4) — 동일하게 구 스캐폴딩 심볼 기준.
@@ -86,7 +86,7 @@ TOTAL 198 / PASS 117 / FAIL 80
 | verify_stage49.pl | 29 | H | Handler grep | (ii) 검토 |
 | verify_stage50.pl | 32 | H | Handler grep | (ii) 검토 |
 | verify_stage51.pl | 29 | H | Handler grep | (ii) 검토 |
-| verify_stage52.pl | 33 | V | TopSide/BottomSideInspectionModule + Form1 배선 | (ii) **모듈 명칭변경** → 수정(Bottom/Front/Rear) |
+| verify_stage52.pl | 33 | V | FrontSide/BottomAndSideInspectionModule + Form1 배선 | (ii) **모듈 명칭변경** → 수정(Bottom/Front/Rear) |
 | verify_stage53.pl | 27 | H | Handler grep | (ii) 검토 |
 | verify_stage54.pl | 34 | H | Handler grep | (ii) 검토 |
 

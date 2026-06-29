@@ -57,8 +57,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
 
             Add("VISION: BOTTOM INSP", () => Open(owner, "Bottom Inspection", Mode.BottomInspection));
-            Add("VISION: TOP SIDE", () => Open(owner, "Top Side", Mode.Side, 1, () => VisionHub.TopSide, VisionViewerPorts.TopSide, "TopSurfaceInspector"));
-            Add("VISION: BOTTOM SIDE", () => Open(owner, "Bottom Side", Mode.Side, 1, () => VisionHub.BottomSide, VisionViewerPorts.BottomSide, "BottomSurfaceInspector"));
+            Add("VISION: FRONT SIDE", () => Open(owner, "FrontSideVision", Mode.Side, 1, () => VisionHub.FrontSideVision, VisionViewerPorts.FrontSideVision, "TopSurfaceInspector"));
+            Add("VISION: REAR SIDE", () => Open(owner, "RearSideVision", Mode.Side, 1, () => VisionHub.RearSideVision, VisionViewerPorts.RearSideVision, "BottomSurfaceInspector"));
 
             if (stopButton != null && actions.Contains(stopButton))
                 actions.SetChildIndex(stopButton, actions.Count - 1);

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -137,7 +137,7 @@
       <h2 class="d-title">CDT-320 이식 전략 한눈에</h2>
       <div class="callout">
         CDT-320 <code>QMC.Vision</code>은 이미 <b>인터페이스 기반 골격</b>이 완성돼 있습니다. 5개 모듈
-        (Wafer / Bin / Bottom / TopSide / BottomSide)이 모두 <b>선언적 알고리즘 노드</b>
+        (Wafer / Bin / Bottom / FrontSide / RearSide)이 모두 <b>선언적 알고리즘 노드</b>
         (<code>IPatternFinder</code> · <code>IInspector</code>)로 구성돼 있고, 백엔드(Cognex / OpenCV / Sim)가
         그 인터페이스를 구현합니다. <b>비어 있는 것은 "알고리즘 본문"</b>입니다 — 그 본문이 CDT-310에 검증된 코드로 존재합니다.
       </div>
@@ -328,20 +328,20 @@ const modTree = [
    nodes:[["Reticle/Collet/Die/Focus/Scale/DistortionComp","IPatternFinder","b-done"],["Surface","IInspector","b-stub"]],
    src:"CDT-310 CDTInspector.BottomInspect + QMC_FindChippingNForeign + CudaWrapper",
    gap:"<b>핵심 이식 대상.</b> Surface(외관/칩핑/이물) 알고리즘이 CDT-310에 CUDA 가속 버전으로 존재. CUDA DLL 포함 여부 결정 필요(없으면 OpenCV 폴백)."},
- {id:"m-top", label:"TopSideVisionModule", tag:"FrontSide · port5105", path:BASE320+"Equipment\\Modules\\TopSideVisionModule.cs",
+ {id:"m-top", label:"FrontSideVisionModule", tag:"FrontSide · port5105", path:BASE320+"Equipment\\Modules\\FrontSideVisionModule.cs",
    nodes:[["DieEdge/Focus","IPatternFinder","b-done"],["TopSurfaceInspector","IInspector","b-stub"],["TopChippingInspector","IInspector","b-stub"]],
    src:"CDT-310 SideChippingInspector + FindLine",
    gap:"Chipping 본문(에지라인→회전→임계 칩핑측정)이 핵심. SideChippingInspector를 IInspector 구현으로 포팅."},
- {id:"m-back", label:"BottomSideVisionModule", tag:"RearSide · port5106", path:BASE320+"Equipment\\Modules\\BottomSideVisionModule.cs",
+ {id:"m-back", label:"RearSideVisionModule", tag:"RearSide · port5106", path:BASE320+"Equipment\\Modules\\RearSideVisionModule.cs",
    nodes:[["DieEdge/Focus","IPatternFinder","b-done"],["BottomSurfaceInspector","IInspector","b-stub"],["BottomChippingInspector","IInspector","b-stub"]],
    src:"CDT-310 SideChippingInspector (앞쪽과 동일)",
-   gap:"TopSide와 알고리즘 동일 — 같은 IInspector 구현 재사용 + 캘리브레이션만 분리."}
+   gap:"FrontSide와 알고리즘 동일 — 같은 IInspector 구현 재사용 + 캘리브레이션만 분리."}
 ];
 
 const mapRows = [
  ["웨이퍼/빈 정렬","PatternMatchingVisionPart / VisionProPatternMatchingVisionTool","WaferVisionModule · BinVisionModule 의 IPatternFinder 노드","CognexPatternFinder","골격 완성 · 본문 연결","b-done"],
  ["바텀 외관/칩핑/이물","CDTInspector.BottomInspect · QMC_FindChippingNForeign · QMC_BlobTool · CudaWrapper","BottomInspectionModule.Surface (IInspector)","CognexInspector / OpenCvInspector","미구현 (TODO)","b-stub"],
- ["측면 칩핑(앞/뒤)","SideChippingInspector.InspectChipping · FindLine.FindTopLineOfChip","Top/BottomSideVisionModule.Chipping (IInspector)","OpenCvInspector / 신규 EdgeChippingInspector","미구현 (TODO)","b-stub"],
+ ["측면 칩핑(앞/뒤)","SideChippingInspector.InspectChipping · FindLine.FindTopLineOfChip","Top/RearSideVisionModule.Chipping (IInspector)","OpenCvInspector / 신규 EdgeChippingInspector","미구현 (TODO)","b-stub"],
  ["에지/거리 측정","FindLine (라인적합)","IEdgeFinder (CogCaliper 추상)","CognexCaliper","골격 있음","b-done"],
  ["픽셀↔mm 스케일","VisionConfig (Bottom/SideVisionFront/Back)","QMC.Vision Equipment\\Config\\VisionConfig.cs","-","이식 시 캘리브레이션값 매핑","b-done"]
 ];

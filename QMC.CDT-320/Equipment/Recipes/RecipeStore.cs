@@ -279,8 +279,8 @@ namespace QMC.CDT320.Recipes
         [DataMember] public ModuleSubset          Module        { get; set; } = new ModuleSubset();
         // Stage 51 — Vision Inspection Subsets (Top/Bottom/Side)
         [DataMember] public InspectionSubset      BottomInsp    { get; set; } = new InspectionSubset();
-        [DataMember] public InspectionSubset      TopSideInsp   { get; set; } = new InspectionSubset();
-        [DataMember] public InspectionSubset      BottomSideInsp { get; set; } = new InspectionSubset();
+        [DataMember] public InspectionSubset      FrontSideInsp   { get; set; } = new InspectionSubset();
+        [DataMember] public InspectionSubset      RearSideInsp { get; set; } = new InspectionSubset();
         // Stage 54 — Output Subset (NG/Good Plate 사양)
         [DataMember] public OutputSubset          Output        { get; set; } = new OutputSubset();
         // Stage 61 — Pickup Sequence Subset (시작 코너 + 방향 + 지그재그/직선)

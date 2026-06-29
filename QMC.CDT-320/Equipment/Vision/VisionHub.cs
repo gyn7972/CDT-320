@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Logging;
 
@@ -7,17 +8,19 @@ namespace QMC.CDT320.VisionComm
     /// <summary>
     /// Vision PC 6채널 연결 허브.
     /// Wafer(5100), BottomInspection(5101), Bin(5103), MainComm(5104),
-    /// TopSide(5105), BottomSide(5106)을 관리한다.
+    /// FrontSideVision(5105), RearSideVision(5106)을 관리한다.
     /// 전역 명령이나 레시피 동기화는 MainComm 채널을 사용한다.
     /// </summary>
     public static class VisionHub
     {
+        private static readonly SemaphoreSlim ConnectGate = new SemaphoreSlim(1, 1);
+
         public static VisionTcpClient Wafer { get; private set; }
         public static VisionTcpClient Inspection { get; private set; }
         public static VisionTcpClient Bin { get; private set; }
         public static VisionTcpClient Main { get; private set; }
-        public static VisionTcpClient TopSide { get; private set; }
-        public static VisionTcpClient BottomSide { get; private set; }
+        public static VisionTcpClient FrontSideVision { get; private set; }
+        public static VisionTcpClient RearSideVision { get; private set; }
 
         /// <summary>마지막으로 연결한 Vision PC Host(IP). Viewer stream 접속에도 사용한다.</summary>
         public static string Host { get; private set; }
@@ -48,8 +51,8 @@ namespace QMC.CDT320.VisionComm
                        (Inspection != null && Inspection.IsConnected) ||
                        (Bin != null && Bin.IsConnected) ||
                        (Main != null && Main.IsConnected) ||
-                       (TopSide != null && TopSide.IsConnected) ||
-                       (BottomSide != null && BottomSide.IsConnected);
+                       (FrontSideVision != null && FrontSideVision.IsConnected) ||
+                       (RearSideVision != null && RearSideVision.IsConnected);
             }
         }
 
@@ -59,8 +62,8 @@ namespace QMC.CDT320.VisionComm
             int inspectionPort = 5101,
             int binPort = 5103,
             int mainPort = 5104,
-            int topSidePort = 5105,
-            int bottomSidePort = 5106)
+            int frontSidePort = 5105,
+            int rearSidePort = 5106)
         {
             if (IsVisionLinkBypassed())
             {
@@ -71,40 +74,44 @@ namespace QMC.CDT320.VisionComm
                 return true;
             }
 
-            DisconnectAll();
-            Host = host;
-
-            Wafer = New(VisionModuleNames.Wafer, host, waferPort);
-            Inspection = New(VisionModuleNames.BottomInspection, host, inspectionPort);
-            Bin = New(VisionModuleNames.Bin, host, binPort);
-            Main = New(VisionModuleNames.Main, host, mainPort);
-            if (Main != null)
-                Main.RecipeRequested += () => { try { OnVisionRecipeRequest?.Invoke(); } catch { } };
-            TopSide = New(VisionModuleNames.FrontSide, host, topSidePort);
-            BottomSide = New(VisionModuleNames.RearSide, host, bottomSidePort);
-
-            bool[] required = await Task.WhenAll(
-                Wafer.ConnectAsync(),
-                Inspection.ConnectAsync(),
-                Bin.ConnectAsync()).ConfigureAwait(false);
-
-            // Main/Side 채널은 선택 채널이라 별도 비동기로 연결한다.
-            _ = Task.Run(async () =>
+            await ConnectGate.WaitAsync().ConfigureAwait(false);
+            try
             {
-                try { await Main.ConnectAsync().ConfigureAwait(false); } catch { }
-                try { await TopSide.ConnectAsync().ConfigureAwait(false); } catch { }
-                try { await BottomSide.ConnectAsync().ConfigureAwait(false); } catch { }
+                DisconnectAll();
+                Host = host;
+
+                Wafer = New(VisionModuleNames.Wafer, host, waferPort);
+                Inspection = New(VisionModuleNames.BottomInspection, host, inspectionPort);
+                Bin = New(VisionModuleNames.Bin, host, binPort);
+                Main = New(VisionModuleNames.Main, host, mainPort);
+                if (Main != null)
+                    Main.RecipeRequested += () => { try { OnVisionRecipeRequest?.Invoke(); } catch { } };
+                FrontSideVision = New(VisionModuleNames.FrontSide, host, frontSidePort);
+                RearSideVision = New(VisionModuleNames.RearSide, host, rearSidePort);
+
+                bool[] connected = await Task.WhenAll(
+                    Wafer.ConnectAsync(),
+                    Inspection.ConnectAsync(),
+                    Bin.ConnectAsync(),
+                    Main.ConnectAsync(),
+                    FrontSideVision.ConnectAsync(),
+                    RearSideVision.ConnectAsync()).ConfigureAwait(false);
+
+                EventLogger.Write(EventKind.Event, "SYS", "VISION-CONN",
+                    "Wafer=" + connected[0] +
+                    " Inspection=" + connected[1] +
+                    " Bin=" + connected[2] +
+                    " MainComm=" + connected[3] +
+                    " FrontSideVision=" + connected[4] +
+                    " RearSideVision=" + connected[5]);
+
                 RaiseChanged();
-            });
-
-            EventLogger.Write(EventKind.Event, "SYS", "VISION-CONN",
-                "Wafer=" + required[0] +
-                " Inspection=" + required[1] +
-                " Bin=" + required[2] +
-                " (Main/Side: async)");
-
-            RaiseChanged();
-            return AllConnected;
+                return AllConnected;
+            }
+            finally
+            {
+                ConnectGate.Release();
+            }
         }
 
         public static void DisconnectAll()
@@ -113,14 +120,14 @@ namespace QMC.CDT320.VisionComm
             try { Inspection?.Dispose(); } catch { }
             try { Bin?.Dispose(); } catch { }
             try { Main?.Dispose(); } catch { }
-            try { TopSide?.Dispose(); } catch { }
-            try { BottomSide?.Dispose(); } catch { }
+            try { FrontSideVision?.Dispose(); } catch { }
+            try { RearSideVision?.Dispose(); } catch { }
             Wafer = null;
             Inspection = null;
             Bin = null;
             Main = null;
-            TopSide = null;
-            BottomSide = null;
+            FrontSideVision = null;
+            RearSideVision = null;
             RaiseChanged();
         }
 

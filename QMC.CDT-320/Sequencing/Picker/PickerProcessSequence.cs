@@ -13,7 +13,7 @@ namespace QMC.CDT320.Sequencing
         private PickerPickUpSequence _pickUpSequence;
         private PickerBottomInspectionSequence _bottomInspectionSequence;
         private PickerSideInspectionSequence _sideInspectionSequence;
-        private PickerBottomSideInspectionSequence _bottomSideInspectionSequence;
+        private PickerBottomAndSideInspectionSequence _bottomAndSideInspectionSequence;
         private PickerPlaceSequence _placeSequence;
         private PickerPhaseLease _phaseLease;
         private bool _bottomInspectionCompletedInCurrentRun;
@@ -43,15 +43,15 @@ namespace QMC.CDT320.Sequencing
                     _bottomInspectionSequence.Abort();
                 if (_sideInspectionSequence != null)
                     _sideInspectionSequence.Abort();
-                if (_bottomSideInspectionSequence != null)
-                    _bottomSideInspectionSequence.Abort();
+                if (_bottomAndSideInspectionSequence != null)
+                    _bottomAndSideInspectionSequence.Abort();
                 if (_placeSequence != null)
                     _placeSequence.Abort();
 
                 _pickUpSequence = null;
                 _bottomInspectionSequence = null;
                 _sideInspectionSequence = null;
-                _bottomSideInspectionSequence = null;
+                _bottomAndSideInspectionSequence = null;
                 _placeSequence = null;
                 _bottomInspectionCompletedInCurrentRun = false;
                 CurrentStep = PickerProcessStep.Complete;
@@ -578,9 +578,9 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> RunBottomInspectionAsync(CancellationToken ct)
         {
             if ((Options == null || Options.RunMode == SequenceRunMode.Auto) &&
-                IsBottomSidePipelineModeEnabled())
+                IsBottomAndSidePipelineModeEnabled())
             {
-                return await RunBottomSideInspectionAsync(ct).ConfigureAwait(false);
+                return await RunBottomAndSideInspectionAsync(ct).ConfigureAwait(false);
             }
 
             bool keepPhaseSignal = false;
@@ -647,14 +647,14 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool IsBottomSidePipelineModeEnabled()
+        private bool IsBottomAndSidePipelineModeEnabled()
         {
             try
             {
                 VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
                 return vision != null &&
                        vision.Config != null &&
-                       vision.Config.PickerInspectionMode == PickerInspectionPipelineMode.BottomSidePipeline;
+                       vision.Config.PickerInspectionMode == PickerInspectionPipelineMode.BottomAndSidePipeline;
             }
             catch
             {
@@ -665,24 +665,24 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> RunBottomSideInspectionAsync(CancellationToken ct)
+        private async Task<int> RunBottomAndSideInspectionAsync(CancellationToken ct)
         {
             bool keepBottomSignal = false;
             bool keepSideSignal = false;
 
             try
             {
-                int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "BottomSideInspection", ct).ConfigureAwait(false);
+                int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "BottomAndSideInspection", ct).ConfigureAwait(false);
                 if (phaseResult != 0)
                     return phaseResult;
 
-                SetPickerPhaseSignal(GetOwnBottomInspectionSignal(), "BottomSide-Bottom");
-                SetPickerPhaseSignal(GetOwnSideInspectionSignal(), "BottomSide-Side");
+                SetPickerPhaseSignal(GetOwnBottomInspectionSignal(), "BottomAndSide-Bottom");
+                SetPickerPhaseSignal(GetOwnSideInspectionSignal(), "BottomAndSide-Side");
 
-                if (_bottomSideInspectionSequence == null || _bottomSideInspectionSequence.IsComplete)
-                    _bottomSideInspectionSequence = new PickerBottomSideInspectionSequence(Context, Side);
+                if (_bottomAndSideInspectionSequence == null || _bottomAndSideInspectionSequence.IsComplete)
+                    _bottomAndSideInspectionSequence = new PickerBottomAndSideInspectionSequence(Context, Side);
 
-                int result = await _bottomSideInspectionSequence
+                int result = await _bottomAndSideInspectionSequence
                     .RunAsync(ct, BuildChildSequenceOptions(
                         true,
                         true,
@@ -691,18 +691,18 @@ namespace QMC.CDT320.Sequencing
 
                 if (result != 0)
                 {
-                    ReleasePickerProcessPhase("BottomSideInspectionFailed");
+                    ReleasePickerProcessPhase("BottomAndSideInspectionFailed");
                     return result;
                 }
 
-                if (_bottomSideInspectionSequence.IsComplete)
+                if (_bottomAndSideInspectionSequence.IsComplete)
                 {
                     SetPickerPhaseSignal(GetOwnBottomInspectionCompleteSignal(), "BottomComplete");
                     SetPickerPhaseSignal(GetOwnSideInspectionCompleteSignal(), "SideComplete");
-                    _bottomSideInspectionSequence = null;
+                    _bottomAndSideInspectionSequence = null;
                     _bottomInspectionCompletedInCurrentRun = false;
 
-                    int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.Place, "BottomSideInspectionToPlace", ct).ConfigureAwait(false);
+                    int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.Place, "BottomAndSideInspectionToPlace", ct).ConfigureAwait(false);
                     if (nextPhaseResult != 0)
                         return nextPhaseResult;
 
@@ -732,9 +732,9 @@ namespace QMC.CDT320.Sequencing
             finally
             {
                 if (!keepBottomSignal)
-                    ResetPickerPhaseSignal(GetOwnBottomInspectionSignal(), "BottomSide-Bottom");
+                    ResetPickerPhaseSignal(GetOwnBottomInspectionSignal(), "BottomAndSide-Bottom");
                 if (!keepSideSignal)
-                    ResetPickerPhaseSignal(GetOwnSideInspectionSignal(), "BottomSide-Side");
+                    ResetPickerPhaseSignal(GetOwnSideInspectionSignal(), "BottomAndSide-Side");
             }
         }
 

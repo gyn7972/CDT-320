@@ -140,8 +140,8 @@ namespace QMC.CDT_320.Ui.Tabs
                 new[] { "3", "SIDE VISION 1",         "COM2", "200" },
                 new[] { "4", "SIDE VISION 2",         "COM2", "200" },
                 new[] { "5", "BIN VISION",            "COM3", "140" },
-                new[] { "6", "TOP SIDE VISION",       "COM3", "200" },
-                new[] { "7", "BOTTOM SIDE VISION",    "COM3", "200" },
+                new[] { "6", "FRONT SIDE VISION",       "COM3", "200" },
+                new[] { "7", "REAR SIDE VISION",    "COM3", "200" },
                 new[] { "8", "ALIGN MARK ILLUM",      "COM1", "100" },
             };
 
