@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Vision.Config;
+using QMC.Vision.DieMaps;
 using QMC.Vision.Modules;
 
 namespace QMC.Vision.Sequencing
@@ -50,10 +52,13 @@ namespace QMC.Vision.Sequencing
         public SequenceRunMode Mode { get; private set; } = SequenceRunMode.Auto;
         public int CycleIntervalMs { get; set; } = 500;
 
-        // 측면 시뮬: 다이 인덱스(실제는 핸들러가 부여). X 고정 + Y 증가로 운영뷰처럼 다이 누적.
+        // Sim 다이 인덱스(실제는 핸들러가 부여). 레시피 픽업 순서(InputDieMap+Pickup)를 따라 다이 좌표를 발급한다.
+        // 픽업 순서를 못 구하면 X 고정 + Y 증가 폴백(구 동작).
         private const int DieIndexX = 27;
         private int _dieSeq;
         private int _curPicker, _curDie;   // 직전 스텝의 픽업/다이(로그 표시용)
+        private List<int[]> _pickupOrder;  // 픽업 순서대로의 다이 좌표 {DieMapX, DieMapY}
+        private string _pickupOrderKey;    // 캐시 무효화 키(레시피 사양/픽업 옵션 변경 감지)
 
         /// <summary>직전 사이클 소요(ms).</summary>
         public double LastCycleMs { get; private set; }
@@ -76,6 +81,7 @@ namespace QMC.Vision.Sequencing
             try
             {
                 Context.LogPublic("[SEQ] " + Name + " 도구 연속 실행 시작");
+                _dieSeq = 0;   // 연속 실행 시작 = 픽업 순서 첫 다이부터
                 while (!ct.IsCancellationRequested)
                 {
                     await RunCycleAsync(ct, grab: true).ConfigureAwait(false);
@@ -118,13 +124,14 @@ namespace QMC.Vision.Sequencing
                     // 실제 동작: 픽업 4열이 X로 지나가며 한 스텝에 픽업 1개를 찍는다(다음 스텝 = 다음 픽업).
                     // 그 픽업을 Front/Back 카메라가 "동시" 촬영하고 각 카메라가 채널 0°/90° 2장 → 이 모듈은 ch1(0°)+ch2(90°).
                     int baseCh = (Kind == SequenceModuleKind.BottomSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
-                    int dieY = ++_dieSeq;                       // 이번 스텝 = 다이 1개(X 고정/Y 증가)
-                    int picker = ((dieY - 1) % 4) + 1;          // 픽업 1→2→3→4 순환(4열을 차례로 통과)
-                    _curPicker = picker; _curDie = dieY;        // 로그 표시용
+                    int seq = ++_dieSeq;                        // 이번 스텝 = 픽업 순서 상의 다이 1개
+                    int picker = ((seq - 1) % 4) + 1;           // 픽업 1→2→3→4 순환(4 픽커 갱)
+                    int ix, iy; NextPickupCell(seq, out ix, out iy);
+                    _curPicker = picker; _curDie = seq;         // 로그 표시용
                     string last = null;
                     for (int chOff = 0; chOff <= 1 && !ct.IsCancellationRequested; chOff++)   // ch1(0°)→ch2(90°)
                     {
-                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, baseCh + chOff, DieIndexX, dieY);
+                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, baseCh + chOff, ix, iy);
                         last = Context.Dispatch(Module, Cmd, args);   // INSPECT=GrabForTool(채널별 시뮬 이미지)+검사
                     }
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
@@ -132,11 +139,12 @@ namespace QMC.Vision.Sequencing
                 }
                 else if (IsBottomInspect() || IsBinInspect())
                 {
-                    // 바텀/Die gap(Bin)도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 운영뷰 그리드/차트가 픽업별로 누적되도록 컨텍스트 부여.
-                    int dieY = ++_dieSeq;
-                    int picker = ((dieY - 1) % 4) + 1;
-                    _curPicker = picker; _curDie = dieY;
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, -1, DieIndexX, dieY);
+                    // 바텀/Die gap(Bin)도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 레시피 픽업 순서의 다이 좌표를 컨텍스트로 부여.
+                    int seq = ++_dieSeq;
+                    int picker = ((seq - 1) % 4) + 1;
+                    int ix, iy; NextPickupCell(seq, out ix, out iy);
+                    _curPicker = picker; _curDie = seq;
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, -1, ix, iy);
                     result = Context.Dispatch(Module, Cmd, args);
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
                 }
@@ -219,6 +227,69 @@ namespace QMC.Vision.Sequencing
                 return "SIM-" + Name + "-" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
             }
             catch { return string.Empty; }
+        }
+
+        /// <summary>
+        /// 픽업 순서 상 seq(1-base) 번째 다이의 격자 좌표(IndexX/IndexY)를 돌려준다.
+        /// 활성 레시피의 InputDieMap(없으면 웨이퍼 사양으로 생성) + Pickup 옵션으로 순서를 만들고,
+        /// 순서를 넘어가면 처음부터 순환한다. 순서를 못 구하면 X 고정 + Y 증가 폴백.
+        /// </summary>
+        private void NextPickupCell(int seq, out int ix, out int iy)
+        {
+            var order = EnsurePickupOrder();
+            if (order != null && order.Count > 0)
+            {
+                int idx = (seq - 1) % order.Count;
+                if (idx < 0) idx += order.Count;
+                ix = order[idx][0];
+                iy = order[idx][1];
+                return;
+            }
+            ix = DieIndexX;   // 폴백(구 동작)
+            iy = seq;
+        }
+
+        /// <summary>활성 레시피 기준 픽업 순서 좌표 목록(캐시). 사양/픽업 옵션 변경 시 재생성.</summary>
+        private List<int[]> EnsurePickupOrder()
+        {
+            try
+            {
+                var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
+                string key = BuildPickupKey(recipe);
+                if (_pickupOrder != null && key == _pickupOrderKey) return _pickupOrder;
+                _pickupOrderKey = key;
+                _pickupOrder = BuildPickupOrder(recipe);
+                return _pickupOrder;
+            }
+            catch
+            {
+                return _pickupOrder;
+            }
+        }
+
+        private static string BuildPickupKey(VisionMachineRecipe r)
+        {
+            if (r == null) return "";
+            string map = r.InputDieMap != null && r.InputDieMap.Entries != null
+                ? "M" + r.InputDieMap.Entries.Count + "_" + r.InputDieMap.CreatedAt.Ticks
+                : "G" + r.WaferGridX + "x" + r.WaferGridY + "_" + r.WaferPitchX + "_" + r.WaferPitchY
+                  + "_" + r.WaferOuterDiameterMm + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip;
+            var p = r.Pickup ?? new PickupSubset();
+            return map + "|" + (int)p.StartCorner + (int)p.Direction + (int)p.Pattern;
+        }
+
+        private static List<int[]> BuildPickupOrder(VisionMachineRecipe r)
+        {
+            var list = new List<int[]>();
+            if (r == null) return list;
+            DieMap map = (r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0)
+                ? r.InputDieMap
+                : DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
+                    r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip, "WAFER");
+            var ordered = PickupSequenceGenerator.Build(map, r.Pickup);
+            foreach (var e in ordered)
+                if (e != null) list.Add(new[] { e.DieMapX, e.DieMapY });
+            return list;
         }
 
         /// <summary>실행 실패 여부 — "fail:" 또는 "ERR" 시작(대문자 "FAIL;"=검사 NG 는 제외).</summary>

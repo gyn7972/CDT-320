@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Core;
 
@@ -269,26 +269,39 @@ namespace QMC.Vision.Modules
             // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
             if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
 
-            // ② 추세 차트 상/하한(Limit) → ChartLimitStore: 레시피 적용 즉시 운영뷰 차트에 반영(검사 실행 전에도 빨간 점선 표시).
+            // ② 차트(그래프) 전용 상/하한 → ChartLimitStore: NG 판정 스펙과 별개의 '차트 빨간 점선' 값(레시피 적용 즉시 반영).
             try
             {
-                if (_inspector is QMC.Vision.Core.BottomInspector bl)
+                if (Recipe is InspectorAlgoRecipe rec)
                 {
-                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 0, bl.ChipUpperSpecLimit.Width,  bl.ChipLowerSpecLimit.Width);
-                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 1, bl.ChipUpperSpecLimit.Height, bl.ChipLowerSpecLimit.Height);
-                }
-                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector sl)
-                {
-                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
-                    QMC.Vision.Core.ChartLimitStore.Set("Side", 1, sl.ChippingUpperLimit, sl.ChippingLowerLimit);
-                }
-                else if (_inspector is QMC.Vision.Core.PlacementGapInspector pl)
-                {
-                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, pl.GapUpperLimit, pl.GapLowerLimit);
-                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, pl.GapUpperLimit, pl.GapLowerLimit);
+                    if (_inspector is QMC.Vision.Core.SideAppearanceInspector)
+                    {
+                        // 측면: 앞쪽(Top)→차트1(Front, Side[0]) / 뒤쪽(Bottom)→차트2(Back, Side[1]). StorageKey(모듈키.Id)로 판정.
+                        string sk = (StorageKey ?? "") + " " + (_inspector?.Id ?? "");
+                        bool back = sk.IndexOf("Bottom", System.StringComparison.OrdinalIgnoreCase) >= 0
+                                 || sk.IndexOf("Back",   System.StringComparison.OrdinalIgnoreCase) >= 0
+                                 || sk.IndexOf("Rear",   System.StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (back) QMC.Vision.Core.ChartLimitStore.Set("Side", 1, rec.Chart2UpperLimit, rec.Chart2LowerLimit);
+                        else      QMC.Vision.Core.ChartLimitStore.Set("Side", 0, rec.Chart1UpperLimit, rec.Chart1LowerLimit);
+                    }
+                    else
+                    {
+                        string cm = _inspector is QMC.Vision.Core.BottomInspector ? "Bottom"
+                                  : _inspector is QMC.Vision.Core.PlacementGapInspector ? "Bin" : null;
+                        if (cm != null)
+                        {
+                            QMC.Vision.Core.ChartLimitStore.Set(cm, 0, rec.Chart1UpperLimit, rec.Chart1LowerLimit);
+                            QMC.Vision.Core.ChartLimitStore.Set(cm, 1, rec.Chart2UpperLimit, rec.Chart2LowerLimit);
+                        }
+                    }
                 }
             }
-            catch { }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AlgorithmNode] ChartLimit 적용 실패 (" + StorageKey + "): " + ex.Message);
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ChartLimit", "ChartLimit 적용 실패 key='" + StorageKey + "': " + ex.Message); }
+                catch { }
+            }
         }
 
         protected override void CollectFromRuntime()

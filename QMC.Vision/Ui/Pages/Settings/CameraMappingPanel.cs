@@ -825,7 +825,7 @@ namespace QMC.Vision.Ui.Pages
             if (g == null || _left == null) return;
             var pos = _left.GetPositionFromControl(g);
             if (pos.Row >= 0 && pos.Row < _left.RowStyles.Count)
-                _left.RowStyles[pos.Row].Height = g.PreferredGridHeight;
+                _left.RowStyles[pos.Row].Height = g.Visible ? g.PreferredGridHeight : 0F;   // 숨김 그리드는 0 유지
         }
 
         /// <summary>_left 에서 특정 컨트롤의 행 높이를 설정(컨트롤 위치로 행 조회).</summary>
@@ -862,8 +862,17 @@ namespace QMC.Vision.Ui.Pages
         {
             string id = ItemToId(_cbCameraId?.SelectedItem) ?? _cbCameraId?.Text;
             bool isMil = !string.IsNullOrEmpty(id) && id.StartsWith("Mil/", StringComparison.OrdinalIgnoreCase);
+            bool isSim = !string.IsNullOrEmpty(id) && id.StartsWith("Sim/", StringComparison.OrdinalIgnoreCase);
             if (_chkMilDcf != null) _chkMilDcf.Visible = isMil;
             UpdateMilDcfVisibility();
+
+            // .mfs 그룹은 MVS(Hik GigE) 카메라 전용 — MIL(DCF 사용)·Sim 에서는 숨김.
+            bool showMfs = !isMil && !isSim;
+            if (_mfsGrid != null)
+            {
+                _mfsGrid.Visible = showMfs;
+                SetLeftRowHeight(_mfsGrid, showMfs ? _mfsGrid.PreferredGridHeight : 0F);
+            }
         }
 
         /// <summary>DCF 경로칸은 MIL 카메라 선택 + "DCF 직접 지정" 체크 시에만 표시(기본 숨김).</summary>

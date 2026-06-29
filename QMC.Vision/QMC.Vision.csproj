@@ -109,6 +109,7 @@
     <Compile Include="Equipment\Core\InspectionOverlayStore.cs" />
     <Compile Include="Equipment\Core\InspectionOverlayRenderer.cs" />
     <Compile Include="Equipment\Core\ChartLimitStore.cs" />
+    <Compile Include="Equipment\Core\UnitContext.cs" />
     <Compile Include="Equipment\Core\IStepImageProvider.cs" />
     <Compile Include="Equipment\Core\ContaminationDetector.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />

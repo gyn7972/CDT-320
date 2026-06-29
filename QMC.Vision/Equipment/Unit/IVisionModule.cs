@@ -55,6 +55,10 @@ namespace QMC.Vision.Modules
         event Action<string, string> Alarmed;
         long ViewerFrameSeq { get; }
 
+        /// <summary>픽셀↔mm 스케일(mm/px) — 검사기 측정 mm 환산용(전역 단위 토글이 사용).</summary>
+        double ScaleX { get; }
+        double ScaleY { get; }
+
         GrabResult Grab(int timeoutMs = 3000);
 
         /// <summary>도구(Finder/Inspector) 단위 그랩 — 그 도구에 전용 시뮬 저장이미지가 지정되어 있으면 그것을 우선 로드,

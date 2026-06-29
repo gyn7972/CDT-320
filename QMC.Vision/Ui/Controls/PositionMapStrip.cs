@@ -44,5 +44,12 @@ namespace QMC.Vision.Ui.Controls
             _maps[2].SetData(DefaultCaptions[2], ch1);
             _maps[3].SetData(DefaultCaptions[3], ch2);
         }
+
+        /// <summary>맵 1칸(i=0~3)의 캡션+데이터 설정. 모드별로 지표가 달라 개별 지정용(data=null 이면 빈 칸).</summary>
+        public void SetMap(int i, string caption, double[,] data)
+        {
+            if (i < 0 || i >= _maps.Length) return;
+            _maps[i].SetData(caption ?? "", data);
+        }
     }
 }

@@ -42,12 +42,14 @@ namespace QMC.Vision.Ui.Controls
                         break;
                     case InspectionMode.Side:
                         _lblToggle.Text = "Channel 1 / Channel 2";
-                        _mapHost.Visible = false;
+                        _mapTitle.Text = "Map — 측면 칩핑(리밋 근접 색칠)";
+                        _mapHost.Visible = true;
                         BuildGridColumns("Index X", "Index Y", "Picker", "Front max", "Back max");
                         break;
                     case InspectionMode.Bin:
                         _lblToggle.Text = "위·좌 / 아래·우";
-                        _mapHost.Visible = false;
+                        _mapTitle.Text = "Map — Bin gap(리밋 근접 색칠)";
+                        _mapHost.Visible = true;
                         BuildGridColumns("Index X", "Index Y", "Picker", "Right max", "Right min", "Bottom gap", "Offset X", "Offset Y", "Angle");
                         break;
                 }
@@ -90,9 +92,8 @@ namespace QMC.Vision.Ui.Controls
             double[] s2 = SampleData.Series(mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
             _chart2.SetData(s2, up, lo, title, col);
 
-            // 위치별 4-맵(Bottom 전용) — 실데이터 있으면 RefreshFromStore 가 채움/덮어씀
-            if (mode == InspectionMode.Bottom)
-                BuildBottomMaps();
+            // 위치별 4-맵(Bottom/Side/Bin) — 실데이터 있으면 RefreshFromStore 가 채움/덮어씀
+            BuildPositionMaps(mode);
 
             // 결과 그리드
             _grid.Rows.Clear();
@@ -112,11 +113,11 @@ namespace QMC.Vision.Ui.Controls
             System.Array.Clear(_boundCh, 0, _boundCh.Length);
             double up, lo; string title; Color col;
             SampleData.Series(mode, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
-            _chart1.SetData(new double[0], up, lo, title, col);
+            _chart1.SetData(new double[0], up, lo, UnitTitle(title), col);
             SampleData.Series(mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
-            _chart2.SetData(new double[0], up, lo, title, col);
+            _chart2.SetData(new double[0], up, lo, UnitTitle(title), col);
             _grid.Rows.Clear();
-            if (mode == InspectionMode.Bottom) _waferMap?.SetMaps(null, null, null, null);
+            _waferMap?.SetMaps(null, null, null, null);
         }
 
         /// <summary>Side 기본 빈칸 — 4채널 NO IMAGE, 차트는 상/하한선만, 그리드 비움. 시퀀서 동작 시 채워짐.</summary>
@@ -134,6 +135,7 @@ namespace QMC.Vision.Ui.Controls
             SampleData.Series(InspectionMode.Side, 1, out up, out lo, out title, out col);
             _chart2.SetData(new double[0], up, lo, title, col);
             _grid.Rows.Clear();
+            _waferMap?.SetMaps(null, null, null, null);
         }
 
         /// <summary>크로스라인 체크 변경 → 모든 픽커(단일/4채널)에 적용.</summary>
@@ -224,10 +226,10 @@ namespace QMC.Vision.Ui.Controls
                 var dies = InspectionResultStore.Dies(mode);
                 double[] vf = dies.Select(d => d.FrontMax).ToArray();
                 SampleData.Series(Mode, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
-                if (vf.Length > 0) _chart1.SetData(vf, up, lo, title, col);
+                if (vf.Length > 0) _chart1.SetData(DispSeries(vf), up, lo, UnitTitle(title), col);
                 double[] vb = dies.Select(d => d.BackMax).ToArray();
                 SampleData.Series(Mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
-                if (vb.Length > 0) _chart2.SetData(vb, up, lo, title, col);
+                if (vb.Length > 0) _chart2.SetData(DispSeries(vb), up, lo, UnitTitle(title), col);
 
                 _grid.Rows.Clear();
                 foreach (var d in dies)
@@ -253,10 +255,10 @@ namespace QMC.Vision.Ui.Controls
                 string k1, k2; ChartKeys(out k1, out k2);
                 double[] v1 = InspectionResultStore.Series(mode, k1);
                 SampleData.Series(Mode, 0, out up, out lo, out title, out col); ApplyChartLimits(0, ref up, ref lo);
-                if (v1.Length > 0) _chart1.SetData(v1, up, lo, title, col);
+                if (v1.Length > 0) _chart1.SetData(DispSeries(v1), up, lo, UnitTitle(title), col);
                 double[] v2 = InspectionResultStore.Series(mode, k2);
                 SampleData.Series(Mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
-                if (v2.Length > 0) _chart2.SetData(v2, up, lo, title, col);
+                if (v2.Length > 0) _chart2.SetData(DispSeries(v2), up, lo, UnitTitle(title), col);
             }
 
             _grid.Rows.Clear();
@@ -274,20 +276,20 @@ namespace QMC.Vision.Ui.Controls
                 _grid.Rows.Add(row);
             }
 
-            if (Mode == InspectionMode.Bottom) BuildBottomMaps();   // 위치별 4-맵 갱신
+            BuildPositionMaps(Mode);   // 위치별 4-맵 갱신(Bottom/Side/Bin)
         }
 
-        // ── 4-맵(Width · Height · 1ch · 2ch ChippingSize) — Bottom 전용 ──
-        // 条件1: 맵은 레시피 웨이퍼 사양(Grid X/Y) 좌표에 각 결과(Index X/Index Y)를 배치해 그린다.
-        // 条件2: 셀 색은 레시피 리밋 근접도(흰색=공칭/0, 빨강=상·하한 또는 칩핑 최대 근접)로 그라데이션.
-        private void BuildBottomMaps()
+        // ── 위치별 4-맵 — Bottom/Side/Bin 공통 ──
+        // 条件1: 레시피 웨이퍼 사양(Grid X/Y) 좌표에 각 결과(Index X/Index Y)를 배치해 그린다.
+        // 条件2: 셀 색은 리밋 근접도로 그라데이션. 폭/높이처럼 양측 밴드면 밴드 중심=흰색·상/하한=빨강,
+        //        칩핑/갭처럼 0이 최적이면 0=흰색·상한=빨강. 리밋은 차트(ChartLimitStore)와 동일 소스 사용.
+        private void BuildPositionMaps(InspectionMode mode)
         {
-            if (Mode != InspectionMode.Bottom || _waferMap == null) return;
-            var hist = InspectionResultStore.History(InspectionResultStore.Bottom);
+            if (_waferMap == null) return;
+            var hist = InspectionResultStore.History(StoreKeyOf(mode));
             if (hist.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
 
-            // 웨이퍼 격자 크기 — 레시피 사양 우선, 결과 인덱스가 벗어나면 그만큼 확장.
-            // 활성 레시피 SSOT(ActiveRecipeContext) — 호스트 창(Form1/별도 Bottom 창)과 무관하게 동작.
+            // 웨이퍼 격자 — 레시피 사양(ActiveRecipeContext) 우선, 결과 인덱스가 벗어나면 확장.
             var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
             int gridX = recipe != null ? recipe.WaferGridX : 0;
             int gridY = recipe != null ? recipe.WaferGridY : 0;
@@ -300,31 +302,64 @@ namespace QMC.Vision.Ui.Controls
             if (gridX > 600) gridX = 600;
             if (gridY > 600) gridY = 600;
 
-            // 레시피 리밋(상/하한, 칩핑 최대). 폭/높이는 리밋 밴드 중심=흰색, 상·하한 근접=빨강. 미설정 시 폴백.
-            double wLo = recipe != null ? recipe.ChipWidthLowerMm : 0;
-            double wUp = recipe != null ? recipe.ChipWidthUpperMm : 0;
-            double hLo = recipe != null ? recipe.ChipHeightLowerMm : 0;
-            double hUp = recipe != null ? recipe.ChipHeightUpperMm : 0;
-            double chipLimit = recipe != null ? recipe.MaxChippingDepthMm : 0;
+            // 차트 2지표의 키 + 상/하한(대시선과 동일 소스).
+            ChartKeys(out string k1, out string k2);
+            double up0, lo0, up1, lo1; string t; Color col;
+            SampleData.Series(mode, 0, out up0, out lo0, out t, out col); ApplyChartLimits(0, ref up0, ref lo0);
+            SampleData.Series(mode, 1, out up1, out lo1, out t, out col); ApplyChartLimits(1, ref up1, ref lo1);
 
-            // 원본 측정값을 웨이퍼 좌표(Index Y=행, Index X=열)에 배치.
-            double[,] wraw = NewNaN(gridY, gridX), hraw = NewNaN(gridY, gridX);
-            double[,] c1raw = NewNaN(gridY, gridX), c2raw = NewNaN(gridY, gridX);
+            double[,] m0 = NewNaN(gridY, gridX), m1 = NewNaN(gridY, gridX);
             foreach (var it in hist)
             {
                 int cx = it.IndexX, cy = it.IndexY;
                 if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
-                wraw[cy, cx] = Val(it, "Width");
-                hraw[cy, cx] = Val(it, "Height");
-                c1raw[cy, cx] = MaxNaN(Val(it, "Chipping Top"), Val(it, "Chipping Bottom"));
-                c2raw[cy, cx] = MaxNaN(Val(it, "Chipping Left"), Val(it, "Chipping Right"));
+                double v0 = Val(it, k1); if (!double.IsNaN(v0)) m0[cy, cx] = v0;
+                double v1 = Val(it, k2); if (!double.IsNaN(v1)) m1[cy, cx] = v1;
             }
 
-            _waferMap.SetMaps(
-                NormByLimit(wraw, wLo, wUp),
-                NormByLimit(hraw, hLo, hUp),
-                NormByMax(c1raw, chipLimit),
-                NormByMax(c2raw, chipLimit));
+            if (mode == InspectionMode.Bottom)
+            {
+                // Bottom 은 1ch/2ch 칩핑 맵 2개 추가(칩핑 한계 대비 비율).
+                double chipLimit = recipe != null ? recipe.MaxChippingDepthMm : 0;
+                double[,] c1 = NewNaN(gridY, gridX), c2 = NewNaN(gridY, gridX);
+                foreach (var it in hist)
+                {
+                    int cx = it.IndexX, cy = it.IndexY;
+                    if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
+                    c1[cy, cx] = MaxNaN(Val(it, "Chipping Top"), Val(it, "Chipping Bottom"));
+                    c2[cy, cx] = MaxNaN(Val(it, "Chipping Left"), Val(it, "Chipping Right"));
+                }
+                _waferMap.SetMap(0, "Width", NormAuto(m0, lo0, up0));
+                _waferMap.SetMap(1, "Height", NormAuto(m1, lo1, up1));
+                _waferMap.SetMap(2, "1 Channel ChippingSize", NormByMax(c1, chipLimit));
+                _waferMap.SetMap(3, "2 Channel ChippingSize", NormByMax(c2, chipLimit));
+            }
+            else
+            {
+                // Side/Bin 은 차트 2지표를 그대로 맵 2개로(나머지 2칸 비움).
+                _waferMap.SetMap(0, k1, NormAuto(m0, lo0, up0));
+                _waferMap.SetMap(1, k2, NormAuto(m1, lo1, up1));
+                _waferMap.SetMap(2, "", null);
+                _waferMap.SetMap(3, "", null);
+            }
+        }
+
+        private static string StoreKeyOf(InspectionMode mode)
+        {
+            switch (mode)
+            {
+                case InspectionMode.Side: return InspectionResultStore.Side;
+                case InspectionMode.Bin:  return InspectionResultStore.Bin;
+                default:                  return InspectionResultStore.Bottom;
+            }
+        }
+
+        /// <summary>상/하한 형태로 정규화 방식 자동 선택: 하한&gt;0 양측 밴드, 아니면 0~상한, 둘 다 없으면 상대 편차.</summary>
+        private static double[,] NormAuto(double[,] raw, double lo, double up)
+        {
+            if (lo > 1e-6 && up > lo) return NormByLimit(raw, lo, up);   // 양측 밴드(Width/Height 등)
+            if (up > 1e-6) return NormByMax(raw, up);                    // 0~상한(칩핑/갭 등)
+            return NormDev(raw);                                          // 리밋 미설정 → 상대 편차
         }
 
         private static double Val(InspectionResultStore.Item it, string k)
@@ -406,11 +441,39 @@ namespace QMC.Vision.Ui.Controls
         private static PointF[] MarksOf(InspectionResultStore.Item it)
             => it.Defects == null ? null : it.Defects.Select(d => new PointF((float)d.X, (float)d.Y)).ToArray();
 
-        /// <summary>차트 상/하한을 레시피 기반 ChartLimitStore 값으로 덮어쓴다(없으면 기본값 유지).</summary>
+        /// <summary>차트 상/하한을 레시피 기반 ChartLimitStore 값으로 덮어쓴다(없으면 기본값 유지). px 모드면 mm→px 환산.</summary>
         private void ApplyChartLimits(int which, ref double up, ref double lo)
         {
             if (QMC.Vision.Core.ChartLimitStore.TryGet(ModeKey(), which, out double u, out double l) && !(u == 0 && l == 0))
             { up = u; lo = l; }
+            double s = UnitScale();
+            if (s > 0 && s != 1.0) { up /= s; lo /= s; }   // mm 저장값 → px 표시
+        }
+
+        /// <summary>현재 표시 단위 환산 계수(px 모드일 때 모드 카메라 스케일, mm 모드면 1).</summary>
+        private double UnitScale()
+        {
+            if (QMC.Vision.Core.UnitContext.DisplayMm) return 1.0;
+            QMC.Vision.Core.UnitContext.GetModeScale(ModeKey(), out double sx, out double sy);
+            return sx > 0 ? sx : 1.0;
+        }
+
+        /// <summary>mm 시계열 → 표시 단위(px 모드면 ÷scale).</summary>
+        private double[] DispSeries(double[] mm)
+        {
+            double s = UnitScale();
+            if (mm == null || s <= 0 || s == 1.0) return mm;
+            var o = new double[mm.Length];
+            for (int i = 0; i < mm.Length; i++) o[i] = mm[i] / s;
+            return o;
+        }
+
+        private string UnitTitle(string t)
+        {
+            if (string.IsNullOrEmpty(t)) return t;
+            string u = "[" + QMC.Vision.Core.UnitContext.UnitLabel + "]";
+            int a = t.IndexOf('['), b = t.IndexOf(']');
+            return (a >= 0 && b > a) ? t.Substring(0, a) + u + t.Substring(b + 1) : t + " " + u;
         }
 
         private void ChartKeys(out string k1, out string k2)

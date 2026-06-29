@@ -206,11 +206,11 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>InspectionResult → 스토어 Item 변환(Items 의 숫자값을 Values 로 파싱).</summary>
-        public static Item FromResult(string mode, int picker, int ix, int iy, InspectionResult r, Bitmap image)
-            => FromResult(mode, picker, -1, ix, iy, r, image);
+        public static Item FromResult(string mode, int picker, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
+            => FromResult(mode, picker, -1, ix, iy, r, image, box);
 
-        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1).</summary>
-        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image)
+        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1). box=검출 박스(이미지 px, 픽커 오버레이용).</summary>
+        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
         {
             var it = new Item { Mode = mode, Picker = picker, Channel = channel, IndexX = ix, IndexY = iy, Pass = r != null && r.IsPass };
             var lines = new List<string>();
@@ -222,6 +222,7 @@ namespace QMC.Vision.Core
                 }
             it.Lines = lines.ToArray();
             it.Defects = r?.Defects;
+            it.Box = box;   // 검출 박스(픽커 패널 오버레이) — 아래 썸네일 배율로 함께 축소.
             // 표시용 이미지는 썸네일로 축소 보관(원본 12000²=432MB → OOM 방지). 뷰어 픽커 패널은 작아 충분.
             // 박스/결함 좌표도 같은 배율로 축소해 이미지와 정합. 원본(r.Defects)은 보존(클론 축소).
             if (image != null)

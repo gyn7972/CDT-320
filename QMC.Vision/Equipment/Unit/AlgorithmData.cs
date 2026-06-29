@@ -195,10 +195,16 @@ namespace QMC.Vision.Modules
         [DataMember] public int    LinkDistance { get; set; }
         [DataMember] public int    ChipEdgeMargin { get; set; }       // 칩핑 검사영역 오프셋[px] (CDT-310 margin)
         [DataMember] public int    ForeignEdgeMargin { get; set; }    // 이물 검사영역 오프셋[px] (CDT-310 *MarginForeign)
-        [DataMember] public double WidthUpperLimit  { get; set; }     // 바텀 너비 상/하한[mm] (0=미설정) — 차트 Limit + 사이즈 NG
+        [DataMember] public double WidthUpperLimit  { get; set; }     // 바텀 너비 상/하한[mm] (0=미설정) — 사이즈 NG 판정
         [DataMember] public double WidthLowerLimit  { get; set; }
         [DataMember] public double HeightUpperLimit { get; set; }     // 바텀 높이 상/하한[mm]
         [DataMember] public double HeightLowerLimit { get; set; }
+        // ── 차트(그래프) 전용 표시 상/하한 — NG 판정과 무관한 '차트 빨간 점선' 기준값(mm, 0=미설정/오토스케일) ──
+        // 차트1 = 모듈 첫째 그래프(Bottom:너비 / Side:Front / Bin:오른쪽갭), 차트2 = 둘째(높이 / Back / 아래쪽갭)
+        [DataMember] public double Chart1LowerLimit { get; set; }
+        [DataMember] public double Chart1UpperLimit { get; set; }
+        [DataMember] public double Chart2LowerLimit { get; set; }
+        [DataMember] public double Chart2UpperLimit { get; set; }
         [DataMember] public bool   DarkChip { get; set; }
         [DataMember] public double ChipThickness { get; set; }
         [DataMember] public double BladeWidth { get; set; }

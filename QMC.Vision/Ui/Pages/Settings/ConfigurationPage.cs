@@ -51,6 +51,10 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Bool(Lang.T("set.gen.simAuto"), sc,
                     () => VisionConfigStore.Current.SimAutoSequence,
                     v => VisionConfigStore.Current.SimAutoSequence = v),
+                // 측정 표시 단위 — 체크=mm(카메라 ScaleX/Y 환산), 해제=px. 전역(모든 레시피/검사/차트 공통).
+                ParameterGridItem.Bool("측정 단위 mm 표시 (해제=px)", sc,
+                    () => VisionConfigStore.Current.DisplayMm,
+                    v => VisionConfigStore.Current.DisplayMm = v),
             });
 
             // Vision Backend
