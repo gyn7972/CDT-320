@@ -51,15 +51,15 @@ namespace QMC.Vision.Sequencing
             [SequenceModuleKind.FrontSideVision] = new[]
             {
                 T("MATCH",   "DieEdgeFinder"),
-                T("INSPECT", "TopSurfaceInspector"),
-                T("INSPECT", "TopChippingInspector"),
+                T("INSPECT", "FrontSurfaceInspector"),
+                T("INSPECT", "FrontChippingInspector"),
                 T("MATCH",   "FocusFinder"),
             },
             [SequenceModuleKind.RearSideVision] = new[]
             {
                 T("MATCH",   "DieEdgeFinder"),
-                T("INSPECT", "BottomSurfaceInspector"),
-                T("INSPECT", "BottomChippingInspector"),
+                T("INSPECT", "RearSurfaceInspector"),
+                T("INSPECT", "RearChippingInspector"),
                 T("MATCH",   "FocusFinder"),
             },
         };

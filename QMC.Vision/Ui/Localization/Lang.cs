@@ -188,10 +188,10 @@ namespace QMC.Vision.Ui.Localization
             A("insp.FocusFinder",             "포커스",      "Focus");
             A("insp.DistortionCompensation",  "왜곡 보정",   "Distortion Comp.");
             A("insp.DieEdgeFinder",           "다이 에지",   "Die Edge");
-            A("insp.TopSurfaceInspector",     "앞쪽 면",     "Front Surface");
-            A("insp.TopChippingInspector",    "앞쪽 칩핑",   "Front Chipping");
-            A("insp.BottomSurfaceInspector",  "뒤쪽 면",     "Rear Surface");
-            A("insp.BottomChippingInspector", "뒤쪽 칩핑",   "Rear Chipping");
+            A("insp.FrontSurfaceInspector",     "앞쪽 면",     "Front Surface");
+            A("insp.FrontChippingInspector",    "앞쪽 칩핑",   "Front Chipping");
+            A("insp.RearSurfaceInspector",  "뒤쪽 면",     "Rear Surface");
+            A("insp.RearChippingInspector", "뒤쪽 칩핑",   "Rear Chipping");
 
             // 레시피(Recipe) 탭 — RecipePage / 타깃 페이지 / 조명 패널
             A("rec.projItem",         "프로젝트 (레시피)",  "Project (Recipe)");
@@ -398,10 +398,10 @@ namespace QMC.Vision.Ui.Localization
             Z("insp.FocusFinder",             "对焦");
             Z("insp.DistortionCompensation",  "畸变校正");
             Z("insp.DieEdgeFinder",           "芯片边缘");
-            Z("insp.TopSurfaceInspector",     "前表面");
-            Z("insp.TopChippingInspector",    "前崩边");
-            Z("insp.BottomSurfaceInspector",  "后表面");
-            Z("insp.BottomChippingInspector", "后崩边");
+            Z("insp.FrontSurfaceInspector",     "前表面");
+            Z("insp.FrontChippingInspector",    "前崩边");
+            Z("insp.RearSurfaceInspector",  "后表面");
+            Z("insp.RearChippingInspector", "后崩边");
 
             Z("rec.projItem",         "项目 (配方)");
             Z("rec.sideModule",       "模块");
@@ -524,10 +524,10 @@ namespace QMC.Vision.Ui.Localization
             J("insp.FocusFinder",             "フォーカス");
             J("insp.DistortionCompensation",  "歪み補正");
             J("insp.DieEdgeFinder",           "ダイエッジ");
-            J("insp.TopSurfaceInspector",     "前面");
-            J("insp.TopChippingInspector",    "前面チッピング");
-            J("insp.BottomSurfaceInspector",  "背面");
-            J("insp.BottomChippingInspector", "背面チッピング");
+            J("insp.FrontSurfaceInspector",     "前面");
+            J("insp.FrontChippingInspector",    "前面チッピング");
+            J("insp.RearSurfaceInspector",  "背面");
+            J("insp.RearChippingInspector", "背面チッピング");
 
             J("rec.projItem",         "プロジェクト (レシピ)");
             J("rec.sideModule",       "モジュール");
