@@ -48,6 +48,8 @@ namespace QMC.CDT_320.Ui.Controls
 
         public JogSpeedControl SpeedControl { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogAxisMoveLayoutMode LayoutMode
         {
             get

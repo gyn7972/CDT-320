@@ -585,7 +585,6 @@
             this.jogAxisMoveControl.ButtonAreaMinHeight = 164;
             this.jogAxisMoveControl.ButtonAreaMinWidth = 222;
             this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogAxisMoveControl.LayoutMode = QMC.CDT_320.Ui.Controls.JogAxisMoveLayoutMode.AxisColumns;
             this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 62);
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";

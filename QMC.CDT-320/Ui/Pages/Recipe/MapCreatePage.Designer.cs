@@ -142,6 +142,7 @@
             ((System.ComponentModel.ISupportInitialize)(this._nSideEdgeSkip)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nTopBottomEdgeSkip)).BeginInit();
             this.modeSection.SuspendLayout();
+            this.binSidePanel.SuspendLayout();
             this.actionSection.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -363,10 +364,15 @@
             // 
             this._mapView.BackColor = System.Drawing.Color.Black;
             this._mapView.Caption = "Recipe Die Map";
+            this._mapView.CellColorResolver = null;
+            this._mapView.CellStatusResolver = null;
+            this._mapView.CellTextResolver = null;
             this._mapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this._mapView.Location = new System.Drawing.Point(0, 0);
             this._mapView.Map = null;
             this._mapView.Name = "_mapView";
+            this._mapView.SelectedEntry = null;
+            this._mapView.ShowWaferOutline = false;
             this._mapView.Size = new System.Drawing.Size(1232, 788);
             this._mapView.TabIndex = 0;
             // 
@@ -825,7 +831,7 @@
             this.chkCircularMap.Location = new System.Drawing.Point(12, 26);
             this.chkCircularMap.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.chkCircularMap.Name = "chkCircularMap";
-            this.chkCircularMap.Size = new System.Drawing.Size(408, 36);
+            this.chkCircularMap.Size = new System.Drawing.Size(408, 32);
             this.chkCircularMap.TabIndex = 1;
             this.chkCircularMap.Text = "CIRCLE DIE MAP";
             this.chkCircularMap.UseVisualStyleBackColor = true;
@@ -834,10 +840,10 @@
             // 
             this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStandard.Location = new System.Drawing.Point(12, 62);
+            this.rbStandard.Location = new System.Drawing.Point(12, 58);
             this.rbStandard.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStandard.Name = "rbStandard";
-            this.rbStandard.Size = new System.Drawing.Size(408, 36);
+            this.rbStandard.Size = new System.Drawing.Size(408, 32);
             this.rbStandard.TabIndex = 2;
             this.rbStandard.TabStop = true;
             this.rbStandard.Text = "STANDARD";
@@ -846,10 +852,10 @@
             // 
             this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStartIndex.Location = new System.Drawing.Point(12, 98);
+            this.rbStartIndex.Location = new System.Drawing.Point(12, 90);
             this.rbStartIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStartIndex.Name = "rbStartIndex";
-            this.rbStartIndex.Size = new System.Drawing.Size(408, 36);
+            this.rbStartIndex.Size = new System.Drawing.Size(408, 32);
             this.rbStartIndex.TabIndex = 3;
             this.rbStartIndex.Text = "START INDEX";
             // 
@@ -857,10 +863,10 @@
             // 
             this.rbReference1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbReference1.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbReference1.Location = new System.Drawing.Point(12, 134);
+            this.rbReference1.Location = new System.Drawing.Point(12, 122);
             this.rbReference1.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference1.Name = "rbReference1";
-            this.rbReference1.Size = new System.Drawing.Size(408, 36);
+            this.rbReference1.Size = new System.Drawing.Size(408, 32);
             this.rbReference1.TabIndex = 4;
             this.rbReference1.Text = "1 REFERENCE INDEX";
             // 
@@ -868,54 +874,21 @@
             // 
             this.rbReference2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbReference2.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbReference2.Location = new System.Drawing.Point(12, 170);
+            this.rbReference2.Location = new System.Drawing.Point(12, 154);
             this.rbReference2.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference2.Name = "rbReference2";
-            this.rbReference2.Size = new System.Drawing.Size(408, 36);
+            this.rbReference2.Size = new System.Drawing.Size(408, 32);
             this.rbReference2.TabIndex = 5;
             this.rbReference2.Text = "2 REFERENCE INDEX";
-            //
-            // binSidePanel
-            //
-            this.binSidePanel.Controls.Add(this.rbBinGood);
-            this.binSidePanel.Controls.Add(this.rbBinNg);
-            this.binSidePanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.binSidePanel.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
-            this.binSidePanel.Name = "binSidePanel";
-            this.binSidePanel.Size = new System.Drawing.Size(408, 36);
-            this.binSidePanel.TabIndex = 9;
-            this.binSidePanel.Visible = false;
-            //
-            // rbBinGood
-            //
-            this.rbBinGood.Dock = System.Windows.Forms.DockStyle.Left;
-            this.rbBinGood.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.rbBinGood.Location = new System.Drawing.Point(0, 0);
-            this.rbBinGood.Name = "rbBinGood";
-            this.rbBinGood.Size = new System.Drawing.Size(204, 36);
-            this.rbBinGood.TabIndex = 0;
-            this.rbBinGood.TabStop = true;
-            this.rbBinGood.Text = "GOOD BIN MAP";
-            //
-            // rbBinNg
-            //
-            this.rbBinNg.Dock = System.Windows.Forms.DockStyle.Right;
-            this.rbBinNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.rbBinNg.Location = new System.Drawing.Point(204, 0);
-            this.rbBinNg.Name = "rbBinNg";
-            this.rbBinNg.Size = new System.Drawing.Size(204, 36);
-            this.rbBinNg.TabIndex = 1;
-            this.rbBinNg.TabStop = true;
-            this.rbBinNg.Text = "NG BIN MAP";
-            //
+            // 
             // rbManualSelectPick
             // 
             this.rbManualSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbManualSelectPick.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbManualSelectPick.Location = new System.Drawing.Point(12, 206);
+            this.rbManualSelectPick.Location = new System.Drawing.Point(12, 186);
             this.rbManualSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbManualSelectPick.Name = "rbManualSelectPick";
-            this.rbManualSelectPick.Size = new System.Drawing.Size(408, 36);
+            this.rbManualSelectPick.Size = new System.Drawing.Size(408, 32);
             this.rbManualSelectPick.TabIndex = 6;
             this.rbManualSelectPick.Text = "MANUAL SELECT PICK";
             // 
@@ -923,10 +896,10 @@
             // 
             this.rbAlignCheckIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbAlignCheckIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbAlignCheckIndex.Location = new System.Drawing.Point(12, 242);
+            this.rbAlignCheckIndex.Location = new System.Drawing.Point(12, 218);
             this.rbAlignCheckIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbAlignCheckIndex.Name = "rbAlignCheckIndex";
-            this.rbAlignCheckIndex.Size = new System.Drawing.Size(408, 36);
+            this.rbAlignCheckIndex.Size = new System.Drawing.Size(408, 32);
             this.rbAlignCheckIndex.TabIndex = 7;
             this.rbAlignCheckIndex.Text = "ALIGN CHECK INDEX";
             // 
@@ -934,12 +907,46 @@
             // 
             this.rbDragSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbDragSelectPick.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbDragSelectPick.Location = new System.Drawing.Point(12, 278);
+            this.rbDragSelectPick.Location = new System.Drawing.Point(12, 250);
             this.rbDragSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbDragSelectPick.Name = "rbDragSelectPick";
-            this.rbDragSelectPick.Size = new System.Drawing.Size(408, 37);
+            this.rbDragSelectPick.Size = new System.Drawing.Size(408, 32);
             this.rbDragSelectPick.TabIndex = 8;
             this.rbDragSelectPick.Text = "DRAG SELECT PICK";
+            // 
+            // binSidePanel
+            // 
+            this.binSidePanel.Controls.Add(this.rbBinGood);
+            this.binSidePanel.Controls.Add(this.rbBinNg);
+            this.binSidePanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.binSidePanel.Location = new System.Drawing.Point(12, 282);
+            this.binSidePanel.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
+            this.binSidePanel.Name = "binSidePanel";
+            this.binSidePanel.Size = new System.Drawing.Size(408, 33);
+            this.binSidePanel.TabIndex = 9;
+            this.binSidePanel.Visible = false;
+            // 
+            // rbBinGood
+            // 
+            this.rbBinGood.Dock = System.Windows.Forms.DockStyle.Left;
+            this.rbBinGood.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinGood.Location = new System.Drawing.Point(0, 0);
+            this.rbBinGood.Name = "rbBinGood";
+            this.rbBinGood.Size = new System.Drawing.Size(204, 33);
+            this.rbBinGood.TabIndex = 0;
+            this.rbBinGood.TabStop = true;
+            this.rbBinGood.Text = "GOOD BIN MAP";
+            // 
+            // rbBinNg
+            // 
+            this.rbBinNg.Dock = System.Windows.Forms.DockStyle.Right;
+            this.rbBinNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinNg.Location = new System.Drawing.Point(204, 0);
+            this.rbBinNg.Name = "rbBinNg";
+            this.rbBinNg.Size = new System.Drawing.Size(204, 33);
+            this.rbBinNg.TabIndex = 1;
+            this.rbBinNg.TabStop = true;
+            this.rbBinNg.Text = "NG BIN MAP";
             // 
             // actionSection
             // 
@@ -1092,6 +1099,7 @@
             ((System.ComponentModel.ISupportInitialize)(this._nSideEdgeSkip)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nTopBottomEdgeSkip)).EndInit();
             this.modeSection.ResumeLayout(false);
+            this.binSidePanel.ResumeLayout(false);
             this.actionSection.ResumeLayout(false);
             this.ResumeLayout(false);
 
