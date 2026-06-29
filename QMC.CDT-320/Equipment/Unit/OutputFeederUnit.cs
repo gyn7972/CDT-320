@@ -234,8 +234,9 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "OutputFeederY 이동 시작. target=" + targetPos);
                 int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveBinFeederYMoveVelocity(bFine));
                 if (result != 0 || FeederY.IsAlarm)
-                    return RaiseFeederAlarm(
+                    return ReportBinFeederMoveFailure(
                         "BF-Y-MOVE",
+                        result,
                         "OutputFeederY 이동 명령이 실패했습니다. result=" + result +
                         ", alarm=" + FeederY.IsAlarm +
                         FormatAxisLastMotionFailure());
@@ -1782,6 +1783,20 @@ namespace QMC.CDT320
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             Console.WriteLine("[ALARM] '" + Name + "' " + message);
             return -1;
+        }
+
+        // 이동 실패 보고: 인터락/공유레일 차단(result == -11)은 하위 가드가 이미 동일 사유로
+        // 알람 1회를 올렸으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다.
+        // 팝업/보고용 메시지(LastBinFeederMoveFailureMessage)는 -11 에서도 채워 유지한다.
+        private int ReportBinFeederMoveFailure(string code, int result, string message)
+        {
+            if (result == -11)
+            {
+                LastBinFeederMoveFailureMessage = message;
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", Name, message);
+                return result;
+            }
+            return RaiseFeederAlarm(code, message);
         }
 
         private async Task<int> WaitBinFeederYMoveDoneInPositionOrAlarm(

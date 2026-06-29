@@ -33,8 +33,8 @@ namespace QMC.Vision.Sequencing
             BuildTools(SequenceModuleKind.WaferVision,      _ctx.Machine.WaferVision,      "WaferVision");
             BuildTools(SequenceModuleKind.BinVision,        _ctx.Machine.BinVision,        "BinVision");
             BuildTools(SequenceModuleKind.BottomInspection, _ctx.Machine.BottomInspection, "BottomInspection");
-            BuildTools(SequenceModuleKind.TopSideVision,    _ctx.Machine.TopSideVision,    "TopSideVision");
-            BuildTools(SequenceModuleKind.BottomSideVision, _ctx.Machine.BottomSideVision, "BottomSideVision");
+            BuildTools(SequenceModuleKind.FrontSideVision,    _ctx.Machine.FrontSideVision,    "FrontSideVision");
+            BuildTools(SequenceModuleKind.RearSideVision, _ctx.Machine.RearSideVision, "RearSideVision");
         }
 
         private void BuildTools(SequenceModuleKind kind, IVisionModule module, string name)

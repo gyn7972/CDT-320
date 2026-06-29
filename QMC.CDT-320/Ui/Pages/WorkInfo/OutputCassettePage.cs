@@ -50,7 +50,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT BIN LOADING", LoadAsync);
             btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT BIN UNLOADING", UnloadAsync);
             btnStop.Click += async (s, e) => await StopManualActionAsync();
-            actionPanel.Resize += (s, e) => AlignStopButton();
 
             _good1CassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Good1, e.SlotIndex);
             _good2CassetteView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Good2, e.SlotIndex);
@@ -63,7 +62,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.ClearAllDataRequested += MaterialDetailView_ClearAllDataRequested;
 
             EnsureStopButtonLast();
-            AlignStopButton();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -212,7 +210,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             actionPanel.Enabled = true;
             btnStop.Enabled = true;
             EnsureStopButtonLast();
-            AlignStopButton();
         }
 
         private async Task StopManualActionAsync()
@@ -231,26 +228,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void AlignStopButton()
-        {
-            return; // STOP은 우측 고정존(actionRightPanel)에 위치 — 정렬 불필요
-            if (actionPanel == null || btnStop == null)
-                return;
-
-            EnsureStopButtonLast();
-            int usedWidth = actionPanel.Padding.Left + actionPanel.Padding.Right;
-            foreach (Control control in actionPanel.Controls)
-            {
-                if (ReferenceEquals(control, btnStop))
-                    continue;
-                usedWidth += control.Width + control.Margin.Left + control.Margin.Right;
-            }
-
-            int stopWidth = btnStop.Width + 6;
-            int leftMargin = Math.Max(6, actionPanel.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
-            btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
         }
 
         private void EnsureStopButtonLast()

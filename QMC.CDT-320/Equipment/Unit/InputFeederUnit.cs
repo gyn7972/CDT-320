@@ -245,7 +245,7 @@ namespace QMC.CDT320
                         ", alarm=" + FeederY.IsAlarm +
                         FormatAxisLastMotionFailure(FeederY) +
                         ". " + GetWaferFeederTransferState();
-                    return RaiseFeederAlarm("WF-Y-MOVE", LastWaferFeederMoveFailureMessage);
+                    return ReportFeederMoveFailure("WF-Y-MOVE", result, LastWaferFeederMoveFailureMessage);
                 }
 
                 AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(targetPos, ResolveWaferFeederYMoveTimeoutMs()).ConfigureAwait(false);
@@ -2479,6 +2479,18 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        // 이동 실패 보고: 인터락/공유레일 차단(result == -11)은 하위 가드가 이미 동일 사유로
+        // 알람 1회를 올렸으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다.
+        private int ReportFeederMoveFailure(string code, int result, string message)
+        {
+            if (result == -11)
+            {
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", Name, message);
+                return result;
+            }
+            return RaiseFeederAlarm(code, message);
         }
 
         private int RaiseFeederAlarm(string code, string message)

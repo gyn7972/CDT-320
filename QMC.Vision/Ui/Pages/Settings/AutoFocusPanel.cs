@@ -100,8 +100,8 @@ namespace QMC.Vision.Ui.Pages
             switch (cam)
             {
                 case FocusCamera.Bottom: return host.BottomMod;
-                case FocusCamera.Front:  return host.TopSideVisionMod;
-                default:                 return host.BottomSideVisionMod;
+                case FocusCamera.Front:  return host.FrontSideVisionMod;
+                default:                 return host.RearSideVisionMod;
             }
         }
 
@@ -249,8 +249,8 @@ namespace QMC.Vision.Ui.Pages
             switch (_camera)
             {
                 case FocusCamera.Bottom: return "BottomInspection";
-                case FocusCamera.Front:  return "TopSideVision";
-                default:                 return "BottomSideVision";
+                case FocusCamera.Front:  return "FrontSideVision";
+                default:                 return "RearSideVision";
             }
         }
 

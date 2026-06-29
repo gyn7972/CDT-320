@@ -545,11 +545,17 @@ namespace QMC.CDT320.Interlocks
             if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
+            // Auto 검사/Place 연속 동작에서는 같은 존 안에서 다음 다이로 X축만 이동할 수 있다.
+            // 메뉴얼/단독 이동은 InspectionContinuous 태그가 없으므로 기존 Y Avoid 조건을 그대로 탄다.
             bool allowedTransition =
+                (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Input) ||
                 (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
+                (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Bottom) ||
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output);
+                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output) ||
+                (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Output);
 
             if (!allowedTransition)
                 return false;
@@ -1477,13 +1483,11 @@ namespace QMC.CDT320.Interlocks
             if (machine.PickerFrontUnit == null)
                 return true;
 
-            if (!machine.PickerFrontUnit.IsFrontPickerInAvoidPosition())
-            {
-                reason = "FrontPicker Avoid 위치 최종 확인이 되지 않았습니다.";
-                return false;
-            }
-
-            return ArePickerAxesReadyAvoidSafe(machine.PickerFrontUnit.Axes, "FrontPicker", out reason);
+            return ArePickerAxesReadyAvoidSafe(
+                machine.PickerFrontUnit.Axes,
+                delegate(PickerAxis axis) { return machine.PickerFrontUnit.GetPickerTeachingPosition(axis, "AvoidPosition"); },
+                "FrontPicker",
+                out reason);
         }
 
         private static bool IsRearPickerReadyAvoidSafe(CDT320_Machine machine, out string reason)
@@ -1493,17 +1497,16 @@ namespace QMC.CDT320.Interlocks
             if (machine.PickerRearUnit == null)
                 return true;
 
-            if (!machine.PickerRearUnit.IsRearPickerInAvoidPosition())
-            {
-                reason = "RearPicker Avoid 위치 최종 확인이 되지 않았습니다.";
-                return false;
-            }
-
-            return ArePickerAxesReadyAvoidSafe(machine.PickerRearUnit.Axes, "RearPicker", out reason);
+            return ArePickerAxesReadyAvoidSafe(
+                machine.PickerRearUnit.Axes,
+                delegate(PickerAxis axis) { return machine.PickerRearUnit.GetPickerTeachingPosition(axis, "AvoidPosition"); },
+                "RearPicker",
+                out reason);
         }
 
         private static bool ArePickerAxesReadyAvoidSafe(
             System.Collections.Generic.IReadOnlyDictionary<PickerAxis, BaseAxis> axes,
+            System.Func<PickerAxis, double> resolveAvoidTarget,
             string label,
             out string reason)
         {
@@ -1518,6 +1521,14 @@ namespace QMC.CDT320.Interlocks
                 if (axis == null)
                     continue;
 
+                try
+                {
+                    axis.UpdateStatus();
+                }
+                catch
+                {
+                }
+
                 if (axis.IsAlarm)
                 {
                     reason = label + " " + pair.Key + " 축 알람이 ON 상태입니다.";
@@ -1529,9 +1540,54 @@ namespace QMC.CDT320.Interlocks
                     reason = label + " " + pair.Key + " 축이 아직 이동 중입니다.";
                     return false;
                 }
+
+                double target;
+                try
+                {
+                    target = resolveAvoidTarget != null ? resolveAvoidTarget(pair.Key) : axis.ActualPosition;
+                }
+                catch (Exception ex)
+                {
+                    reason = label + " " + pair.Key + " Avoid 목표 위치 해석 실패. error=" + ex.Message;
+                    return false;
+                }
+                finally
+                {
+                }
+
+                double tolerance = ResolveReadyAvoidTolerance(axis);
+                double actual = axis.ActualPosition;
+                double command = axis.CommandPosition;
+                if (Math.Abs(actual - target) > tolerance || Math.Abs(command - target) > tolerance)
+                {
+                    reason = label + " " + pair.Key + " Avoid 위치 최종 확인 실패. " +
+                             "actual=" + actual.ToString("0.###") +
+                             ", command=" + command.ToString("0.###") +
+                             ", target=" + target.ToString("0.###") +
+                             ", tolerance=" + tolerance.ToString("0.###");
+                    return false;
+                }
             }
 
             return true;
+        }
+
+        private static double ResolveReadyAvoidTolerance(BaseAxis axis)
+        {
+            try
+            {
+                if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
+                    return axis.Config.InPositionTolerance;
+
+                return DefaultTolerance;
+            }
+            catch
+            {
+                return DefaultTolerance;
+            }
+            finally
+            {
+            }
         }
 
         private static bool ClearAllPickerWorkAreasLocked(out string summary)

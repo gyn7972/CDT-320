@@ -33,11 +33,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontPickerX(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoFrontPickerX(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualFrontPickerX(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerX(request.Machine, out reason);
@@ -46,7 +47,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveFrontPickerX(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoFrontPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -153,11 +154,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontPickerY(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoFrontPickerY(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualFrontPickerY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerY(request.Machine, out reason);
@@ -166,7 +168,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveFrontPickerY(MotionGuardRuleContext request, out string reason)
+        private static bool CanAutoFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!IsInspectionZHoldMove(request) &&
@@ -194,17 +196,61 @@ namespace QMC.CDT320.Interlocks
             return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason);
         }
 
+        private static bool CanManualFrontPickerY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (!VerifyFrontPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
+                    return false;
+
+                if (!VerifyReticleCylinderClear(machine, "FrontPickerY", out reason))
+                    return false;
+
+                // InputExpandingZ가 Avoid/Process/Ready 위치여야 FrontPickerY 이동 가능.
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !IsExpanderZAvoidProcessOrReady(stage))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
+                        out reason);
+
+                // OutputStage GoodStageZ가 안전 위치(Avoid 또는 Process)여야 FrontPickerY 이동 가능.
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage != null && !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerY",
+                    "Exception occurred while verifying FrontPickerY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
         private static bool VerifyFrontPickerT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontPickerT(request.Machine, request.MovingName, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoFrontPickerT(request.Machine, request.MovingName, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualFrontPickerT(request.Machine, request.MovingName, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerT(request.Machine, request.MovingName, out reason);
@@ -213,7 +259,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveFrontPickerT(CDT320_Machine machine, string movingName, out string reason)
+        private static bool CanAutoFrontPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
 
@@ -226,6 +272,99 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " T축 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualFrontPickerT(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                PickerAxis zAxis;
+                if (!TryResolvePairedZAxis(movingName, out zAxis))
+                    return true;
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Front" + zAxis + " must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying " + movingName + " home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanManualFrontPickerX(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                string axisReason;
+                if (stage != null &&
+                    !MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(stage.CameraX, "InputVisionX", out axisReason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+                }
+
+                if (stage != null && !IsExpanderZHomeAvoidProcessOrReady(stage))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputExpandingZ must be at Home(0), Avoid, Process or Ready position.",
+                        out reason);
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyFrontPickerZAxesAvoid(front, "FrontPickerX", out reason))
+                    return false;
+
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (feeder != null && !feeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputFeeder lift cylinder must be down.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerX",
+                    "Exception occurred while verifying FrontPickerX home rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -373,11 +512,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontPickerZ(request, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoFrontPickerZ(request, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualFrontPickerZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontPickerZ(request.Machine, request.MovingName, out reason);
@@ -392,7 +532,57 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveFrontPickerZ(MotionGuardRuleContext request, out string reason)
+        private static bool CanManualFrontPickerZ(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            string movingName = request != null ? request.MovingName : "FrontPickerZ";
+            PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
+
+            if (!CanHomeFrontPickerZ(machine, movingName, out reason))
+                return false;
+
+            // PickerZ는 현재 작업 존 기준으로 필요한 feeder만 확인한다.
+            // Avoid 복귀는 Z가 안전 위치로 올라가는 동작이므로 feeder 위치로 차단하지 않는다.
+            // 존을 알 수 없으면 기존처럼 양쪽 feeder를 모두 확인한다.
+            InputFeederUnit inputFeeder = machine != null ? machine.InputFeederUnit : null;
+            OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+
+            if (RequiresInputFeederAvoid(targetZone) &&
+                inputFeeder != null &&
+                !inputFeeder.IsWaferFeederYInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            if (RequiresOutputFeederAvoid(targetZone) &&
+                outputFeeder != null &&
+                !outputFeeder.IsBinFeederYInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: OutputFeederY가 Avoid 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            // Input PickUp 존에서만 ExpanderZ와 직접 간섭을 확인한다.
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (RequiresInputStageZSafe(targetZone) &&
+                stage != null &&
+                !IsExpanderZAvoidProcessOrReady(stage))
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다. pickerZone=" + targetZone + ".",
+                    out reason);
+            }
+
+            return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, movingName, out reason);
+        }
+
+        private static bool CanAutoFrontPickerZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             string movingName = request != null ? request.MovingName : "FrontPickerZ";

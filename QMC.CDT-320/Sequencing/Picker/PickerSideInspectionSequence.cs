@@ -469,6 +469,8 @@ namespace QMC.CDT320.Sequencing
             string phase = ";PickerPhase=InspectionZHold";
             if (IsEnterSideFromBottomInspection())
                 phase += ";InspectionContinuous;From=Bottom;To=Side";
+            else if (Options != null && Options.KeepZUntilSideInspectionComplete)
+                phase += ";InspectionContinuous;From=Side;To=Side";
 
             return targetName + phase;
         }
@@ -533,28 +535,39 @@ namespace QMC.CDT320.Sequencing
                 if (Options == null || !Options.KeepZUntilSideInspectionComplete)
                     return 0;
 
-                if (_pickerCursor <= 0 || _pickerCursor > _pickedPickerIndexes.Count - 1)
+                int previousCursor = _pickerCursor - 1;
+                if (previousCursor < 0 || previousCursor >= _pickedPickerIndexes.Count)
                     return 0;
 
-                int previousPickerIndex = _pickedPickerIndexes[_pickerCursor - 1];
-                PickerAxis previousZAxis = GetPickerZAxis(previousPickerIndex);
-                double zAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
-                if (IsPickerAxisAlreadyInPosition(previousZAxis, zAvoid))
+                int previousPickerIndex = _pickedPickerIndexes[previousCursor];
+                if (previousPickerIndex == _currentPickerIndex)
                     return 0;
+
+                PickerAxis previousZAxis = GetPickerZAxis(previousPickerIndex);
+                double previousZAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
+                if (IsPickerAxisInPosition(previousZAxis, previousZAvoid))
+                {
+                    WriteLog("PickerSideInspectionSequence",
+                        Name + " 다음 Side 검사 진입 중 이전 PickerZ가 이미 Avoid 위치입니다. " +
+                        "previousPickerNo=" + ToPickerNo(previousPickerIndex) +
+                        ", currentPickerNo=" + _currentPickerNo + " - Check");
+                    return 0;
+                }
 
                 int result = await MovePickerAxisAndVerifyAsync(
                     previousZAxis,
-                    zAvoid,
-                    "다음 Side 검사 시작 중 이전 PickerZ Avoid",
+                    previousZAvoid,
+                    "다음 Side 검사 진입 중 이전 PickerZ Avoid",
                     ct,
-                    "DieSidePreviousZAvoid[" + previousPickerIndex + "]").ConfigureAwait(false);
+                    "DieSideZAvoidDeferred[" + previousPickerIndex + "];PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Side").ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 WriteLog("PickerSideInspectionSequence",
-                    Name + " 다음 Side 검사 시작과 이전 PickerZ Avoid를 병렬 완료했습니다. " +
-                    "currentPickerNo=" + _currentPickerNo +
-                    ", previousPickerNo=" + ToPickerNo(previousPickerIndex) + " - Ok");
+                    Name + " 다음 Side 검사 진입 중 이전 PickerZ Avoid 완료. " +
+                    "previousPickerNo=" + ToPickerNo(previousPickerIndex) +
+                    ", currentPickerNo=" + _currentPickerNo + " - Ok");
+
                 return 0;
             }
             catch (OperationCanceledException)

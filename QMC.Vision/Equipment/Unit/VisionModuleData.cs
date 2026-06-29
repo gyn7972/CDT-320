@@ -71,21 +71,21 @@ namespace QMC.Vision.Modules
         protected override void SetDefaults() { base.SetDefaults(); SurfaceThreshold = 0.7; }
     }
 
-    // ── TopSideVision ───────────────────────────────────────
-    [DataContract] public sealed class TopSideVisionSetup  : VisionModuleSetupBase { }
-    [DataContract] public sealed class TopSideVisionConfig : VisionModuleConfigBase { }
+    // ── FrontSideVision ───────────────────────────────────────
+    [DataContract] public sealed class FrontSideVisionSetup  : VisionModuleSetupBase { }
+    [DataContract] public sealed class FrontSideVisionConfig : VisionModuleConfigBase { }
     [DataContract]
-    public sealed class TopSideVisionRecipe : VisionModuleRecipeBase
+    public sealed class FrontSideVisionRecipe : VisionModuleRecipeBase
     {
         [DataMember] public double ChippingThreshold { get; set; }
         protected override void SetDefaults() { base.SetDefaults(); ChippingThreshold = 0.05; }
     }
 
-    // ── BottomSideVision ────────────────────────────────────────
-    [DataContract] public sealed class BottomSideVisionSetup  : VisionModuleSetupBase { }
-    [DataContract] public sealed class BottomSideVisionConfig : VisionModuleConfigBase { }
+    // ── RearSideVision ────────────────────────────────────────
+    [DataContract] public sealed class RearSideVisionSetup  : VisionModuleSetupBase { }
+    [DataContract] public sealed class RearSideVisionConfig : VisionModuleConfigBase { }
     [DataContract]
-    public sealed class BottomSideVisionRecipe : VisionModuleRecipeBase
+    public sealed class RearSideVisionRecipe : VisionModuleRecipeBase
     {
         [DataMember] public double ChippingThreshold { get; set; }
         protected override void SetDefaults() { base.SetDefaults(); ChippingThreshold = 0.05; }

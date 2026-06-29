@@ -41,15 +41,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 HookStateEvents();
 
-                _refresh = new System.Windows.Forms.Timer { Interval = RefreshIntervalMs };
-                _refresh.Tick += (s, e) =>
-                {
-                    if (!ShouldRefreshVisible(this))
-                        return;
-
-                    RefreshAll();
-                    QueueMaterialDisplayRefresh(false);
-                };
+                EnsureRefreshTimer();
             }
         }
 
@@ -61,6 +53,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     _workTimeToolTip.Dispose();
                     _workTimeToolTip = null;
+                }
+
+                if (_refresh != null)
+                {
+                    _refresh.Stop();
+                    _refresh.Dispose();
+                    _refresh = null;
                 }
             }
 
@@ -169,6 +168,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
             LotStorage.ActiveLotChanged += OnActiveLotChanged;
             MaterialStateService.StateChanged += OnMaterialStateChanged;
             _eventsHooked = true;
+        }
+
+        private void EnsureRefreshTimer()
+        {
+            if (IsDesignerMode() || _refresh != null)
+                return;
+
+            _refresh = new System.Windows.Forms.Timer { Interval = RefreshIntervalMs };
+            _refresh.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshAll();
+                QueueMaterialDisplayRefresh(false);
+            };
         }
 
         private void UnhookStateEvents()
@@ -815,7 +830,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 UnhookStateEvents();
                 _refresh?.Stop();
-                _refresh?.Dispose();
             }
             catch { }
 
@@ -825,6 +839,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
+            HookStateEvents();
+            EnsureRefreshTimer();
             UpdateRefreshTimer();
         }
 

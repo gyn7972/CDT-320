@@ -35,18 +35,20 @@ namespace QMC.CDT320.Interlocks
 
                 switch (moveKind)
                 {
-                    // 일반 이동 인터락 확인
+                    // 매뉴얼 이동 인터락 확인
                     case MotionGuardMoveKind.AxisMove:
+                        return CanManualWaferLifterZ(Cassette, feeder, out reason);
+
                     // 홈 이동 인터락 확인
                     case MotionGuardMoveKind.AxisHome:
                         return CanHomeWaferLifterZ(Cassette, feeder, out reason);
                     
-                    // 티칭 이동 인터락 확인
+                    // 자동 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
                         if (feeder == null)
                             return true;
 
-                        return CanMoveWaferLifterZ(Cassette, feeder, out reason);
+                        return CanAutoWaferLifterZ(Cassette, feeder, out reason);
                     default:
                         return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(
                             new MotionGuardRuleContext("InputLifterZ", "InputLifterZ", targetPosition, moveKind, string.Empty, null, null),
@@ -66,6 +68,32 @@ namespace QMC.CDT320.Interlocks
             }
 
 
+        }
+
+        private static bool CanManualWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
+        {
+            reason = string.Empty;
+
+            if (Cassette != null && Cassette.IsWaferProtrusionDetected())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputCassette Jut detected. InputLifterZ home is blocked.",
+                    out reason);
+            }
+
+            if (feeder == null)
+                return true;
+
+            if (feeder.FeederY != null && feeder.FeederY.IsMoving)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputFeederY is moving. InputLifterZ home is blocked.",
+                    out reason);
+            }
+
+            return true;
         }
 
         private static bool CanHomeWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
@@ -104,7 +132,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
+        private static bool CanAutoWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
             if (Cassette != null && Cassette.IsWaferProtrusionDetected())

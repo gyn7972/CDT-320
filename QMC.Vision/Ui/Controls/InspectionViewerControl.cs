@@ -562,45 +562,6 @@ namespace QMC.Vision.Ui.Controls
             return new BottomInspector("manual");
         }
 
-        private void OnTestClick(object sender, EventArgs e)
-        {
-            try
-            {
-                using (var dlg = new OpenFileDialog
-                {
-                    Multiselect = true,
-                    Title = "픽커별 검사 테스트 이미지 선택 (최대 4 — 픽커 1~4 순서)",
-                    Filter = "Image|*.png;*.bmp;*.jpg;*.jpeg;*.tif;*.tiff|All|*.*"
-                })
-                {
-                    if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-                    string mode = ModeKey();
-                    string[] files = dlg.FileNames;
-                    for (int i = 0; i < files.Length && i < 4; i++)
-                    {
-                        using (var bmp = new Bitmap(files[i]))
-                        {
-                            IInspector ins = CreateInspector(mode);
-                            ins.InspectionRoi = new Roi
-                            {
-                                Name = "manual",
-                                CenterX = bmp.Width / 2.0,
-                                CenterY = bmp.Height / 2.0,
-                                Width = bmp.Width,
-                                Height = bmp.Height
-                            };
-                            InspectionResult r = ins.Inspect(bmp);
-                            InspectionResultStore.Record(InspectionResultStore.FromResult(mode, i + 1, 0, i + 1, r, bmp));
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("픽커 테스트 실패: " + ex.Message);
-            }
-        }
-
         private void BuildGridColumns(params string[] headers)
         {
             _grid.Columns.Clear();

@@ -96,7 +96,8 @@ namespace QMC.Vision.Ui.Windows
         private void PositionMinimizeButton()
         {
             if (btnMinimize == null) return;
-            btnMinimize.Location = new System.Drawing.Point(ClientSize.Width - btnMinimize.Width - 8, 8);
+            // 뷰어 헤더(36px) 행 우측에 수직 중앙 정렬(버튼 높이 32 → 위/아래 2px).
+            btnMinimize.Location = new System.Drawing.Point(ClientSize.Width - btnMinimize.Width - 8, 2);
             btnMinimize.BringToFront();
         }
 

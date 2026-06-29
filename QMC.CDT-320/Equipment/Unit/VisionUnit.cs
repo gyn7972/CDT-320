@@ -254,7 +254,7 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE", axis + " target=" + targetPos);
                 int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
-                    return RaiseVisionAlarm("VS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                    return ReportVisionMoveFailure("VS-MOVE", result, axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
 
                 AxisMoveWaitResult waitResult = await WaitVisionAxisMoveDoneInPosition(
                     axis,
@@ -1089,14 +1089,8 @@ namespace QMC.CDT320
                 }
 
                 EventLogger.Write(EventKind.Event, "QMC", "VS-RETICLE-CYL", label + " 동작 시작.");
-                string interlockReason;
-                if (!MotionGuardRuntime.VerifyCylinderMove(cylinder, forward, out interlockReason))
-                {
-                    return RaiseVisionAlarm(
-                        "VS-RETICLE-CYL-MOVE",
-                        BuildReticleCylinderFailureMessage(failMessage, cylinder, forward, interlockReason));
-                }
-
+                // 인터락은 MoveFwdAsync/MoveBwdAsync 내부 BaseCylinder.MotionGuard 훅에서 1번 수행한다.
+                // 차단 시 commandOk=false 로 반환되어 아래 알람 처리로 흡수된다. 여기서 중복 호출하지 않는다.
                 bool commandOk = forward
                     ? await cylinder.MoveFwdAsync(ct).ConfigureAwait(false)
                     : await cylinder.MoveBwdAsync(ct).ConfigureAwait(false);
@@ -1262,6 +1256,19 @@ namespace QMC.CDT320
             EventLogger.Write(EventKind.Alarm, "QMC", code, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
+        }
+
+        // 이동 실패 보고: 인터락 차단(result == -11)은 하위 가드가 이미 동일 사유로 알람 1회를
+        // 올렸으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다. (비-인터락 실패만 알람)
+        private int ReportVisionMoveFailure(string code, int result, string message)
+        {
+            LastVisionMoveFailureMessage = message;
+            if (result == -11)
+            {
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", message);
+                return result;
+            }
+            return RaiseVisionAlarm(code, message);
         }
 
         private bool IsReticleStateConflict()

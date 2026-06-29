@@ -930,6 +930,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false)
         {
+            return await MoveStageAxis(axis, targetPos, bFine, null).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine, string targetName)
+        {
             try
             {
                 if (!HasStageAxis(axis))
@@ -940,10 +945,25 @@ namespace QMC.CDT320
                 double acceleration = ResolveStageAxisAcceleration(item, bFine);
                 double deceleration = ResolveStageAxisDeceleration(item, bFine);
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration);
+
+                int result;
+                if (!string.IsNullOrWhiteSpace(targetName))
+                {
+                    // 자동 시퀀스 이동 컨텍스트를 넘겨 수동/홈 이동 인터락으로 오판되지 않게 한다.
+                    using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, targetName))
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                }
+
                 if (result != 0 || item.IsAlarm)
-                    return RaiseOutputStageAlarm(
+                    return ReportOutputStageMoveFailure(
                         "OS-MOVE",
+                        result,
                         axis + " 이동 실패. result=" + result +
                         ", alarm=" + item.IsAlarm +
                         FormatStageAxisLastMotionFailure(item));
@@ -2375,6 +2395,18 @@ namespace QMC.CDT320
             EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
+        }
+
+        // 이동 실패 보고: 인터락/공유레일 차단(result == -11)은 하위 가드가 이미 동일 사유로
+        // 알람 1회를 올렸으므로 여기서 중복 알람을 올리지 않고 이벤트 로그만 남긴다.
+        private int ReportOutputStageMoveFailure(string code, int result, string message)
+        {
+            if (result == -11)
+            {
+                EventLogger.Write(EventKind.Event, "QMC", code + "-BLOCKED", Name, message);
+                return result;
+            }
+            return RaiseOutputStageAlarm(code, message);
         }
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)

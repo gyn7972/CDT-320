@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using VI = global::QMC.Vision.Inspector;   // 원본 검사 라이브러리(QMc.Vision.Inspector) 별칭
 
 namespace QMC.Vision.Core
 {
@@ -86,6 +87,31 @@ namespace QMC.Vision.Core
             InspectionRoi = new Roi { Name = id + ".Roi", CenterX = 320, CenterY = 240, Width = 600, Height = 200 };
         }
 
+        /// <summary>true(기본)=원본 QMc.Vision.Inspector.SideChippingInspector 사용(측면 칩핑), false=기존 C#(SideChippingCore). 표면(이물) 역할은 항상 기존 C#.</summary>
+        public bool UseInspectorLib { get; set; } = true;
+
+        private VI.VisionConfig _sideCfg;
+        private VI.VisionConfig GetSideVisionConfig()
+        {
+            if (_sideCfg == null)
+            {
+                _sideCfg = new VI.VisionConfig();
+                _sideCfg.SideVisionFront.PixelSizeWidthMm  = PixelSizeWidthMm;
+                _sideCfg.SideVisionFront.PixelSizeHeightMm = PixelSizeHeightMm;
+                _sideCfg.SideVisionBack.PixelSizeWidthMm   = PixelSizeWidthMm;
+                _sideCfg.SideVisionBack.PixelSizeHeightMm  = PixelSizeHeightMm;
+            }
+            return _sideCfg;
+        }
+
+        /// <summary>그레이 flat(byte[]) → byte[h,w] 2D(행 우선) — 원본 SideChippingInspector 입력 형식.</summary>
+        private static byte[,] ToImage2D(byte[] gray, int w, int h)
+        {
+            var img = new byte[h, w];
+            System.Buffer.BlockCopy(gray, 0, img, 0, gray.Length);
+            return img;
+        }
+
         public InspectionResult Inspect(Bitmap image)
         {
             var r = new InspectionResult { RoiName = Id, IsPass = true };
@@ -139,30 +165,75 @@ namespace QMC.Vision.Core
             double foreignMm = 0;
             bool chipPass = true, foreignPass = true;
 
-            // ── 칩핑 역할(앞쪽 칩핑) — CDT-310 SideChippingInspector 알고리즘(라인검출+회전+상/하 스캔) ──
+            // ── 칩핑 역할(앞쪽 칩핑) — 원본 QMc.Vision.Inspector.SideChippingInspector(라인검출+회전+상/하 스캔), 실패 시 레거시 SideChippingCore ──
             if (_doChipping)
             {
-                var cc = SideChippingCore.Inspect(g, w, h, new SideChippingCore.Params
-                {
-                    Threshold = ChipThreshold, ChipThicknessMm = ChipThickness,
-                    PxW = PixelSizeWidthMm, PxH = PixelSizeHeightMm,
-                    ScanRate = ScanRate, EnvelopeBinSize = EnvelopeBinSize,
-                    KeepQuantile = KeepQuantile, EdgeGap = EdgeGap
-                });
-                if (cc.Valid)
-                {
-                    topMm = cc.TopMm; botMm = cc.BottomMm; maxMm = cc.MaxMm;   // 310 결과로 대체
-                    topBase = cc.TopBaseY; botBase = cc.BottomBaseY;
-                    xStart = cc.XStart; xEnd = cc.XEnd;
-                }
                 double upper = ChippingUpperLimit > 0 ? ChippingUpperLimit : ChippingDepth;   // NG 스펙(폴백)
-                chipPass = (maxMm <= upper) && (maxMm >= ChippingLowerLimit);
-                r.Items.Add(new InspectionItem { Name = "Max Chipping Depth", Value = maxMm.ToString("F4"), IsPass = chipPass });
-                r.Items.Add(new InspectionItem { Name = "Chipping Top",       Value = topMm.ToString("F4"), IsPass = topMm <= upper });
-                r.Items.Add(new InspectionItem { Name = "Chipping Bottom",    Value = botMm.ToString("F4"), IsPass = botMm <= upper });
-                // NG(스펙 초과)일 때만 최대 칩핑 위치에 마커 — PASS면 박스 안 그림(저배율에서도 보이게 크게)
-                if (!chipPass && cc.Valid && cc.MaxMm > 0 && cc.MaxX >= 0)
-                    r.Defects.Add(new DefectMark { X = roi.X + cc.MaxX, Y = roi.Y + cc.MaxY, Width = 48, Height = 48, Area = cc.MaxMm });
+                bool libDone = false;
+
+                if (UseInspectorLib)
+                {
+                    try
+                    {
+                        var img2d = ToImage2D(g, w, h);
+                        var sideParam = new VI.SideInspectionParameter
+                        {
+                            Threshold = ChipThreshold,
+                            ChippingDepth = upper,
+                            ChipThickness = ChipThickness,
+                            ImageWidth = w,
+                            ImageHeight = h,
+                        };
+                        var sideInspector = new VI.SideChippingInspector(GetSideVisionConfig());
+                        VI.SideChippingResult cr = sideInspector.InspectChipping(ref img2d, w, h, sideParam);
+                        if (cr != null && cr.IsSuccess)
+                        {
+                            topMm = cr.TopChippingSize; botMm = cr.BottomChippingSize; maxMm = cr.MaxChippingSize;
+                            chipPass = (maxMm <= upper) && (maxMm >= ChippingLowerLimit);
+                            r.Items.Add(new InspectionItem { Name = "Max Chipping Depth", Value = maxMm.ToString("F4"), IsPass = chipPass });
+                            r.Items.Add(new InspectionItem { Name = "Chipping Top",       Value = topMm.ToString("F4"), IsPass = topMm <= upper });
+                            r.Items.Add(new InspectionItem { Name = "Chipping Bottom",    Value = botMm.ToString("F4"), IsPass = botMm <= upper });
+                            // NG일 때 검출 칩핑 영역(상/하)에 마커 — 오버레이 표시.
+                            if (!chipPass && cr.ChippingRegions != null)
+                            {
+                                foreach (var cgn in cr.ChippingRegions)
+                                {
+                                    int cy = (cgn.StartY + cgn.EndY) / 2;
+                                    r.Defects.Add(new DefectMark { X = roi.X + cgn.X, Y = roi.Y + cy, Width = 48, Height = 48, Area = cgn.SizeMM, Type = "Chipping" });
+                                }
+                            }
+                            libDone = true;
+                        }
+                    }
+                    catch (Exception exLib)
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "SideAppearanceInspector", Id + " 측면칩핑 lib 실패 → 레거시 폴백: " + exLib.Message);
+                    }
+                }
+
+                if (!libDone)
+                {
+                    var cc = SideChippingCore.Inspect(g, w, h, new SideChippingCore.Params
+                    {
+                        Threshold = ChipThreshold, ChipThicknessMm = ChipThickness,
+                        PxW = PixelSizeWidthMm, PxH = PixelSizeHeightMm,
+                        ScanRate = ScanRate, EnvelopeBinSize = EnvelopeBinSize,
+                        KeepQuantile = KeepQuantile, EdgeGap = EdgeGap
+                    });
+                    if (cc.Valid)
+                    {
+                        topMm = cc.TopMm; botMm = cc.BottomMm; maxMm = cc.MaxMm;   // 310 결과로 대체
+                        topBase = cc.TopBaseY; botBase = cc.BottomBaseY;
+                        xStart = cc.XStart; xEnd = cc.XEnd;
+                    }
+                    chipPass = (maxMm <= upper) && (maxMm >= ChippingLowerLimit);
+                    r.Items.Add(new InspectionItem { Name = "Max Chipping Depth", Value = maxMm.ToString("F4"), IsPass = chipPass });
+                    r.Items.Add(new InspectionItem { Name = "Chipping Top",       Value = topMm.ToString("F4"), IsPass = topMm <= upper });
+                    r.Items.Add(new InspectionItem { Name = "Chipping Bottom",    Value = botMm.ToString("F4"), IsPass = botMm <= upper });
+                    // NG(스펙 초과)일 때만 최대 칩핑 위치에 마커 — PASS면 박스 안 그림(저배율에서도 보이게 크게)
+                    if (!chipPass && cc.Valid && cc.MaxMm > 0 && cc.MaxX >= 0)
+                        r.Defects.Add(new DefectMark { X = roi.X + cc.MaxX, Y = roi.Y + cc.MaxY, Width = 48, Height = 48, Area = cc.MaxMm });
+                }
             }
 
             // ── 표면 역할(앞쪽 면) — 이물/오염: 310 ContaminationInspector(Black-Hat 블롭) ──

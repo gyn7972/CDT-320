@@ -1587,10 +1587,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Focus 스캔 SideVisionY 이동 완료 확인 실패. axis=" + axis +
                     ", position=" + position + ", reason=" + wait.Reason);
 
-            if (!_machine.VisionUnit.IsVisionAxisInPosition(axis, position, 0.01))
+            BaseAxis visionAxis = _machine.VisionUnit.ResolveVisionAxis(axis);
+            double tolerance = ResolveAxisInPositionTolerance(visionAxis);
+            if (!_machine.VisionUnit.IsVisionAxisInPosition(axis, position, tolerance))
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-FINAL", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 최종 위치 확인 실패. axis=" + axis +
-                    ", position=" + position);
+                    ", position=" + position +
+                    ", tolerance=" + tolerance);
 
             return 0;
         }

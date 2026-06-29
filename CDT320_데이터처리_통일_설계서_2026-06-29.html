@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CDT-320 비전/작업뷰 데이터 처리 통일 설계서</title>
+<title>CDT-320 비전/작업뷰 데이터 처리 통일 설계서 (v2 정정)</title>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
@@ -24,210 +24,114 @@
   .t-ok{background:rgba(70,201,139,.15);color:var(--ok);}
   .t-bad{background:rgba(239,106,106,.15);color:var(--bad);}
   .t-warn{background:rgba(240,181,75,.15);color:var(--warn);}
-  .t-phase{background:rgba(78,161,255,.15);color:var(--accent);}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:14px 0;}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;}
   th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
   th{background:var(--panel2);color:var(--muted);font-weight:600;}
   tr:nth-child(even) td{background:rgba(255,255,255,.02);}
   .flow{font-family:Consolas,monospace;font-size:13px;background:var(--code);
     border:1px solid var(--line);border-radius:8px;padding:14px 16px;white-space:pre-wrap;color:#bfe0ff;}
-  .bad-flow{color:#ffb4b4;}
   .ok-flow{color:#a9e9c8;}
   ul{margin:8px 0 8px 0;padding-left:20px;}
   li{margin:4px 0;}
   .callout{border-left:3px solid var(--accent);background:var(--panel2);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;}
   .callout.warn{border-color:var(--warn);}
   .callout.bad{border-color:var(--bad);}
+  .callout.ok{border-color:var(--ok);}
   .small{font-size:12.5px;color:var(--muted);}
-  .num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent);
-    color:#06101f;font-weight:700;font-size:13px;align-items:center;justify-content:center;margin-right:8px;}
   .file{font-family:Consolas,monospace;font-size:12.5px;color:#cfe3ff;}
+  .rev{background:rgba(240,181,75,.10);border:1px solid var(--warn);border-radius:8px;padding:10px 14px;margin:14px 0;font-size:13px;}
 </style>
 </head>
 <body>
 <div class="wrap">
 
 <h1>CDT-320 비전 / 작업뷰 데이터 처리 통일 설계서</h1>
-<div class="sub">목표: 비전 각 모듈(Wafer / Bottom / Side / Bin)과 작업뷰가 데이터를 <b>한 가지 방식</b>으로 처리하게 한다. <b>시뮬레이션과 실제 동작이 동일한 데이터 경로</b>를 타도록 보장한다. · 2026-06-29</div>
+<div class="sub">v2 — 실제 소스 검증 후 정정 · 2026-06-29</div>
 
-<div class="callout">
-<b>한 줄 요약.</b> 지금은 스토어가 6개로 쪼개져 있고, 측정값이 두 가지 모델(<code>BottomInspectionResult</code> vs <code>InspectionResultStore.Item</code>)로 중복되며, 무엇보다 <b>시뮬 경로가 결과 스토어를 거치지 않아 작업뷰에 안 뜬다.</b> 이를 <b>「공유 DTO → 단일 스토어 → 단일 진입점 → 이벤트 통일」</b> 4단계로 정리한다.
-</div>
+<div class="rev">
+<b>v2 정정 사유.</b> v1은 "핸들러 sim이 <code>InspectionResultStore</code>를 우회한다 → 단일 진입점 Publish로 묶자"고 했으나, 실제 소스 확인 결과 <b>핸들러(QMC.CDT-320)와 비전(QMC.Vision)은 별도 프로세스</b>이고 핸들러는 <b>QMC.Common만 참조</b>하여 비전 스토어/뷰어에 접근 자체가 불가능하다. 따라서 v1의 "핸들러→Publish→스토어" 경로는 성립하지 않는다. 아래는 검증된 구조 기준의 정정안이다.</div>
 
-<h2>1. 현재 상태 진단</h2>
-
-<h3>1-1. 스토어가 6개로 분산</h3>
+<h2>1. 검증된 프로세스 구조</h2>
 <table>
-<tr><th>스토어</th><th>역할</th><th>읽는 뷰</th><th>문제</th></tr>
-<tr><td class="file">InspectionResultStore</td><td>Bottom/Side/Bin 결과 + 이력</td><td>InspectionViewerControl</td><td class="t-ok">SSOT에 가장 근접</td></tr>
-<tr><td class="file">WaferVisionResultStore</td><td>웨이퍼 정렬/다이체크</td><td>(핸들러측)</td><td class="small">위 스토어와 동기 안 됨 (별도 SSOT)</td></tr>
-<tr><td class="file">ModuleResultStore</td><td>모듈별 OK/NG 판정 + 마크</td><td>OperationPage</td><td class="small">InspectionResultStore와 역할 중복</td></tr>
-<tr><td class="file">MatchOverlayStore</td><td>매치 마커</td><td>OperationPage</td><td class="small">별도 폴링</td></tr>
-<tr><td class="file">ChartLimitStore / UnitContext</td><td>차트 한계/단위</td><td>뷰어</td><td class="small">보조 — 통합 대상 아님</td></tr>
+<tr><th>항목</th><th>확인 내용</th><th>근거</th></tr>
+<tr><td>프로세스 분리</td><td>핸들러·비전은 독립 실행 프로세스(TCP로만 통신)</td><td>OutputType=WinExe 각각</td></tr>
+<tr><td>참조 관계</td><td>QMC.CDT-320 → <b>QMC.Common 하나만</b> 참조 (QMC.Vision 미참조)</td><td><span class="file">QMC.CDT-320.csproj</span> ProjectReference</td></tr>
+<tr><td>스토어 소속</td><td><code>InspectionResultStore</code>·<code>ModuleResultStore</code>·<code>VisionCommandCore</code> 전부 <b>QMC.Vision</b></td><td>네임스페이스 QMC.Vision.Core</td></tr>
+<tr><td>스토어 수명</td><td><code>static class</code> → 프로세스마다 별개 인스턴스</td><td>InspectionResultStore.cs</td></tr>
+<tr><td>작업뷰 소속</td><td><code>InspectionViewerControl</code>은 <b>비전 앱 전용</b></td><td>BottomInspectionWindow / InspectionWorkPage</td></tr>
 </table>
+<p class="callout bad"><b>핵심.</b> 핸들러는 비전 앱의 스토어/뷰어를 호출할 수 없다. 따라서 "핸들러 sim 결과를 비전 작업뷰에 띄우는" 유일한 통로는 <b>TCP 요청</b>뿐이다.</p>
 
-<h3>1-2. 같은 측정값이 두 개의 다른 모델로 존재</h3>
-<div class="grid2">
-<div class="panel">
-<span class="tag t-bad">핸들러 측</span> <span class="file">BottomInspectionResult</span>
-<div class="flow">Width        // double 프로퍼티
-Height
-ChippingLeft / Right / Top / Bottom
-ForignMaxSize
-NgCode</div>
-<p class="small">타입 프로퍼티. <code>Clone()</code> / <code>UpdateFrom()</code> 수기 복제.</p>
-</div>
-<div class="panel">
-<span class="tag t-bad">비전 측</span> <span class="file">InspectionResultStore.Item</span>
-<div class="flow">Values["Width"]    // Dictionary&lt;string,double&gt;
-Values["Height"]
-Values["Max Chipping Depth"]
-Pass / Channel / IndexX,Y / Image</div>
-<p class="small">문자열 키 딕셔너리. 두 모델 사이 수기 변환 필요.</p>
-</div>
-</div>
-<p class="callout warn"><b>Side는 더 심함.</b> 비전은 4채널(Front ch0/1, Back ch2/3)을 지원하지만, 핸들러 <span class="file">SideInspectionResult</span>는 <code>ChippingDepth</code> 하나뿐이다. 두 앱이 사실상 다른 데이터를 본다.</p>
-
-<h3>1-3. 업데이트 방식이 뷰마다 제각각</h3>
-<table>
-<tr><th>뷰</th><th>데이터 출처</th><th>받는 방식</th></tr>
-<tr><td>InspectionViewerControl</td><td>InspectionResultStore</td><td><span class="tag t-ok">이벤트 푸시</span> <code>Changed</code> 구독</td></tr>
-<tr><td>OperationPage (프레임)</td><td>IVisionModule</td><td><span class="tag t-warn">폴링</span> 250ms <code>ViewerFrameSeq</code></td></tr>
-<tr><td>OperationPage (판정)</td><td>ModuleResultStore</td><td><span class="tag t-warn">폴링</span> 직접 읽기</td></tr>
-<tr><td>WorkMainPage</td><td>MaterialSnapshot</td><td><span class="tag t-warn">폴링</span> 500ms 타이머</td></tr>
-<tr><td>InputStageMapTransferPage</td><td>DieMapEntry</td><td><span class="tag t-warn">폴링</span> 1500ms 타이머</td></tr>
-</table>
-
-<h2>2. 핵심 문제 — 시뮬 ≠ 실제</h2>
-
-<p>코드 확인 결과 <code>InspectionResultStore.Record()</code>가 호출되는 곳은 단 두 군데다.</p>
+<h2>2. 비전 작업뷰의 데이터 경로는 이미 통일돼 있다</h2>
+<p>비전 앱 내부에서는 <b>실제든 sim이든</b> 동일한 경로를 탄다. 차이는 검사기 백엔드(Cognex vs Sim)뿐이다.</p>
+<div class="flow ok-flow">핸들러 ──TCP INSPECT──▶ 비전 앱
+                          │
+              VisionCommandCore.InspectOnImage()
+                          │  (검사기 = Cognex 또는 Sim fallback)
+                          ├─▶ InspectionResultStore.Record()   ← 항상
+                          └─▶ Changed 이벤트
+                                   │
+                          InspectionViewerControl 갱신 ✔</div>
 <ul>
-<li><span class="file">VisionCommandCore.cs:226</span> — 실제/Sim <b>공유</b> 검사 실행 경로</li>
-<li><span class="file">InspectionViewerControl.cs:553</span> — 뷰어 수동 테스트</li>
+<li>비전 앱 자체 시퀀서 보유: <span class="file">BinVisionSequence / WaferVisionSequence / Front·RearSideVisionSequence</span></li>
+<li>Sim 백엔드: <span class="file">SimBackend / SimInspector</span> (VisionFactory가 카메라 미설치 시 자동 fallback)</li>
+<li>실제·Sim 모두 <code>VisionCommandCore</code>를 거쳐 같은 스토어를 채운다 → <b>뷰어 기준 sim=실제 이미 보장</b></li>
 </ul>
 
-<p>그런데 <b>핸들러 측 자동 시퀀스의 시뮬 단축 경로는 이 스토어를 거치지 않는다.</b></p>
-
-<div class="grid2">
-<div class="panel">
-<span class="tag t-ok">실제 경로 (정상)</span>
-<div class="flow ok-flow">TCP INSPECT
-  → VisionCommandCore.InspectOnImage()
-  → InspectionResultStore.Record()   ✔
-  → Changed 이벤트
-  → 작업뷰 갱신 ✔</div>
-</div>
-<div class="panel">
-<span class="tag t-bad">시뮬 경로 (누락)</span>
-<div class="flow bad-flow">PickerBottomInspectionSequence
-  → IsVisionBypassed() == true
-  → SimulateBottomResult()  // 합성 PASS
-  → MaterialStateService 직접 기록
-  ✘ InspectionResultStore 안 거침
-  ✘ 작업뷰에 안 뜸</div>
-</div>
-</div>
-
-<p class="callout bad"><b>결론.</b> 시뮬에서는 검사 결과가 작업뷰까지 도달하지 않는다. <code>SimulateBottomResult()</code> / <code>SimulateSideResult()</code>가 <code>InspectionResultStore</code>를 우회하기 때문. <b>이 분기를 없애는 것이 「시뮬=실제」의 핵심이다.</b></p>
-
-<h2>3. 통일 아키텍처</h2>
-
-<div class="callout"><b>대원칙 — 동작은 따로, 데이터는 통일.</b> Bottom/Side/Bin은 각자의 모듈 요청으로 <b>독립 실행</b>한다(통일 대상 아님). 통일하는 것은 <b>결과를 담고·저장하고·표시하는 방식</b>뿐이다. 각 모듈은 <code>VisionResult.Mode</code> 태그로 자신을 구분하며, 스토어는 모드별 칸으로 분리 보관하므로 <b>모듈 독립성은 그대로 유지</b>된다. 향후 "모듈별 분리 관리" 요청이 와도 이 구조에서 모드별로 분기 가능하다.</div>
-
-<p>원칙: <b>「공유 DTO 하나 → 단일 스토어 하나 → 단일 진입점 하나 → 이벤트 구독 하나」.</b> 시뮬이든 실제든 반드시 같은 진입점을 통과시켜 항상 스토어가 채워지게 한다.</p>
-
-<div class="flow ok-flow">[실제]  TCP INSPECT ─┐
-                     ├─→ IVisionResultSink.Publish(VisionResult)
-[시뮬]  SimInspect ──┘            │
-                                 ├─→ InspectionResultStore.Record()  (항상)
-                                 ├─→ MaterialStateService            (항상)
-                                 └─→ Changed 이벤트
-                                          │
-        작업뷰 전부 ◀── Changed 구독 (폴링 제거)</div>
-
+<h2>3. 그럼 왜 "sim에서 뷰어가 비어 보였나" — 원인은 설정</h2>
+<p>핸들러의 합성 결과 함수 <code>SimulateBottomResult()</code> / <code>SimulateSideResult()</code>는 <b>오직 <code>IsVisionBypassed()</code> 한 곳에서만</b> 호출된다. 그리고</p>
+<div class="flow">IsVisionBypassed()  ==  !AppSettings.UseVision</div>
 <table>
-<tr><th>레이어</th><th>통일안</th></tr>
-<tr><td><b>① 공유 DTO</b></td><td><code>QMC.Common</code>에 <span class="file">VisionResult</span> 단일 모델 신설. Bottom/Side(4채널)/Bin/Wafer를 모두 표현. 핸들러 <code>BottomInspectionResult</code>·비전 <code>Item</code>은 이 DTO로 통일하거나 어댑터 변환만 허용.</td></tr>
-<tr><td><b>② 단일 스토어</b></td><td><code>InspectionResultStore</code>를 결과 허브로 승격. <code>ModuleResultStore</code>의 OK/NG·마크 역할을 흡수(또는 내부 위임). Wafer도 같은 스토어의 한 모드로 편입.</td></tr>
-<tr><td><b>③ 단일 진입점</b></td><td><span class="file">IVisionResultSink.Publish()</span> 신설. 실제 TCP 수신부와 시뮬 모두 이 한 메소드를 호출. <code>SimulateXxxResult()</code>는 결과를 만든 뒤 <b>반드시</b> Publish로 흘려보낸다(우회 금지).</td></tr>
-<tr><td><b>④ 이벤트 통일</b></td><td>모든 작업뷰가 <code>Changed</code> 이벤트를 구독. 250/500/1500ms 폴링 타이머 제거(프레임 표시 등 불가피한 것만 유지).</td></tr>
+<tr><th>설정</th><th>핸들러 동작</th><th>비전 뷰어</th></tr>
+<tr><td><code>UseVision = true</code> + 모션 SimulationMode</td><td>그래도 <b>TCP로 비전에 요청 전송</b> (합성 안 함)</td><td class="t-ok">결과 표시됨 (sim=실제 경로)</td></tr>
+<tr><td><code>UseVision = false</code></td><td>비전 미접속 + <code>SimulateBottomResult()</code> 합성 → Material에만 기록</td><td class="t-bad">비어 있음 (당연 — 비전 끔)</td></tr>
 </table>
+<p class="small">※ <code>ShouldUseSimulatedBottomVision()</code>은 로그 문구(<code>DescribeBottomVisionRuntimeMode</code>) 생성에만 쓰이며 실제 게이트가 아니다. 게이트는 <code>UseVision</code> 단일.</p>
 
-<h2>4. 단계별 실행 계획 (파일 변경 목록)</h2>
-<p class="small">각 Phase는 독립 컴파일 단위. <b>한 Phase 완료 → 작업자님 Visual Studio 빌드 확인 → 다음 Phase</b> 순으로 진행한다. (이 환경에서는 C# 빌드 검증 불가)</p>
+<div class="callout ok">
+<b>결론.</b> 뷰어 기준 데이터 통일은 <b>이미 구현돼 있다.</b> sim 테스트에서 비전 작업뷰를 채우려면 <b>코드 수정이 아니라 운영 설정</b>이면 된다 —
+<b>① <code>UseVision = true</code></b> 로 두고(모션은 SimulationMode 자유), <b>② 비전 앱을 Sim 백엔드로 함께 실행.</b>
+그러면 핸들러→TCP→비전(Sim)→VisionCommandCore→스토어→뷰어로, <b>실제와 완전히 같은 경로</b>를 탄다. <code>UseVision=false</code>는 "비전 자체를 쓰지 않음"이므로 그 모드에서 뷰어가 비는 것은 정상이다.</div>
 
-<div class="panel">
-<h3><span class="num">1</span>Phase 1 — 공유 DTO 신설 <span class="tag t-phase">비파괴 / 추가만</span></h3>
+<h2>4. 운영 절차 (권장)</h2>
 <table>
-<tr><th>파일</th><th>변경</th></tr>
-<tr><td class="file">QMC.Common\Vision\VisionResult.cs <span class="tag t-ok">신규</span></td><td>통합 결과 DTO. Mode·Picker·Channel·IndexX/Y·Pass·Values(dict)·Lines·Box·Defects·BinCode·Time 필드. Bottom/Side/Bin/Wafer 공용.</td></tr>
-<tr><td class="file">QMC.Common\Vision\VisionResultMapper.cs <span class="tag t-ok">신규</span></td><td>기존 <code>InspectionResult</code>/<code>BottomInspectionResult</code> ↔ <code>VisionResult</code> 변환 헬퍼.</td></tr>
+<tr><th></th><th>실제 운영</th><th>Sim 테스트</th></tr>
+<tr><td>비전 앱</td><td>실행 (Cognex)</td><td><b>실행</b> (Sim fallback)</td></tr>
+<tr><td>UseVision</td><td>true</td><td><b>true</b></td></tr>
+<tr><td>모션</td><td>실장비</td><td>SimulationMode / DryRun</td></tr>
+<tr><td>데이터 경로</td><td colspan="2" style="text-align:center;color:var(--ok)">동일 — TCP → VisionCommandCore → InspectionResultStore → InspectionViewerControl</td></tr>
 </table>
-<p class="small">기존 코드 미수정 → 빌드 깨질 위험 없음. 컴파일만 확인.</p>
+<p class="small"><code>UseVision=false</code>는 "비전 없는 단독 모션 테스트" 전용으로만 사용. 이 모드에서 뷰어를 채우려는 시도는 구조상 부적절하다.</p>
+
+<h2>5. 남은 통일 작업 (선택 · 뷰어와 무관)</h2>
+<p>아래는 위 결론(뷰어는 이미 통일)과 별개로, <b>모델·코드 정합성</b> 차원의 개선이다. 필요 시 진행.</p>
+<div class="panel">
+<h3>5-1. 크로스앱 모델 정합 <span class="tag t-warn">중</span></h3>
+<p>핸들러 <span class="file">BottomInspectionResult / SideInspectionResult</span>(타입 프로퍼티, Side 1채널)와 비전 <span class="file">Item</span>(딕셔너리, Side 4채널)이 다르다. <b>QMC.Common</b>에 공유 <code>VisionResult</code> DTO를 두고 양쪽이 같은 모양을 쓰면 TCP 양쪽 직렬화·해석이 일관된다. <span class="small">두 앱이 함께 참조 가능한 곳은 QMC.Common뿐이므로 여기가 유일한 위치.</span></p>
+</div>
+<div class="panel">
+<h3>5-2. 비전 앱 내부 스토어 정리 <span class="tag t-warn">하</span></h3>
+<p><code>ModuleResultStore</code>(OK/NG·마크)와 <code>InspectionResultStore</code>(측정값) 역할 중복. OperationPage의 폴링(250ms)을 <code>Changed</code> 이벤트 구독으로 전환. <b>비전 앱 단독 작업</b>이라 핸들러 영향 없음.</p>
+</div>
+<div class="panel">
+<h3>5-3. 핸들러 합성결과 형상 통일 <span class="tag t-warn">하</span></h3>
+<p>핸들러 <code>SimulateBottomResult</code>는 offset+OK만 만든다(Width/Chipping 없음). <code>UseVision=false</code> 단독 테스트에서 핸들러측 Material 표시 일관성이 필요하면 5-1의 공유 DTO로 채운다. <b>뷰어와는 무관.</b></p>
 </div>
 
-<div class="panel">
-<h3><span class="num">2</span>Phase 2 — 단일 진입점 도입 <span class="tag t-phase">시뮬=실제 핵심</span></h3>
-<table>
-<tr><th>파일</th><th>변경</th></tr>
-<tr><td class="file">QMC.Vision\Equipment\Core\IVisionResultSink.cs <span class="tag t-ok">신규</span></td><td><code>Publish(VisionResult)</code> 인터페이스 + 기본 구현(<code>InspectionResultStore.Record</code> + <code>MaterialStateService</code> 동시 기록).</td></tr>
-<tr><td class="file">QMC.Vision\Equipment\Core\VisionCommandCore.cs</td><td>L226 <code>InspectionResultStore.Record</code> 호출을 <code>Sink.Publish</code> 경유로 교체(동작 동일, 경로 일원화).</td></tr>
-<tr><td class="file">QMC.CDT-320\Sequencing\Picker\PickerBottomInspectionSequence.cs</td><td><code>SimulateBottomResult()</code>가 결과 생성 후 <b><code>Sink.Publish()</code> 호출 추가</b> — 스토어 우회 제거.</td></tr>
-<tr><td class="file">QMC.CDT-320\Sequencing\Picker\PickerSideInspectionSequence.cs</td><td><code>SimulateSideResult()</code> 동일 처리(4채널 각각 Publish).</td></tr>
-</table>
-<p class="callout">이 Phase만 적용해도 <b>시뮬 모드에서 작업뷰에 결과가 뜨기 시작</b>한다. 가장 효과 큰 단계.</p>
-</div>
-
-<div class="panel">
-<h3><span class="num">3</span>Phase 3 — 스토어 통합 <span class="tag t-phase">중복 제거</span></h3>
-<table>
-<tr><th>파일</th><th>변경</th></tr>
-<tr><td class="file">QMC.Vision\Equipment\Core\InspectionResultStore.cs</td><td>OK/NG 누적·마크(<code>ModuleResultStore</code> 역할) 흡수. Wafer 모드 추가.</td></tr>
-<tr><td class="file">QMC.Vision\Equipment\Core\ModuleResultStore.cs</td><td>InspectionResultStore로 위임(thin wrapper)하거나 단계적 폐기. <b>호출처 전수 확인 필수.</b></td></tr>
-<tr><td class="file">QMC.CDT-320\Equipment\Vision\WaferVisionResultStore.cs</td><td>InspectionResultStore의 Wafer 모드로 흡수하거나 Publish 경유로 미러링.</td></tr>
-<tr><td class="file">QMC.CDT-320\Equipment\Vision\{Bottom,Side,Bin,Wafer}InspectionResult.cs</td><td>공유 <code>VisionResult</code> 래핑으로 전환(또는 Mapper 경유). Side 4채널 반영.</td></tr>
-</table>
-</div>
-
-<div class="panel">
-<h3><span class="num">4</span>Phase 4 — 이벤트 구독 통일 <span class="tag t-phase">폴링 제거</span></h3>
-<table>
-<tr><th>파일</th><th>변경</th></tr>
-<tr><td class="file">QMC.Vision\Ui\Pages\Work\OperationPage.cs</td><td>판정/마크 폴링 → <code>Changed</code> 구독으로 전환(프레임 표시 폴링만 유지).</td></tr>
-<tr><td class="file">QMC.CDT-320\Ui\Pages\Work\WorkMainPage.cs</td><td>500ms 폴링 → 결과 이벤트 + 필요한 통계만 타이머 유지.</td></tr>
-<tr><td class="file">QMC.CDT-320\Ui\Pages\Work\InputStageMapTransferPage.cs</td><td>1500ms 시그니처 폴링 → 변경 이벤트 구독.</td></tr>
-<tr><td class="file">QMC.Vision\Ui\Controls\InspectionViewerControl.cs</td><td>이미 <code>Changed</code> 구독 — 통합 모델 필드명만 정합.</td></tr>
-</table>
-</div>
-
-<h2>5. 「시뮬 = 실제」 보장 규칙 (고정)</h2>
+<h2>6. 대원칙 (고정)</h2>
 <div class="callout">
 <ul>
-<li><b>R1.</b> 검사 결과는 시뮬·실제·DryRun 무관하게 <b>오직 <code>IVisionResultSink.Publish()</code></b> 한 경로로만 스토어에 들어온다.</li>
-<li><b>R2.</b> <code>SimulateXxxResult()</code>는 값만 만들고 끝내지 않는다 — 반드시 Publish로 흘려보낸다.</li>
-<li><b>R3.</b> 작업뷰는 결과를 직접 파싱하거나 폴링하지 않는다 — <code>Changed</code> 이벤트만 구독한다.</li>
-<li><b>R4.</b> 측정값 모델은 <code>VisionResult</code> 하나. 뷰별 전용 DTO 신설 금지(어댑터 변환만 허용).</li>
-<li><b>R5.</b> (AGENTS.md) 이동 완료 확인 등 시퀀스 안전규칙은 시뮬에서도 생략하지 않는다.</li>
+<li><b>동작은 따로, 데이터는 통일.</b> Bottom/Side/Bin은 각 모듈 요청으로 독립 실행. 통일 대상은 결과 양식·저장·표시 경로뿐.</li>
+<li><b>뷰어 데이터는 단일 경로.</b> 비전 작업뷰는 항상 <code>VisionCommandCore → InspectionResultStore → Changed</code>로만 채운다. sim=실제 차이는 검사기 백엔드뿐.</li>
+<li><b>UseVision 의미 고정.</b> true=비전 사용(실제/Sim 무관), false=비전 미사용. sim 테스트는 true로 운영.</li>
+<li><b>크로스앱 모델은 QMC.Common 공유 DTO 하나로.</b> 뷰별 전용 DTO 신설 금지(어댑터 변환만).</li>
+<li>(AGENTS.md) 이동 완료 확인 등 시퀀스 안전규칙은 sim에서도 생략 금지.</li>
 </ul>
 </div>
-
-<h2>6. 리스크 & 검증</h2>
-<table>
-<tr><th>항목</th><th>대응</th></tr>
-<tr><td>이 환경에서 C# 빌드 불가</td><td>Phase 단위로 작업 → <b>작업자님이 VS/MSBuild로 빌드 확인</b> 후 다음 단계.</td></tr>
-<tr><td>편집 위치 동기화 되돌림</td><td>편집 대상 = <span class="file">C:\Project\CDT-320</span> (사용자 확정). 작업 전 <code>git status --short</code> 확인.</td></tr>
-<tr><td><code>ModuleResultStore</code> 호출처 누락</td><td>Phase 3 전 호출처 전수 grep. wrapper로 단계적 전환.</td></tr>
-<tr><td>이미지 메모리(썸네일 클론)</td><td>현행 ThumbFactor 축소 유지. Publish 단일화로 중복 클론 감소.</td></tr>
-<tr><td>회귀</td><td><code>perl tools/verify_all.pl</code> + <code>RUN_GUI_CYCLE=1 runtime_cycle_test.pl</code>로 사이클 검증.</td></tr>
-</table>
-
-<h2>7. 추천 시작 지점</h2>
-<p><b>Phase 1 + Phase 2</b>를 먼저 적용하기를 권한다. 신규 파일 추가 + 시뮬 Publish 연결만으로 위험이 낮고, <b>「시뮬에서 작업뷰에 결과가 안 뜬다」</b>는 가장 큰 증상이 바로 해소된다. 스토어 통합(Phase 3)과 폴링 제거(Phase 4)는 그 다음 순차 진행한다.</p>
 
 <p class="small" style="margin-top:32px;border-top:1px solid var(--line);padding-top:14px;">
-근거 파일: <span class="file">InspectionResultStore.cs</span>, <span class="file">ModuleResultStore.cs</span>, <span class="file">VisionCommandCore.cs:226</span>, <span class="file">BottomInspectionResult.cs</span>, <span class="file">PickerBottomInspectionSequence.cs</span>, <span class="file">PickerSideInspectionSequence.cs</span>, <span class="file">InspectionViewerControl.cs:553</span>, <span class="file">CDT320_Vision_Viewer_구현계획_2026-06-24.html</span> · AGENTS.md 코딩규칙 준수.
+근거: <span class="file">QMC.CDT-320.csproj</span>(참조=QMC.Common), <span class="file">PickerFrontUnit.cs:623·2127</span>, <span class="file">PickerBottomInspectionSequence.cs:929·970·984</span>, <span class="file">PickerSideInspectionSequence.cs:1321·1365</span>, <span class="file">VisionCommandCore.cs:226</span>, <span class="file">InspectionResultStore.cs</span>, <span class="file">SimBackend.cs / SimInspector.cs</span>, <span class="file">InspectionViewerControl.cs</span>. AGENTS.md 준수.
 </p>
 
 </div>

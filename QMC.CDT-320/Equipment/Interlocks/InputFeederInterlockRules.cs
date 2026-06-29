@@ -35,12 +35,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveInputFeederY(machine, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoInputFeederY(machine, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
-                    return CanHomeInputFeederY(machine, out reason);
+                    return CanManualInputFeederY(machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeInputFeederY(machine, out reason);
@@ -49,7 +49,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool CanMoveInputFeederY(CDT320_Machine machine, out string reason)
+        private static bool CanAutoInputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             if (machine == null)
@@ -107,7 +107,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanHomeInputFeederY(CDT320_Machine machine, out string reason)
+        private static bool CanManualInputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -127,7 +127,91 @@ namespace QMC.CDT320.Interlocks
 
                 string axisReason;
 
-                // 아래 조건이 어떻게 되지? 지금 Home Step에서 피더가 먼저 잡고 픽커가 홈 잡는데? 
+                if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                InputFeederUnit feeder = machine.InputFeederUnit;
+                if (feeder == null)
+                    return true;
+
+                if (!VerifyInputFeederEmptyForHome(feeder, out reason))
+                    return false;
+
+                if (feeder.IsWaferFeederOverload())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
+                        out reason);
+
+                if (!ShouldBypassHardwareMechanismChecks())
+                {
+                    if (!IsFeederUnclamp(feeder))
+                        return MotionGuardRuleHelpers.Block(
+                            "InputFeederY",
+                            "InputFeederY HOME blocked. InputFeeder must be unclamped.",
+                            out reason);
+                }
+
+                if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputFeeder ring check is detected.",
+                        out reason);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "Exception occurred while verifying InputFeederY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanHomeInputFeederY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (machine == null)
+                    return true;
+
+                InputCassetteUnit cassette = machine.InputCassetteUnit;
+                if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputLifterZ is moving. InputFeederY home is blocked.",
+                        out reason);
+                }
+
+                // 아래 조건이 어떻게 되지? 지금 Home Step에서 피더가 먼저 잡고 픽커가 홈 잡는데?
+
+                //string axisReason;
+
                 //if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
                 //    return MotionGuardRuleHelpers.Block(
                 //        "InputFeederY",

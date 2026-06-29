@@ -240,9 +240,13 @@ namespace QMC.CDT320
                 try { InputLifterZ?.Stop(); } catch { }
                 throw;
             }
-            catch
+            catch (Exception ex)
             {
-                throw;
+                LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 예외. target=" + targetPos + ", error=" + ex.Message;
+                Log.Write("Main", "MOTION", Name,
+                    "Input cassette Z move failed. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
             }
             finally
             {
@@ -261,10 +265,7 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                string interlockReason;
-                if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
-                    return -11;
-
+                // 인터락 사전검사는 실제 이동의 BaseAxis.MotionGuard 훅에서 1번 수행한다. 중복 호출하지 않는다.
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
                 await MoveWithProtrusionWatch(
                     targetPos,
@@ -274,26 +275,17 @@ namespace QMC.CDT320
                     CancellationToken.None).ConfigureAwait(false);
                 return 0;
             }
-            catch
+            catch (Exception ex)
             {
-                throw;
+                LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 예외. target=" + targetPos + ", error=" + ex.Message;
+                Log.Write("Main", "MOTION", Name,
+                    "Input cassette Z move failed. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
             }
             finally
             {
             }
-        }
-
-        private bool CheckWaferLifterZInterlock(
-            double targetPos,
-            MotionGuardMoveKind moveKind,
-            out string reason)
-        {
-            if (InputCassetteInterlockRules.VerifyWaferLifterZ(Machine, targetPos, moveKind, out reason))
-                return true;
-
-            Log.Write("Main", "INTERLOCK", "InputCassette", reason + " - Blocked");
-            AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", Name, reason);
-            return false;
         }
 
         public async Task<int> MoveWaferLifterZToTeachingPosition(string positionName, bool bFine = false)
@@ -701,10 +693,7 @@ namespace QMC.CDT320
         {
             try
             {
-                string interlockReason;
-                if (!CheckWaferLifterZInterlock(InputLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
-                    return -11;
-
+                // 인터락은 MoveJogContinuous 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
                 InputLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
                 await Task.CompletedTask;
                 return 0;
@@ -728,10 +717,7 @@ namespace QMC.CDT320
         {
             try
             {
-                string interlockReason;
-                if (!CheckWaferLifterZInterlock(InputLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
-                    return -11;
-
+                // 인터락은 MoveJogContinuous 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
                 InputLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
                 await Task.CompletedTask;
                 return 0;
@@ -1509,10 +1495,8 @@ namespace QMC.CDT320
                     restoreScanProfile = true;
                 }
 
-                string interlockReason;
-                if (!CheckWaferLifterZInterlock(Recipe.MappingEndPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
-                    return FailMappingScanList("IN-CST-MAP-INTERLOCK", interlockReason);
-
+                // 인터락은 MoveAbsoluteAsync 내부 BaseAxis.MotionGuard 훅에서 1번 수행한다.
+                // 차단 시 moveResult != 0 로 반환되어 아래 FailMappingScanList 로 처리된다.
                 Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
@@ -2008,10 +1992,14 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
+
                 if (IsWaferProtrusionDetected())
                 {
+                    LastWaferLifterMoveFailureMessage = "돌출 센서 감지로 이동 차단. target=" + targetPosition;
                     InputLifterZ.EStop();
-                    throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
+                    Log.Write("Main", "MOTION", Name,
+                        "Input cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
+                    return -1;
                 }
 
                 oldAcceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Acceleration : 0.0;
@@ -2027,10 +2015,14 @@ namespace QMC.CDT320
                 while (!moveTask.IsCompleted)
                 {
                     ct.ThrowIfCancellationRequested();
+
                     if (IsWaferProtrusionDetected())
                     {
+                        LastWaferLifterMoveFailureMessage = "이동 중 돌출 센서 감지로 정지. target=" + targetPosition;
                         InputLifterZ.EStop();
-                        throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
+                        Log.Write("Main", "MOTION", Name,
+                            "Input cassette Z move stopped. Protrusion detected while moving. target=" + targetPosition + " - Failed");
+                        return -1;
                     }
 
                     await Task.Delay(10, ct).ConfigureAwait(false);
@@ -2045,12 +2037,25 @@ namespace QMC.CDT320
                 }
 
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
-                    throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ alarm.");
+                {
+                    LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 명령 실패. result=" + moveResult +
+                        ", alarm=" + InputLifterZ.IsAlarm + ", target=" + targetPosition;
+                    Log.Write("Main", "MOTION", Name,
+                        "Input cassette Z move command failed. result=" + moveResult +
+                        ", velocity=" + velocity + ", target=" + targetPosition + " - Failed");
+                    return moveResult != 0 ? moveResult : -1;
+                }
 
                 AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
-                    throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ wait/in-position failed. " +
-                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ"));
+                {
+                    LastWaferLifterMoveFailureMessage = "Wafer Lifter Z 이동 완료/in-position 실패. target=" + targetPosition + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ");
+                    Log.Write("Main", "MOTION", Name,
+                        "Input cassette Z move wait/in-position failed. " +
+                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ") + " - Failed");
+                    return -1;
+                }
 
                 return 0;
             }

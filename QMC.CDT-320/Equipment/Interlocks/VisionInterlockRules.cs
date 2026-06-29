@@ -36,11 +36,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveFrontSideVisionY(request.Machine, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoFrontSideVisionY(request.Machine, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualFrontSideVisionY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontSideVisionY(request.Machine, out reason);
@@ -55,7 +56,15 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveFrontSideVisionY(CDT320_Machine machine, out string reason)
+        private static bool CanManualFrontSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeFrontSideVisionY(machine, out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "FrontSideVisionY", out reason);
+        }
+
+        private static bool CanAutoFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeFrontSideVisionY(machine, out reason))
                 return false;
@@ -72,11 +81,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 티칭 이동 인터락 확인
+                // 자동 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanMoveRearSideVisionY(request.Machine, out reason);
-                // 일반 이동 인터락 확인
+                    return CanAutoRearSideVisionY(request.Machine, out reason);
+                // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                    return CanManualRearSideVisionY(request.Machine, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearSideVisionY(request.Machine, out reason);
@@ -91,7 +101,18 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveRearSideVisionY(CDT320_Machine machine, out string reason)
+        private static bool CanManualRearSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeRearSideVisionY(machine, out reason))
+                return false;
+
+            // SideVisionY는 InputStage/InputVisionX와 기구 간섭이 없는 독립 검사축이다.
+            // Auto 병렬 운전에서는 Input die vision 준비와 Side 검사 카메라 위치 이동이 겹칠 수 있으므로
+            // InputStage/InputVisionX 이동 상태로 SideVisionY를 차단하지 않는다.
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
+        }
+
+        private static bool CanAutoRearSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeRearSideVisionY(machine, out reason))
                 return false;

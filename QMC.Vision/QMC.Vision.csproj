@@ -71,8 +71,8 @@
     <Compile Include="Sequencing\WaferVision\WaferVisionSequence.cs" />
     <Compile Include="Sequencing\BinVision\BinVisionSequence.cs" />
     <Compile Include="Sequencing\BottomInspection\BottomInspectionSequence.cs" />
-    <Compile Include="Sequencing\TopSideVision\TopSideVisionSequence.cs" />
-    <Compile Include="Sequencing\BottomSideVision\BottomSideVisionSequence.cs" />
+    <Compile Include="Sequencing\FrontSideVision\FrontSideVisionSequence.cs" />
+    <Compile Include="Sequencing\RearSideVision\RearSideVisionSequence.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -158,8 +158,8 @@
     <Compile Include="Equipment\Unit\WaferVisionModule.cs" />
     <Compile Include="Equipment\Unit\BinVisionModule.cs" />
     <Compile Include="Equipment\Unit\BottomInspectionModule.cs" />
-    <Compile Include="Equipment\Unit\TopSideVisionModule.cs" />
-    <Compile Include="Equipment\Unit\BottomSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\FrontSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\RearSideVisionModule.cs" />
     <Compile Include="Equipment\Comm\VisionTcpServer.cs" />
     <Compile Include="Equipment\Comm\MainCommServer.cs" />
     <Compile Include="Equipment\Comm\VisionCommLog.cs" />
@@ -486,6 +486,10 @@
       <Project>{1E539F7D-24C0-4FC8-B818-FDED38A809C7}</Project>
       <Name>QMC.Common</Name>
     </ProjectReference>
+    <ProjectReference Include="..\VisionInspector\QMc.Vision.Inspector.csproj">
+      <Project>{49ee7ebb-6263-4fef-8278-817ab96a046d}</Project>
+      <Name>QMc.Vision.Inspector</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Form1.resx">
@@ -571,5 +575,16 @@
     <Copy Condition="'$(ColletCudaDll)' != ''" SourceFiles="$(ColletCudaDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
     <Message Importance="high" Condition="'$(ColletCudaDll)' != ''" Text="[Collet] ColletFinderCuda.dll → $(OutDir)  (원본: $(ColletCudaDll))" />
     <Message Importance="high" Condition="'$(ColletCudaDll)' == ''" Text="[Collet] ColletFinderCuda.dll 없음 → CUDA 비활성(CPU 폴백). QMC.Vision\NativeDeps\ 에 두면 자동 배포." />
+  </Target>
+  <!-- QMc.Vision.Inspector(CDTInspector/CudaWrapper)가 런타임에 P/Invoke 하는 네이티브 DLL 을 출력 폴더로 복사.
+       없으면 CUDA 경로 호출 시 DllNotFound → BottomInspector 가 레거시로 폴백. 장비 PC 에서 재빌드 시 NativeDeps\ 갱신. -->
+  <Target Name="CopyVisionInspectorNativeDeps" AfterTargets="Build">
+    <ItemGroup>
+      <_VInsNativeDll Include="$(ProjectDir)NativeDeps\MakePixelShiftImage.dll" Condition="Exists('$(ProjectDir)NativeDeps\MakePixelShiftImage.dll')" />
+      <_VInsNativeDll Include="$(ProjectDir)NativeDeps\CudaBackend.dll" Condition="Exists('$(ProjectDir)NativeDeps\CudaBackend.dll')" />
+    </ItemGroup>
+    <Copy Condition="'@(_VInsNativeDll)' != ''" SourceFiles="@(_VInsNativeDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Condition="'@(_VInsNativeDll)' != ''" Text="[VisionInspector] native dll → $(OutDir): @(_VInsNativeDll)" />
+    <Message Importance="high" Condition="'@(_VInsNativeDll)' == ''" Text="[VisionInspector] MakePixelShiftImage.dll/CudaBackend.dll 없음 → CUDA 경로 비활성(레거시 폴백). QMC.Vision\NativeDeps\ 에 두면 자동 배포." />
   </Target>
 </Project>
