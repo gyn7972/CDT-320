@@ -526,20 +526,49 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private Task<int> MovePreviousInspectedPickerZToAvoidForCurrentInspectionAsync(CancellationToken ct)
+        private async Task<int> MovePreviousInspectedPickerZToAvoidForCurrentInspectionAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (Options != null && Options.KeepZUntilSideInspectionComplete)
+                if (Options == null || !Options.KeepZUntilSideInspectionComplete)
+                    return 0;
+
+                int previousCursor = _pickerCursor - 1;
+                if (previousCursor < 0 || previousCursor >= _pickedPickerIndexes.Count)
+                    return 0;
+
+                int previousPickerIndex = _pickedPickerIndexes[previousCursor];
+                if (previousPickerIndex == _currentPickerIndex)
+                    return 0;
+
+                PickerAxis previousZAxis = GetPickerZAxis(previousPickerIndex);
+                double previousZAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
+                if (IsPickerAxisInPosition(previousZAxis, previousZAvoid))
                 {
                     WriteLog("PickerSideInspectionSequence",
-                        Name + " Auto 연속 검사를 위해 다음 Side 검사 진입 중 이전 PickerZ Avoid를 생략합니다. " +
-                        "pickerCursor=" + _pickerCursor + " - Ok");
+                        Name + " 다음 Side 검사 진입 중 이전 PickerZ가 이미 Avoid 위치입니다. " +
+                        "previousPickerNo=" + ToPickerNo(previousPickerIndex) +
+                        ", currentPickerNo=" + _currentPickerNo + " - Check");
+                    return 0;
                 }
 
-                return Task.FromResult(0);
+                int result = await MovePickerAxisAndVerifyAsync(
+                    previousZAxis,
+                    previousZAvoid,
+                    "다음 Side 검사 진입 중 이전 PickerZ Avoid",
+                    ct,
+                    "DieSideZAvoidDeferred[" + previousPickerIndex + "];PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Side").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerSideInspectionSequence",
+                    Name + " 다음 Side 검사 진입 중 이전 PickerZ Avoid 완료. " +
+                    "previousPickerNo=" + ToPickerNo(previousPickerIndex) +
+                    ", currentPickerNo=" + _currentPickerNo + " - Ok");
+
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -547,9 +576,9 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail("PICKER-SIDE-PREV-Z-AVOID-EX", Name,
+                return Fail("PICKER-SIDE-PREV-Z-AVOID-EX", Name,
                     "다음 Side 검사 시작 중 이전 PickerZ Avoid 이동 예외 발생. currentPickerNo=" +
-                    _currentPickerNo + ", error=" + ex.Message));
+                    _currentPickerNo + ", error=" + ex.Message);
             }
             finally
             {

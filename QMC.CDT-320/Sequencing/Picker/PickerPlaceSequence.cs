@@ -776,7 +776,8 @@ namespace QMC.CDT320.Sequencing
                 yAxis,
                 _targetOutputStageY,
                 "output stage receive Y",
-                ct);
+                ct,
+                BuildOutputStagePlaceMoveTargetName("ReceiveY"));
             Task<int> pickerMove = MovePickerXTThenYAndVerifyAsync(
                 pickerTargets,
                 "place picker X/Y/T",
@@ -834,7 +835,8 @@ namespace QMC.CDT320.Sequencing
                 BinStageAxis.GoodBinZ,
                 target,
                 "Good Stage Z place process",
-                ct).ConfigureAwait(false);
+                ct,
+                BuildOutputStagePlaceMoveTargetName("GoodZProcess")).ConfigureAwait(false);
 
             if (result != 0)
                 return Fail("PICKER-PLACE-GOOD-Z-PROCESS", "OutputStage",
@@ -1305,13 +1307,23 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private string BuildOutputStagePlaceMoveTargetName(string outputStageStep)
+        {
+            return BuildPlaceMoveTargetName() + ";OutputStageStep=" + outputStageStep;
+        }
+
         private async Task<int> MoveOutputStageAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            return await MoveOutputStageAxisAndVerifyAsync(axis, target, description, ct, null).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveOutputStageAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct, string targetName)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await AwaitStepWithCancellationAsync(OutputStage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                int result = await AwaitStepWithCancellationAsync(OutputStage.MoveStageAxis(axis, target, Options.FineMove, targetName), ct).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail("PICKER-PLACE-STAGE-MOVE", "OutputStage",

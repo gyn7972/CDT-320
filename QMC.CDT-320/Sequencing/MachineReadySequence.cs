@@ -2026,7 +2026,7 @@ namespace QMC.CDT320.Sequencing
 
         private static double ResolveReadyAxisTolerance(BaseAxis axis)
         {
-            return Math.Max(ResolveAxisTolerance(axis), 0.05);
+            return ResolveAxisTolerance(axis);
         }
 
         private static double ResolveAxisTolerance(BaseAxis axis)
