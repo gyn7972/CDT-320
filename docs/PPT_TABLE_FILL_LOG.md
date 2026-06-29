@@ -156,7 +156,7 @@
 
 | Stage | 주제 | 산출물 | PASS |
 |---|---|---|---|
-| 43 | 매뉴얼 비전 + 바코드 통합 (5104/5105/5106 + Serial 4/6) | VisionHub.Main / TopSide / BottomSide (6 채널 시그니처) + BarcodeSerialAdapter.cs (Wafer/Bin Serial Port) | (데이터 소스 미발견) (2026-05-04 보강) |
+| 43 | 매뉴얼 비전 + 바코드 통합 (5104/5105/5106 + Serial 4/6) | VisionHub.Main / FrontSide / RearSide (6 채널 시그니처) + BarcodeSerialAdapter.cs (Wafer/Bin Serial Port) | (데이터 소스 미발견) (2026-05-04 보강) |
 | 44 | Eject Pin Z + Side Vision Y (axis 8/19/20) | InputStageUnit.EjectPinZ + TpuArmUnit.SideVisionY (Left/Right) + SimulatorBridge axis 매핑 | (데이터 소스 미발견) (2026-05-04 보강) |
 | 45 | Operation Panel (Tower Lamp + Buzzer + Start/Stop/Reset/EMG) | OperationPanelUnit.cs (DI 7 + DO 7) — Y003~Y006 Tower Lamp/Buzzer | (데이터 소스 미발견) (2026-05-04 보강) |
 | 46 | Resource Sensors + Slot Mapper | ResourceSensorsUnit.cs (CDA×2 + Vacuum×4) + SlotMapper.cs + SlotMapperRegistry | (데이터 소스 미발견) (2026-05-04 보강) |
@@ -175,8 +175,8 @@
 |---|---|---|---|
 | 49 | NG/Good Plate | Plate.cs + PlateRegistry.NgPlate / GoodPlate | (데이터 소스 미발견) (2026-05-04 보강) |
 | 50 | Bin Barcode Reader | NullBarcodeReader (어댑터) + BarcodeSerialAdapter (Stage 43 연결) | (데이터 소스 미발견) (2026-05-04 보강) |
-| 51 | Inspection Subset (Bottom + Top/BottomSide) | RecipeProject.BottomInsp / TopSideInsp / BottomSideInsp (RecipeStore.cs InspectionSubset) | (데이터 소스 미발견) (2026-05-04 보강) |
-| 52 | TopSide / BottomSide Inspection 모듈 (Vision PC) | QMC.Vision/Modules/TopSideInspectionModule.cs + BottomSideInspectionModule.cs + VisionConfig 5105/5106 포트 | (데이터 소스 미발견) (2026-05-04 보강) |
+| 51 | Inspection Subset (Bottom + Top/RearSide) | RecipeProject.BottomInsp / FrontSideInsp / RearSideInsp (RecipeStore.cs InspectionSubset) | (데이터 소스 미발견) (2026-05-04 보강) |
+| 52 | FrontSide / RearSide Inspection 모듈 (Vision PC) | QMC.Vision/Modules/FrontSideInspectionModule.cs + BottomAndSideInspectionModule.cs + VisionConfig 5105/5106 포트 | (데이터 소스 미발견) (2026-05-04 보강) |
 | 53 | Eject + Side 사이클 통합 | DoOneDieAsync 시퀀스 (EJECT axis 8 동작 + SideVisionY axis 19 동작) | (데이터 소스 미발견) (2026-05-04 보강) |
 | 54 | Recipe Output Subset | RecipeStore.OutputSubset (DiesPerWafer 등) + MachineController Recipe.Output 적용 | (데이터 소스 미발견) (2026-05-04 보강) |
 

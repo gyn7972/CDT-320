@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -167,8 +167,8 @@
           <div class="statcard"><div class="k">Wafer Vision</div><div class="v">READY</div></div>
           <div class="statcard"><div class="k">Bin Vision</div><div class="v">READY</div></div>
           <div class="statcard"><div class="k">Bottom Insp.</div><div class="v">READY</div></div>
-          <div class="statcard"><div class="k">Top Side</div><div class="v">READY</div></div>
-          <div class="statcard"><div class="k">Bottom Side</div><div class="v">READY</div></div>
+          <div class="statcard"><div class="k">Front Side</div><div class="v">READY</div></div>
+          <div class="statcard"><div class="k">Rear Side</div><div class="v">READY</div></div>
         </div>
         <div class="mon">
           <div class="big">Monitoring — Wafer stage state</div>
@@ -231,8 +231,8 @@
             <div class="frow"><label>Wafer Vision</label><select><option>Hik GigE — 192.168.0.11</option><option>MIL</option><option>Sim</option></select></div>
             <div class="frow"><label>Bin Vision</label><select><option>Hik GigE — 192.168.0.12</option></select></div>
             <div class="frow"><label>Bottom Inspection</label><select><option>Hik GigE — 192.168.0.13</option></select></div>
-            <div class="frow"><label>Top Side (5105)</label><select><option>Hik GigE — 192.168.0.14</option></select></div>
-            <div class="frow"><label>Bottom Side (5106)</label><select><option>Hik GigE — 192.168.0.15</option></select></div>
+            <div class="frow"><label>Front Side (5105)</label><select><option>Hik GigE — 192.168.0.14</option></select></div>
+            <div class="frow"><label>Rear Side (5106)</label><select><option>Hik GigE — 192.168.0.15</option></select></div>
             <div class="small">AlgorithmCameraBinder · 알고리즘 ↔ 물리 카메라 매핑.</div>
           </div>
           <div class="form" id="set-light" style="display:none">
@@ -300,8 +300,8 @@ const modules=[
  {key:"Wafer", name:"Wafer Vision", finders:["EjectPinFinder","ReticleFinder","AlignDieFinder","FirstReferenceFinder","SecondReferenceFinder","DieFinder","ScaleFinder"], inspectors:[]},
  {key:"Bin", name:"Bin Vision", finders:["ReticleFinder","DieFinder","ScaleFinder"], inspectors:["PlacementInspector"]},
  {key:"Bottom", name:"Bottom Inspection", finders:["ReticleFinder","ColletFinder","DieFinder","FocusFinder","ScaleFinder","DistortionCompensation"], inspectors:["SurfaceInspector"]},
- {key:"TopSide", name:"Top Side Vision (5105)", finders:["DieEdgeFinder","FocusFinder"], inspectors:["TopSurfaceInspector","TopChippingInspector"]},
- {key:"BottomSide", name:"Bottom Side Vision (5106)", finders:["DieEdgeFinder","FocusFinder"], inspectors:["BottomSurfaceInspector","BottomChippingInspector"]},
+ {key:"FrontSide", name:"Front Side Vision (5105)", finders:["DieEdgeFinder","FocusFinder"], inspectors:["TopSurfaceInspector","TopChippingInspector"]},
+ {key:"RearSide", name:"Rear Side Vision (5106)", finders:["DieEdgeFinder","FocusFinder"], inspectors:["BottomSurfaceInspector","BottomChippingInspector"]},
 ];
 let curMod=modules[0], curSetting=null;
 
@@ -392,9 +392,9 @@ renderAlgoCol();renderSetCol();renderEditor();
 const logs=[
  ["09:41:02","Wafer","DieFinder","PASS","312.40","198.22","0.18","—"],
  ["09:41:03","Bottom","SurfaceInspector","NG","—","—","—","0.042"],
- ["09:41:05","TopSide","TopChippingInspector","PASS","—","—","—","0.011"],
+ ["09:41:05","FrontSide","TopChippingInspector","PASS","—","—","—","0.011"],
  ["09:41:06","Bin","PlacementInspector","PASS","204.10","88.7","0.02","—"],
- ["09:41:08","BottomSide","BottomChippingInspector","NG","—","—","—","0.067"],
+ ["09:41:08","RearSide","BottomChippingInspector","NG","—","—","—","0.067"],
  ["09:41:10","Wafer","AlignDieFinder","PASS","310.9","197.8","0.20","—"],
 ];
 $("#logbody").innerHTML=logs.map(r=>`<tr>${r.map((c,i)=>`<td style="${i===3?(c==='NG'?'color:#c0392b;font-weight:700':'color:#1f9d4d;font-weight:700'):''}">${c}</td>`).join("")}</tr>`).join("");

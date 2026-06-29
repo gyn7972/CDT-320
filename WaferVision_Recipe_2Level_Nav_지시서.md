@@ -1,4 +1,4 @@
-# CDT-320 WaferVision 레시피 UI — 2레벨 네비게이션 작업 지시서
+﻿# CDT-320 WaferVision 레시피 UI — 2레벨 네비게이션 작업 지시서
 
 > 대상: `QMC.Vision` 레시피 탭(`RecipePage`). 우측 기준 2레벨 네비로 재구성하고, WaferVision(Finder 7개)을 범용 에디터에 바인딩한다.
 > 원칙: **기존 구조 준수**(Designer/.cs 분리, `FindForm() as Form1`로 모듈 접근, 노드별 폼 금지·범용 1개 재사용). 모션 구동은 핸들러 — Vision은 값 반환만.
@@ -12,7 +12,7 @@
             (좌·중앙)                     (우측 1)         (우측 2, 고정)
 ```
 
-- **모듈 레일(우측 고정)**: WaferVision · BinVision · BottomInspection · TopSideVision · BottomSideVision.
+- **모듈 레일(우측 고정)**: WaferVision · BinVision · BottomInspection · FrontSideVision · RearSideVision.
 - **모듈 클릭 → 콘텐츠 직접 표시**(상단 탭 스트립 없음, 탭 누적 X). 선택 모듈은 레일에서 활성 표시.
 - **콘텐츠 = Finder/Inspector 목록(우측 서브레일) + 선택 시 에디터**.
 - **Finder 클릭 → 에디터로 진입**. 즉 `모듈 → Finder → 에디터` 2레벨.

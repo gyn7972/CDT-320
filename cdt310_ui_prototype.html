@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -401,8 +401,8 @@ const modules=[
  {key:"Wafer",      name:"WaferVision",       parts:["popup","calibrator","compensator"],            note:"패턴 정렬(EjectPin/Reticle/AlignDie/Die/Scale) — Cognex PatMax"},
  {key:"Bin",        name:"BinVision",         parts:["popup","calibrator","compensator","inspector"],note:"다이 위치 + 배치(Placement) 확인"},
  {key:"Bottom",     name:"BottomInspection",  parts:["calibrator","compensator","inspector"],        note:"외관/칩핑/이물 — CDTInspector.BottomInspect (PixelShift+CUDA)"},
- {key:"TopSide",    name:"TopSideVision",     parts:["calibrator","inspector"],                      note:"앞쪽 측면 칩핑 — SideChippingInspector (port 5105)"},
- {key:"BottomSide", name:"BottomSideVision",  parts:["calibrator","inspector"],                      note:"뒤쪽 측면 칩핑 — SideChippingInspector (port 5106)"},
+ {key:"FrontSide",    name:"FrontSideVision",     parts:["calibrator","inspector"],                      note:"앞쪽 측면 칩핑 — SideChippingInspector (port 5105)"},
+ {key:"RearSide", name:"RearSideVision",  parts:["calibrator","inspector"],                      note:"뒤쪽 측면 칩핑 — SideChippingInspector (port 5106)"},
 ];
 let curMod=modules[0], curPart="calibrator";
 
@@ -434,7 +434,7 @@ function applySel(){
 
 /* Inspector 화면 — 모듈에 따라 Bottom vs Side */
 function buildInspector(m){
-  const isSide = m.key==="TopSide"||m.key==="BottomSide";
+  const isSide = m.key==="FrontSide"||m.key==="RearSide";
   const isBin  = m.key==="Bin";
   $("#inspTitle").textContent = isSide
     ? `Inspector — ${m.name} (SideChippingInspector.InspectChipping)`

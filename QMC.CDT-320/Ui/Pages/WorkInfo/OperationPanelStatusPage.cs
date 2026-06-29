@@ -27,7 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             _btnCommTest.Click += async (s, e) => await RunCommTest();
 
-            _cbVisionModule.Items.AddRange(new object[] { "Wafer", "Inspection", "Bin", "TopSide", "BottomSide" });
+            _cbVisionModule.Items.AddRange(new object[] { "Wafer", "Inspection", "Bin", "FrontSideVision", "RearSideVision" });
             _cbVisionModule.SelectedIndex = 0;
             _btnGrab.Click += async (s, e) => await RunGrab();
             _btnMatch.Click += async (s, e) => await RunMatch();
@@ -42,8 +42,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 case 0:  return VisionHub.Wafer;
                 case 1:  return VisionHub.Inspection;
                 case 2:  return VisionHub.Bin;
-                case 3:  return VisionHub.TopSide;
-                case 4:  return VisionHub.BottomSide;
+                case 3:  return VisionHub.FrontSideVision;
+                case 4:  return VisionHub.RearSideVision;
                 default: return VisionHub.Wafer;
             }
         }
@@ -189,7 +189,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        /// <summary>미접속이면 ConnectAll 후 6채널(Wafer/Inspection/Bin/Main/TopSide/BottomSide) PING → 채널별 OK/FAIL 표시.</summary>
+        /// <summary>미접속이면 ConnectAll 후 6채널(Wafer/Inspection/Bin/Main/FrontSideVision/RearSideVision) PING → 채널별 OK/FAIL 표시.</summary>
         private async Task RunCommTest()
         {
             _btnCommTest.Enabled = false;
@@ -203,7 +203,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     await VisionHub.ConnectAllAsync(
                         cfg.VisionHost,
                         cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                        cfg.VisionMainPort,  cfg.VisionTopSidePort,    cfg.VisionBottomSidePort);
+                        cfg.VisionMainPort,  cfg.VisionFrontSidePort,    cfg.VisionRearSidePort);
                 }
 
                 int ok = 0, total = 0;
@@ -214,8 +214,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     ("Inspection", VisionHub.Inspection),
                     ("Bin",        VisionHub.Bin),
                     ("Main",       VisionHub.Main),
-                    ("TopSide",    VisionHub.TopSide),
-                    ("BottomSide", VisionHub.BottomSide),
+                    ("FrontSideVision", VisionHub.FrontSideVision),
+                    ("RearSideVision",  VisionHub.RearSideVision),
                 })
                 {
                     total++;

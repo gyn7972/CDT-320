@@ -693,7 +693,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             const int repeatCount = 50;
             const double lowPosition = 0.0;
-            const double highPosition = 2.0;
+            const double highPosition = -4.0;
             const PickerAxis axis = PickerAxis.PickerZ0; // 화면 표기 Front Picker #1 Z축
 
             if (unit == null)

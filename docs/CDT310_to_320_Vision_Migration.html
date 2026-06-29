@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -188,7 +188,7 @@
     <tr>
       <td><b>측면 칩핑 검사</b></td>
       <td class="col310"><code>SideChippingInspector.InspectChipping()</code> — 에지선 탐색+회전+칩깊이<br><span class="src">SideChippingInspector.cs:27</span></td>
-      <td class="col320"><code>Top/BottomSide</code> 모듈의 Inspector(+<code>IEdgeFinder</code>)</td>
+      <td class="col320"><code>Top/RearSide</code> 모듈의 Inspector(+<code>IEdgeFinder</code>)</td>
       <td><span class="badge b-warn">구현 필요</span><br><span class="note">에지 기반 칩깊이 로직 → <code>IEdgeFinder</code>가 적합하나 <b>백엔드 미연결</b>(아래 §5).</span></td>
     </tr>
     <tr>
@@ -220,8 +220,8 @@
     <tr><td><b>WaferVision</b></td><td>EjectPin · Reticle · AlignDie · <b>FirstReference · SecondReference</b> · Die · Scale</td><td>—</td><td class="col310">Aligner/TwoPointAligner(정렬), RealTimeScanner(Die), VisionCalibrator(Scale), NeedleBlock→EjectPin(신규)</td></tr>
     <tr><td><b>BinVision</b></td><td>Reticle · Die · Scale</td><td>Placement</td><td class="col310">PatternMatching(Die), 배치 확인 로직</td></tr>
     <tr><td><b>BottomInspection</b></td><td>Reticle · Collet · Die · Focus · Scale · DistortionComp</td><td>Surface</td><td class="col310">CDTInspector(Surface, CUDA), Distortion 보정</td></tr>
-    <tr><td><b>TopSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(앞면)</td></tr>
-    <tr><td><b>BottomSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(뒷면)</td></tr>
+    <tr><td><b>FrontSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(앞면)</td></tr>
+    <tr><td><b>RearSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(뒷면)</td></tr>
   </tbody>
 </table>
 <div class="callout warn">

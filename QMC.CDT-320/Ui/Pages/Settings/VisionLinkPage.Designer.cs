@@ -613,7 +613,7 @@
             this.lblTopPort.Name = "lblTopPort";
             this.lblTopPort.Size = new System.Drawing.Size(164, 34);
             this.lblTopPort.TabIndex = 14;
-            this.lblTopPort.Text = "Top Side";
+            this.lblTopPort.Text = "FrontSideVision";
             this.lblTopPort.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _tbTop
@@ -680,7 +680,7 @@
             this.lblBotPort.Name = "lblBotPort";
             this.lblBotPort.Size = new System.Drawing.Size(164, 34);
             this.lblBotPort.TabIndex = 17;
-            this.lblBotPort.Text = "Bottom Side";
+            this.lblBotPort.Text = "RearSideVision";
             this.lblBotPort.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _tbBot

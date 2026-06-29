@@ -524,7 +524,7 @@ namespace QMC.CDT_320
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
-            // Stage 43 - 6채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // Stage 43 - 6채널: Wafer/Inspection/Bin + Main/FrontSide/RearSide
             // Vision PC 가 레시피를 요청(RECIPEREQ)하면 현재 활성 레시피로 응답 — 핸들러가 먼저 안 보내도 Vision 이 능동 동기화.
             QMC.CDT320.VisionComm.VisionHub.OnVisionRecipeRequest = BroadcastCurrentRecipeToVision;
 
@@ -533,7 +533,7 @@ namespace QMC.CDT_320
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
                     cfg.VisionHost,
                     cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                    cfg.VisionMainPort,  cfg.VisionTopSidePort,    cfg.VisionBottomSidePort);
+                    cfg.VisionMainPort,  cfg.VisionFrontSidePort,    cfg.VisionRearSidePort);
             }
             QMC.CDT320.VisionComm.VisionHub.ConnectionChanged += OnVisionHubChanged;
             QMC.CDT320.VisionComm.VisionReconnectWatchdog.Start(BroadcastCurrentRecipeToVision);

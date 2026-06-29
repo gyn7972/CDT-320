@@ -13,14 +13,14 @@ namespace QMC.CDT_320.Equipment.Vision
         public const int DefaultWafer = 5200;
         public const int DefaultBottomInspection = 5201;
         public const int DefaultBin = 5203;
-        public const int DefaultTopSide = 5205;
-        public const int DefaultBottomSide = 5206;
+        public const int DefaultFrontSideVision = 5205;
+        public const int DefaultRearSideVision = 5206;
 
         public static int Wafer { get { return Resolve(Cfg.VisionWaferViewerPort, DefaultWafer); } }
         public static int BottomInspection { get { return Resolve(Cfg.VisionInspectionViewerPort, DefaultBottomInspection); } }
         public static int Bin { get { return Resolve(Cfg.VisionBinViewerPort, DefaultBin); } }
-        public static int TopSide { get { return Resolve(Cfg.VisionTopSideViewerPort, DefaultTopSide); } }
-        public static int BottomSide { get { return Resolve(Cfg.VisionBottomSideViewerPort, DefaultBottomSide); } }
+        public static int FrontSideVision { get { return Resolve(Cfg.VisionFrontSideViewerPort, DefaultFrontSideVision); } }
+        public static int RearSideVision { get { return Resolve(Cfg.VisionRearSideViewerPort, DefaultRearSideVision); } }
 
         private static AppSettings Cfg { get { return AppSettingsStore.Current; } }
 
@@ -35,9 +35,9 @@ namespace QMC.CDT_320.Equipment.Vision
                 case AutoVisionChannel.Bin:
                     return Bin;
                 case AutoVisionChannel.FrontSide:
-                    return TopSide;
+                    return FrontSideVision;
                 case AutoVisionChannel.RearSide:
-                    return BottomSide;
+                    return RearSideVision;
                 default:
                     return 0;
             }

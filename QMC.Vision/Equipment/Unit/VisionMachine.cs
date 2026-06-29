@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Modules
@@ -67,22 +67,22 @@ namespace QMC.Vision.Modules
             WaferVisionModule wafer,
             BinVisionModule bin,
             BottomInspectionModule bottom,
-            FrontSideVisionModule topSide,
-            RearSideVisionModule bottomSide)
+            FrontSideVisionModule frontSide,
+            RearSideVisionModule rearSide)
             : base("CDT-320-VISION")
         {
             WaferVision      = wafer;
             BinVision        = bin;
             BottomInspection = bottom;
-            FrontSideVision    = topSide;
-            RearSideVision = bottomSide;
+            FrontSideVision = frontSide;
+            RearSideVision = rearSide;
 
             // Composite: 핸들러 CDT320Machine 과 동일하게 하위 Unit 을 Units 에 등록.
             if (wafer      != null) Units.Add(wafer);
             if (bin        != null) Units.Add(bin);
             if (bottom     != null) Units.Add(bottom);
-            if (topSide    != null) Units.Add(topSide);
-            if (bottomSide != null) Units.Add(bottomSide);
+            if (frontSide  != null) Units.Add(frontSide);
+            if (rearSide   != null) Units.Add(rearSide);
         }
     }
 }

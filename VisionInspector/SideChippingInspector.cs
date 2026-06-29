@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -618,6 +618,6 @@ namespace QMC.Vision.Inspector
         /// <summary>
         /// 상단 치핑 여부 (false면 하단)
         /// </summary>
-        public bool IsTopSide { get; set; }
+        public bool IsFrontSide { get; set; }
     }
 }

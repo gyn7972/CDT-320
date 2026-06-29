@@ -1,6 +1,6 @@
-namespace QMC.CDT320.Sequencing
+﻿namespace QMC.CDT320.Sequencing
 {
-    internal enum PickerBottomSideInspectionStep
+    internal enum PickerBottomAndSideInspectionStep
     {
         Idle,
         CheckUnit,

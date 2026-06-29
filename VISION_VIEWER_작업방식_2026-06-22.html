@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -73,7 +73,7 @@
 <h2>요청 3 — Front Side + Rear Side 동시 표시 <span class="tag done">코드완료</span></h2>
 <div class="card">
   <ul>
-    <li><code>SideVisionViewerControl</code> 신설 — 위=FRONT SIDE(TopSide 5205), 아래=REAR SIDE(BottomSide 5206)를 <b>반반 동시</b> 표시.</li>
+    <li><code>SideVisionViewerControl</code> 신설 — 위=FRONT SIDE(FrontSide 5205), 아래=REAR SIDE(RearSide 5206)를 <b>반반 동시</b> 표시.</li>
     <li>FRONT HEAD / REAR HEAD 페이지에 <b>"VISION: SIDE(동시)"</b> 런처 추가 → 두 측면을 한 화면에서 셋업.</li>
     <li class="note">실측 이미지 4000×700은 추후 분할 예정 — 지금은 전체를 그대로 표시(셋업 편의).</li>
   </ul>
@@ -87,8 +87,8 @@
     <tr><td>Wafer</td><td>5100</td><td>5200</td><td>INPUT STAGE → VISION: WAFER</td></tr>
     <tr><td>Bottom Insp</td><td>5101</td><td>5201</td><td>FRONT/REAR HEAD → VISION: BOTTOM INSP</td></tr>
     <tr><td>Bin</td><td>5103</td><td>5203</td><td>OUTPUT STAGE → VISION: BIN</td></tr>
-    <tr><td>Top Side(Front)</td><td>5105</td><td>5205</td><td>HEAD → VISION: TOP SIDE / SIDE(동시)</td></tr>
-    <tr><td>Bottom Side(Rear)</td><td>5106</td><td>5206</td><td>HEAD → VISION: BOTTOM SIDE / SIDE(동시)</td></tr>
+    <tr><td>Front Side(Front)</td><td>5105</td><td>5205</td><td>HEAD → VISION: FRONT SIDE / SIDE(동시)</td></tr>
+    <tr><td>Rear Side(Rear)</td><td>5106</td><td>5206</td><td>HEAD → VISION: REAR SIDE / SIDE(동시)</td></tr>
   </table>
   <ul>
     <li>모듈별 테스트 팝업(<code>VisionModuleTestDialog</code>)을 2열로 바꿔 <b>우측에 해당 모듈 뷰어</b>를 붙임 — 모듈명→뷰어포트 자동 해석(<code>VisionViewerPorts.ResolveByModule</code>).</li>

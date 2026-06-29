@@ -19,9 +19,9 @@ namespace QMC.CDT320.VisionComm
                 case AutoVisionChannel.Main:
                     return VisionHub.Main;
                 case AutoVisionChannel.FrontSide:
-                    return VisionHub.TopSide != null && VisionHub.TopSide.IsConnected ? VisionHub.TopSide : VisionHub.Inspection;
+                    return VisionHub.FrontSideVision != null && VisionHub.FrontSideVision.IsConnected ? VisionHub.FrontSideVision : VisionHub.Inspection;
                 case AutoVisionChannel.RearSide:
-                    return VisionHub.BottomSide != null && VisionHub.BottomSide.IsConnected ? VisionHub.BottomSide : VisionHub.Inspection;
+                    return VisionHub.RearSideVision != null && VisionHub.RearSideVision.IsConnected ? VisionHub.RearSideVision : VisionHub.Inspection;
                 default:
                     return null;
             }

@@ -16,7 +16,7 @@
 QMC.Vision 의 **비전 알고리즘 5종 ↔ 카메라 + 카메라 파라미터** 매핑을 Recipe 단위로 편집/저장/적용할 수 있도록 한다.
 
 ### 범위 (In Scope)
-- 5 알고리즘 (`Wafer / Bin / BottomInspection / TopSide / BottomSide`) 각각의:
+- 5 알고리즘 (`Wafer / Bin / BottomInspection / FrontSide / RearSide`) 각각의:
   - 카메라 ID (1:1 매핑)
   - 카메라 파라미터 (Exposure / Gain / FPS / Trigger / Pixel / Delay [+ ROI — 추가 검토])
 - Recipe 영속화 (JSON, `Config\algorithm_camera.json`) + 구버전 호환 (기본값 보충)
@@ -43,10 +43,10 @@ QMC.Vision 의 **비전 알고리즘 5종 ↔ 카메라 + 카메라 파라미터
 | `WaferVisionModule` | `QMC.Vision\Modules\WaferVisionModule.cs:9` | `"WaferVision"` | EjectPin / Reticle / AlignDie / FirstRef / SecondRef / Die / Scale (7) |
 | `BinVisionModule` | `QMC.Vision\Modules\BinVisionModule.cs:8` | `"BinVision"` | Reticle / Die / PlacementInspector / Scale (4) |
 | `BottomInspectionModule` | `QMC.Vision\Modules\BottomInspectionModule.cs:8` | `"BottomInspection"` | Reticle / Collet / Die / Surface / Focus / Scale / DistortionComp (7) |
-| `TopSideInspectionModule` | `QMC.Vision\Modules\TopSideInspectionModule.cs:9` | `"TopSideInspection"` | DieEdge / TopSurface / TopChipping / Focus (4) |
-| `BottomSideInspectionModule` | `QMC.Vision\Modules\BottomSideInspectionModule.cs:9` | `"BottomSideInspection"` | DieEdge / BottomSurface / BottomChipping / Focus (4) |
+| `FrontSideInspectionModule` | `QMC.Vision\Modules\FrontSideInspectionModule.cs:9` | `"FrontSideInspection"` | DieEdge / TopSurface / TopChipping / Focus (4) |
+| `BottomAndSideInspectionModule` | `QMC.Vision\Modules\BottomAndSideInspectionModule.cs:9` | `"BottomAndSideInspection"` | DieEdge / BottomSurface / BottomChipping / Focus (4) |
 
-**등록 방식**: Enum/Factory 가 아니라 `Form1.Form1_Load` (`QMC.Vision\Form1.cs:54-58`) 에서 직접 `new`. 키 문자열은 `Config/AlgorithmCameraMap.cs:14-23` 의 `VisionAlgorithm` 상수 클래스(`Wafer/Bin/BottomInspection/TopSide/BottomSide`) — base 이름과 1:1 대응되지 않음에 유의 (예: `Wafer` ↔ `WaferVision`).
+**등록 방식**: Enum/Factory 가 아니라 `Form1.Form1_Load` (`QMC.Vision\Form1.cs:54-58`) 에서 직접 `new`. 키 문자열은 `Config/AlgorithmCameraMap.cs:14-23` 의 `VisionAlgorithm` 상수 클래스(`Wafer/Bin/BottomInspection/FrontSide/RearSide`) — base 이름과 1:1 대응되지 않음에 유의 (예: `Wafer` ↔ `WaferVision`).
 
 ### 2.2 카메라 추상화
 
@@ -73,7 +73,7 @@ QMC.Vision 의 **비전 알고리즘 5종 ↔ 카메라 + 카메라 파라미터
 - 직렬화: `DataContractJsonSerializer` → `Config\vision.json`
 - 카메라 ID 필드: **3개만** (`:30-32`)
   - `WaferCameraId`, `BinCameraId`, `BottomInspectionCameraId`
-  - **TopSide / BottomSide 용 카메라 ID 필드 없음** ← 연결 부재 증거 #1
+  - **FrontSide / RearSide 용 카메라 ID 필드 없음** ← 연결 부재 증거 #1
 - 파라미터 필드: **알고리즘 무관 전역**만 존재 — `ScaleX / ScaleY / IsRotated / InvertedX / InvertedY / DelayBeforeGrabMs / SideLocation` (`:36-52`)
   - **알고리즘별 Exposure/Gain/Trigger 저장 위치 없음** ← 연결 부재 증거 #2
 
@@ -99,8 +99,8 @@ QMC.Vision\Form1.cs:48-58
     var camWafer      = CreateCameraForAlgorithm(map, VisionAlgorithm.Wafer,            "Sim/Wafer");
     var camBin        = CreateCameraForAlgorithm(map, VisionAlgorithm.Bin,              "Sim/Bin");
     var camBottom     = CreateCameraForAlgorithm(map, VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-    var camTopSide    = CreateCameraForAlgorithm(map, VisionAlgorithm.TopSide,          "Sim/TopSide");
-    var camBottomSide = CreateCameraForAlgorithm(map, VisionAlgorithm.BottomSide,       "Sim/BottomSide");
+    var camFrontSide    = CreateCameraForAlgorithm(map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
+    var camRearSide = CreateCameraForAlgorithm(map, VisionAlgorithm.RearSide,       "Sim/RearSide");
 
     WaferMod      = new WaferVisionModule       (camWafer,      Backend);
     ...
@@ -114,8 +114,8 @@ QMC.Vision\Form1.cs:48-58
 - `QMC.CDT-320\QMC.CDT-320\Equipment\Recipes\RecipeStore.cs:14` — `RecipeStore` static class
 - 직렬화: `DataContractJsonSerializer` → `Recipes\<FileName>.Project`
 - `IRecipeData` 인터페이스 (Equipment 측 units 가 구현) — `InputLoaderRecipe / InputStageRecipe / OutputStageRecipe / PickerRecipe / TpuArmRecipe / TpuRecipe / OutputLoaderRecipe / StageModuleRecipe / UnitRecipe / CDT320MachineRecipe`
-- `RecipeProject` (`:210-253`) — Project 1개 = `FileName / MachineNumber / CassetteFlow / Die / Frame / LoadFrame / UnloadFrame / Module / BottomInsp / TopSideInsp / BottomSideInsp / Output / Pickup`
-  - 이미 `InspectionSubset` (BottomInsp/TopSideInsp/BottomSideInsp) 가 Recipe Layer 에 있음 — 그러나 **Vision 측에서 이를 직접 읽지 않음** (TCP 명령으로 파라미터를 동적 수신할 가능성 — 별도 조사 필요)
+- `RecipeProject` (`:210-253`) — Project 1개 = `FileName / MachineNumber / CassetteFlow / Die / Frame / LoadFrame / UnloadFrame / Module / BottomInsp / FrontSideInsp / RearSideInsp / Output / Pickup`
+  - 이미 `InspectionSubset` (BottomInsp/FrontSideInsp/RearSideInsp) 가 Recipe Layer 에 있음 — 그러나 **Vision 측에서 이를 직접 읽지 않음** (TCP 명령으로 파라미터를 동적 수신할 가능성 — 별도 조사 필요)
 - 컨벤션: `[DataContract] [DataMember]`, 정적 `Load / Save / List / Delete`, `LastProjectMarker` 파일 (`.last_project`)
 
 ### 2.6 기존 UI 패턴 (QMC.Vision)
@@ -209,8 +209,8 @@ public Rectangle ToRectangle() => new Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth
     },
     { "Algorithm": "Bin", ... },
     { "Algorithm": "BottomInspection", ... },
-    { "Algorithm": "TopSide", ... },
-    { "Algorithm": "BottomSide", ... }
+    { "Algorithm": "FrontSide", ... },
+    { "Algorithm": "RearSide", ... }
   ]
 }
 ```
@@ -253,7 +253,7 @@ Form1_Load
   └─ VisionConfigStore.Load()                       (vision.json — 전역 cfg)
   └─ AlgorithmCameraMapStore.Load()                 (algorithm_camera.json — 알고리즘 매핑)
        └─ EnsureDefaults()  ← 누락된 알고리즘 채움
-  └─ for each alg in {Wafer, Bin, Bottom, TopSide, BottomSide}:
+  └─ for each alg in {Wafer, Bin, Bottom, FrontSide, RearSide}:
        mapping = map.Get(alg)
        if (mapping == null || mapping.CameraId == "")  → ALARM(VISION-MAPMISS)
        cam = CameraFactory.CreateById(mapping.CameraId)
@@ -349,9 +349,9 @@ VisionTcpServer.HandleRequest
 | # | 문서 위치 | 코드 위치 | 차이 |
 |---|---|---|---|
 | M-62-1 | 작업 지시 문서 (`MISMATCH_LOG.md` 언급) | 실제 파일 `D:\Work\CDT-320\docs\MISMATCH_RESOLUTION_LOG.md` | 파일명 불일치 — 추가 항목은 `MISMATCH_RESOLUTION_LOG.md` 에 기록 권장 |
-| M-62-2 | `VisionConfig.cs:30-32` 의 3 카메라 ID 필드 | 알고리즘 5 개 (`VisionAlgorithm.All`) | TopSide / BottomSide 카메라 ID 가 `VisionSettings` 에 없음 (신규 `AlgorithmCameraMap` 이 이를 보완) |
+| M-62-2 | `VisionConfig.cs:30-32` 의 3 카메라 ID 필드 | 알고리즘 5 개 (`VisionAlgorithm.All`) | FrontSide / RearSide 카메라 ID 가 `VisionSettings` 에 없음 (신규 `AlgorithmCameraMap` 이 이를 보완) |
 | M-62-3 | `AlgorithmCameraMapping` (`:42-66`) | `ICamera.Roi` (`ICamera.cs:50`) | ROI 인터페이스는 있으나 매핑에 미포함 — 본 Stage 보강 항목 |
-| M-62-4 | `RecipeProject` 의 `InspectionSubset` 3 개 (`RecipeStore.cs:246-248`) | Vision 측 사용 흔적 | Handler Recipe 의 BottomInsp/TopSideInsp/BottomSideInsp 가 Vision 측에서 직접 사용되는지 미확인 — TCP 명령으로 수신할 가능성 |
+| M-62-4 | `RecipeProject` 의 `InspectionSubset` 3 개 (`RecipeStore.cs:246-248`) | Vision 측 사용 흔적 | Handler Recipe 의 BottomInsp/FrontSideInsp/RearSideInsp 가 Vision 측에서 직접 사용되는지 미확인 — TCP 명령으로 수신할 가능성 |
 | M-62-5 | `AlarmMaster.cs` Vision prefix | 코드 안에 혼재 (`VISION-CONN`, `VisionMatchFail`, `EXPOSE-TIMEOUT`, `ALIGN-EX`) | 일관성 없음 — 본 Stage 는 `VISION-` 채택 |
 
 ### `MISMATCH_RESOLUTION_LOG.md` 추가 안
@@ -361,7 +361,7 @@ VisionTcpServer.HandleRequest
 
 | ID | 위치 | 내용 | 처리 |
 |---|---|---|---|
-| M-62-2 | VisionConfig.cs:30-32 | TopSide/BottomSide 카메라 ID 필드 없음 | AlgorithmCameraMap 신설로 보완. 구버전 VisionSettings 의 3 필드는 EnsureDefaults fallback 으로만 사용 |
+| M-62-2 | VisionConfig.cs:30-32 | FrontSide/RearSide 카메라 ID 필드 없음 | AlgorithmCameraMap 신설로 보완. 구버전 VisionSettings 의 3 필드는 EnsureDefaults fallback 으로만 사용 |
 | M-62-3 | AlgorithmCameraMap.cs:42-66 | ROI 필드 누락 | Stage 62 에서 RoiOffsetX/Y/Width/Height 4 필드 추가 |
 | M-62-5 | AlarmMaster.cs Vision 카테고리 | prefix 혼재 (VISION-/Vision/EXPOSE-/ALIGN-) | 신규 코드는 VISION-* 로 통일 (기존은 손대지 않음) |
 ```

@@ -132,7 +132,7 @@ namespace QMC.CDT320.VisionComm
                 {
                     await VisionHub.ConnectAllAsync(cfg.VisionHost,
                         cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                        cfg.VisionMainPort, cfg.VisionTopSidePort, cfg.VisionBottomSidePort).ConfigureAwait(false);
+                        cfg.VisionMainPort, cfg.VisionFrontSidePort, cfg.VisionRearSidePort).ConfigureAwait(false);
                 }
                 catch { }
                 if (VisionHub.AnyConnected) return true;

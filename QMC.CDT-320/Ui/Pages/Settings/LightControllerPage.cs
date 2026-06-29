@@ -87,8 +87,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 new LightRow { Channel=3, Name="SIDE VISION 1", ComPort="COM2", Level=200, Mode="Strobe", Color="White", Active=true },
                 new LightRow { Channel=4, Name="SIDE VISION 2", ComPort="COM2", Level=200, Mode="Strobe", Color="White", Active=true },
                 new LightRow { Channel=5, Name="BIN VISION", ComPort="COM3", Level=140, Mode="Continuous", Color="White", Active=true },
-                new LightRow { Channel=6, Name="TOP SIDE VISION", ComPort="COM3", Level=200, Mode="Strobe", Color="White", Active=true },
-                new LightRow { Channel=7, Name="BOTTOM SIDE VISION", ComPort="COM3", Level=200, Mode="Strobe", Color="White", Active=true },
+                new LightRow { Channel=6, Name="FRONT SIDE VISION", ComPort="COM3", Level=200, Mode="Strobe", Color="White", Active=true },
+                new LightRow { Channel=7, Name="REAR SIDE VISION", ComPort="COM3", Level=200, Mode="Strobe", Color="White", Active=true },
                 new LightRow { Channel=8, Name="ALIGN MARK ILLUM", ComPort="COM1", Level=100, Mode="Continuous", Color="Red", Active=false },
             };
         }

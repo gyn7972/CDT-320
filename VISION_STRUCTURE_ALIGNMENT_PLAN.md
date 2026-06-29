@@ -1,4 +1,4 @@
-# QMC.Vision 구조 정렬 설계서 (핸들러 기준)
+﻿# QMC.Vision 구조 정렬 설계서 (핸들러 기준)
 
 > 목적: `QMC.Vision`을 `QMC.CDT-320` 핸들러와 **동일한 구조**로 맞춘다.
 > 본 문서는 "전체 구조"를 먼저 확정하기 위한 설계서이며, 코드 착수 전 합의용이다.
@@ -30,10 +30,10 @@
 | Inspection(Bottom) | 5101 | `BottomInspection` | `VisionHub.Inspection` | `_svrBottom` | ✅ 양쪽 존재 |
 | Bin | 5103 | `BinVision` | `VisionHub.Bin` | `_svrBin` | ✅ 양쪽 존재 |
 | **Main** | **5104** | **`MainComm`** | `VisionHub.Main` | **(없음)** | ⚠️ **핸들러만 존재, Vision 서버 미구현** |
-| TopSide | 5105 | `TopSideVision` | `VisionHub.TopSide` | `_svrTopSideVision` | ✅ 양쪽 존재 |
-| BottomSide | 5106 | `BottomSideVision` | `VisionHub.BottomSide` | `_svrBottomSideVision` | ✅ 양쪽 존재 |
+| FrontSide | 5105 | `FrontSideVision` | `VisionHub.FrontSide` | `_svrFrontSideVision` | ✅ 양쪽 존재 |
+| RearSide | 5106 | `RearSideVision` | `VisionHub.RearSide` | `_svrRearSideVision` | ✅ 양쪽 존재 |
 
-> **모듈명은 핸들러가 SSOT.** 측면검사는 `TopSideVision` / `BottomSideVision`으로 통일.
+> **모듈명은 핸들러가 SSOT.** 측면검사는 `FrontSideVision` / `RearSideVision`으로 통일.
 
 ### 1.2 핵심 갭
 
@@ -120,7 +120,7 @@ Vision 목표 하단 메뉴: **작업 · 레시피 · 이력 · 설정 · 사용
 
 ### 2.3 Recipe 탭 배치 (핸들러 정렬)
 
-- **좌측 사이드바**: 모듈(WaferVision / BinVision / BottomInspection / TopSideVision / BottomSideVision).
+- **좌측 사이드바**: 모듈(WaferVision / BinVision / BottomInspection / FrontSideVision / RearSideVision).
 - **모듈 선택 시**: 하위 알고리즘(Finder/Inspector) 트리 노출.
 - **알고리즘 선택 시**: 우측에 Target 페이지(카메라 라이브, ROI, Match/Inspect, Light, 파라미터 그리드).
 - **상단**: **레시피 선택기**(load/save/delete) — `"default"` 하드코딩 제거, `Recipes/<명칭>/` 활성화. (핸들러 `ProjectPage` 대응)
