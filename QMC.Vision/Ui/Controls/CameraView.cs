@@ -129,6 +129,7 @@ namespace QMC.Vision.Ui.Controls
             base.OnPaint(e);
             DrawDetectOverlay(e);   // 검출(안착) 오버레이
             DrawColletOverlay(e);   // 콜렛 전용 오버레이(회전 사각형+중심십자+노란 라벨)
+            DrawAutoFocusOverlay(e);// 오토포커스 ROI1~4 오버레이(4색 사각형+라벨)
             if (!ShowCursorReadout || !_cursorIn || CurrentFrame == null) return;
             var dst = DisplayRect();
             if (dst.Width <= 0 || dst.Height <= 0 || !dst.Contains(_cursorPt)) return;
@@ -273,6 +274,63 @@ namespace QMC.Vision.Ui.Controls
                         g.FillRectangle(bg, tx - 4, ty - 1, sz.Width + 8, sz.Height + 2);
                     using (var tb = new SolidBrush(Color.Yellow)) g.DrawString(_colLabel, f, tb, tx, ty);
                 }
+        }
+
+        // ── 오토포커스 ROI 오버레이: ROI1~4 를 각 색(빨·노·파·녹) 사각형 + 라벨로 표시 ──
+        //    ([설정 > 오토 포커스] 에서 드래그로 지정한 4개 ROI 의 표시 전용. 채점/측정과 독립.)
+        private Roi[]   _afRois;
+        private Color[] _afColors;
+        private bool    _afShow;
+
+        /// <summary>오토포커스 ROI1~4 오버레이 지정. <paramref name="rois"/> 길이만큼 표시, 항목이 null/빈영역이면 생략.
+        /// <paramref name="colors"/> 가 부족하면 노랑으로 대체.</summary>
+        public void SetAutoFocusRois(Roi[] rois, Color[] colors)
+        {
+            _afRois = rois;
+            _afColors = colors;
+            _afShow = rois != null;
+            Invalidate();
+        }
+
+        /// <summary>오토포커스 ROI 오버레이 제거.</summary>
+        public void ClearAutoFocusRois()
+        {
+            _afShow = false;
+            Invalidate();
+        }
+
+        private void DrawAutoFocusOverlay(PaintEventArgs e)
+        {
+            if (!_afShow || _afRois == null || CurrentFrame == null) return;
+            var dst = DisplayRect();
+            if (dst.Width <= 0 || dst.Height <= 0) return;
+            double rx = (double)dst.Width / CurrentFrame.Width, ry = (double)dst.Height / CurrentFrame.Height;
+            var g = e.Graphics;
+
+            for (int i = 0; i < _afRois.Length; i++)
+            {
+                Roi roi = _afRois[i];
+                if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
+
+                Color col = (_afColors != null && i < _afColors.Length) ? _afColors[i] : Color.Yellow;
+                var b = roi.BoundingBox;
+                float x = dst.Left + (float)(b.X * rx);
+                float y = dst.Top  + (float)(b.Y * ry);
+                float w = (float)(b.Width  * rx);
+                float h = (float)(b.Height * ry);
+
+                using (var pen = new Pen(col, 2f)) g.DrawRectangle(pen, x, y, w, h);
+
+                string lbl = "ROI" + (i + 1);
+                using (var f = new Font("맑은 고딕", 9f, FontStyle.Bold))
+                {
+                    var sz = g.MeasureString(lbl, f);
+                    float ty = y - sz.Height; if (ty < dst.Top) ty = y + 1;   // 위가 잘리면 박스 안쪽 상단
+                    using (var bg = new SolidBrush(Color.FromArgb(175, 0, 0, 0)))
+                        g.FillRectangle(bg, x, ty, sz.Width + 4, sz.Height);
+                    using (var tb = new SolidBrush(col)) g.DrawString(lbl, f, tb, x + 2, ty);
+                }
+            }
         }
 
         private static System.Drawing.RectangleF RectOf(Roi roi)

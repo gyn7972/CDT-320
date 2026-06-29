@@ -84,6 +84,7 @@
     <Compile Include="Equipment\Core\AutoFocusCore.cs" />
     <Compile Include="Equipment\Core\AutoFocusSession.cs" />
     <Compile Include="Equipment\Core\AutoFocusStore.cs" />
+    <Compile Include="Equipment\Core\AutoFocusRoiStore.cs" />
     <Compile Include="Equipment\Core\Roi.cs" />
     <Compile Include="Equipment\Core\MatchResult.cs" />
     <Compile Include="Equipment\Core\MatchOverlayStore.cs" />
