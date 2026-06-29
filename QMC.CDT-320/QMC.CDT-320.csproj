@@ -1151,6 +1151,9 @@
     <EmbeddedResource Include="Ui\Dialogs\VisionCameraCalibrationDialog.resx">
       <DependentUpon>VisionCameraCalibrationDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\VisionFocusCalibrationDialog.resx">
+      <DependentUpon>VisionFocusCalibrationDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\VisionModuleTestDialog.resx">
       <DependentUpon>VisionModuleTestDialog.cs</DependentUpon>
     </EmbeddedResource>

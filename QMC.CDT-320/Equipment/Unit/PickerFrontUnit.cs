@@ -430,7 +430,7 @@ namespace QMC.CDT320
     {
         public const int MaxPickerCount = 4;
         public const int MaxIoPickerCount = 8;
-        private const int CompletedMoveVerifyTimeoutMs = 50;
+        private const int CompletedMoveVerifyTimeoutMs = 1000;
 
         private readonly Dictionary<PickerAxis, BaseAxis> axes = new Dictionary<PickerAxis, BaseAxis>();
         private readonly string side;

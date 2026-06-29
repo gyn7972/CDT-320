@@ -386,8 +386,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 host.SaveMachineSettings();
-                lblStatus.Text = "Focus Scan 완료. Best=" + sequence.Result.BestPosition.ToString("F4") +
-                                 ", Score=" + sequence.Result.BestScore.ToString("F2") +
+                lblStatus.Text = "Focus Scan 완료. Best=" + sequence.Result.BestPosition.ToString("F3") +
+                                 ", Score=" + sequence.Result.BestScore.ToString("F4") +
                                  ", Sample=" + sequence.Result.SampleCount;
             }
             catch (Exception ex)
@@ -705,9 +705,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             gridSaved.Rows.Add(
                 name,
-                record.DefaultPosition.ToString("F4"),
-                record.BestPosition.ToString("F4"),
-                record.BestScore.ToString("F2"),
+                record.DefaultPosition.ToString("F3"),
+                record.BestPosition.ToString("F3"),
+                record.BestScore.ToString("F4"),
                 record.Valid ? "Y" : "N");
         }
 
@@ -721,8 +721,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 gridSamples.Rows.Add(
                     sample.No,
-                    sample.Position.ToString("F4"),
-                    sample.Score.ToString("F2"),
+                    sample.Position.ToString("F3"),
+                    sample.Score.ToString("F4"),
                     sample.Success ? "OK" : "NG",
                     sample.Raw ?? string.Empty);
             }

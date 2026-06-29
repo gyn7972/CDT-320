@@ -504,6 +504,15 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
+                if (!IsInspectionContinuousProcessMove(request, currentZone, targetZone) &&
+                    !IsPickerYAtAvoid(request.Machine, isFront))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        BuildXBlockedMessage(movingName, "메뉴얼/단독 X축 이동 전 PickerY가 Avoid 또는 0 위치여야 합니다. 오토 검사 연속 이동은 InspectionContinuous 태그가 있을 때만 예외입니다.", ownX, ownY, currentZone, targetZone),
+                        out reason);
+                }
+
                 if (currentZone != targetZone &&
                     !IsPickerYAtAvoid(request.Machine, isFront) &&
                     !IsInspectionContinuousProcessMove(request, currentZone, targetZone))

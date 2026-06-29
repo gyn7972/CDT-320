@@ -44,7 +44,6 @@
 
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
             this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -99,24 +98,24 @@
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 4;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
-            this.rootLayout.Size = new System.Drawing.Size(1188, 700);
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 67F));
+            this.rootLayout.Size = new System.Drawing.Size(1018, 758);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(225, 120, 0);
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(120)))), ((int)(((byte)(0)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("Malgun Gothic", 15F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 15F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1188, 52);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(15, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(1018, 56);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "VISION FOCUS CAL";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -124,30 +123,30 @@
             // mainLayout
             // 
             this.mainLayout.ColumnCount = 2;
-            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 390F));
+            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 469F));
             this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.mainLayout.Controls.Add(this.groupSetting, 0, 0);
             this.mainLayout.Controls.Add(this.groupResult, 1, 0);
             this.mainLayout.Controls.Add(this.groupSaved, 0, 1);
             this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mainLayout.Location = new System.Drawing.Point(12, 64);
-            this.mainLayout.Margin = new System.Windows.Forms.Padding(12);
+            this.mainLayout.Location = new System.Drawing.Point(10, 69);
+            this.mainLayout.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
             this.mainLayout.Name = "mainLayout";
             this.mainLayout.RowCount = 2;
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 64F));
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
-            this.mainLayout.Size = new System.Drawing.Size(1164, 516);
+            this.mainLayout.Size = new System.Drawing.Size(998, 559);
             this.mainLayout.TabIndex = 1;
             // 
             // groupSetting
             // 
             this.groupSetting.Controls.Add(this.gridSettings);
             this.groupSetting.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.groupSetting.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.groupSetting.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.groupSetting.Location = new System.Drawing.Point(0, 0);
-            this.groupSetting.Margin = new System.Windows.Forms.Padding(0, 0, 10, 8);
+            this.groupSetting.Margin = new System.Windows.Forms.Padding(0, 0, 9, 9);
             this.groupSetting.Name = "groupSetting";
-            this.groupSetting.Size = new System.Drawing.Size(380, 322);
+            this.groupSetting.Size = new System.Drawing.Size(460, 348);
             this.groupSetting.TabIndex = 0;
             this.groupSetting.TabStop = false;
             this.groupSetting.Text = "SCAN SETTING";
@@ -156,8 +155,6 @@
             // 
             this.gridSettings.AllowUserToAddRows = false;
             this.gridSettings.AllowUserToDeleteRows = false;
-            this.gridSettings.AllowUserToOrderColumns = false;
-            this.gridSettings.AllowUserToResizeColumns = true;
             this.gridSettings.AllowUserToResizeRows = false;
             this.gridSettings.BackgroundColor = System.Drawing.Color.White;
             this.gridSettings.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
@@ -173,8 +170,7 @@
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSettings.ShowCellToolTips = true;
-            this.gridSettings.Size = new System.Drawing.Size(374, 298);
+            this.gridSettings.Size = new System.Drawing.Size(454, 324);
             this.gridSettings.TabIndex = 0;
             this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
             this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
@@ -208,12 +204,12 @@
             // 
             this.groupResult.Controls.Add(this.gridSamples);
             this.groupResult.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.groupResult.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
-            this.groupResult.Location = new System.Drawing.Point(390, 0);
-            this.groupResult.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.groupResult.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.groupResult.Location = new System.Drawing.Point(469, 0);
+            this.groupResult.Margin = new System.Windows.Forms.Padding(0, 0, 0, 9);
             this.groupResult.Name = "groupResult";
             this.mainLayout.SetRowSpan(this.groupResult, 2);
-            this.groupResult.Size = new System.Drawing.Size(774, 516);
+            this.groupResult.Size = new System.Drawing.Size(529, 550);
             this.groupResult.TabIndex = 1;
             this.groupResult.TabStop = false;
             this.groupResult.Text = "SCAN SAMPLE";
@@ -222,8 +218,6 @@
             // 
             this.gridSamples.AllowUserToAddRows = false;
             this.gridSamples.AllowUserToDeleteRows = false;
-            this.gridSamples.AllowUserToOrderColumns = false;
-            this.gridSamples.AllowUserToResizeColumns = true;
             this.gridSamples.AllowUserToResizeRows = false;
             this.gridSamples.BackgroundColor = System.Drawing.Color.White;
             this.gridSamples.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
@@ -240,13 +234,14 @@
             this.gridSamples.ReadOnly = true;
             this.gridSamples.RowHeadersVisible = false;
             this.gridSamples.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSamples.Size = new System.Drawing.Size(768, 492);
+            this.gridSamples.Size = new System.Drawing.Size(523, 526);
             this.gridSamples.TabIndex = 0;
             // 
             // colNo
             // 
             this.colNo.HeaderText = "NO";
             this.colNo.Name = "colNo";
+            this.colNo.ReadOnly = true;
             this.colNo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colNo.Width = 56;
             // 
@@ -254,6 +249,7 @@
             // 
             this.colPosition.HeaderText = "POSITION";
             this.colPosition.Name = "colPosition";
+            this.colPosition.ReadOnly = true;
             this.colPosition.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colPosition.Width = 120;
             // 
@@ -261,6 +257,7 @@
             // 
             this.colScore.HeaderText = "SCORE";
             this.colScore.Name = "colScore";
+            this.colScore.ReadOnly = true;
             this.colScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colScore.Width = 110;
             // 
@@ -268,6 +265,7 @@
             // 
             this.colResult.HeaderText = "RESULT";
             this.colResult.Name = "colResult";
+            this.colResult.ReadOnly = true;
             this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             this.colResult.Width = 90;
             // 
@@ -276,17 +274,18 @@
             this.colRaw.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
             this.colRaw.HeaderText = "RAW";
             this.colRaw.Name = "colRaw";
+            this.colRaw.ReadOnly = true;
             this.colRaw.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // groupSaved
             // 
             this.groupSaved.Controls.Add(this.gridSaved);
             this.groupSaved.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.groupSaved.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
-            this.groupSaved.Location = new System.Drawing.Point(0, 330);
-            this.groupSaved.Margin = new System.Windows.Forms.Padding(0, 0, 10, 0);
+            this.groupSaved.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.groupSaved.Location = new System.Drawing.Point(0, 357);
+            this.groupSaved.Margin = new System.Windows.Forms.Padding(0, 0, 9, 0);
             this.groupSaved.Name = "groupSaved";
-            this.groupSaved.Size = new System.Drawing.Size(380, 186);
+            this.groupSaved.Size = new System.Drawing.Size(460, 202);
             this.groupSaved.TabIndex = 2;
             this.groupSaved.TabStop = false;
             this.groupSaved.Text = "SAVED RESULT";
@@ -295,8 +294,6 @@
             // 
             this.gridSaved.AllowUserToAddRows = false;
             this.gridSaved.AllowUserToDeleteRows = false;
-            this.gridSaved.AllowUserToOrderColumns = false;
-            this.gridSaved.AllowUserToResizeColumns = true;
             this.gridSaved.AllowUserToResizeRows = false;
             this.gridSaved.BackgroundColor = System.Drawing.Color.White;
             this.gridSaved.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
@@ -314,7 +311,7 @@
             this.gridSaved.RowHeadersVisible = false;
             this.gridSaved.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.gridSaved.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSaved.Size = new System.Drawing.Size(374, 162);
+            this.gridSaved.Size = new System.Drawing.Size(454, 178);
             this.gridSaved.TabIndex = 0;
             // 
             // colItem
@@ -323,6 +320,7 @@
             this.colItem.FillWeight = 36F;
             this.colItem.HeaderText = "ITEM";
             this.colItem.Name = "colItem";
+            this.colItem.ReadOnly = true;
             this.colItem.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colDefaultPos
@@ -331,6 +329,7 @@
             this.colDefaultPos.FillWeight = 22F;
             this.colDefaultPos.HeaderText = "DEFAULT";
             this.colDefaultPos.Name = "colDefaultPos";
+            this.colDefaultPos.ReadOnly = true;
             this.colDefaultPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colBestPos
@@ -339,6 +338,7 @@
             this.colBestPos.FillWeight = 22F;
             this.colBestPos.HeaderText = "BEST";
             this.colBestPos.Name = "colBestPos";
+            this.colBestPos.ReadOnly = true;
             this.colBestPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colBestScore
@@ -347,6 +347,7 @@
             this.colBestScore.FillWeight = 16F;
             this.colBestScore.HeaderText = "SCORE";
             this.colBestScore.Name = "colBestScore";
+            this.colBestScore.ReadOnly = true;
             this.colBestScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // colValid
@@ -355,18 +356,19 @@
             this.colValid.FillWeight = 10F;
             this.colValid.HeaderText = "OK";
             this.colValid.Name = "colValid";
+            this.colValid.ReadOnly = true;
             this.colValid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // lblStatus
             // 
             this.lblStatus.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStatus.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
-            this.lblStatus.Location = new System.Drawing.Point(12, 580);
-            this.lblStatus.Margin = new System.Windows.Forms.Padding(12, 0, 12, 8);
+            this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStatus.Location = new System.Drawing.Point(10, 641);
+            this.lblStatus.Margin = new System.Windows.Forms.Padding(10, 0, 10, 9);
             this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
-            this.lblStatus.Size = new System.Drawing.Size(1164, 38);
+            this.lblStatus.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblStatus.Size = new System.Drawing.Size(998, 41);
             this.lblStatus.TabIndex = 2;
             this.lblStatus.Text = "대기 중입니다.";
             // 
@@ -388,12 +390,12 @@
             this.buttonPanel.Controls.Add(this.btnSave, 5, 0);
             this.buttonPanel.Controls.Add(this.btnClose, 6, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonPanel.Location = new System.Drawing.Point(12, 630);
-            this.buttonPanel.Margin = new System.Windows.Forms.Padding(12);
+            this.buttonPanel.Location = new System.Drawing.Point(10, 704);
+            this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
             this.buttonPanel.Name = "buttonPanel";
             this.buttonPanel.RowCount = 1;
             this.buttonPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.buttonPanel.Size = new System.Drawing.Size(1164, 58);
+            this.buttonPanel.Size = new System.Drawing.Size(998, 41);
             this.buttonPanel.TabIndex = 3;
             // 
             // btnCheck
@@ -403,9 +405,13 @@
             this.btnCheck.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCheck.FlatAppearance.BorderSize = 0;
             this.btnCheck.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCheck.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCheck.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnCheck.ForeColor = System.Drawing.Color.Black;
-            this.btnCheck.Margin = new System.Windows.Forms.Padding(6);
+            this.btnCheck.Location = new System.Drawing.Point(5, 6);
+            this.btnCheck.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnCheck.Name = "btnCheck";
+            this.btnCheck.Size = new System.Drawing.Size(132, 29);
+            this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK READY";
             this.btnCheck.UseVisualStyleBackColor = false;
             this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
@@ -417,9 +423,13 @@
             this.btnUseCurrent.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnUseCurrent.FlatAppearance.BorderSize = 0;
             this.btnUseCurrent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnUseCurrent.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnUseCurrent.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnUseCurrent.ForeColor = System.Drawing.Color.Black;
-            this.btnUseCurrent.Margin = new System.Windows.Forms.Padding(6);
+            this.btnUseCurrent.Location = new System.Drawing.Point(147, 6);
+            this.btnUseCurrent.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnUseCurrent.Name = "btnUseCurrent";
+            this.btnUseCurrent.Size = new System.Drawing.Size(132, 29);
+            this.btnUseCurrent.TabIndex = 1;
             this.btnUseCurrent.Text = "USE CURRENT";
             this.btnUseCurrent.UseVisualStyleBackColor = false;
             this.btnUseCurrent.Click += new System.EventHandler(this.btnUseCurrent_Click);
@@ -431,23 +441,31 @@
             this.btnMoveDefault.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMoveDefault.FlatAppearance.BorderSize = 0;
             this.btnMoveDefault.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnMoveDefault.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnMoveDefault.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnMoveDefault.ForeColor = System.Drawing.Color.Black;
-            this.btnMoveDefault.Margin = new System.Windows.Forms.Padding(6);
+            this.btnMoveDefault.Location = new System.Drawing.Point(289, 6);
+            this.btnMoveDefault.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnMoveDefault.Name = "btnMoveDefault";
+            this.btnMoveDefault.Size = new System.Drawing.Size(132, 29);
+            this.btnMoveDefault.TabIndex = 2;
             this.btnMoveDefault.Text = "MOVE DEFAULT";
             this.btnMoveDefault.UseVisualStyleBackColor = false;
             this.btnMoveDefault.Click += new System.EventHandler(this.btnMoveDefault_Click);
             // 
             // btnStartScan
             // 
-            this.btnStartScan.BackColor = System.Drawing.Color.FromArgb(225, 120, 0);
+            this.btnStartScan.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(120)))), ((int)(((byte)(0)))));
             this.btnStartScan.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStartScan.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStartScan.FlatAppearance.BorderSize = 0;
             this.btnStartScan.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStartScan.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnStartScan.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnStartScan.ForeColor = System.Drawing.Color.White;
-            this.btnStartScan.Margin = new System.Windows.Forms.Padding(6);
+            this.btnStartScan.Location = new System.Drawing.Point(431, 6);
+            this.btnStartScan.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnStartScan.Name = "btnStartScan";
+            this.btnStartScan.Size = new System.Drawing.Size(132, 29);
+            this.btnStartScan.TabIndex = 3;
             this.btnStartScan.Text = "START SCAN";
             this.btnStartScan.UseVisualStyleBackColor = false;
             this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
@@ -459,23 +477,31 @@
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReload.FlatAppearance.BorderSize = 0;
             this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnReload.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.Black;
-            this.btnReload.Margin = new System.Windows.Forms.Padding(6);
+            this.btnReload.Location = new System.Drawing.Point(573, 6);
+            this.btnReload.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnReload.Name = "btnReload";
+            this.btnReload.Size = new System.Drawing.Size(132, 29);
+            this.btnReload.TabIndex = 4;
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
             // 
             // btnSave
             // 
-            this.btnSave.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSave.FlatAppearance.BorderSize = 0;
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSave.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Margin = new System.Windows.Forms.Padding(6);
+            this.btnSave.Location = new System.Drawing.Point(715, 6);
+            this.btnSave.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.Size = new System.Drawing.Size(132, 29);
+            this.btnSave.TabIndex = 5;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
@@ -487,18 +513,22 @@
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnClose.FlatAppearance.BorderSize = 0;
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClose.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnClose.ForeColor = System.Drawing.Color.Black;
-            this.btnClose.Margin = new System.Windows.Forms.Padding(6);
+            this.btnClose.Location = new System.Drawing.Point(857, 6);
+            this.btnClose.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnClose.Name = "btnClose";
+            this.btnClose.Size = new System.Drawing.Size(136, 29);
+            this.btnClose.TabIndex = 6;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
             // VisionFocusCalibrationDialog
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1188, 700);
+            this.ClientSize = new System.Drawing.Size(1018, 758);
             this.Controls.Add(this.rootLayout);
             this.Name = "VisionFocusCalibrationDialog";
             this.Text = "Vision Focus Calibration";
@@ -512,6 +542,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.gridSaved)).EndInit();
             this.buttonPanel.ResumeLayout(false);
             this.ResumeLayout(false);
+
         }
     }
 }
