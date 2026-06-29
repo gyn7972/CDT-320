@@ -162,13 +162,13 @@ namespace QMC.Common.Recipes
             { "BottomInspection|DistortionCompensation","왜곡 보정" },
             // FrontSide (4) — 앞쪽 측면
             { "FrontSide|DieEdgeFinder",         "다이 에지" },
-            { "FrontSide|TopSurfaceInspector",   "앞쪽 면" },
-            { "FrontSide|TopChippingInspector",  "앞쪽 칩핑" },
+            { "FrontSide|FrontSurfaceInspector",   "앞쪽 면" },
+            { "FrontSide|FrontChippingInspector",  "앞쪽 칩핑" },
             { "FrontSide|FocusFinder",           "포커스" },
             // RearSide (4) — 뒤쪽 측면
             { "RearSide|DieEdgeFinder",          "다이 에지" },
-            { "RearSide|BottomSurfaceInspector", "뒤쪽 면" },
-            { "RearSide|BottomChippingInspector","뒤쪽 칩핑" },
+            { "RearSide|RearSurfaceInspector", "뒤쪽 면" },
+            { "RearSide|RearChippingInspector","뒤쪽 칩핑" },
             { "RearSide|FocusFinder",            "포커스" },
         };
 
@@ -192,9 +192,9 @@ namespace QMC.Common.Recipes
                     return new[] { "ReticleFinder", "ColletFinder", "DieFinder", "SurfaceInspector",
                                    "FocusFinder", "ScaleFinder", "DistortionCompensation" };
                 case VisionAlgorithm.FrontSide:
-                    return new[] { "DieEdgeFinder", "TopSurfaceInspector", "TopChippingInspector", "FocusFinder" };
+                    return new[] { "DieEdgeFinder", "FrontSurfaceInspector", "FrontChippingInspector", "FocusFinder" };
                 case VisionAlgorithm.RearSide:
-                    return new[] { "DieEdgeFinder", "BottomSurfaceInspector", "BottomChippingInspector", "FocusFinder" };
+                    return new[] { "DieEdgeFinder", "RearSurfaceInspector", "RearChippingInspector", "FocusFinder" };
                 default:
                     return new string[0];
             }
