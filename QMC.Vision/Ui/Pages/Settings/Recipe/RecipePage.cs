@@ -151,8 +151,8 @@ namespace QMC.Vision.Ui.Pages
             AddAlgoButton(host.WaferMod);
             AddAlgoButton(host.BinMod);
             AddAlgoButton(host.BottomMod);
-            AddAlgoButton(host.TopSideVisionMod);
-            AddAlgoButton(host.BottomSideVisionMod);
+            AddAlgoButton(host.FrontSideVisionMod);
+            AddAlgoButton(host.RearSideVisionMod);
 
             AddRecipeItemButtons();
 

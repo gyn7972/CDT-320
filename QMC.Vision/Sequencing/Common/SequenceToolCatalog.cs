@@ -48,14 +48,14 @@ namespace QMC.Vision.Sequencing
                 T("MATCH",   "ScaleFinder"),
                 T("MATCH",   "DistortionCompensation"),
             },
-            [SequenceModuleKind.TopSideVision] = new[]
+            [SequenceModuleKind.FrontSideVision] = new[]
             {
                 T("MATCH",   "DieEdgeFinder"),
                 T("INSPECT", "TopSurfaceInspector"),
                 T("INSPECT", "TopChippingInspector"),
                 T("MATCH",   "FocusFinder"),
             },
-            [SequenceModuleKind.BottomSideVision] = new[]
+            [SequenceModuleKind.RearSideVision] = new[]
             {
                 T("MATCH",   "DieEdgeFinder"),
                 T("INSPECT", "BottomSurfaceInspector"),

@@ -17,7 +17,6 @@ namespace QMC.Vision.Ui.Controls
         private Panel _header;
         private Label _lblToggle;
         private CheckBox _chkCross;
-        private Button _btnTest;
         private Button _btnExportCsv;
 
         // ── 본문 ──
@@ -46,7 +45,6 @@ namespace QMC.Vision.Ui.Controls
             _header     = new Panel();
             _lblToggle  = new Label();
             _chkCross   = new CheckBox();
-            _btnTest    = new Button();
             _btnExportCsv = new Button();
             _body       = new TableLayoutPanel();
             _pickerHost = new TableLayoutPanel();
@@ -73,20 +71,10 @@ namespace QMC.Vision.Ui.Controls
             _header.Margin = new Padding(0);
             _header.BackColor = HeaderBg;
             _header.Controls.Add(_lblToggle);
-            _header.Controls.Add(_chkCross);
             _header.Controls.Add(_btnExportCsv);
-            _header.Controls.Add(_btnTest);
+            _header.Controls.Add(_chkCross);
 
-            _btnTest.Dock = DockStyle.Right;
-            _btnTest.Width = 110;
-            _btnTest.FlatStyle = FlatStyle.Flat;
-            _btnTest.ForeColor = Color.White;
-            _btnTest.BackColor = Color.FromArgb(0x1F, 0x6F, 0xA5);
-            _btnTest.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
-            _btnTest.Text = "픽커 테스트";
-            _btnTest.Click += OnTestClick;
-
-            _btnExportCsv.Dock = DockStyle.Right;
+            _btnExportCsv.Dock = DockStyle.Left;
             _btnExportCsv.Width = 110;
             _btnExportCsv.FlatStyle = FlatStyle.Flat;
             _btnExportCsv.ForeColor = Color.White;
@@ -100,14 +88,14 @@ namespace QMC.Vision.Ui.Controls
             _lblToggle.TextAlign = ContentAlignment.MiddleCenter;
             _lblToggle.Text = "(toggle)";
 
-            _chkCross.Dock = DockStyle.Right;
+            _chkCross.Dock = DockStyle.Left;
             _chkCross.Width = 120;
             _chkCross.ForeColor = Color.White;
             _chkCross.Font = new Font("맑은 고딕", 8.5F);
             _chkCross.Text = "크로스라인";
-            _chkCross.TextAlign = ContentAlignment.MiddleRight;
-            _chkCross.CheckAlign = ContentAlignment.MiddleRight;
-            _chkCross.Padding = new Padding(0, 0, 8, 0);
+            _chkCross.TextAlign = ContentAlignment.MiddleLeft;
+            _chkCross.CheckAlign = ContentAlignment.MiddleLeft;
+            _chkCross.Padding = new Padding(8, 0, 0, 0);
             _chkCross.CheckedChanged += OnCrossChanged;
 
             // _body : 좌 Picker(60%) / 우(40%)

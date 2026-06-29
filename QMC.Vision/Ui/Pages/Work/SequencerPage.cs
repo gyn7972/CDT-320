@@ -22,8 +22,8 @@ namespace QMC.Vision.Ui.Pages
             SequenceModuleKind.WaferVision,
             SequenceModuleKind.BinVision,
             SequenceModuleKind.BottomInspection,
-            SequenceModuleKind.TopSideVision,    // 앞쪽 측면 (각각)
-            SequenceModuleKind.BottomSideVision, // 뒤쪽 측면 (각각)
+            SequenceModuleKind.FrontSideVision,    // 앞쪽 측면 (각각)
+            SequenceModuleKind.RearSideVision, // 뒤쪽 측면 (각각)
             SequenceModuleKind.SideVision        // 측면 앞+뒤 동시(병렬) — 합성 비트마스크
         };
 
@@ -44,7 +44,7 @@ namespace QMC.Vision.Ui.Pages
         private static readonly SequenceModuleKind[] _metricKinds =
         {
             SequenceModuleKind.WaferVision, SequenceModuleKind.BinVision,
-            SequenceModuleKind.BottomInspection, SequenceModuleKind.TopSideVision, SequenceModuleKind.BottomSideVision
+            SequenceModuleKind.BottomInspection, SequenceModuleKind.FrontSideVision, SequenceModuleKind.RearSideVision
         };
         private static readonly string[] _metricNames =
         { "웨이퍼", "빈", "바텀", "앞측면", "뒤측면" };
@@ -193,8 +193,8 @@ namespace QMC.Vision.Ui.Pages
                 case SequenceModuleKind.WaferVision:      return h.WaferMod;
                 case SequenceModuleKind.BinVision:        return h.BinMod;
                 case SequenceModuleKind.BottomInspection: return h.BottomMod;
-                case SequenceModuleKind.TopSideVision:    return h.TopSideVisionMod;
-                case SequenceModuleKind.BottomSideVision: return h.BottomSideVisionMod;
+                case SequenceModuleKind.FrontSideVision:    return h.FrontSideVisionMod;
+                case SequenceModuleKind.RearSideVision: return h.RearSideVisionMod;
                 default: return null;
             }
         }

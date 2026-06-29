@@ -11,7 +11,7 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// 설정 - 통신(TCP) 페이지. 핸들러 SettingsTab 의 VisionLinkPage 와 대칭.
     /// <para>토폴로지: Vision = TCP 서버(listen), 핸들러 = TCP 클라이언트(접속).</para>
-    /// 6 채널(Wafer/Inspection/Bin/Main/TopSide/BottomSide) 서버 포트 편집·저장 +
+    /// 6 채널(Wafer/Inspection/Bin/Main/FrontSide/RearSide) 서버 포트 편집·저장 +
     /// 1초 주기 상태 램프(접속) + 최근 수신 경과(워치독) + 통신 로그(TX/RX/EPD/ARM) 표시.
     /// TCP 포트/상태는 DataGridView 로 표시(포트=편집 셀, 상태/RX=색상 셀).
     /// </summary>
@@ -25,7 +25,7 @@ namespace QMC.Vision.Ui.Pages
 
         // 그리드 행 순서(상태 st 인덱스와 동일).
         private static readonly string[] ChannelNames =
-            { "Wafer Vision", "Bottom Inspection", "Bin Vision", "Main Comm", "Top Side Vision", "Bottom Side Vision" };
+            { "Wafer Vision", "Bottom Inspection", "Bin Vision", "Main Comm", "Front Side Vision", "Rear Side Vision" };
 
         // 뷰어 상태(vt) 인덱스 → 그리드 행 매핑(Wafer/Insp/Bin/Top/Bot — Main 없음).
         private static readonly int[] ViewerRowMap = { 0, 1, 2, 4, 5 };

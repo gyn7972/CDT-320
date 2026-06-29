@@ -12,7 +12,7 @@ namespace QMC.Vision.Ui.Pages
     ///
     /// • 상단 카드: 비클릭 상태표시. 해당 모듈에 최근 Grab 활동이 있으면 LIVE, 없으면 READY.
     ///   (시퀀서 상태 API 연동 전 임시 — 프레임 시퀀스 활동으로 LIVE 판정. 추후 알고리즘/시퀀서 연동 시 교체)
-    /// • 하단: 메인(Bottom Inspection)을 크게, 나머지 4개(Wafer/Bin/TopSide/BottomSide)를 2×2.
+    /// • 하단: 메인(Bottom Inspection)을 크게, 나머지 4개(Wafer/Bin/FrontSide/RearSide)를 2×2.
     ///   각 패널은 그 모듈의 "마지막 Grab 정지영상"을 보여준다(연속 라이브 캡처 아님).
     /// • 프레임 갱신: 능동 Grab() 안 함. 기존 원격뷰어(Form1.MakeViewer/GrabStreamServer)와 동일하게
     ///   ViewerFrameSeq 변화(=테스트 그랩/시퀀서 그랩 시점)를 감지해 AcquireViewerFrame 으로만 가져옴.
@@ -26,15 +26,15 @@ namespace QMC.Vision.Ui.Pages
         private const string TitleBig    = "BOTTOM INSPECTION (MAIN)";
         private const string TitleWafer  = "WAFER VISION";
         private const string TitleBin    = "BIN VISION";
-        private const string TitleTop    = "TOP SIDE";
-        private const string TitleBottom = "BOTTOM SIDE";
+        private const string TitleTop    = "FRONT SIDE";
+        private const string TitleBottom = "REAR SIDE";
 
         private static readonly Color CardBg   = Color.FromArgb(0x10, 0x14, 0x18);
         private static readonly Color CardName = Color.FromArgb(0x7d, 0xa0, 0xc4);
         private static readonly Color LiveOn   = Color.FromArgb(0x7e, 0xe0, 0xb8);
         private static readonly Color LiveOff  = Color.FromArgb(0x6b, 0x77, 0x86);
 
-        // 핸들러 정렬 순서(Wafer·Bin·Bottom·TopSide·BottomSide)로 고정.
+        // 핸들러 정렬 순서(Wafer·Bin·Bottom·FrontSide·RearSide)로 고정.
         private IVisionModule[] _mods;
         private CameraView[]    _viewByMod;   // _mods[i] ↔ 표시 패널
         private Label[]         _cardStats;
@@ -90,7 +90,7 @@ namespace QMC.Vision.Ui.Pages
             _mods = new IVisionModule[]
             {
                 host.WaferMod, host.BinMod, host.BottomMod,
-                host.TopSideVisionMod, host.BottomSideVisionMod
+                host.FrontSideVisionMod, host.RearSideVisionMod
             };
 
             // 모듈 ↔ 표시 패널 매핑(중요도: Bottom=메인 크게, 나머지 2×2)
@@ -99,8 +99,8 @@ namespace QMC.Vision.Ui.Pages
                 _camS1,   // Wafer
                 _camS2,   // Bin
                 _camBig,  // Bottom (MAIN)
-                _camS3,   // TopSide
-                _camS4    // BottomSide
+                _camS3,   // FrontSide
+                _camS4    // RearSide
             };
 
             _lastSeq        = new long[_mods.Length];

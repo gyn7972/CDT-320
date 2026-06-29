@@ -27,11 +27,11 @@ namespace QMC.Vision
         internal WaferVisionModule        WaferMod      { get; private set; }
         internal BinVisionModule          BinMod        { get; private set; }
         internal BottomInspectionModule   BottomMod     { get; private set; }
-        internal TopSideVisionModule    TopSideVisionMod    { get; private set; }
-        internal BottomSideVisionModule BottomSideVisionMod { get; private set; }
+        internal FrontSideVisionModule    FrontSideVisionMod    { get; private set; }
+        internal RearSideVisionModule RearSideVisionMod { get; private set; }
 
         private VisionTcpServer _svrWafer, _svrBin, _svrBottom;
-        private VisionTcpServer _svrTopSideVision, _svrBottomSideVision;
+        private VisionTcpServer _svrFrontSideVision, _svrRearSideVision;
         private MainCommServer  _svrMain;   // 전역 통신(5104) — 레시피/전역 명령 수신
 
         // 원격 뷰어 (그랩 영상 송출) — 모듈별 5채널
@@ -232,17 +232,17 @@ namespace QMC.Vision
             WaferMod            = new WaferVisionModule      (null, Backend);
             BinMod              = new BinVisionModule        (null, Backend);
             BottomMod           = new BottomInspectionModule (null, Backend);
-            TopSideVisionMod    = new TopSideVisionModule    (null, Backend);
-            BottomSideVisionMod = new BottomSideVisionModule (null, Backend);
+            FrontSideVisionMod    = new FrontSideVisionModule    (null, Backend);
+            RearSideVisionMod = new RearSideVisionModule (null, Backend);
 
             InitModuleCamera(WaferMod,            VisionAlgorithm.Wafer,            "Sim/Wafer");
             InitModuleCamera(BinMod,              VisionAlgorithm.Bin,              "Sim/Bin");
             InitModuleCamera(BottomMod,           VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-            InitModuleCamera(TopSideVisionMod,    VisionAlgorithm.FrontSide,        "Sim/FrontSide");
-            InitModuleCamera(BottomSideVisionMod, VisionAlgorithm.RearSide,         "Sim/RearSide");
+            InitModuleCamera(FrontSideVisionMod,    VisionAlgorithm.FrontSide,        "Sim/FrontSide");
+            InitModuleCamera(RearSideVisionMod, VisionAlgorithm.RearSide,         "Sim/RearSide");
 
             // 머신 루트 — 5개 모듈을 Units 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
-            Machine = new VisionMachine(WaferMod, BinMod, BottomMod, TopSideVisionMod, BottomSideVisionMod);
+            Machine = new VisionMachine(WaferMod, BinMod, BottomMod, FrontSideVisionMod, RearSideVisionMod);
 
             // 정적 로그 저장부가 레시피별 토글(LogEnable)/이미지 저장 모드(ImageSaveMode)를 읽도록 활성 레시피 provider 등록.
             QMC.Vision.Core.ActiveRecipeContext.SetProvider(() => Machine?.Recipe);
@@ -322,7 +322,7 @@ namespace QMC.Vision
             public DateTime LastRxUtc;   // default = 미수신
         }
 
-        /// <summary>6 채널(Wafer/Inspection/Bin/Main/TopSide/BottomSide) 의 현재 listen·접속 상태를 반환한다.</summary>
+        /// <summary>6 채널(Wafer/Inspection/Bin/Main/FrontSide/RearSide) 의 현재 listen·접속 상태를 반환한다.</summary>
         internal System.Collections.Generic.List<CommChannelStatus> GetVisionCommStatus()
         {
             var list = new System.Collections.Generic.List<CommChannelStatus>();
@@ -338,8 +338,8 @@ namespace QMC.Vision
             list.Add(_svrMain == null
                 ? new CommChannelStatus { Name = "MainComm", Port = 0, Listening = false, Connected = false, LastRxUtc = default(DateTime) }
                 : new CommChannelStatus { Name = "MainComm", Port = _svrMain.Port, Listening = _svrMain.IsRunning, Connected = _svrMain.HasClient, LastRxUtc = _svrMain.LastRxUtc });
-            AddSvr("TopSideVision",    _svrTopSideVision);
-            AddSvr("BottomSideVision", _svrBottomSideVision);
+            AddSvr("FrontSideVision",    _svrFrontSideVision);
+            AddSvr("RearSideVision", _svrRearSideVision);
             return list;
         }
 
@@ -352,7 +352,7 @@ namespace QMC.Vision
             public int    Clients;     // 접속 클라이언트(핸들러 뷰어) 수
         }
 
-        /// <summary>뷰어 서버 상태 — 명령 채널 행 순서와 정렬(Wafer/BottomInsp/Bin/[Main 없음]/TopSide/BottomSide).
+        /// <summary>뷰어 서버 상태 — 명령 채널 행 순서와 정렬(Wafer/BottomInsp/Bin/[Main 없음]/FrontSide/RearSide).
         /// Main 은 영상 없음이라 목록에서 제외(5개). RemoteViewer 비활성 시 서버 null → 중지로 표시.</summary>
         internal System.Collections.Generic.List<ViewerChannelStatus> GetVisionViewerStatus()
         {
@@ -486,10 +486,10 @@ namespace QMC.Vision
             _svrWafer            = new VisionTcpServer(WaferMod,            cfg.WaferVisionPort);
             _svrBin              = new VisionTcpServer(BinMod,              cfg.BinVisionPort);
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
-            _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.FrontSidePort);
-            _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.RearSidePort);
+            _svrFrontSideVision    = new VisionTcpServer(FrontSideVisionMod,    cfg.FrontSidePort);
+            _svrRearSideVision = new VisionTcpServer(RearSideVisionMod, cfg.RearSidePort);
             // READY 게이트 — READY(작업자 승인 + RUN 활성) 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
-            foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrTopSideVision, _svrBottomSideVision })
+            foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrFrontSideVision, _svrRearSideVision })
             {
                 s.IsCommandAllowed = () => IsReady;
                 s.Log += QMC.Vision.Comm.VisionCommLog.Add;
@@ -497,8 +497,8 @@ namespace QMC.Vision
             try { _svrWafer            .Start(); } catch { }
             try { _svrBin              .Start(); } catch { }
             try { _svrBottom           .Start(); } catch { }
-            try { _svrTopSideVision    .Start(); } catch { }
-            try { _svrBottomSideVision .Start(); } catch { }
+            try { _svrFrontSideVision    .Start(); } catch { }
+            try { _svrRearSideVision .Start(); } catch { }
 
             // 전역 통신(MainComm 5104) — 핸들러 레시피 변경 수신 → 전 모듈 LoadRecipe cascade.
             try
@@ -517,8 +517,8 @@ namespace QMC.Vision
                 _viewWafer     = MakeViewer("Wafer",     cfg.WaferViewerPort,      WaferMod,            cfg);
                 _viewBottom    = MakeViewer("Bottom",    cfg.InspectionViewerPort, BottomMod,           cfg);
                 _viewBin       = MakeViewer("Bin",       cfg.BinViewerPort,        BinMod,              cfg);
-                _viewFrontSide = MakeViewer("FrontSide", cfg.FrontSideViewerPort,  TopSideVisionMod,    cfg);
-                _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   BottomSideVisionMod, cfg);
+                _viewFrontSide = MakeViewer("FrontSide", cfg.FrontSideViewerPort,  FrontSideVisionMod,    cfg);
+                _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   RearSideVisionMod, cfg);
             }
         }
 
@@ -550,7 +550,7 @@ namespace QMC.Vision
         {
             int camOk = 0, camTotal = 5;
             void Tally(IVisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
-            Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(TopSideVisionMod); Tally(BottomSideVisionMod);
+            Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(FrontSideVisionMod); Tally(RearSideVisionMod);
             dotCamera.IsOn = (camTotal > 0 && camOk == camTotal);
         }
 
@@ -746,8 +746,8 @@ namespace QMC.Vision
                 case VisionAlgorithm.Wafer:            return WaferMod;
                 case VisionAlgorithm.Bin:              return BinMod;
                 case VisionAlgorithm.BottomInspection: return BottomMod;
-                case VisionAlgorithm.FrontSide:          return TopSideVisionMod;
-                case VisionAlgorithm.RearSide:       return BottomSideVisionMod;
+                case VisionAlgorithm.FrontSide:          return FrontSideVisionMod;
+                case VisionAlgorithm.RearSide:       return RearSideVisionMod;
                 default:                               return null;
             }
         }
@@ -878,21 +878,21 @@ namespace QMC.Vision
             try { _svrWafer?.Dispose(); }      catch { }
             try { _svrBin?.Dispose(); }        catch { }
             try { _svrBottom?.Dispose(); }     catch { }
-            try { _svrTopSideVision?.Dispose(); }    catch { }
-            try { _svrBottomSideVision?.Dispose(); } catch { }
+            try { _svrFrontSideVision?.Dispose(); }    catch { }
+            try { _svrRearSideVision?.Dispose(); } catch { }
 
             // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
             //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
             try { WaferMod    ?.Camera?.StopLive(); } catch { }
             try { BinMod      ?.Camera?.StopLive(); } catch { }
             try { BottomMod   ?.Camera?.StopLive(); } catch { }
-            try { TopSideVisionMod?.Camera?.StopLive(); } catch { }
-            try { BottomSideVisionMod ?.Camera?.StopLive(); } catch { }
+            try { FrontSideVisionMod?.Camera?.StopLive(); } catch { }
+            try { RearSideVisionMod ?.Camera?.StopLive(); } catch { }
             try { WaferMod    ?.Dispose(); } catch { }
             try { BinMod      ?.Dispose(); } catch { }
             try { BottomMod   ?.Dispose(); } catch { }
-            try { TopSideVisionMod?.Dispose(); } catch { }
-            try { BottomSideVisionMod ?.Dispose(); } catch { }
+            try { FrontSideVisionMod?.Dispose(); } catch { }
+            try { RearSideVisionMod ?.Dispose(); } catch { }
 
             try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
             try { Backend?.Dispose(); }        catch { }

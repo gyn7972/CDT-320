@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using VI = global::QMC.Vision.Inspector;   // 원본 검사 라이브러리(QMc.Vision.Inspector) 별칭. global:: 로 QMC.Vision.Core 안에서의 네임스페이스 중첩 해석 방지
 
 namespace QMC.Vision.Core
 {
@@ -63,13 +64,203 @@ namespace QMC.Vision.Core
         public PointF[] LastCorners { get; private set; }
         public string   LastText    { get; private set; }
 
+        /// <summary>true(기본)=원본 QMc.Vision.Inspector(CDTInspector.BottomInspect) 사용, false=기존 C# 구현(InspectLegacy).</summary>
+        public bool UseInspectorLib { get; set; } = true;
+
+        // 원본 라이브러리 검사기(생성자에서 12000² 버퍼 초기화 → 1회만 생성/재사용).
+        private VI.CDTInspector _libInspector;
+
         public BottomInspector(string id)
         {
             Id = id;
             InspectionRoi = new Roi { Name = id + ".Roi", CenterX = 320, CenterY = 240, Width = 400, Height = 300 };
         }
 
+        /// <summary>
+        /// Bottom 검사 — 원본 <c>QMc.Vision.Inspector.CDTInspector.BottomInspect</c> 알고리즘 사용.
+        /// 단일 Bitmap → ROI 그레이(byte[]) 1장으로 <c>BottomInspectionParameter</c> 구성 → 호출 → <c>InspectionResult</c> 매핑.
+        /// <c>UseInspectorLib=false</c> 거나 라이브러리에서 예외 발생 시 기존 C# 구현(<see cref="InspectLegacy"/>)으로 폴백.
+        /// </summary>
         public InspectionResult Inspect(Bitmap image)
+        {
+            if (!UseInspectorLib)
+                return InspectLegacy(image);
+
+            var r = new InspectionResult { RoiName = Id, IsPass = true };
+            LastValid = false;
+            try
+            {
+                if (image == null) { r.ErrorMessage = "no image"; r.IsPass = false; return r; }
+
+                Rectangle libRoi = InspectionRoi != null ? InspectionRoi.BoundingBox : new Rectangle(0, 0, image.Width, image.Height);
+                libRoi.Intersect(new Rectangle(0, 0, image.Width, image.Height));
+                if (libRoi.Width <= 4 || libRoi.Height <= 4) { r.ErrorMessage = "roi empty"; r.IsPass = false; return r; }
+
+                int gw, gh;
+                byte[] gray = ToGray(image, libRoi, out gw, out gh);
+
+                // 이미지 저장 경로: 설정→일반(VisionSettings.ImageLogPath) 우선, 비어있으면 FileSavePath 폴백.
+                string saveRoot = QMC.Vision.Config.VisionConfigStore.Current?.ImageLogPath;
+                if (string.IsNullOrWhiteSpace(saveRoot)) saveRoot = FileSavePath;
+
+                var bip = new VI.BottomInspectionParameter
+                {
+                    Images = new List<byte[]> { gray },
+                    ImageWidth = gw,
+                    ImageHeight = gh,
+                    ChipRoi = new Rectangle(0, 0, gw, gh),
+                    Threshold = ChipThreshold,
+                    SelectedChipType = DarkChip ? VI.InspectionParameterBase.ChipType.Black : VI.InspectionParameterBase.ChipType.White,
+                    ChippingDepth = ChippingDepth,
+                    ChippingLength = ChippingLength,
+                    ChipLowerSpecLimit = ChipLowerSpecLimit,
+                    ChipUpperSpecLimit = ChipUpperSpecLimit,
+                    ForeignObjectSize = ForeignObjectSize,
+                    FirstPeekValueThreshold = FirstPeekValueThreshold,
+                    PeekValueThreshold = PeekValueThreshold,
+                    Stdev = Stdev,
+                    TopHatRadius = TopHatRadius,
+                    TopHatThreshold = TopHatThreshold,
+                    MinForeignAreaFilterSize = MinForeignAreaFilterSize,
+                    LinkDistance = LinkDistance,
+                    PortentiolDefactMinSize = PortentiolDefactMinSize,
+                    UseContaminationInspection = UseContaminationInspection,
+                    IsSaveGoodImage = false,
+                    FileSavePath = saveRoot,
+                };
+
+                // 저장 경로 폴더 보장(없으면 생성) — BottomInspect 내부 finally 의 이미지 저장이 경로 없음으로 실패하지 않도록.
+                try
+                {
+                    if (!string.IsNullOrEmpty(saveRoot))
+                        System.IO.Directory.CreateDirectory(saveRoot);
+                }
+                catch (Exception exDir)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " 이미지 저장 경로 생성 실패(" + saveRoot + "): " + exDir.Message);
+                }
+
+                VI.CDTInspector inspector = GetLibInspector();
+                VI.BottomResult br = inspector.BottomInspect(bip);
+
+                if (br == null)
+                {
+                    // BottomInspect 가 null(칩 미검출/스펙 미설정 등) → 레거시로 폴백해 결과+오버레이(다이박스/이물·칩핑 마커/라벨)를 그대로 표시(원래 동작 유지).
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " BottomInspect null → 레거시 폴백(오버레이/결과 유지)");
+                    return InspectLegacy(image);
+                }
+
+                MapLibResult(br, r, libRoi);
+                LastValid = true;
+                return r;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " BottomInspect 실패 → 레거시 폴백: " + ex.Message);
+                try
+                {
+                    return InspectLegacy(image);
+                }
+                catch (Exception ex2)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " 레거시 폴백도 실패: " + ex2.Message);
+                    return new InspectionResult { RoiName = Id, IsPass = false, ErrorMessage = "Bottom 검사 실패: " + ex2.Message };
+                }
+            }
+        }
+
+        /// <summary>원본 라이브러리 검사기 1회 생성 + VisionConfig(픽셀 사이즈) 주입. 단일 Bitmap 입력이므로 bSimulate=true(단일이미지 CPU 경로).</summary>
+        private VI.CDTInspector GetLibInspector()
+        {
+            if (_libInspector == null)
+            {
+                _libInspector = new VI.CDTInspector { bSimulate = true };
+                var cfg = new VI.VisionConfig();
+                cfg.BottomVision.PixelSizeWidthMm = PixelSizeWidthMm;
+                cfg.BottomVision.PixelSizeHeightMm = PixelSizeHeightMm;
+                _libInspector.SetVisionConfig(cfg);
+            }
+            return _libInspector;
+        }
+
+        /// <summary>BottomResult → InspectionResult(Items/Defects/IsPass) 매핑. 합/불은 원본 DefectCode(0=양품) 기준.</summary>
+        private void MapLibResult(VI.BottomResult br, InspectionResult r, Rectangle roi)
+        {
+            bool sizePass = SpecOk(br.Width, ChipLowerSpecLimit.Width, ChipUpperSpecLimit.Width)
+                         && SpecOk(br.Height, ChipLowerSpecLimit.Height, ChipUpperSpecLimit.Height);
+            AddItem(r, "Width", br.Width.ToString("F4"), sizePass);
+            AddItem(r, "Height", br.Height.ToString("F4"), sizePass);
+            AddItem(r, "Angle", br.Angle.ToString("F3"), true);
+            AddItem(r, "Offset X", br.Offset.X.ToString("F4"), true);
+            AddItem(r, "Offset Y", br.Offset.Y.ToString("F4"), true);
+
+            AddItem(r, "Chipping Top", br.ChppingTopSize.ToString("F4"), br.ChppingTopSize <= ChippingDepth);
+            AddItem(r, "Chipping Right", br.ChppingRightSize.ToString("F4"), br.ChppingRightSize <= ChippingDepth);
+            AddItem(r, "Chipping Bottom", br.ChppingBottomSize.ToString("F4"), br.ChppingBottomSize <= ChippingDepth);
+            AddItem(r, "Chipping Left", br.ChppingLeftSize.ToString("F4"), br.ChppingLeftSize <= ChippingDepth);
+            if (br.Channel1ChippingSize > 0 || br.Channel2ChippingSize > 0)
+            {
+                AddItem(r, "Chipping ch1", br.Channel1ChippingSize.ToString("F4"), br.Channel1ChippingSize <= ChippingDepth);
+                AddItem(r, "Chipping ch2", br.Channel2ChippingSize.ToString("F4"), br.Channel2ChippingSize <= ChippingDepth);
+            }
+
+            double foreignMm = Math.Max(br.ForeingSize, br.MaxDefactSize);
+            AddItem(r, "Foreign Max", foreignMm.ToString("F4"), foreignMm <= ForeignObjectSize);
+
+            if (br.ChippingInfos != null)
+            {
+                foreach (var ci in br.ChippingInfos)
+                {
+                    if (ci.Contour == null || ci.Contour.Count == 0) continue;
+                    float minx = float.MaxValue, miny = float.MaxValue, maxx = float.MinValue, maxy = float.MinValue;
+                    foreach (var p in ci.Contour)
+                    {
+                        if (p.X < minx) minx = p.X;
+                        if (p.Y < miny) miny = p.Y;
+                        if (p.X > maxx) maxx = p.X;
+                        if (p.Y > maxy) maxy = p.Y;
+                    }
+                    r.Defects.Add(new DefectMark
+                    {
+                        X = roi.X + (minx + maxx) / 2.0,
+                        Y = roi.Y + (miny + maxy) / 2.0,
+                        Width = maxx - minx,
+                        Height = maxy - miny,
+                        Area = ci.Length,
+                        Type = "Chipping"
+                    });
+                }
+            }
+
+            if (br.Corners != null && br.Corners.Length == 4
+                && !(br.Corners[0].IsEmpty && br.Corners[1].IsEmpty && br.Corners[2].IsEmpty && br.Corners[3].IsEmpty))
+            {
+                LastCorners = new[]
+                {
+                    new PointF(roi.X + br.Corners[0].X, roi.Y + br.Corners[0].Y),
+                    new PointF(roi.X + br.Corners[1].X, roi.Y + br.Corners[1].Y),
+                    new PointF(roi.X + br.Corners[2].X, roi.Y + br.Corners[2].Y),
+                    new PointF(roi.X + br.Corners[3].X, roi.Y + br.Corners[3].Y)
+                };
+            }
+            else
+            {
+                // lib 가 코너를 못 주면 최소한 ROI 박스라도 그려 오버레이가 비지 않도록.
+                LastCorners = new[]
+                {
+                    new PointF(roi.X, roi.Y), new PointF(roi.Right, roi.Y),
+                    new PointF(roi.Right, roi.Bottom), new PointF(roi.X, roi.Bottom)
+                };
+            }
+
+            double chipMax = Math.Max(Math.Max(br.ChppingTopSize, br.ChppingBottomSize), Math.Max(br.ChppingLeftSize, br.ChppingRightSize));
+            LastText = $"W {br.Width:F4} H {br.Height:F4} Chip {chipMax:F4} Foreign {foreignMm:F4}";
+
+            r.IsPass = (br.DefectCode == 0);
+        }
+
+        // ===== [LEGACY] 기존 순수 C# 구현 — UseInspectorLib=false 또는 라이브러리 예외 시 폴백 =====
+        private InspectionResult InspectLegacy(Bitmap image)
         {
             var r = new InspectionResult { RoiName = Id, IsPass = true };
             LastValid = false;

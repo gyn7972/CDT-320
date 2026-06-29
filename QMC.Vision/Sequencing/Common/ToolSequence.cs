@@ -41,7 +41,7 @@ namespace QMC.Vision.Sequencing
         public bool IsFinder => Cmd == "MATCH";
         /// <summary>측면(앞/뒤) 검사 INSPECT — 픽커 1~4 분배(핸들러 TCP 픽커 인덱스 모사).</summary>
         private bool IsSideInspect()
-            => !IsFinder && (Kind == SequenceModuleKind.TopSideVision || Kind == SequenceModuleKind.BottomSideVision);
+            => !IsFinder && (Kind == SequenceModuleKind.FrontSideVision || Kind == SequenceModuleKind.RearSideVision);
 
         private bool IsBottomInspect()
             => !IsFinder && Kind == SequenceModuleKind.BottomInspection;
@@ -125,7 +125,7 @@ namespace QMC.Vision.Sequencing
                 {
                     // 실제 동작: 픽업 4열이 X로 지나가며 한 스텝에 픽업 1개를 찍는다(다음 스텝 = 다음 픽업).
                     // 그 픽업을 Front/Back 카메라가 "동시" 촬영하고 각 카메라가 채널 0°/90° 2장 → 이 모듈은 ch1(0°)+ch2(90°).
-                    int baseCh = (Kind == SequenceModuleKind.BottomSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
+                    int baseCh = (Kind == SequenceModuleKind.RearSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
                     int seq = ++_dieSeq;                        // 이번 스텝 = 픽업 순서 상의 다이 1개
                     MaybeClearForNewWafer(seq);                 // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
                     int picker = ((seq - 1) % 4) + 1;           // 픽업 1→2→3→4 순환(4 픽커 갱)
@@ -343,8 +343,8 @@ namespace QMC.Vision.Sequencing
             switch (Kind)
             {
                 case SequenceModuleKind.BottomInspection: return QMC.Vision.Core.InspectionResultStore.Bottom;
-                case SequenceModuleKind.TopSideVision:
-                case SequenceModuleKind.BottomSideVision: return QMC.Vision.Core.InspectionResultStore.Side;
+                case SequenceModuleKind.FrontSideVision:
+                case SequenceModuleKind.RearSideVision: return QMC.Vision.Core.InspectionResultStore.Side;
                 case SequenceModuleKind.BinVision:        return QMC.Vision.Core.InspectionResultStore.Bin;
                 default:                                  return null;
             }

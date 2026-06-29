@@ -14,8 +14,8 @@ namespace QMC.Vision.Modules
         public WaferVisionModule      WaferVision      { get; }
         public BinVisionModule        BinVision        { get; }
         public BottomInspectionModule BottomInspection { get; }
-        public TopSideVisionModule    TopSideVision    { get; }
-        public BottomSideVisionModule BottomSideVision { get; }
+        public FrontSideVisionModule    FrontSideVision    { get; }
+        public RearSideVisionModule RearSideVision { get; }
 
         /// <summary>현재 활성 레시피 명칭(핸들러 수신 = Recipe.RecipeName). 미설정 시 "default".</summary>
         public string CurrentRecipeName =>
@@ -67,15 +67,15 @@ namespace QMC.Vision.Modules
             WaferVisionModule wafer,
             BinVisionModule bin,
             BottomInspectionModule bottom,
-            TopSideVisionModule topSide,
-            BottomSideVisionModule bottomSide)
+            FrontSideVisionModule topSide,
+            RearSideVisionModule bottomSide)
             : base("CDT-320-VISION")
         {
             WaferVision      = wafer;
             BinVision        = bin;
             BottomInspection = bottom;
-            TopSideVision    = topSide;
-            BottomSideVision = bottomSide;
+            FrontSideVision    = topSide;
+            RearSideVision = bottomSide;
 
             // Composite: 핸들러 CDT320Machine 과 동일하게 하위 Unit 을 Units 에 등록.
             if (wafer      != null) Units.Add(wafer);
