@@ -930,6 +930,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false)
         {
+            return await MoveStageAxis(axis, targetPos, bFine, null).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine, string targetName)
+        {
             try
             {
                 if (!HasStageAxis(axis))
@@ -938,7 +943,21 @@ namespace QMC.CDT320
                 BaseAxis item = ResolveStageAxis(axis);
                 double velocity = ResolveStageAxisVelocity(item, bFine);
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
+
+                int result;
+                if (!string.IsNullOrWhiteSpace(targetName))
+                {
+                    // 자동 시퀀스 이동 컨텍스트를 넘겨 수동/홈 이동 인터락으로 오판되지 않게 한다.
+                    using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, targetName))
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                }
+
                 if (result != 0 || item.IsAlarm)
                     return ReportOutputStageMoveFailure(
                         "OS-MOVE",

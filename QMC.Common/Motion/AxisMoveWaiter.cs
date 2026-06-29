@@ -50,6 +50,8 @@ namespace QMC.Common.Motion
 
     public static class AxisMoveWaiter
     {
+        private const int DefaultInPositionSettleMs = 100;
+
         public static async Task<AxisMoveWaitResult> WaitMoveDoneInPositionAsync(
             BaseAxis axis,
             double target,
@@ -74,7 +76,7 @@ namespace QMC.Common.Motion
                     return Fail(axis, target, tolerance, AxisMoveWaitFailure.AxisMissing, "Axis is null.");
 
                 int timeout = timeoutMs > 0 ? timeoutMs : 60000;
-                int settle = settleMs > 0 ? settleMs : 0;
+                int settle = settleMs > 0 ? settleMs : DefaultInPositionSettleMs;
                 DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeout);
 
                 while (DateTime.UtcNow <= deadline)

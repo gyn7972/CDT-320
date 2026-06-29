@@ -427,7 +427,7 @@ namespace QMC.CDT320.Sequencing
                 if (_pickUpSequence.IsComplete)
                 {
                     _pickUpSequence = null;
-                    StartNextInputCameraPreInspectionIfNeeded(ct, "PickUpComplete");
+                    StartInputCameraPreInspectionsAfterPickUpComplete(ct, "PickUpComplete");
                     int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "PickUpToBottomInspection", ct).ConfigureAwait(false);
                     if (phaseResult != 0)
                         return phaseResult;
@@ -455,19 +455,42 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private void StartNextInputCameraPreInspectionIfNeeded(CancellationToken ct, string reason)
+        private void StartInputCameraPreInspectionsAfterPickUpComplete(CancellationToken ct, string reason)
+        {
+            StartInputCameraPreInspectionForSideIfNeeded(Side, ct, reason);
+
+            PickerSequenceSide oppositeSide = Side == PickerSequenceSide.Front
+                ? PickerSequenceSide.Rear
+                : PickerSequenceSide.Front;
+            StartInputCameraPreInspectionForSideIfNeeded(oppositeSide, ct, reason + ":OppositeCandidate");
+        }
+
+        private void StartInputCameraPreInspectionForSideIfNeeded(PickerSequenceSide targetSide, CancellationToken ct, string reason)
         {
             try
             {
                 if (Options == null || Options.RunMode != SequenceRunMode.Auto)
                     return;
 
+                if (!IsPickerSideEnabled(targetSide))
+                    return;
+
+                if (HasLoadedDieOnPickerSide(targetSide))
+                    return;
+
+                PickerSequenceOptions runOptions = BuildChildSequenceOptions();
+                if (targetSide != Side)
+                {
+                    runOptions.PickerNo = 0;
+                    runOptions.RestrictToPickerNo = 0;
+                }
+
                 InputCameraPreInspectionCoordinator.EnsureStarted(
                     Context,
-                    Side,
-                    BuildChildSequenceOptions(),
+                    targetSide,
+                    runOptions,
                     ct,
-                    Name + ":" + reason);
+                    Name + ":" + reason + ":Target=" + targetSide);
             }
             catch (OperationCanceledException)
             {
@@ -477,9 +500,79 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("PickerProcessSequence",
                     Name + " InputCamera 선행검사 시작 요청 중 예외가 발생했습니다. side=" + Side +
+                    ", targetSide=" + targetSide +
                     ", reason=" + reason +
                     ", error=" + ex.Message + " - Failed");
             }
+        }
+
+        private bool IsPickerSideEnabled(PickerSequenceSide targetSide)
+        {
+            try
+            {
+                if (targetSide == PickerSequenceSide.Front)
+                    return FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
+
+                return RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasLoadedDieOnPickerSide(PickerSequenceSide targetSide)
+        {
+            try
+            {
+                bool[] usePicker = ResolveUsePickerArray(targetSide);
+                MaterialLocationKind location = targetSide == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                for (int index = 0; index < 4; index++)
+                {
+                    if (usePicker != null &&
+                        index < usePicker.Length &&
+                        !usePicker[index])
+                    {
+                        continue;
+                    }
+
+                    int pickerNo = ToPickerNo(index);
+                    if (MaterialStateService.GetDieAtPicker(location, pickerNo) != null)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool[] ResolveUsePickerArray(PickerSequenceSide targetSide)
+        {
+            if (targetSide == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+            {
+                FrontPicker.Config.EnsureArrays();
+                return FrontPicker.Config.UsePicker;
+            }
+
+            if (targetSide == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+            {
+                RearPicker.Config.EnsureArrays();
+                return RearPicker.Config.UsePicker;
+            }
+
+            return null;
         }
 
         private async Task<int> RunBottomInspectionAsync(CancellationToken ct)
@@ -740,6 +833,7 @@ namespace QMC.CDT320.Sequencing
                     ResetPickerPhaseSignals();
                     ReleasePickerProcessPhase("PlaceComplete");
                     _placeSequence = null;
+                    StartInputCameraPreInspectionForSideIfNeeded(Side, ct, "PlaceComplete");
                     CurrentStep = PickerProcessStep.Complete;
                 }
 

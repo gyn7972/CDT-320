@@ -17,6 +17,7 @@ namespace QMC.CDT320.Sequencing
         private readonly List<BottomShot> _pendingBottomShots = new List<BottomShot>();
         private readonly List<int> _sideReadyPickerIndexes = new List<int>();
         private readonly List<PendingT0Return> _pendingT0Returns = new List<PendingT0Return>();
+        private readonly List<PendingZAvoid> _pendingZAvoids = new List<PendingZAvoid>();
 
         private bool _bottomInspectionYReady;
         private bool _sideInspectionYReady;
@@ -47,6 +48,13 @@ namespace QMC.CDT320.Sequencing
             public Task<int> MoveTask;
         }
 
+        private sealed class PendingZAvoid
+        {
+            public int PickerIndex;
+            public double Target;
+            public Task<int> MoveTask;
+        }
+
         public PickerBottomSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerBottomSideInspectionSequence" : "RearPickerBottomSideInspectionSequence")
         {
@@ -66,6 +74,7 @@ namespace QMC.CDT320.Sequencing
                 _pendingBottomShots.Clear();
                 _sideReadyPickerIndexes.Clear();
                 _pendingT0Returns.Clear();
+                _pendingZAvoids.Clear();
                 CurrentStep = PickerBottomSideInspectionStep.Complete;
             }
             catch
@@ -99,7 +108,9 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 CurrentStep = PickerBottomSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
-                result = await MoveOppositePickerToAvoidAndVerifyAsync("Bottom/Side 통합 검사 진입 전 상대 Picker 상태 확인", ct).ConfigureAwait(false);
+                result = await MoveOppositePickerToAvoidAndVerifyAsync(
+                    "Bottom/Side 통합 검사 진입 전 상대 Picker Avoid 확인",
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -114,6 +125,10 @@ namespace QMC.CDT320.Sequencing
                     return result;
 
                 CurrentStep = PickerBottomSideInspectionStep.MoveFinalZToAvoid;
+                result = await CompletePendingZAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveAllPickerZToAvoidAndVerifyAsync("Bottom/Side 통합 검사 완료 후 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -184,6 +199,7 @@ namespace QMC.CDT320.Sequencing
             _pendingBottomShots.Clear();
             _sideReadyPickerIndexes.Clear();
             _pendingT0Returns.Clear();
+            _pendingZAvoids.Clear();
             _bottomInspectionYReady = false;
             _sideInspectionYReady = false;
 
@@ -591,6 +607,7 @@ namespace QMC.CDT320.Sequencing
             await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
 
             ApplySideInspectionResult(target, side0Result, side90Result);
+            QueuePendingZAvoid(target.PickerIndex);
             QueuePendingT0Return(target.PickerIndex, target.T0);
             StartPendingT0ReturnCommandAsync("다음 Side 검사 중 이전 PickerT 0도 복귀", ct);
             return 0;
@@ -613,12 +630,17 @@ namespace QMC.CDT320.Sequencing
                 ? Task.FromResult(0)
                 : MoveSideVisionProcessPositionAsync(target, 0, ct);
 
-            int[] results = await Task.WhenAll(pickerTask, visionTask).ConfigureAwait(false);
-            if (results[0] != 0 || results[1] != 0)
+            Task<int> previousZTask = StartAndCompletePendingZAvoidAsync(
+                "다음 Side 검사 진입 중 이전 PickerZ Avoid",
+                ct);
+
+            int[] results = await Task.WhenAll(pickerTask, visionTask, previousZTask).ConfigureAwait(false);
+            if (results[0] != 0 || results[1] != 0 || results[2] != 0)
             {
                 return Fail("PICKER-BOTTOM-SIDE-SIDE-X-VISION0", Name,
                     "Side 0도 진입 X/Y와 SideVisionY 0도 병렬 이동 실패. pickerResult=" + results[0] +
                     ", visionResult=" + results[1] +
+                    ", previousZResult=" + results[2] +
                     ", pickerNo=" + target.PickerNo);
             }
 
@@ -786,6 +808,88 @@ namespace QMC.CDT320.Sequencing
                 BuildBooleanMeasurement(prefix + "Side4", side4Ok),
                 BuildBooleanMeasurement(prefix + "InspectionResult", result != null && result.IsAllOk)
             };
+        }
+
+        private void QueuePendingZAvoid(int pickerIndex)
+        {
+            for (int i = 0; i < _pendingZAvoids.Count; i++)
+            {
+                if (_pendingZAvoids[i].PickerIndex == pickerIndex)
+                    return;
+            }
+
+            _pendingZAvoids.Add(new PendingZAvoid
+            {
+                PickerIndex = pickerIndex,
+                Target = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "AvoidPosition")
+            });
+        }
+
+        private async Task<int> StartAndCompletePendingZAvoidAsync(string description, CancellationToken ct)
+        {
+            StartPendingZAvoidCommandAsync(description);
+            return await CompletePendingZAvoidAsync(ct).ConfigureAwait(false);
+        }
+
+        private void StartPendingZAvoidCommandAsync(string description)
+        {
+            for (int i = _pendingZAvoids.Count - 1; i >= 0; i--)
+            {
+                PendingZAvoid pending = _pendingZAvoids[i];
+                if (pending.MoveTask != null)
+                    continue;
+
+                if (IsPickerAxisInPosition(GetPickerZAxis(pending.PickerIndex), pending.Target))
+                {
+                    _pendingZAvoids.RemoveAt(i);
+                    continue;
+                }
+
+                pending.MoveTask = MovePickerAxisCommandAsync(
+                    GetPickerZAxis(pending.PickerIndex),
+                    pending.Target,
+                    "DieSideZAvoidDeferred[" + pending.PickerIndex + "]");
+
+                WriteLog("PickerBottomSideInspectionSequence",
+                    Name + " " + description + " 명령 시작. pickerNo=" + ToPickerNo(pending.PickerIndex) + " - Ok");
+            }
+        }
+
+        private async Task<int> CompletePendingZAvoidAsync(CancellationToken ct)
+        {
+            for (int i = _pendingZAvoids.Count - 1; i >= 0; i--)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                PendingZAvoid pending = _pendingZAvoids[i];
+                PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
+                if (pending.MoveTask != null)
+                {
+                    int commandResult = await pending.MoveTask.ConfigureAwait(false);
+                    if (commandResult != 0)
+                        return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
+                }
+                else if (!IsPickerAxisInPosition(axis, pending.Target))
+                {
+                    int commandResult = await MovePickerAxisCommandAsync(
+                        axis,
+                        pending.Target,
+                        "DieSideZAvoidDeferred[" + pending.PickerIndex + "]").ConfigureAwait(false);
+                    if (commandResult != 0)
+                        return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
+                }
+
+                var waitResult = await WaitPickerAxisMoveDoneAsync(axis, pending.Target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-WAIT", Name, "예약된 PickerZ Avoid 완료 대기 실패. " + FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, pending.Target)));
+
+                if (!IsPickerAxisInPosition(axis, pending.Target))
+                    return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-POS", Name, "예약된 PickerZ Avoid 최종 위치 확인 실패. " + BuildPickerAxisState(axis, pending.Target));
+
+                _pendingZAvoids.RemoveAt(i);
+            }
+
+            return 0;
         }
 
         private void QueuePendingT0Return(int pickerIndex, double target)
