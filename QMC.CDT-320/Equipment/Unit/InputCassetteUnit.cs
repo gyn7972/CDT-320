@@ -253,6 +253,38 @@ namespace QMC.CDT320
             }
         }
 
+        private bool CheckWaferLifterZInterlock(double targetPos, MotionGuardMoveKind moveKind, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                bool allowed = InputCassetteInterlockRules.VerifyWaferLifterZ(
+                    Machine,
+                    targetPos,
+                    moveKind,
+                    out reason);
+
+                if (allowed)
+                    return true;
+
+                if (string.IsNullOrWhiteSpace(reason))
+                    reason = "InputLifterZ 이동 인터락 조건이 만족되지 않습니다.";
+
+                RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-INTERLOCK", reason);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputLifterZ 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-INTERLOCK-EX", reason);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>지정한 조그 속도 모드로 Wafer Lifter Z축을 절대 위치로 이동합니다.</summary>
         public async Task<int> MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
         {
@@ -2153,19 +2185,19 @@ namespace QMC.CDT320
             return slotCount * ResolveCassetteLevelCount();
         }
 
-        /// <summary>Config.SlotCount??留욎떠 Recipe.SlotPosition 踰꾪띁瑜?蹂댁옣?⑸땲??</summary>
+        /// <summary>Config.SlotCount에 맞춰 Recipe.SlotPosition 버퍼를 보장합니다.</summary>
         public void EnsureSlotPositionBuffer()
         {
             Recipe.EnsureSlotPositionBuffer(ResolveMappingSlotCount());
         }
 
-        /// <summary>Mapping ??SlotPosition 踰꾪띁瑜?珥덇린?뷀빀?덈떎.</summary>
+        /// <summary>Mapping용 SlotPosition 버퍼를 초기화합니다.</summary>
         public void ResetSlotPositionsForMapping()
         {
             Recipe.ResizeSlotPositions(ResolveMappingSlotCount());
         }
 
-        /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
+        /// <summary>지정 Slot의 Mapping 위치를 갱신합니다.</summary>
         public void UpdateSlotPosition(int slotIndex, double position)
         {
             ValidateMappingSlotIndex(slotIndex);
@@ -2173,7 +2205,7 @@ namespace QMC.CDT320
             Recipe.UpdateSlotPosition(slotIndex, position);
         }
 
-        /// <summary>Mapping 寃곌낵媛 ?놁쓣 ???ъ슜??紐낅ぉ Slot ?꾩튂瑜?怨꾩궛?⑸땲??</summary>
+        /// <summary>Mapping 결과가 없을 때 사용할 명목 Slot 위치를 계산합니다.</summary>
         public double CalculateNominalSlotPosition(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
