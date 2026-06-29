@@ -29,8 +29,18 @@ namespace QMC.Vision.Ui.Pages
         private SidebarButton btnNav2;
         private SidebarButton btnNav3;
 
+        private Label lblRoiHdr;
+        private Button btnRoi0;
+        private Button btnRoi1;
+        private Button btnRoi2;
+        private Button btnRoi3;
+        private Button btnRoiClear;
+
         private Panel pnlTest;
         private Button btnTestScan;
+        private Button btnTcpScan;
+        private Button btnTcpVal;
+        private Button btnImgSeq;
         private Button btnTestStep;
         private Button btnReset;
         private Button btnClearLog;
@@ -69,8 +79,17 @@ namespace QMC.Vision.Ui.Pages
             this.btnNav1 = new SidebarButton();
             this.btnNav2 = new SidebarButton();
             this.btnNav3 = new SidebarButton();
+            this.lblRoiHdr = new Label();
+            this.btnRoi0 = new Button();
+            this.btnRoi1 = new Button();
+            this.btnRoi2 = new Button();
+            this.btnRoi3 = new Button();
+            this.btnRoiClear = new Button();
             this.pnlTest = new Panel();
             this.btnTestScan = new Button();
+            this.btnTcpScan = new Button();
+            this.btnTcpVal = new Button();
+            this.btnImgSeq = new Button();
             this.btnTestStep = new Button();
             this.btnReset = new Button();
             this.btnClearLog = new Button();
@@ -120,23 +139,50 @@ namespace QMC.Vision.Ui.Pages
 
             // pnlTest (하단 테스트/유틸 버튼)
             this.pnlTest.Dock = DockStyle.Bottom;
-            this.pnlTest.Height = 172;
+            this.pnlTest.Height = 280;
             this.pnlTest.BackColor = UiTheme.SidebarBg;
             this.pnlTest.Controls.Add(this.btnClearLog);
             this.pnlTest.Controls.Add(this.btnReset);
             this.pnlTest.Controls.Add(this.btnTestStep);
+            this.pnlTest.Controls.Add(this.btnImgSeq);
+            this.pnlTest.Controls.Add(this.btnTcpVal);
+            this.pnlTest.Controls.Add(this.btnTcpScan);
             this.pnlTest.Controls.Add(this.btnTestScan);
             // btnTestScan
-            this.btnTestScan.Text = "▶ 테스트 스캔";
+            this.btnTestScan.Text = "▶ 테스트 스캔 (로컬)";
             this.btnTestScan.Location = new Point(6, 8);
             this.btnTestScan.Size = new Size(184, 32);
             this.btnTestScan.FlatStyle = FlatStyle.Flat;
             this.btnTestScan.Font = UiTheme.ButtonFont;
             this.btnTestScan.BackColor = Color.White;
             this.btnTestScan.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            // btnTcpScan
+            this.btnTcpScan.Text = "🌐 TCP 스캔 (실통신)";
+            this.btnTcpScan.Location = new Point(6, 46);
+            this.btnTcpScan.Size = new Size(184, 32);
+            this.btnTcpScan.FlatStyle = FlatStyle.Flat;
+            this.btnTcpScan.Font = UiTheme.ButtonFont;
+            this.btnTcpScan.BackColor = Color.FromArgb(0xDD, 0xEE, 0xFF);
+            this.btnTcpScan.ForeColor = Color.FromArgb(0x10, 0x3A, 0x66);
+            // btnTcpVal
+            this.btnTcpVal.Text = "📡 TCP 스텝 (Z+0.2)";
+            this.btnTcpVal.Location = new Point(6, 84);
+            this.btnTcpVal.Size = new Size(184, 32);
+            this.btnTcpVal.FlatStyle = FlatStyle.Flat;
+            this.btnTcpVal.Font = UiTheme.ButtonFont;
+            this.btnTcpVal.BackColor = Color.FromArgb(0xDD, 0xEE, 0xFF);
+            this.btnTcpVal.ForeColor = Color.FromArgb(0x10, 0x3A, 0x66);
+            // btnImgSeq
+            this.btnImgSeq.Text = "🎞 이미지 시퀀스 (텍타임)";
+            this.btnImgSeq.Location = new Point(6, 122);
+            this.btnImgSeq.Size = new Size(184, 32);
+            this.btnImgSeq.FlatStyle = FlatStyle.Flat;
+            this.btnImgSeq.Font = UiTheme.ButtonFont;
+            this.btnImgSeq.BackColor = Color.FromArgb(0xEA, 0xDD, 0xFF);
+            this.btnImgSeq.ForeColor = Color.FromArgb(0x3C, 0x1F, 0x66);
             // btnTestStep
-            this.btnTestStep.Text = "＋ 1점 추가";
-            this.btnTestStep.Location = new Point(6, 46);
+            this.btnTestStep.Text = "＋ 1점 추가 (로컬)";
+            this.btnTestStep.Location = new Point(6, 160);
             this.btnTestStep.Size = new Size(184, 32);
             this.btnTestStep.FlatStyle = FlatStyle.Flat;
             this.btnTestStep.Font = UiTheme.ButtonFont;
@@ -144,7 +190,7 @@ namespace QMC.Vision.Ui.Pages
             this.btnTestStep.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
             // btnReset
             this.btnReset.Text = "⟲ 세션 리셋";
-            this.btnReset.Location = new Point(6, 84);
+            this.btnReset.Location = new Point(6, 198);
             this.btnReset.Size = new Size(184, 32);
             this.btnReset.FlatStyle = FlatStyle.Flat;
             this.btnReset.Font = UiTheme.ButtonFont;
@@ -152,7 +198,7 @@ namespace QMC.Vision.Ui.Pages
             this.btnReset.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
             // btnClearLog
             this.btnClearLog.Text = "🗑 통신 로그 지우기";
-            this.btnClearLog.Location = new Point(6, 122);
+            this.btnClearLog.Location = new Point(6, 236);
             this.btnClearLog.Size = new Size(184, 32);
             this.btnClearLog.FlatStyle = FlatStyle.Flat;
             this.btnClearLog.Font = UiTheme.ButtonFont;
@@ -181,6 +227,12 @@ namespace QMC.Vision.Ui.Pages
             this.flowNav.Controls.Add(this.btnNav1);
             this.flowNav.Controls.Add(this.btnNav2);
             this.flowNav.Controls.Add(this.btnNav3);
+            this.flowNav.Controls.Add(this.lblRoiHdr);
+            this.flowNav.Controls.Add(this.btnRoi0);
+            this.flowNav.Controls.Add(this.btnRoi1);
+            this.flowNav.Controls.Add(this.btnRoi2);
+            this.flowNav.Controls.Add(this.btnRoi3);
+            this.flowNav.Controls.Add(this.btnRoiClear);
 
             // btnNav0
             this.btnNav0.Text = "바텀 검사 - 콜렛";
@@ -194,6 +246,56 @@ namespace QMC.Vision.Ui.Pages
             // btnNav3
             this.btnNav3.Text = "뒤쪽 측면 검사";
             this.btnNav3.Width = 184; this.btnNav3.Height = 38; this.btnNav3.Margin = new Padding(0, 0, 0, 3);
+
+            // lblRoiHdr (ROI 섹션 구분 — 현재 타깃의 ROI1~4 지정)
+            this.lblRoiHdr.Text = "ROI 설정 (이미지에 드래그)";
+            this.lblRoiHdr.Width = 184; this.lblRoiHdr.Height = 24;
+            this.lblRoiHdr.Margin = new Padding(0, 10, 0, 4);
+            this.lblRoiHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblRoiHdr.Font = UiTheme.SectionFont;
+            this.lblRoiHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this.lblRoiHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this.lblRoiHdr.Padding = new Padding(8, 0, 0, 0);
+            // btnRoi0 (ROI1 — 빨강)
+            this.btnRoi0.Text = "■ ROI 1 지정";
+            this.btnRoi0.Width = 184; this.btnRoi0.Height = 30; this.btnRoi0.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi0.FlatStyle = FlatStyle.Flat;
+            this.btnRoi0.Font = UiTheme.ButtonFont;
+            this.btnRoi0.BackColor = Color.White;
+            this.btnRoi0.ForeColor = Color.Red;
+            this.btnRoi0.TextAlign = ContentAlignment.MiddleLeft;
+            // btnRoi1 (ROI2 — 노랑/Gold)
+            this.btnRoi1.Text = "■ ROI 2 지정";
+            this.btnRoi1.Width = 184; this.btnRoi1.Height = 30; this.btnRoi1.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi1.FlatStyle = FlatStyle.Flat;
+            this.btnRoi1.Font = UiTheme.ButtonFont;
+            this.btnRoi1.BackColor = Color.White;
+            this.btnRoi1.ForeColor = Color.Gold;
+            this.btnRoi1.TextAlign = ContentAlignment.MiddleLeft;
+            // btnRoi2 (ROI3 — 파랑/RoyalBlue)
+            this.btnRoi2.Text = "■ ROI 3 지정";
+            this.btnRoi2.Width = 184; this.btnRoi2.Height = 30; this.btnRoi2.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi2.FlatStyle = FlatStyle.Flat;
+            this.btnRoi2.Font = UiTheme.ButtonFont;
+            this.btnRoi2.BackColor = Color.White;
+            this.btnRoi2.ForeColor = Color.RoyalBlue;
+            this.btnRoi2.TextAlign = ContentAlignment.MiddleLeft;
+            // btnRoi3 (ROI4 — 녹색/ForestGreen)
+            this.btnRoi3.Text = "■ ROI 4 지정";
+            this.btnRoi3.Width = 184; this.btnRoi3.Height = 30; this.btnRoi3.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi3.FlatStyle = FlatStyle.Flat;
+            this.btnRoi3.Font = UiTheme.ButtonFont;
+            this.btnRoi3.BackColor = Color.White;
+            this.btnRoi3.ForeColor = Color.ForestGreen;
+            this.btnRoi3.TextAlign = ContentAlignment.MiddleLeft;
+            // btnRoiClear (현재 타깃 ROI 전체 지우기)
+            this.btnRoiClear.Text = "✕ ROI 전체 지우기";
+            this.btnRoiClear.Width = 184; this.btnRoiClear.Height = 30; this.btnRoiClear.Margin = new Padding(0, 6, 0, 3);
+            this.btnRoiClear.FlatStyle = FlatStyle.Flat;
+            this.btnRoiClear.Font = UiTheme.ButtonFont;
+            this.btnRoiClear.BackColor = Color.White;
+            this.btnRoiClear.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnRoiClear.TextAlign = ContentAlignment.MiddleLeft;
 
             // pnlTop (상단: BEST 그리드 | 통신 로그)
             this.pnlTop.Dock = DockStyle.Top;
@@ -211,7 +313,7 @@ namespace QMC.Vision.Ui.Pages
             // lblHdrBest
             this.lblHdrBest.Dock = DockStyle.Top;
             this.lblHdrBest.Height = 28;
-            this.lblHdrBest.Text = "BEST — Pickup별 최적 초점 (위치 / Score)";
+            this.lblHdrBest.Text = "BEST — ROI별 최적 초점 (위치 / Score)";
             this.lblHdrBest.BackColor = UiTheme.StatusBarBg;
             this.lblHdrBest.ForeColor = UiTheme.StatusBarFg;
             this.lblHdrBest.Font = UiTheme.SectionFont;

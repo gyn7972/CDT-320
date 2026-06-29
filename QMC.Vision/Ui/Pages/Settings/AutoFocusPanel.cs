@@ -1,10 +1,19 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using QMC.Vision.Comm;
+using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui;
@@ -25,6 +34,7 @@ namespace QMC.Vision.Ui.Pages
         private SidebarButton[] _navBtns;
         private FocusCamera[] _navCam;
         private FocusTarget[] _navTgt;
+        private Button[] _roiBtns;
 
         private FocusCamera _camera = FocusCamera.Bottom;
         private FocusTarget _target = FocusTarget.Collet;
@@ -37,7 +47,7 @@ namespace QMC.Vision.Ui.Pages
             if (IsDesignerMode()) return;
 
             GridTheme.Apply(grid);
-            grid.Columns.Add("pickup", "Pickup");
+            grid.Columns.Add("pickup", "ROI");
             grid.Columns.Add("bestp", "Best 위치");
             grid.Columns.Add("bests", "Best Score");
             grid.Columns.Add("initp", "초기 위치");
@@ -56,9 +66,22 @@ namespace QMC.Vision.Ui.Pages
             }
 
             btnTestScan.Click += (s, e) => SimulateScan();
+            btnTcpScan.Click += (s, e) => TcpScan();
+            btnTcpVal.Click += (s, e) => TcpStep();
+            btnImgSeq.Click += (s, e) => RunImageSequence();
             btnTestStep.Click += (s, e) => SimulateStep();
             btnReset.Click += (s, e) => ResetSession();
             btnClearLog.Click += (s, e) => { VisionCommLog.Clear(); _lastLogRev = -1; RefreshLog(); };
+
+            // ROI1~4 지정(이미지 드래그) + 전체 지우기 — 현재 선택 타깃에 저장.
+            _roiBtns = new[] { btnRoi0, btnRoi1, btnRoi2, btnRoi3 };
+            for (int i = 0; i < _roiBtns.Length; i++)
+            {
+                int idx = i;
+                _roiBtns[i].Click += (s, e) => BeginEditRoi(idx);
+            }
+            btnRoiClear.Click += (s, e) => ClearCurrentRois();
+            camView.RoiEdited += camView_RoiEdited;
 
             timer.Tick += (s, e) => RefreshView();
             SelectTarget(0);
@@ -79,7 +102,82 @@ namespace QMC.Vision.Ui.Pages
             for (int i = 0; i < _navBtns.Length; i++)
                 _navBtns[i].Selected = (i == idx);
             AttachCurrentModule();
+            UpdateRoiOverlay();
             RefreshView();
+        }
+
+        // ── ROI 편집 (현재 선택 타깃의 ROI1~4 — [설정 > 오토 포커스] 에서만 지정) ──
+
+        /// <summary>ROI{idx+1} 드래그 편집 진입. 기존 값이 있으면 그 위치에서 시작.</summary>
+        private void BeginEditRoi(int idx)
+        {
+            try
+            {
+                Roi current = AutoFocusRoiStore.GetRoi(_camera, _target, idx);
+                camView.BeginRoiDrag("AF" + idx, current);
+                VisionCommLog.Add("[AutoFocusPanel] ROI" + (idx + 1) + " 지정 — 이미지에 사각형을 드래그하세요. (" +
+                                  _camera + "/" + _target + ")");
+            }
+            catch (Exception ex)
+            {
+                VisionCommLog.Add("[AutoFocusPanel] ROI 편집 진입 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>드래그 완료 콜백 — "AF{idx}" 종류면 현재 타깃의 ROI{idx+1} 로 저장 + 오버레이 갱신.</summary>
+        private void camView_RoiEdited(string kind, Roi roi)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(kind) || !kind.StartsWith("AF")) return;
+                int idx;
+                if (!int.TryParse(kind.Substring(2), out idx)) return;
+
+                bool ok = AutoFocusRoiStore.SetRoi(_camera, _target, idx, roi);
+                if (ok)
+                    VisionCommLog.Add("[AutoFocusPanel] ROI" + (idx + 1) + " 저장 — " +
+                                      "x=" + roi.CenterX.ToString("F0") + " y=" + roi.CenterY.ToString("F0") +
+                                      " w=" + roi.Width.ToString("F0") + " h=" + roi.Height.ToString("F0") +
+                                      " (" + _camera + "/" + _target + ")");
+                else
+                    VisionCommLog.Add("[AutoFocusPanel] ROI" + (idx + 1) + " 저장 실패 — 설정 저장 오류.");
+
+                UpdateRoiOverlay();
+            }
+            catch (Exception ex)
+            {
+                VisionCommLog.Add("[AutoFocusPanel] ROI 저장 처리 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>현재 타깃의 ROI1~4 전체 삭제 + 오버레이 갱신.</summary>
+        private void ClearCurrentRois()
+        {
+            try
+            {
+                AutoFocusRoiStore.ClearRois(_camera, _target);
+                VisionCommLog.Add("[AutoFocusPanel] ROI 전체 삭제 (" + _camera + "/" + _target + ")");
+                UpdateRoiOverlay();
+            }
+            catch (Exception ex)
+            {
+                VisionCommLog.Add("[AutoFocusPanel] ROI 삭제 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>현재 타깃의 ROI1~4 를 카메라뷰에 4색 오버레이로 표시.</summary>
+        private void UpdateRoiOverlay()
+        {
+            if (IsDisposed) return;
+            try
+            {
+                Roi[] rois = AutoFocusRoiStore.GetRois(_camera, _target);
+                camView.SetAutoFocusRois(rois, AutoFocusSession.PickupColors);
+            }
+            catch (Exception ex)
+            {
+                VisionCommLog.Add("[AutoFocusPanel] ROI 오버레이 갱신 실패: " + ex.Message);
+            }
         }
 
         private void RefreshView()
@@ -127,7 +225,7 @@ namespace QMC.Vision.Ui.Pages
             if (sess != null)
             {
                 foreach (var row in sess.BuildBestTable())   // 락 스냅샷(스레드 안전)
-                    AddBestRow("Pickup" + row.PickupNo, row.Color,
+                    AddBestRow("ROI" + row.PickupNo, row.Color,
                         row.SampleCount > 0 ? row.BestMotorZ.ToString("F3") : "-",
                         row.SampleCount > 0 ? row.BestScore.ToString("F1") : "-",
                         row.InitialMotorZ.HasValue ? row.InitialMotorZ.Value.ToString("F3") : "-",
@@ -136,7 +234,7 @@ namespace QMC.Vision.Ui.Pages
             }
 
             for (int k = 0; k < 4; k++)
-                AddBestRow("Pickup" + (k + 1), AutoFocusSession.PickupColors[k], "-", "-", "-", 0);
+                AddBestRow("ROI" + (k + 1), AutoFocusSession.PickupColors[k], "-", "-", "-", 0);
         }
 
         private void AddBestRow(string label, Color color, string z, string score, string initz, int n)
@@ -156,7 +254,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 int pno = pickups[k];
                 Color color = AutoFocusSession.PickupColors[k % AutoFocusSession.PickupColors.Length];
-                string name = "Pickup" + pno;
+                string name = "ROI" + pno;
 
                 List<FocusSample> samples = sess != null ? sess.CopySamples(pno) : new List<FocusSample>();
                 bool isDefault = samples.Count == 0;
@@ -309,6 +407,237 @@ namespace QMC.Vision.Ui.Pages
             VisionCommLog.Add(ModuleName() + "|FOCUS_RESET|" +
                 _camera.ToString().ToUpperInvariant() + "|" + _target.ToString().ToUpperInvariant());
             RefreshView();
+        }
+
+        // ── 실 TCP 통신 테스트(핸들러처럼 자기 자신 서버 포트로 접속) ─────────
+
+        private static int PortFor(FocusCamera cam)
+        {
+            var cfg = VisionConfigStore.Current;
+            switch (cam)
+            {
+                case FocusCamera.Bottom: return cfg.InspectionVisionPort;
+                case FocusCamera.Front:  return cfg.FrontSidePort;
+                default:                 return cfg.RearSidePort;
+            }
+        }
+
+        private void SetTestButtonsEnabled(bool en)
+        {
+            try { btnTcpScan.Enabled = en; btnTcpVal.Enabled = en; btnTestScan.Enabled = en; btnImgSeq.Enabled = en; }
+            catch { }
+        }
+
+        /// <summary>한 줄 송신 후 응답 한 줄 수신(서버가 RX/TX 를 통신 로그에 남김).</summary>
+        private static string SendRecv(NetworkStream ns, string line)
+        {
+            byte[] data = Encoding.UTF8.GetBytes(line + "\n");
+            ns.Write(data, 0, data.Length);
+            ns.ReadTimeout = 5000;
+            var sb = new StringBuilder();
+            int b;
+            while ((b = ns.ReadByte()) != -1)
+            {
+                if (b == '\n') break;
+                if (b != '\r') sb.Append((char)b);
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// 실제 TCP로 FOCUS_START → (Z당 1회 FOCUS_VAL) → BEST 전송. 새 ROI 설계와 동일하게
+        /// 한 Z(=한 grab)에서 서버가 ROI1~4 를 채점한다(픽업별 4콜 아님). Z 21스텝 = 21콜.
+        /// 루프백은 정지 프레임이라 곡선은 평탄할 수 있음(실 곡선=핸들러 실 Z / 이미지 시퀀스).
+        /// </summary>
+        private void TcpScan()
+        {
+            FocusCamera cam = _camera; FocusTarget tgt = _target;
+            int port = PortFor(cam);
+            string mod = ModuleName();
+            string camS = cam.ToString().ToUpperInvariant();
+            string tgtS = tgt.ToString().ToUpperInvariant();
+            var inv = CultureInfo.InvariantCulture;
+
+            SetTestButtonsEnabled(false);
+            Task.Run(() =>
+            {
+                try
+                {
+                    using (var client = new TcpClient())
+                    {
+                        client.Connect("127.0.0.1", port);
+                        using (var ns = client.GetStream())
+                        {
+                            SendRecv(ns, mod + "|FOCUS_START|" + camS + "|" + tgtS);
+                            bool first = true;
+                            for (double z = 18.0; z <= 22.0 + 1e-9; z += 0.2)
+                            {
+                                // Z당 1콜 — 서버가 grab 1장으로 ROI1~4 채점(미설정 시 전체프레임 1점).
+                                SendRecv(ns, mod + "|FOCUS_VAL|" + Math.Round(z, 2).ToString("F2", inv) +
+                                             "|" + camS + "|" + tgtS + "|1|" + (first ? "1" : "0"));
+                                first = false;
+                            }
+                            SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS);
+                        }
+                    }
+                }
+                catch (Exception ex) { VisionCommLog.Add("[AutoFocusPanel] TCP 스캔 오류: " + ex.Message); }
+                finally { try { BeginInvoke((Action)(() => SetTestButtonsEnabled(true))); } catch { } }
+            });
+        }
+
+        private double _tcpStepZ = 18.0;       // TCP 스텝 현재 Z
+        private bool _tcpStepNeedStart = true; // 첫 스텝이면 FOCUS_START 먼저
+
+        /// <summary>
+        /// TCP 스텝 — 클릭마다 다음 Z(0.2씩)로 FOCUS_VAL 1회 전송(실통신). 첫 클릭은 FOCUS_START 선행,
+        /// 마지막(>22) 클릭에 FOCUS_BEST 후 리셋. 핸들러처럼 한 스텝씩 수동 진행할 때 사용.
+        /// </summary>
+        private void TcpStep()
+        {
+            FocusCamera cam = _camera; FocusTarget tgt = _target;
+            int port = PortFor(cam);
+            string mod = ModuleName();
+            string camS = cam.ToString().ToUpperInvariant();
+            string tgtS = tgt.ToString().ToUpperInvariant();
+            var inv = CultureInfo.InvariantCulture;
+
+            double z = Math.Round(_tcpStepZ, 2);
+            bool start = _tcpStepNeedStart;
+            bool init = start;
+
+            // 다음 클릭용 상태 갱신
+            _tcpStepNeedStart = false;
+            _tcpStepZ = Math.Round(z + 0.2, 2);
+            bool finish = _tcpStepZ > 22.0 + 1e-9;
+            if (finish) { _tcpStepZ = 18.0; _tcpStepNeedStart = true; }
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    using (var client = new TcpClient())
+                    {
+                        client.Connect("127.0.0.1", port);
+                        using (var ns = client.GetStream())
+                        {
+                            if (start) SendRecv(ns, mod + "|FOCUS_START|" + camS + "|" + tgtS);
+                            SendRecv(ns, mod + "|FOCUS_VAL|" + z.ToString("F2", inv) +
+                                         "|" + camS + "|" + tgtS + "|1|" + (init ? "1" : "0"));
+                            if (finish) SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS);
+                        }
+                    }
+                }
+                catch (Exception ex) { VisionCommLog.Add("[AutoFocusPanel] TCP 스텝 오류: " + ex.Message); }
+            });
+        }
+
+        // ── 이미지 시퀀스 테스트(시퀀서식 + 실제 tact time) ──────────────────
+
+        private static string CamFolder(FocusCamera cam)
+        {
+            switch (cam)
+            {
+                case FocusCamera.Bottom: return "Bottom";
+                case FocusCamera.Front:  return "Front";
+                default:                 return "Back";
+            }
+        }
+
+        /// <summary>
+        /// 포커스가 서로 다른 10장을 순차로 grab(파일)→Score 하며 단계별·전체 tact time 측정.
+        /// 파일(TestImages\AutoFocus\&lt;cam&gt;\*.png)이 있으면 사용, 없으면 메모리 생성.
+        /// </summary>
+        private void RunImageSequence()
+        {
+            FocusCamera cam = _camera; FocusTarget tgt = _target;
+            string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestImages", "AutoFocus", CamFolder(cam));
+            var inv = CultureInfo.InvariantCulture;
+
+            SetTestButtonsEnabled(false);
+            Task.Run(() =>
+            {
+                List<Bitmap> imgs = null;
+                try
+                {
+                    imgs = LoadFocusImages(dir);
+                    AutoFocusStore.Start(cam, tgt);
+                    VisionCommLog.Add("[ImageSeq] START cam=" + cam + " target=" + tgt +
+                                      " imgs=" + imgs.Count + " (" + (Directory.Exists(dir) ? "파일" : "메모리생성") + ")");
+
+                    double zStep = imgs.Count > 1 ? 4.0 / (imgs.Count - 1) : 0.4;
+                    var swTotal = Stopwatch.StartNew();
+                    long sumMs = 0;
+                    for (int k = 0; k < imgs.Count; k++)
+                    {
+                        double z = Math.Round(18.0 + k * zStep, 3);
+                        var sw = Stopwatch.StartNew();
+                        double score = AutoFocusCore.Score(imgs[k]);   // 실제 채점(=tact 측정 대상)
+                        sw.Stop();
+                        sumMs += sw.ElapsedMilliseconds;
+                        AutoFocusStore.AddSample(cam, tgt, 1, z, Math.Round(score), k == 0);
+                        VisionCommLog.Add("[ImageSeq] " + (k + 1).ToString("00") + "/" + imgs.Count +
+                                          "  z=" + z.ToString("F2", inv) +
+                                          "  score=" + score.ToString("F0") +
+                                          "  tact=" + sw.ElapsedMilliseconds + "ms");
+                    }
+                    swTotal.Stop();
+                    long avg = imgs.Count > 0 ? sumMs / imgs.Count : 0;
+                    VisionCommLog.Add("[ImageSeq] DONE  total=" + swTotal.ElapsedMilliseconds +
+                                      "ms  avg=" + avg + "ms/step  (" + imgs.Count + " steps)");
+                }
+                catch (Exception ex) { VisionCommLog.Add("[ImageSeq] 오류: " + ex.Message); }
+                finally
+                {
+                    if (imgs != null) foreach (var b in imgs) { try { b.Dispose(); } catch { } }
+                    try { BeginInvoke((Action)(() => SetTestButtonsEnabled(true))); } catch { }
+                }
+            });
+        }
+
+        private static List<Bitmap> LoadFocusImages(string dir)
+        {
+            var list = new List<Bitmap>();
+            if (Directory.Exists(dir))
+            {
+                foreach (string f in Directory.GetFiles(dir, "*.png").OrderBy(x => x))
+                {
+                    try { using (var tmp = Image.FromFile(f)) list.Add(new Bitmap(tmp)); }
+                    catch { }
+                }
+            }
+            if (list.Count == 0)
+                for (int k = 0; k < 10; k++) list.Add(GenFocusBitmap(k, 5));
+            return list;
+        }
+
+        /// <summary>포커스 변화 합성 이미지(메모리 폴백). focusIdx 에서 가장 선명, 멀수록 블러.</summary>
+        private static Bitmap GenFocusBitmap(int k, int focusIdx)
+        {
+            const int W = 640, H = 480;
+            Bitmap baseBmp = new Bitmap(W, H, PixelFormat.Format24bppRgb);
+            using (Graphics g = Graphics.FromImage(baseBmp))
+            {
+                g.Clear(Color.FromArgb(40, 40, 40));
+                g.FillRectangle(Brushes.Gray, 180, 120, 280, 240);
+                using (Pen pen = new Pen(Color.White, 1))
+                    for (int x = 190; x < 460; x += 6) g.DrawLine(pen, x, 130, x, 350);
+                g.FillRectangle(Brushes.LightGray, 300, 200, 40, 40);
+            }
+
+            int dist = Math.Abs(k - focusIdx);
+            if (dist == 0) return baseBmp;
+
+            int factor = 1 + dist * 2;
+            int sw = Math.Max(1, W / factor), sh = Math.Max(1, H / factor);
+            using (Bitmap small = new Bitmap(sw, sh))
+            {
+                using (Graphics g = Graphics.FromImage(small)) { g.InterpolationMode = InterpolationMode.Bilinear; g.DrawImage(baseBmp, 0, 0, sw, sh); }
+                Bitmap blur = new Bitmap(W, H);
+                using (Graphics g = Graphics.FromImage(blur)) { g.InterpolationMode = InterpolationMode.Bilinear; g.DrawImage(small, 0, 0, W, H); }
+                baseBmp.Dispose();
+                return blur;
+            }
         }
     }
 }
