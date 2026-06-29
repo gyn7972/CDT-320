@@ -59,6 +59,7 @@ namespace QMC.Vision.Sequencing
         private int _curPicker, _curDie;   // 직전 스텝의 픽업/다이(로그 표시용)
         private List<int[]> _pickupOrder;  // 픽업 순서대로의 다이 좌표 {DieMapX, DieMapY}
         private string _pickupOrderKey;    // 캐시 무효화 키(레시피 사양/픽업 옵션 변경 감지)
+        private int _lastWaferPass = -1;   // 직전 웨이퍼 패스 번호((seq-1)/순서수). 바뀌면 새 웨이퍼.
 
         /// <summary>직전 사이클 소요(ms).</summary>
         public double LastCycleMs { get; private set; }
@@ -81,7 +82,8 @@ namespace QMC.Vision.Sequencing
             try
             {
                 Context.LogPublic("[SEQ] " + Name + " 도구 연속 실행 시작");
-                _dieSeq = 0;   // 연속 실행 시작 = 픽업 순서 첫 다이부터
+                // 정지→재개는 _dieSeq 를 유지해 다음 다이부터 이어서 진행(리셋 안 함).
+                // 픽업 한 바퀴(웨이퍼)를 다 돌고 다음 바퀴로 넘어갈 때만 새 웨이퍼로 보고 맵/차트를 초기화한다.
                 while (!ct.IsCancellationRequested)
                 {
                     await RunCycleAsync(ct, grab: true).ConfigureAwait(false);
@@ -125,9 +127,12 @@ namespace QMC.Vision.Sequencing
                     // 그 픽업을 Front/Back 카메라가 "동시" 촬영하고 각 카메라가 채널 0°/90° 2장 → 이 모듈은 ch1(0°)+ch2(90°).
                     int baseCh = (Kind == SequenceModuleKind.BottomSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
                     int seq = ++_dieSeq;                        // 이번 스텝 = 픽업 순서 상의 다이 1개
+                    MaybeClearForNewWafer(seq);                 // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
                     int picker = ((seq - 1) % 4) + 1;           // 픽업 1→2→3→4 순환(4 픽커 갱)
                     int ix, iy; NextPickupCell(seq, out ix, out iy);
                     _curPicker = picker; _curDie = seq;         // 로그 표시용
+                    chipUid = ResolveChipUid(ix, iy);           // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
+                    args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
                     string last = null;
                     for (int chOff = 0; chOff <= 1 && !ct.IsCancellationRequested; chOff++)   // ch1(0°)→ch2(90°)
                     {
@@ -141,9 +146,12 @@ namespace QMC.Vision.Sequencing
                 {
                     // 바텀/Die gap(Bin)도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 레시피 픽업 순서의 다이 좌표를 컨텍스트로 부여.
                     int seq = ++_dieSeq;
+                    MaybeClearForNewWafer(seq);   // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
                     int picker = ((seq - 1) % 4) + 1;
                     int ix, iy; NextPickupCell(seq, out ix, out iy);
                     _curPicker = picker; _curDie = seq;
+                    chipUid = ResolveChipUid(ix, iy);           // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
+                    args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, -1, ix, iy);
                     result = Context.Dispatch(Module, Cmd, args);
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
@@ -217,13 +225,26 @@ namespace QMC.Vision.Sequencing
             return s.Length > 80 ? s.Substring(0, 80) : s;
         }
 
-        /// <summary>이번 사이클 chipUid — SimEmitChipUid=true 면 합성 발급, 아니면 빈 값.</summary>
-        private string ResolveChipUid()
+        /// <summary>이번 사이클 chipUid(다이 미지정) — SimEmitChipUid=true 면 합성 발급, 아니면 빈 값.</summary>
+        private string ResolveChipUid() => ResolveChipUid(int.MinValue, int.MinValue);
+
+        /// <summary>
+        /// 다이(IndexX/IndexY) 기준 chipUid — SimEmitChipUid=true 일 때 Bottom/Side/Bin 이 같은 다이를
+        /// 같은 chipUid 로 보고하도록 다이 좌표 기반으로 발급한다. 그래야 MaterialTracker 가 한 다이로 집계하고
+        /// DataLogSaver 가 실제 구동과 동일한 완결 행(vision_YYYYMMDD.csv)을 남긴다.
+        /// 좌표가 없으면(파인더 등) 시각 기반 합성. SimEmitChipUid=false 면 빈 값(로그/추적 생략).
+        /// </summary>
+        private string ResolveChipUid(int ix, int iy)
         {
             try
             {
                 var cfg = VisionConfigStore.Current;
                 if (cfg == null || !cfg.SimEmitChipUid) return string.Empty;
+                if (ix != int.MinValue && iy != int.MinValue)
+                {
+                    int pass = _lastWaferPass < 0 ? 0 : _lastWaferPass;
+                    return "SIM-W" + pass + "-X" + ix + "-Y" + iy;   // 다이 단위 고정 → 검사기 간 집계 가능
+                }
                 return "SIM-" + Name + "-" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff");
             }
             catch { return string.Empty; }
@@ -290,6 +311,43 @@ namespace QMC.Vision.Sequencing
             foreach (var e in ordered)
                 if (e != null) list.Add(new[] { e.DieMapX, e.DieMapY });
             return list;
+        }
+
+        /// <summary>
+        /// 픽업 순서 한 바퀴(웨이퍼)를 다 돌고 다음 바퀴로 넘어가면 새 웨이퍼로 보고 해당 모드의
+        /// 결과 스토어(맵/차트)를 초기화한다. 첫 진입은 초기화 없이 패스 번호만 기록.
+        /// </summary>
+        private void MaybeClearForNewWafer(int seq)
+        {
+            try
+            {
+                var order = EnsurePickupOrder();
+                int count = order != null ? order.Count : 0;
+                if (count <= 0) return;
+                int pass = (seq - 1) / count;
+                if (pass == _lastWaferPass) return;
+                bool newWafer = _lastWaferPass >= 0 && pass > _lastWaferPass;   // 첫 진입(-1)은 초기화만
+                _lastWaferPass = pass;
+                if (!newWafer) return;
+                string mode = StoreModeKey();
+                if (mode == null) return;
+                QMC.Vision.Core.InspectionResultStore.Clear(mode);
+                Context.LogPublic("[SEQ] " + Name + " 새 웨이퍼 시작 — " + mode + " 맵/차트 초기화");
+            }
+            catch { /* 초기화 실패는 시퀀스 진행에 영향 주지 않도록 흡수 */ }
+        }
+
+        /// <summary>이 도구의 검사 모드 → 결과 스토어 키(Bottom/Side/Bin). 검사 도구가 아니면 null.</summary>
+        private string StoreModeKey()
+        {
+            switch (Kind)
+            {
+                case SequenceModuleKind.BottomInspection: return QMC.Vision.Core.InspectionResultStore.Bottom;
+                case SequenceModuleKind.TopSideVision:
+                case SequenceModuleKind.BottomSideVision: return QMC.Vision.Core.InspectionResultStore.Side;
+                case SequenceModuleKind.BinVision:        return QMC.Vision.Core.InspectionResultStore.Bin;
+                default:                                  return null;
+            }
         }
 
         /// <summary>실행 실패 여부 — "fail:" 또는 "ERR" 시작(대문자 "FAIL;"=검사 NG 는 제외).</summary>

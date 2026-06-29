@@ -361,6 +361,30 @@ namespace QMC.Vision.Cameras.Mil
             }
         }
 
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet(플래시)에 영구 저장하고 부팅 기본 셋으로 지정.
+        /// MVS의 UserSet 저장과 동일 개념(GenICam UserSetControl). UserSetSelector→UserSetSave→UserSetDefault.</summary>
+        public override bool SaveToCameraUserSet(string userSet, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!IsOpen || IsNull(_dig)) { error = "카메라가 열려 있지 않습니다."; return false; }
+                if (IsGrabbing) { error = "Live/Grabbing 중에는 UserSet 저장 불가 — 정지 후 시도하세요."; return false; }
+                if (string.IsNullOrEmpty(userSet)) userSet = "UserSet1";
+
+                TryFeatureS("UserSetSelector", userSet);
+                MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, "UserSetSave", MIL.M_DEFAULT, MIL.M_NULL);
+                TryFeatureS("UserSetDefault", userSet);   // 부팅 시 이 셋 로드(미지원이면 조용히 무시)
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[MilCamera] SaveToCameraUserSet 실패: " + ex.Message);
+                return false;
+            }
+        }
+
         private void TryFeatureD(string feature, double val)
         {
             if (IsNull(_dig)) return;

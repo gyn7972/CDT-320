@@ -354,6 +354,34 @@ namespace QMC.Vision.Ui.Controls
             }
         }
 
+        /// <summary>현재 모드(Bottom/Side/Bin)의 검사 결과를 CSV 로 수동 저장(작업화면용 빠른 내보내기).
+        /// 정식 다이별 데이터로그는 DataLogSaver(vision_YYYYMMDD.csv)가 자동 기록한다.</summary>
+        private void OnExportCsvClick(object sender, EventArgs e)
+        {
+            try
+            {
+                string mode = StoreKeyOf(Mode);
+                using (var dlg = new SaveFileDialog
+                {
+                    Filter = "검사결과 CSV (*.csv)|*.csv",
+                    FileName = mode + "_results_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv"
+                })
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    bool ok = InspectionResultCsv.Save(mode, dlg.FileName);
+                    MessageBox.Show(ok ? "결과 CSV를 저장했습니다.\n" + dlg.FileName
+                                       : "저장할 결과가 없습니다(검사 데이터 없음).",
+                        "결과 CSV", MessageBoxButtons.OK,
+                        ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("결과 CSV 저장에 실패했습니다.\n" + ex.Message, "결과 CSV",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         /// <summary>상/하한 형태로 정규화 방식 자동 선택: 하한&gt;0 양측 밴드, 아니면 0~상한, 둘 다 없으면 상대 편차.</summary>
         private static double[,] NormAuto(double[,] raw, double lo, double up)
         {

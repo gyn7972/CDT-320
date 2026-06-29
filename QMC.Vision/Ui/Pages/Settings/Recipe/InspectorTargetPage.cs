@@ -736,28 +736,64 @@ namespace QMC.Vision.Ui.Pages
                 || s.IndexOf("Rear",   System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        /// <summary>측면 차트 전용 상/하한 1쌍 — 앞쪽=차트1(Front), 뒤쪽=차트2(Back). 자기 인덱스에만 push.</summary>
+        // ── 차트 리밋을 '기준값 + 리밋 ±' 로 표현 ──
+        // 기준값 = (상한+하한)/2, 리밋± = (상한-하한)/2. 편집 시 상한=기준+리밋 / 하한=기준-리밋 으로 역산.
+        // 저장 필드(Chart1/2 Lower/UpperLimit)는 그대로 두므로 기존 레시피와 완전 호환.
+        private double GetChartTarget(int chart)
+        {
+            if (Rec == null) return 0;
+            return chart == 2 ? (Rec.Chart2UpperLimit + Rec.Chart2LowerLimit) / 2.0
+                              : (Rec.Chart1UpperLimit + Rec.Chart1LowerLimit) / 2.0;
+        }
+
+        private double GetChartTol(int chart)
+        {
+            if (Rec == null) return 0;
+            return chart == 2 ? (Rec.Chart2UpperLimit - Rec.Chart2LowerLimit) / 2.0
+                              : (Rec.Chart1UpperLimit - Rec.Chart1LowerLimit) / 2.0;
+        }
+
+        private void SetChartTarget(int chart, double target)
+        {
+            if (Rec == null) return;
+            double tol = GetChartTol(chart);
+            if (chart == 2) { Rec.Chart2UpperLimit = target + tol; Rec.Chart2LowerLimit = target - tol; }
+            else            { Rec.Chart1UpperLimit = target + tol; Rec.Chart1LowerLimit = target - tol; }
+            PushChartLimits();
+        }
+
+        private void SetChartTol(int chart, double tol)
+        {
+            if (Rec == null) return;
+            if (tol < 0) tol = -tol;   // ± 는 절대값(음수 무의미)
+            double target = GetChartTarget(chart);
+            if (chart == 2) { Rec.Chart2UpperLimit = target + tol; Rec.Chart2LowerLimit = target - tol; }
+            else            { Rec.Chart1UpperLimit = target + tol; Rec.Chart1LowerLimit = target - tol; }
+            PushChartLimits();
+        }
+
+        /// <summary>측면 차트 전용 기준값+리밋± 1쌍 — 앞쪽=차트1(Front), 뒤쪽=차트2(Back). 자기 인덱스에만 push.</summary>
         private void AddSideChartLimit(System.Collections.Generic.List<ParameterGridItem> items)
         {
             if (IsBackSideModule())
             {
-                items.Add(ParameterGridItem.Double("Back Graph Lower", "mm", ParameterGridScope.Recipe, () => Rec?.Chart2LowerLimit ?? 0, v => { if (Rec != null) Rec.Chart2LowerLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Back Graph Upper", "mm", ParameterGridScope.Recipe, () => Rec?.Chart2UpperLimit ?? 0, v => { if (Rec != null) Rec.Chart2UpperLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Back 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
+                items.Add(ParameterGridItem.Double("Back 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
             }
             else
             {
-                items.Add(ParameterGridItem.Double("Front Graph Lower", "mm", ParameterGridScope.Recipe, () => Rec?.Chart1LowerLimit ?? 0, v => { if (Rec != null) Rec.Chart1LowerLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Front Graph Upper", "mm", ParameterGridScope.Recipe, () => Rec?.Chart1UpperLimit ?? 0, v => { if (Rec != null) Rec.Chart1UpperLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Front 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
+                items.Add(ParameterGridItem.Double("Front 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
             }
         }
 
-        /// <summary>차트 전용 상/하한 4칸(차트1 하/상, 차트2 하/상)을 그리드에 추가 — 모듈별 두 그래프 라벨.</summary>
+        /// <summary>차트 전용 기준값+리밋± 4칸(차트1 기준/±, 차트2 기준/±)을 그리드에 추가 — 모듈별 두 그래프 라벨.</summary>
         private void AddChartLimitItems(System.Collections.Generic.List<ParameterGridItem> items, string g1, string g2)
         {
-            items.Add(ParameterGridItem.Double(g1 + " Graph Lower", "mm", ParameterGridScope.Recipe, () => Rec?.Chart1LowerLimit ?? 0, v => { if (Rec != null) Rec.Chart1LowerLimit = v; PushChartLimits(); }));
-            items.Add(ParameterGridItem.Double(g1 + " Graph Upper", "mm", ParameterGridScope.Recipe, () => Rec?.Chart1UpperLimit ?? 0, v => { if (Rec != null) Rec.Chart1UpperLimit = v; PushChartLimits(); }));
-            items.Add(ParameterGridItem.Double(g2 + " Graph Lower", "mm", ParameterGridScope.Recipe, () => Rec?.Chart2LowerLimit ?? 0, v => { if (Rec != null) Rec.Chart2LowerLimit = v; PushChartLimits(); }));
-            items.Add(ParameterGridItem.Double(g2 + " Graph Upper", "mm", ParameterGridScope.Recipe, () => Rec?.Chart2UpperLimit ?? 0, v => { if (Rec != null) Rec.Chart2UpperLimit = v; PushChartLimits(); }));
+            items.Add(ParameterGridItem.Double(g1 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
+            items.Add(ParameterGridItem.Double(g1 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
+            items.Add(ParameterGridItem.Double(g2 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
+            items.Add(ParameterGridItem.Double(g2 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
         }
 
         /// <summary>검사 결과 표시 전체 초기화 — 카메라 오버레이(검출/판정/결과라인) + 결과 그리드 + PASS/FAIL 패널.

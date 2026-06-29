@@ -303,6 +303,45 @@ namespace QMC.Vision.DieMaps
             }
         }
 
+        /// <summary>CSV 저장(핸들러 DieMapGenerator.SaveCsv 동일 포맷 — 헤더 섹션 + 엔트리 표).</summary>
+        public static bool SaveCsv(DieMap map, string path)
+        {
+            if (map == null || string.IsNullOrEmpty(path))
+                return false;
+            try
+            {
+                Normalize(map);
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                using (var sw = new StreamWriter(path, false, new System.Text.UTF8Encoding(false)))
+                {
+                    sw.WriteLine("FrameObjId," + map.FrameObjId);
+                    sw.WriteLine("DieMapX," + map.DieMapX);
+                    sw.WriteLine("DieMapY," + map.DieMapY);
+                    sw.WriteLine("PitchX," + map.PitchX.ToString(ci));
+                    sw.WriteLine("PitchY," + map.PitchY.ToString(ci));
+                    sw.WriteLine("OriginX," + map.OriginX.ToString(ci));
+                    sw.WriteLine("OriginY," + map.OriginY.ToString(ci));
+                    sw.WriteLine("CreatedAt," + map.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"));
+                    sw.WriteLine();
+                    sw.WriteLine("Index,SequenceNo,DieMapX,DieMapY,IsTarget,Result,BinCode,X,Y,DieUid");
+                    foreach (var e in map.Entries)
+                    {
+                        if (e == null) continue;
+                        sw.WriteLine(string.Join(",",
+                            e.Index, e.SequenceNo, e.DieMapX, e.DieMapY, e.IsTarget, e.Result,
+                            e.BinCode, e.PosX.ToString(ci), e.PosY.ToString(ci), e.DieUid));
+                    }
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         /// <summary>JSON 직렬화 로드(실패 시 null).</summary>
         public static DieMap LoadJson(string path)
         {

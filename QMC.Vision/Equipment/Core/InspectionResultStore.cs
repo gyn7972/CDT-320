@@ -72,8 +72,27 @@ namespace QMC.Vision.Core
                 {
                     list = new List<Item>(); _history[it.Mode] = list;
                 }
-                list.Add(it);
-                if (list.Count > MaxHistory) list.RemoveRange(0, list.Count - MaxHistory);
+                // 시퀀스/핸들러 구동 결과(picker 1~4)는 다이(IndexX/IndexY[,Channel]) 단위로 중복 제거 —
+                // 멈춤→재개나 재검사로 같은 다이가 다시 들어오면 누적하지 않고 제자리 갱신(맵/차트 중복·깨짐 방지).
+                int replaceIdx = -1;
+                if (it.Picker >= 1 && it.Picker <= 4)
+                {
+                    for (int i = list.Count - 1; i >= 0; i--)
+                    {
+                        var e = list[i];
+                        if (e != null && e.IndexX == it.IndexX && e.IndexY == it.IndexY && e.Channel == it.Channel)
+                        { replaceIdx = i; break; }
+                    }
+                }
+                if (replaceIdx >= 0)
+                {
+                    list[replaceIdx] = it;   // 제자리 갱신(차트 X축 위치/순서 보존)
+                }
+                else
+                {
+                    list.Add(it);
+                    if (list.Count > MaxHistory) list.RemoveRange(0, list.Count - MaxHistory);
+                }
 
                 if (it.Picker >= 1 && it.Picker <= 4)
                 {

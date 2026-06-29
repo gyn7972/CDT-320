@@ -106,6 +106,7 @@
     <Compile Include="Equipment\Core\ResourceMonitor.cs" />
     <Compile Include="Equipment\Core\ModuleResultStore.cs" />
     <Compile Include="Equipment\Core\InspectionResultStore.cs" />
+    <Compile Include="Equipment\Core\InspectionResultCsv.cs" />
     <Compile Include="Equipment\Core\InspectionOverlayStore.cs" />
     <Compile Include="Equipment\Core\InspectionOverlayRenderer.cs" />
     <Compile Include="Equipment\Core\ChartLimitStore.cs" />
