@@ -253,7 +253,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Fail("VISION-CAMERA-CAL-BOTTOM-FIND-STEP-EX", "BottomInspection", "Bottom Reticle Mark 측정 Step 예외 발생: " + ex.Message);
+                return Fail("VISION-CAMERA-CAL-BOTTOM-FIND-STEP-EX", VisionModuleNames.BottomInspection, "Bottom Reticle Mark 측정 Step 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -271,7 +271,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 VisionReticleMeasurement measurement = await FindReticleWithRetryAsync(VisionCameraCalibrationTarget.Bottom, ct).ConfigureAwait(false);
                 if (measurement == null || !measurement.Valid)
-                    return Fail("VISION-CAMERA-CAL-BOTTOM-FIND", "BottomInspection", "Bottom 카메라 Reticle Mark 찾기 실패.");
+                    return Fail("VISION-CAMERA-CAL-BOTTOM-FIND", VisionModuleNames.BottomInspection, "Bottom 카메라 Reticle Mark 찾기 실패.");
 
                 CalibrationData.BottomReticle = measurement;
                 CalibrationData.Valid = false;
@@ -290,7 +290,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Fail("VISION-CAMERA-CAL-BOTTOM-EX", "BottomInspection", "Bottom 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
+                return Fail("VISION-CAMERA-CAL-BOTTOM-EX", VisionModuleNames.BottomInspection, "Bottom 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -308,7 +308,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 VisionReticleMeasurement measurement = await FindReticleWithRetryAsync(VisionCameraCalibrationTarget.Input, ct).ConfigureAwait(false);
                 if (measurement == null || !measurement.Valid)
-                    return Fail("VISION-CAMERA-CAL-INPUT-FIND", "WaferVision", "Input 카메라 Reticle Mark 찾기 실패.");
+                    return Fail("VISION-CAMERA-CAL-INPUT-FIND", VisionModuleNames.Wafer, "Input 카메라 Reticle Mark 찾기 실패.");
 
                 CalibrationData.InputReticle = measurement;
                 CalibrationData.Valid = false;
@@ -326,7 +326,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Fail("VISION-CAMERA-CAL-INPUT-EX", "WaferVision", "Input 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
+                return Fail("VISION-CAMERA-CAL-INPUT-EX", VisionModuleNames.Wafer, "Input 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -385,7 +385,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 VisionReticleMeasurement measurement = await FindReticleWithRetryAsync(VisionCameraCalibrationTarget.Output, ct).ConfigureAwait(false);
                 if (measurement == null || !measurement.Valid)
-                    return Fail("VISION-CAMERA-CAL-OUTPUT-FIND", "BinVision", "Output 카메라 Reticle Mark 찾기 실패.");
+                    return Fail("VISION-CAMERA-CAL-OUTPUT-FIND", VisionModuleNames.Bin, "Output 카메라 Reticle Mark 찾기 실패.");
 
                 CalibrationData.OutputReticle = measurement;
                 CalibrationData.Valid = false;
@@ -403,7 +403,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Fail("VISION-CAMERA-CAL-OUTPUT-EX", "BinVision", "Output 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
+                return Fail("VISION-CAMERA-CAL-OUTPUT-EX", VisionModuleNames.Bin, "Output 카메라 Reticle Mark 찾기 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1202,13 +1202,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             switch (target)
             {
                 case VisionCameraCalibrationTarget.Bottom:
-                    return AutoVisionChannel.Bottom;
+                    return AutoVisionChannel.BottomInspection;
                 case VisionCameraCalibrationTarget.Input:
                     return AutoVisionChannel.Wafer;
                 case VisionCameraCalibrationTarget.Output:
                     return AutoVisionChannel.Bin;
                 default:
-                    return AutoVisionChannel.Bottom;
+                    return AutoVisionChannel.BottomInspection;
             }
         }
 
@@ -1217,11 +1217,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             switch (target)
             {
                 case VisionCameraCalibrationTarget.Bottom:
-                    return "BottomInspection";
+                    return VisionModuleNames.BottomInspection;
                 case VisionCameraCalibrationTarget.Input:
-                    return "WaferVision";
+                    return VisionModuleNames.Wafer;
                 case VisionCameraCalibrationTarget.Output:
-                    return "BinVision";
+                    return VisionModuleNames.Bin;
                 default:
                     return "UnknownVision";
             }

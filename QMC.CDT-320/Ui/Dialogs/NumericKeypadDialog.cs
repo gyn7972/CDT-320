@@ -72,7 +72,7 @@ namespace QMC.CDT_320.Ui.Controls
                 int start = txtValue.SelectionStart;
                 int length = txtValue.SelectionLength;
                 string remaining = current.Remove(start, length);
-                if (remaining.Contains("."))
+                if (CurrentNumberTokenHasDot(remaining, start))
                     return;
 
                 if (string.IsNullOrEmpty(remaining))
@@ -160,13 +160,59 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private void OperatorButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var button = sender as Button;
+                if (button == null)
+                    return;
+
+                string op = Convert.ToString(button.Tag, CultureInfo.InvariantCulture);
+                if (string.IsNullOrWhiteSpace(op))
+                    op = button.Text;
+
+                InsertOperator(op);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Operator failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void EqualsButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                double result;
+                if (!TryEvaluateExpression(txtValue.Text, out result))
+                {
+                    QMC.Common.MessageDialog.Show(this, "Calculation expression is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtValue.Focus();
+                    txtValue.SelectAll();
+                    return;
+                }
+
+                SetValue(result);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Equals failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void OkButton_Click(object sender, EventArgs e)
         {
             try
             {
                 double value;
-                if (!double.TryParse(txtValue.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
-                    !double.TryParse(txtValue.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                if (!TryEvaluateExpression(txtValue.Text, out value))
                 {
                     QMC.Common.MessageDialog.Show(this, "Number value is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     txtValue.Focus();
@@ -174,6 +220,7 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
                 }
 
+                SetValue(value);
                 DialogResult = DialogResult.OK;
                 Close();
             }
@@ -217,37 +264,208 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private void IncrementButton_Click(object sender, EventArgs e)
+        private void InsertOperator(string op)
         {
-            try
+            op = NormalizeOperator(op);
+            if (string.IsNullOrWhiteSpace(op))
+                return;
+
+            string text = txtValue.Text ?? string.Empty;
+            int start = txtValue.SelectionStart;
+            int length = txtValue.SelectionLength;
+
+            if (length > 0)
             {
-                var button = sender as Button;
-                if (button == null)
-                    return;
+                ReplaceSelection(op);
+                return;
+            }
 
-                double step;
-                if (!double.TryParse(Convert.ToString(button.Tag), NumberStyles.Float, CultureInfo.InvariantCulture, out step))
-                    return;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                if (op == "-")
+                    ReplaceSelection(op);
+                return;
+            }
 
-                double current = 0.0;
-                string text = txtValue.Text ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(text) &&
-                    !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out current) &&
-                    !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out current))
+            int previousIndex = start - 1;
+            while (previousIndex >= 0 && char.IsWhiteSpace(text[previousIndex]))
+                previousIndex--;
+
+            if (previousIndex >= 0 && IsOperatorChar(text[previousIndex]))
+            {
+                if (op == "-" && text[previousIndex] != '-')
                 {
-                    current = 0.0;
+                    ReplaceSelection(op);
+                    return;
                 }
 
-                txtValue.Text = (current + step).ToString("0.######", CultureInfo.InvariantCulture);
-                txtValue.SelectionStart = txtValue.Text.Length;
+                txtValue.Text = text.Remove(previousIndex, 1).Insert(previousIndex, op);
+                txtValue.SelectionStart = previousIndex + op.Length;
                 txtValue.SelectionLength = 0;
+                return;
             }
-            catch (Exception ex)
+
+            ReplaceSelection(op);
+        }
+
+        private static bool TryEvaluateExpression(string expression, out double value)
+        {
+            value = 0.0;
+            try
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Increment failed: " + ex.Message);
+                var parser = new ExpressionParser(expression);
+                return parser.TryParse(out value);
+            }
+            catch
+            {
+                value = 0.0;
+                return false;
             }
             finally
             {
+            }
+        }
+
+        private void SetValue(double value)
+        {
+            txtValue.Text = value.ToString("0.######", CultureInfo.InvariantCulture);
+            txtValue.SelectionStart = txtValue.Text.Length;
+            txtValue.SelectionLength = 0;
+        }
+
+        private static string NormalizeOperator(string op)
+        {
+            op = (op ?? string.Empty).Trim();
+            if (op == "×") return "*";
+            if (op == "÷") return "/";
+            if (op == "+" || op == "-" || op == "*" || op == "/") return op;
+            return string.Empty;
+        }
+
+        private static bool IsOperatorChar(char ch)
+        {
+            return ch == '+' || ch == '-' || ch == '*' || ch == '/' || ch == '×' || ch == '÷';
+        }
+
+        private static bool CurrentNumberTokenHasDot(string text, int cursor)
+        {
+            int left = Math.Min(Math.Max(cursor - 1, -1), text.Length - 1);
+            while (left >= 0 && !IsOperatorChar(text[left]))
+                left--;
+
+            int right = Math.Min(Math.Max(cursor, 0), text.Length);
+            while (right < text.Length && !IsOperatorChar(text[right]))
+                right++;
+
+            for (int i = left + 1; i < right; i++)
+            {
+                if (text[i] == '.')
+                    return true;
+            }
+
+            return false;
+        }
+
+        private sealed class ExpressionParser
+        {
+            private readonly string _text;
+            private int _index;
+
+            public ExpressionParser(string text)
+            {
+                _text = (text ?? string.Empty).Replace('×', '*').Replace('÷', '/');
+            }
+
+            public bool TryParse(out double value)
+            {
+                value = ParseExpression();
+                SkipWhiteSpace();
+                return _index >= _text.Length && !double.IsNaN(value) && !double.IsInfinity(value);
+            }
+
+            private double ParseExpression()
+            {
+                double value = ParseTerm();
+                while (true)
+                {
+                    SkipWhiteSpace();
+                    if (Match('+'))
+                        value += ParseTerm();
+                    else if (Match('-'))
+                        value -= ParseTerm();
+                    else
+                        return value;
+                }
+            }
+
+            private double ParseTerm()
+            {
+                double value = ParseFactor();
+                while (true)
+                {
+                    SkipWhiteSpace();
+                    if (Match('*'))
+                        value *= ParseFactor();
+                    else if (Match('/'))
+                    {
+                        double divisor = ParseFactor();
+                        if (Math.Abs(divisor) < double.Epsilon)
+                            throw new DivideByZeroException();
+                        value /= divisor;
+                    }
+                    else
+                        return value;
+                }
+            }
+
+            private double ParseFactor()
+            {
+                SkipWhiteSpace();
+                if (Match('+'))
+                    return ParseFactor();
+                if (Match('-'))
+                    return -ParseFactor();
+
+                return ParseNumber();
+            }
+
+            private double ParseNumber()
+            {
+                SkipWhiteSpace();
+                int start = _index;
+                bool hasDigit = false;
+
+                while (_index < _text.Length && (char.IsDigit(_text[_index]) || _text[_index] == '.'))
+                {
+                    if (char.IsDigit(_text[_index]))
+                        hasDigit = true;
+                    _index++;
+                }
+
+                if (!hasDigit)
+                    throw new FormatException("Number expected.");
+
+                string token = _text.Substring(start, _index - start);
+                double value;
+                if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                    throw new FormatException("Invalid number.");
+
+                return value;
+            }
+
+            private bool Match(char ch)
+            {
+                if (_index >= _text.Length || _text[_index] != ch)
+                    return false;
+
+                _index++;
+                return true;
+            }
+
+            private void SkipWhiteSpace()
+            {
+                while (_index < _text.Length && char.IsWhiteSpace(_text[_index]))
+                    _index++;
             }
         }
 
@@ -256,8 +474,10 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 int start = txtValue.SelectionStart;
-                txtValue.Text = txtValue.Text.Remove(start, txtValue.SelectionLength).Insert(start, text ?? string.Empty);
-                txtValue.SelectionStart = start + (text ?? string.Empty).Length;
+                string value = text ?? string.Empty;
+                txtValue.Text = txtValue.Text.Remove(start, txtValue.SelectionLength).Insert(start, value);
+                txtValue.SelectionStart = start + value.Length;
+                txtValue.SelectionLength = 0;
             }
             catch
             {

@@ -35,7 +35,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string title = string.IsNullOrWhiteSpace(displayName) ? "VISION" : displayName;
                 Text = "VISION 동작 테스트 - " + title + (client != null ? "  (port " + client.Port + ")" : string.Empty);
 
-                int viewerPort = client != null ? VisionViewerPorts.ResolveByModule(client.ModuleName) : 0;
+                int viewerPort = 0;
+                AutoVisionChannel channel;
+                if (client != null && VisionModuleNames.TryResolveByModule(client.ModuleName, out channel))
+                    viewerPort = VisionViewerPorts.ResolveByChannel(channel);
                 _viewer.Configure(client != null ? client.Host : null, viewerPort, title + " 이미지", client);
             }
             catch (Exception ex)

@@ -496,7 +496,7 @@ namespace QMC.CDT320.VisionComm
         {
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
             var result = new VisionCameraSettingResult();
-            result.Success = response.IsAck && response.IsResult("OK");
+            result.Success = response.IsAck && IsCameraSettingOk(response);
             result.Raw = line;
 
             response.TryGetDoubleAny(out var width, "w", "width", "imageW", "imageWidth", "image_width", "imgW");
@@ -512,6 +512,27 @@ namespace QMC.CDT320.VisionComm
                 result.Success = false;
 
             return result;
+        }
+
+        private static bool IsCameraSettingOk(VisionProtocolResponse response)
+        {
+            if (response == null || !response.IsAck)
+                return false;
+
+            if (response.IsResult("OK"))
+                return true;
+
+            if (response.Fields == null)
+                return false;
+
+            for (int i = 0; i < response.Fields.Length; i++)
+            {
+                string field = response.Fields[i];
+                if (string.Equals(field, "OK", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
     }
 

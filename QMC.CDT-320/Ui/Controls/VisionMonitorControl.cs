@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -57,21 +57,21 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 return new[]
                 {
-                    new ModulePort("WaferVision", VisionViewerPorts.DefaultWafer),
-                    new ModulePort("BottomInspection", VisionViewerPorts.DefaultBottomInspection),
-                    new ModulePort("BinVision", VisionViewerPorts.DefaultBin),
-                    new ModulePort("TopSideVision", VisionViewerPorts.DefaultTopSide),
-                    new ModulePort("BottomSideVision", VisionViewerPorts.DefaultBottomSide),
+                    new ModulePort(VisionModuleNames.Wafer, VisionViewerPorts.DefaultWafer),
+                    new ModulePort(VisionModuleNames.BottomInspection, VisionViewerPorts.DefaultBottomInspection),
+                    new ModulePort(VisionModuleNames.Bin, VisionViewerPorts.DefaultBin),
+                    new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.DefaultTopSide),
+                    new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.DefaultBottomSide),
                 };
             }
 
             return new[]
             {
-                new ModulePort("WaferVision", VisionViewerPorts.Wafer),
-                new ModulePort("BottomInspection", VisionViewerPorts.BottomInspection),
-                new ModulePort("BinVision", VisionViewerPorts.Bin),
-                new ModulePort("TopSideVision", VisionViewerPorts.TopSide),
-                new ModulePort("BottomSideVision", VisionViewerPorts.BottomSide),
+                new ModulePort(VisionModuleNames.Wafer, VisionViewerPorts.Wafer),
+                new ModulePort(VisionModuleNames.BottomInspection, VisionViewerPorts.BottomInspection),
+                new ModulePort(VisionModuleNames.Bin, VisionViewerPorts.Bin),
+                new ModulePort(VisionModuleNames.FrontSide, VisionViewerPorts.TopSide),
+                new ModulePort(VisionModuleNames.RearSide, VisionViewerPorts.BottomSide),
             };
         }
 

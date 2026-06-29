@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +12,7 @@ namespace QMC.CDT320.VisionComm
             {
                 case AutoVisionChannel.Wafer:
                     return VisionHub.Wafer;
-                case AutoVisionChannel.Bottom:
+                case AutoVisionChannel.BottomInspection:
                     return VisionHub.Inspection;
                 case AutoVisionChannel.Bin:
                     return VisionHub.Bin;

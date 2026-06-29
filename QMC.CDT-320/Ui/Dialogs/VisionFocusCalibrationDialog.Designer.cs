@@ -1,0 +1,517 @@
+﻿namespace QMC.CDT_320.Ui.Dialogs
+{
+    partial class VisionFocusCalibrationDialog
+    {
+        private System.ComponentModel.IContainer components = null;
+        private System.Windows.Forms.TableLayoutPanel rootLayout;
+        private System.Windows.Forms.Label lblHeader;
+        private System.Windows.Forms.TableLayoutPanel mainLayout;
+        private System.Windows.Forms.GroupBox groupSetting;
+        private System.Windows.Forms.DataGridView gridSettings;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colSettingName;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colSettingValue;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colSettingUnit;
+        private System.Windows.Forms.GroupBox groupResult;
+        private System.Windows.Forms.DataGridView gridSamples;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colNo;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colPosition;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colScore;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colResult;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colRaw;
+        private System.Windows.Forms.GroupBox groupSaved;
+        private System.Windows.Forms.DataGridView gridSaved;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colItem;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colDefaultPos;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colBestPos;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colBestScore;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colValid;
+        private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.TableLayoutPanel buttonPanel;
+        private System.Windows.Forms.Button btnCheck;
+        private System.Windows.Forms.Button btnUseCurrent;
+        private System.Windows.Forms.Button btnMoveDefault;
+        private System.Windows.Forms.Button btnStartScan;
+        private System.Windows.Forms.Button btnReload;
+        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.Button btnClose;
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+                components.Dispose();
+            base.Dispose(disposing);
+        }
+
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblHeader = new System.Windows.Forms.Label();
+            this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.groupSetting = new System.Windows.Forms.GroupBox();
+            this.gridSettings = new System.Windows.Forms.DataGridView();
+            this.colSettingName = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colSettingValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colSettingUnit = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.groupResult = new System.Windows.Forms.GroupBox();
+            this.gridSamples = new System.Windows.Forms.DataGridView();
+            this.colNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colPosition = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colResult = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colRaw = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.groupSaved = new System.Windows.Forms.GroupBox();
+            this.gridSaved = new System.Windows.Forms.DataGridView();
+            this.colItem = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colDefaultPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colBestPos = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colBestScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colValid = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.lblStatus = new System.Windows.Forms.Label();
+            this.buttonPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.btnCheck = new System.Windows.Forms.Button();
+            this.btnUseCurrent = new System.Windows.Forms.Button();
+            this.btnMoveDefault = new System.Windows.Forms.Button();
+            this.btnStartScan = new System.Windows.Forms.Button();
+            this.btnReload = new System.Windows.Forms.Button();
+            this.btnSave = new System.Windows.Forms.Button();
+            this.btnClose = new System.Windows.Forms.Button();
+            this.rootLayout.SuspendLayout();
+            this.mainLayout.SuspendLayout();
+            this.groupSetting.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).BeginInit();
+            this.groupResult.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridSamples)).BeginInit();
+            this.groupSaved.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridSaved)).BeginInit();
+            this.buttonPanel.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // rootLayout
+            // 
+            this.rootLayout.ColumnCount = 1;
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
+            this.rootLayout.Controls.Add(this.mainLayout, 0, 1);
+            this.rootLayout.Controls.Add(this.lblStatus, 0, 2);
+            this.rootLayout.Controls.Add(this.buttonPanel, 0, 3);
+            this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rootLayout.Location = new System.Drawing.Point(0, 0);
+            this.rootLayout.Name = "rootLayout";
+            this.rootLayout.RowCount = 4;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
+            this.rootLayout.Size = new System.Drawing.Size(1188, 700);
+            this.rootLayout.TabIndex = 0;
+            // 
+            // lblHeader
+            // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(225, 120, 0);
+            this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeader.Font = new System.Drawing.Font("Malgun Gothic", 15F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
+            this.lblHeader.Location = new System.Drawing.Point(0, 0);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
+            this.lblHeader.Name = "lblHeader";
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(1188, 52);
+            this.lblHeader.TabIndex = 0;
+            this.lblHeader.Text = "VISION FOCUS CAL";
+            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // mainLayout
+            // 
+            this.mainLayout.ColumnCount = 2;
+            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 390F));
+            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.mainLayout.Controls.Add(this.groupSetting, 0, 0);
+            this.mainLayout.Controls.Add(this.groupResult, 1, 0);
+            this.mainLayout.Controls.Add(this.groupSaved, 0, 1);
+            this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mainLayout.Location = new System.Drawing.Point(12, 64);
+            this.mainLayout.Margin = new System.Windows.Forms.Padding(12);
+            this.mainLayout.Name = "mainLayout";
+            this.mainLayout.RowCount = 2;
+            this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 64F));
+            this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 36F));
+            this.mainLayout.Size = new System.Drawing.Size(1164, 516);
+            this.mainLayout.TabIndex = 1;
+            // 
+            // groupSetting
+            // 
+            this.groupSetting.Controls.Add(this.gridSettings);
+            this.groupSetting.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.groupSetting.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.groupSetting.Location = new System.Drawing.Point(0, 0);
+            this.groupSetting.Margin = new System.Windows.Forms.Padding(0, 0, 10, 8);
+            this.groupSetting.Name = "groupSetting";
+            this.groupSetting.Size = new System.Drawing.Size(380, 322);
+            this.groupSetting.TabIndex = 0;
+            this.groupSetting.TabStop = false;
+            this.groupSetting.Text = "SCAN SETTING";
+            // 
+            // gridSettings
+            // 
+            this.gridSettings.AllowUserToAddRows = false;
+            this.gridSettings.AllowUserToDeleteRows = false;
+            this.gridSettings.AllowUserToOrderColumns = false;
+            this.gridSettings.AllowUserToResizeColumns = true;
+            this.gridSettings.AllowUserToResizeRows = false;
+            this.gridSettings.BackgroundColor = System.Drawing.Color.White;
+            this.gridSettings.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.gridSettings.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridSettings.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colSettingName,
+            this.colSettingValue,
+            this.colSettingUnit});
+            this.gridSettings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridSettings.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
+            this.gridSettings.Location = new System.Drawing.Point(3, 21);
+            this.gridSettings.MultiSelect = false;
+            this.gridSettings.Name = "gridSettings";
+            this.gridSettings.RowHeadersVisible = false;
+            this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridSettings.ShowCellToolTips = true;
+            this.gridSettings.Size = new System.Drawing.Size(374, 298);
+            this.gridSettings.TabIndex = 0;
+            this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
+            this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
+            this.gridSettings.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellValueChanged);
+            this.gridSettings.CurrentCellDirtyStateChanged += new System.EventHandler(this.gridSettings_CurrentCellDirtyStateChanged);
+            // 
+            // colSettingName
+            // 
+            this.colSettingName.HeaderText = "PARAMETER";
+            this.colSettingName.Name = "colSettingName";
+            this.colSettingName.ReadOnly = true;
+            this.colSettingName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colSettingName.Width = 178;
+            // 
+            // colSettingValue
+            // 
+            this.colSettingValue.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colSettingValue.HeaderText = "VALUE";
+            this.colSettingValue.Name = "colSettingValue";
+            this.colSettingValue.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colSettingUnit
+            // 
+            this.colSettingUnit.HeaderText = "UNIT";
+            this.colSettingUnit.Name = "colSettingUnit";
+            this.colSettingUnit.ReadOnly = true;
+            this.colSettingUnit.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colSettingUnit.Width = 55;
+            // 
+            // groupResult
+            // 
+            this.groupResult.Controls.Add(this.gridSamples);
+            this.groupResult.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.groupResult.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.groupResult.Location = new System.Drawing.Point(390, 0);
+            this.groupResult.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.groupResult.Name = "groupResult";
+            this.mainLayout.SetRowSpan(this.groupResult, 2);
+            this.groupResult.Size = new System.Drawing.Size(774, 516);
+            this.groupResult.TabIndex = 1;
+            this.groupResult.TabStop = false;
+            this.groupResult.Text = "SCAN SAMPLE";
+            // 
+            // gridSamples
+            // 
+            this.gridSamples.AllowUserToAddRows = false;
+            this.gridSamples.AllowUserToDeleteRows = false;
+            this.gridSamples.AllowUserToOrderColumns = false;
+            this.gridSamples.AllowUserToResizeColumns = true;
+            this.gridSamples.AllowUserToResizeRows = false;
+            this.gridSamples.BackgroundColor = System.Drawing.Color.White;
+            this.gridSamples.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridSamples.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colNo,
+            this.colPosition,
+            this.colScore,
+            this.colResult,
+            this.colRaw});
+            this.gridSamples.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridSamples.Location = new System.Drawing.Point(3, 21);
+            this.gridSamples.MultiSelect = false;
+            this.gridSamples.Name = "gridSamples";
+            this.gridSamples.ReadOnly = true;
+            this.gridSamples.RowHeadersVisible = false;
+            this.gridSamples.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridSamples.Size = new System.Drawing.Size(768, 492);
+            this.gridSamples.TabIndex = 0;
+            // 
+            // colNo
+            // 
+            this.colNo.HeaderText = "NO";
+            this.colNo.Name = "colNo";
+            this.colNo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colNo.Width = 56;
+            // 
+            // colPosition
+            // 
+            this.colPosition.HeaderText = "POSITION";
+            this.colPosition.Name = "colPosition";
+            this.colPosition.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colPosition.Width = 120;
+            // 
+            // colScore
+            // 
+            this.colScore.HeaderText = "SCORE";
+            this.colScore.Name = "colScore";
+            this.colScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colScore.Width = 110;
+            // 
+            // colResult
+            // 
+            this.colResult.HeaderText = "RESULT";
+            this.colResult.Name = "colResult";
+            this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colResult.Width = 90;
+            // 
+            // colRaw
+            // 
+            this.colRaw.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colRaw.HeaderText = "RAW";
+            this.colRaw.Name = "colRaw";
+            this.colRaw.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // groupSaved
+            // 
+            this.groupSaved.Controls.Add(this.gridSaved);
+            this.groupSaved.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.groupSaved.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.groupSaved.Location = new System.Drawing.Point(0, 330);
+            this.groupSaved.Margin = new System.Windows.Forms.Padding(0, 0, 10, 0);
+            this.groupSaved.Name = "groupSaved";
+            this.groupSaved.Size = new System.Drawing.Size(380, 186);
+            this.groupSaved.TabIndex = 2;
+            this.groupSaved.TabStop = false;
+            this.groupSaved.Text = "SAVED RESULT";
+            // 
+            // gridSaved
+            // 
+            this.gridSaved.AllowUserToAddRows = false;
+            this.gridSaved.AllowUserToDeleteRows = false;
+            this.gridSaved.AllowUserToOrderColumns = false;
+            this.gridSaved.AllowUserToResizeColumns = true;
+            this.gridSaved.AllowUserToResizeRows = false;
+            this.gridSaved.BackgroundColor = System.Drawing.Color.White;
+            this.gridSaved.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.gridSaved.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colItem,
+            this.colDefaultPos,
+            this.colBestPos,
+            this.colBestScore,
+            this.colValid});
+            this.gridSaved.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridSaved.Location = new System.Drawing.Point(3, 21);
+            this.gridSaved.MultiSelect = false;
+            this.gridSaved.Name = "gridSaved";
+            this.gridSaved.ReadOnly = true;
+            this.gridSaved.RowHeadersVisible = false;
+            this.gridSaved.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.gridSaved.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridSaved.Size = new System.Drawing.Size(374, 162);
+            this.gridSaved.TabIndex = 0;
+            // 
+            // colItem
+            // 
+            this.colItem.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colItem.FillWeight = 36F;
+            this.colItem.HeaderText = "ITEM";
+            this.colItem.Name = "colItem";
+            this.colItem.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colDefaultPos
+            // 
+            this.colDefaultPos.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colDefaultPos.FillWeight = 22F;
+            this.colDefaultPos.HeaderText = "DEFAULT";
+            this.colDefaultPos.Name = "colDefaultPos";
+            this.colDefaultPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colBestPos
+            // 
+            this.colBestPos.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colBestPos.FillWeight = 22F;
+            this.colBestPos.HeaderText = "BEST";
+            this.colBestPos.Name = "colBestPos";
+            this.colBestPos.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colBestScore
+            // 
+            this.colBestScore.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colBestScore.FillWeight = 16F;
+            this.colBestScore.HeaderText = "SCORE";
+            this.colBestScore.Name = "colBestScore";
+            this.colBestScore.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colValid
+            // 
+            this.colValid.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colValid.FillWeight = 10F;
+            this.colValid.HeaderText = "OK";
+            this.colValid.Name = "colValid";
+            this.colValid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // lblStatus
+            // 
+            this.lblStatus.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStatus.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStatus.Location = new System.Drawing.Point(12, 580);
+            this.lblStatus.Margin = new System.Windows.Forms.Padding(12, 0, 12, 8);
+            this.lblStatus.Name = "lblStatus";
+            this.lblStatus.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
+            this.lblStatus.Size = new System.Drawing.Size(1164, 38);
+            this.lblStatus.TabIndex = 2;
+            this.lblStatus.Text = "대기 중입니다.";
+            // 
+            // buttonPanel
+            // 
+            this.buttonPanel.ColumnCount = 7;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
+            this.buttonPanel.Controls.Add(this.btnUseCurrent, 1, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveDefault, 2, 0);
+            this.buttonPanel.Controls.Add(this.btnStartScan, 3, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 4, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 6, 0);
+            this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.buttonPanel.Location = new System.Drawing.Point(12, 630);
+            this.buttonPanel.Margin = new System.Windows.Forms.Padding(12);
+            this.buttonPanel.Name = "buttonPanel";
+            this.buttonPanel.RowCount = 1;
+            this.buttonPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.buttonPanel.Size = new System.Drawing.Size(1164, 58);
+            this.buttonPanel.TabIndex = 3;
+            // 
+            // btnCheck
+            // 
+            this.btnCheck.BackColor = System.Drawing.Color.White;
+            this.btnCheck.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnCheck.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnCheck.FlatAppearance.BorderSize = 0;
+            this.btnCheck.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCheck.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnCheck.ForeColor = System.Drawing.Color.Black;
+            this.btnCheck.Margin = new System.Windows.Forms.Padding(6);
+            this.btnCheck.Text = "CHECK READY";
+            this.btnCheck.UseVisualStyleBackColor = false;
+            this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
+            // 
+            // btnUseCurrent
+            // 
+            this.btnUseCurrent.BackColor = System.Drawing.Color.White;
+            this.btnUseCurrent.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUseCurrent.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnUseCurrent.FlatAppearance.BorderSize = 0;
+            this.btnUseCurrent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnUseCurrent.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnUseCurrent.ForeColor = System.Drawing.Color.Black;
+            this.btnUseCurrent.Margin = new System.Windows.Forms.Padding(6);
+            this.btnUseCurrent.Text = "USE CURRENT";
+            this.btnUseCurrent.UseVisualStyleBackColor = false;
+            this.btnUseCurrent.Click += new System.EventHandler(this.btnUseCurrent_Click);
+            // 
+            // btnMoveDefault
+            // 
+            this.btnMoveDefault.BackColor = System.Drawing.Color.White;
+            this.btnMoveDefault.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMoveDefault.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMoveDefault.FlatAppearance.BorderSize = 0;
+            this.btnMoveDefault.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMoveDefault.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnMoveDefault.ForeColor = System.Drawing.Color.Black;
+            this.btnMoveDefault.Margin = new System.Windows.Forms.Padding(6);
+            this.btnMoveDefault.Text = "MOVE DEFAULT";
+            this.btnMoveDefault.UseVisualStyleBackColor = false;
+            this.btnMoveDefault.Click += new System.EventHandler(this.btnMoveDefault_Click);
+            // 
+            // btnStartScan
+            // 
+            this.btnStartScan.BackColor = System.Drawing.Color.FromArgb(225, 120, 0);
+            this.btnStartScan.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStartScan.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStartScan.FlatAppearance.BorderSize = 0;
+            this.btnStartScan.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnStartScan.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnStartScan.ForeColor = System.Drawing.Color.White;
+            this.btnStartScan.Margin = new System.Windows.Forms.Padding(6);
+            this.btnStartScan.Text = "START SCAN";
+            this.btnStartScan.UseVisualStyleBackColor = false;
+            this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
+            // 
+            // btnReload
+            // 
+            this.btnReload.BackColor = System.Drawing.Color.White;
+            this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnReload.FlatAppearance.BorderSize = 0;
+            this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnReload.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnReload.ForeColor = System.Drawing.Color.Black;
+            this.btnReload.Margin = new System.Windows.Forms.Padding(6);
+            this.btnReload.Text = "RELOAD";
+            this.btnReload.UseVisualStyleBackColor = false;
+            this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
+            // 
+            // btnSave
+            // 
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(64, 64, 64);
+            this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSave.FlatAppearance.BorderSize = 0;
+            this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSave.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSave.ForeColor = System.Drawing.Color.White;
+            this.btnSave.Margin = new System.Windows.Forms.Padding(6);
+            this.btnSave.Text = "SAVE";
+            this.btnSave.UseVisualStyleBackColor = false;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            // 
+            // btnClose
+            // 
+            this.btnClose.BackColor = System.Drawing.Color.White;
+            this.btnClose.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnClose.FlatAppearance.BorderSize = 0;
+            this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClose.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
+            this.btnClose.ForeColor = System.Drawing.Color.Black;
+            this.btnClose.Margin = new System.Windows.Forms.Padding(6);
+            this.btnClose.Text = "CLOSE";
+            this.btnClose.UseVisualStyleBackColor = false;
+            this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            // 
+            // VisionFocusCalibrationDialog
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(1188, 700);
+            this.Controls.Add(this.rootLayout);
+            this.Name = "VisionFocusCalibrationDialog";
+            this.Text = "Vision Focus Calibration";
+            this.rootLayout.ResumeLayout(false);
+            this.mainLayout.ResumeLayout(false);
+            this.groupSetting.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridSettings)).EndInit();
+            this.groupResult.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridSamples)).EndInit();
+            this.groupSaved.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.gridSaved)).EndInit();
+            this.buttonPanel.ResumeLayout(false);
+            this.ResumeLayout(false);
+        }
+    }
+}

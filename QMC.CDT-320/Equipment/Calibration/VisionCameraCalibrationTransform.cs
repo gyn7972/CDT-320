@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.CDT320.VisionComm;
 
 namespace QMC.CDT320.Calibration
@@ -33,7 +33,7 @@ namespace QMC.CDT320.Calibration
         public static BottomVisionOffset ToBottomVisionOffset(int pickerNo, MatchResultDto match, double scoreThreshold)
         {
             VisionCameraCalibrationData data = ResolveCalibrationData();
-            VisionCameraPixelCalibration camera = ResolveCamera(data, AutoVisionChannel.Bottom);
+            VisionCameraPixelCalibration camera = ResolveCamera(data, AutoVisionChannel.BottomInspection);
             ApplyImageSize(camera, match);
 
             bool ok = match != null && match.Success && match.Score >= scoreThreshold;
@@ -77,7 +77,7 @@ namespace QMC.CDT320.Calibration
             {
                 case AutoVisionChannel.Wafer:
                     return data.InputCamera;
-                case AutoVisionChannel.Bottom:
+                case AutoVisionChannel.BottomInspection:
                     return data.BottomCamera;
                 case AutoVisionChannel.Bin:
                     return data.OutputCamera;
