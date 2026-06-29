@@ -3,12 +3,12 @@ using System.Collections.Generic;
 namespace QMC.Vision.Sequencing
 {
     /// <summary>
-    /// TopSideVision 시퀀스 — CDT-310 흐름: GRAB → 다이 외곽 → 표면 검사 → 치핑 검사 → 포커스.
+    /// FrontSideVision 시퀀스 — CDT-310 흐름: GRAB → 다이 외곽 → 표면 검사 → 치핑 검사 → 포커스.
     /// </summary>
-    public sealed class TopSideVisionSequence : ModuleSequenceBase
+    public sealed class FrontSideVisionSequence : ModuleSequenceBase
     {
-        public TopSideVisionSequence(VisionSequenceContext ctx)
-            : base(ctx, SequenceModuleKind.TopSideVision, ctx?.Machine?.TopSideVision, "TopSideVision")
+        public FrontSideVisionSequence(VisionSequenceContext ctx)
+            : base(ctx, SequenceModuleKind.FrontSideVision, ctx?.Machine?.FrontSideVision, "FrontSideVision")
         {
         }
 

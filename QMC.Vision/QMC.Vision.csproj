@@ -71,8 +71,8 @@
     <Compile Include="Sequencing\WaferVision\WaferVisionSequence.cs" />
     <Compile Include="Sequencing\BinVision\BinVisionSequence.cs" />
     <Compile Include="Sequencing\BottomInspection\BottomInspectionSequence.cs" />
-    <Compile Include="Sequencing\TopSideVision\TopSideVisionSequence.cs" />
-    <Compile Include="Sequencing\BottomSideVision\BottomSideVisionSequence.cs" />
+    <Compile Include="Sequencing\FrontSideVision\FrontSideVisionSequence.cs" />
+    <Compile Include="Sequencing\RearSideVision\RearSideVisionSequence.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -158,8 +158,8 @@
     <Compile Include="Equipment\Unit\WaferVisionModule.cs" />
     <Compile Include="Equipment\Unit\BinVisionModule.cs" />
     <Compile Include="Equipment\Unit\BottomInspectionModule.cs" />
-    <Compile Include="Equipment\Unit\TopSideVisionModule.cs" />
-    <Compile Include="Equipment\Unit\BottomSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\FrontSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\RearSideVisionModule.cs" />
     <Compile Include="Equipment\Comm\VisionTcpServer.cs" />
     <Compile Include="Equipment\Comm\MainCommServer.cs" />
     <Compile Include="Equipment\Comm\VisionCommLog.cs" />

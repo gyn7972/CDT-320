@@ -15,15 +15,15 @@ namespace QMC.Vision.Ui.Pages
         private Button           _btnReady;      // READY — RUN 왼쪽, 핸들러 VISION 사용 승인
         private TableLayoutPanel _cardsHost;   // 5열 — 모듈 상태카드(런타임 채움, 비클릭)
 
-        // 모니터링: 상단(메인 Bottom 크게 + Wafer/Bin) / 하단(TopSide·BottomSide 전체폭 가로 띠, 위아래 스택)
+        // 모니터링: 상단(메인 Bottom 크게 + Wafer/Bin) / 하단(FrontSide·RearSide 전체폭 가로 띠, 위아래 스택)
         private TableLayoutPanel _monitor;
         private CameraView       _camBig;       // 메인(Bottom Inspection)
         private TableLayoutPanel _smallHost;    // Wafer/Bin (상단 우측 2열)
-        private TableLayoutPanel _sideHost;     // TopSide/BottomSide (하단 전체폭, 위아래 스택)
+        private TableLayoutPanel _sideHost;     // FrontSide/RearSide (하단 전체폭, 위아래 스택)
         private CameraView       _camS1;        // Wafer
         private CameraView       _camS2;        // Bin
-        private CameraView       _camS3;        // TopSide (4000×700 가로 띠)
-        private CameraView       _camS4;        // BottomSide (4000×700 가로 띠)
+        private CameraView       _camS3;        // FrontSide (4000×700 가로 띠)
+        private CameraView       _camS4;        // RearSide (4000×700 가로 띠)
 
         protected override void Dispose(bool disposing)
         {
@@ -254,7 +254,7 @@ namespace QMC.Vision.Ui.Pages
             this._camS3.BackColor = System.Drawing.Color.DimGray;
             this._camS3.Dock = System.Windows.Forms.DockStyle.Fill;
             this._camS3.InfoForeColor = System.Drawing.Color.LightGreen;
-            this._camS3.InfoText = "TOP SIDE\r\nGrab 대기";
+            this._camS3.InfoText = "FRONT SIDE\r\nGrab 대기";
             this._camS3.Location = new System.Drawing.Point(3, 3);
             this._camS3.MmPerPixelX = 0D;
             this._camS3.MmPerPixelY = 0D;
@@ -271,7 +271,7 @@ namespace QMC.Vision.Ui.Pages
             this._camS4.BackColor = System.Drawing.Color.DimGray;
             this._camS4.Dock = System.Windows.Forms.DockStyle.Fill;
             this._camS4.InfoForeColor = System.Drawing.Color.LightGreen;
-            this._camS4.InfoText = "BOTTOM SIDE\r\nGrab 대기";
+            this._camS4.InfoText = "REAR SIDE\r\nGrab 대기";
             this._camS4.Location = new System.Drawing.Point(3, 223);
             this._camS4.MmPerPixelX = 0D;
             this._camS4.MmPerPixelY = 0D;

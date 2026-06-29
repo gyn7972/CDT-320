@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace QMC.CDT320.VisionComm
 {
@@ -12,8 +12,8 @@ namespace QMC.CDT320.VisionComm
         public const string BottomInspection = "BottomInspection";
         public const string Bin = "BinVision";
         public const string Main = "MainComm";
-        public const string FrontSide = "TopSideVision";
-        public const string RearSide = "BottomSideVision";
+        public const string FrontSide = "FrontSideVision";
+        public const string RearSide = "RearSideVision";
 
         public static string ResolveByChannel(AutoVisionChannel channel)
         {
@@ -57,11 +57,9 @@ namespace QMC.CDT320.VisionComm
                 case "Main":
                     return AutoVisionChannel.Main;
                 case FrontSide:
-                case "TopSide":
                 case "FrontSide":
                     return AutoVisionChannel.FrontSide;
                 case RearSide:
-                case "BottomSide":
                 case "RearSide":
                     return AutoVisionChannel.RearSide;
                 default:
@@ -101,12 +99,10 @@ namespace QMC.CDT320.VisionComm
                     channel = AutoVisionChannel.Main;
                     return true;
                 case FrontSide:
-                case "TopSide":
                 case "FrontSide":
                     channel = AutoVisionChannel.FrontSide;
                     return true;
                 case RearSide:
-                case "BottomSide":
                 case "RearSide":
                     channel = AutoVisionChannel.RearSide;
                     return true;
