@@ -251,6 +251,7 @@ namespace QMC.Vision
             this.btnPopout.TabIndex = 5;
             this.btnPopout.Text = "작업화면 복제 (보조 모니터)";
             this.btnPopout.UseVisualStyleBackColor = false;
+            this.btnPopout.Visible = false;   // 작업화면 복제(보조 모니터) 버튼 제거(숨김)
             this.btnPopout.Click += new System.EventHandler(this.btnPopout_Click);
             //
             // pnlStatusBar

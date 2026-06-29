@@ -648,6 +648,46 @@ namespace QMC.Vision.Ui.Pages
                     _cam.Invalidate();
                 }
 
+                // 작업뷰(운영 모니터/픽커 뷰어) 동기화 — 수동 INSPECT 도 라이브와 동일하게 결과/오버레이 스토어에 기록.
+                try
+                {
+                    string mode = _inspector is QMC.Vision.Core.SideAppearanceInspector ? QMC.Vision.Core.InspectionResultStore.Side
+                                : _inspector is QMC.Vision.Core.PlacementGapInspector ? QMC.Vision.Core.InspectionResultStore.Bin
+                                : QMC.Vision.Core.InspectionResultStore.Bottom;
+                    System.Drawing.PointF[] box = (_inspector as QMC.Vision.Core.PlacementGapInspector)?.LastCorners
+                                              ?? (_inspector as QMC.Vision.Core.BottomInspector)?.LastCorners
+                                              ?? (_inspector as QMC.Vision.Core.SideAppearanceInspector)?.LastCorners;
+                    QMC.Vision.Core.InspectionResultStore.Record(
+                        QMC.Vision.Core.InspectionResultStore.FromResult(mode, 1, 0, 0, 0, r, img, box));
+
+                    string mod = _module?.Name;
+                    if (!string.IsNullOrEmpty(mod))
+                    {
+                        if (_inspector is QMC.Vision.Core.SideAppearanceInspector si && si.IsChippingRole && si.LastValid)
+                            QMC.Vision.Core.InspectionOverlayStore.Record(mod, new QMC.Vision.Core.InspectionOverlayStore.Geom
+                            {
+                                Kind = QMC.Vision.Core.InspectionOverlayStore.OverlayKind.Side,
+                                TopProfile = si.LastTopProfile, BotProfile = si.LastBotProfile,
+                                RefCorners = si.LastCorners, Defects = r.Defects, Pass = si.LastPass
+                            });
+                        else if (_inspector is QMC.Vision.Core.BottomInspector bi && bi.LastValid)
+                            QMC.Vision.Core.InspectionOverlayStore.Record(mod, new QMC.Vision.Core.InspectionOverlayStore.Geom
+                            {
+                                Kind = QMC.Vision.Core.InspectionOverlayStore.OverlayKind.Bottom,
+                                Corners = bi.LastCorners, Defects = r.Defects, Pass = r.IsPass
+                            });
+                        else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg && pg.LastValid)
+                            QMC.Vision.Core.InspectionOverlayStore.Record(mod, new QMC.Vision.Core.InspectionOverlayStore.Geom
+                            {
+                                Kind = QMC.Vision.Core.InspectionOverlayStore.OverlayKind.Bin,
+                                Corners = pg.LastCorners, Defects = r.Defects, Pass = r.IsPass
+                            });
+                        else
+                            QMC.Vision.Core.InspectionOverlayStore.Clear(mod);
+                    }
+                }
+                catch { }
+
                 // 상세값 = 기존 결과라인 스타일(우측 하단 정렬·동일 색·폰트) 그대로. 항목 + 결함별 NG 라인.
                 try
                 {
