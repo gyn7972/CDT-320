@@ -102,11 +102,13 @@ namespace QMC.Vision.Ui.Controls
                 for (int i = 0; i < vals.Length; i++) s.Points.AddXY(i + 1, vals[i]);
             chart.Series.Add(s);
 
-            bool hasLim = upper > lower && !(upper == 0 && lower == 0);
-            if (hasLim) { AddLimit(area, upper); AddLimit(area, lower); }
+            // 상/하한 리밋선은 항상 표시(요청) — 유한값이면 0이거나 상·하한이 같아도 반드시 그린다.
+            bool hasU = !double.IsNaN(upper) && !double.IsInfinity(upper);
+            bool hasL = !double.IsNaN(lower) && !double.IsInfinity(lower);
+            if (hasU) AddLimit(area, upper);
+            if (hasL) AddLimit(area, lower);
 
-            // Y 범위 = 실데이터 + (있으면)상/하한 모두 포함하도록 오토스케일.
-            // (고정 상/하한만 쓰면 데이터가 한참 벗어난 경우 라인이 화면 밖으로 사라짐 — 실제 증상 수정.)
+            // Y 범위 = 실데이터 + 상/하한 모두 포함하도록 오토스케일(리밋선이 항상 화면 안에 보이게).
             double dMin = double.NaN, dMax = double.NaN;
             if (vals != null)
                 foreach (double v in vals)
@@ -115,9 +117,17 @@ namespace QMC.Vision.Ui.Controls
                     if (double.IsNaN(dMin) || v < dMin) dMin = v;
                     if (double.IsNaN(dMax) || v > dMax) dMax = v;
                 }
-            double yMin, yMax;
-            if (double.IsNaN(dMin)) { yMin = hasLim ? lower : 0; yMax = hasLim ? upper : 1; }
-            else { yMin = dMin; yMax = dMax; if (hasLim) { yMin = Math.Min(yMin, lower); yMax = Math.Max(yMax, upper); } }
+            double yMin = double.NaN, yMax = double.NaN;
+            void Include(double x)
+            {
+                if (double.IsNaN(x) || double.IsInfinity(x)) return;
+                if (double.IsNaN(yMin) || x < yMin) yMin = x;
+                if (double.IsNaN(yMax) || x > yMax) yMax = x;
+            }
+            Include(dMin); Include(dMax);
+            if (hasU) Include(upper);
+            if (hasL) Include(lower);
+            if (double.IsNaN(yMin)) { yMin = 0; yMax = 1; }   // 데이터·리밋 모두 없음
             if (yMax <= yMin) yMax = yMin + Math.Max(0.001, Math.Abs(yMin) * 0.01);
             double margin = Math.Max(0.0001, (yMax - yMin) * 0.1);
             area.AxisY.Minimum = yMin - margin;

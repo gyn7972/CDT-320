@@ -167,38 +167,59 @@ namespace QMC.Vision.Comm
                 Send(stream, $"ERR|{mod}|{cmd}|not running (press RUN)");
                 return;
             }
+
             try
             {
-                string resp;
+                string resp = string.Empty;
+                string echo = ResolveEchoToken(cmd, parts);
+
+                bool isAsyncStart = (cmd == "MATCHASYNC" || cmd == "INSPECTASYNC");
+
+                // ── 1단계: 비동기 시작은 STARTED 를 "그랩 전에" 먼저 ──
                 switch (cmd)
                 {
-                    case "PING":       resp = "OK";              break;
+                    case "MATCHASYNC":
+                    case "INSPECTASYNC":
+                        resp = "STARTED";
+                        break;   // 1차 ACK(STARTED) 후 백그라운드 알고리즘/검사
+                }
+
+                if (isAsyncStart)                       // ★ 비동기 시작만 여기서 ACK
+                    Send(stream, string.IsNullOrEmpty(echo)
+                        ? $"ACK|{mod}|{cmd}|{resp}"
+                        : $"ACK|{mod}|{cmd}|{echo}|{resp}");
+
+                // ── 2단계: 실제 작업 (비동기=백그라운드 그랩+알고리즘 시작 / 동기·폴링=결과 계산) ──
+                switch (cmd)
+                {
+                    case "PING": resp = "OK"; break;
                     case "EXPOSE":
-                    case "GRAB":       resp = DoExpose(m);       break;
-                    case "MATCH":      resp = DoMatch(m, parts); break;
-                    case "MATCHASYNC": resp = DoMatchAsync(m, parts); break;   // 1차 ACK(STARTED) 후 백그라운드 알고리즘
-                    case "MATCHRESULT":resp = DoMatchResult(m, parts); break;  // 폴링: 0/1;data/ERR
-                    case "INSPECT":    resp = DoInspect(m, parts); break;
-                    case "INSPECTASYNC": resp = DoInspectAsync(m, parts); break;   // 1차 ACK(STARTED) 후 백그라운드 검사
-                    case "INSPECTRESULT":resp = DoInspectResult(m, parts); break;  // 폴링: 0/1;PASS|FAIL../ERR
-                    case "TRAIN":      resp = DoTrain(m, parts); break;
-                    case "SCALE":      resp = DoScale(m, parts); break;
-                    case "ROT_CENTER": resp = DoRotCenter(m);    break;
-                    case "DISTORT":    resp = DoDistort(m);      break;
+                    case "GRAB": resp = DoExpose(m); break;
+                    case "MATCH": resp = DoMatch(m, parts); break;
+                    case "MATCHASYNC": resp = DoMatchAsync(m, parts); break;   // 그랩+알고리즘 백그라운드 (ACK는 1단계에서 이미 보냄)
+                    case "MATCHRESULT": resp = DoMatchResult(m, parts); break;  // 폴링: 0/1;data/ERR
+                    case "INSPECT": resp = DoInspect(m, parts); break;
+                    case "INSPECTASYNC": resp = DoInspectAsync(m, parts); break;   // 그랩+검사 백그라운드 (ACK는 1단계)
+                    case "INSPECTRESULT": resp = DoInspectResult(m, parts); break;  // 폴링: 0/1;PASS|FAIL../ERR
+                    case "TRAIN": resp = DoTrain(m, parts); break;
+                    case "SCALE": resp = DoScale(m, parts); break;
+                    case "ROT_CENTER": resp = DoRotCenter(m); break;
+                    case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "CAM_SETTING":resp = DoCameraSetting(m); break;
                     case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
                     case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
-                    default:           resp = null;              break;
+                    default: resp = null; break;
                 }
-                if (resp == null) Send(stream, $"ERR|{mod}|{cmd}|unknown command");
-                else
+
+                // ── 3단계: 동기/폴링 결과 ACK (비동기 시작은 1단계에서 이미 보냈으므로 제외) ──
+                if (!isAsyncStart)                       // ★ 빠져 있던 부분
                 {
                     string target = ResolveEchoToken(cmd, parts);
                     Send(stream, string.IsNullOrEmpty(target)
                         ? $"ACK|{mod}|{cmd}|{resp}"
-                        : $"ACK|{mod}|{cmd}|{target}|{resp}");
+                        : $"ACK|{mod}|{cmd}|{echo}|{resp}");
                 }
             }
             catch (Exception ex)

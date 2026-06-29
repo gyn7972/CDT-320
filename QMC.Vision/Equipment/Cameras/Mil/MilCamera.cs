@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Threading;
 using Matrox.MatroxImagingLibrary;
@@ -125,43 +126,28 @@ namespace QMC.Vision.Cameras.Mil
             IsOpen = false;
             RaiseConnectionChanged(CameraConnectionEvent.Closed);
         }
-        static bool bIsStart = false;
         // ── Grab ──────────────────────────────────────
         public override GrabResult Grab(int timeoutMs = 3000)
         {
-
-
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
             // 재진입 가드 — 이전 그랩이 아직 진행 중이면 겹치지 않게 즉시 반환(연속 클릭/다중 경로 겹침 멈춤 방지).
             if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1)
                 return GrabResult.Fail("grab busy", Info.Id);
             try
             {
-                Log.Write("Grab", "pre");
-               
-                if(bIsStart == false)
-                {
-                    bIsStart = true;
-                    try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
-                    // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
-                    try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
-                    // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 AcquisitionStart 가 깨끗이 재-arm
-                    //   (직전 SingleFrame 획득이 정리되기 전에 연속으로 누르면 다음 MdigGrab 이 멈추는 문제 방지).
-                    if (!_continuousOn)
-                        try { MIL.MdigHalt(_dig); } catch { }
-                    EnsureSingleFrameGrabMode();
-                }
-                
+                try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
+                // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
+                try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
+                // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm.
+                if (!_continuousOn)
+                    try { MIL.MdigHalt(_dig); } catch { }
+                EnsureSingleFrameGrabMode();
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
-                //   (Intellicam 의 Single Frame + Acquisition Start 1회와 동일. 노출 Timed, 스트로브는 DCF.)
-               
-                Log.Write("Grab","Start");
-                // MIL.MdigGrab(_dig, _buf);            // AcquisitionStart → 1프레임(+ 스트로브). 동기라 완료까지 블록.
-                MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, "AcquisitionStart", MIL.M_DEFAULT, MIL.M_NULL);                                    //TriggerSoftware();
+                //   (노출 Timed, 스트로브는 DCF). 동기라 완료까지 블록한다.
+                MIL.MdigGrab(_dig, _buf);
 
-                Log.Write("Grab", "End");
-                var bmp = new Bitmap(100,100); //BufferToBitmap();
+                var bmp = BufferToBitmap();
                 if (bmp == null) return GrabResult.Fail("buffer→bitmap 실패", Info.Id);
                 return new GrabResult(bmp, 0, Info.Id);
             }
@@ -343,22 +329,78 @@ namespace QMC.Vision.Cameras.Mil
             TryFeatureI("OffsetY", roi.Y);
         }
 
+        /// <summary>MVS 카탈로그 노드 → MIL GenICam feature 적용(MVS의 SetParameterTyped 와 동일 역할).
+        /// MIL/카메라가 해당 feature 를 지원하지 않으면 조용히 무시된다(TryFeature* 가 catch).</summary>
+        public override void SetParameterTyped(string node, CameraParamKind kind, string value)
+        {
+            if (!IsOpen || IsNull(_dig) || string.IsNullOrEmpty(node)) return;
+            try
+            {
+                switch (kind)
+                {
+                    case CameraParamKind.Float:
+                        if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var f)) TryFeatureD(node, f);
+                        break;
+                    case CameraParamKind.Int:
+                        if (long.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var i)) TryFeatureI(node, i);
+                        break;
+                    case CameraParamKind.Bool:
+                        TryFeatureS(node, (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase) || value.Equals("on", StringComparison.OrdinalIgnoreCase)) ? "True" : "False");
+                        break;
+                    case CameraParamKind.Enum:
+                        if (!string.IsNullOrEmpty(value)) TryFeatureS(node, value);
+                        break;
+                    case CameraParamKind.Command:
+                        try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, node, MIL.M_DEFAULT, MIL.M_NULL); } catch { }
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MilCamera] SetParameterTyped({node},{kind}) 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>현재 카메라 값을 카메라 내부 UserSet(플래시)에 영구 저장하고 부팅 기본 셋으로 지정.
+        /// MVS의 UserSet 저장과 동일 개념(GenICam UserSetControl). UserSetSelector→UserSetSave→UserSetDefault.</summary>
+        public override bool SaveToCameraUserSet(string userSet, out string error)
+        {
+            error = null;
+            try
+            {
+                if (!IsOpen || IsNull(_dig)) { error = "카메라가 열려 있지 않습니다."; return false; }
+                if (IsGrabbing) { error = "Live/Grabbing 중에는 UserSet 저장 불가 — 정지 후 시도하세요."; return false; }
+                if (string.IsNullOrEmpty(userSet)) userSet = "UserSet1";
+
+                TryFeatureS("UserSetSelector", userSet);
+                MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, "UserSetSave", MIL.M_DEFAULT, MIL.M_NULL);
+                TryFeatureS("UserSetDefault", userSet);   // 부팅 시 이 셋 로드(미지원이면 조용히 무시)
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[MilCamera] SaveToCameraUserSet 실패: " + ex.Message);
+                return false;
+            }
+        }
+
         private void TryFeatureD(string feature, double val)
         {
             if (IsNull(_dig)) return;
-           // try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_DOUBLE, ref val); } catch { }
+            try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_DOUBLE, ref val); } catch { }
         }
 
         private void TryFeatureS(string feature, string val)
         {
             if (IsNull(_dig)) return;
-           // try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_STRING, val); } catch { }
+            try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_STRING, val); } catch { }
         }
 
         private void TryFeatureI(string feature, long val)
         {
             if (IsNull(_dig)) return;
-            //try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
+            try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
         }
 
         // ── Buffer → Bitmap (메모리 직접 변환 — 디스크 미경유) ──

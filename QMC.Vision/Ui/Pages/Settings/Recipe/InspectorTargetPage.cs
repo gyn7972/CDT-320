@@ -307,13 +307,16 @@ namespace QMC.Vision.Ui.Pages
             else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
             {
                 items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => pg.Threshold,     v => { pg.Threshold = v; }));
-                items.Add(ParameterGridItem.Double("Gap Lower", "px", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Upper", "px", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Offset","px", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
+                // Gap Lower/Upper·Offset 단위 = Pixel Size 가 0이면 px, >0이면 mm (아래 Pixel Size 로 단위 결정).
+                items.Add(ParameterGridItem.Double("Gap Lower", "px/mm", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Gap Upper", "px/mm", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
+                items.Add(ParameterGridItem.Double("Gap Offset","px/mm", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
                 items.Add(ParameterGridItem.Bool("Dark Die", ParameterGridScope.Recipe, () => pg.DarkDie, v => { pg.DarkDie = v; }));
                 items.Add(ParameterGridItem.Int("Edge Step", "px", ParameterGridScope.Recipe, () => pg.EdgeStep, v => { pg.EdgeStep = v; }));
                 items.Add(ParameterGridItem.Double("Band Trim", "", ParameterGridScope.Recipe, () => pg.BandTrim, v => { pg.BandTrim = v; }));
                 items.Add(ParameterGridItem.Double("Outlier Sigma", "", ParameterGridScope.Recipe, () => pg.OutlierSigma, v => { pg.OutlierSigma = v; }));
+                AddChartLimitItems(items, "Right gap", "Bottom gap");   // 차트 전용 상/하한(빨간선) — 판정과 별개
+                // (단위/스케일은 설정의 카메라 ScaleX/Y + GENERAL mm/px 토글이 결정 — 레시피 Pixel Size 제거)
             }
             else if (_inspector is QMC.Vision.Core.BottomInspector bi)
             {
@@ -335,8 +338,8 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Max Foreign Area", "px", ParameterGridScope.Recipe, () => bi.MaxForeignAreaFilterSize, v => { bi.MaxForeignAreaFilterSize = v; }));
                 items.Add(ParameterGridItem.Int   ("Link Distance", "px", ParameterGridScope.Recipe, () => bi.LinkDistance, v => { bi.LinkDistance = v; }));
                 items.Add(ParameterGridItem.Bool  ("Use Contamination", ParameterGridScope.Recipe, () => bi.UseContaminationInspection, v => { bi.UseContaminationInspection = v; }));
-                items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeWidthMm, v => { bi.PixelSizeWidthMm = v; }));
-                items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => bi.PixelSizeHeightMm, v => { bi.PixelSizeHeightMm = v; }));
+                AddChartLimitItems(items, "Width", "Height");   // 차트 전용 상/하한(빨간선) — 판정과 별개
+                // (단위/스케일은 설정의 카메라 ScaleX/Y + GENERAL mm/px 토글이 결정 — 레시피 Pixel Size 제거)
             }
             else if (_inspector is QMC.Vision.Core.SideAppearanceInspector si)
             {
@@ -352,7 +355,6 @@ namespace QMC.Vision.Ui.Pages
                     items.Add(ParameterGridItem.Int   ("Envelope Bin", "px", ParameterGridScope.Recipe, () => si.EnvelopeBinSize, v => { si.EnvelopeBinSize = v; }));
                     items.Add(ParameterGridItem.Double("Keep Quantile", "", ParameterGridScope.Recipe, () => si.KeepQuantile, v => { si.KeepQuantile = v; }));
                     items.Add(ParameterGridItem.Int   ("Edge Gap", "px", ParameterGridScope.Recipe, () => si.EdgeGap, v => { si.EdgeGap = v; }));
-                    items.Add(ParameterGridItem.Double("Pixel Size Y", "mm/px", ParameterGridScope.Recipe, () => si.PixelSizeHeightMm, v => { si.PixelSizeHeightMm = v; }));
                 }
                 if (si.IsSurfaceRole)
                 {
@@ -363,7 +365,8 @@ namespace QMC.Vision.Ui.Pages
                     items.Add(ParameterGridItem.Int("Max Foreign Area", "px", ParameterGridScope.Recipe, () => si.MaxForeignAreaFilterSize, v => { si.MaxForeignAreaFilterSize = v; }));
                     items.Add(ParameterGridItem.Int("Link Distance", "px", ParameterGridScope.Recipe, () => si.LinkDistance, v => { si.LinkDistance = v; }));
                 }
-                items.Add(ParameterGridItem.Double("Pixel Size X", "mm/px", ParameterGridScope.Recipe, () => si.PixelSizeWidthMm, v => { si.PixelSizeWidthMm = v; }));
+                AddSideChartLimit(items);   // 측면 차트 전용 상/하한 — 앞쪽=차트1(Front)/뒤쪽=차트2(Back)
+                // (단위/스케일은 설정의 카메라 ScaleX/Y + GENERAL mm/px 토글이 결정 — 레시피 Pixel Size 제거)
             }
             AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
@@ -489,7 +492,7 @@ namespace QMC.Vision.Ui.Pages
             cms.Items.Add("Image load", null, (s, e) => DoLoad());
             cms.Items.Add("Image save", null, (s, e) => DoSaveImage());
             cms.Items.Add(new ToolStripSeparator());
-            cms.Items.Add("Result overlay clear", null, (s, e) => { _cam.ClearDetectOverlay(); _cam.SetOverlay(_inspector?.InspectionRoi, null); });
+            cms.Items.Add("Result overlay clear", null, (s, e) => ClearInspectResult());
             cms.Items.Add(new ToolStripSeparator());
             cms.Items.Add("Image auto fit", null, (s, e) => _cam?.ZoomFit());
             cms.Items.Add("x2", null, (s, e) => _cam?.SetZoom(2));
@@ -618,6 +621,9 @@ namespace QMC.Vision.Ui.Pages
                 if (_inspector is QMC.Vision.Core.IStepImageProvider sp)
                     sp.CaptureDebug = dbg != null && dbg.DebugSaveEnabled;
 
+                // 카메라 ScaleX/Y(mm/px) 주입 — 수동 INSPECT 도 운영과 동일하게 mm 계산.
+                try { QMC.Vision.Core.UnitContext.ApplyScale(_inspector, _module?.ScaleX ?? 1.0, _module?.ScaleY ?? 1.0); } catch { }
+
                 var r = _inspector.Inspect(img);
                 _result.Rows.Clear();
                 if (r.Items != null)
@@ -695,26 +701,118 @@ namespace QMC.Vision.Ui.Pages
             return a;
         }
 
-        /// <summary>현재 검사기의 상/하한(Limit)을 운영뷰 차트 스토어로 즉시 송출 — 레시피에서 값 바꾸면 바로 빨간 점선 반영.</summary>
+        /// <summary>차트 전용 상/하한(InspectorAlgoRecipe.Chart*Limit)을 운영뷰 차트 스토어로 즉시 송출 —
+        /// NG 판정 스펙과 무관. 레시피에서 차트 Limit 바꾸면 바로 빨간 점선 반영.</summary>
         private void PushChartLimits()
         {
             try
             {
-                if (_inspector is QMC.Vision.Core.BottomInspector b)
+                if (!(_node?.Recipe is QMC.Vision.Modules.InspectorAlgoRecipe r)) return;
+                if (_inspector is QMC.Vision.Core.SideAppearanceInspector)
                 {
-                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 0, b.ChipUpperSpecLimit.Width,  b.ChipLowerSpecLimit.Width);
-                    QMC.Vision.Core.ChartLimitStore.Set("Bottom", 1, b.ChipUpperSpecLimit.Height, b.ChipLowerSpecLimit.Height);
+                    // 측면: 앞쪽(Top)→차트1(Front, Side[0]), 뒤쪽(Bottom)→차트2(Back, Side[1]) — 모듈별로 자기 인덱스에만 push.
+                    if (IsBackSideModule()) QMC.Vision.Core.ChartLimitStore.Set("Side", 1, r.Chart2UpperLimit, r.Chart2LowerLimit);
+                    else                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, r.Chart1UpperLimit, r.Chart1LowerLimit);
+                    return;
                 }
-                else if (_inspector is QMC.Vision.Core.SideAppearanceInspector s)
+                string cm = _inspector is QMC.Vision.Core.BottomInspector ? "Bottom"
+                          : _inspector is QMC.Vision.Core.PlacementGapInspector ? "Bin" : null;
+                if (cm == null) return;
+                QMC.Vision.Core.ChartLimitStore.Set(cm, 0, r.Chart1UpperLimit, r.Chart1LowerLimit);
+                QMC.Vision.Core.ChartLimitStore.Set(cm, 1, r.Chart2UpperLimit, r.Chart2LowerLimit);
+            }
+            catch { }
+        }
+
+        /// <summary>현재 검사기 노드의 레시피(차트 Limit 필드 보유)를 돌려준다.</summary>
+        private QMC.Vision.Modules.InspectorAlgoRecipe Rec => _node?.Recipe as QMC.Vision.Modules.InspectorAlgoRecipe;
+
+        /// <summary>측면 뒤쪽(Bottom/Back) 모듈인지 — 모듈명/검사기 Id 로 판정. 측면 차트 라우팅(Front=차트1/Back=차트2)용.</summary>
+        private bool IsBackSideModule()
+        {
+            string s = (_module?.Name ?? "") + " " + (_inspector?.Id ?? "");
+            return s.IndexOf("Bottom", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || s.IndexOf("Back",   System.StringComparison.OrdinalIgnoreCase) >= 0
+                || s.IndexOf("Rear",   System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // ── 차트 리밋을 '기준값 + 리밋 ±' 로 표현 ──
+        // 기준값 = (상한+하한)/2, 리밋± = (상한-하한)/2. 편집 시 상한=기준+리밋 / 하한=기준-리밋 으로 역산.
+        // 저장 필드(Chart1/2 Lower/UpperLimit)는 그대로 두므로 기존 레시피와 완전 호환.
+        private double GetChartTarget(int chart)
+        {
+            if (Rec == null) return 0;
+            return chart == 2 ? (Rec.Chart2UpperLimit + Rec.Chart2LowerLimit) / 2.0
+                              : (Rec.Chart1UpperLimit + Rec.Chart1LowerLimit) / 2.0;
+        }
+
+        private double GetChartTol(int chart)
+        {
+            if (Rec == null) return 0;
+            return chart == 2 ? (Rec.Chart2UpperLimit - Rec.Chart2LowerLimit) / 2.0
+                              : (Rec.Chart1UpperLimit - Rec.Chart1LowerLimit) / 2.0;
+        }
+
+        private void SetChartTarget(int chart, double target)
+        {
+            if (Rec == null) return;
+            double tol = GetChartTol(chart);
+            if (chart == 2) { Rec.Chart2UpperLimit = target + tol; Rec.Chart2LowerLimit = target - tol; }
+            else            { Rec.Chart1UpperLimit = target + tol; Rec.Chart1LowerLimit = target - tol; }
+            PushChartLimits();
+        }
+
+        private void SetChartTol(int chart, double tol)
+        {
+            if (Rec == null) return;
+            if (tol < 0) tol = -tol;   // ± 는 절대값(음수 무의미)
+            double target = GetChartTarget(chart);
+            if (chart == 2) { Rec.Chart2UpperLimit = target + tol; Rec.Chart2LowerLimit = target - tol; }
+            else            { Rec.Chart1UpperLimit = target + tol; Rec.Chart1LowerLimit = target - tol; }
+            PushChartLimits();
+        }
+
+        /// <summary>측면 차트 전용 기준값+리밋± 1쌍 — 앞쪽=차트1(Front), 뒤쪽=차트2(Back). 자기 인덱스에만 push.</summary>
+        private void AddSideChartLimit(System.Collections.Generic.List<ParameterGridItem> items)
+        {
+            if (IsBackSideModule())
+            {
+                items.Add(ParameterGridItem.Double("Back 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
+                items.Add(ParameterGridItem.Double("Back 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
+            }
+            else
+            {
+                items.Add(ParameterGridItem.Double("Front 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
+                items.Add(ParameterGridItem.Double("Front 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
+            }
+        }
+
+        /// <summary>차트 전용 기준값+리밋± 4칸(차트1 기준/±, 차트2 기준/±)을 그리드에 추가 — 모듈별 두 그래프 라벨.</summary>
+        private void AddChartLimitItems(System.Collections.Generic.List<ParameterGridItem> items, string g1, string g2)
+        {
+            items.Add(ParameterGridItem.Double(g1 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
+            items.Add(ParameterGridItem.Double(g1 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
+            items.Add(ParameterGridItem.Double(g2 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
+            items.Add(ParameterGridItem.Double(g2 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
+        }
+
+        /// <summary>검사 결과 표시 전체 초기화 — 카메라 오버레이(검출/판정/결과라인) + 결과 그리드 + PASS/FAIL 패널.
+        /// "Result overlay clear" 가 결과값까지 모두 지우도록(이전엔 검출 오버레이만 지움).</summary>
+        private void ClearInspectResult()
+        {
+            try
+            {
+                if (_cam != null)
                 {
-                    QMC.Vision.Core.ChartLimitStore.Set("Side", 0, s.ChippingUpperLimit, s.ChippingLowerLimit);
-                    QMC.Vision.Core.ChartLimitStore.Set("Side", 1, s.ChippingUpperLimit, s.ChippingLowerLimit);
+                    _cam.ClearDetectOverlay();          // 검출 박스/콜렛 오버레이
+                    _cam.ClearResultOverlay();          // 우상단 OK/NG + 우하단 결과라인
+                    _cam.CustomOverlayPaint = null;     // 검사기 전용 오버레이(다이박스/갭/프로파일)
+                    _cam.SetOverlay(_inspector?.InspectionRoi, (MatchResult)null);  // ROI(노랑)만 유지
+                    _cam.Invalidate();
                 }
-                else if (_inspector is QMC.Vision.Core.PlacementGapInspector p)
-                {
-                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 0, p.GapUpperLimit, p.GapLowerLimit);
-                    QMC.Vision.Core.ChartLimitStore.Set("Bin", 1, p.GapUpperLimit, p.GapLowerLimit);
-                }
+                _result?.Rows.Clear();                  // 검사 결과 그리드
+                if (_lblVerdict != null)
+                { _lblVerdict.Text = ""; _lblVerdict.BackColor = System.Drawing.Color.FromArgb(0x33, 0x33, 0x33); }
             }
             catch { }
         }

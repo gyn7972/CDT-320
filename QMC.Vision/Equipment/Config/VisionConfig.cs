@@ -119,6 +119,9 @@ namespace QMC.Vision.Config
         [DataMember] public string ImageLogPath             { get; set; } = @".\Log\Image";
         [DataMember] public bool   ImageLogEnable           { get; set; } = false;
 
+        /// <summary>측정 표시 단위 — true=mm(카메라 ScaleX/Y로 환산), false=px. 전역(GENERAL) 설정, 모든 레시피/검사/차트 공통.</summary>
+        [DataMember] public bool   DisplayMm                { get; set; } = true;
+
         // ── Matrox MIL 카메라 (Camera Link / CoaXPress) ──
         /// <summary>MIL 디지타이저 DataFormat. 비우면 "M_DEFAULT"(CXP GenICam 자동). CameraLink 면 .dcf 경로.
         /// 시스템(보드)은 항상 M_SYSTEM_DEFAULT(MILConfig 기본) 사용 — 별도 설정 불필요.</summary>

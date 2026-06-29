@@ -46,7 +46,8 @@ namespace QMC.Vision.Ui.Pages
         private SynchronizationContext _uiCtx;
 
         // MVS 확장 파라미터 — 그룹별 접이식 그리드(런타임 생성, 기본 접힘). 코어 파라미터 그리드와 분리.
-        private ParameterGridControl _mfsGrid;   // .mfs 파일 경로 + 불러오기/저장(기본 펼침)
+        private ParameterGridControl _mfsGrid;   // .mfs 파일 경로 + 불러오기/저장(Hik 전용, 기본 펼침)
+        private ParameterGridControl _dcfGrid;   // DCF 파일 경로 + 적용(MIL 전용, 그리드 형식)
         private ParameterGridControl _imgGrid;
         private ParameterGridControl _acqGrid;
         private ParameterGridControl _ioGrid;
@@ -222,6 +223,52 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Action("카메라 → .mfs 저장(파일)", "파일저장", ParameterGridScope.Config, SaveCameraToMfs),
                 ParameterGridItem.Action("카메라에 영구 저장(UserSet1)", "카메라저장", ParameterGridScope.Config, SaveToCameraUserSet),
             };
+        }
+
+        /// <summary>DCF 파일 경로(.dcf) + 적용 버튼 행 — MIL 전용(MVS .mfs 그룹과 동일 그리드 형식).
+        /// DCF 경로는 전역(VisionSettings.MilDcfPath). 비우면 자동(M_DEFAULT).</summary>
+        private List<ParameterGridItem> BuildDcfItems()
+        {
+            return new List<ParameterGridItem>
+            {
+                ParameterGridItem.FilePath("DCF 파일(.dcf) · 비우면 자동(M_DEFAULT)", ParameterGridScope.Config,
+                    () => VisionConfigStore.Current?.MilDcfPath ?? "",
+                    v => { if (VisionConfigStore.Current != null) VisionConfigStore.Current.MilDcfPath = v?.Trim() ?? ""; },
+                    "Matrox DCF (*.dcf)|*.dcf|모든 파일 (*.*)|*.*"),
+                ParameterGridItem.Action("DCF 적용(카메라 재오픈)", "적용", ParameterGridScope.Config, ApplyDcfReopen),
+                ParameterGridItem.Action("카메라에 영구 저장(UserSet1)", "카메라저장", ParameterGridScope.Config, SaveToCameraUserSet),
+            };
+        }
+
+        /// <summary>DCF 경로 저장 후 적용 — DCF 는 MdigAlloc(Open) 시점에만 반영되므로 카메라를 재오픈한다.
+        /// 패널 단독 연결(소유)일 때만 재오픈하고, 운영 모듈 공유 카메라면 재연결/재시작 안내.</summary>
+        private void ApplyDcfReopen()
+        {
+            try
+            {
+                VisionConfigStore.Save();   // 전역 DCF 경로 영속
+                if (_activeCam == null)
+                {
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = "DCF 경로 저장됨 — 카메라 연결(또는 재시작) 시 적용됩니다.";
+                    return;
+                }
+                if (_activeCamOwned)
+                {
+                    Disconnect();
+                    Connect();
+                    UpdateConnectButtons();
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = "DCF 적용(재오픈) 완료.";
+                }
+                else
+                {
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = "DCF 경로 저장됨 — 운영 모듈 카메라는 재연결/재시작 시 적용됩니다.";
+                }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 적용 예외: " + ex.Message; }
         }
 
         /// <summary>지정된 .mfs 파일을 연결된 카메라에 일괄 적용(FeatureLoad). 연결/정지 상태 확인.</summary>
@@ -694,6 +741,7 @@ namespace QMC.Vision.Ui.Pages
                 try { _paramGrid.SetItems(new List<ParameterGridItem>()); } catch { }   // 스테일 행 제거
                 try { _scaleGrid.SetItems(new List<ParameterGridItem>()); } catch { }
                 try { _mfsGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
+                try { _dcfGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
                 try { _imgGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
                 try { _acqGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
                 try { _ioGrid?.SetItems(new List<ParameterGridItem>()); } catch { }
@@ -708,7 +756,8 @@ namespace QMC.Vision.Ui.Pages
                 SetSelectedById(_cbCameraId, m.CameraId);
                 _paramGrid.SetItems(BuildParamItems(m));   // 카메라 파라미터 = 리스트(항목 추가/삭제 용이)
                 _scaleGrid.SetItems(BuildScaleItems(m));   // 스케일/좌표변환 전용 그리드
-                _mfsGrid?.SetItems(BuildMfsItems(m));                          // .mfs 경로 + 불러오기/저장
+                _mfsGrid?.SetItems(BuildMfsItems(m));                          // .mfs 경로 + 불러오기/저장(Hik)
+                _dcfGrid?.SetItems(BuildDcfItems());                           // DCF 경로 + 적용(MIL)
                 _imgGrid?.SetItems(BuildNodeCatalogItems(m, "Image Format"));   // MVS 확장 — Image Format 그룹
                 _acqGrid?.SetItems(BuildNodeCatalogItems(m, "Acquisition"));    // MVS 확장 — Acquisition 그룹
                 _ioGrid?.SetItems(BuildNodeCatalogItems(m, "IO Output(Strobe)")); // MVS 확장 — IO Output(Strobe) 그룹
@@ -732,6 +781,7 @@ namespace QMC.Vision.Ui.Pages
         private void InitNodeGroupGrids()
         {
             _mfsGrid = CreateGroupGrid("[카메라 설정] .mfs 불러오기·파일저장 / 카메라 영구저장(UserSet)");
+            _dcfGrid = CreateGroupGrid("[카메라 설정] DCF 파일 (Matrox MIL)");
             _imgGrid = CreateGroupGrid("[Image Format] 이미지 포맷 (Reverse/Binning/패턴)");
             _acqGrid = CreateGroupGrid("[Acquisition] 취득/트리거/노출 (HDR 포함)");
             _ioGrid  = CreateGroupGrid("[IO Output] 스트로브 / 라인");
@@ -772,12 +822,13 @@ namespace QMC.Vision.Ui.Pages
             {
                 _left.Controls.Clear();
                 _left.RowStyles.Clear();
-                _left.RowCount = 14;
+                _left.RowCount = 15;
                 int r = 0;
                 AddStackRow(ref r, _camRow,          40F);
                 AddStackRow(ref r, _secParam,        28F);
                 AddStackRow(ref r, _paramGrid,       120F);
-                AddStackRow(ref r, _mfsGrid,         120F);   // ← 카메라 파라미터 바로 아래(.mfs 경로/버튼)
+                AddStackRow(ref r, _mfsGrid,         120F);   // ← 카메라 파라미터 바로 아래(.mfs: Hik 전용)
+                AddStackRow(ref r, _dcfGrid,         120F);   // ← DCF(MIL 전용) — 같은 위치, 타입별 토글
                 AddStackRow(ref r, _imgGrid,         120F);
                 AddStackRow(ref r, _acqGrid,         120F);
                 AddStackRow(ref r, _ioGrid,          120F);
@@ -810,6 +861,7 @@ namespace QMC.Vision.Ui.Pages
                 // 모든 파라미터 그리드 행 높이를 내용에 맞춰 조정(컨트롤 위치로 행 조회 — 인덱스 의존 제거).
                 SizeGroupGridRow(_paramGrid);
                 SizeGroupGridRow(_mfsGrid);
+                SizeGroupGridRow(_dcfGrid);
                 SizeGroupGridRow(_imgGrid);
                 SizeGroupGridRow(_acqGrid);
                 SizeGroupGridRow(_ioGrid);
@@ -825,7 +877,7 @@ namespace QMC.Vision.Ui.Pages
             if (g == null || _left == null) return;
             var pos = _left.GetPositionFromControl(g);
             if (pos.Row >= 0 && pos.Row < _left.RowStyles.Count)
-                _left.RowStyles[pos.Row].Height = g.PreferredGridHeight;
+                _left.RowStyles[pos.Row].Height = g.Visible ? g.PreferredGridHeight : 0F;   // 숨김 그리드는 0 유지
         }
 
         /// <summary>_left 에서 특정 컨트롤의 행 높이를 설정(컨트롤 위치로 행 조회).</summary>
@@ -853,6 +905,9 @@ namespace QMC.Vision.Ui.Pages
                 SetLeftRowHeight(_secParam, 0F);
                 SetLeftRowHeight(_secScale, 0F);
                 SetLeftRowHeight(_lblLightAssign, 0F);
+                // 옛 체크박스 방식 MIL DCF 행은 그리드(_dcfGrid)로 대체 → 숨김.
+                if (_milRow != null) _milRow.Visible = false;
+                SetLeftRowHeight(_milRow, 0F);
             }
             catch { }
         }
@@ -862,8 +917,23 @@ namespace QMC.Vision.Ui.Pages
         {
             string id = ItemToId(_cbCameraId?.SelectedItem) ?? _cbCameraId?.Text;
             bool isMil = !string.IsNullOrEmpty(id) && id.StartsWith("Mil/", StringComparison.OrdinalIgnoreCase);
-            if (_chkMilDcf != null) _chkMilDcf.Visible = isMil;
-            UpdateMilDcfVisibility();
+            bool isSim = !string.IsNullOrEmpty(id) && id.StartsWith("Sim/", StringComparison.OrdinalIgnoreCase);
+            // 옛 체크박스 방식 DCF 행(_milRow)은 그리드(_dcfGrid)로 대체 — 항상 숨김.
+            if (_chkMilDcf != null) _chkMilDcf.Visible = false;
+
+            // 카메라 설정 그룹 — 타입별 표시: Hik=.mfs 그리드 / MIL=DCF 그리드 / Sim=둘 다 숨김.
+            bool showMfs = !isMil && !isSim;
+            bool showDcf = isMil;
+            if (_mfsGrid != null)
+            {
+                _mfsGrid.Visible = showMfs;
+                SetLeftRowHeight(_mfsGrid, showMfs ? _mfsGrid.PreferredGridHeight : 0F);
+            }
+            if (_dcfGrid != null)
+            {
+                _dcfGrid.Visible = showDcf;
+                SetLeftRowHeight(_dcfGrid, showDcf ? _dcfGrid.PreferredGridHeight : 0F);
+            }
         }
 
         /// <summary>DCF 경로칸은 MIL 카메라 선택 + "DCF 직접 지정" 체크 시에만 표시(기본 숨김).</summary>
@@ -878,11 +948,8 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>MIL DCF 는 전역 VisionSettings 에 보관 (per-algorithm 아님). 체크 해제 시 비움 → enumerate 가 M_DEFAULT 사용.</summary>
         private void OnMilFieldChanged()
         {
-            if (_suspendBinding) return;
-            var cfg = VisionConfigStore.Current;
-            if (cfg == null) return;
-            bool useDcf = _chkMilDcf != null && _chkMilDcf.Checked;
-            cfg.MilDcfPath = useDcf ? (_txtMilDcf?.Text ?? "") : "";
+            // DCF 경로는 이제 DCF 그리드(_dcfGrid)가 관리한다(전역 cfg.MilDcfPath).
+            // 옛 체크박스/텍스트박스는 숨김 상태 — 여기서 cfg 를 덮어쓰지 않는다(그리드 값 보존).
         }
 
         private static decimal Clamp(decimal v, decimal min, decimal max)

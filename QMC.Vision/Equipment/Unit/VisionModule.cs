@@ -72,6 +72,10 @@ namespace QMC.Vision.Modules
         /// <summary>CameraNode.Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
         public string CameraId => CameraNode.Config.CameraId;
 
+        /// <summary>픽셀↔mm 스케일(mm/px) — 설정의 카메라 ScaleX/Y. 전역 단위(mm/px) 환산에 사용.</summary>
+        public double ScaleX => CameraNode?.Config?.ScaleX ?? 1.0;
+        public double ScaleY => CameraNode?.Config?.ScaleY ?? 1.0;
+
         /// <summary>Camera Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
         public AlgorithmCameraMapping ExportCameraMapping()
         {

@@ -44,6 +44,15 @@ namespace QMC.Vision.Core
             return MergeCloseBlobs(blobs, mergeDistance);
         }
 
+        /// <summary>0/1 마스크(또는 그레이) 등방(정사각) 침식 — 분리형 1D 최소필터로 O(w·h).
+        /// 다이 마스크에서 외곽선뿐 아니라 노치/콜렛 측벽까지 균일한 여백을 주기 위한 용도
+        /// (측벽에 붙은 표면 1열이 Black-Hat 에서 가는 세로 슬리버로 오검되는 것을 방지).</summary>
+        public static byte[] ErodeSquare(byte[] src, int w, int h, int radius)
+        {
+            if (src == null || w <= 0 || h <= 0) return src;
+            return SepMorph(src, w, h, Math.Max(1, radius), false);
+        }
+
         // CUDA 가용 시 GPU 박스 모폴로지, 아니면 CPU(분리형). 원칙: "CUDA 가능하면 CUDA, 아니면 CPU 폴백".
         // 박스(정사각) 모폴로지는 가로·세로로 분리 가능 → 1D 슬라이딩 윈도우 최대/최소(단조 deque, 픽셀당 O(1)).
         // 커널 반경과 무관하게 O(w·h) — naive O(w·h·r²) 대비 r=21 이면 ~1800배 적은 내부연산(TopHatRadius 증가에도 평탄).
@@ -150,11 +159,17 @@ namespace QMC.Vision.Core
                 else
                 {
                     var b = blobs[i];
+                    // 면적가중 중심 — 링/아크로 쪼개진 블롭을 합칠 때 단순평균(a+b)/2 는 중심이 밀려
+                    // 오버레이 원이 실제 이물 중심에서 어긋난다. 면적가중으로 참 중심을 유지한다.
+                    double wa = acc.Area, wb = b.Area, wt = wa + wb;
+                    if (wt > 0)
+                    {
+                        acc.CenterX = (acc.CenterX * wa + b.CenterX * wb) / wt;
+                        acc.CenterY = (acc.CenterY * wa + b.CenterY * wb) / wt;
+                    }
                     acc.Area += b.Area;
                     if (b.MinX < acc.MinX) acc.MinX = b.MinX; if (b.MaxX > acc.MaxX) acc.MaxX = b.MaxX;
                     if (b.MinY < acc.MinY) acc.MinY = b.MinY; if (b.MaxY > acc.MaxY) acc.MaxY = b.MaxY;
-                    acc.CenterX = (acc.CenterX + b.CenterX) / 2.0;
-                    acc.CenterY = (acc.CenterY + b.CenterY) / 2.0;
                 }
             }
             return new List<Blob>(map.Values);

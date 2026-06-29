@@ -72,8 +72,27 @@ namespace QMC.Vision.Core
                 {
                     list = new List<Item>(); _history[it.Mode] = list;
                 }
-                list.Add(it);
-                if (list.Count > MaxHistory) list.RemoveRange(0, list.Count - MaxHistory);
+                // 시퀀스/핸들러 구동 결과(picker 1~4)는 다이(IndexX/IndexY[,Channel]) 단위로 중복 제거 —
+                // 멈춤→재개나 재검사로 같은 다이가 다시 들어오면 누적하지 않고 제자리 갱신(맵/차트 중복·깨짐 방지).
+                int replaceIdx = -1;
+                if (it.Picker >= 1 && it.Picker <= 4)
+                {
+                    for (int i = list.Count - 1; i >= 0; i--)
+                    {
+                        var e = list[i];
+                        if (e != null && e.IndexX == it.IndexX && e.IndexY == it.IndexY && e.Channel == it.Channel)
+                        { replaceIdx = i; break; }
+                    }
+                }
+                if (replaceIdx >= 0)
+                {
+                    list[replaceIdx] = it;   // 제자리 갱신(차트 X축 위치/순서 보존)
+                }
+                else
+                {
+                    list.Add(it);
+                    if (list.Count > MaxHistory) list.RemoveRange(0, list.Count - MaxHistory);
+                }
 
                 if (it.Picker >= 1 && it.Picker <= 4)
                 {
@@ -206,11 +225,11 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>InspectionResult → 스토어 Item 변환(Items 의 숫자값을 Values 로 파싱).</summary>
-        public static Item FromResult(string mode, int picker, int ix, int iy, InspectionResult r, Bitmap image)
-            => FromResult(mode, picker, -1, ix, iy, r, image);
+        public static Item FromResult(string mode, int picker, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
+            => FromResult(mode, picker, -1, ix, iy, r, image, box);
 
-        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1).</summary>
-        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image)
+        /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1). box=검출 박스(이미지 px, 픽커 오버레이용).</summary>
+        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
         {
             var it = new Item { Mode = mode, Picker = picker, Channel = channel, IndexX = ix, IndexY = iy, Pass = r != null && r.IsPass };
             var lines = new List<string>();
@@ -222,6 +241,7 @@ namespace QMC.Vision.Core
                 }
             it.Lines = lines.ToArray();
             it.Defects = r?.Defects;
+            it.Box = box;   // 검출 박스(픽커 패널 오버레이) — 아래 썸네일 배율로 함께 축소.
             // 표시용 이미지는 썸네일로 축소 보관(원본 12000²=432MB → OOM 방지). 뷰어 픽커 패널은 작아 충분.
             // 박스/결함 좌표도 같은 배율로 축소해 이미지와 정합. 원본(r.Defects)은 보존(클론 축소).
             if (image != null)

@@ -18,6 +18,7 @@ namespace QMC.Vision.Ui.Controls
         private Label _lblToggle;
         private CheckBox _chkCross;
         private Button _btnTest;
+        private Button _btnExportCsv;
 
         // ── 본문 ──
         private TableLayoutPanel _root;
@@ -46,6 +47,7 @@ namespace QMC.Vision.Ui.Controls
             _lblToggle  = new Label();
             _chkCross   = new CheckBox();
             _btnTest    = new Button();
+            _btnExportCsv = new Button();
             _body       = new TableLayoutPanel();
             _pickerHost = new TableLayoutPanel();
             _rightHost  = new TableLayoutPanel();
@@ -72,6 +74,7 @@ namespace QMC.Vision.Ui.Controls
             _header.BackColor = HeaderBg;
             _header.Controls.Add(_lblToggle);
             _header.Controls.Add(_chkCross);
+            _header.Controls.Add(_btnExportCsv);
             _header.Controls.Add(_btnTest);
 
             _btnTest.Dock = DockStyle.Right;
@@ -82,6 +85,15 @@ namespace QMC.Vision.Ui.Controls
             _btnTest.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
             _btnTest.Text = "픽커 테스트";
             _btnTest.Click += OnTestClick;
+
+            _btnExportCsv.Dock = DockStyle.Right;
+            _btnExportCsv.Width = 110;
+            _btnExportCsv.FlatStyle = FlatStyle.Flat;
+            _btnExportCsv.ForeColor = Color.White;
+            _btnExportCsv.BackColor = Color.FromArgb(0x3A, 0x6A, 0x3A);
+            _btnExportCsv.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
+            _btnExportCsv.Text = "결과 CSV";
+            _btnExportCsv.Click += OnExportCsvClick;
             _lblToggle.Dock = DockStyle.Fill;
             _lblToggle.ForeColor = Color.White;
             _lblToggle.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);

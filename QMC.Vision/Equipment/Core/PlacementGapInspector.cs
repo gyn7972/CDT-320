@@ -93,6 +93,10 @@ namespace QMC.Vision.Core
                     return res;
                 }
 
+                // EdgeStep 은 1 이상이어야 함 — 0이면 검출식(image[x]<thr && image[x-0]>=thr)이 항상 거짓이 되어
+                // 에지를 못 찾고 코너가 ROI 중심으로 폴백(다이 안쪽처럼 보임) + 갭 0. 320 방어: 최소 1로 클램프.
+                if (EdgeStep < 1) EdgeStep = 1;
+
                 Gap left   = FindDieGapLeft  (img, th, out double aL, out Line lineLeft);
                 Gap right  = FindDieGapRight (img, th, out double aR, out Line lineRight);
                 Gap top    = FindDieGapTop   (img, th, out double aT, out Line lineTop);
@@ -121,15 +125,23 @@ namespace QMC.Vision.Core
                 bool okL = Judge(left), okR = Judge(right), okT = Judge(top), okB = Judge(bottom);
                 bool pass = okL & okR & okT & okB;
 
-                string unit = (PixelSizeXmm > 0 || PixelSizeYmm > 0) ? "mm" : "px";
                 res.IsPass = pass;
-                res.Items.Add(new InspectionItem { Name = "GapLeft",   Value = left.Avg.ToString("F3")   + unit, IsPass = okL });
-                res.Items.Add(new InspectionItem { Name = "GapTop",    Value = top.Avg.ToString("F3")    + unit, IsPass = okT });
-                res.Items.Add(new InspectionItem { Name = "GapRight",  Value = right.Avg.ToString("F3")  + unit, IsPass = okR });
-                res.Items.Add(new InspectionItem { Name = "GapBottom", Value = bottom.Avg.ToString("F3") + unit, IsPass = okB });
-                res.Items.Add(new InspectionItem { Name = "CenterX",   Value = center.X.ToString("F1"), IsPass = true });
-                res.Items.Add(new InspectionItem { Name = "CenterY",   Value = center.Y.ToString("F1"), IsPass = true });
-                res.Items.Add(new InspectionItem { Name = "Angle",     Value = angle.ToString("F4"),    IsPass = true });
+                // 안착 오프셋(다이중심 − ROI공칭중심) [mm 또는 px]
+                double nomX = roi.X + roi.Width / 2.0, nomY = roi.Y + roi.Height / 2.0;
+                double offX = (center.X - nomX) * sx, offY = (center.Y - nomY) * sy;
+                // 운영뷰 그리드/차트는 Values(숫자 파싱)로 읽으므로 단위 접미사 없는 '순수 숫자'로 출력하고,
+                // 이름도 뷰어 컬럼(Right max/Right min/Bottom gap/Offset X·Y/Angle 등)과 일치시킨다.
+                void AddG(string n, double v, bool ok) => res.Items.Add(new InspectionItem { Name = n, Value = v.ToString("F3"), IsPass = ok });
+                AddG("Top gap min", top.Min, okT);     AddG("Top gap max", top.Max, okT);
+                AddG("Right max",   right.Max, okR);   AddG("Right min",  right.Min, okR);
+                AddG("Bottom gap",  bottom.Max, okB);  AddG("Bottom min", bottom.Min, okB);
+                AddG("Left max",    left.Max, okL);     AddG("Left min",  left.Min, okL);
+                res.Items.Add(new InspectionItem { Name = "Offset X", Value = offX.ToString("F4"), IsPass = true });
+                res.Items.Add(new InspectionItem { Name = "Offset Y", Value = offY.ToString("F4"), IsPass = true });
+                res.Items.Add(new InspectionItem { Name = "Angle",    Value = angle.ToString("F4"), IsPass = true });
+                // 자재추적(MaterialTracker.ApplyDieGap)용 평균 항목
+                AddG("Top Gap Avg", top.Avg, okT);     AddG("Bottom Gap Avg", bottom.Avg, okB);
+                AddG("Left Gap Avg", left.Avg, okL);   AddG("Right Gap Avg",  right.Avg, okR);
 
                 // 화면 오버레이용 검출 기하 보존
                 LastValid = true;
@@ -150,11 +162,13 @@ namespace QMC.Vision.Core
         }
 
         // 310 JudgmentDieGapOK: avg==0 → 그 변 skip(OK), 아니면 Lower~Upper.
+        // CDT-310 JudgmentDieGapOK 그대로: avg==0 → skip(OK), 그 외 [Lower, Upper] 벗어나면 NG. (0=무제한 처리 안 함)
         private bool Judge(Gap g)
         {
             if (g == null) return false;
             if (g.Avg == 0) return true;
-            return g.Avg >= GapLowerLimit && g.Avg <= GapUpperLimit;
+            if (g.Avg < GapLowerLimit || GapUpperLimit < g.Avg) return false;
+            return true;
         }
 
         // ── 4변 갭 검출 (310 FindDieGapLeft/Right/Top/Bottom 동일) ──

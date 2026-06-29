@@ -136,20 +136,26 @@ namespace QMC.Vision.Core
                 int em = Math.Max(0, ForeignEdgeMargin);
                 var dieMask = new byte[w * h];
                 int rxc = Math.Min(rx, w - 1);
+                // 1) 다이 내부(4변 에지 안쪽) 원시 마스크 — 여기서는 em 미적용(노치/콜렛 윤곽을 그대로 반영).
                 Parallel.For(lx, rxc + 1, x =>
                 {
                     if (topE[x] < 0 || botE[x] < 0) return;
-                    for (int y = topE[x] + em; y <= botE[x] - em && y < h; y++)
-                        if (leftE[y] >= 0 && rightE[y] >= 0 && x >= leftE[y] + em && x <= rightE[y] - em)
+                    for (int y = topE[x]; y <= botE[x] && y < h; y++)
+                        if (leftE[y] >= 0 && rightE[y] >= 0 && x >= leftE[y] && x <= rightE[y])
                             dieMask[y * w + x] = 1;
                 });
+                // 2) em(ForeignEdgeMargin) 여백은 Foreign() 내부에서 '다운스케일 후 저해상도 마스크'에
+                //    등방(정사각) 침식으로 적용한다. 풀해상도 침식 대비 ~f² 배 저렴(속도 유지).
+                //    이렇게 하면 외곽선뿐 아니라 상/하 변 가운데 노치의 '세로 측벽'까지 균일하게 em 여백이 생겨,
+                //    측벽에 붙은 표면 1열이 Black-Hat 에서 가는 세로 슬리버로 이물 오검되던 문제가 해소된다.
+                //    (노치 = 칩핑 알고리즘이 별도 판정하므로 이물에서 중복 검출할 필요가 없다.)
                 if (CaptureDebug)
                 {
                     _steps.Add(Step("1_gray", ToBmpDs(g, w, h, false, 0, null)));
                     _steps.Add(Step("2_die_mask", ToBmpDs(g, w, h, false, 0, dieMask)));
                 }
                 int count;
-                foreignMm = Foreign(g, w, h, dieMask, lx, ty, rx, by, r.Defects, out count);
+                foreignMm = Foreign(g, w, h, dieMask, em, lx, ty, rx, by, r.Defects, out count);
                 LastForeignCount = count;
                 foreignPass = (count == 0) && (foreignMm <= ForeignObjectSize);
                 AddItem(r, "Foreign Count", count.ToString(),         foreignPass);
@@ -271,7 +277,7 @@ namespace QMC.Vision.Core
 
         /// <summary>이물: CDT-310 ContaminationDetector(Black-Hat) — 칩 내부만. 대형 이미지(12000² 등)는
         /// 정수배 다운스케일 후 검출(메모리/시간 안전), 결과는 원본 스케일로 환산. 반환=최대 결함 크기[mm], out count=개수.</summary>
-        private double Foreign(byte[] g, int w, int h, byte[] mask, int x0, int y0, int x1, int y1, List<DefectMark> defects, out int count)
+        private double Foreign(byte[] g, int w, int h, byte[] mask, int em, int x0, int y0, int x1, int y1, List<DefectMark> defects, out int count)
         {
             count = 0;
             // 작업 픽셀이 ~9M(=3000²) 이하가 되도록 정수배 축소율 f 결정.
@@ -281,6 +287,10 @@ namespace QMC.Vision.Core
             byte[] sg, sm; int sw, sh;
             if (f > 1) Downscale(g, mask, w, h, f, out sg, out sm, out sw, out sh);
             else { sg = g; sm = mask; sw = w; sh = h; }
+
+            // 저해상도 마스크에 em 여백을 등방 침식으로 부여(반경 = em/f, 올림). 노치/콜렛 측벽 슬리버 오검 방지.
+            // 풀해상도(w·h) 대신 저해상도(sw·sh)에서 수행 → 비용 ~f² 배 절감, black-hat 모폴로지 1패스 수준.
+            if (em > 0) sm = ContaminationDetector.ErodeSquare(sm, sw, sh, Math.Max(1, (em + f - 1) / f));
 
             // 칩 배경(마스크 밖)을 칩 평균으로 채워 경계/배경 오검 방지.
             long sum = 0; int n = 0;

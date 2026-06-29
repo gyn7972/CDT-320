@@ -73,6 +73,11 @@ namespace QMC.Vision.Ui.Pages
             ExportJson();
         }
 
+        private void btnExportCsv_Click(object sender, EventArgs e)
+        {
+            ExportCsv();
+        }
+
         private void btnImport_Click(object sender, EventArgs e)
         {
             ImportJson();
@@ -177,6 +182,29 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex)
             {
                 MessageBox.Show("내보내기에 실패했습니다.\n" + ex.Message, "INPUT DIE",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ExportCsv()
+        {
+            try
+            {
+                if (_map == null) { _lblInfo.Text = "내보낼 다이맵 없음"; return; }
+                using (var dlg = new SaveFileDialog
+                {
+                    Filter = "DieMap CSV (*.csv)|*.csv",
+                    FileName = "input_die_map.csv"
+                })
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    bool ok = DieMapBuilder.SaveCsv(_map, dlg.FileName);
+                    _lblInfo.Text = ok ? "CSV 내보냄: " + Path.GetFileName(dlg.FileName) : "CSV 내보내기 실패";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("CSV 내보내기에 실패했습니다.\n" + ex.Message, "INPUT DIE",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

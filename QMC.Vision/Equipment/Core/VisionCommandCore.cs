@@ -197,6 +197,15 @@ namespace QMC.Vision.Core
             if (ins == null) return "fail:inspector not found";
             if (image == null) return "fail:no image";
 
+            // 카메라 ScaleX/Y(mm/px)를 검사기에 주입 — 검사기는 항상 mm 계산·판정. 모드별 스케일 기록(표시 환산용).
+            try
+            {
+                UnitContext.ApplyScale(ins, m.ScaleX, m.ScaleY);
+                string um = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
+                if (um != null) UnitContext.SetModeScale(um, m.ScaleX, m.ScaleY);
+            }
+            catch { }
+
             var r = ins.Inspect(image);
             if (r == null || r.Items == null) return "fail:inspect returned null";
             var items = string.Join(",", r.Items.Select(i => $"{i.Name}={i.Value}"));
@@ -209,7 +218,13 @@ namespace QMC.Vision.Core
             {
                 string mode = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
                 if (mode != null)
-                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, _inspectPicker, _inspectChannel, _inspectIndexX, _inspectIndexY, r, image));
+                {
+                    // 검출 박스(코너) → 픽커 패널 오버레이용으로 함께 전달.
+                    System.Drawing.PointF[] box = (ins as PlacementGapInspector)?.LastCorners
+                                              ?? (ins as BottomInspector)?.LastCorners
+                                              ?? (ins as SideAppearanceInspector)?.LastCorners;
+                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, _inspectPicker, _inspectChannel, _inspectIndexX, _inspectIndexY, r, image, box));
+                }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionCommandCore] InspectionResultStore.Record 실패: " + ex.Message); }
 
@@ -252,27 +267,8 @@ namespace QMC.Vision.Core
             }
             catch { }
 
-            // 추세 차트 상/하한(Limit) = 레시피 스펙 → ChartLimitStore 로 송출(뷰어가 읽어 하드코딩 대체).
-            try
-            {
-                string lm = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
-                if (lm == InspectionResultStore.Bottom && ins is BottomInspector bli)
-                {
-                    ChartLimitStore.Set(lm, 0, bli.ChipUpperSpecLimit.Width,  bli.ChipLowerSpecLimit.Width);
-                    ChartLimitStore.Set(lm, 1, bli.ChipUpperSpecLimit.Height, bli.ChipLowerSpecLimit.Height);
-                }
-                else if (lm == InspectionResultStore.Side && ins is SideAppearanceInspector sli)
-                {
-                    ChartLimitStore.Set(lm, 0, sli.ChippingUpperLimit, sli.ChippingLowerLimit);
-                    ChartLimitStore.Set(lm, 1, sli.ChippingUpperLimit, sli.ChippingLowerLimit);
-                }
-                else if (lm == InspectionResultStore.Bin && ins is PlacementGapInspector pli)
-                {
-                    ChartLimitStore.Set(lm, 0, pli.GapUpperLimit, pli.GapLowerLimit);
-                    ChartLimitStore.Set(lm, 1, pli.GapUpperLimit, pli.GapLowerLimit);
-                }
-            }
-            catch { }
+            // (차트 상/하한은 NG 판정 스펙과 분리된 '차트 전용 Limit'(InspectorAlgoRecipe.Chart*Limit)을 사용하며,
+            //  레시피 적용 시 AlgorithmNode 에서 ChartLimitStore 로 송출된다. 여기서는 판정 스펙을 차트로 보내지 않는다.)
 
             if (HasChip(chipUid))
             {

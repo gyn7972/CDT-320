@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using QMC.Vision.DieMaps;
 using QMC.Vision.Modules;
@@ -46,6 +47,29 @@ namespace QMC.Vision.Ui.Pages
         private void btnApply_Click(object sender, EventArgs e)
         {
             SaveToRecipe();
+        }
+
+        private void btnExportCsv_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_map == null) { _lblInfo.Text = "내보낼 다이맵 없음"; return; }
+                using (var dlg = new SaveFileDialog
+                {
+                    Filter = "DieMap CSV (*.csv)|*.csv",
+                    FileName = (_isOutput ? "bin" : "wafer") + "_pickup_order.csv"
+                })
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                    bool ok = DieMapBuilder.SaveCsv(_map, dlg.FileName);
+                    _lblInfo.Text = ok ? "CSV 내보냄: " + Path.GetFileName(dlg.FileName) : "CSV 내보내기 실패";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("CSV 내보내기에 실패했습니다.\n" + ex.Message, "픽업 순서",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // ── Public Methods ──

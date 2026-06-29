@@ -21,6 +21,7 @@ namespace QMC.Vision.Ui.Pages
         private System.Windows.Forms.RadioButton _rbStraight;
         private System.Windows.Forms.RadioButton _rbZigZag;
         private System.Windows.Forms.Button _btnApply;
+        private System.Windows.Forms.Button _btnExportCsv;
         private System.Windows.Forms.Label _lblInfo;
         private QMC.Vision.Ui.Controls.DieMapView _mapView;
 
@@ -52,6 +53,7 @@ namespace QMC.Vision.Ui.Pages
             this._rbStraight = new System.Windows.Forms.RadioButton();
             this._rbZigZag = new System.Windows.Forms.RadioButton();
             this._btnApply = new System.Windows.Forms.Button();
+            this._btnExportCsv = new System.Windows.Forms.Button();
             this._lblInfo = new System.Windows.Forms.Label();
             this._mapView = new QMC.Vision.Ui.Controls.DieMapView();
             this._panelLeft.SuspendLayout();
@@ -81,6 +83,7 @@ namespace QMC.Vision.Ui.Pages
             this._panelLeft.Controls.Add(this._grpDir);
             this._panelLeft.Controls.Add(this._grpPattern);
             this._panelLeft.Controls.Add(this._btnApply);
+            this._panelLeft.Controls.Add(this._btnExportCsv);
             this._panelLeft.Controls.Add(this._lblInfo);
             this._panelLeft.Dock = System.Windows.Forms.DockStyle.Left;
             this._panelLeft.Location = new System.Drawing.Point(0, 0);
@@ -265,10 +268,20 @@ namespace QMC.Vision.Ui.Pages
             this._btnApply.UseVisualStyleBackColor = true;
             this._btnApply.Click += new System.EventHandler(this.btnApply_Click);
             //
+            // _btnExportCsv
+            //
+            this._btnExportCsv.Location = new System.Drawing.Point(15, 390);
+            this._btnExportCsv.Name = "_btnExportCsv";
+            this._btnExportCsv.Size = new System.Drawing.Size(240, 30);
+            this._btnExportCsv.TabIndex = 6;
+            this._btnExportCsv.Text = "CSV 내보내기 (핸들러 포맷)";
+            this._btnExportCsv.UseVisualStyleBackColor = true;
+            this._btnExportCsv.Click += new System.EventHandler(this.btnExportCsv_Click);
+            //
             // _lblInfo
             //
             this._lblInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
-            this._lblInfo.Location = new System.Drawing.Point(12, 398);
+            this._lblInfo.Location = new System.Drawing.Point(12, 430);
             this._lblInfo.Name = "_lblInfo";
             this._lblInfo.Size = new System.Drawing.Size(255, 70);
             this._lblInfo.TabIndex = 6;
