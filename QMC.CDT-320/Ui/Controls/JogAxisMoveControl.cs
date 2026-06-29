@@ -118,6 +118,16 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        public JogSpeedType SelectedSpeedType
+        {
+            get { return GetJogSpeedType(); }
+        }
+
+        public double GetSelectedSpeed(BaseAxis axis)
+        {
+            return CurrentJogSpeed(axis);
+        }
+
         public int ButtonAreaMaxHeight
         {
             get
@@ -2537,15 +2547,20 @@ namespace QMC.CDT_320.Ui.Controls
 
         private double CurrentJogSpeed(JogAxisItem item)
         {
+            return CurrentJogSpeed(item != null ? item.Axis : null);
+        }
+
+        private double CurrentJogSpeed(BaseAxis axis)
+        {
             try
             {
                 if (SpeedControl != null)
-                    return SpeedControl.GetCustomSpeed(item != null ? item.Axis : null);
+                    return SpeedControl.GetCustomSpeed(axis);
 
-                if (item == null || item.Axis == null)
+                if (axis == null || axis.Config == null)
                     return 1.0;
 
-                return Math.Max(0.1, item.Axis.Config.JogCoarseVelocity * 0.5);
+                return Math.Max(0.1, axis.Config.JogCoarseVelocity * 0.5);
             }
             catch
             {

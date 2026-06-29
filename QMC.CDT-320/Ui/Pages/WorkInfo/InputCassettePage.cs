@@ -1029,7 +1029,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 SelectMaterialSlot(role, slotIndex);
-                int moveResult = await loader.MoveWaferLifterZ(targetPosition, false);
+                int moveResult = await loader.MoveWaferLifterZ(targetPosition, JogSpeedType.Fine, 0.0);
                 if (moveResult != 0)
                     return moveResult;
 

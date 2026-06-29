@@ -227,7 +227,12 @@ namespace QMC.CDT320
                     return -11;
                 }
 
-                await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine), ct).ConfigureAwait(false);
+                await MoveWithProtrusionWatch(
+                    targetPos,
+                    ResolveWaferLifterZMoveVelocity(bFine),
+                    ResolveWaferLifterZMoveAcceleration(bFine),
+                    ResolveWaferLifterZMoveDeceleration(bFine),
+                    ct).ConfigureAwait(false);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -261,7 +266,12 @@ namespace QMC.CDT320
                     return -11;
 
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
-                await MoveWithProtrusionWatch(targetPos, velocity);
+                await MoveWithProtrusionWatch(
+                    targetPos,
+                    velocity,
+                    UnitJogVelocityResolver.ResolveAcceleration(InputLifterZ),
+                    UnitJogVelocityResolver.ResolveDeceleration(InputLifterZ),
+                    CancellationToken.None).ConfigureAwait(false);
                 return 0;
             }
             catch
@@ -291,6 +301,21 @@ namespace QMC.CDT320
             try
             {
                 return await MoveWaferLifterZ(GetTeachingPosition(positionName), bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveWaferLifterZToTeachingPosition(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                return await MoveWaferLifterZ(GetTeachingPosition(positionName), speedType, customSpeed).ConfigureAwait(false);
             }
             catch
             {
@@ -1806,6 +1831,26 @@ namespace QMC.CDT320
             }
         }
 
+        private double ResolveWaferLifterZMoveAcceleration(bool bFine)
+        {
+            if (InputLifterZ == null || InputLifterZ.Config == null)
+                return 0.0;
+
+            return bFine && InputLifterZ.Config.JogAcceleration > 0.0
+                ? InputLifterZ.Config.JogAcceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Acceleration);
+        }
+
+        private double ResolveWaferLifterZMoveDeceleration(bool bFine)
+        {
+            if (InputLifterZ == null || InputLifterZ.Config == null)
+                return 0.0;
+
+            return bFine && InputLifterZ.Config.JogDeceleration > 0.0
+                ? InputLifterZ.Config.JogDeceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Deceleration);
+        }
+
         public int ResolveWaferLifterZMoveTimeoutMs()
         {
             try
@@ -1947,6 +1992,19 @@ namespace QMC.CDT320
 
         private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
         {
+            return await MoveWithProtrusionWatch(targetPosition, velocity, 0.0, 0.0, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWithProtrusionWatch(
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            CancellationToken ct)
+        {
+            double oldAcceleration = 0.0;
+            double oldDeceleration = 0.0;
+            bool useCustomAcceleration = false;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -1954,6 +2012,15 @@ namespace QMC.CDT320
                 {
                     InputLifterZ.EStop();
                     throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
+                }
+
+                oldAcceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Acceleration : 0.0;
+                oldDeceleration = InputLifterZ.Config != null ? InputLifterZ.Config.Deceleration : 0.0;
+                useCustomAcceleration = InputLifterZ.Config != null && acceleration > 0.0 && deceleration > 0.0;
+                if (useCustomAcceleration)
+                {
+                    InputLifterZ.Config.Acceleration = acceleration;
+                    InputLifterZ.Config.Deceleration = deceleration;
                 }
 
                 Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
@@ -1970,6 +2037,13 @@ namespace QMC.CDT320
                 }
 
                 int moveResult = await moveTask.ConfigureAwait(false);
+                if (useCustomAcceleration)
+                {
+                    InputLifterZ.Config.Acceleration = oldAcceleration;
+                    InputLifterZ.Config.Deceleration = oldDeceleration;
+                    useCustomAcceleration = false;
+                }
+
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                     throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ alarm.");
 
@@ -1991,6 +2065,11 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (useCustomAcceleration && InputLifterZ != null && InputLifterZ.Config != null)
+                {
+                    InputLifterZ.Config.Acceleration = oldAcceleration;
+                    InputLifterZ.Config.Deceleration = oldDeceleration;
+                }
             }
         }
 

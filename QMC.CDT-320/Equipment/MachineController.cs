@@ -6352,7 +6352,7 @@ namespace QMC.CDT320
                         new QMC.CDT320.Sequencing.SequenceResourceManager(),
                         _sequenceActivity);
                     var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
-                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Auto;
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
 
                     string name = (processName ?? "").Trim();
                     int result;
@@ -6765,8 +6765,9 @@ namespace QMC.CDT320
                 "SEQ-MANUAL-IN-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
-                    return await new QMC.CDT320.Sequencing.InputSequence(context)
-                        .ExecuteWaferLoadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
+                    sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
+                    return await sequence.ExecuteWaferLoadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
                         .ConfigureAwait(false);
                 });
         }
@@ -6778,8 +6779,9 @@ namespace QMC.CDT320
                 "SEQ-MANUAL-IN-UNLOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
-                    return await new QMC.CDT320.Sequencing.InputSequence(context)
-                        .ExecuteCurrentWaferUnloadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    var sequence = new QMC.CDT320.Sequencing.InputSequence(context);
+                    sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
+                    return await sequence.ExecuteCurrentWaferUnloadingAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
                         .ConfigureAwait(false);
                 });
         }
@@ -6791,8 +6793,9 @@ namespace QMC.CDT320
                 "SEQ-MANUAL-OUT-LOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
-                    return await new QMC.CDT320.Sequencing.OutputSequence(context)
-                        .ExecuteNextOutputLoadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    var sequence = new QMC.CDT320.Sequencing.OutputSequence(context);
+                    sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
+                    return await sequence.ExecuteNextOutputLoadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
                         .ConfigureAwait(false);
                 });
         }
@@ -6804,8 +6807,9 @@ namespace QMC.CDT320
                 "SEQ-MANUAL-OUT-UNLOAD",
                 async delegate (QMC.CDT320.Sequencing.MachineSequenceContext context, CancellationToken token)
                 {
-                    return await new QMC.CDT320.Sequencing.OutputSequence(context)
-                        .ExecuteNextOutputUnloadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
+                    var sequence = new QMC.CDT320.Sequencing.OutputSequence(context);
+                    sequence.Configure(QMC.CDT320.Sequencing.SequenceRunMode.Manual);
+                    return await sequence.ExecuteNextOutputUnloadAsync(token, false, 0, QMC.CDT320.Sequencing.SequenceStartMode.Resume)
                         .ConfigureAwait(false);
                 });
         }

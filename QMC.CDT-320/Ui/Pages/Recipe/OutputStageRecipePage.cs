@@ -509,7 +509,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 // 1) Z → Avoid (Y 이동 전 안전높이)
                 double zAvoid = GetBinZAvoidTarget(side);
-                r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zAvoid);
+                r = await MoveStageAxisWithSelectedSpeedAsync(BinZAxis(side), zAvoid);
                 if (r != 0) return AbortSeq(title, "Z Avoid 이동 실패");
 
                 // 2) Z=Avoid 확인
@@ -518,7 +518,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             // 3) Y → 종류 위치
-            r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinYAxis(side), kind);
+            r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinYAxis(side), kind);
             if (r != 0) return AbortSeq(title, "Y 이동 실패");
 
             // 4) 종류별 Z 마무리 (Z축 있을 때만)
@@ -527,14 +527,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 double zTarget = side == BinSide.Ng
                     ? _outputStageUnit.NgStage.Recipe.WorkPositionZ
                     : _outputStageUnit.GetStageTeachingPosition(BinStageAxis.GoodBinZ, "Load");
-                r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zTarget);
+                r = await MoveStageAxisWithSelectedSpeedAsync(BinZAxis(side), zTarget);
                 if (r != 0) return AbortSeq(title, "Z Load/Work 이동 실패");
             }
             else if (side == BinSide.Good &&
                      (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase) ||
                       string.Equals(kind, "Unload", StringComparison.OrdinalIgnoreCase)))
             {
-                r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinZ, kind);
+                r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, kind);
                 if (r != 0) return AbortSeq(title, "Z " + kind + " 이동 실패");
             }
 
@@ -545,7 +545,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return AbortSeq(title, BinStageAxis.VisionX + " 원점복귀 필요");
                 if (!CheckVisionXClear(out reason))
                     return AbortSeq(title, "VISION X 전 " + reason);
-                r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process");
+                r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.VisionX, "Process");
                 if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
             }
 
@@ -570,7 +570,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!IsReticleClear(out reason))
                     return AbortSeq(title, "VISION X 전 레티클 " + reason);
 
-                int zResult = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinZ, "Reticle");
+                int zResult = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.GoodBinZ, "Reticle");
                 if (zResult != 0)
                     return AbortSeq(title, "GOOD Z Reticle 이동 실패");
             }
@@ -579,9 +579,42 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!CheckVisionXClear(out reason))
                 return AbortSeq(title, "VISION X 전 " + reason);
 
-            int r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, kind);
+            int r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.VisionX, kind);
             if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
             return 0;
+        }
+
+        private Task<int> MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis axis, string positionName)
+        {
+            return _outputStageUnit.MoveStageAxisToTeachingPosition(
+                axis,
+                positionName,
+                jogAxisMoveControl.SelectedSpeedType,
+                jogAxisMoveControl.GetSelectedSpeed(ResolveOutputStageBaseAxis(axis)));
+        }
+
+        private Task<int> MoveStageAxisWithSelectedSpeedAsync(BinStageAxis axis, double target)
+        {
+            return _outputStageUnit.MoveStageAxis(
+                axis,
+                target,
+                jogAxisMoveControl.SelectedSpeedType,
+                jogAxisMoveControl.GetSelectedSpeed(ResolveOutputStageBaseAxis(axis)));
+        }
+
+        private BaseAxis ResolveOutputStageBaseAxis(BinStageAxis axis)
+        {
+            if (_outputStageUnit == null)
+                return null;
+
+            switch (axis)
+            {
+                case BinStageAxis.GoodBinY: return _outputStageUnit.GoodStage != null ? _outputStageUnit.GoodStage.StageY : null;
+                case BinStageAxis.GoodBinZ: return _outputStageUnit.GoodStage != null ? _outputStageUnit.GoodStage.StageZ : null;
+                case BinStageAxis.NgBinY: return _outputStageUnit.NgStage != null ? _outputStageUnit.NgStage.StageY : null;
+                case BinStageAxis.VisionX: return _outputStageUnit.OutputCameraX;
+                default: return null;
+            }
         }
 
         // 레티클 실린더(승강/사이드슬라이드 전·후)가 모두 후퇴(Clear)인지 — 인풋스테이지와 동일 기준(공유 스테이션)
@@ -618,7 +651,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
                         }
-                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _outputStageUnit.MoveStageAxisToTeachingPosition(axis, positionName, true));
+                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => MoveStageTeachingPositionWithSelectedSpeedAsync(axis, positionName));
                     }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>

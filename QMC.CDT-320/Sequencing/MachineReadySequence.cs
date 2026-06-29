@@ -909,7 +909,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.GetPickerTeachingPosition(axis, "AvoidPosition");
                 LogStep("FrontPicker " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MovePickerAxisCommand(axis, target, true, "AvoidPosition").ConfigureAwait(false);
+                int result = await unit.MovePickerAxisCommand(axis, target, false, "AvoidPosition").ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -977,7 +977,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.GetPickerTeachingPosition(axis, "AvoidPosition");
                 LogStep("RearPicker " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MovePickerAxisCommand(axis, target, true, "AvoidPosition").ConfigureAwait(false);
+                int result = await unit.MovePickerAxisCommand(axis, target, false, "AvoidPosition").ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1045,7 +1045,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.GetVisionTeachingPosition(axis, "AvoidPosition");
                 LogStep("Side Vision " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveVisionAxisToTeachingPosition(axis, "AvoidPosition", true).ConfigureAwait(false);
+                int result = await unit.MoveVisionAxisToTeachingPosition(axis, "AvoidPosition", false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1108,7 +1108,7 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveOutputStageAvoidPosition(unit, axis);
                 LogStep("OutputStage " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveStageAxis(axis, target, true).ConfigureAwait(false);
+                int result = await unit.MoveStageAxis(axis, target, false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1255,7 +1255,7 @@ namespace QMC.CDT320.Sequencing
                 double target = positions.AvoidPosition;
                 LogStep("InputStage " + label + " Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveInputStageAxis(axis, target, true).ConfigureAwait(false);
+                int result = await unit.MoveInputStageAxis(axis, target, false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1445,7 +1445,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.Recipe.AvoidPosition;
                 LogStep("InputFeederY Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveToWaferFeederAvoidPosition(true).ConfigureAwait(false);
+                int result = await unit.MoveToWaferFeederAvoidPosition(false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1514,7 +1514,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.Recipe.AvoidPosition;
                 LogStep("OutputFeederY Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveToFeederAvoidPosition(true).ConfigureAwait(false);
+                int result = await unit.MoveToFeederAvoidPosition(false).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1583,7 +1583,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.Recipe.AvoidPosition;
                 LogStep("InputLifterZ Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveWaferLifterZ(target, true, ct).ConfigureAwait(false);
+                int result = await unit.MoveWaferLifterZ(target, false, ct).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(
@@ -1649,7 +1649,7 @@ namespace QMC.CDT320.Sequencing
                 double target = unit.Recipe.AvoidPosition;
                 LogStep("OutputLifterZ Avoid 이동 시작. target=" + target);
 
-                int result = await unit.MoveBinLifterZ(target, true, ct).ConfigureAwait(false);
+                int result = await unit.MoveBinLifterZ(target, false, ct).ConfigureAwait(false);
                 if (result != 0)
                 {
                     return Fail(

@@ -394,7 +394,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     VisionAxis axis;
                     string positionName;
                     if (TryGetSelectedTeachingPosition(out axis, out positionName))
-                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _visionUnit.MoveVisionAxisToTeachingPosition(axis, positionName), _visionUnit.ResolveVisionAxis(axis));
+                    {
+                        BaseAxis motionAxis = _visionUnit.ResolveVisionAxis(axis);
+                        await ConfirmAndRunAsync(
+                            optionParameterGrid.SelectedItem.Key,
+                            () => _visionUnit.MoveVisionAxisToTeachingPosition(
+                                axis,
+                                positionName,
+                                jogAxisMoveControl.SelectedSpeedType,
+                                jogAxisMoveControl.GetSelectedSpeed(motionAxis)),
+                            motionAxis);
+                    }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
                 {

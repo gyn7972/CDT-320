@@ -648,7 +648,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (positionSet == null || axis == null)
                     return -1;
 
-                return await MoveAxisAsync(axis, position.Getter(positionSet), false);
+                return await MoveAxisAsync(axis, position.Getter(positionSet));
             }
             catch
             {
@@ -734,7 +734,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return AbortStage(title, "WAFER Y 이동 실패");
 
                 // 5) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인 (ExpanderZ는 이미 이동 완료)
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: false)) != 0)
                     return r;
 
                 return 0;
@@ -991,7 +991,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return AbortStage(title, "Z축 " + reason);
 
                 // 1) X (Load/Unload는 X 파라미터 없음 → 자동 스킵)
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: false)) != 0)
                     return r;
 
                 // 2) WAFER Y
@@ -1054,7 +1054,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return AbortStage(title, "WAFER Y 이동 실패");
 
                 // 5) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인 (ExpanderZ는 이미 이동 완료)
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: false)) != 0)
                     return r;
 
                 return 0;
@@ -1087,7 +1087,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return r;
 
                 // 2) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, false)) != 0)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: false)) != 0)
                     return r;
 
                 // 3) WAFER Y — 피더 Clear (픽커 미적용)
@@ -1131,7 +1131,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return r;
 
                 // 2) VISION X만 Reticle 위치로 이동한다. WAFER Y/T, Needle, EjectPin은 현재 위치를 유지한다.
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, true)) != 0)
+                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: true)) != 0)
                     return r;
 
                 return 0;
@@ -1484,7 +1484,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private async Task<int> MoveAxisAsync(BaseAxis axis, double target, bool bFine)
+        private async Task<int> MoveAxisAsync(BaseAxis axis, double target)
         {
             try
             {
@@ -1502,9 +1502,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 WaferStageAxis stageAxis;
                 if (TryResolveStageAxis(axis, out stageAxis))
-                    return await _InputStageUnit.MoveInputStageAxis(stageAxis, target, bFine);
+                    return await _InputStageUnit.MoveInputStageAxis(
+                        stageAxis,
+                        target,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(axis));
 
-                return await axis.MoveAbsoluteAsync(target, bFine ? ResolveAxisFineVelocity(axis) : ResolveAxisVelocity(axis));
+                return await axis.MoveAbsoluteAsync(
+                    target,
+                    UnitJogVelocityResolver.Resolve(axis, jogAxisMoveControl.SelectedSpeedType, jogAxisMoveControl.GetSelectedSpeed(axis)));
             }
             catch
             {
@@ -1573,8 +1579,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ReadyPosition, false);
-                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition, false);
+                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ReadyPosition);
+                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition);
                 int[] results = await Task.WhenAll(moveY, moveX);
                 return results[0] != 0 ? results[0] : results[1];
             }
@@ -1594,7 +1600,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                return await MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition, false);
+                return await MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition);
             }
             catch
             {
@@ -1615,8 +1621,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 double targetX = Math.Abs(_InputStageUnit.OriginX) > 0.000001 ? _InputStageUnit.OriginX : _InputStageUnit.Recipe.VisionX.ReadyPosition;
                 double targetY = Math.Abs(_InputStageUnit.OriginY) > 0.000001 ? _InputStageUnit.OriginY : _InputStageUnit.Recipe.WaferY.ReadyPosition;
 
-                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, targetY, false);
-                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, targetX, false);
+                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, targetY);
+                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, targetX);
                 int[] results = await Task.WhenAll(moveY, moveX);
                 return results[0] != 0 ? results[0] : results[1];
             }
@@ -1638,22 +1644,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 // NeedleZ: Load → Process → Avoid 경유 → Unload (Process→Unload 직접 전이는
                 // 인터락(비공정 이동 전 NeedleZ Avoid 필요)에 막히므로 중간에 Avoid를 경유한다)
-                int result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false);
+                int result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition);
                 if (result != 0)
                     return result;
 
                 await Task.Delay(100);
-                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition, false);
+                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition);
                 if (result != 0)
                     return result;
 
                 await Task.Delay(100);
-                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.AvoidPosition, false);
+                result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.AvoidPosition);
                 if (result != 0)
                     return result;
 
                 await Task.Delay(100);
-                return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.UnloadPosition, false);
+                return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.UnloadPosition);
             }
             catch
             {
@@ -1758,9 +1764,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
-            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                ? axis.Config.DefaultVelocity
-                : 100.0;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(
+                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                    ? axis.Config.DefaultVelocity
+                    : 100.0);
         }
 
         private static double ResolveAxisFineVelocity(BaseAxis axis)

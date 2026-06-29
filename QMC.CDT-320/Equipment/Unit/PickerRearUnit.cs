@@ -761,7 +761,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            return await MovePickerAxis(pickerAxis, target, speedType == JogSpeedType.Fine);
+            return await MovePickerAxis(pickerAxis, target, speedType, customSpeed, "JogStep").ConfigureAwait(false);
         }
 
         public Task<int> JogContinuousAsync(
@@ -924,6 +924,39 @@ namespace QMC.CDT320
             return await MovePickerAxisNamed(axis, targetPos, bFine, string.Empty).ConfigureAwait(false);
         }
 
+        public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+                double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                int result = await MovePickerAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration, targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaisePickerAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
+                        axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-MOVE-JOGSPEED-EX", axis + " 조그 속도 위치 이동 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             return await MovePickerAxisNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
@@ -932,6 +965,15 @@ namespace QMC.CDT320
         public async Task<int> MovePickerAxisCommand(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             return await MovePickerAxisCommandNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxisCommand(PickerAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            BaseAxis item = GetAxis(axis);
+            double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+            double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+            double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+            return await MovePickerAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration, targetName).ConfigureAwait(false);
         }
 
         public async Task<int> MovePickerAxisCommandWithVelocity(PickerAxis axis, double targetPos, double velocity, string targetName)
@@ -967,12 +1009,22 @@ namespace QMC.CDT320
                     {
                         using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
                         {
-                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                                item,
+                                targetPos,
+                                velocity,
+                                ResolveMoveAcceleration(item, bFine),
+                                ResolveMoveDeceleration(item, bFine)).ConfigureAwait(false);
                         }
                     }
                     else
                     {
-                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                            item,
+                            targetPos,
+                            velocity,
+                            ResolveMoveAcceleration(item, bFine),
+                            ResolveMoveDeceleration(item, bFine)).ConfigureAwait(false);
                     }
 
                     if (result != 0 || item.IsAlarm)
@@ -1042,7 +1094,7 @@ namespace QMC.CDT320
                                 item.Config.Acceleration = acceleration;
                                 item.Config.Deceleration = deceleration;
                             }
-                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
                         }
                         finally
                         {
@@ -1104,7 +1156,7 @@ namespace QMC.CDT320
                     }
                     else
                     {
-                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
                     }
                     commandMs = commandWatch.ElapsedMilliseconds;
 
@@ -1147,6 +1199,11 @@ namespace QMC.CDT320
         public async Task<int> MovePickerAxes(Dictionary<PickerAxis, double> targets, bool bFine, string targetName)
         {
             return await MovePickerAxesNamed(targets, bFine, targetName).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxes(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            return await MovePickerAxesNamed(targets, speedType, customSpeed, targetName).ConfigureAwait(false);
         }
 
         private async Task<int> MovePickerAxesNamed(Dictionary<PickerAxis, double> targets, bool bFine, string targetName)
@@ -1218,9 +1275,54 @@ namespace QMC.CDT320
             return 0;
         }
 
+        private async Task<int> MovePickerAxesNamed(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            if (targets == null)
+                return RaisePickerAlarm("PK-MOVE-TARGET", "Picker 이동 대상 목록이 없습니다.");
+
+            int safeResult = await MoveZAxesToSafeFirst(targets, speedType, customSpeed).ConfigureAwait(false);
+            if (safeResult != 0)
+                return safeResult;
+
+            List<Task<int>> tasks = new List<Task<int>>();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (!IsZAxis(pair.Key))
+                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName));
+            }
+
+            int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            tasks.Clear();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (IsZAxis(pair.Key))
+                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, speedType, customSpeed, targetName));
+            }
+
+            results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            return 0;
+        }
+
         public Task<int> MovePickerAxisToTeachingPosition(PickerAxis axis, string positionName, bool bFine = false)
         {
             return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, positionName), bFine, positionName);
+        }
+
+        public Task<int> MovePickerAxisToTeachingPosition(PickerAxis axis, string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, positionName), speedType, customSpeed, positionName);
         }
 
         public Task<int> MoveToPickerAvoidPosition(bool bFine = false)
@@ -1228,14 +1330,29 @@ namespace QMC.CDT320
             return MovePickerGroup("AvoidPosition", bFine);
         }
 
+        public Task<int> MoveToPickerAvoidPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MovePickerGroup("AvoidPosition", speedType, customSpeed);
+        }
+
         public Task<int> MoveToPickerLoadPosition(bool bFine = false)
         {
             return MovePickerGroup("InputAvoidPosition", bFine);
         }
 
+        public Task<int> MoveToPickerLoadPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MovePickerGroup("InputAvoidPosition", speedType, customSpeed);
+        }
+
         public Task<int> MoveToPickerUnloadPosition(bool bFine = false)
         {
             return MovePickerGroup("OutputAvoidPosition", bFine);
+        }
+
+        public Task<int> MoveToPickerUnloadPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MovePickerGroup("OutputAvoidPosition", speedType, customSpeed);
         }
 
         public Task<int> MoveToPickerSafeRetreatPosition(bool bFine = false)
@@ -2115,6 +2232,17 @@ namespace QMC.CDT320
             return MovePickerAxesNamed(targets, bFine, positionName);
         }
 
+        private Task<int> MovePickerGroup(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
+                return MovePickerAvoidGroupSafely(speedType, customSpeed);
+
+            Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
+            foreach (PickerAxis axis in axes.Keys)
+                targets[axis] = GetPickerTeachingPosition(axis, positionName);
+            return MovePickerAxesNamed(targets, speedType, customSpeed, positionName);
+        }
+
         private async Task<int> MovePickerAvoidGroupSafely(bool bFine)
         {
             try
@@ -2188,6 +2316,79 @@ namespace QMC.CDT320
             }
         }
 
+        private async Task<int> MovePickerAvoidGroupSafely(JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                Dictionary<PickerAxis, double> zTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ0);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ1);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ2);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ3);
+
+                int result = await MovePickerAxesNamed(
+                    zTargets,
+                    speedType,
+                    customSpeed,
+                    "AvoidPosition;PickerPhase=SafeZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxis(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        speedType,
+                        customSpeed,
+                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT0);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT1);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT2);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT3);
+
+                result = await MovePickerAxesNamed(
+                    tTargets,
+                    speedType,
+                    customSpeed,
+                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxis(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                        speedType,
+                        customSpeed,
+                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                foreach (PickerAxis axis in axes.Keys)
+                {
+                    if (!IsPickerAxisInTeachingPosition(axis, "AvoidPosition"))
+                        return RaisePickerAlarm("PK-AVOID-CHECK", axis + " Avoid 위치 최종 확인 실패.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-AVOID-EX", "Picker Avoid 조그 프로파일 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void AddAvoidTargetIfExists(Dictionary<PickerAxis, double> targets, PickerAxis axis)
         {
             if (targets == null || !axes.ContainsKey(axis))
@@ -2207,6 +2408,19 @@ namespace QMC.CDT320
             targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT;
             targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName, index);
             return await MovePickerAxesNamed(targets, bFine, positionArrayName + "[" + index + "]").ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, JogSpeedType speedType, double customSpeed)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
+
+            Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
+            targets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
+            targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT;
+            targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName, index);
+            return await MovePickerAxesNamed(targets, speedType, customSpeed, positionArrayName + "[" + index + "]").ConfigureAwait(false);
         }
 
         private double ResolvePickerZoneX(string positionArrayName, int index)
@@ -2437,6 +2651,35 @@ namespace QMC.CDT320
             return 0;
         }
 
+        private async Task<int> MoveZAxesToSafeFirst(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed)
+        {
+            List<Task<int>> tasks = new List<Task<int>>();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (IsZAxis(pair.Key) && !IsPickerAxisInTeachingPosition(pair.Key, "AvoidPosition"))
+                {
+                    tasks.Add(MovePickerAxis(
+                        pair.Key,
+                        GetPickerTeachingPosition(pair.Key, "AvoidPosition"),
+                        speedType,
+                        customSpeed,
+                        "AvoidPosition;PickerPhase=SafeZ"));
+                }
+            }
+
+            if (tasks.Count == 0)
+                return 0;
+
+            int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            return 0;
+        }
+
         private string BuildAxisLastMotionFailure(BaseAxis axis)
         {
             if (axis == null || string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
@@ -2494,6 +2737,11 @@ namespace QMC.CDT320
             return MovePickerAxis(axis, targetPos, bFine, targetName);
         }
 
+        public Task<int> MoveRearPickerAxis(PickerAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            return MovePickerAxis(axis, targetPos, speedType, customSpeed, targetName);
+        }
+
         public Task<int> MoveRearPickerAxes(Dictionary<PickerAxis, double> targets, bool bFine = false)
         {
             return MovePickerAxes(targets, bFine);
@@ -2504,6 +2752,11 @@ namespace QMC.CDT320
             return MovePickerAxes(targets, bFine, targetName);
         }
 
+        public Task<int> MoveRearPickerAxes(Dictionary<PickerAxis, double> targets, JogSpeedType speedType, double customSpeed, string targetName)
+        {
+            return MovePickerAxes(targets, speedType, customSpeed, targetName);
+        }
+
         public Task<int> MoveRearPickerAxisToTeachingPosition(PickerAxis axis, string positionName, bool bFine = false)
         {
             return MovePickerAxisToTeachingPosition(axis, positionName, bFine);
@@ -2512,6 +2765,11 @@ namespace QMC.CDT320
         public Task<int> MoveToRearPickerAvoidPosition(bool bFine = false)
         {
             return MoveToPickerAvoidPosition(bFine);
+        }
+
+        public Task<int> MoveToRearPickerAvoidPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MoveToPickerAvoidPosition(speedType, customSpeed);
         }
 
         public Task<int> MoveToRearPickerLoadPosition(bool bFine = false)

@@ -515,7 +515,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!EnsureOutputLifterZHomeDone(actionName)) return;
                 await RunSafeAsync(async () =>
                 {
-                    await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
+                    await _OutCassetteUnit.MoveBinLifterZ(
+                        target,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(_OutCassetteUnit.OutputLifterZ));
                     bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                     return done ? 0 : -1;
                 }, actionName);
@@ -538,7 +541,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 await RunSafeAsync(async () =>
                 {
                     double target = _OutCassetteUnit.CalculateBinCassetteSlotTargetPosition(cassette, 0) + offset;
-                    await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
+                    await _OutCassetteUnit.MoveBinLifterZ(
+                        target,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(_OutCassetteUnit.OutputLifterZ));
                     bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                     return done ? 0 : -1;
                 }, actionName);
@@ -907,7 +913,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     try
                     {
                         double target = _OutCassetteUnit.OutputLifterZ.ActualPosition + (direction * axisStepDistance);
-                        await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
+                        await _OutCassetteUnit.MoveBinLifterZ(
+                            target,
+                            jogAxisMoveControl.SelectedSpeedType,
+                            jogAxisMoveControl.GetSelectedSpeed(_OutCassetteUnit.OutputLifterZ));
                         bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                         return done ? 0 : -1;
                     }
@@ -1286,21 +1295,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch
             {
-            }
-            finally
-            {
-            }
-        }
-
-        private bool IsFineMove()
-        {
-            try
-            {
-                return true;
-            }
-            catch
-            {
-                return true;
             }
             finally
             {

@@ -392,7 +392,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 await RunSafeAsync(async () =>
                 {
-                    int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());
+                    int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(
+                        target,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(_InputCassetteUnit.InputLifterZ));
                     if (moveResult != 0)
                         return moveResult;
 
@@ -842,21 +845,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch
             {
-            }
-            finally
-            {
-            }
-        }
-
-        private bool IsFineMove()
-        {
-            try
-            {
-                return true;
-            }
-            catch
-            {
-                return true;
             }
             finally
             {

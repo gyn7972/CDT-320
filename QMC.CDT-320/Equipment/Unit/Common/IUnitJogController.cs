@@ -39,5 +39,25 @@ namespace QMC.CDT320
 
             return axis.Config.JogFineVelocity;
         }
+
+        public static double ResolveAcceleration(BaseAxis axis)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return axis.Config.JogAcceleration > 0.0
+                ? axis.Config.JogAcceleration
+                : axis.Config.Acceleration;
+        }
+
+        public static double ResolveDeceleration(BaseAxis axis)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return axis.Config.JogDeceleration > 0.0
+                ? axis.Config.JogDeceleration
+                : axis.Config.Deceleration;
+        }
     }
 }

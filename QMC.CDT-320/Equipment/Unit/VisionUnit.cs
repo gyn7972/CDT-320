@@ -195,7 +195,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            return await MoveVisionAxis(visionAxis, target, speedType == JogSpeedType.Fine);
+            return await MoveVisionAxis(visionAxis, target, speedType, customSpeed).ConfigureAwait(false);
         }
 
         public Task<int> JogContinuousAsync(
@@ -248,8 +248,11 @@ namespace QMC.CDT320
                 if (!ValidateVisionTargetPosition(item, targetPos))
                     return RaiseVisionAlarm("VS-SOFT-LIMIT", axis + " target is out of soft limit. target=" + targetPos);
 
+                double velocity = ResolveMoveVelocity(item, bFine);
+                double acceleration = ResolveMoveAcceleration(item, bFine);
+                double deceleration = ResolveMoveDeceleration(item, bFine);
                 EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE", axis + " target=" + targetPos);
-                int result = await item.MoveAbsoluteAsync(targetPos, ResolveMoveVelocity(item, bFine));
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
                     return RaiseVisionAlarm("VS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
 
@@ -268,6 +271,42 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 return RaiseVisionAlarm("VS-MOVE-EX", axis + " move exception: " + ex.Message);
+            }
+        }
+
+        public async Task<int> MoveVisionAxis(VisionAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                BaseAxis item = ResolveVisionAxis(axis);
+                if (!CheckVisionAxisMoveReady(axis))
+                    return RaiseVisionAlarm("VS-MOVE-READY", axis + " 조그 속도 위치 이동 준비 상태가 아닙니다.");
+                if (!ValidateVisionTargetPosition(item, targetPos))
+                    return RaiseVisionAlarm("VS-SOFT-LIMIT", axis + " 목표 위치가 소프트 리밋을 벗어났습니다. target=" + targetPos);
+
+                double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
+                double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
+                double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
+                EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE", axis + " 조그 속도 위치 이동 시작. target=" + targetPos + ", velocity=" + velocity);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                if (result != 0 || item.IsAlarm)
+                    return RaiseVisionAlarm("VS-MOVE", axis + " 조그 속도 위치 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+
+                AxisMoveWaitResult waitResult = await WaitVisionAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseVisionAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("VS-MOVE", waitResult),
+                        axis + " 조그 속도 위치 이동 완료 확인 실패. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseVisionAlarm("VS-MOVE-EX", axis + " 조그 속도 위치 이동 예외: " + ex.Message);
             }
         }
 
@@ -352,6 +391,11 @@ namespace QMC.CDT320
         public Task<int> MoveVisionAxisToTeachingPosition(VisionAxis axis, string positionName, bool bFine = false)
         {
             return MoveVisionAxis(axis, GetVisionTeachingPosition(axis, positionName), bFine);
+        }
+
+        public Task<int> MoveVisionAxisToTeachingPosition(VisionAxis axis, string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            return MoveVisionAxis(axis, GetVisionTeachingPosition(axis, positionName), speedType, customSpeed);
         }
 
         public Task<int> MoveToVisionAvoidPosition(bool bFine = false)
@@ -1167,6 +1211,26 @@ namespace QMC.CDT320
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
             return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
+        }
+
+        private double ResolveMoveAcceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return bFine
+                ? axis.Config.JogAcceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Acceleration);
+        }
+
+        private double ResolveMoveDeceleration(BaseAxis axis, bool bFine)
+        {
+            if (axis == null || axis.Config == null)
+                return 0.0;
+
+            return bFine
+                ? axis.Config.JogDeceleration
+                : MotionSpeedScale.ApplyDefaultAccelerationScale(axis.Config.Deceleration);
         }
 
         private bool ValidateVisionTargetPosition(BaseAxis axis, double targetPos)

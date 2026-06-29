@@ -465,22 +465,22 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
                 var stage = _machine != null ? _machine.InputStageUnit : null;
                 if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid 이동을 위한 축/Recipe 정보가 없습니다.");
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MISSING", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9\uC744 \uC704\uD55C \uCD95/Recipe \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, true).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uBA85\uB839 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
                 result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-WAIT", "InputStageUnit", "InputCamera Avoid 이동 완료 확인 실패. result=" + result + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-WAIT", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uC644\uB8CC \uD655\uC778 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
                 if (!stage.IsVisionXInAvoidPosition())
-                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-CHECK", "InputStageUnit", "InputCamera Avoid 최종 위치 확인 실패. actual=" + stage.CameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
+                    return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-CHECK", "InputStageUnit", "InputCamera Avoid \uCD5C\uC885 \uC704\uCE58 \uD655\uC778 \uC2E4\uD328. actual=" + stage.CameraX.ActualPosition.ToString("F3") + ", target=" + target.ToString("F3"));
 
                 return 0;
             }
@@ -509,7 +509,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveMotionTimeoutMs(), true, ct).ConfigureAwait(false);
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveMotionTimeoutMs(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit", "OutputCamera Avoid 이동 실패. result=" + result);
 
@@ -971,7 +971,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveFrontPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, true, targetName).ConfigureAwait(false);
+            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -994,7 +994,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveRearPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, true, targetName).ConfigureAwait(false);
+            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
