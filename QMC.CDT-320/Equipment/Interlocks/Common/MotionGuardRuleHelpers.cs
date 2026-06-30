@@ -132,6 +132,73 @@ namespace QMC.CDT320.Interlocks
                 || name.IndexOf("Safe", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        public static bool IsReticleRetracted(CDT320_Machine machine)
+        {
+            VisionUnit vision = machine != null ? machine.VisionUnit : null;
+            if (vision == null)
+                return true;
+
+            return vision.IsVisionReticleDown() &&
+                   vision.IsVisionReticleFrontSideBackward() &&
+                   vision.IsVisionReticleRearSideBackward();
+        }
+
+        public static bool VerifyReticleRetractedBeforePickerZWorkMove(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            if (request == null || request.Machine == null)
+                return true;
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisHome)
+                return true;
+
+            string targetName = request.TargetName ?? string.Empty;
+            if (IsSafeTeachingTarget(targetName) || IsPickerZSafeRetreatTarget(request))
+                return true;
+
+            VisionUnit vision = request.Machine.VisionUnit;
+            if (vision == null || IsReticleRetracted(request.Machine))
+                return true;
+
+            string movingName = string.IsNullOrWhiteSpace(request.MovingName) ? "PickerZ" : request.MovingName;
+            return Block(
+                movingName,
+                movingName + " 이동 불가: Reticle이 Bottom 카메라 위치에 있거나 안전 복귀 상태가 아닙니다. " +
+                "PickerZ 공정/하강 이동 전 Reticle은 Down + Front Back + Rear Back 상태여야 합니다. " +
+                BuildReticleStateDetail(vision) +
+                ", target=" + request.TargetValue.ToString("0.###") +
+                ", targetName=" + (string.IsNullOrWhiteSpace(targetName) ? "-" : targetName),
+                out reason);
+        }
+
+        public static string BuildReticleStateDetail(VisionUnit vision)
+        {
+            if (vision == null)
+                return "reticle=none";
+
+            return "reticleDown=" + vision.IsVisionReticleDown() +
+                   ", reticleUp=" + vision.IsVisionReticleUp() +
+                   ", frontBack=" + vision.IsVisionReticleFrontSideBackward() +
+                   ", frontForward=" + vision.IsVisionReticleFrontSideForward() +
+                   ", rearBack=" + vision.IsVisionReticleRearSideBackward() +
+                   ", rearForward=" + vision.IsVisionReticleRearSideForward();
+        }
+
+        private static bool IsPickerZSafeRetreatTarget(MotionGuardRuleContext request)
+        {
+            if (request == null)
+                return false;
+
+            string targetName = request.TargetName ?? string.Empty;
+            if (targetName.IndexOf("WaitPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                targetName.IndexOf("StandbyPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            BaseAxis axis = request.GetAxis(request.MovingName);
+            double tolerance = axis != null ? ResolveTolerance(axis) : DefaultPositionTolerance;
+            return Math.Abs(request.TargetValue) <= tolerance;
+        }
+
         public static string NormalizeTargetName(string targetName)
         {
             string name = targetName ?? string.Empty;

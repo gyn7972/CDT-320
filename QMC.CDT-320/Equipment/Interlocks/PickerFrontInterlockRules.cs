@@ -541,6 +541,9 @@ namespace QMC.CDT320.Interlocks
             if (!CanHomeFrontPickerZ(machine, movingName, out reason))
                 return false;
 
+            if (!MotionGuardRuleHelpers.VerifyReticleRetractedBeforePickerZWorkMove(request, out reason))
+                return false;
+
             // PickerZ는 현재 작업 존 기준으로 필요한 feeder만 확인한다.
             // Avoid 복귀는 Z가 안전 위치로 올라가는 동작이므로 feeder 위치로 차단하지 않는다.
             // 존을 알 수 없으면 기존처럼 양쪽 feeder를 모두 확인한다.
@@ -589,6 +592,9 @@ namespace QMC.CDT320.Interlocks
             PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
 
             if (!CanHomeFrontPickerZ(machine, movingName, out reason))
+                return false;
+
+            if (!MotionGuardRuleHelpers.VerifyReticleRetractedBeforePickerZWorkMove(request, out reason))
                 return false;
 
             // PickerZ는 현재 작업 존 기준으로 필요한 feeder만 확인한다.

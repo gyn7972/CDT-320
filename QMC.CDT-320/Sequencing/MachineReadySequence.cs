@@ -49,6 +49,7 @@ namespace QMC.CDT320.Sequencing
             var steps = new List<ReadyStep>();
 
             AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerYAvoid, "Front/Rear Picker Y Avoid", MoveFrontRearPickerYAxesAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerTAvoid, "Front/Rear Picker T Avoid", MoveFrontRearPickerTAxesAvoidAsync);
@@ -215,6 +216,7 @@ namespace QMC.CDT320.Sequencing
         private enum ReadyStepId
         {
             OutputVisionXAvoid,
+            ReticleAvoid,
             PickerZAvoid,
             PickerYAvoid,
             PickerTAvoid,
@@ -249,6 +251,60 @@ namespace QMC.CDT320.Sequencing
             public string Label
             {
                 get { return "ReadyStep " + No + "/" + Id + " [" + Name + "]"; }
+            }
+        }
+
+        private async Task<int> MoveReticleAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                VisionUnit vision = _machine != null ? _machine.VisionUnit : null;
+                if (vision == null)
+                    return Skip("VisionUnit");
+
+                if (MotionGuardRuleHelpers.IsReticleRetracted(_machine))
+                {
+                    LogStep("Reticle이 이미 안전 복귀 상태입니다. " + MotionGuardRuleHelpers.BuildReticleStateDetail(vision));
+                    return 0;
+                }
+
+                LogStep("Reticle 안전 복귀 시작. 순서=Rear Back -> Front Back -> Lift Down, " +
+                    MotionGuardRuleHelpers.BuildReticleStateDetail(vision));
+
+                int result = await vision.SetReticleRearSideForwardAsync(false, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("READY-RETICLE-REAR-BACK", "VisionUnit", "Ready Reticle Rear Back 이동 실패. result=" + result);
+
+                result = await vision.SetReticleFrontSideForwardAsync(false, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("READY-RETICLE-FRONT-BACK", "VisionUnit", "Ready Reticle Front Back 이동 실패. result=" + result);
+
+                result = await vision.SetReticleLiftUpAsync(false, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("READY-RETICLE-DOWN", "VisionUnit", "Ready Reticle Down 이동 실패. result=" + result);
+
+                if (!MotionGuardRuleHelpers.IsReticleRetracted(_machine))
+                {
+                    return Fail(
+                        "READY-RETICLE-CHECK",
+                        "VisionUnit",
+                        "Ready Reticle 안전 복귀 최종 확인 실패. " + MotionGuardRuleHelpers.BuildReticleStateDetail(vision));
+                }
+
+                LogStep("Reticle 안전 복귀 완료. " + MotionGuardRuleHelpers.BuildReticleStateDetail(vision));
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-RETICLE-EX", "VisionUnit", "Ready Reticle 안전 복귀 예외: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 

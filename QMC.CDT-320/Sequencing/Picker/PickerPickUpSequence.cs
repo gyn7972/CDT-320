@@ -348,8 +348,6 @@ namespace QMC.CDT320.Sequencing
             if (acquireResult != 0)
                 return acquireResult;
 
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp");
-
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("pickup pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -1204,6 +1202,11 @@ namespace QMC.CDT320.Sequencing
                 int result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                // Input 로딩/언로딩이 우선이다.
+                // PickUp은 InputStageArea를 잡고 비전/스테이지 준비를 진행하되,
+                // Picker가 실제 Pick 위치로 진입하기 직전에만 Input work area를 점유한다.
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp");
 
                 var pickerTargets = new Dictionary<PickerAxis, double>();
                 pickerTargets[PickerAxis.PickerX] = _targetPickerX;
