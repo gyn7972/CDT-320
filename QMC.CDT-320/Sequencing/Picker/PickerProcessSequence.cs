@@ -428,6 +428,20 @@ namespace QMC.CDT320.Sequencing
                 {
                     _pickUpSequence = null;
                     StartInputCameraPreInspectionsAfterPickUpComplete(ct, "PickUpComplete");
+
+                    int oppositeSideWaitResult = await WaitOppositePendingSideInspectionBeforeBottomAsync(
+                        "PickUpToBottomInspection",
+                        ct).ConfigureAwait(false);
+                    if (oppositeSideWaitResult != 0)
+                        return oppositeSideWaitResult;
+
+                    if (IsBottomAndSidePipelineModeEnabled())
+                    {
+                        int waitPositionResult = await PrepareBottomAndSideInspectionXWaitPositionAsync(ct).ConfigureAwait(false);
+                        if (waitPositionResult != 0)
+                            return waitPositionResult;
+                    }
+
                     int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "PickUpToBottomInspection", ct).ConfigureAwait(false);
                     if (phaseResult != 0)
                         return phaseResult;
@@ -473,9 +487,6 @@ namespace QMC.CDT320.Sequencing
                     return;
 
                 if (!IsPickerSideEnabled(targetSide))
-                    return;
-
-                if (HasLoadedDieOnPickerSide(targetSide))
                     return;
 
                 PickerSequenceOptions runOptions = BuildChildSequenceOptions();
@@ -524,57 +535,6 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private bool HasLoadedDieOnPickerSide(PickerSequenceSide targetSide)
-        {
-            try
-            {
-                bool[] usePicker = ResolveUsePickerArray(targetSide);
-                MaterialLocationKind location = targetSide == PickerSequenceSide.Front
-                    ? MaterialLocationKind.PickerFront
-                    : MaterialLocationKind.PickerRear;
-
-                for (int index = 0; index < 4; index++)
-                {
-                    if (usePicker != null &&
-                        index < usePicker.Length &&
-                        !usePicker[index])
-                    {
-                        continue;
-                    }
-
-                    int pickerNo = ToPickerNo(index);
-                    if (MaterialStateService.GetDieAtPicker(location, pickerNo) != null)
-                        return true;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return true;
-            }
-            finally
-            {
-            }
-        }
-
-        private bool[] ResolveUsePickerArray(PickerSequenceSide targetSide)
-        {
-            if (targetSide == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
-            {
-                FrontPicker.Config.EnsureArrays();
-                return FrontPicker.Config.UsePicker;
-            }
-
-            if (targetSide == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
-            {
-                RearPicker.Config.EnsureArrays();
-                return RearPicker.Config.UsePicker;
-            }
-
-            return null;
-        }
-
         private async Task<int> RunBottomInspectionAsync(CancellationToken ct)
         {
             if ((Options == null || Options.RunMode == SequenceRunMode.Auto) &&
@@ -587,6 +547,12 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                int oppositeSideWaitResult = await WaitOppositePendingSideInspectionBeforeBottomAsync(
+                    "BottomInspection",
+                    ct).ConfigureAwait(false);
+                if (oppositeSideWaitResult != 0)
+                    return oppositeSideWaitResult;
+
                 int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "BottomInspection", ct).ConfigureAwait(false);
                 if (phaseResult != 0)
                     return phaseResult;
@@ -672,6 +638,16 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
+                int oppositeSideWaitResult = await WaitOppositePendingSideInspectionBeforeBottomAsync(
+                    "BottomAndSideInspection",
+                    ct).ConfigureAwait(false);
+                if (oppositeSideWaitResult != 0)
+                    return oppositeSideWaitResult;
+
+                int waitPositionResult = await PrepareBottomAndSideInspectionXWaitPositionAsync(ct).ConfigureAwait(false);
+                if (waitPositionResult != 0)
+                    return waitPositionResult;
+
                 int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "BottomAndSideInspection", ct).ConfigureAwait(false);
                 if (phaseResult != 0)
                     return phaseResult;
@@ -735,6 +711,306 @@ namespace QMC.CDT320.Sequencing
                     ResetPickerPhaseSignal(GetOwnBottomInspectionSignal(), "BottomAndSide-Bottom");
                 if (!keepSideSignal)
                     ResetPickerPhaseSignal(GetOwnSideInspectionSignal(), "BottomAndSide-Side");
+            }
+        }
+
+        private async Task<int> WaitOppositePendingSideInspectionBeforeBottomAsync(
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                {
+                    string manualBlockDetail;
+                    if (IsOppositePendingSideInspectionBottomEntryBlocked(out manualBlockDetail))
+                    {
+                        return Fail("PICKER-BOTTOM-SIDE-PENDING-BLOCK", Name,
+                            "상대 Picker가 Side 검사 대기 상태라 Bottom 검사 진입이 차단되었습니다. " +
+                            "수동/Step 모드에서는 대기하지 않습니다. side=" + Side +
+                            ", description=" + description +
+                            ", detail=" + manualBlockDetail);
+                    }
+
+                    return 0;
+                }
+
+                bool waitLogged = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".WaitOppositePendingSideBeforeBottom");
+
+                    string detail;
+                    if (!IsOppositePendingSideInspectionBottomEntryBlocked(out detail))
+                        break;
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("PickerSidePendingGate",
+                            Name + " Bottom 검사 진입 대기. 상대 Picker가 Side 검사 대기 상태이고 " +
+                            "Front/Rear PickerY 돌출 및 PickerX 엔코더 안전거리 조건이 해제될 때까지 기다립니다. " +
+                            "side=" + Side +
+                            ", description=" + description +
+                            ", detail=" + detail + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerSidePendingGate",
+                        Name + " Bottom 검사 진입 대기 완료. 상대 Picker Side 검사 대기/엔코더 간섭 조건 해제 확인. " +
+                        "side=" + Side +
+                        ", description=" + description + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-SIDE-PENDING-EX", Name,
+                    "상대 Picker Side 검사 대기 상태 확인 중 예외가 발생했습니다. " +
+                    "side=" + Side +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePendingSideInspectionBottomEntryBlocked(out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                string pendingDetail;
+                if (!HasOppositePickerPendingSideInspection(out pendingDetail))
+                    return false;
+
+                List<int> loadedPickerIndexes = BuildLoadedPickerIndexesInRunOrder("OppositePendingSideGate");
+                if (loadedPickerIndexes == null || loadedPickerIndexes.Count == 0)
+                {
+                    detail = "내 Picker에 Bottom 검사 대상 제품이 없습니다. " + pendingDetail;
+                    return false;
+                }
+
+                int pickerIndex = loadedPickerIndexes[0];
+                double bottomX = ResolvePickerZoneX("DieBottomPosition", pickerIndex);
+                double bottomY = ResolvePickerZoneY("DieBottomPosition", pickerIndex);
+
+                string encoderDetail;
+                bool canEnter = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
+                    Context != null ? Context.Machine : null,
+                    Side == PickerSequenceSide.Front,
+                    PickerAxis.PickerY,
+                    bottomY,
+                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomEntry;OppositeSidePending",
+                    bottomX,
+                    null,
+                    out encoderDetail);
+
+                if (canEnter)
+                    return false;
+
+                detail = pendingDetail +
+                         ", pickerIndex=" + pickerIndex +
+                         ", bottomX=" + bottomX.ToString("0.###") +
+                         ", bottomY=" + bottomY.ToString("0.###") +
+                         ", encoder=" + encoderDetail;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "상대 Picker Side 검사 대기/엔코더 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool HasOppositePickerPendingSideInspection(out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                MaterialLocationKind oppositeLocation = Side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerRear
+                    : MaterialLocationKind.PickerFront;
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(oppositeLocation, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    bool bottomDone = HasInspectionResult(die, "Bottom");
+                    bool side0Done = HasInspectionResult(die, "Side0");
+                    bool side90Done = HasInspectionResult(die, "Side90");
+                    bool placeReady = IsPlaceResultReady(die);
+
+                    if (!bottomDone)
+                        continue;
+
+                    if (side0Done && side90Done && placeReady)
+                        continue;
+
+                    detail = "상대 Picker가 Side 검사 대기 상태입니다. " +
+                             "oppositeLocation=" + oppositeLocation +
+                             ", oppositePickerNo=" + pickerNo +
+                             ", die=" + die.DieId +
+                             ", bottomDone=" + bottomDone +
+                             ", side0Done=" + side0Done +
+                             ", side90Done=" + side90Done +
+                             ", placeReady=" + placeReady;
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                detail = "상대 Picker Side 검사 대기 제품 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareBottomAndSideInspectionXWaitPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (!IsBottomAndSidePipelineModeEnabled())
+                    return 0;
+
+                string oppositePhaseReason;
+                if (!IsOppositePickerProcessActiveForBottomAndSideWait(out oppositePhaseReason))
+                {
+                    WriteLog("BottomSideXWaitPrepare",
+                        Name + " Bottom/Side 통합 검사 X 대기 위치 준비 생략. 상대 Picker 프로세스가 완료 상태입니다. " +
+                        "side=" + Side + ", " + oppositePhaseReason + " - Check");
+                    return 0;
+                }
+
+                if (_bottomAndSideInspectionSequence != null && !_bottomAndSideInspectionSequence.IsComplete)
+                    return 0;
+
+                List<int> loadedPickerIndexes = BuildLoadedPickerIndexesInRunOrder("BottomSideXWaitPrepare");
+                if (loadedPickerIndexes == null || loadedPickerIndexes.Count == 0)
+                {
+                    WriteLog("BottomSideXWaitPrepare",
+                        Name + " Bottom/Side 통합 검사 X 대기 위치 준비 생략. Picker에 제품이 없습니다. side=" + Side + " - Check");
+                    return 0;
+                }
+
+                int pickerIndex = loadedPickerIndexes[0];
+                int pickerNo = ToPickerNo(pickerIndex);
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    "Bottom/Side 통합 검사 X 대기 전 PickerZ 전체 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    yAvoid,
+                    "Bottom/Side 통합 검사 X 대기 전 PickerY Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=BottomSideXWait").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                double bottomX = ResolvePickerZoneX("DieBottomPosition", pickerIndex);
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    bottomX,
+                    "Bottom/Side 통합 검사 X 대기 위치 이동",
+                    ct,
+                    "DieBottomPosition[" + pickerIndex + "];PickerPhase=BottomSideXWait;YHold").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("BottomSideXWaitPrepare",
+                    Name + " Bottom/Side 통합 검사 대기 위치 준비 완료. " +
+                    "PickerY는 Avoid를 유지하고 PickerX만 Bottom 위치로 선행 이동했습니다. " +
+                    "side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", bottomX=" + bottomX + " - Ok");
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-SIDE-X-WAIT-EX", Name,
+                    "Bottom/Side 통합 검사 X 대기 위치 준비 중 예외가 발생했습니다. " +
+                    "side=" + Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerProcessActiveForBottomAndSideWait(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (Context == null || Context.PickerPhases == null)
+                {
+                    reason = "PickerPhaseCoordinator=null";
+                    return false;
+                }
+
+                PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                PickerPhaseState opposite = Side == PickerSequenceSide.Front ? snapshot.Rear : snapshot.Front;
+                bool active = opposite.Phase != PickerProcessPhase.Idle;
+
+                reason = "opposite=" + opposite + ", active=" + active;
+                return active;
+            }
+            catch (Exception ex)
+            {
+                reason = "상대 Picker phase 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                WriteLog("BottomSideXWaitPrepare",
+                    Name + " " + reason + " 안전을 위해 X 대기 준비 조건을 활성으로 판단합니다. side=" + Side + " - Failed");
+                return true;
+            }
+            finally
+            {
             }
         }
 
