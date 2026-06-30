@@ -140,7 +140,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnColletCal.Name = "btnColletCal";
             this.btnColletCal.Size = new System.Drawing.Size(532, 92);
             this.btnColletCal.TabIndex = 1;
-            this.btnColletCal.Text = "COLLET CAL";
+            this.btnColletCal.Text = "BOTTOM COLLET 1:1 CAL";
             this.btnColletCal.UseVisualStyleBackColor = false;
             // 
             // btnNeedleCal
@@ -223,7 +223,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblGuide.Padding = new System.Windows.Forms.Padding(16);
             this.lblGuide.Size = new System.Drawing.Size(1646, 546);
             this.lblGuide.TabIndex = 2;
-            this.lblGuide.Text = "캘리브레이션 허브 화면입니다.\r\n\r\n- 각 버튼은 별도 모달리스 설정창을 엽니다.\r\n- 현재 단계에서는 UI 골격과 데이터 저장 위치 검토만 포함합니다.\r\n- 실제 모션/시퀀스는 승인 후 기능별로 Task<int> 시퀀스로 연결합니다.\r\n- 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.";
+            this.lblGuide.Text = "캘리브레이션 허브 화면입니다.\r\n\r\n- 각 버튼은 별도 모달리스 설정창을 엽니다.\r\n- BOTTOM COLLET 1:1 CAL은 Bottom Camera 기준으로 Front/Rear Picker 1~4번 콜렛의 T 성분을 0으로 보정합니다.\r\n- VISION CAMERA CAL / VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.\r\n- 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.";
             // 
             // lblStatus
             // 
