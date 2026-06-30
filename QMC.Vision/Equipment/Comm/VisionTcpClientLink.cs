@@ -133,13 +133,20 @@ namespace QMC.Vision.Comm
         private void ProcessLine(string line)
         {
             LogMsg($"[{ModuleName}] RX: {line}");
+            // FOCUS_VAL 응답 = "그랩 완료" ACK(점수 아님). grab 만 동기로 끝내고 ACK 즉시 회신 → 핸들러가
+            // 그 ACK를 받고 다음 Z로 이동(backpressure). 실제 채점은 백그라운드로 모아서 처리(FOCUS_BEST 에서 회수).
             string resp = VisionCommandRouter.Process(Module, _cfg, ModuleName, line, IsCommandAllowed);
             Send(resp);
         }
 
         // ── 비동기 이벤트 → 핸들러 푸시 ───────────
 
-        private void OnExposureDone(string moduleName) => Send($"EPD|{moduleName}");
+        private void OnExposureDone(string moduleName)
+        {
+            // 오토포커스 등 내부 grab 중에는 EPD 푸시 안 함(ACK 응답 스트림 오염 방지).
+            if (QMC.Vision.Core.VisionCommandCore.SuppressExposurePush) return;
+            Send($"EPD|{moduleName}");
+        }
         private void OnAlarmed(string moduleName, string reason) => Send($"ARM|{moduleName}|{reason}");
 
         // ── 송신 ───────────────────────────────────
@@ -147,7 +154,12 @@ namespace QMC.Vision.Comm
         private void Send(string line)
         {
             var stream = _stream;
-            if (stream == null) return;
+            if (stream == null)
+            {
+                // 진단: 응답을 보내려는데 소켓이 이미 끊긴 경우(핸들러가 연결을 닫음).
+                LogMsg($"[{ModuleName}] TX dropped (no stream): {line}");
+                return;
+            }
             try
             {
                 var data = Encoding.UTF8.GetBytes(line + "\n");
