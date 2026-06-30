@@ -214,7 +214,8 @@ namespace QMC.Vision.Comm
                 }
 
                 // ── 3단계: 동기/폴링 결과 ACK (비동기 시작은 1단계에서 이미 보냈으므로 제외) ──
-                if (!isAsyncStart)                       // ★ 빠져 있던 부분
+                // FOCUS_VAL 응답 = "그랩 완료" ACK(점수 아님, 채점은 백그라운드). 핸들러가 이 ACK를 받고 다음 Z 이동.
+                if (!isAsyncStart)
                 {
                     string target = ResolveEchoToken(cmd, parts);
                     Send(stream, string.IsNullOrEmpty(target)
@@ -469,6 +470,8 @@ namespace QMC.Vision.Comm
 
         private void OnExposureDone(string moduleName)
         {
+            // 오토포커스 등 내부 grab 중에는 EPD 푸시 안 함(ACK 응답 스트림 오염 방지).
+            if (QMC.Vision.Core.VisionCommandCore.SuppressExposurePush) return;
             Broadcast($"EPD|{moduleName}");
         }
 
@@ -498,13 +501,18 @@ namespace QMC.Vision.Comm
 
         private void Send(NetworkStream stream, string line)
         {
+            if (stream == null) { LogMsg($"[{ModuleName}] TX dropped (no stream): {line}"); return; }
             try
             {
                 var data = Encoding.UTF8.GetBytes(line + "\n");
                 stream.Write(data, 0, data.Length);
                 LogMsg($"[{ModuleName}] TX: {line}");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 진단: 응답 전송 실패(소켓 닫힘 등).
+                LogMsg($"[{ModuleName}] TX error: {ex.Message}");
+            }
         }
 
         private void LogMsg(string s) { try { Log?.Invoke(s); } catch { } }

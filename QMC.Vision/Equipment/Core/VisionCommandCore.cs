@@ -17,6 +17,17 @@ namespace QMC.Vision.Core
         /// <summary>그랩/알고리즘 소요시간 로그 ON/OFF(병목 측정용). 운영 중 끄려면 false.</summary>
         public static bool TimingLogEnabled = true;
 
+        // 내부 grab(오토포커스 FOCUS_VAL 등) 중 ExposureDone(EPD) 푸시 억제 플래그(스레드별).
+        // FOCUS_VAL 의 grab 은 ExposureDone 을 동기로 발화하는데, 그게 EPD 푸시로 ACK 응답 스트림에 끼어들면
+        // 단순 요청/응답 클라이언트(테스트 SendRecv 등)가 EPD 를 응답으로 오인해 스트림이 어긋난다 → 억제.
+        [ThreadStatic] private static bool _suppressExposurePush;
+        /// <summary>내부 grab 중 EPD 푸시 억제 여부(스레드별). Comm 링크의 OnExposureDone 이 확인.</summary>
+        public static bool SuppressExposurePush
+        {
+            get { return _suppressExposurePush; }
+            set { _suppressExposurePush = value; }
+        }
+
         // INSPECT 결과를 구조화 스토어에 태깅할 픽커/인덱스 컨텍스트(시퀀서/수동테스트가 INSPECT 전에 설정).
         [ThreadStatic] private static int _inspectPicker;
         [ThreadStatic] private static int _inspectChannel;
@@ -354,6 +365,7 @@ namespace QMC.Vision.Core
             if (parts == null || parts.Length < 4) return "fail:need camera target";
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
             if (!AutoFocusStore.TryParseTarget(parts[3], out var tgt)) return "fail:bad target";
+            AutoFocusProcessor.WaitForDrain(2000);   // 이전 스캔 잔여 백그라운드 처리 정리 후 리셋
             AutoFocusStore.Start(cam, tgt);
             AutoFocusTactLog.MarkCycleStart(cam + "/" + tgt);
             return $"OK;camera={cam};target={tgt}";
@@ -386,59 +398,53 @@ namespace QMC.Vision.Core
             if (parts.Length > 5) int.TryParse(parts[5], out pickup);
             bool isInitial = parts.Length > 6 && IsInitFlag(parts[6]);
 
+            // 응답 = "그랩 완료" ACK. read loop 는 grab + 큐에 넣기만(저장만) 하고 즉시 ACK.
+            // ROI 잘라내기(LockBits) + 채점은 전부 백그라운드 → ACK 지연 = grab 시간뿐.
+            // 오토포커스 내부 grab — ExposureDone(EPD) 푸시 억제(응답 스트림 오염 방지). ExposureDone 은 grab 내에서 동기 발화.
             var swGrab = Stopwatch.StartNew();
-            using (var g = m.Grab())
+            GrabResult g;
+            SuppressExposurePush = true;
+            try { g = m.Grab(); }
+            finally { SuppressExposurePush = false; }
+            swGrab.Stop();
+            if (g == null || !g.IsSuccess)
             {
-                swGrab.Stop();
-                if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
-
-                // 한 번 grab 으로 지정된 ROI1~4 를 각각 채점한다([설정 > 오토 포커스]에서 지정).
-                //  - 각 ROI 점수는 해당 ROI 시리즈에 누적(append) → 그리드/차트(in-process)에만 표시.
-                //  - 핸들러에는 ROI 점수들의 "평균" 만 score 로 반환(통신 포맷은 기존과 동일하게 유지).
-                // ROI 미설정이면 전체 프레임 1점으로 채점(구 동작) 하위호환.
-                Roi[] rois = AutoFocusRoiStore.GetRois(cam, tgt);
-                int afTh = VisionConfigStore.Current != null ? VisionConfigStore.Current.AutoFocusThreshold : 100;
-
-                var swAlgo = Stopwatch.StartNew();
-                double sum = 0; int cnt = 0;
-                var rd = new System.Text.StringBuilder();
-                for (int i = 0; i < rois.Length; i++)
-                {
-                    Roi roi = rois[i];
-                    if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
-                    var bb = roi.BoundingBox;
-                    double s = AutoFocusCore.Score(g.Image, bb, afTh);
-                    AutoFocusStore.AddSample(cam, tgt, i + 1, motorZ, s, isInitial);   // 그리드/차트용(in-process)
-                    sum += s; cnt++;
-                    rd.Append(" roi" + (i + 1) + "=" + s.ToString("F0", inv) +
-                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + "]");
-                }
-
-                double score;
-                if (cnt == 0)
-                {
-                    score = AutoFocusCore.Score(g.Image, afTh);                        // ROI 미설정 → 전체 프레임
-                    AutoFocusStore.AddSample(cam, tgt, pickup, motorZ, score, isInitial);
-                }
-                else
-                {
-                    score = sum / cnt;                                                 // ROI 점수 평균
-                }
-                swAlgo.Stop();
-                LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
-
-                // Tact Time 로그(스텝별) — 시퀀서 사이클 시간 스타일 + 진단(grab 크기·ROI별 점수/좌표).
-                long total = swGrab.ElapsedMilliseconds + swAlgo.ElapsedMilliseconds;
-                int imgW = g.Image != null ? g.Image.Width : 0;
-                int imgH = g.Image != null ? g.Image.Height : 0;
-                AutoFocusTactLog.Add("z=" + motorZ.ToString("F2", inv) +
-                                     "  img=" + imgW + "x" + imgH + " th=" + afTh +
-                                     "  total=" + total + "ms" +
-                                     "  score=" + score.ToString("F1", inv) + rd.ToString());
-
-                // 통신 포맷은 기존과 동일 — score 만 ROI 평균.
-                return $"OK;z={motorZ.ToString("F4", inv)};score={score.ToString("F2", inv)};pickup={pickup};init={(isInitial ? 1 : 0)}";
+                string err = g != null ? g.ErrorMessage : "grab";
+                if (g != null) g.Dispose();
+                return "fail:" + err;
             }
+
+            int imgW = g.Image != null ? g.Image.Width : 0;
+            int imgH = g.Image != null ? g.Image.Height : 0;
+
+            // 잘라낼 ROI 영역만 수집(픽셀 작업 없음, 즉시). 실제 crop/채점/Dispose 는 백그라운드.
+            Roi[] afRois = AutoFocusRoiStore.GetRois(cam, tgt);
+            var rects = new System.Collections.Generic.List<System.Drawing.Rectangle>();
+            var series = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < afRois.Length; i++)
+            {
+                Roi roi = afRois[i];
+                if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
+                rects.Add(roi.BoundingBox);
+                series.Add(i + 1);
+            }
+
+            if (rects.Count > 0)
+            {
+                LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, 0);
+                // 원본 g 의 소유권을 백그라운드로 이전(거기서 crop/채점 후 Dispose).
+                AutoFocusProcessor.Enqueue(m.Name, cam, tgt, motorZ, isInitial, swGrab.ElapsedMilliseconds,
+                    g, rects.ToArray(), series.ToArray(), imgW, imgH);
+                return $"OK;z={motorZ.ToString("F4", inv)};pickup={pickup};init={(isInitial ? 1 : 0)};queued=1";
+            }
+
+            // ROI 미설정 → 전체 프레임 동기 채점(드문 폴백). 측면(pickup=0)은 시리즈 1로.
+            double score = AutoFocusCore.Score(g.Image);
+            g.Dispose();
+            LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, 0);
+            int series0 = pickup >= 1 ? pickup : 1;
+            AutoFocusStore.AddSample(cam, tgt, series0, motorZ, score, isInitial);
+            return $"OK;z={motorZ.ToString("F4", inv)};score={score.ToString("F2", inv)};pickup={pickup};init={(isInitial ? 1 : 0)}";
         }
 
         /// <summary>init 인자 해석 — "1"/"INIT"/"TRUE"(대소문자 무시) 면 최초값.</summary>
@@ -461,11 +467,16 @@ namespace QMC.Vision.Core
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
             if (!AutoFocusStore.TryParseTarget(parts[3], out var tgt)) return "fail:bad target";
 
-            var sess = AutoFocusStore.Get(cam, tgt);
-            if (sess == null) return "fail:no session";
-
             int onlyPickup = -1;
             if (parts.Length > 4) int.TryParse(parts[4], out onlyPickup);
+            if (onlyPickup == 0) onlyPickup = 1;   // 측면(pickup=0) → 단일 시리즈(1)
+
+            // FOCUS_VAL 들이 백그라운드로 채점 중이므로, 누적이 모두 끝난 뒤(=처리 완료) best 를 회수한다.
+            // 완료될 때까지 충분히 대기해야 불완전한 best 로 응답하지 않는다(처리 완료 후 ACK).
+            AutoFocusProcessor.WaitForDrain(120000);
+
+            var sess = AutoFocusStore.Get(cam, tgt);
+            if (sess == null) return "fail:no session";
 
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             var sb = new System.Text.StringBuilder("OK");

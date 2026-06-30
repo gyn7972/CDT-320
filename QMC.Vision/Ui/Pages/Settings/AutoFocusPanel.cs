@@ -37,6 +37,10 @@ namespace QMC.Vision.Ui.Pages
         private FocusTarget[] _navTgt;
         private Button[] _roiBtns;
 
+        /// <summary>TCP 스캔 테스트에서 각 FOCUS_VAL 전 Z축 이동 시간 시뮬레이션(ms). 실모션이 없는 시뮬에서
+        /// "Z 이동 후 측정" 흐름을 재현(0이면 즉시 연속 전송). 실핸들러에선 실제 Z 이동 시간이 이 역할.</summary>
+        private int SimZMoveDelayMs = 200;
+
         private FocusCamera _camera = FocusCamera.Bottom;
         private FocusTarget _target = FocusTarget.Collet;
         private long _lastLogRev = -1;
@@ -519,12 +523,12 @@ namespace QMC.Vision.Ui.Pages
             catch { }
         }
 
-        /// <summary>한 줄 송신 후 응답 한 줄 수신(서버가 RX/TX 를 통신 로그에 남김).</summary>
-        private static string SendRecv(NetworkStream ns, string line)
+        /// <summary>한 줄 송신 후 응답 한 줄 수신(서버가 RX/TX 를 통신 로그에 남김). 모든 FOCUS 명령은 응답을 받는다.</summary>
+        private static string SendRecv(NetworkStream ns, string line, int timeoutMs = 5000)
         {
             byte[] data = Encoding.UTF8.GetBytes(line + "\n");
             ns.Write(data, 0, data.Length);
-            ns.ReadTimeout = 5000;
+            ns.ReadTimeout = timeoutMs;
             var sb = new StringBuilder();
             int b;
             while ((b = ns.ReadByte()) != -1)
@@ -564,12 +568,18 @@ namespace QMC.Vision.Ui.Pages
                             bool first = true;
                             for (double z = 18.0; z <= 22.0 + 1e-9; z += 0.2)
                             {
-                                // Z당 1콜 — 서버가 grab 1장으로 ROI1~4 채점(미설정 시 전체프레임 1점).
+                                // 실핸들러 흐름 흉내: [Z축을 이 위치로 이동(이동 시간 대기) → 그 자리에서 측정 요청].
+                                // 시뮬은 실제 모션이 없으므로 이동 시간을 딜레이로 대신한다(없으면 데이터가 즉시 쏟아져 비현실적).
+                                if (SimZMoveDelayMs > 0) System.Threading.Thread.Sleep(SimZMoveDelayMs);
+
+                                // Z당 1콜 — FOCUS_VAL 응답 = "그랩 완료" ACK(채점은 백그라운드). ACK 받고 다음 Z로.
+                                // 타임아웃 넉넉히(10s): 큐 backpressure 로 ACK 가 백그라운드 처리만큼 지연될 수 있음.
                                 SendRecv(ns, mod + "|FOCUS_VAL|" + Math.Round(z, 2).ToString("F2", inv) +
-                                             "|" + camS + "|" + tgtS + "|1|" + (first ? "1" : "0"));
+                                             "|" + camS + "|" + tgtS + "|1|" + (first ? "1" : "0"), 10000);
                                 first = false;
                             }
-                            SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS);
+                            // 완료 신호 — 서버가 백그라운드 처리 완료를 기다린 뒤 best 응답(처리 시간 고려 긴 타임아웃).
+                            SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS, 120000);
                         }
                     }
                 }
@@ -615,9 +625,11 @@ namespace QMC.Vision.Ui.Pages
                         using (var ns = client.GetStream())
                         {
                             if (start) SendRecv(ns, mod + "|FOCUS_START|" + camS + "|" + tgtS);
+                            // FOCUS_VAL 응답 = "그랩 완료" ACK(채점은 백그라운드) — 받고 다음 스텝으로.
                             SendRecv(ns, mod + "|FOCUS_VAL|" + z.ToString("F2", inv) +
                                          "|" + camS + "|" + tgtS + "|1|" + (init ? "1" : "0"));
-                            if (finish) SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS);
+                            // 마지막 스텝에서만 완료 신호 → 백그라운드 처리 완료 후 best 응답.
+                            if (finish) SendRecv(ns, mod + "|FOCUS_BEST|" + camS + "|" + tgtS, 120000);
                         }
                     }
                 }
