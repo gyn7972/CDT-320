@@ -116,17 +116,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_colletDialog == null || _colletDialog.IsDisposed)
                 {
                     _colletDialog = ColletCalibrationDialog.Open(host);
-                    _colletDialog.StartPosition = FormStartPosition.Manual;
-                    _colletDialog.Location = ResolveDialogLocation(_colletDialog);
+                    ActivateDialog(host, _colletDialog);
                     lblStatus.Text = "COLLET CAL 설정창을 열었습니다.";
                     return;
                 }
 
-                if (!_colletDialog.Visible)
-                    _colletDialog.Show(host);
-
-                _colletDialog.Activate();
-                _colletDialog.BringToFront();
+                ActivateDialog(host, _colletDialog);
                 lblStatus.Text = "COLLET CAL 설정창이 이미 열려 있습니다.";
             }
             catch (Exception ex)
@@ -244,6 +239,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch
             {
                 return new Point(120, 120);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ActivateDialog(Form host, Form dialog)
+        {
+            try
+            {
+                if (dialog == null || dialog.IsDisposed)
+                    return;
+
+                dialog.StartPosition = FormStartPosition.Manual;
+                dialog.Location = ResolveDialogLocation(dialog);
+
+                if (!dialog.Visible)
+                    dialog.Show(host);
+
+                if (dialog.WindowState == FormWindowState.Minimized)
+                    dialog.WindowState = FormWindowState.Normal;
+
+                dialog.BringToFront();
+                dialog.Activate();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "CAL-DIALOG-ACTIVATE", "Calibration 설정창 표시 실패: " + ex.Message);
+                throw;
             }
             finally
             {
