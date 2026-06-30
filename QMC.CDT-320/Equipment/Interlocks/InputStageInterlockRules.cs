@@ -346,8 +346,9 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyWaferFeederReadyForStageY(machine, "Expander Z", out reason))
                 return false;
 
-            if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
-                return false;
+            // StageZ축 움직일때 인풋카메라X는 전혀 간섭안된다.
+            //if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
+            //    return false;
 
             if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
                 return false;

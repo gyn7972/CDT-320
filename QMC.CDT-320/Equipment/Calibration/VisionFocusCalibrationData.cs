@@ -52,6 +52,8 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class VisionFocusPositionRecord
     {
+        private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
+
         [DataMember] public double DefaultPosition { get; set; }
         [DataMember] public double BestPosition { get; set; }
         [DataMember] public double BestScore { get; set; }
@@ -75,6 +77,15 @@ namespace QMC.CDT320.Calibration
         {
             if (UpdatedBy == null)
                 UpdatedBy = string.Empty;
+            UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
+        }
+
+        private static DateTime EnsureSerializableDateTime(DateTime value)
+        {
+            if (value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                return SafeUnsetDateTime;
+
+            return value;
         }
     }
 

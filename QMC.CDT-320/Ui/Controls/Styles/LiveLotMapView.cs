@@ -511,7 +511,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (die == null)
                 return false;
 
-            if (die.PickedAt != DateTime.MinValue ||
+            if (HasValidPickedAt(die.PickedAt) ||
                 die.PickedPickerLocation == MaterialLocationKind.PickerFront ||
                 die.PickedPickerLocation == MaterialLocationKind.PickerRear ||
                 die.PickedPickerNo >= 0)
@@ -524,6 +524,13 @@ namespace QMC.CDT_320.Ui.Controls
                     die.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg ||
                     die.CurrentLocation.Kind == MaterialLocationKind.OutputFeeder ||
                     die.CurrentLocation.Kind == MaterialLocationKind.OutputCassette);
+        }
+
+        private static bool HasValidPickedAt(DateTime pickedAt)
+        {
+            // material_state.json 저장 시 빈 DateTime은 1900-01-01로 정규화된다.
+            // 이 값은 실제 Pick 완료 시간이 아니므로 화면 표시에서는 미픽업으로 본다.
+            return pickedAt > new DateTime(2000, 1, 1);
         }
 
         private static bool HasInputPickVisionInspection(DieMaterial die)

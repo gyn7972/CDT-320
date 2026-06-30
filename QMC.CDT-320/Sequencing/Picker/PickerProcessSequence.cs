@@ -435,13 +435,6 @@ namespace QMC.CDT320.Sequencing
                     if (oppositeSideWaitResult != 0)
                         return oppositeSideWaitResult;
 
-                    if (IsBottomAndSidePipelineModeEnabled())
-                    {
-                        int waitPositionResult = await PrepareBottomAndSideInspectionXWaitPositionAsync(ct).ConfigureAwait(false);
-                        if (waitPositionResult != 0)
-                            return waitPositionResult;
-                    }
-
                     int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "PickUpToBottomInspection", ct).ConfigureAwait(false);
                     if (phaseResult != 0)
                         return phaseResult;
@@ -471,12 +464,11 @@ namespace QMC.CDT320.Sequencing
 
         private void StartInputCameraPreInspectionsAfterPickUpComplete(CancellationToken ct, string reason)
         {
-            StartInputCameraPreInspectionForSideIfNeeded(Side, ct, reason);
-
             PickerSequenceSide oppositeSide = Side == PickerSequenceSide.Front
                 ? PickerSequenceSide.Rear
                 : PickerSequenceSide.Front;
             StartInputCameraPreInspectionForSideIfNeeded(oppositeSide, ct, reason + ":OppositeCandidate");
+            StartInputCameraPreInspectionForSideIfNeeded(Side, ct, reason);
         }
 
         private void StartInputCameraPreInspectionForSideIfNeeded(PickerSequenceSide targetSide, CancellationToken ct, string reason)
@@ -644,10 +636,6 @@ namespace QMC.CDT320.Sequencing
                 if (oppositeSideWaitResult != 0)
                     return oppositeSideWaitResult;
 
-                int waitPositionResult = await PrepareBottomAndSideInspectionXWaitPositionAsync(ct).ConfigureAwait(false);
-                if (waitPositionResult != 0)
-                    return waitPositionResult;
-
                 int phaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.BottomInspection, "BottomAndSideInspection", ct).ConfigureAwait(false);
                 if (phaseResult != 0)
                     return phaseResult;
@@ -667,6 +655,12 @@ namespace QMC.CDT320.Sequencing
 
                 if (result != 0)
                 {
+                    if (_bottomAndSideInspectionSequence != null)
+                    {
+                        _bottomAndSideInspectionSequence.Abort();
+                        _bottomAndSideInspectionSequence = null;
+                    }
+
                     ReleasePickerProcessPhase("BottomAndSideInspectionFailed");
                     return result;
                 }
