@@ -218,10 +218,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             // AVOID — 전체 축의 avoid 위치
             optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X INPUT-SIDE AVOID", "K_AVOID",
-                "InputAvoidPosition은 Input 카메라 위치가 아니라 Front Picker X가 Input 영역 간섭을 피하기 위해 이동하는 회피 위치입니다.");
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X OUTPUT-SIDE AVOID", "K_AVOID",
-                "OutputAvoidPosition은 Output 카메라 위치가 아니라 Front Picker X가 Output 영역 간섭을 피하기 위해 이동하는 회피 위치입니다.");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT-SIDE AVOID POSITION", "InputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X INPUT-SIDE AVOID", "K_AVOID",
+                "InputAvoidPosition은 Input 카메라 위치가 아니라 Front Picker X가 Input-side 방향으로 빠져 간섭을 피하기 위한 회피 위치입니다.");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT-SIDE AVOID POSITION", "OutputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X OUTPUT-SIDE AVOID", "K_AVOID",
+                "OutputAvoidPosition은 Output 카메라 위치가 아니라 Front Picker X가 Output-side 방향으로 빠져 간섭을 피하기 위한 회피 위치입니다.");
             AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER X", "K_AVOID");
             AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER Y", "K_AVOID");
             for (int i = 0; i < tzKeys.Length; i++)

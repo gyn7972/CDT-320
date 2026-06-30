@@ -412,7 +412,13 @@ namespace QMC.CDT320.Sequencing
                         return clearResult;
                 }
 
-                int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                int result = await AwaitStepWithCancellationAsync(
+                    Stage.MoveStageAxis(
+                        axis,
+                        target,
+                        Options.FineMove,
+                        "OutputStageSequence;" + Name + ";" + description),
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("OUT-STAGE-MOVE", Stage.Name,
                         description + " 이동 명령 실패. axis=" + axis + ", target=" + target +
@@ -457,40 +463,14 @@ namespace QMC.CDT320.Sequencing
                 if (Stage == null)
                     return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available.");
 
-                int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
+                int result = await Stage.EnsureNgStageYMoveClearAsync(
+                    description,
+                    ResolveTimeout(),
+                    Options.FineMove,
+                    ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
-                        description + " 전 NG Clamp Lift 상승 명령 실패. result=" + result + ", " +
-                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
-
-                if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
-                    return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,
-                        description + " 전 NG Clamp Lift 상승 확인 실패. " +
-                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
-
-                result = await Stage.EnsureBinGuideDownAsync(BinSide.Good, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
-                        description + " 전 Good Guide Down 명령 실패. result=" + result + ", " +
-                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
-
-                if (!Stage.IsBinGuideDown(BinSide.Good))
-                    return Fail("OUT-STAGE-GOOD-GUIDE-DOWN", Stage.Name,
-                        description + " 전 Good Guide Down 확인 실패. " +
-                        Stage.DescribeOutputStageInterlockState(BinSide.Ng));
-
-                if (!Stage.IsGoodStageZInAvoidPosition())
-                {
-                    result = await Stage.MoveGoodStageZToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name,
-                            description + " 전 Good Stage Z 안전 위치 이동 실패. result=" + result + ", " +
-                            Stage.DescribeOutputStageInterlockState(BinSide.Ng));
-                }
-
-                if (!Stage.IsGoodStageZInAvoidPosition())
-                    return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name,
-                        description + " 전 Good Stage Z 안전 위치 확인 실패. " +
+                    return Fail("OUT-STAGE-NG-Y-CLEAR", Stage.Name,
+                        description + " 전 NG Stage Y 이동 조건 확보 실패. result=" + result + ", " +
                         Stage.DescribeOutputStageInterlockState(BinSide.Ng));
 
                 return 0;

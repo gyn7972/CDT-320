@@ -941,6 +941,18 @@ namespace QMC.CDT320
                     return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
+                if (IsAxisAtTarget(item, targetPos))
+                    return 0;
+
+                int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+                    axis,
+                    targetPos,
+                    itemTimeoutMs: ResolveStageAxisMoveTimeout(axis),
+                    bFine: bFine,
+                    ct: CancellationToken.None).ConfigureAwait(false);
+                if (clearResult != 0)
+                    return clearResult;
+
                 double velocity = ResolveStageAxisVelocity(item, bFine);
                 double acceleration = ResolveStageAxisAcceleration(item, bFine);
                 double deceleration = ResolveStageAxisDeceleration(item, bFine);
@@ -994,6 +1006,18 @@ namespace QMC.CDT320
                     return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
+                if (IsAxisAtTarget(item, targetPos))
+                    return 0;
+
+                int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+                    axis,
+                    targetPos,
+                    itemTimeoutMs: ResolveStageAxisMoveTimeout(axis),
+                    bFine: false,
+                    ct: CancellationToken.None).ConfigureAwait(false);
+                if (clearResult != 0)
+                    return clearResult;
+
                 double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
                 double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
                 double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
@@ -1085,7 +1109,13 @@ namespace QMC.CDT320
             Recipe.EnsurePositionObjects();
             int result;
             if (side == BinSide.Ng)
+            {
+                result = await EnsureNgStageYMoveClearAsync("NG Stage Process", ResolveStageAxisMoveTimeout(BinStageAxis.NgBinY), bFine, CancellationToken.None).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGStageY.ProcessPosition, bFine);
+            }
             else
             {
                 result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodStageY.ProcessPosition, bFine);
@@ -1097,6 +1127,82 @@ namespace QMC.CDT320
 
             if (result != 0) return result;
             return await MoveStageAxis(BinStageAxis.VisionX, Recipe.VisionX.ProcessPosition, bFine);
+        }
+
+        private int ResolveStageAxisMoveTimeout(BinStageAxis axis)
+        {
+            try
+            {
+                BaseAxis item = ResolveStageAxis(axis);
+                return item != null && item.Setup != null && item.Setup.MoveTimeoutMs > 0
+                    ? item.Setup.MoveTimeoutMs
+                    : 10000;
+            }
+            catch
+            {
+                return 10000;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(BinStageAxis axis, double targetPos, int itemTimeoutMs, bool bFine, CancellationToken ct)
+        {
+            try
+            {
+                if (axis != BinStageAxis.GoodBinZ)
+                    return 0;
+
+                Recipe.EnsurePositionObjects();
+                if (IsTargetAtPosition(GoodStage != null ? GoodStage.StageZ : null, targetPos, Recipe.GoodStageZ.AvoidPosition))
+                    return 0;
+
+                if (IsNgStageInAvoidPosition())
+                    return 0;
+
+                return await EnsureNgStageAvoidBeforeGoodStageZNonAvoidMoveAsync(
+                    "GoodStageZ 상승/공정 위치 이동",
+                    itemTimeoutMs,
+                    bFine,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm(
+                    "OS-GOOD-Z-MOVE-CLEAR-EX",
+                    "GoodStageZ 상승/공정 위치 이동 전 NG Stage Avoid 조건 확보 중 예외가 발생했습니다. error=" + ex.Message + ", " +
+                    DescribeOutputStageInterlockState(BinSide.Good));
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsTargetAtPosition(BaseAxis axis, double targetPos, double position)
+        {
+            double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+
+            return Math.Abs(targetPos - position) <= tolerance;
+        }
+
+        private static bool IsAxisAtTarget(BaseAxis axis, double targetPos)
+        {
+            if (axis == null)
+                return true;
+
+            axis.UpdateStatus();
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+
+            return Math.Abs(axis.ActualPosition - targetPos) <= tolerance;
         }
 
         public bool IsStageAxisInPosition(BinStageAxis axis, double targetPos, double tolerance)
@@ -1238,7 +1344,24 @@ namespace QMC.CDT320
                 ct.ThrowIfCancellationRequested();
                 Recipe.EnsurePositionObjects();
 
-                if (side == BinSide.Good)
+                BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
+
+                if (side == BinSide.Ng)
+                {
+                    int ngClear = await EnsureNgStageYMoveClearAsync(
+                        "NG Stage Load",
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
+                    if (ngClear != 0)
+                        return ngClear;
+                }
+
+                bool goodYAlreadyAtLoad = side == BinSide.Good &&
+                                          CheckStageAxisInPosition(BinStageAxis.GoodBinY, yTarget);
+
+                if (side == BinSide.Good && !goodYAlreadyAtLoad)
                 {
                     int readyResult = await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
                         "Good Stage Load",
@@ -1250,12 +1373,13 @@ namespace QMC.CDT320
                 }
 
                 if (side == BinSide.Good &&
+                    !goodYAlreadyAtLoad &&
                     HasStageAxis(BinStageAxis.GoodBinZ) &&
-                    !IsGoodStageZInAvoidOrProcessPosition())
+                    !IsGoodStageZInAvoidPosition())
                 {
                     int zSafeResult = await MoveStageAxisAndVerifyAsync(
                         BinStageAxis.GoodBinZ,
-                        Recipe.GoodStageZ.ProcessPosition,
+                        Recipe.GoodStageZ.AvoidPosition,
                         timeoutMs,
                         bFine,
                         ct).ConfigureAwait(false);
@@ -1263,12 +1387,12 @@ namespace QMC.CDT320
                         return zSafeResult;
                 }
 
-                BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
-                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
-
-                int result = await MoveStageAxisAndVerifyAsync(yAxis, yTarget, timeoutMs, bFine, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (side != BinSide.Good || !goodYAlreadyAtLoad)
+                {
+                    int result = await MoveStageAxisAndVerifyAsync(yAxis, yTarget, timeoutMs, bFine, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 if (side == BinSide.Ng)
                     return 0;
@@ -1350,19 +1474,34 @@ namespace QMC.CDT320
 
                 Recipe.EnsurePositionObjects();
                 if (side == BinSide.Ng)
+                {
+                    int ngClear = await EnsureNgStageYMoveClearAsync(
+                        "NG Stage Unload",
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
+                    if (ngClear != 0)
+                        return ngClear;
+
                     return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+                }
 
-                int readyResult = await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
-                    "Good Stage Unload",
-                    timeoutMs,
-                    bFine,
-                    ct).ConfigureAwait(false);
-                if (readyResult != 0)
-                    return readyResult;
+                bool goodYAlreadyAtUnload = CheckStageAxisInPosition(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition);
 
-                int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (!goodYAlreadyAtUnload)
+                {
+                    int readyResult = await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+                        "Good Stage Unload",
+                        timeoutMs,
+                        bFine,
+                        ct).ConfigureAwait(false);
+                    if (readyResult != 0)
+                        return readyResult;
+
+                    int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
             }
@@ -1379,6 +1518,82 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> EnsureNgStageYMoveClearAsync(string motionName, int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+
+                int result = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return RaiseOutputStageAlarm(
+                        "OS-NG-CLAMP-UP-BEFORE-NG-Y",
+                        motionName + " 전 NG Bin Clamp Lift Up 실패. result=" + result + ", " +
+                        DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!IsBinGuideClampLiftUp(BinSide.Ng))
+                    return RaiseOutputStageAlarm(
+                        "OS-NG-CLAMP-UP-CHECK-BEFORE-NG-Y",
+                        motionName + " 전 NG Bin Clamp Lift가 Up 상태가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Ng));
+
+                result = await EnsureBinGuideDownAsync(BinSide.Good, timeoutMs, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return RaiseOutputStageAlarm(
+                        "OS-GOOD-GUIDE-DOWN-BEFORE-NG-Y",
+                        motionName + " 전 Good Bin Guide Down 실패. result=" + result + ", " +
+                        DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!IsBinGuideDown(BinSide.Good))
+                    return RaiseOutputStageAlarm(
+                        "OS-GOOD-GUIDE-DOWN-CHECK-BEFORE-NG-Y",
+                        motionName + " 전 Good Bin Guide가 Down 상태가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Ng));
+
+                if (!IsGoodStageZInAvoidPosition())
+                {
+                    result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return RaiseOutputStageAlarm(
+                            "OS-GOOD-Z-AVOID-BEFORE-NG-Y",
+                            motionName + " 전 GoodStageZ Avoid 이동 실패. result=" + result + ", " +
+                            DescribeOutputStageInterlockState(BinSide.Ng));
+                }
+
+                if (!IsGoodStageZInAvoidPosition())
+                    return RaiseOutputStageAlarm(
+                        "OS-GOOD-Z-AVOID-CHECK-BEFORE-NG-Y",
+                        motionName + " 전 GoodStageZ가 Avoid 위치가 아닙니다. " +
+                        DescribeOutputStageInterlockState(BinSide.Ng));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm(
+                    "OS-NG-Y-CLEAR-EX",
+                    motionName + " 전 NG Stage Y 이동 조건 확보 중 예외가 발생했습니다. error=" + ex.Message + ", " +
+                    DescribeOutputStageInterlockState(BinSide.Ng));
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> EnsureNgStageAvoidBeforeGoodStageZNonAvoidMoveAsync(string motionName, int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            return await EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(
+                motionName,
+                timeoutMs,
+                bFine,
+                ct).ConfigureAwait(false);
+        }
+
         private async Task<int> EnsureNgStageAvoidBeforeGoodStageZLoadUnloadAsync(string motionName, int timeoutMs, bool bFine, CancellationToken ct)
         {
             try
@@ -1389,11 +1604,11 @@ namespace QMC.CDT320
                 if (!HasStageAxis(BinStageAxis.GoodBinZ))
                     return 0;
 
-                if (!IsGoodStageZInAvoidOrProcessPosition())
+                if (!IsGoodStageZInAvoidPosition())
                 {
                     int goodZResult = await MoveStageAxisAndVerifyAsync(
                         BinStageAxis.GoodBinZ,
-                        Recipe.GoodStageZ.ProcessPosition,
+                        Recipe.GoodStageZ.AvoidPosition,
                         timeoutMs,
                         bFine,
                         ct).ConfigureAwait(false);
@@ -1401,16 +1616,16 @@ namespace QMC.CDT320
                     {
                         return RaiseOutputStageAlarm(
                             "OS-GOOD-Z-AVOID-BEFORE-NG-AVOID",
-                            motionName + " 전 GoodStageZ 안전 위치 이동 실패. result=" + goodZResult + ", " +
+                            motionName + " 전 GoodStageZ Avoid 이동 실패. result=" + goodZResult + ", " +
                             DescribeOutputStageInterlockState(BinSide.Good));
                     }
                 }
 
-                if (!IsGoodStageZInAvoidOrProcessPosition())
+                if (!IsGoodStageZInAvoidPosition())
                 {
                     return RaiseOutputStageAlarm(
                         "OS-GOOD-Z-AVOID-CHECK",
-                        motionName + " 전 GoodStageZ가 Avoid 또는 Process 위치가 아닙니다. " +
+                        motionName + " 전 GoodStageZ가 Avoid 위치가 아닙니다. " +
                         DescribeOutputStageInterlockState(BinSide.Good));
                 }
 
@@ -1552,14 +1767,14 @@ namespace QMC.CDT320
                     return result;
 
                 if (!IsBinGuideClampLiftUp(BinSide.Ng))
-                    return RaiseOutputStageAlarm("OS-NG-CLAMP-UP", "NG Bin Clamp Lift must be up before output stage load movement.");
+                    return RaiseOutputStageAlarm("OS-NG-CLAMP-UP", "OutputStage Load 이동 전 NG Bin Clamp Lift가 Up 상태여야 합니다.");
 
                 result = await EnsureBinGuideDownAsync(BinSide.Good, timeoutMs, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 if (!IsBinGuideDown(BinSide.Good))
-                    return RaiseOutputStageAlarm("OS-GOOD-GUIDE-DOWN", "Good Bin Guide must be down before output stage movement.");
+                    return RaiseOutputStageAlarm("OS-GOOD-GUIDE-DOWN", "OutputStage 이동 전 Good Bin Guide가 Down 상태여야 합니다.");
 
                 // OK Stage 로딩 전에는 NG Stage를 Avoid로 보낸 뒤 필요 시 가이드를 내린다.
                 //result = await EnsureBinGuideDownAsync(BinSide.Ng, timeoutMs);
@@ -1992,7 +2207,11 @@ namespace QMC.CDT320
             if (!HasStageAxis(axis))
                 return 0;
 
-            int result = await MoveStageAxis(axis, targetPos, bFine);
+            int result = await MoveStageAxis(
+                axis,
+                targetPos,
+                bFine,
+                "OutputStageUnit.InternalMoveAndVerify;" + axis).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

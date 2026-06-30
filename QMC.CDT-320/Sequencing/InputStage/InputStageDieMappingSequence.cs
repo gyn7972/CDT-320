@@ -15,6 +15,7 @@ namespace QMC.CDT320.Sequencing
     {
         Idle,
         CheckUnit,
+        MoveNeedleZSafeBeforeMapping,
         MoveTopPoint,
         FindTopPoint,
         MoveBottomPoint,
@@ -25,6 +26,7 @@ namespace QMC.CDT320.Sequencing
         FindRightPoint,
         CalculateDieMap,
         ApplyDieMap,
+        MoveVisionXAvoidAfterManual,
         Complete,
         Error
     }
@@ -62,6 +64,9 @@ namespace QMC.CDT320.Sequencing
                     // 유닛 확인
                     case InputStageDieMappingStep.CheckUnit:
                         return Task.FromResult(CheckDieMappingUnit());
+                    // 다이 맵핑 전 NeedleZ 안전 위치 복귀
+                    case InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping:
+                        return MoveNeedleZSafeBeforeMappingAsync(ct);
                     // 상단 포인트 이동
                     case InputStageDieMappingStep.MoveTopPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Top, InputStageDieMappingStep.FindTopPoint, ct);
@@ -92,6 +97,9 @@ namespace QMC.CDT320.Sequencing
                     // 다이 맵 적용
                     case InputStageDieMappingStep.ApplyDieMap:
                         return Task.FromResult(ApplyDieMap());
+                    // 메뉴얼 Die Mapping 완료 후 카메라 X축 안전 위치 복귀
+                    case InputStageDieMappingStep.MoveVisionXAvoidAfterManual:
+                        return MoveVisionXAvoidAfterManualDieMappingAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }
@@ -172,12 +180,59 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-VISION", Stage.Name, "Vision client is required but not available.");
 
                 _mappedPoints.Clear();
-                CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                CurrentStep = InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-DIEMAP-CHECK-EX", "InputStageDieMappingSequence", "Die mapping unit check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedleZSafeBeforeMappingAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!Options.EnableMotion || Stage == null || Stage.Recipe == null || Stage.Recipe.NeedleZ == null)
+                {
+                    CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                    return 0;
+                }
+
+                if (!Stage.IsNeedleZInSafePosition())
+                {
+                    double target = Stage.Recipe.NeedleZ.AvoidPosition;
+                    int result = await MoveAxisAndWaitAsync(
+                        WaferStageAxis.NeedleZ,
+                        target,
+                        "Die Mapping 시작 전 NeedleZ Avoid",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    WriteLog("InputStageDieMappingSequence",
+                        "Die Mapping 시작 전 NeedleZ를 Avoid 위치로 복귀했습니다. target=" +
+                        target.ToString("F3") + " - Ok");
+                }
+
+                CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "IN-STAGE-DIEMAP-NEEDLEZ-AVOID-EX",
+                    Stage != null ? Stage.Name : "InputStageUnit",
+                    "Die Mapping 시작 전 NeedleZ Avoid 이동 중 예외가 발생했습니다: " + ex.Message);
             }
             finally
             {
@@ -590,12 +645,68 @@ namespace QMC.CDT320.Sequencing
                     ", dieMapY=" + _dieMap.DieMapY +
                     ", dieCount=" + _createdDieCount + " - Ok");
 
-                CurrentStep = InputStageDieMappingStep.Complete;
+                CurrentStep = ShouldMoveVisionXAvoidAfterManualDieMapping()
+                    ? InputStageDieMappingStep.MoveVisionXAvoidAfterManual
+                    : InputStageDieMappingStep.Complete;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-DIEMAP-APPLY-EX", "InputStageDieMappingSequence", "Die map apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldMoveVisionXAvoidAfterManualDieMapping()
+        {
+            return Options != null &&
+                   Options.RunMode == SequenceRunMode.Manual &&
+                   Options.EnableMotion &&
+                   Stage != null &&
+                   Stage.Recipe != null &&
+                   Stage.Recipe.VisionX != null;
+        }
+
+        private async Task<int> MoveVisionXAvoidAfterManualDieMappingAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!ShouldMoveVisionXAvoidAfterManualDieMapping())
+                {
+                    CurrentStep = InputStageDieMappingStep.Complete;
+                    return 0;
+                }
+
+                double target = Stage.Recipe.VisionX.AvoidPosition;
+                int result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.VisionX,
+                    target,
+                    "Manual Die Mapping 완료 후 VisionX Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("InputStageDieMappingSequence",
+                    "메뉴얼 Die Mapping 완료 후 VisionX를 Avoid 위치로 복귀했습니다. target=" +
+                    target.ToString("F3") + " - Ok");
+
+                CurrentStep = InputStageDieMappingStep.Complete;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "IN-STAGE-DIEMAP-VISIONX-AVOID-EX",
+                    Stage != null ? Stage.Name : "InputStageUnit",
+                    "메뉴얼 Die Mapping 완료 후 VisionX Avoid 이동 중 예외가 발생했습니다: " + ex.Message);
             }
             finally
             {

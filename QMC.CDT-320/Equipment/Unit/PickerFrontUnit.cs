@@ -345,8 +345,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerAxisPositionSet
     {
-        [DataMember] public double InputAvoidPosition { get; set; } // Input 영역에서 간섭을 피하기 위한 축별 회피 위치입니다.
-        [DataMember] public double OutputAvoidPosition { get; set; } // Output 영역에서 간섭을 피하기 위한 축별 회피 위치입니다.
+        [DataMember] public double InputAvoidPosition { get; set; } // Input-side 방향에서 간섭을 피하기 위한 축별 회피 위치입니다.
+        [DataMember] public double OutputAvoidPosition { get; set; } // Output-side 방향에서 간섭을 피하기 위한 축별 회피 위치입니다.
         [DataMember] public double AvoidPosition { get; set; } // 공통 회피 또는 대기 상태에서 사용하는 축별 기준 위치입니다.
         [DataMember] public double PickPosition { get; set; } // InputStage에서 Die를 Pick할 때 사용하는 축별 기준 위치입니다.
         [DataMember] public double BottomPosition { get; set; } // Bottom Vision 검사 위치로 이동할 때 사용하는 축별 기준 위치입니다.
@@ -1581,24 +1581,48 @@ namespace QMC.CDT320
             return MovePickerGroup("AvoidPosition", speedType, customSpeed);
         }
 
-        public Task<int> MoveToPickerLoadPosition(bool bFine = false)
+        public Task<int> MoveToInputSideAvoidPosition(bool bFine = false)
         {
             return MovePickerGroup("InputAvoidPosition", bFine);
         }
 
-        public Task<int> MoveToPickerLoadPosition(JogSpeedType speedType, double customSpeed)
+        public Task<int> MoveToInputSideAvoidPosition(JogSpeedType speedType, double customSpeed)
         {
             return MovePickerGroup("InputAvoidPosition", speedType, customSpeed);
         }
 
-        public Task<int> MoveToPickerUnloadPosition(bool bFine = false)
+        public Task<int> MoveToOutputSideAvoidPosition(bool bFine = false)
         {
             return MovePickerGroup("OutputAvoidPosition", bFine);
         }
 
-        public Task<int> MoveToPickerUnloadPosition(JogSpeedType speedType, double customSpeed)
+        public Task<int> MoveToOutputSideAvoidPosition(JogSpeedType speedType, double customSpeed)
         {
             return MovePickerGroup("OutputAvoidPosition", speedType, customSpeed);
+        }
+
+        // Legacy name. This is an Input-side avoid position, not a load work position.
+        public Task<int> MoveToPickerLoadPosition(bool bFine = false)
+        {
+            return MoveToInputSideAvoidPosition(bFine);
+        }
+
+        // Legacy name. This is an Input-side avoid position, not a load work position.
+        public Task<int> MoveToPickerLoadPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MoveToInputSideAvoidPosition(speedType, customSpeed);
+        }
+
+        // Legacy name. This is an Output-side avoid position, not an unload work position.
+        public Task<int> MoveToPickerUnloadPosition(bool bFine = false)
+        {
+            return MoveToOutputSideAvoidPosition(bFine);
+        }
+
+        // Legacy name. This is an Output-side avoid position, not an unload work position.
+        public Task<int> MoveToPickerUnloadPosition(JogSpeedType speedType, double customSpeed)
+        {
+            return MoveToOutputSideAvoidPosition(speedType, customSpeed);
         }
 
         public Task<int> MoveToPickerSafeRetreatPosition(bool bFine = false)
@@ -1980,14 +2004,26 @@ namespace QMC.CDT320
             return null;
         }
 
-        public bool IsPickerInLoadPosition()
+        public bool IsPickerInInputSideAvoidPosition()
         {
             return IsPickerGroupInPosition("InputAvoidPosition");
         }
 
-        public bool IsPickerInUnloadPosition()
+        public bool IsPickerInOutputSideAvoidPosition()
         {
             return IsPickerGroupInPosition("OutputAvoidPosition");
+        }
+
+        // Legacy name. This checks Input-side avoid, not a load work position.
+        public bool IsPickerInLoadPosition()
+        {
+            return IsPickerInInputSideAvoidPosition();
+        }
+
+        // Legacy name. This checks Output-side avoid, not an unload work position.
+        public bool IsPickerInUnloadPosition()
+        {
+            return IsPickerInOutputSideAvoidPosition();
         }
 
         public bool IsPickerInDiePickPosition(int pickerNo)
@@ -2026,14 +2062,26 @@ namespace QMC.CDT320
             TeachPickerGroup("AvoidPosition");
         }
 
-        public void TeachPickerLoadPositions()
+        public void TeachPickerInputSideAvoidPositions()
         {
             TeachPickerGroup("InputAvoidPosition");
         }
 
-        public void TeachPickerUnloadPositions()
+        public void TeachPickerOutputSideAvoidPositions()
         {
             TeachPickerGroup("OutputAvoidPosition");
+        }
+
+        // Legacy name. This teaches Input-side avoid, not a load work position.
+        public void TeachPickerLoadPositions()
+        {
+            TeachPickerInputSideAvoidPositions();
+        }
+
+        // Legacy name. This teaches Output-side avoid, not an unload work position.
+        public void TeachPickerUnloadPositions()
+        {
+            TeachPickerOutputSideAvoidPositions();
         }
 
         public void TeachPickerSafeRetreatPositions()
@@ -2468,6 +2516,10 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
                 return MovePickerAvoidGroupSafely(bFine);
 
+            if (string.Equals(positionName, "InputAvoidPosition", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "OutputAvoidPosition", StringComparison.OrdinalIgnoreCase))
+                return MovePickerSideAvoidGroupSafely(positionName, bFine);
+
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
                 targets[axis] = GetPickerTeachingPosition(axis, positionName);
@@ -2478,6 +2530,10 @@ namespace QMC.CDT320
         {
             if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
                 return MovePickerAvoidGroupSafely(speedType, customSpeed);
+
+            if (string.Equals(positionName, "InputAvoidPosition", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "OutputAvoidPosition", StringComparison.OrdinalIgnoreCase))
+                return MovePickerSideAvoidGroupSafely(positionName, speedType, customSpeed);
 
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
@@ -2631,12 +2687,212 @@ namespace QMC.CDT320
             }
         }
 
+        private async Task<int> MovePickerSideAvoidGroupSafely(string positionName, bool bFine)
+        {
+            try
+            {
+                Dictionary<PickerAxis, double> zAvoidTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ0);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ1);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ2);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ3);
+
+                int result = await MovePickerAxesNamed(
+                    zAvoidTargets,
+                    bFine,
+                    "AvoidPosition;PickerPhase=SideAvoidSafeZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SideAvoidSafeY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, positionName),
+                        bFine,
+                        positionName + ";PickerPhase=SideAvoidX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, positionName),
+                        bFine,
+                        positionName + ";PickerPhase=SideAvoidY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT0, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT1, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT2, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT3, positionName);
+
+                result = await MovePickerAxesNamed(
+                    tTargets,
+                    bFine,
+                    positionName + ";PickerPhase=SideAvoidT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                Dictionary<PickerAxis, double> zTargets = new Dictionary<PickerAxis, double>();
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ0, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ1, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ2, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ3, positionName);
+
+                result = await MovePickerAxesNamed(
+                    zTargets,
+                    bFine,
+                    positionName + ";PickerPhase=SideAvoidZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                foreach (PickerAxis axis in axes.Keys)
+                {
+                    if (!IsPickerAxisInTeachingPosition(axis, positionName))
+                        return RaisePickerAlarm("PK-SIDE-AVOID-CHECK", axis + " " + positionName + " 최종 위치 확인 실패.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-SIDE-AVOID-EX", "Picker side avoid 순차 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerSideAvoidGroupSafely(string positionName, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                Dictionary<PickerAxis, double> zAvoidTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ0);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ1);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ2);
+                AddAvoidTargetIfExists(zAvoidTargets, PickerAxis.PickerZ3);
+
+                int result = await MovePickerAxesNamed(
+                    zAvoidTargets,
+                    speedType,
+                    customSpeed,
+                    "AvoidPosition;PickerPhase=SideAvoidSafeZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxis(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        speedType,
+                        customSpeed,
+                        "AvoidPosition;PickerPhase=SideAvoidSafeY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxis(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, positionName),
+                        speedType,
+                        customSpeed,
+                        positionName + ";PickerPhase=SideAvoidX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxis(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, positionName),
+                        speedType,
+                        customSpeed,
+                        positionName + ";PickerPhase=SideAvoidY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT0, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT1, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT2, positionName);
+                AddTeachingTargetIfExists(tTargets, PickerAxis.PickerT3, positionName);
+
+                result = await MovePickerAxesNamed(
+                    tTargets,
+                    speedType,
+                    customSpeed,
+                    positionName + ";PickerPhase=SideAvoidT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                Dictionary<PickerAxis, double> zTargets = new Dictionary<PickerAxis, double>();
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ0, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ1, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ2, positionName);
+                AddTeachingTargetIfExists(zTargets, PickerAxis.PickerZ3, positionName);
+
+                result = await MovePickerAxesNamed(
+                    zTargets,
+                    speedType,
+                    customSpeed,
+                    positionName + ";PickerPhase=SideAvoidZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                foreach (PickerAxis axis in axes.Keys)
+                {
+                    if (!IsPickerAxisInTeachingPosition(axis, positionName))
+                        return RaisePickerAlarm("PK-SIDE-AVOID-CHECK", axis + " " + positionName + " 최종 위치 확인 실패.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-SIDE-AVOID-EX", "Picker side avoid 조그 프로파일 순차 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void AddAvoidTargetIfExists(Dictionary<PickerAxis, double> targets, PickerAxis axis)
         {
             if (targets == null || !axes.ContainsKey(axis))
                 return;
 
             targets[axis] = GetPickerTeachingPosition(axis, "AvoidPosition");
+        }
+
+        private void AddTeachingTargetIfExists(Dictionary<PickerAxis, double> targets, PickerAxis axis, string positionName)
+        {
+            if (targets == null || !axes.ContainsKey(axis))
+                return;
+
+            targets[axis] = GetPickerTeachingPosition(axis, positionName);
         }
 
         private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, bool bFine)
@@ -3028,12 +3284,22 @@ namespace QMC.CDT320
 
         public Task<int> MoveToFrontPickerLoadPosition(bool bFine = false)
         {
-            return MoveToPickerLoadPosition(bFine);
+            return MoveToInputSideAvoidPosition(bFine);
         }
 
         public Task<int> MoveToFrontPickerUnloadPosition(bool bFine = false)
         {
-            return MoveToPickerUnloadPosition(bFine);
+            return MoveToOutputSideAvoidPosition(bFine);
+        }
+
+        public Task<int> MoveToFrontPickerInputSideAvoidPosition(bool bFine = false)
+        {
+            return MoveToInputSideAvoidPosition(bFine);
+        }
+
+        public Task<int> MoveToFrontPickerOutputSideAvoidPosition(bool bFine = false)
+        {
+            return MoveToOutputSideAvoidPosition(bFine);
         }
 
         public Task<int> MoveToFrontPickerSafeRetreatPosition(bool bFine = false)
@@ -3103,12 +3369,22 @@ namespace QMC.CDT320
 
         public bool IsFrontPickerInLoadPosition()
         {
-            return IsPickerInLoadPosition();
+            return IsPickerInInputSideAvoidPosition();
         }
 
         public bool IsFrontPickerInUnloadPosition()
         {
-            return IsPickerInUnloadPosition();
+            return IsPickerInOutputSideAvoidPosition();
+        }
+
+        public bool IsFrontPickerInInputSideAvoidPosition()
+        {
+            return IsPickerInInputSideAvoidPosition();
+        }
+
+        public bool IsFrontPickerInOutputSideAvoidPosition()
+        {
+            return IsPickerInOutputSideAvoidPosition();
         }
 
         public bool IsFrontPickerInDiePickPosition(int pickerNo)
@@ -3138,12 +3414,22 @@ namespace QMC.CDT320
 
         public void TeachFrontPickerLoadPositions()
         {
-            TeachPickerLoadPositions();
+            TeachPickerInputSideAvoidPositions();
         }
 
         public void TeachFrontPickerUnloadPositions()
         {
-            TeachPickerUnloadPositions();
+            TeachPickerOutputSideAvoidPositions();
+        }
+
+        public void TeachFrontPickerInputSideAvoidPositions()
+        {
+            TeachPickerInputSideAvoidPositions();
+        }
+
+        public void TeachFrontPickerOutputSideAvoidPositions()
+        {
+            TeachPickerOutputSideAvoidPositions();
         }
 
         public void TeachFrontPickerSafeRetreatPositions()

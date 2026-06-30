@@ -602,9 +602,12 @@ namespace QMC.CDT320
 
             Recipe.EnsurePositionObjects();
 
-            if (axis == WaferStageAxis.VisionX &&
-                IsStageTravelTeachingTarget(axis, target))
+            if (axis == WaferStageAxis.VisionX)
+            {
+                // InputVisionX는 카메라/캘리브레이션/티칭 용도로 wafer 작업 원 밖까지 이동해야 한다.
+                // 상부 공유레일/피커/피더 간섭은 MotionGuard에서 별도로 확인하므로 여기서는 원형 작업영역으로 제한하지 않는다.
                 return true;
+            }
 
             if (axis == WaferStageAxis.WaferY &&
                 IsStageTravelTeachingTarget(axis, target))
@@ -639,12 +642,6 @@ namespace QMC.CDT320
                 }
 
                 return true;
-            }
-
-            if (axis == WaferStageAxis.VisionX)
-            {
-                double targetY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
-                return IsInputStageWorkPointInArea(target, targetY, out reason);
             }
 
             if (axis == WaferStageAxis.NeedleX)
@@ -721,22 +718,12 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.VisionX)
             {
-                double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
-                double visionTarget;
-                if (!TryResolveCircularJogTarget(
-                    motionAxis.ActualPosition,
-                    stageY,
-                    ResolveWorkAreaCenterX(),
-                    ResolveWorkAreaCenterY(),
-                    ResolveWorkAreaRadius(),
-                    direction,
-                    "InputStage work area",
-                    out visionTarget,
-                    out reason))
-                    return false;
-
-                target = ClampToSoftLimit(motionAxis, visionTarget);
-                return VerifyResolvedJogTarget(axis, direction, target, out reason);
+                // VisionX 조그는 wafer 작업 원 경계가 아니라 축 soft limit까지 허용한다.
+                // 실제 상부 간섭은 StartBoundedJogMoveAsync의 MotionGuard/SharedRailX에서 최종 방어한다.
+                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                    ? motionAxis.Setup.SoftLimitPlus
+                    : motionAxis.Setup.SoftLimitMinus);
+                return VerifyJogDirectionTarget(axis, direction, target, out reason);
             }
 
             if (axis == WaferStageAxis.WaferY)

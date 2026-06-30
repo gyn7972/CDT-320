@@ -229,7 +229,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             catch (Exception ex)
             {
-                return Fail("VISION-CAMERA-CAL-PICKER-AVOID-STEP-EX", "PickerUnit", "Picker Output Avoid Step 예외 발생: " + ex.Message);
+                return Fail("VISION-CAMERA-CAL-PICKER-AVOID-STEP-EX", "PickerUnit", "Picker Output-side Avoid Step 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -343,6 +343,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                result = await EnsureReticleSafeBeforePickerMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await EnsureOutputVisionAvoidAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -417,6 +421,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
 
                 int result = CheckUnit();
+                if (result != 0)
+                    return result;
+
+                result = await EnsureReticleSafeBeforePickerMoveAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -564,7 +572,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (IsAxisInPosition(stage.CameraX, target))
                     return 0;
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-INPUT-RETICLE-MOVE", "InputStageUnit", "InputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -604,7 +612,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (IsAxisInPosition(stage.OutputCameraX, target))
                     return 0;
 
-                int result = await stage.MoveStageAxis(BinStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                int result = await stage.MoveStageAxis(BinStageAxis.VisionX, target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-RETICLE-MOVE", "OutputStageUnit", "OutputVisionX Reticle 위치 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -635,6 +643,10 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
+                int reticleResult = await EnsureReticleSafeBeforePickerMoveAsync(ct).ConfigureAwait(false);
+                if (reticleResult != 0)
+                    return reticleResult;
+
                 int inputResult = await EnsureInputVisionAvoidAsync(ct).ConfigureAwait(false);
                 if (inputResult != 0)
                     return inputResult;
@@ -671,7 +683,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Coarse, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-INPUT-VISION-AVOID", "InputStageUnit", "InputVisionX Avoid 이동 명령 실패. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -709,7 +721,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(CalibrationMotionTimeoutMs, JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(CalibrationMotionTimeoutMs, JogSpeedType.Coarse, 0.0, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-CAMERA-CAL-OUTPUT-VISION-AVOID", "OutputStageUnit", "OutputVisionX Avoid 이동 실패. result=" + result);
 
@@ -739,15 +751,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (_machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null)
                     return Fail("VISION-CAMERA-CAL-PICKER-MISSING", "PickerUnit", "Picker Output-side Avoid 이동을 위한 Picker Unit이 없습니다.");
 
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerUnloadPosition(JogSpeedType.Fine, 0.0);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerUnloadPosition(JogSpeedType.Fine, 0.0);
+                int reticleResult = await EnsureReticleSafeBeforePickerMoveAsync(ct).ConfigureAwait(false);
+                if (reticleResult != 0)
+                    return reticleResult;
+
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToOutputSideAvoidPosition(JogSpeedType.Coarse, 0.0);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToOutputSideAvoidPosition(JogSpeedType.Coarse, 0.0);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-OUTPUT-AVOID", "PickerUnit", "Picker Output-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);
 
                 ct.ThrowIfCancellationRequested();
-                if (!_machine.PickerFrontUnit.IsPickerInUnloadPosition() || !_machine.PickerRearUnit.IsPickerInUnloadPosition())
-                    return Fail("VISION-CAMERA-CAL-PICKER-OUTPUT-CHECK", "PickerUnit", "Picker Output-side Avoid 최종 위치 확인 실패. front=" + _machine.PickerFrontUnit.IsPickerInUnloadPosition() + ", rear=" + _machine.PickerRearUnit.IsPickerInUnloadPosition());
+                if (!_machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition() || !_machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition())
+                    return Fail("VISION-CAMERA-CAL-PICKER-OUTPUT-CHECK", "PickerUnit", "Picker Output-side Avoid 최종 위치 확인 실패. front=" + _machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition() + ", rear=" + _machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition());
 
                 return 0;
             }
@@ -772,15 +788,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (_machine == null || _machine.PickerFrontUnit == null || _machine.PickerRearUnit == null)
                     return Fail("VISION-CAMERA-CAL-PICKER-MISSING", "PickerUnit", "Picker Input-side Avoid 이동을 위한 Picker Unit이 없습니다.");
 
-                Task<int> frontTask = _machine.PickerFrontUnit.MoveToPickerLoadPosition(JogSpeedType.Fine, 0.0);
-                Task<int> rearTask = _machine.PickerRearUnit.MoveToPickerLoadPosition(JogSpeedType.Fine, 0.0);
+                int reticleResult = await EnsureReticleSafeBeforePickerMoveAsync(ct).ConfigureAwait(false);
+                if (reticleResult != 0)
+                    return reticleResult;
+
+                Task<int> frontTask = _machine.PickerFrontUnit.MoveToInputSideAvoidPosition(JogSpeedType.Coarse, 0.0);
+                Task<int> rearTask = _machine.PickerRearUnit.MoveToInputSideAvoidPosition(JogSpeedType.Coarse, 0.0);
                 int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
                 if (results[0] != 0 || results[1] != 0)
                     return Fail("VISION-CAMERA-CAL-PICKER-INPUT-AVOID", "PickerUnit", "Picker Input-side Avoid 이동 실패. frontResult=" + results[0] + ", rearResult=" + results[1]);
 
                 ct.ThrowIfCancellationRequested();
-                if (!_machine.PickerFrontUnit.IsPickerInLoadPosition() || !_machine.PickerRearUnit.IsPickerInLoadPosition())
-                    return Fail("VISION-CAMERA-CAL-PICKER-INPUT-CHECK", "PickerUnit", "Picker Input-side Avoid 최종 위치 확인 실패. front=" + _machine.PickerFrontUnit.IsPickerInLoadPosition() + ", rear=" + _machine.PickerRearUnit.IsPickerInLoadPosition());
+                if (!_machine.PickerFrontUnit.IsPickerInInputSideAvoidPosition() || !_machine.PickerRearUnit.IsPickerInInputSideAvoidPosition())
+                    return Fail("VISION-CAMERA-CAL-PICKER-INPUT-CHECK", "PickerUnit", "Picker Input-side Avoid 최종 위치 확인 실패. front=" + _machine.PickerFrontUnit.IsPickerInInputSideAvoidPosition() + ", rear=" + _machine.PickerRearUnit.IsPickerInInputSideAvoidPosition());
 
                 return 0;
             }
@@ -791,6 +811,36 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("VISION-CAMERA-CAL-PICKER-INPUT-EX", "PickerUnit", "Picker Input-side Avoid 이동 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureReticleSafeBeforePickerMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                VisionUnit vision = _machine != null ? _machine.VisionUnit : null;
+                if (vision == null)
+                    return Fail("VISION-CAMERA-CAL-RETICLE-SAFE-NO-VISION", "VisionUnit", "Picker 이동 전 Reticle 안전 위치 확인을 위한 VisionUnit이 없습니다.");
+
+                if (IsReticleRetracted(vision))
+                    return 0;
+
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-SAFE-BEFORE-PICKER",
+                    "Picker 이동 전 Reticle을 안전 위치로 복귀합니다. 순서=Rear Back -> Front Back -> Lift Down");
+
+                return await RetractReticleFromBottomCameraAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-CAMERA-CAL-RETICLE-SAFE-EX", "VisionUnit", "Picker 이동 전 Reticle 안전 위치 복귀 예외 발생: " + ex.Message);
             }
             finally
             {
