@@ -317,8 +317,6 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "Place");
-
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("place pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -604,6 +602,11 @@ namespace QMC.CDT320.Sequencing
             int feederReady = await EnsureOutputFeederSafeBeforePlaceStageMoveAsync(ct).ConfigureAwait(false);
             if (feederReady != 0)
                 return feederReady;
+
+            // OutputFeeder/OutputStage 로딩이 1순위다.
+            // Picker는 OutputPlace/Stage/Feeder 리소스와 Feeder 안전 위치가 확보된 뒤에만
+            // Output work area를 점유해야 Feeder 로딩 중 Picker owner로 인한 인터락 오판이 생기지 않는다.
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "Place");
 
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
             double baseY = _currentOutputSide == BinSide.Ng

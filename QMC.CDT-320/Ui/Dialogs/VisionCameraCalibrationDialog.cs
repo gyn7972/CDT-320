@@ -119,10 +119,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 toolTip.SetToolTip(btnLoadValues, "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 표시합니다.");
                 toolTip.SetToolTip(btnSaveReticleValues, "현재 InputVisionX/OutputVisionX 위치를 ReticlePosition으로 저장합니다.\r\n축 티칭 위치는 현재 Recipe에 저장되고 캘 Offset과는 별도로 관리됩니다.");
                 toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
-                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nInput/Output VisionX와 Picker를 회피시키고 Reticle을 Bottom 촬영 위치로 전개한 뒤 Bottom 측정까지 수행합니다.");
+                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Front Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다.");
                 toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
-                toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nOutputVisionX를 Avoid로 이동하고 Front/Rear Picker를 Output Avoid로 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.");
-                toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nInputVisionX를 Avoid로 이동하고 Front/Rear Picker를 Input Avoid로 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.");
+                toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.");
+                toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Input-side Avoid로 안전 순차 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.");
                 toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 역순으로 복귀합니다.\r\nRear Slide 후진, Front Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다.");
                 toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산합니다.\r\n계산된 값을 VisionUnit Config.CameraCalibration에 저장합니다.");
                 toolTip.SetToolTip(btnHelp, "Vision Camera Calibration 수행 순서를 표시합니다.");
@@ -296,16 +296,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "   - 자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n\r\n" +
                 "2. PREPARE && FIND BOTTOM\r\n" +
                 "   - Input/Output VisionX Avoid 이동\r\n" +
-                "   - Front/Rear Picker Output Avoid 이동\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Front/Rear Picker Output-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
                 "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
                 "   - Bottom Vision ReticleFinder 촬영 및 X/Y/T/Score 저장\r\n\r\n" +
                 "3. FIND INPUT\r\n" +
                 "   - OutputVisionX Avoid 이동\r\n" +
-                "   - Front/Rear Picker Output Avoid 이동\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Front/Rear Picker Output-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
+                "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
                 "   - InputVisionX Reticle 위치 이동 후 ReticleFinder 촬영\r\n\r\n" +
                 "4. FIND OUTPUT\r\n" +
                 "   - InputVisionX Avoid 이동\r\n" +
-                "   - Front/Rear Picker Input Avoid 이동\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Front/Rear Picker Input-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
+                "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
                 "   - OutputVisionX Reticle 위치 이동 후 ReticleFinder 촬영\r\n\r\n" +
                 "5. RETICLE BACK\r\n" +
                 "   - Rear Slide 후진 -> Front Slide 후진 -> Lift Down\r\n\r\n" +
@@ -445,18 +450,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (readinessTarget == ManualCalibrationReadinessTarget.Input)
             {
-                if (!ArePickersAtOutputAvoid(host.Machine, out reason))
-                    return false;
-
-                return IsInputCameraAtReticleTeachingPosition(host.Machine, out reason);
+                return true;
             }
 
             if (readinessTarget == ManualCalibrationReadinessTarget.Output)
             {
-                if (!ArePickersAtInputAvoid(host.Machine, out reason))
-                    return false;
-
-                return IsOutputCameraAtReticleTeachingPosition(host.Machine, out reason);
+                return true;
             }
 
             return true;
@@ -491,16 +490,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             reason = string.Empty;
             if (machine == null || machine.PickerFrontUnit == null || machine.PickerRearUnit == null)
             {
-                reason = "Picker Unit이 없어 Output Avoid 상태를 확인할 수 없습니다.";
+                reason = "Picker Unit이 없어 Output-side Avoid 상태를 확인할 수 없습니다.";
                 return false;
             }
 
-            bool front = machine.PickerFrontUnit.IsPickerInUnloadPosition();
-            bool rear = machine.PickerRearUnit.IsPickerInUnloadPosition();
+            bool front = machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition();
+            bool rear = machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition();
             if (front && rear)
                 return true;
 
-            reason = "Input 카메라 측정 전 Front/Rear Picker가 Output Avoid 위치에 있어야 합니다. frontOutputAvoid=" + front + ", rearOutputAvoid=" + rear;
+            reason = "Input 카메라 측정 전 Front/Rear Picker가 Output-side Avoid 위치에 있어야 합니다. frontOutputSideAvoid=" + front + ", rearOutputSideAvoid=" + rear;
             return false;
         }
 
@@ -509,16 +508,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             reason = string.Empty;
             if (machine == null || machine.PickerFrontUnit == null || machine.PickerRearUnit == null)
             {
-                reason = "Picker Unit이 없어 Input Avoid 상태를 확인할 수 없습니다.";
+                reason = "Picker Unit이 없어 Input-side Avoid 상태를 확인할 수 없습니다.";
                 return false;
             }
 
-            bool front = machine.PickerFrontUnit.IsPickerInLoadPosition();
-            bool rear = machine.PickerRearUnit.IsPickerInLoadPosition();
+            bool front = machine.PickerFrontUnit.IsPickerInInputSideAvoidPosition();
+            bool rear = machine.PickerRearUnit.IsPickerInInputSideAvoidPosition();
             if (front && rear)
                 return true;
 
-            reason = "Output 카메라 측정 전 Front/Rear Picker가 Input Avoid 위치에 있어야 합니다. frontInputAvoid=" + front + ", rearInputAvoid=" + rear;
+            reason = "Output 카메라 측정 전 Front/Rear Picker가 Input-side Avoid 위치에 있어야 합니다. frontInputSideAvoid=" + front + ", rearInputSideAvoid=" + rear;
             return false;
         }
 

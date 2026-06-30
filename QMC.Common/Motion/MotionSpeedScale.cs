@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace QMC.Common.Motion
 {
@@ -10,7 +10,8 @@ namespace QMC.Common.Motion
     ///   <item><description>명시 velocity(velocity &gt; 0), Jog 속도, Mapping ScanVelocity, HomeVelocity 에는 적용하지 않는다.</description></item>
     ///   <item><description>100% = DefaultVelocity/Acceleration/Deceleration 그대로, 10% = 각각 10%로 구동.</description></item>
     /// </list>
-    /// 값은 <c>AppSettings</c> 의 설정으로 저장/로드되며, 로드 시 <see cref="ScalePercent"/> 로 동기화된다.
+    /// 자동 시퀀스 일반 이동은 <c>AppSettings</c> 의 <see cref="ScalePercent"/> 를 사용한다.
+    /// 수동/READY 스코프에서는 전체 ScalePercent 와 독립적으로 각 전용 퍼센트를 사용한다.
     /// </summary>
     public static class MotionSpeedScale
     {
@@ -23,6 +24,20 @@ namespace QMC.Common.Motion
         /// <summary>기본 퍼센트(스케일 미적용).</summary>
         public const double DefaultPercent = 100.0;
 
+        /// <summary>
+        /// Manual Sequence Dialog / CYCLE RUN Step 수동 시퀀스에서 추가로 적용할 안전 속도 퍼센트입니다.
+        /// 작업자가 수동으로 단계를 확인하며 구동하는 경로는 위험하므로 축 DefaultVelocity 의 30%로 제한합니다.
+        /// 20~30% 범위에서 조정하려면 이 값만 변경합니다.
+        /// </summary>
+        public const double ManualSequencePercent = 5.0;
+
+        /// <summary>
+        /// 작업 화면 READY 시퀀스에서만 추가로 적용할 안전 속도 퍼센트입니다.
+        /// 전체 속도 ScalePercent 와 독립적으로 축 DefaultVelocity 의 5~10% 범위에서 구동합니다.
+        /// Ready 복귀는 여러 축이 동시에 움직이므로 5~10% 범위에서 조정하려면 이 값만 변경합니다.
+        /// </summary>
+        public const double ReadySequencePercent = 5.0;
+
         /// <summary>스케일 적용 후 0 이하로 떨어지지 않도록 보장하는 최소 속도.</summary>
         private const double MinScaledVelocity = 0.001;
 
@@ -30,6 +45,8 @@ namespace QMC.Common.Motion
         private const double MinScaledAcceleration = 0.001;
 
         private static double _scalePercent = DefaultPercent;
+        private static int _manualSequenceScaleDepth;
+        private static int _readySequenceScaleDepth;
 
         /// <summary>
         /// 현재 적용 중인 전체 DefaultVelocity 퍼센트(1~100).<br/>
@@ -45,6 +62,55 @@ namespace QMC.Common.Motion
         public static double ScaleFactor
         {
             get { return _scalePercent / 100.0; }
+        }
+
+        /// <summary>Manual Sequence 추가 안전 스케일이 적용 중인지 여부입니다.</summary>
+        public static bool IsManualSequenceScaleActive
+        {
+            get { return System.Threading.Volatile.Read(ref _manualSequenceScaleDepth) > 0; }
+        }
+
+        /// <summary>READY 시퀀스 추가 안전 스케일이 적용 중인지 여부입니다.</summary>
+        public static bool IsReadySequenceScaleActive
+        {
+            get { return System.Threading.Volatile.Read(ref _readySequenceScaleDepth) > 0; }
+        }
+
+        /// <summary>
+        /// 현재 실행 컨텍스트에 맞는 최종 스케일 배율입니다.
+        /// Auto는 전체 ScalePercent, Manual/READY는 각 전용 퍼센트를 독립 적용합니다.
+        /// </summary>
+        public static double EffectiveScaleFactor
+        {
+            get
+            {
+                if (IsReadySequenceScaleActive)
+                    return ClampPercent(ReadySequencePercent) / 100.0;
+                if (IsManualSequenceScaleActive)
+                    return ClampPercent(ManualSequencePercent) / 100.0;
+
+                return ScaleFactor;
+            }
+        }
+
+        /// <summary>
+        /// Manual Sequence 범위 동안 DefaultVelocity/Acceleration/Deceleration을 추가 감속합니다.
+        /// 반드시 using으로 감싸서 종료 시 원복되게 사용합니다.
+        /// </summary>
+        public static IDisposable BeginManualSequenceScale()
+        {
+            System.Threading.Interlocked.Increment(ref _manualSequenceScaleDepth);
+            return new ManualSequenceScaleScope();
+        }
+
+        /// <summary>
+        /// READY 시퀀스 범위 동안 DefaultVelocity/Acceleration/Deceleration을 추가 감속합니다.
+        /// 반드시 using으로 감싸서 종료 시 원복되게 사용합니다.
+        /// </summary>
+        public static IDisposable BeginReadySequenceScale()
+        {
+            System.Threading.Interlocked.Increment(ref _readySequenceScaleDepth);
+            return new ReadySequenceScaleScope();
         }
 
         /// <summary>퍼센트를 안전 범위(<see cref="MinPercent"/>~<see cref="MaxPercent"/>)로 보정한다.</summary>
@@ -71,7 +137,7 @@ namespace QMC.Common.Motion
             if (velocity <= 0.0)
                 return velocity;
 
-            double scaled = velocity * ScaleFactor;
+            double scaled = velocity * EffectiveScaleFactor;
             return scaled < MinScaledVelocity ? MinScaledVelocity : scaled;
         }
 
@@ -85,8 +151,34 @@ namespace QMC.Common.Motion
             if (acceleration <= 0.0)
                 return acceleration;
 
-            double scaled = acceleration * ScaleFactor;
+            double scaled = acceleration * EffectiveScaleFactor;
             return scaled < MinScaledAcceleration ? MinScaledAcceleration : scaled;
+        }
+
+        private sealed class ManualSequenceScaleScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+
+                System.Threading.Interlocked.Decrement(ref _manualSequenceScaleDepth);
+            }
+        }
+
+        private sealed class ReadySequenceScaleScope : IDisposable
+        {
+            private int _disposed;
+
+            public void Dispose()
+            {
+                if (System.Threading.Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+
+                System.Threading.Interlocked.Decrement(ref _readySequenceScaleDepth);
+            }
         }
 
         /// <summary>

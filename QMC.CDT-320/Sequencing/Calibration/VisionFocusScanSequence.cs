@@ -544,7 +544,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return Fail("VISION-FOCUS-CAL-REAR-OUTPUT-AVOID", "PickerRearUnit", "선택되지 않은 RearPicker Output-side Avoid 이동 실패. result=" + result);
 
-                    if (!_machine.PickerRearUnit.IsPickerInUnloadPosition())
+                    if (!_machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition())
                         return Fail("VISION-FOCUS-CAL-REAR-OUTPUT-CHECK", "PickerRearUnit", "선택되지 않은 RearPicker Output-side Avoid 최종 위치 확인 실패.");
                 }
                 else
@@ -553,7 +553,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return Fail("VISION-FOCUS-CAL-FRONT-OUTPUT-AVOID", "PickerFrontUnit", "선택되지 않은 FrontPicker Output-side Avoid 이동 실패. result=" + result);
 
-                    if (!_machine.PickerFrontUnit.IsPickerInUnloadPosition())
+                    if (!_machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition())
                         return Fail("VISION-FOCUS-CAL-FRONT-OUTPUT-CHECK", "PickerFrontUnit", "선택되지 않은 FrontPicker Output-side Avoid 최종 위치 확인 실패.");
                 }
 
@@ -583,7 +583,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return Fail("VISION-FOCUS-CAL-FRONT-SELECTED-OUTPUT-AVOID", "PickerFrontUnit", "선택된 FrontPicker Output-side Avoid 이동 실패. result=" + result);
 
-                    if (!_machine.PickerFrontUnit.IsPickerInUnloadPosition())
+                    if (!_machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition())
                         return Fail("VISION-FOCUS-CAL-FRONT-SELECTED-OUTPUT-CHECK", "PickerFrontUnit", "선택된 FrontPicker Output-side Avoid 최종 위치 확인 실패.");
                 }
                 else
@@ -592,7 +592,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0)
                         return Fail("VISION-FOCUS-CAL-REAR-SELECTED-OUTPUT-AVOID", "PickerRearUnit", "선택된 RearPicker Output-side Avoid 이동 실패. result=" + result);
 
-                    if (!_machine.PickerRearUnit.IsPickerInUnloadPosition())
+                    if (!_machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition())
                         return Fail("VISION-FOCUS-CAL-REAR-SELECTED-OUTPUT-CHECK", "PickerRearUnit", "선택된 RearPicker Output-side Avoid 최종 위치 확인 실패.");
                 }
 
@@ -708,6 +708,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerX, "OutputAvoidPosition", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -742,6 +746,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
 
                 int result = await MoveRearPickerZGroupTeachingAsync("AvoidPosition", "RearPicker Output 이동 전 PickerZ Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1138,12 +1146,12 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             if (IsSelectedFront())
             {
-                if (!_machine.PickerRearUnit.IsPickerInUnloadPosition())
+                if (!_machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition())
                     return Fail("VISION-FOCUS-CAL-REAR-OUTPUT-FINAL", "PickerRearUnit", "Vision Focus 준비 최종 확인 실패: RearPicker가 Output-side Avoid 위치가 아닙니다.");
             }
             else
             {
-                if (!_machine.PickerFrontUnit.IsPickerInUnloadPosition())
+                if (!_machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition())
                     return Fail("VISION-FOCUS-CAL-FRONT-OUTPUT-FINAL", "PickerFrontUnit", "Vision Focus 준비 최종 확인 실패: FrontPicker가 Output-side Avoid 위치가 아닙니다.");
             }
 
@@ -1153,9 +1161,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         private bool IsNonSelectedPickerOutputAvoid()
         {
             if (IsSelectedFront())
-                return _machine != null && _machine.PickerRearUnit != null && _machine.PickerRearUnit.IsPickerInUnloadPosition();
+                return _machine != null && _machine.PickerRearUnit != null && _machine.PickerRearUnit.IsPickerInOutputSideAvoidPosition();
 
-            return _machine != null && _machine.PickerFrontUnit != null && _machine.PickerFrontUnit.IsPickerInUnloadPosition();
+            return _machine != null && _machine.PickerFrontUnit != null && _machine.PickerFrontUnit.IsPickerInOutputSideAvoidPosition();
         }
 
         private bool IsSelectedPickerBottomPosition()

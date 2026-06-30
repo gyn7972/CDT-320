@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
@@ -1378,7 +1379,13 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-SHARED-RAIL", Stage.Name,
                         description + " shared rail check failed. axis=" + axis + ", target=" + target + ". " + guardReason);
 
-                int result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                QMC.Common.Motion.BaseAxis stageAxis = ResolveStageAxis(axis);
+                string targetName = "InputStageAlign;Axis=" + axis + ";" + description;
+                int result;
+                using (MotionGuardRuntime.BeginAxisTeachingMove(stageAxis, target, targetName))
+                {
+                    result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                }
                 if (result != 0)
                     return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name,
                         description + " move command failed. axis=" + axis + ", target=" + target +

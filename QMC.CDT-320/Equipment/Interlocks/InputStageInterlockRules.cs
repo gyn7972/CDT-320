@@ -521,8 +521,8 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyFrontRearPickerInputZoneClearForInputVisionX(machine, out reason))
                 return false;
 
-            if (!VerifyInputStageWorkArea(request, WaferStageAxis.VisionX, "InputVisionX", out reason))
-                return false;
+            // InputVisionX는 카메라/캘리브레이션/티칭 위치 때문에 wafer 작업 원 밖으로 이동할 수 있어야 한다.
+            // 공유레일/피커 Input zone/피더 인터락은 위 조건에서 유지하고, 원형 작업영역 체크만 적용하지 않는다.
 
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "InputVisionX", out reason);
         }

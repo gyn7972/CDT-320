@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.Common.Alarms;
@@ -138,7 +139,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
-            IDisposable manualScope = null;
+            IDisposable actionScope = null;
             bool showFailure = false;
             string exceptionMessage = null;
             try
@@ -155,7 +156,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 _manualSequenceRunning = true;
                 SetSequenceButtonsEnabled(false);
-                manualScope = host.Controller.EnterManualOperation();
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "InputStagePage:" + actionName);
                 CancellationToken manualToken = host.Controller.ManualOperationToken;
                 SequenceFailureStore.Clear();
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " start");
@@ -190,8 +191,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 try
                 {
-                    if (manualScope != null)
-                        manualScope.Dispose();
+                    if (actionScope != null)
+                        actionScope.Dispose();
                 }
                 catch (Exception ex)
                 {

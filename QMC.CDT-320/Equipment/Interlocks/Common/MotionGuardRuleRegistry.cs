@@ -30,25 +30,59 @@ namespace QMC.CDT320.Interlocks
             IReadOnlyList<InterlockCheckPair> requiredChecks,
             MotionGuardContext context,
             bool skipSharedRailXRule)
+            : this(
+                movingName,
+                movingKey,
+                targetValue,
+                moveKind,
+                targetName,
+                requiredChecks,
+                context,
+                skipSharedRailXRule,
+                MotionGuardExecutionMode.Default,
+                moveKind)
+        {
+        }
+
+        public MotionGuardRuleContext(
+            string movingName,
+            string movingKey,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            IReadOnlyList<InterlockCheckPair> requiredChecks,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode,
+            MotionGuardMoveKind originalMoveKind)
         {
             MovingName = movingName ?? string.Empty;
             MovingKey = movingKey ?? string.Empty;
             TargetValue = targetValue;
             MoveKind = moveKind;
+            OriginalMoveKind = originalMoveKind;
             TargetName = targetName ?? string.Empty;
             RequiredChecks = requiredChecks ?? new List<InterlockCheckPair>();
             Context = context;
             SkipSharedRailXRule = skipSharedRailXRule;
+            ExecutionMode = executionMode;
         }
 
         public string MovingName { get; private set; }
         public string MovingKey { get; private set; }
         public double TargetValue { get; private set; }
         public MotionGuardMoveKind MoveKind { get; private set; }
+        public MotionGuardMoveKind OriginalMoveKind { get; private set; }
+        public MotionGuardExecutionMode ExecutionMode { get; private set; }
         public string TargetName { get; private set; }
         public IReadOnlyList<InterlockCheckPair> RequiredChecks { get; private set; }
         public MotionGuardContext Context { get; private set; }
         public bool SkipSharedRailXRule { get; private set; }
+
+        public bool IsManualSequenceProcess
+        {
+            get { return ExecutionMode == MotionGuardExecutionMode.ManualSequenceProcess; }
+        }
 
         public CDT320_Machine Machine
         {

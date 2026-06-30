@@ -66,7 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
-            IDisposable manualScope = null;
+            IDisposable actionScope = null;
             bool showFailure = false;
             string exceptionMessage = null;
             try
@@ -83,7 +83,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
-                manualScope = host.Controller.EnterManualOperation();
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "OutputCassettePage:" + actionName);
                 SequenceFailureStore.Clear();
                 bool ok = await action(host);
                 if (!ok)
@@ -102,8 +102,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 try
                 {
-                    if (manualScope != null)
-                        manualScope.Dispose();
+                    if (actionScope != null)
+                        actionScope.Dispose();
                 }
                 catch (Exception ex)
                 {
@@ -133,7 +133,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action)
         {
-            IDisposable manualScope = null;
+            IDisposable actionScope = null;
             bool showFailure = false;
             string failureMessage = null;
             string exceptionMessage = null;
@@ -149,7 +149,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
-                manualScope = host.Controller.EnterManualOperation();
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.SpeedOnly, "OutputCassettePageMotion:" + actionName);
                 SequenceFailureStore.Clear();
                 int result = await action(host);
                 if (result != 0)
@@ -171,8 +171,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 try
                 {
-                    if (manualScope != null)
-                        manualScope.Dispose();
+                    if (actionScope != null)
+                        actionScope.Dispose();
                 }
                 catch (Exception ex)
                 {

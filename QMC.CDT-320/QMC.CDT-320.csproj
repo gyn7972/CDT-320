@@ -86,6 +86,7 @@
     <Compile Include="Equipment\Diagnostics\PickerMoveTimeFileLogger.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
     <Compile Include="Equipment\MachineReadyProgress.cs" />
+    <Compile Include="Equipment\ManualMotionScopeKind.cs" />
     <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />

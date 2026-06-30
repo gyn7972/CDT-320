@@ -274,15 +274,11 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                // Fine 이동은 JogFineVelocity, 일반 이동은 DefaultVelocity 퍼센트 스케일 적용.
-                // DefaultVelocity 가 없을 때의 ScanVelocity fallback 은 Mapping Scan 의도이므로 스케일하지 않는다.
-                double velocity = bFine
-                    ? OutputLifterZ.Config.JogFineVelocity
-                    : MotionSpeedScale.ApplyDefaultVelocityScale(OutputLifterZ.Config.DefaultVelocity);
-                if (velocity <= 0.0)
-                    velocity = bFine ? Math.Max(1.0, Config.ScanVelocity * 0.5) : Config.ScanVelocity;
+                double velocity = ResolveBinLifterZConfigMoveVelocity();
+                double acceleration = ResolveCassetteProfileAcceleration(velocity);
+                double deceleration = ResolveCassetteProfileDeceleration(velocity);
 
-                return await MoveWithProtrusionWatch(targetPos, velocity, ct).ConfigureAwait(false);
+                return await MoveWithProtrusionWatch(targetPos, velocity, acceleration, deceleration, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1026,18 +1022,16 @@ namespace QMC.CDT320
                 if (previous)
                     return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
-                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : OutputLifterZ.Config.DefaultVelocity;
-                if (scanVelocity <= 0.0)
-                    scanVelocity = 1.0;
+                double scanVelocity = ResolveBinLifterZConfigMoveVelocity();
+                double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
+                double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
 
-                if (OutputLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
+                if (OutputLifterZ.Config != null)
                 {
                     originalAcc = OutputLifterZ.Config.Acceleration;
                     originalDec = OutputLifterZ.Config.Deceleration;
-                    if (Config.ScanAcc > 0.0)
-                        OutputLifterZ.Config.Acceleration = Config.ScanAcc;
-                    if (Config.ScanDec > 0.0)
-                        OutputLifterZ.Config.Deceleration = Config.ScanDec;
+                    OutputLifterZ.Config.Acceleration = scanAcceleration;
+                    OutputLifterZ.Config.Deceleration = scanDeceleration;
                     restoreScanProfile = true;
                 }
 
@@ -1901,6 +1895,24 @@ namespace QMC.CDT320
         public Task<int> MoveToTargetSlotAsync(double targetPosition)
         {
             return MoveBinLifterZ(targetPosition);
+        }
+
+        private double ResolveBinLifterZConfigMoveVelocity()
+        {
+            double velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
+            if (velocity <= 0.0 && OutputLifterZ != null && OutputLifterZ.Config != null)
+                velocity = OutputLifterZ.Config.DefaultVelocity;
+            return velocity > 0.0 ? velocity : 1.0;
+        }
+
+        private static double ResolveCassetteProfileAcceleration(double velocity)
+        {
+            return Math.Max(1.0, Math.Abs(velocity) * 10.0);
+        }
+
+        private static double ResolveCassetteProfileDeceleration(double velocity)
+        {
+            return Math.Max(1.0, Math.Abs(velocity) * 10.0);
         }
 
         private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
