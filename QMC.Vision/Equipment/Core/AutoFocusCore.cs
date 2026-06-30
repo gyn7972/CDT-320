@@ -41,6 +41,9 @@ namespace QMC.Vision.Core
         /// <summary>focus-score 커널이 DLL 에 export 되어 호출 가능한지(미빌드면 false → CPU).</summary>
         private static bool _focusKernelAvailable;
 
+        /// <summary>focus-score CUDA 커널 사용 가능 여부(AutoFocusCuda.dll 에 af_focus_score_cuda export 존재). 진단용.</summary>
+        public static bool FocusKernelAvailable { get { return _focusKernelAvailable; } }
+
         /// <summary>직전 Score 호출에 실제로 사용된 백엔드.</summary>
         public static FocusBackend LastBackend { get; private set; } = FocusBackend.Cpu;
 
@@ -52,14 +55,14 @@ namespace QMC.Vision.Core
 
         static AutoFocusCore()
         {
-            // 1) CUDA 디바이스 감지(콜렛 DLL 공용 export). DLL/드라이버 없으면 예외 → CPU.
+            // 1) CUDA 디바이스 감지(오토포커스 전용 AutoFocusCuda.dll). DLL/드라이버 없으면 예외 → CPU.
             try
             {
-                int n = AutoFocusNativeCuda.cf_cuda_device_count();
+                int n = AutoFocusNativeCuda.af_cuda_device_count();
                 if (n > 0)
                 {
                     byte[] buf = new byte[256];
-                    if (AutoFocusNativeCuda.cf_cuda_device_name(0, buf, buf.Length) == 0)
+                    if (AutoFocusNativeCuda.af_cuda_device_name(0, buf, buf.Length) == 0)
                     {
                         int len = Array.IndexOf(buf, (byte)0);
                         if (len < 0) len = buf.Length;
@@ -77,13 +80,25 @@ namespace QMC.Vision.Core
                 {
                     double s;
                     byte[] tiny = new byte[16];   // 4x4 더미
-                    AutoFocusNativeCuda.cf_focus_score_cuda(tiny, 4, 4, 0, 0.0, out s);
+                    AutoFocusNativeCuda.af_focus_score_cuda(tiny, 4, 4, 0, 0.0, out s);
                     _focusKernelAvailable = true;   // 정상 호출됨 = export 존재
                 }
                 catch (EntryPointNotFoundException) { _focusKernelAvailable = false; }   // 커널 미빌드
                 catch (DllNotFoundException) { _focusKernelAvailable = false; }
                 catch { _focusKernelAvailable = true; }   // 다른 런타임 예외면 export 는 있음 → 정상 호출에서 폴백
             }
+
+            // 진단 1회 로그 — 왜 CPU/CUDA 인지 명확히. (device 없음 / 커널 export 없음 / 사용 가능 구분)
+            try
+            {
+                string reason = !CudaAvailable ? "CUDA 디바이스/AutoFocusCuda.dll 없음"
+                              : !_focusKernelAvailable ? "디바이스는 있으나 af_focus_score_cuda 커널 미export(네이티브 미구현)"
+                              : "CUDA 사용 가능";
+                QMC.Vision.Comm.VisionCommLog.Add("[AutoFocusCore] CUDA detect: device=" + CudaAvailable +
+                    "(" + (string.IsNullOrEmpty(CudaDeviceName) ? "-" : CudaDeviceName) + ")" +
+                    ", focusKernel=" + _focusKernelAvailable + " → " + reason);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -99,7 +114,7 @@ namespace QMC.Vision.Core
                 try
                 {
                     double s;
-                    if (AutoFocusNativeCuda.cf_focus_score_cuda(gray, w, h, objThreshold, marginFraction, out s) == 0)
+                    if (AutoFocusNativeCuda.af_focus_score_cuda(gray, w, h, objThreshold, marginFraction, out s) == 0)
                     {
                         LastBackend = FocusBackend.Cuda;
                         return s;

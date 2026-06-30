@@ -172,8 +172,12 @@ namespace QMC.Vision.Core
                     double s = AutoFocusCore.ScoreRawBuffer(raws[i], bb.Width, bb.Height, bpp, afTh);
                     AutoFocusStore.AddSample(job.Camera, job.Target, seriesNo, job.MotorZ, s, job.IsInitial);
                     sum += s; cnt++;
+                    // 진단: 입력 raw 버퍼의 최대 픽셀값(0이면 검정/빈 버퍼 → 추출/조명 문제, >0이면 내용 있음).
+                    byte rawMax = 0;
+                    byte[] rb = raws[i];
+                    for (int k = 0; k < rb.Length; k++) if (rb[k] > rawMax) rawMax = rb[k];
                     rd.Append(" roi" + seriesNo + "=" + s.ToString("F0", inv) +
-                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + "]");
+                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + " max=" + rawMax + "]");
                 }
             }
             swAlgo.Stop();

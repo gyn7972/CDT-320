@@ -3,25 +3,25 @@ using System.Runtime.InteropServices;
 namespace QMC.Vision.Core
 {
     /// <summary>
-    /// 오토포커스 CUDA 네이티브 백엔드 P/Invoke. 콜렛(<see cref="Collet.NativeCuda"/>)과 동일한 DLL
-    /// (<c>ColletFinderCuda.dll</c>)에 focus-score 커널을 export 하는 것을 전제로 한다.
+    /// 오토포커스 <b>전용</b> CUDA 네이티브 백엔드 P/Invoke (<c>AutoFocusCuda.dll</c>).
+    /// 콜렛 Finder용 <c>ColletFinderCuda.dll</c> 과는 무관한 별도 모듈이다.
     /// <para>
-    /// DLL 부재(<see cref="System.DllNotFoundException"/>) / focus 커널 미export
+    /// DLL 부재(<see cref="System.DllNotFoundException"/>) / 커널 미export
     /// (<see cref="System.EntryPointNotFoundException"/>) / CUDA 디바이스 부재 시에는
     /// 상위(<see cref="AutoFocusCore"/>)가 자동으로 CPU 경로로 폴백한다.
     /// </para>
     /// </summary>
     internal static class AutoFocusNativeCuda
     {
-        private const string Dll = "ColletFinderCuda.dll";
+        private const string Dll = "AutoFocusCuda.dll";
 
-        /// <summary>사용 가능한 CUDA 디바이스 수(0 = 없음/드라이버 없음). (콜렛 DLL 과 공용 export)</summary>
+        /// <summary>사용 가능한 CUDA 디바이스 수(0 = 없음/드라이버 없음).</summary>
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int cf_cuda_device_count();
+        public static extern int af_cuda_device_count();
 
         /// <summary>디바이스 이름을 buf 에 채운다. 0 = 성공.</summary>
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int cf_cuda_device_name(int device, byte[] buf, int bufLen);
+        public static extern int af_cuda_device_name(int device, byte[] buf, int bufLen);
 
         /// <summary>
         /// GPU 초점 점수 측정. 입력 <paramref name="gray"/> 는 8bit grayscale(길이 w*h, 행 우선).
@@ -32,7 +32,7 @@ namespace QMC.Vision.Core
         /// 반환값 0 = 성공(<paramref name="score"/> 유효), 음수 = 실패(상위에서 CPU 폴백).
         /// </summary>
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int cf_focus_score_cuda(
+        public static extern int af_focus_score_cuda(
             byte[] gray, int w, int h,
             int objThreshold, double marginFraction,
             out double score);
