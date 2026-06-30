@@ -15,6 +15,12 @@ namespace QMC.CDT320.Interlocks
         CylinderInitialize
     }
 
+    public enum MotionGuardExecutionMode
+    {
+        Default,
+        ManualSequenceProcess
+    }
+
     public sealed class MotionGuardResult
     {
         public bool Allowed { get; set; }
@@ -102,8 +108,18 @@ namespace QMC.CDT320.Interlocks
             MotionGuardContext context,
             bool skipSharedRailXRule)
         {
+            return VerifyAxisMove(axis, targetPosition, context, skipSharedRailXRule, MotionGuardExecutionMode.Default);
+        }
+
+        public MotionGuardResult VerifyAxisMove(
+            BaseAxis axis,
+            double targetPosition,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
             string movingName = axis != null ? axis.Name : string.Empty;
-            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisMove, string.Empty, context, skipSharedRailXRule);
+            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisMove, string.Empty, context, skipSharedRailXRule, executionMode);
         }
 
         public MotionGuardResult VerifyAxisHome(BaseAxis axis, double homeTargetPosition, MotionGuardContext context)
@@ -118,8 +134,18 @@ namespace QMC.CDT320.Interlocks
             string targetName,
             MotionGuardContext context)
         {
+            return VerifyAxisTeachingMove(axis, targetPosition, targetName, context, MotionGuardExecutionMode.Default);
+        }
+
+        public MotionGuardResult VerifyAxisTeachingMove(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardContext context,
+            MotionGuardExecutionMode executionMode)
+        {
             string movingName = axis != null ? axis.Name : string.Empty;
-            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisTeachingMove, targetName, context);
+            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisTeachingMove, targetName, context, false, executionMode);
         }
 
         public MotionGuardResult VerifyCylinderMove(BaseCylinder cylinder, bool moveFwd, MotionGuardContext context)
@@ -168,8 +194,21 @@ namespace QMC.CDT320.Interlocks
             MotionGuardContext context,
             bool skipSharedRailXRule)
         {
+            return VerifyMove(movingName, targetValue, moveKind, targetName, context, skipSharedRailXRule, MotionGuardExecutionMode.Default);
+        }
+
+        public MotionGuardResult VerifyMove(
+            string movingName,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
             string movingKey = InterlockCheckMatrix.NormalizeName(movingName);
             IReadOnlyList<InterlockCheckPair> checks = _matrix.GetChecksFor(movingKey);
+            MotionGuardMoveKind effectiveMoveKind = ResolveEffectiveMoveKind(moveKind, executionMode);
 
             var result = new MotionGuardResult
             {
@@ -182,11 +221,13 @@ namespace QMC.CDT320.Interlocks
                 movingName,
                 movingKey,
                 targetValue,
-                moveKind,
+                effectiveMoveKind,
                 targetName,
                 checks,
                 context,
-                skipSharedRailXRule);
+                skipSharedRailXRule,
+                executionMode,
+                moveKind);
             string ruleReason;
             if (!MotionGuardRuleRegistry.Verify(request, out ruleReason))
             {
@@ -203,6 +244,17 @@ namespace QMC.CDT320.Interlocks
 
             result.Message = BuildMessage(movingKey, targetValue, targetName, checks, context);
             return result;
+        }
+
+        private static MotionGuardMoveKind ResolveEffectiveMoveKind(
+            MotionGuardMoveKind moveKind,
+            MotionGuardExecutionMode executionMode)
+        {
+            if (executionMode == MotionGuardExecutionMode.ManualSequenceProcess &&
+                moveKind == MotionGuardMoveKind.AxisMove)
+                return MotionGuardMoveKind.AxisTeachingMove;
+
+            return moveKind;
         }
 
         private static string BuildMessage(

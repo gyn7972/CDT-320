@@ -991,6 +991,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private async Task MoveSelectedBinSlotAsync()
         {
             Form1 host = FindForm() as Form1;
+            IDisposable actionScope = null;
             try
             {
                 DieMapEntry entry = _selectedEntry;
@@ -1030,6 +1031,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int timeoutMs = ResolveManualMoveTimeoutMs(host);
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.SpeedOnly,
+                    "OutputStageMapTransferPage:MoveSelectedBinSlot");
 
                 // 1) VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid로 선행 이동(간섭 차단).
                 int prepareResult = await AwaitManualMoveStepAsync(
@@ -1103,14 +1107,28 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
-                _manualMoveBusy = false;
-                SetActionButtonsEnabled(true);
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        "수동 이동 스코프 정리 중 오류: " + ex.Message + " - Failed");
+                }
+                finally
+                {
+                    _manualMoveBusy = false;
+                    SetActionButtonsEnabled(true);
+                }
             }
         }
 
         private async Task MoveSelectedSlotByPickerAsync(PickerSequenceSide side, int pickerNo)
         {
             Form1 host = FindForm() as Form1;
+            IDisposable actionScope = null;
             try
             {
                 DieMapEntry entry = _selectedEntry;
@@ -1152,6 +1170,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int timeoutMs = ResolveManualMoveTimeoutMs(host);
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.SpeedOnly,
+                    "OutputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
                     MoveSelectedSlotByPickerCoreAsync(host, _selectedSide, side, pickerNo, entry, targets, timeoutMs),
@@ -1182,8 +1203,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
-                _manualMoveBusy = false;
-                SetActionButtonsEnabled(true);
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        "Picker 수동 이동 스코프 정리 중 오류: " + ex.Message + " - Failed");
+                }
+                finally
+                {
+                    _manualMoveBusy = false;
+                    SetActionButtonsEnabled(true);
+                }
             }
         }
 

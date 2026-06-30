@@ -11,6 +11,7 @@ namespace QMC.CDT320.Interlocks
         private static readonly object Sync = new object();
         private static readonly AsyncLocal<AxisMoveScope> CurrentAxisMoveScope = new AsyncLocal<AxisMoveScope>();
         private static readonly AsyncLocal<CylinderMoveScope> CurrentCylinderMoveScope = new AsyncLocal<CylinderMoveScope>();
+        private static readonly AsyncLocal<ExecutionModeScope> CurrentExecutionModeScope = new AsyncLocal<ExecutionModeScope>();
         private static MotionGuardService _service;
 
         public static Func<MotionGuardContext> ContextProvider { get; set; }
@@ -44,9 +45,10 @@ namespace QMC.CDT320.Interlocks
                 MotionGuardService service = GetService();
                 MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
                 AxisMoveScope scope = CurrentAxisMoveScope.Value;
+                MotionGuardExecutionMode executionMode = ResolveExecutionMode();
                 MotionGuardResult result = IsMatchingScope(scope, axis, targetPosition)
-                    ? service.VerifyAxisTeachingMove(axis, targetPosition, scope.TargetName, context)
-                    : service.VerifyAxisMove(axis, targetPosition, context, skipSharedRailXRule);
+                    ? service.VerifyAxisTeachingMove(axis, targetPosition, scope.TargetName, context, executionMode)
+                    : service.VerifyAxisMove(axis, targetPosition, context, skipSharedRailXRule, executionMode);
                 if (result == null)
                     return true;
 
@@ -87,7 +89,12 @@ namespace QMC.CDT320.Interlocks
 
                 MotionGuardService service = GetService();
                 MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
-                MotionGuardResult result = service.VerifyAxisTeachingMove(axis, targetPosition, targetName, context);
+                MotionGuardResult result = service.VerifyAxisTeachingMove(
+                    axis,
+                    targetPosition,
+                    targetName,
+                    context,
+                    ResolveExecutionMode());
                 if (result == null)
                     return true;
 
@@ -190,6 +197,16 @@ namespace QMC.CDT320.Interlocks
             return new CylinderMoveScopeToken(previous);
         }
 
+        public static IDisposable BeginManualSequenceProcessMove(string reason)
+        {
+            ExecutionModeScope previous = CurrentExecutionModeScope.Value;
+            CurrentExecutionModeScope.Value = new ExecutionModeScope(
+                MotionGuardExecutionMode.ManualSequenceProcess,
+                reason,
+                previous);
+            return new ExecutionModeScopeToken(previous);
+        }
+
         public static void Reload()
         {
             lock (Sync)
@@ -242,6 +259,12 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return scope.MoveFwd == moveFwd;
+        }
+
+        private static MotionGuardExecutionMode ResolveExecutionMode()
+        {
+            ExecutionModeScope scope = CurrentExecutionModeScope.Value;
+            return scope != null ? scope.Mode : MotionGuardExecutionMode.Default;
         }
 
         private sealed class AxisMoveScope
@@ -312,6 +335,43 @@ namespace QMC.CDT320.Interlocks
                     return;
 
                 CurrentCylinderMoveScope.Value = _previous;
+                _disposed = true;
+            }
+        }
+
+        private sealed class ExecutionModeScope
+        {
+            public ExecutionModeScope(
+                MotionGuardExecutionMode mode,
+                string reason,
+                ExecutionModeScope previous)
+            {
+                Mode = mode;
+                Reason = reason ?? string.Empty;
+                Previous = previous;
+            }
+
+            public MotionGuardExecutionMode Mode { get; private set; }
+            public string Reason { get; private set; }
+            public ExecutionModeScope Previous { get; private set; }
+        }
+
+        private sealed class ExecutionModeScopeToken : IDisposable
+        {
+            private readonly ExecutionModeScope _previous;
+            private bool _disposed;
+
+            public ExecutionModeScopeToken(ExecutionModeScope previous)
+            {
+                _previous = previous;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                CurrentExecutionModeScope.Value = _previous;
                 _disposed = true;
             }
         }

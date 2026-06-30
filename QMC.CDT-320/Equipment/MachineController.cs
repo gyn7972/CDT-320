@@ -5132,7 +5132,7 @@ namespace QMC.CDT320
         /// <summary>장비 READY: 초기화된 장비의 주요 모션을 안전한 Avoid 위치로 복귀합니다.</summary>
         public async Task<int> RunReadySequenceAsync()
         {
-            IDisposable manualScope = null;
+            IDisposable actionScope = null;
 
             try
             {
@@ -5176,7 +5176,8 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                manualScope = EnterManualOperation();
+                // Ready는 안전 위치 복귀 시퀀스이므로 공정 인터락 스코프를 열지 않고 Ready 전용 저속 스코프만 적용한다.
+                actionScope = BeginManualActionScope(ManualMotionScopeKind.ReadySequence, "ReadySequence");
 
                 var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine, SetReadySequenceProgress);
                 int totalSteps = sequence.TotalStepCount;
@@ -5231,8 +5232,8 @@ namespace QMC.CDT320
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
+                if (actionScope != null)
+                    actionScope.Dispose();
             }
         }
 
@@ -5354,7 +5355,7 @@ namespace QMC.CDT320
             }
         }
 
-        public IDisposable EnterManualOperation()
+        private IDisposable EnterManualOperation()
         {
             if (Interlocked.Increment(ref _manualBusyCount) == 1)
             {
@@ -5366,6 +5367,169 @@ namespace QMC.CDT320
             if (_status != EquipmentStatus.Alarm && _status != EquipmentStatus.AutoRunning)
                 SetStatus(EquipmentStatus.ManualRunning);
             return new ManualOperationScope(this);
+        }
+
+        private IDisposable BeginManualMotionSpeedOnlyScope(string reason)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceSpeedScale",
+                    "수동 동작 속도 스코프 적용. percent=" +
+                    MotionSpeedScale.ManualSequencePercent.ToString("0.###") +
+                    ", reason=" + reason + " - Start");
+                return MotionSpeedScale.BeginManualSequenceScale();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceSpeedScale",
+                    "수동 동작 속도 스코프 적용 실패. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private IDisposable BeginReadySequenceSpeedScope(string reason)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ReadySequenceSpeedScale",
+                    "READY 시퀀스 속도 스코프 적용. percent=" +
+                    MotionSpeedScale.ReadySequencePercent.ToString("0.###") +
+                    ", reason=" + reason + " - Start");
+                return MotionSpeedScale.BeginReadySequenceScale();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ReadySequenceSpeedScale",
+                    "READY 시퀀스 속도 스코프 적용 실패. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private IDisposable BeginManualProcessSequenceScope(string reason)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceSpeedScale",
+                    "수동 시컨스 속도/공정 인터락 스코프 적용. percent=" +
+                    MotionSpeedScale.ManualSequencePercent.ToString("0.###") +
+                    ", reason=" + reason + " - Start");
+                IDisposable speedScope = null;
+                IDisposable guardScope = null;
+                try
+                {
+                    speedScope = MotionSpeedScale.BeginManualSequenceScale();
+                    guardScope = MotionGuardRuntime.BeginManualSequenceProcessMove(reason);
+                    return new CompositeManualSequenceScope(speedScope, guardScope);
+                }
+                catch
+                {
+                    if (guardScope != null)
+                        guardScope.Dispose();
+                    if (speedScope != null)
+                        speedScope.Dispose();
+                    throw;
+                }
+                finally
+                {
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualSequenceSpeedScale",
+                    "수동 시컨스 속도/공정 인터락 스코프 적용 실패. reason=" + reason +
+                    ", error=" + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private IDisposable BeginManualMotionScope(ManualMotionScopeKind kind, string reason)
+        {
+            switch (kind)
+            {
+                case ManualMotionScopeKind.SpeedOnly:
+                    return BeginManualMotionSpeedOnlyScope(reason);
+                case ManualMotionScopeKind.ReadySequence:
+                    return BeginReadySequenceSpeedScope(reason);
+                case ManualMotionScopeKind.ProcessSequence:
+                    return BeginManualProcessSequenceScope(reason);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        "kind",
+                        kind,
+                        "지원하지 않는 수동 모션 스코프 종류입니다.");
+            }
+        }
+
+        public IDisposable BeginManualActionScope(ManualMotionScopeKind kind, string reason)
+        {
+            try
+            {
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                    throw new InvalidOperationException(
+                        "자동/시컨스 동작 중에는 수동 동작을 시작할 수 없습니다. reason=" + reason +
+                        ", status=" + _status +
+                        ", activeMode=" + (ActiveSequenceRunMode.HasValue ? ActiveSequenceRunMode.Value.ToString() : "-"));
+
+                IDisposable manualScope = null;
+                IDisposable motionScope = null;
+                try
+                {
+                    manualScope = EnterManualOperation();
+                    motionScope = BeginManualMotionScope(kind, reason);
+                    return new ManualActionScope(manualScope, motionScope);
+                }
+                catch
+                {
+                    if (motionScope != null)
+                        motionScope.Dispose();
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                    throw;
+                }
+                finally
+                {
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ManualActionScope",
+                    "수동 동작 스코프 시작 실패. reason=" + reason +
+                    ", kind=" + kind +
+                    ", error=" + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private IDisposable BeginManualProcessSequenceScopeIfNeeded(QMC.CDT320.Sequencing.SequenceRunMode mode)
+        {
+            try
+            {
+                if (mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    return null;
+
+                return BeginManualProcessSequenceScope("Coordinator:" + mode);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public void CancelManualOperation()
@@ -5405,6 +5569,110 @@ namespace QMC.CDT320
                 var owner = Interlocked.Exchange(ref _owner, null);
                 if (owner != null)
                     owner.LeaveManualOperation();
+            }
+        }
+
+        private sealed class ManualActionScope : IDisposable
+        {
+            private IDisposable _manualScope;
+            private IDisposable _motionScope;
+            private bool _disposed;
+
+            public ManualActionScope(IDisposable manualScope, IDisposable motionScope)
+            {
+                _manualScope = manualScope;
+                _motionScope = motionScope;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                Exception first = null;
+                try
+                {
+                    IDisposable motion = _motionScope;
+                    _motionScope = null;
+                    if (motion != null)
+                        motion.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    first = ex;
+                }
+
+                try
+                {
+                    IDisposable manual = _manualScope;
+                    _manualScope = null;
+                    if (manual != null)
+                        manual.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    if (first == null)
+                        first = ex;
+                }
+                finally
+                {
+                    _disposed = true;
+                }
+
+                if (first != null)
+                    throw first;
+            }
+        }
+
+        private sealed class CompositeManualSequenceScope : IDisposable
+        {
+            private IDisposable _speedScope;
+            private IDisposable _guardScope;
+            private bool _disposed;
+
+            public CompositeManualSequenceScope(IDisposable speedScope, IDisposable guardScope)
+            {
+                _speedScope = speedScope;
+                _guardScope = guardScope;
+            }
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                Exception first = null;
+                try
+                {
+                    IDisposable guard = _guardScope;
+                    _guardScope = null;
+                    if (guard != null)
+                        guard.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    first = ex;
+                }
+
+                try
+                {
+                    IDisposable speed = _speedScope;
+                    _speedScope = null;
+                    if (speed != null)
+                        speed.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    if (first == null)
+                        first = ex;
+                }
+                finally
+                {
+                    _disposed = true;
+                }
+
+                if (first != null)
+                    throw first;
             }
         }
 
@@ -5797,10 +6065,13 @@ namespace QMC.CDT320
 
                 var coordinator = _coordinator;
                 var cts = _autoCts;
+                var runMode = options.Mode;
                 _coordinatorTask = Task.Run(async () =>
                 {
+                    IDisposable sequenceScope = null;
                     try
                     {
+                        sequenceScope = BeginManualProcessSequenceScopeIfNeeded(runMode);
                         await coordinator.RunAsync(cts.Token).ConfigureAwait(false);
                         if (!cts.IsCancellationRequested && _status != EquipmentStatus.Alarm)
                         {
@@ -5860,6 +6131,9 @@ namespace QMC.CDT320
                     }
                     finally
                     {
+                        if (sequenceScope != null)
+                            sequenceScope.Dispose();
+
                         if (_coordinator == coordinator)
                         {
                             if (_activeTactTimeRecorder != null &&
@@ -6343,7 +6617,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                using (EnterManualOperation())
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "ManualPickerProcess:" + side + ":" + processName))
                 {
                     var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                     var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
@@ -6444,7 +6718,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                using (EnterManualOperation())
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "ManualPickerPickUpZMotionTest:" + side + ":" + pickerNo))
                 {
                     var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                     var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
@@ -6559,7 +6833,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                using (EnterManualOperation())
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "ManualPickerSelectedDiePickUp:" + side + ":" + pickerNo))
                 {
                     var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                     var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
@@ -6698,7 +6972,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                using (EnterManualOperation())
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, saveReason + ":" + side + ":" + pickerNo))
                 {
                     var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                     var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
@@ -6849,7 +7123,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                using (EnterManualOperation())
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "ManualUnitProcess:" + processLabel))
                 {
                     var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
                     var context = new QMC.CDT320.Sequencing.MachineSequenceContext(

@@ -1512,18 +1512,16 @@ namespace QMC.CDT320
                 if (!virtualSensor && previous)
                     return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
-                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : InputLifterZ.Config.DefaultVelocity;
-                if (scanVelocity <= 0.0)
-                    scanVelocity = 1.0;
+                double scanVelocity = ResolveWaferLifterZConfigMoveVelocity();
+                double scanAcceleration = ResolveCassetteProfileAcceleration(scanVelocity);
+                double scanDeceleration = ResolveCassetteProfileDeceleration(scanVelocity);
 
-                if (InputLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
+                if (InputLifterZ.Config != null)
                 {
                     originalAcc = InputLifterZ.Config.Acceleration;
                     originalDec = InputLifterZ.Config.Deceleration;
-                    if (Config.ScanAcc > 0.0)
-                        InputLifterZ.Config.Acceleration = Config.ScanAcc;
-                    if (Config.ScanDec > 0.0)
-                        InputLifterZ.Config.Deceleration = Config.ScanDec;
+                    InputLifterZ.Config.Acceleration = scanAcceleration;
+                    InputLifterZ.Config.Deceleration = scanDeceleration;
                     restoreScanProfile = true;
                 }
 
@@ -1829,14 +1827,7 @@ namespace QMC.CDT320
         {
             try
             {
-                if (InputLifterZ == null || InputLifterZ.Config == null)
-                    return 0.0;
-
-                if (bFine && InputLifterZ.Config.JogFineVelocity > 0.0)
-                    return InputLifterZ.Config.JogFineVelocity;
-
-                // 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다. (Mapping ScanVelocity 경로는 별도)
-                return MotionSpeedScale.ApplyDefaultVelocityScale(InputLifterZ.Config.DefaultVelocity);
+                return ResolveWaferLifterZConfigMoveVelocity();
             }
             catch
             {
@@ -1849,22 +1840,30 @@ namespace QMC.CDT320
 
         private double ResolveWaferLifterZMoveAcceleration(bool bFine)
         {
-            if (InputLifterZ == null || InputLifterZ.Config == null)
-                return 0.0;
-
-            return bFine && InputLifterZ.Config.JogAcceleration > 0.0
-                ? InputLifterZ.Config.JogAcceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Acceleration);
+            return ResolveCassetteProfileAcceleration(ResolveWaferLifterZMoveVelocity(bFine));
         }
 
         private double ResolveWaferLifterZMoveDeceleration(bool bFine)
         {
-            if (InputLifterZ == null || InputLifterZ.Config == null)
-                return 0.0;
+            return ResolveCassetteProfileDeceleration(ResolveWaferLifterZMoveVelocity(bFine));
+        }
 
-            return bFine && InputLifterZ.Config.JogDeceleration > 0.0
-                ? InputLifterZ.Config.JogDeceleration
-                : MotionSpeedScale.ApplyDefaultAccelerationScale(InputLifterZ.Config.Deceleration);
+        private double ResolveWaferLifterZConfigMoveVelocity()
+        {
+            double velocity = Config != null && Config.ScanVelocity > 0.0 ? Config.ScanVelocity : 0.0;
+            if (velocity <= 0.0 && InputLifterZ != null && InputLifterZ.Config != null)
+                velocity = InputLifterZ.Config.DefaultVelocity;
+            return velocity > 0.0 ? velocity : 1.0;
+        }
+
+        private static double ResolveCassetteProfileAcceleration(double velocity)
+        {
+            return Math.Max(1.0, Math.Abs(velocity) * 10.0);
+        }
+
+        private static double ResolveCassetteProfileDeceleration(double velocity)
+        {
+            return Math.Max(1.0, Math.Abs(velocity) * 10.0);
         }
 
         public int ResolveWaferLifterZMoveTimeoutMs()

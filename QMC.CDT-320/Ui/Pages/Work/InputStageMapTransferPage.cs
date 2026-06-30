@@ -934,6 +934,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private async Task RunInputStageSequenceActionAsync(string actionName, Func<Form1, Task<int>> action)
         {
+            IDisposable actionScope = null;
             try
             {
                 var host = FindForm() as Form1;
@@ -951,6 +952,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
 
                 SetActionButtonsEnabled(false);
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "InputStageMapTransferPage:" + actionName);
                 int result = await action(host).ConfigureAwait(true);
                 RefreshActiveInputMapIfChanged();
                 RefreshDieGrid();
@@ -976,6 +978,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+                if (actionScope != null)
+                    actionScope.Dispose();
                 SetActionButtonsEnabled(true);
             }
         }
@@ -1038,6 +1042,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private async Task MoveSelectedDieAsync()
         {
+            IDisposable actionScope = null;
             try
             {
                 DieMapEntry entry = _selectedEntry;
@@ -1069,6 +1074,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 InputStageUnit stage = host.Machine.InputStageUnit;
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.SpeedOnly,
+                    "InputStageMapTransferPage:MoveSelectedDie");
 
                 int prepareResult = await AwaitManualMoveStepAsync(
                     MovePickersToAvoidForVisionMoveAsync(host),
@@ -1115,13 +1123,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
-                _manualMoveBusy = false;
-                SetActionButtonsEnabled(true);
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "수동 이동 스코프 정리 중 오류: " + ex.Message + " - Failed");
+                }
+                finally
+                {
+                    _manualMoveBusy = false;
+                    SetActionButtonsEnabled(true);
+                }
             }
         }
 
         private async Task MoveSelectedDieByPickerAsync(PickerSequenceSide side, int pickerNo)
         {
+            IDisposable actionScope = null;
             try
             {
                 DieMapEntry entry = _selectedEntry;
@@ -1164,6 +1186,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.SpeedOnly,
+                    "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
                     MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY),
@@ -1194,8 +1219,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
-                _manualMoveBusy = false;
-                SetActionButtonsEnabled(true);
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Picker 수동 이동 스코프 정리 중 오류: " + ex.Message + " - Failed");
+                }
+                finally
+                {
+                    _manualMoveBusy = false;
+                    SetActionButtonsEnabled(true);
+                }
             }
         }
 
