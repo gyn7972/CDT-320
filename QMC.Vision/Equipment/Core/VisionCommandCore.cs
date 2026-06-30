@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using QMC.Vision.Config;
@@ -355,6 +355,7 @@ namespace QMC.Vision.Core
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
             if (!AutoFocusStore.TryParseTarget(parts[3], out var tgt)) return "fail:bad target";
             AutoFocusStore.Start(cam, tgt);
+            AutoFocusTactLog.MarkCycleStart(cam + "/" + tgt);
             return $"OK;camera={cam};target={tgt}";
         }
 
@@ -391,12 +392,51 @@ namespace QMC.Vision.Core
                 swGrab.Stop();
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
 
+                // 한 번 grab 으로 지정된 ROI1~4 를 각각 채점한다([설정 > 오토 포커스]에서 지정).
+                //  - 각 ROI 점수는 해당 ROI 시리즈에 누적(append) → 그리드/차트(in-process)에만 표시.
+                //  - 핸들러에는 ROI 점수들의 "평균" 만 score 로 반환(통신 포맷은 기존과 동일하게 유지).
+                // ROI 미설정이면 전체 프레임 1점으로 채점(구 동작) 하위호환.
+                Roi[] rois = AutoFocusRoiStore.GetRois(cam, tgt);
+                int afTh = VisionConfigStore.Current != null ? VisionConfigStore.Current.AutoFocusThreshold : 100;
+
                 var swAlgo = Stopwatch.StartNew();
-                double score = AutoFocusCore.Score(g.Image);
+                double sum = 0; int cnt = 0;
+                var rd = new System.Text.StringBuilder();
+                for (int i = 0; i < rois.Length; i++)
+                {
+                    Roi roi = rois[i];
+                    if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
+                    var bb = roi.BoundingBox;
+                    double s = AutoFocusCore.Score(g.Image, bb, afTh);
+                    AutoFocusStore.AddSample(cam, tgt, i + 1, motorZ, s, isInitial);   // 그리드/차트용(in-process)
+                    sum += s; cnt++;
+                    rd.Append(" roi" + (i + 1) + "=" + s.ToString("F0", inv) +
+                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + "]");
+                }
+
+                double score;
+                if (cnt == 0)
+                {
+                    score = AutoFocusCore.Score(g.Image, afTh);                        // ROI 미설정 → 전체 프레임
+                    AutoFocusStore.AddSample(cam, tgt, pickup, motorZ, score, isInitial);
+                }
+                else
+                {
+                    score = sum / cnt;                                                 // ROI 점수 평균
+                }
                 swAlgo.Stop();
                 LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
 
-                AutoFocusStore.AddSample(cam, tgt, pickup, motorZ, score, isInitial);
+                // Tact Time 로그(스텝별) — 시퀀서 사이클 시간 스타일 + 진단(grab 크기·ROI별 점수/좌표).
+                long total = swGrab.ElapsedMilliseconds + swAlgo.ElapsedMilliseconds;
+                int imgW = g.Image != null ? g.Image.Width : 0;
+                int imgH = g.Image != null ? g.Image.Height : 0;
+                AutoFocusTactLog.Add("z=" + motorZ.ToString("F2", inv) +
+                                     "  img=" + imgW + "x" + imgH + " th=" + afTh +
+                                     "  total=" + total + "ms" +
+                                     "  score=" + score.ToString("F1", inv) + rd.ToString());
+
+                // 통신 포맷은 기존과 동일 — score 만 ROI 평균.
                 return $"OK;z={motorZ.ToString("F4", inv)};score={score.ToString("F2", inv)};pickup={pickup};init={(isInitial ? 1 : 0)}";
             }
         }
@@ -437,6 +477,7 @@ namespace QMC.Vision.Core
                 sb.Append(";p" + p + "s=" + row.BestScore.ToString("F2", inv));
                 sb.Append(";p" + p + "n=" + row.SampleCount);
             }
+            AutoFocusTactLog.MarkCycleEnd(cam + "/" + tgt);
             return sb.ToString();
         }
     }

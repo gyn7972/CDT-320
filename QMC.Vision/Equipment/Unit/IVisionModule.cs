@@ -69,6 +69,9 @@ namespace QMC.Vision.Modules
         void RaiseAlarm(string reason);
         Bitmap AcquireViewerFrame();
 
+        /// <summary>테스트용 in-memory 그랩 이미지 주입. 설정 시 Grab()이 이 이미지를 반환(null=해제).</summary>
+        void SetSimOverrideImage(Bitmap bmp);
+
         bool Calibrate(double chipWidthMm, double chipHeightMm,
                        out double scaleX, out double scaleY, out string err);
         bool MeasureRotationalCenter(out List<PointF> corners, out string err);

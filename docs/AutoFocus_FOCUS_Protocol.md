@@ -30,10 +30,13 @@ MODULE|FOCUS_VAL|<motorZ>|<camera>|<target>|[pickupNo]|[init]
 
 - `motorZ` : 현재 Z 모터 위치(소수점 `.`, InvariantCulture). 그래프 X.
 - `camera` / `target` : 위와 동일.
-- `pickupNo` : `1`~`4` (모든 카메라/타깃 공통 — 콜렛·다이·앞측면·뒤측면 모두 Pickup1~4).
+- `pickupNo` : **Picker 번호 `1`~`4`** (핸들러 신호 = Picker). 측면은 `0`.
 - `init` : `1`/`INIT`/`TRUE` 면 이 샘플을 **최초값(점 표시)** 으로 지정. 생략 시 `0`.
-- 동작: Vision이 1장 grab → `AutoFocusCore.Score`(310 ScoreFocus 이식)로 채점 → 세션에 `(motorZ, score)` 누적.
-- 응답: `OK;z=12.3400;score=210.50;pickup=1;init=1`
+- 동작: Vision이 1장 grab → 해당 **Picker(pickupNo)에 지정된 ROI** 영역으로 `AutoFocusCore.Score(image, roi)` 채점
+  → 그 Picker 시리즈에 `(motorZ, score)` **누적**(append, 갱신 아님). Z 가 순차로 올라올 때마다 곡선이 쌓이고, best 는 세션이 max 로 추적.
+  ROI(해당 Picker) 미설정이면 전체 프레임으로 채점(구 동작) 하위호환.
+- ROI 는 [설정 > 오토 포커스]에서 (camera,target)별 Picker1~4 에 각각 드래그로 지정(`VisionConfig.AutoFocusRois`, vision.json).
+- 응답: `OK;z=12.3400;score=210.50;pickup=2;init=0`
 
 핸들러 스캔 루프: `FOCUS_START` → (Z 이동 → `FOCUS_VAL`) 반복 → 응답의 score로 best 판단(또는 Vision UI BEST표 참조).
 
@@ -63,10 +66,11 @@ MODULE|FOCUS_BEST|<camera>|<target>|[pickupNo]
 
 `FOCUS_START` / `FOCUS_VAL` 은 **RUN 게이트 면제**(PING/EXPOSE/GRAB과 동일). 셋업·캘리브레이션 용도로 RUN 아닐 때도 허용. 단, **Z 모션 안전은 핸들러 책임**.
 
-## 색상 / Pickup
+## 색상 / ROI
 
-Bottom 콜렛·다이는 Pickup1~4 = **빨(Red) · 노(Gold) · 파(RoyalBlue) · 녹(ForestGreen)**.
-앞/뒤 측면(Front/Back)도 Pickup1~4 (Bottom과 동일).
+시리즈는 Picker1~4(=ROI1~4) = **빨(Red) · 노(Gold) · 파(RoyalBlue) · 녹(ForestGreen)**. 모든 카메라/타깃 공통.
+각 Picker 의 ROI 영역은 [설정 > 오토 포커스]에서 이미지에 드래그로 지정하며 (camera,target)별로 `VisionConfig.AutoFocusRois`(vision.json)에 저장.
+UI 라벨은 "ROI1~4"(구 "Pickup1~4"). 신호(`pickupNo`)는 Picker, FOCUS_BEST 응답의 `p{n}*` 키는 Picker{n}(=ROI{n}) 의 best.
 
 ## Vision 측 구성요소
 

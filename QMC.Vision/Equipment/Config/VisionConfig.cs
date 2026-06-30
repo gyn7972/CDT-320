@@ -1,12 +1,30 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Config
 {
     /// <summary>어떤 비전 백엔드를 사용할지 선택.</summary>
     public enum VisionProvider { Sim, OpenCv, Cognex }
+
+    /// <summary>
+    /// 오토포커스 ROI 1세트 — 한 (카메라, 타깃) 조합의 ROI1~4.
+    /// 비전 [설정 &gt; 오토 포커스] 에서 드래그로 지정하는 셋업값(레시피 무관).
+    /// <para>각 항목은 픽셀 단위 사각 영역(<see cref="Roi"/>). 미설정 항목은 null.</para>
+    /// </summary>
+    [DataContract]
+    public class AutoFocusRoiSet
+    {
+        /// <summary>카메라 키 — "BOTTOM" | "FRONT" | "BACK".</summary>
+        [DataMember] public string Camera { get; set; } = "";
+        /// <summary>타깃 키 — "COLLET" | "DIE" | "SIDE".</summary>
+        [DataMember] public string Target { get; set; } = "";
+        /// <summary>ROI1~4(최대 4개). 미설정 항목은 null.</summary>
+        [DataMember] public Roi[] Rois { get; set; } = new Roi[4];
+    }
 
     [DataContract]
     public class VisionSettings
@@ -88,6 +106,8 @@ namespace QMC.Vision.Config
             FrontSideViewerPort  = 5205;
             RearSideViewerPort   = 5206;
             MilDcfPath           = "";
+            // 신규 키 — 구 json 에 없으면 빈 리스트(DataContractJsonSerializer 는 이니셜라이저 미실행).
+            AutoFocusRois        = new List<AutoFocusRoiSet>();
         }
 
         [OnDeserialized]
@@ -169,6 +189,10 @@ namespace QMC.Vision.Config
         [DataMember] public string SideLocation             { get; set; } = "None";
         /// <summary>오토포커스 그랩 후 조명 자동 OFF.</summary>
         [DataMember] public bool   OffAfterGrabWhenAutoFocus{ get; set; } = false;
+        /// <summary>오토포커스 ROI 셋업값 — (카메라×타깃)별 ROI1~4. [설정 &gt; 오토 포커스] 에서만 지정.</summary>
+        [DataMember] public List<AutoFocusRoiSet> AutoFocusRois { get; set; } = new List<AutoFocusRoiSet>();
+        /// <summary>오토포커스 채점 밝기 임계값(310 nThreadCollet). 이 값 초과 픽셀만 채점. 기본 100.</summary>
+        [DataMember] public int    AutoFocusThreshold       { get; set; } = 100;
         /// <summary>[LEGACY 미사용] 응답 픽셀→mm 변환 포함 여부. SSOT=모듈 CameraConfig.ReturnMmCoordinates.</summary>
         [DataMember] public bool   ReturnMmCoordinates      { get; set; } = false;
 

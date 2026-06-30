@@ -284,8 +284,32 @@ namespace QMC.Vision.Modules
 
         private int _savedFrameSeq;   // '저장 이미지로 그랩' 프레임 번호
 
+        private Bitmap _simOverride;
+
+        /// <summary>
+        /// 테스트용 in-memory 그랩 이미지. 설정 시 <see cref="Grab"/> 가 카메라/저장이미지 대신
+        /// 이 이미지(복제본)를 반환한다. 오토포커스 테스트에서 화면에 표시(Load/Grab)한 이미지를
+        /// 서버 grab 과 일치시키기 위해 사용. null 이면 해제.
+        /// </summary>
+        public void SetSimOverrideImage(Bitmap bmp)
+        {
+            Bitmap old = _simOverride;
+            _simOverride = bmp != null ? (Bitmap)bmp.Clone() : null;
+            try { old?.Dispose(); } catch { }
+        }
+
         public GrabResult Grab(int timeoutMs = 3000)
         {
+            // 테스트 오버라이드 — 화면에 표시한 이미지를 grab 으로 반환(오토포커스 ROI 정렬용).
+            Bitmap ov = _simOverride;
+            if (ov != null)
+            {
+                Bitmap clone = (Bitmap)ov.Clone();
+                TapFrame(clone);
+                try { ExposureDone?.Invoke(Name); } catch { }
+                return GrabResult.Success(clone, (int)_frameSeq, "sim-override");
+            }
+
             // 모듈 레벨 시뮬 이미지 — 핸들러 GRAB 등 모듈 그랩에서 카메라 대신 저장 이미지를 사용(테스트).
             // 한 장을 그랩해 TapFrame → 핸들러 뷰어로 송출되고, 이후 finder MATCH 는 같은 프레임 ROI 검출.
             var simGrab = TryGrabModuleSavedImage();
