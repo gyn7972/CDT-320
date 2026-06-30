@@ -708,6 +708,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
+                result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveFrontPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerX, "OutputAvoidPosition", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -742,6 +746,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
 
                 int result = await MoveRearPickerZGroupTeachingAsync("AvoidPosition", "RearPicker Output 이동 전 PickerZ Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveRearPickerTeachingAxisAndVerifyAsync(PickerAxis.PickerY, "AvoidPosition", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
