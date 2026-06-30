@@ -13,6 +13,12 @@ namespace QMC.Vision.Cameras.Sim
         private int _frameCounter;
         private readonly Random _rnd = new Random();
 
+        // 합성 프레임 캐시 — 매 grab 마다 144MP 비트맵을 새로 그리면 느리므로(대형 해상도에서 수백 ms),
+        // 한 번 그려두고 grab 시 사본만 반환한다(생성+드로잉 → 클론 1회로 단축).
+        private Bitmap _cachedFrame;
+        private Size _cachedSize;
+        private readonly object _frameLock = new object();
+
         public SimCamera(string id) : base(new CameraInfo
         {
             Id           = id,
@@ -33,6 +39,7 @@ namespace QMC.Vision.Cameras.Sim
         public override void Close()
         {
             StopLive();
+            lock (_frameLock) { try { _cachedFrame?.Dispose(); } catch { } _cachedFrame = null; }
             IsOpen = false;
             RaiseConnectionChanged(CameraConnectionEvent.Closed);
         }
@@ -40,7 +47,22 @@ namespace QMC.Vision.Cameras.Sim
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
-            return new GrabResult(BuildFrame(_frameCounter++), _frameCounter, Info.Id);
+            return new GrabResult(GetFrameClone(), _frameCounter++, Info.Id);
+        }
+
+        /// <summary>캐시된 합성 프레임의 사본을 반환(소비자가 Dispose). 해상도 변경 시 1회 재생성.</summary>
+        private Bitmap GetFrameClone()
+        {
+            lock (_frameLock)
+            {
+                if (_cachedFrame == null || _cachedSize != Resolution)
+                {
+                    try { _cachedFrame?.Dispose(); } catch { }
+                    _cachedFrame = BuildFrame(0);
+                    _cachedSize = Resolution;
+                }
+                return (Bitmap)_cachedFrame.Clone();
+            }
         }
 
         public override void StartLive()

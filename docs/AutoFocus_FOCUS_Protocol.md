@@ -30,13 +30,15 @@ MODULE|FOCUS_VAL|<motorZ>|<camera>|<target>|[pickupNo]|[init]
 
 - `motorZ` : 현재 Z 모터 위치(소수점 `.`, InvariantCulture). 그래프 X.
 - `camera` / `target` : 위와 동일.
-- `pickupNo` : **Picker 번호 `1`~`4`** (핸들러 신호 = Picker). 측면은 `0`.
+- `pickupNo` : **Picker 번호 `1`~`4`**. 측면은 `0`(→ 내부 단일 시리즈 1로 매핑).
 - `init` : `1`/`INIT`/`TRUE` 면 이 샘플을 **최초값(점 표시)** 으로 지정. 생략 시 `0`.
-- 동작: Vision이 1장 grab → 해당 **Picker(pickupNo)에 지정된 ROI** 영역으로 `AutoFocusCore.Score(image, roi)` 채점
-  → 그 Picker 시리즈에 `(motorZ, score)` **누적**(append, 갱신 아님). Z 가 순차로 올라올 때마다 곡선이 쌓이고, best 는 세션이 max 로 추적.
-  ROI(해당 Picker) 미설정이면 전체 프레임으로 채점(구 동작) 하위호환.
-- ROI 는 [설정 > 오토 포커스]에서 (camera,target)별 Picker1~4 에 각각 드래그로 지정(`VisionConfig.AutoFocusRois`, vision.json).
-- 응답: `OK;z=12.3400;score=210.50;pickup=2;init=0`
+- **그랩-ACK + 백그라운드 채점**: Vision 은 **grab 만 동기로** 끝내고(이미지 확보) **즉시 ACK**("그랩 완료", 점수 아님)를 보낸다.
+  핸들러는 이 ACK 를 받고 다음 Z 로 이동한다(backpressure — grab 이 올바른 Z 에서 찍히고 Vision 이 밀리지 않음).
+  실제 채점(ROI 점수 계산 + 누적 + 이미지 폐기)은 **백그라운드**(`AutoFocusProcessor`)에서 모아서 처리한다.
+- 백그라운드 동작: [설정 > 오토 포커스]에서 지정한 ROI 들을 `AutoFocusCore.Score(image, roi, AutoFocusThreshold)` 로 채점 →
+  각 ROI 시리즈(1~4)에 `(motorZ, score)` **누적**(append). ROI 미설정이면 전체 프레임 1점(측면=시리즈1). 스텝별 택타임은 `AutoFocusTactLog`.
+- 응답(그랩 완료, score 미포함 — 채점은 백그라운드): `OK;z=12.3400;pickup=2;init=0;queued=1`
+- 테스트 버튼(설정 > 오토 포커스)도 동일: FOCUS_VAL/FOCUS_BEST 모두 응답 수신.
 
 핸들러 스캔 루프: `FOCUS_START` → (Z 이동 → `FOCUS_VAL`) 반복 → 응답의 score로 best 판단(또는 Vision UI BEST표 참조).
 
@@ -48,9 +50,10 @@ MODULE|FOCUS_VAL|<motorZ>|<camera>|<target>|[pickupNo]|[init]
 MODULE|FOCUS_BEST|<camera>|<target>|[pickupNo]
 ```
 
-- 핸들러가 스캔 종료 후 best 위치/점수를 TCP 로 회수.
-- 응답(기존 `ROT_CENTER` 식 인덱스 키): `OK;p1z=19.9500;p1s=214.00;p1n=21;p2z=20.1000;p2s=198.00;p2n=21;...`
-  (`p<n>z`=bestZ, `p<n>s`=bestScore, `p<n>n`=샘플수). `pickupNo` 지정 시 그 픽업만.
+- 핸들러가 스캔 종료 후 best 위치/점수를 TCP 로 회수. **이 명령은 응답을 기다린다**(FOCUS_VAL 과 달리).
+- 동작: 진행 중인 백그라운드 채점이 **모두 끝날 때까지 대기**(`AutoFocusProcessor.WaitForDrain`) 후, 누적 전체에서 **최고 점수 Z** 를 회수.
+- 응답(인덱스 키): `OK;p1z=19.9500;p1s=214.00;p1n=21;p2z=20.1000;p2s=198.00;p2n=21;...`
+  (`p<n>z`=bestZ, `p<n>s`=bestScore, `p<n>n`=샘플수). `pickupNo` 지정 시 그 픽업만(측면 `0`→시리즈 `1`).
 
 ## 카메라 ↔ 모듈 ↔ 포트
 

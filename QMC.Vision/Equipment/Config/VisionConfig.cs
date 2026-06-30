@@ -108,6 +108,7 @@ namespace QMC.Vision.Config
             MilDcfPath           = "";
             // 신규 키 — 구 json 에 없으면 빈 리스트(DataContractJsonSerializer 는 이니셜라이저 미실행).
             AutoFocusRois        = new List<AutoFocusRoiSet>();
+            AutoFocusUseCuda     = true;   // 구 json 에 없으면 기본 CUDA 선호(가용 시)
         }
 
         [OnDeserialized]
@@ -191,6 +192,9 @@ namespace QMC.Vision.Config
         [DataMember] public bool   OffAfterGrabWhenAutoFocus{ get; set; } = false;
         /// <summary>오토포커스 ROI 셋업값 — (카메라×타깃)별 ROI1~4. [설정 &gt; 오토 포커스] 에서만 지정.</summary>
         [DataMember] public List<AutoFocusRoiSet> AutoFocusRois { get; set; } = new List<AutoFocusRoiSet>();
+        /// <summary>오토포커스 채점에 CUDA(GPU) 사용 선호. 기본 true. 실제 사용은 가용성(디바이스+커널) AND 이 값.
+        /// 장비 PC는 GPU, DLL/디바이스 없으면 자동 CPU 폴백. false 면 강제 CPU.</summary>
+        [DataMember] public bool   AutoFocusUseCuda         { get; set; } = true;
         /// <summary>오토포커스 채점 밝기 임계값(310 nThreadCollet). 이 값 초과 픽셀만 채점. 기본 100.</summary>
         [DataMember] public int    AutoFocusThreshold       { get; set; } = 100;
         /// <summary>[LEGACY 미사용] 응답 픽셀→mm 변환 포함 여부. SSOT=모듈 CameraConfig.ReturnMmCoordinates.</summary>

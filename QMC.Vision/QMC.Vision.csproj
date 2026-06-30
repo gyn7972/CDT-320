@@ -82,6 +82,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Equipment\Core\GrabResult.cs" />
     <Compile Include="Equipment\Core\AutoFocusCore.cs" />
+    <Compile Include="Equipment\Core\AutoFocusNativeCuda.cs" />
+    <Compile Include="Equipment\Core\AutoFocusProcessor.cs" />
     <Compile Include="Equipment\Core\AutoFocusSession.cs" />
     <Compile Include="Equipment\Core\AutoFocusStore.cs" />
     <Compile Include="Equipment\Core\AutoFocusTactLog.cs" />

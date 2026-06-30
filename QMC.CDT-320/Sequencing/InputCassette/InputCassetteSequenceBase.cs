@@ -2,6 +2,7 @@
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -202,6 +203,13 @@ namespace QMC.CDT320.Sequencing
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
+
+                var feeder = Feeder;
+                string feederOccupiedReason;
+                if (IsFeederOccupiedBeforeMapping(feeder, out feederOccupiedReason))
+                    return Fail("IN-CST-MAP-FEEDER-OCCUPIED",
+                        feeder != null ? feeder.Name : "InputFeeder",
+                        "InputFeeder에 제품이 있어 카세트 매핑을 시작할 수 없습니다. 제품 배출/정리 후 매핑을 다시 실행하세요. " + feederOccupiedReason);
 
                 string readyReason;
                 bool ready = cassette.CheckWaferCassetteMappingReady(out readyReason);
@@ -607,6 +615,79 @@ namespace QMC.CDT320.Sequencing
         {
             if (feeder == null) return false;
             return feeder.IsWaferFeederInAvoidPosition() || feeder.IsWaferFeederInExchangePosition();
+        }
+
+        private bool IsFeederOccupiedBeforeMapping(InputFeederUnit feeder, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (feeder == null)
+                {
+                    reason = "InputFeeder=null";
+                    return false;
+                }
+
+                bool dataOccupied = feeder.IsWaferFeederTransferDataOccupied();
+                bool waferOccupied = feeder.HasWaferOnFeeder();
+                bool rawSensorDetected = IsAnyWaferFeederRawRingSensorOn(feeder);
+                bool occupied = dataOccupied || waferOccupied || rawSensorDetected;
+
+                reason = "DataOccupied=" + dataOccupied +
+                         ", WaferOccupied=" + waferOccupied +
+                         ", RawSensorDetected=" + rawSensorDetected +
+                         ". " + feeder.GetWaferFeederTransferState();
+
+                return occupied;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputFeeder 제품 보유 상태 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsAnyWaferFeederRawRingSensorOn(InputFeederUnit feeder)
+        {
+            try
+            {
+                if (feeder == null)
+                    return false;
+
+                return IsRawInputOn(feeder.WaferFeederRingCheckSensor) ||
+                       IsRawInputOn(feeder.WaferFeeder8RingCheckSensor) ||
+                       IsRawInputOn(feeder.WaferFeeder12RingCheckSensor);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputCassetteFeederCheck",
+                    "InputFeeder raw ring sensor 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsRawInputOn(BaseDigitalInput input)
+        {
+            try
+            {
+                return input != null && input.IsOn;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputCassetteFeederCheck",
+                    "InputFeeder raw input 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private int ResolveCassetteSize(InputCassetteUnit cassette)

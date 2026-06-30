@@ -332,6 +332,15 @@ namespace QMC.CDT320.Sequencing
                 if (yReadyResult != 0)
                     return yReadyResult;
 
+                int facingYReadyResult = await WaitPickerFacingYInterlockBeforeAutoMoveAsync(
+                    axis,
+                    target,
+                    targetName,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (facingYReadyResult != 0)
+                    return facingYReadyResult;
+
                 ct.ThrowIfCancellationRequested();
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
@@ -414,6 +423,10 @@ namespace QMC.CDT320.Sequencing
                 var commandTasks = new List<Task<int>>();
                 var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 var commandDetails = new List<PickerMoveAxisLogDetail>();
+                double pairedXTarget;
+                double pairedYTarget;
+                bool hasPairedXTarget = targets.TryGetValue(PickerAxis.PickerX, out pairedXTarget);
+                bool hasPairedYTarget = targets.TryGetValue(PickerAxis.PickerY, out pairedYTarget);
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -430,6 +443,17 @@ namespace QMC.CDT320.Sequencing
                         }
                         continue;
                     }
+
+                    int facingYReadyResult = await WaitPickerFacingYInterlockBeforeAutoMoveAsync(
+                        pair.Key,
+                        pair.Value,
+                        targetName,
+                        description,
+                        ct,
+                        hasPairedXTarget ? (double?)pairedXTarget : null,
+                        hasPairedYTarget ? (double?)pairedYTarget : null).ConfigureAwait(false);
+                    if (facingYReadyResult != 0)
+                        return facingYReadyResult;
 
                     commandTargets.Add(pair);
                     commandDetails.Add(BuildPickerMoveAxisLogDetail(pair.Key, pair.Value));
@@ -494,6 +518,104 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-MOVE-EX", Name, description + " parallel move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitPickerFacingYInterlockBeforeAutoMoveAsync(
+            PickerAxis axis,
+            double target,
+            string targetName,
+            string description,
+            CancellationToken ct,
+            double? pairedXTarget = null,
+            double? pairedYTarget = null)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (axis != PickerAxis.PickerX && axis != PickerAxis.PickerY)
+                    return 0;
+
+                bool waitLogged = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".WaitPickerFacingYInterlock:" + axis);
+
+                    string detail;
+                    bool clear = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
+                        Context != null ? Context.Machine : null,
+                        Side == PickerSequenceSide.Front,
+                        axis,
+                        target,
+                        targetName,
+                        pairedXTarget,
+                        pairedYTarget,
+                        out detail);
+                    if (clear)
+                        break;
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("PickerFacingYGate",
+                            Name + " Auto Picker 이동 대기. Front/Rear PickerX가 마주보는 구간에서 양쪽 PickerY 돌출 간섭이 해제될 때까지 기다립니다. " +
+                            "side=" + Side +
+                            ", axis=" + axis +
+                            ", target=" + target.ToString("0.###") +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", description=" + description +
+                            ", detail=" + detail + " - Wait");
+                        WriteSharedRailXLog(
+                            Name + " PickerFacingYGate wait. side=" + Side +
+                            ", axis=" + axis +
+                            ", target=" + target.ToString("0.###") +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", detail=" + detail);
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerFacingYGate",
+                        Name + " Auto Picker 이동 대기 완료. Front/Rear PickerY 돌출 X거리 인터락 해제 확인. " +
+                        "side=" + Side +
+                        ", axis=" + axis +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", description=" + description + " - Ok");
+                    WriteSharedRailXLog(
+                        Name + " PickerFacingYGate wait complete. side=" + Side +
+                        ", axis=" + axis +
+                        ", targetName=" + (targetName ?? "-"));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-FACING-Y-GATE-EX", Name,
+                    "Auto Picker 이동 전 Front/Rear PickerY 돌출 X거리 대기 중 예외가 발생했습니다. " +
+                    "side=" + Side +
+                    ", axis=" + axis +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
             }
             finally
             {
