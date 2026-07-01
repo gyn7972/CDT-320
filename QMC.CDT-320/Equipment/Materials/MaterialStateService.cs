@@ -1122,9 +1122,9 @@ namespace QMC.CDT320.Materials
                 outputWafer.OutputReceiveDieMapY = binMap.DieMapY;
                 outputWafer.OutputReceivePitchX = binMap.PitchX;
                 outputWafer.OutputReceivePitchY = binMap.PitchY;
-                // 좌표 규약 유지: 모션 소비자가 LoadPosition + pitch*index(코너 상대)로 해석.
-                outputWafer.OutputReceiveOriginX = 0.0;
-                outputWafer.OutputReceiveOriginY = 0.0;
+                // 좌표 규약: 빈맵 중심 기준 상대좌표를 유지하고, 모션 소비자가 ProcessPosition + PosX/PosY로 해석한다.
+                outputWafer.OutputReceiveOriginX = binMap.OriginX;
+                outputWafer.OutputReceiveOriginY = binMap.OriginY;
                 outputWafer.OutputReceiveNextIndex = 0;
                 outputWafer.OutputReceiveTotalCount = ordered.Count;
                 outputWafer.OutputReceiveStartCorner = pickup.StartCorner.ToString();
@@ -1682,6 +1682,14 @@ namespace QMC.CDT320.Materials
 
                 double targetCenterX = inputStage.ResolveWorkAreaCenterX();
                 double targetCenterY = inputStage.ResolveWorkAreaCenterY();
+                string centerSource = "WorkAreaCenter";
+                if (inputStage.Recipe != null)
+                {
+                    inputStage.Recipe.EnsurePositionObjects();
+                    targetCenterX = inputStage.Recipe.VisionX.ProcessPosition;
+                    targetCenterY = inputStage.Recipe.WaferY.ProcessPosition;
+                    centerSource = "Recipe ProcessPosition";
+                }
                 double pitchX = map.PitchX > 0.0 ? map.PitchX : ResolveDieMapPitch(entries, true);
                 double pitchY = map.PitchY > 0.0 ? map.PitchY : ResolveDieMapPitch(entries, false);
                 if (pitchX <= 0.0)
@@ -1706,8 +1714,9 @@ namespace QMC.CDT320.Materials
                 }
 
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
-                    "공정 테스트 InputStage DieMap 좌표를 Auto DieMapping 기준으로 생성했습니다. " +
-                    "centerX=" + targetCenterX.ToString("F3") +
+                    "공정 테스트 InputStage DieMap 좌표를 공정 위치 기준으로 생성했습니다. " +
+                    "source=" + centerSource +
+                    ", centerX=" + targetCenterX.ToString("F3") +
                     ", centerY=" + targetCenterY.ToString("F3") +
                     ", originX=" + originX.ToString("F3") +
                     ", originY=" + originY.ToString("F3") +
@@ -1862,8 +1871,8 @@ namespace QMC.CDT320.Materials
             wafer.OutputReceiveDieMapY = binMap.DieMapY;
             wafer.OutputReceivePitchX = binMap.PitchX;
             wafer.OutputReceivePitchY = binMap.PitchY;
-            wafer.OutputReceiveOriginX = 0.0;
-            wafer.OutputReceiveOriginY = 0.0;
+            wafer.OutputReceiveOriginX = binMap.OriginX;
+            wafer.OutputReceiveOriginY = binMap.OriginY;
             wafer.OutputReceiveNextIndex = 0;
             wafer.OutputReceiveTotalCount = ordered.Count;
             wafer.OutputReceiveStartCorner = pickup != null ? pickup.StartCorner.ToString() : "";
@@ -1926,13 +1935,21 @@ namespace QMC.CDT320.Materials
                     IsTarget = true,
                     Result = DieResult.Unknown,
                     BinCode = binCode,
-                    PosX = entry.PosX != 0.0 ? entry.PosX : pitchX * entry.DieMapX,
-                    PosY = entry.PosY != 0.0 ? entry.PosY : pitchY * entry.DieMapY,
+                    PosX = ResolveEntryPositionOrIndexFallback(entry.PosX, pitchX, entry.DieMapX),
+                    PosY = ResolveEntryPositionOrIndexFallback(entry.PosY, pitchY, entry.DieMapY),
                     DieUid = ""
                 });
             }
 
             return slots;
+        }
+
+        private static double ResolveEntryPositionOrIndexFallback(double position, double pitch, int index)
+        {
+            if (!double.IsNaN(position) && !double.IsInfinity(position))
+                return position;
+
+            return pitch * index;
         }
 
         private static void UpdateOutputReceiveSlot(WaferMaterial outputWafer, DieMaterial die, QMC.CDT320.BinSide side)

@@ -63,6 +63,9 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
+                if (own.Phase == nextPhase)
+                    return true;
+
                 PickerPhaseState opposite = GetOppositeStateNoLock(lease.Side);
                 if (!IsAllowedNoLock(nextPhase, opposite.Phase, out reason))
                 {

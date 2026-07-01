@@ -494,21 +494,34 @@ namespace QMC.CDT320.Sequencing
 
                 int dieMapX = sourceMap != null && sourceMap.DieMapX > 0 ? sourceMap.DieMapX : Math.Max(1, _frameSpec.DieMapX);
                 int dieMapY = sourceMap != null && sourceMap.DieMapY > 0 ? sourceMap.DieMapY : Math.Max(1, _frameSpec.DieMapY);
-                double pitchX = dieMapX > 1 ? Math.Abs(right.X - left.X) / (dieMapX - 1) : ResolvePitchX();
-                double pitchY = dieMapY > 1 ? Math.Abs(bottom.Y - top.Y) / (dieMapY - 1) : ResolvePitchY();
-                if (pitchX <= 0.0)
-                    pitchX = sourceMap != null && sourceMap.PitchX > 0.0 ? sourceMap.PitchX : ResolvePitchX();
-                if (pitchY <= 0.0)
-                    pitchY = sourceMap != null && sourceMap.PitchY > 0.0 ? sourceMap.PitchY : ResolvePitchY();
+                double pitchX = sourceMap != null && sourceMap.PitchX > 0.0 ? sourceMap.PitchX : ResolvePitchX();
+                double pitchY = sourceMap != null && sourceMap.PitchY > 0.0 ? sourceMap.PitchY : ResolvePitchY();
+                if (pitchX <= 0.0 && _frameSpec != null)
+                    pitchX = _frameSpec.PitchX;
+                if (pitchY <= 0.0 && _frameSpec != null)
+                    pitchY = _frameSpec.PitchY;
                 if (pitchX <= 0.0 || pitchY <= 0.0)
                     return Fail("IN-STAGE-DIEMAP-PITCH", "InputStageDieMappingSequence", "Die map pitch is invalid.");
 
-                double signX = right.X >= left.X ? 1.0 : -1.0;
-                double signY = bottom.Y >= top.Y ? 1.0 : -1.0;
-                double originX = left.X;
-                double originY = top.Y;
-                double centerX = (left.X + right.X) / 2.0;
-                double centerY = (top.Y + bottom.Y) / 2.0;
+                bool processCenterMode = IsSimulationOrDryRun();
+                double signX = processCenterMode ? 1.0 : (right.X >= left.X ? 1.0 : -1.0);
+                double signY = processCenterMode ? 1.0 : (bottom.Y >= top.Y ? 1.0 : -1.0);
+                double centerX;
+                double centerY;
+                string centerSource;
+                if (processCenterMode)
+                {
+                    ResolveProcessCenter(out centerX, out centerY);
+                    centerSource = "ProcessPosition";
+                }
+                else
+                {
+                    centerX = (left.X + right.X) / 2.0;
+                    centerY = (top.Y + bottom.Y) / 2.0;
+                    centerSource = "DieMappingMarks";
+                }
+                double originX = centerX - (signX * pitchX * Math.Max(0, dieMapX - 1) / 2.0);
+                double originY = centerY - (signY * pitchY * Math.Max(0, dieMapY - 1) / 2.0);
                 double waferRadius = ResolveWaferRadiusFromSpecOrMarks(_frameSpec, left, right, top, bottom);
 
                 _dieMap = new DieMap
@@ -577,8 +590,13 @@ namespace QMC.CDT320.Sequencing
                     ", sourceMap=" + (sourceMap != null ? sourceMap.FrameObjId : "none") +
                     ", pitchX=" + pitchX.ToString("F6") +
                     ", pitchY=" + pitchY.ToString("F6") +
+                    ", centerSource=" + centerSource +
                     ", centerX=" + centerX.ToString("F6") +
                     ", centerY=" + centerY.ToString("F6") +
+                    ", signX=" + signX.ToString("F1") +
+                    ", signY=" + signY.ToString("F1") +
+                    ", originX=" + originX.ToString("F6") +
+                    ", originY=" + originY.ToString("F6") +
                     ", radius=" + waferRadius.ToString("F6") +
                     ", outerDiameter=" + (_frameSpec != null ? _frameSpec.OuterDiameterMm.ToString("F6") : "0") +
                     ", targetCount=" + targetCount +
@@ -1472,11 +1490,41 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null && (settings.SimulationMode || settings.DryRunMode || settings.BypassHardware))
+                    return true;
+
+                if (Context != null && Context.Controller != null &&
+                    (Context.Controller.GlobalDryRun || Context.Controller.DryRun))
+                    return true;
+
                 return Stage != null && Stage.IsInputStageSimulationOrDryRun();
             }
             catch
             {
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ResolveProcessCenter(out double centerX, out double centerY)
+        {
+            centerX = Stage != null ? Stage.ResolveWorkAreaCenterX() : 0.0;
+            centerY = Stage != null ? Stage.ResolveWorkAreaCenterY() : 0.0;
+
+            try
+            {
+                if (Stage != null && Stage.Recipe != null)
+                {
+                    Stage.Recipe.EnsurePositionObjects();
+                    centerX = Stage.Recipe.VisionX.ProcessPosition;
+                    centerY = Stage.Recipe.WaferY.ProcessPosition;
+                }
+            }
+            catch
+            {
             }
             finally
             {

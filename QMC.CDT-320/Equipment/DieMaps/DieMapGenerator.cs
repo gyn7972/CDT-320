@@ -39,8 +39,10 @@ namespace QMC.CDT320.DieMaps
             if (gx < 1) gx = 1;
             if (gy < 1) gy = 1;
 
-            double originX = -gx * pitchX / 2.0;   // 격자 중심을 (0,0) 으로
-            double originY = -gy * pitchY / 2.0;
+            // 격자 index 기준 중심 좌표를 (0,0)으로 둔다.
+            // 예: 45x45, pitch=1이면 [22,22]가 0, [44,22]가 +22가 된다.
+            double originX = -Math.Max(0, gx - 1) * pitchX / 2.0;
+            double originY = -Math.Max(0, gy - 1) * pitchY / 2.0;
 
             var map = new DieMap
             {
@@ -58,9 +60,9 @@ namespace QMC.CDT320.DieMaps
             {
                 for (int x = 0; x < gx; x++)
                 {
-                    // 셀 중심 좌표 (원 중심 기준)
-                    double cx = originX + (x + 0.5) * pitchX;
-                    double cy = originY + (y + 0.5) * pitchY;
+                    // index 중심 좌표 (원 중심 기준)
+                    double cx = originX + x * pitchX;
+                    double cy = originY + y * pitchY;
                     // 원 안 판정: 셀 중심이 반지름 안에 있어야 활성
                     double distSq = cx * cx + cy * cy;
                     bool isTarget = distSq <= radius * radius;
@@ -93,8 +95,9 @@ namespace QMC.CDT320.DieMaps
             double pitchY = dieSizeYMm + gapYMm;
             if (dieMapX < 1) dieMapX = 1;
             if (dieMapY < 1) dieMapY = 1;
-            double originX = -dieMapX * pitchX / 2.0;
-            double originY = -dieMapY * pitchY / 2.0;
+            // 격자 index 기준 중심 좌표를 (0,0)으로 둔다.
+            double originX = -Math.Max(0, dieMapX - 1) * pitchX / 2.0;
+            double originY = -Math.Max(0, dieMapY - 1) * pitchY / 2.0;
 
             var map = new DieMap
             {
@@ -112,8 +115,8 @@ namespace QMC.CDT320.DieMaps
             {
                 for (int x = 0; x < dieMapX; x++)
                 {
-                    double cx = originX + (x + 0.5) * pitchX;
-                    double cy = originY + (y + 0.5) * pitchY;
+                    double cx = originX + x * pitchX;
+                    double cy = originY + y * pitchY;
                     map.Entries.Add(new DieMapEntry
                     {
                         Index    = idx++,
