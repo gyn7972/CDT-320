@@ -151,7 +151,11 @@
     <Compile Include="Motion\AxisMoveWaiter.cs" />
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
+    <Compile Include="Motion\AjinInterpolatedMotionService.cs" />
     <Compile Include="Motion\BaseAxis.cs" />
+    <Compile Include="Motion\InterpolatedMotionAxisInfo.cs" />
+    <Compile Include="Motion\InterpolatedMotionMapResult.cs" />
+    <Compile Include="Motion\InterpolatedMotionMoveResult.cs" />
     <Compile Include="Motion\MotionMonitorService.cs" />
     <Compile Include="Motion\MotionAxisManager.cs" />
     <Compile Include="Motion\MotionAxisStore.cs" />

@@ -114,6 +114,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnPickUpTest;
         private ComboBox cmbPickZTestPickerNo;
         private ActionButton btnPickZTest;
+        private ActionButton btnAjinLineMapTest;
+        private ActionButton btnAjinLineMoveTest;
         private ActionButton btnStop;
         private TableLayoutPanel actionBar;
         private FlowLayoutPanel actionRightPanel;
@@ -235,6 +237,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickUpTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.cmbPickZTestPickerNo = new System.Windows.Forms.ComboBox();
             this.btnPickZTest = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnAjinLineMapTest = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnAjinLineMoveTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
             this.actionRightPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -1769,6 +1773,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionPanel.Controls.Add(this.btnPickUpTest);
             this.actionPanel.Controls.Add(this.cmbPickZTestPickerNo);
             this.actionPanel.Controls.Add(this.btnPickZTest);
+            this.actionPanel.Controls.Add(this.btnAjinLineMapTest);
+            this.actionPanel.Controls.Add(this.btnAjinLineMoveTest);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionPanel.Name = "actionPanel";
@@ -1909,6 +1915,34 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickZTest.Size = new System.Drawing.Size(132, 60);
             this.btnPickZTest.TabIndex = 7;
             this.btnPickZTest.Text = "PICK Z TEST";
+            //
+            // btnAjinLineMapTest
+            //
+            this.btnAjinLineMapTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAjinLineMapTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAjinLineMapTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAjinLineMapTest.ForeColor = System.Drawing.Color.White;
+            this.btnAjinLineMapTest.Location = new System.Drawing.Point(1286, 16);
+            this.btnAjinLineMapTest.Margin = new System.Windows.Forms.Padding(6);
+            this.btnAjinLineMapTest.Name = "btnAjinLineMapTest";
+            this.btnAjinLineMapTest.Size = new System.Drawing.Size(132, 60);
+            this.btnAjinLineMapTest.TabIndex = 8;
+            this.btnAjinLineMapTest.Text = "LINE MAP TEST";
+            this.btnAjinLineMapTest.Click += new System.EventHandler(this.btnAjinLineMapTest_Click);
+            //
+            // btnAjinLineMoveTest
+            //
+            this.btnAjinLineMoveTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAjinLineMoveTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAjinLineMoveTest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAjinLineMoveTest.ForeColor = System.Drawing.Color.White;
+            this.btnAjinLineMoveTest.Location = new System.Drawing.Point(1430, 16);
+            this.btnAjinLineMoveTest.Margin = new System.Windows.Forms.Padding(6);
+            this.btnAjinLineMoveTest.Name = "btnAjinLineMoveTest";
+            this.btnAjinLineMoveTest.Size = new System.Drawing.Size(132, 60);
+            this.btnAjinLineMoveTest.TabIndex = 9;
+            this.btnAjinLineMoveTest.Text = "LINE MOVE TEST";
+            this.btnAjinLineMoveTest.Click += new System.EventHandler(this.btnAjinLineMoveTest_Click);
             //
             // btnStop
             //
