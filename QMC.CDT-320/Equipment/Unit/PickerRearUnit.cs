@@ -64,6 +64,7 @@ namespace QMC.CDT320
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
         [DataMember] public PickerPickUpMotionConfig PickUp { get; set; } = new PickerPickUpMotionConfig();
         [DataMember] public PickerBottomInspectionMotionConfig BottomInspection { get; set; } = new PickerBottomInspectionMotionConfig();
+        [DataMember] public PickerPlaceMotionConfig Place { get; set; } = new PickerPlaceMotionConfig();
         [DataMember] public int VisionInspectionSettleMs { get; set; } = 0;
         [DataMember] public int SideInspectionTurnSettleMs { get; set; } = 0;
 
@@ -151,6 +152,34 @@ namespace QMC.CDT320
         [DisplayName("Bottom Flying Z Start X Remaining Distance")]
         public double BottomFlyingZStartXRemainingDistance { get { return EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance; } set { EnsureBottomInspectionConfig().FlyingZStartXRemainingDistance = value; } }
 
+        [Category("Place")]
+        [DisplayName("Place Motion Mode")]
+        public PickerPlaceMotionMode PlaceMotionMode { get { return EnsurePlaceConfig().MotionMode; } set { EnsurePlaceConfig().MotionMode = value; } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Coordinate")]
+        public int PlaceSyncCoordinate { get { return EnsurePlaceConfig().InterpolationCoordinate; } set { EnsurePlaceConfig().InterpolationCoordinate = Math.Max(0, value); } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Velocity")]
+        public double PlaceSyncVelocity { get { return EnsurePlaceConfig().SynchronizedVelocity; } set { EnsurePlaceConfig().SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(value, 1.0); } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Acc")]
+        public double PlaceSyncAcc { get { return EnsurePlaceConfig().SynchronizedAcceleration; } set { EnsurePlaceConfig().SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Dec")]
+        public double PlaceSyncDec { get { return EnsurePlaceConfig().SynchronizedDeceleration; } set { EnsurePlaceConfig().SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(value, 10.0); } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Timeout Ms")]
+        public int PlaceSyncTimeoutMs { get { return EnsurePlaceConfig().SynchronizedTimeoutMs; } set { EnsurePlaceConfig().SynchronizedTimeoutMs = Math.Max(1, value); } }
+
+        [Category("Place")]
+        [DisplayName("Place Sync Max Travel")]
+        public double PlaceSyncMaxTravel { get { return EnsurePlaceConfig().MaxSynchronizedTravelDistance; } set { EnsurePlaceConfig().MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(value, 37.0); } }
+
         [Category("Vision")]
         [DisplayName("Vision Inspection Settle Ms")]
         public int VisionInspectionSettleDelayMs { get { return VisionInspectionSettleMs; } set { VisionInspectionSettleMs = value < 0 ? 0 : value; } }
@@ -199,6 +228,10 @@ namespace QMC.CDT320
                 BottomInspection = new PickerBottomInspectionMotionConfig();
             BottomInspection.Ensure();
 
+            if (Place == null)
+                Place = new PickerPlaceMotionConfig();
+            Place.Ensure();
+
             if (VisionInspectionSettleMs < 0)
                 VisionInspectionSettleMs = 0;
             if (SideInspectionTurnSettleMs < 0)
@@ -219,6 +252,14 @@ namespace QMC.CDT320
                 BottomInspection = new PickerBottomInspectionMotionConfig();
             BottomInspection.Ensure();
             return BottomInspection;
+        }
+
+        private PickerPlaceMotionConfig EnsurePlaceConfig()
+        {
+            if (Place == null)
+                Place = new PickerPlaceMotionConfig();
+            Place.Ensure();
+            return Place;
         }
     }
 

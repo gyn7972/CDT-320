@@ -60,8 +60,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
             materialDetailView.ClearAllDataRequested += MaterialDetailView_ClearAllDataRequested;
-
-            EnsureStopButtonLast();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -207,9 +205,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnMap.Enabled = enabled;
             btnLoad.Enabled = enabled;
             btnUnload.Enabled = enabled;
-            actionPanel.Enabled = true;
             btnStop.Enabled = true;
-            EnsureStopButtonLast();
         }
 
         private async Task StopManualActionAsync()
@@ -228,16 +224,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionPanel == null || btnStop == null || !actionPanel.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionPanel.Controls.Count - 1;
-            if (actionPanel.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionPanel.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<int> LifterInitAsync(Form1 host)
@@ -396,7 +382,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var wafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
             WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
             lblSlotStateValue.Text = wafer != null ? WaferMaterialStateText.ToDisplayName(state) : "-";
-            lblSlotStateValue.BackColor = ResolveStateColor(state);
+            lblSlotStateValue.BackColor = System.Drawing.Color.FromArgb(240, 240, 240);
         }
 
         private void RefreshSelectedMaterialDetail()
@@ -648,27 +634,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Value = string.IsNullOrWhiteSpace(value) ? "-" : value,
                 Editable = false
             };
-        }
-
-        private static Color ResolveStateColor(WaferMaterialState state)
-        {
-            switch (WaferMaterialStateText.Normalize(state))
-            {
-                // READY 슬롯 색상
-                case WaferMaterialState.Ready:
-                    return Color.Cyan;
-                // WORKING 슬롯 색상
-                case WaferMaterialState.Working:
-                    return Color.Orange;
-                // FINISH 슬롯 색상
-                case WaferMaterialState.Finish:
-                    return Color.Red;
-                // WORK READY 슬롯 색상
-                case WaferMaterialState.WorkReady:
-                    return Color.Navy;
-                default:
-                    return Color.Lime;
-            }
         }
 
         private static string BuildGeneratedOutputWaferId(CassetteMaterialRole role, int slot)

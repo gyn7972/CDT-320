@@ -33,6 +33,12 @@ namespace QMC.CDT320
         XRemainingDistance = 2
     }
 
+    public enum PickerPlaceMotionMode
+    {
+        Default = 0,
+        SynchronizedArrival = 1
+    }
+
     [DataContract]
     public sealed class PickerPickUpMotionConfig
     {
@@ -152,6 +158,36 @@ namespace QMC.CDT320
             if (double.IsNaN(distance) || double.IsInfinity(distance) || distance < 0.0)
                 return 0.0;
             return distance;
+        }
+    }
+
+    [DataContract]
+    public sealed class PickerPlaceMotionConfig
+    {
+        [DataMember] public PickerPlaceMotionMode MotionMode { get; set; } = PickerPlaceMotionMode.Default;
+        [DataMember] public int InterpolationCoordinate { get; set; } = 0;
+        [DataMember] public double SynchronizedVelocity { get; set; } = 1.0;
+        [DataMember] public double SynchronizedAcceleration { get; set; } = 10.0;
+        [DataMember] public double SynchronizedDeceleration { get; set; } = 10.0;
+        [DataMember] public int SynchronizedTimeoutMs { get; set; } = 5000;
+        [DataMember] public double MaxSynchronizedTravelDistance { get; set; } = 37.0;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            Ensure();
+        }
+
+        public void Ensure()
+        {
+            if (InterpolationCoordinate < 0)
+                InterpolationCoordinate = 0;
+            SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(SynchronizedVelocity, 1.0);
+            SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(SynchronizedAcceleration, 10.0);
+            SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(SynchronizedDeceleration, 10.0);
+            if (SynchronizedTimeoutMs <= 0)
+                SynchronizedTimeoutMs = 5000;
+            MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(MaxSynchronizedTravelDistance, 37.0);
         }
     }
 
