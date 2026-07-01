@@ -18,6 +18,7 @@ namespace QMC.Vision.Cameras.Sim
         private Bitmap _cachedFrame;
         private Size _cachedSize;
         private readonly object _frameLock = new object();
+        private bool _cachedSynthetic;   // 캐시 프레임이 합성(true)/빈화면(false) 중 무엇으로 그려졌는지
 
         public SimCamera(string id) : base(new CameraInfo
         {
@@ -55,11 +56,13 @@ namespace QMC.Vision.Cameras.Sim
         {
             lock (_frameLock)
             {
-                if (_cachedFrame == null || _cachedSize != Resolution)
+                bool syn = SyntheticEnabled();
+                if (_cachedFrame == null || _cachedSize != Resolution || _cachedSynthetic != syn)
                 {
                     try { _cachedFrame?.Dispose(); } catch { }
-                    _cachedFrame = BuildFrame(0);
+                    _cachedFrame = BuildFrame(0, syn);
                     _cachedSize = Resolution;
+                    _cachedSynthetic = syn;
                 }
                 return (Bitmap)_cachedFrame.Clone();
             }
@@ -92,13 +95,23 @@ namespace QMC.Vision.Cameras.Sim
             RaiseFrame(g);
         }
 
-        private Bitmap BuildFrame(int frame)
+        /// <summary>GENERAL '합성 이미지 사용' 토글 — 해제(기본)면 SimCamera 가 합성 대신 빈(단색) 프레임을 반환.</summary>
+        private static bool SyntheticEnabled()
+        {
+            try { var c = QMC.Vision.Config.VisionConfigStore.Current; return c != null && c.SimSyntheticImage; }
+            catch { return false; }
+        }
+
+        private Bitmap BuildFrame(int frame, bool synthetic)
         {
             var bmp = new Bitmap(Resolution.Width, Resolution.Height);
             using (var g = Graphics.FromImage(bmp))
             {
                 g.Clear(Color.FromArgb(30, 30, 30));
                 g.SmoothingMode = SmoothingMode.AntiAlias;
+
+                if (!synthetic)
+                    return bmp;   // 합성 OFF — 빈(단색 30,30,30) 프레임만 반환(그리드/노이즈/오버레이 제외)
 
                 // 노이즈
                 for (int i = 0; i < 300; i++)

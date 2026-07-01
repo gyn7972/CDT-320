@@ -54,6 +54,9 @@ namespace QMC.Vision.Config
         /// <summary>Sim 자체 시퀀스 구동 시 합성 chipUid를 발급해 실제(핸들러) 흐름과 동일하게
         /// MaterialTracker/이미지·데이터 로그까지 태운다. 알고리즘 검증용. 기본 false(로그 미기록).</summary>
         [DataMember] public bool           SimEmitChipUid       { get; set; } = false;
+        /// <summary>합성 카메라 이미지 사용 — false(기본)면 SimCamera 가 그리드/노이즈 합성 대신 빈 화면.
+        /// 저장이미지가 안 잡히는 그랩 경로에서 합성이 뜨는 것을 배제하기 위한 GENERAL 토글.</summary>
+        [DataMember] public bool           SimSyntheticImage    { get; set; } = false;
         /// <summary>마지막으로 적용/저장한 레시피(품목)명 — 재시작 시 복원.</summary>
         [DataMember] public string         LastRecipeName   { get; set; } = "";
 
