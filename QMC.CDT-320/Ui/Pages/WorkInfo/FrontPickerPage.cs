@@ -27,8 +27,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblPickFailValue,
                 lblPlaceFailValue,
                 lblHeadZoneValue,
-                lblHeadProcessValue,
-                new Label[] { lblFlowAvoid, lblFlowPickup, lblFlowBottom, lblFlowSide, lblFlowPlace },
+                null,
+                null,
                 lblProcessDetailValue,
                 new Label[] { lblCollet1UseTitle, lblCollet2UseTitle, lblCollet3UseTitle, lblCollet4UseTitle },
                 new Label[] { lblCollet1UseValue, lblCollet2UseValue, lblCollet3UseValue, lblCollet4UseValue },
@@ -46,13 +46,36 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnSide,
                 btnOutput,
                 btnPickUpTest,
-                cmbPickZTestPickerNo,
-                btnPickZTest,
+                null,
+                null,
                 btnStop,
                 actionPanel.Controls);
 
             // 버튼 전용(입력 없음) Head 비전 테스트 — 시퀀서(PickerUnit)와 동일한 TpuVisionAdapter 호출(수동==실제 시퀀스).
             TpuVisionTestDialog.AddLaunchers(actionRightPanel.Controls, this, btnStop);
+
+            // STOP/비전 런처 버튼을 메인 액션 버튼과 동일 사이즈로 통일하고 그리드 셀에 배치.
+            // 배치: [빈칸][STOP] / [비전][비전] / [비전]
+            int visionIndex = 0;
+            foreach (Control control in actionRightPanel.Controls)
+            {
+                if (!(control is ActionButton button))
+                    continue;
+
+                button.Dock = DockStyle.Fill;
+                button.Margin = new Padding(3);
+                button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+
+                if (ReferenceEquals(button, btnStop))
+                {
+                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(1, 0));
+                }
+                else
+                {
+                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(visionIndex % 2, 2 + visionIndex / 2));
+                    visionIndex++;
+                }
+            }
         }
 
         private Form1 GetHost()

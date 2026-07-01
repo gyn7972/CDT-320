@@ -12,9 +12,8 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnOutputStage;
         internal SidebarButton BtnOutputFeeder;
         internal SidebarButton BtnOutputCassette;
-        internal SidebarButton BtnActiveLot;
-        internal SidebarButton BtnOperationPanelStatus;
-        internal SidebarButton BtnPlateStatus;
+        internal SidebarButton BtnState;
+        internal SidebarButton BtnVisionTest;
         internal SidebarButton BtnLogic;
         internal System.Windows.Forms.Panel PnlInfoSeparator;
         internal System.Windows.Forms.Panel PnlStatusSeparator;
@@ -30,9 +29,8 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputStage = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputFeeder = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputCassette = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnActiveLot = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnOperationPanelStatus = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnPlateStatus = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnState = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnVisionTest = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnLogic = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.PnlInfoSeparator = new System.Windows.Forms.Panel();
             this.PnlStatusSeparator = new System.Windows.Forms.Panel();
@@ -153,16 +151,16 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlInfoSeparator.Size = new System.Drawing.Size(202, 2);
             this.PnlInfoSeparator.TabIndex = 8;
             //
-            // BtnActiveLot
+            // BtnState
             //
-            this.BtnActiveLot.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnActiveLot.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnActiveLot.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnActiveLot.Name = "BtnActiveLot";
-            this.BtnActiveLot.Selected = false;
-            this.BtnActiveLot.Size = new System.Drawing.Size(184, 46);
-            this.BtnActiveLot.TabIndex = 9;
-            this.BtnActiveLot.Text = "CURRENT LOT";
+            this.BtnState.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnState.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.BtnState.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnState.Name = "BtnState";
+            this.BtnState.Selected = false;
+            this.BtnState.Size = new System.Drawing.Size(184, 46);
+            this.BtnState.TabIndex = 9;
+            this.BtnState.Text = "STATE";
             //
             // PnlStatusSeparator
             //
@@ -172,27 +170,16 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlStatusSeparator.Size = new System.Drawing.Size(202, 2);
             this.PnlStatusSeparator.TabIndex = 10;
             //
-            // BtnOperationPanelStatus
+            // BtnVisionTest
             //
-            this.BtnOperationPanelStatus.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOperationPanelStatus.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnOperationPanelStatus.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnOperationPanelStatus.Name = "BtnOperationPanelStatus";
-            this.BtnOperationPanelStatus.Selected = false;
-            this.BtnOperationPanelStatus.Size = new System.Drawing.Size(184, 46);
-            this.BtnOperationPanelStatus.TabIndex = 11;
-            this.BtnOperationPanelStatus.Text = "OP PANEL STATUS";
-            //
-            // BtnPlateStatus
-            //
-            this.BtnPlateStatus.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnPlateStatus.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnPlateStatus.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnPlateStatus.Name = "BtnPlateStatus";
-            this.BtnPlateStatus.Selected = false;
-            this.BtnPlateStatus.Size = new System.Drawing.Size(184, 46);
-            this.BtnPlateStatus.TabIndex = 12;
-            this.BtnPlateStatus.Text = "PLATE STATUS";
+            this.BtnVisionTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnVisionTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.BtnVisionTest.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnVisionTest.Name = "BtnVisionTest";
+            this.BtnVisionTest.Selected = false;
+            this.BtnVisionTest.Size = new System.Drawing.Size(184, 46);
+            this.BtnVisionTest.TabIndex = 11;
+            this.BtnVisionTest.Text = "VISION TEST";
             //
             // PnlLogicSeparator
             //
@@ -225,10 +212,9 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputFeeder);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputCassette);
             this.PnlSidebarButtons.Controls.Add(this.PnlInfoSeparator);
-            this.PnlSidebarButtons.Controls.Add(this.BtnActiveLot);
+            this.PnlSidebarButtons.Controls.Add(this.BtnState);
             this.PnlSidebarButtons.Controls.Add(this.PnlStatusSeparator);
-            this.PnlSidebarButtons.Controls.Add(this.BtnOperationPanelStatus);
-            this.PnlSidebarButtons.Controls.Add(this.BtnPlateStatus);
+            this.PnlSidebarButtons.Controls.Add(this.BtnVisionTest);
             this.PnlSidebarButtons.Controls.Add(this.PnlLogicSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnLogic);
             this.PnlSidebarButtons.ResumeLayout(false);

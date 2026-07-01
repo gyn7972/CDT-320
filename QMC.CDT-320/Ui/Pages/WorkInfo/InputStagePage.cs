@@ -18,10 +18,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     public partial class InputStagePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private System.Windows.Forms.Timer _timer;
-        private ActionButton btnPrepareLoad;
-        private ActionButton btnDieMapping;
-        private ActionButton btnPrepareUnload;
-        private ActionButton btnMoveAvoid;
         private bool _manualSequenceRunning;
         private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
@@ -31,7 +27,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
             ConfigureInfoLayoutForReadableText();
-            CreateSequenceButtons();
             WireEvents();
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
@@ -48,78 +43,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private Form1 GetHost() => FindForm() as Form1;
 
-        private void CreateSequenceButtons()
-        {
-            if (actionsLayout != null)
-                actionsLayout.WrapContents = false;
-
-            ConfigureActionButtonSize(btnWfAlign, 132, 60);
-            ConfigureActionButtonSize(btnWfBarcode, 132, 60);
-            ConfigureActionButtonSize(btnStop, 132, 60);
-
-            if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
-                actionsLayout.Controls.Remove(btnStop);
-
-            btnPrepareLoad = CreateActionButton("PREP LOAD");
-            btnDieMapping = CreateActionButton("DIE MAPPING");
-            btnPrepareUnload = CreateActionButton("PREP UNLOAD");
-            btnMoveAvoid = CreateActionButton("AVOID");
-            actionsLayout.Controls.Add(btnDieMapping);
-            actionsLayout.Controls.Add(btnPrepareLoad);
-            actionsLayout.Controls.Add(btnPrepareUnload);
-            actionsLayout.Controls.Add(btnMoveAvoid);
-            PlaceDieMappingAfterAlign();
-            if (btnStop != null)
-                actionRightPanel.Controls.Add(btnStop);
-            AddWaferVisionLauncher();
-            EnsureStopButtonLast();
-            AlignStopButton();
-        }
-
-        private void AddWaferVisionLauncher()
-        {
-            try
-            {
-                if (actionsLayout == null)
-                    return;
-
-                var btn = CreateActionButton("VISION: WAFER");
-                btn.Click += (s, e) => WaferVisionTestDialog.Open(this);
-                actionRightPanel.Controls.Add(btn);
-
-                if (btnStop != null && actionRightPanel.Controls.Contains(btnStop))
-                    actionRightPanel.Controls.SetChildIndex(btnStop, actionRightPanel.Controls.Count - 1);
-            }
-            catch (Exception ex)
-            {
-                WriteAlarm("INPUT-STAGE-VISION-LAUNCHER", "Wafer vision launcher add failed: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private static void ConfigureActionButtonSize(ActionButton button, int width, int height)
-        {
-            if (button == null)
-                return;
-
-            button.Width = width;
-            button.Height = height;
-            button.Margin = new Padding(6);
-        }
-
-        private static ActionButton CreateActionButton(string text)
-        {
-            var button = new ActionButton
-            {
-                Text = text,
-                Margin = new Padding(6)
-            };
-            ConfigureActionButtonSize(button, 132, 60);
-            return button;
-        }
-
         private void WireEvents()
         {
             btnPrepareLoad.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP LOAD", RunPrepareLoadAsync);
@@ -128,13 +51,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnWfBarcode.Click += async (s, e) => await RunSequenceAction("INPUT STAGE MAP LOAD", RunPrepareLoadAsync);
             btnPrepareUnload.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP UNLOAD", RunPrepareUnloadAsync);
             btnMoveAvoid.Click += async (s, e) => await RunSequenceAction("INPUT STAGE AVOID", RunMoveAvoidAsync);
+            btnVisionWafer.Click += (s, e) => WaferVisionTestDialog.Open(this);
             btnStop.Click += async (s, e) => await StopManualActionAsync();
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
-            actionsLayout.Resize += (s, e) => AlignStopButton();
-            actionsLayout.WrapContents = false;
-            EnsureStopButtonLast();
-            AlignStopButton();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -271,21 +191,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void SetSequenceButtonsEnabled(bool enabled)
         {
-            if (actionsLayout != null)
-                actionsLayout.Enabled = true;
+            if (actionBar == null)
+                return;
 
-            foreach (Control control in actionsLayout.Controls)
+            actionBar.Enabled = true;
+            foreach (Control control in actionBar.Controls)
             {
                 if (!ReferenceEquals(control, btnStop))
                     control.Enabled = enabled;
             }
 
             if (btnStop != null)
-            {
                 btnStop.Enabled = true;
-                EnsureStopButtonLast();
-                AlignStopButton();
-            }
         }
 
         private void BeginRestoreSequenceButtons()
@@ -328,59 +245,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm("INPUT-STAGE-STOP-EX", "Manual action stop failed: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AlignStopButton()
-        {
-            return; // STOP은 우측 고정존(actionRightPanel)에 위치 — 정렬 불필요
-#pragma warning disable CS0162
-            if (actionsLayout == null || btnStop == null)
-                return;
-
-            EnsureStopButtonLast();
-
-            int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
-            foreach (Control control in actionsLayout.Controls)
-            {
-                if (ReferenceEquals(control, btnStop))
-                    continue;
-                usedWidth += control.Width + control.Margin.Left + control.Margin.Right;
-            }
-
-            int stopWidth = btnStop.Width + 6;
-            int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
-            btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionsLayout.Controls.Count - 1;
-            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
-        }
-
-        private void PlaceDieMappingAfterAlign()
-        {
-            try
-            {
-                if (actionsLayout == null || btnWfAlign == null || btnDieMapping == null)
-                    return;
-                if (!actionsLayout.Controls.Contains(btnWfAlign) || !actionsLayout.Controls.Contains(btnDieMapping))
-                    return;
-
-                int alignIndex = actionsLayout.Controls.GetChildIndex(btnWfAlign);
-                actionsLayout.Controls.SetChildIndex(btnDieMapping, alignIndex + 1);
-            }
-            catch (Exception ex)
-            {
-                WriteAlarm("INPUT-STAGE-ACTION-ORDER-EX", "Input stage action button order failed: " + ex.Message);
             }
             finally
             {
@@ -620,12 +484,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (infoLayout != null)
                 {
                     infoLayout.SuspendLayout();
+                    infoLayout.ColumnStyles.Clear();
+                    infoLayout.ColumnCount = 2;
+                    infoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                    infoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                     infoLayout.RowStyles.Clear();
-                    infoLayout.RowCount = 8;
+                    infoLayout.RowCount = 4;
                     for (int i = 0; i < 4; i++)
-                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-                    for (int i = 4; i < 8; i++)
-                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
                     infoLayout.ResumeLayout();
                 }
             }
@@ -653,7 +519,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 title.AutoSize = false;
                 title.AutoEllipsis = true;
-                title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+                title.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
                 title.Padding = new Padding(6, 0, 0, 0);
                 title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             }

@@ -34,6 +34,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 actionRightPanel.Controls, this, btnStop,
                 Tuple.Create<string, Func<VisionTcpClient>, string>("VISION: BIN", () => VisionHub.Bin, "Bin Vision"));
 
+            // STOP/비전 런처를 그리드 셀에 통일 배치: [빈칸][STOP] / [VISION][빈칸]
+            int visionIndex = 0;
+            foreach (Control control in actionRightPanel.Controls)
+            {
+                if (!(control is ActionButton button))
+                    continue;
+
+                button.Dock = DockStyle.Fill;
+                button.Margin = new Padding(3);
+
+                if (ReferenceEquals(button, btnStop))
+                {
+                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(1, 0));
+                }
+                else
+                {
+                    button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(0, 1 + visionIndex));
+                    visionIndex++;
+                }
+            }
+
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) =>
             {
@@ -100,9 +122,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _selectedMaterialSide = BinSide.Ng;
                 RefreshData();
             };
-            actionPanel.Resize += (s, e) => AlignStopButton();
-            EnsureStopButtonLast();
-            AlignStopButton();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -249,11 +268,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             if (btnStop != null)
-            {
                 btnStop.Enabled = true;
-                EnsureStopButtonLast();
-                AlignStopButton();
-            }
         }
 
         private void BeginRestoreSequenceButtons()
@@ -300,21 +315,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void AlignStopButton()
-        {
-            // STOP은 actionRightPanel(우측 고정존)에 위치하므로 별도 정렬이 필요 없다.
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionPanel == null || btnStop == null || !actionPanel.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionPanel.Controls.Count - 1;
-            if (actionPanel.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionPanel.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<bool> RunPrepareLoadAsync(Form1 host, BinSide side)
