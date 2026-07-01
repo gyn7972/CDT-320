@@ -1854,6 +1854,13 @@ namespace QMC.Common.Motion.Ajin
             return 0;
         }
 
+        public static int GetAxisInfo(int axisNo, ref int nodeNum, ref int modulePosition, ref uint moduleId)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmInfoGetAxis", AXM.AxmInfoGetAxis(axisNo, ref nodeNum, ref modulePosition, ref moduleId))) != 0) return ret;
+            return ret;
+        }
+
         public static int GetActualPosition(int axis, ref double pulse)
         {
             int ret = 0;
@@ -2194,10 +2201,26 @@ namespace QMC.Common.Motion.Ajin
             return ret;
         }
 
+        public static int GetPathAxisMap(int coordinate, ref uint size, int[] axes)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmContiGetAxisMap", AXM.AxmContiGetAxisMap(coordinate, ref size, ref axes[0]))) != 0) return ret;
+            return ret;
+        }
+
         public static int SetPathAbsRelMode(int coordinate, AXT_MOTION_ABSREL mode)
         {
             int ret = 0;
             if ((ret = AXL.CheckErrorCode("AXM.AxmContiSetAbsRelMode", AXM.AxmContiSetAbsRelMode(coordinate, (uint)mode))) != 0) return ret;
+            return ret;
+        }
+
+        public static int GetPathAbsRelMode(int coordinate, ref AXT_MOTION_ABSREL mode)
+        {
+            int ret = 0;
+            uint value = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmContiGetAbsRelMode", AXM.AxmContiGetAbsRelMode(coordinate, ref value))) != 0) return ret;
+            mode = (AXT_MOTION_ABSREL)value;
             return ret;
         }
 

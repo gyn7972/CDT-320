@@ -21,9 +21,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel counterLayout;
         private TableLayoutPanel cylinderLayout;
         private TableLayoutPanel infoLayout;
-        private FlowLayoutPanel actionPanel;
+        private TableLayoutPanel actionPanel;
         private TableLayoutPanel actionBar;
-        private FlowLayoutPanel actionRightPanel;
+        private TableLayoutPanel actionRightPanel;
+        private GroupBox grpAction;
         private Label lblMaterialTitle;
         private RadioButton rdoGoodMaterial;
         private RadioButton rdoNgMaterial;
@@ -129,15 +130,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.visionXPanel = new System.Windows.Forms.TableLayoutPanel();
             this.lblVisionXTitle = new System.Windows.Forms.Label();
             this.lblVisionXValue = new System.Windows.Forms.Label();
-            this.materialPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.materialHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblMaterialTitle = new System.Windows.Forms.Label();
-            this.rdoGoodMaterial = new System.Windows.Forms.RadioButton();
-            this.rdoNgMaterial = new System.Windows.Forms.RadioButton();
-            this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
-            this.actionPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
-            this.actionRightPanel = new System.Windows.Forms.FlowLayoutPanel();
+            this.actionPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnStageReady = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnNgStageReady = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnGoodProcess = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -148,7 +143,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnNgUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnInspect = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnStageInit = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.materialPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.materialHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblMaterialTitle = new System.Windows.Forms.Label();
+            this.rdoGoodMaterial = new System.Windows.Forms.RadioButton();
+            this.rdoNgMaterial = new System.Windows.Forms.RadioButton();
+            this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
@@ -164,11 +166,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.goodZPanel.SuspendLayout();
             this.ngYPanel.SuspendLayout();
             this.visionXPanel.SuspendLayout();
+            this.grpAction.SuspendLayout();
+            this.actionBar.SuspendLayout();
+            this.actionPanel.SuspendLayout();
+            this.actionRightPanel.SuspendLayout();
             this.materialPanel.SuspendLayout();
             this.materialHeaderLayout.SuspendLayout();
-            this.actionPanel.SuspendLayout();
-            this.actionBar.SuspendLayout();
-            this.actionRightPanel.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -177,14 +180,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.contentLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.actionBar, 0, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
+            this.rootLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 3;
+            this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 108F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
@@ -194,10 +196,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Location = new System.Drawing.Point(3, 0);
+            this.lblHeader.Location = new System.Drawing.Point(0, 0);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:wi.outputStage";
             this.lblHeader.Text = "OUTPUT STAGE";
@@ -206,36 +209,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // contentLayout
             // 
             this.contentLayout.ColumnCount = 2;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.Controls.Add(this.leftLayout, 0, 0);
+            this.contentLayout.Controls.Add(this.grpAction, 0, 1);
             this.contentLayout.Controls.Add(this.materialPanel, 1, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.contentLayout.Location = new System.Drawing.Point(3, 33);
+            this.contentLayout.Location = new System.Drawing.Point(0, 30);
+            this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.contentLayout.RowCount = 1;
+            this.contentLayout.RowCount = 2;
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1672, 774);
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
             // 
             // leftLayout
             // 
             this.leftLayout.ColumnCount = 3;
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 27F));
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 35F));
             this.leftLayout.Controls.Add(this.grpState, 0, 0);
             this.leftLayout.Controls.Add(this.grpCounters, 1, 0);
-            this.leftLayout.Controls.Add(this.grpCylinder, 2, 0);
-            this.leftLayout.Controls.Add(this.grpInfo, 0, 1);
+            this.leftLayout.Controls.Add(this.grpCylinder, 1, 1);
+            this.leftLayout.Controls.Add(this.grpInfo, 2, 0);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.leftLayout.Location = new System.Drawing.Point(11, 11);
+            this.leftLayout.Location = new System.Drawing.Point(0, 0);
+            this.leftLayout.Margin = new System.Windows.Forms.Padding(0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(987, 752);
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.leftLayout.Size = new System.Drawing.Size(839, 300);
             this.leftLayout.TabIndex = 0;
             // 
             // grpState
@@ -244,9 +250,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpState.Controls.Add(this.stateLayout);
             this.grpState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpState.Location = new System.Drawing.Point(3, 3);
+            this.grpState.Location = new System.Drawing.Point(0, 0);
+            this.grpState.Margin = new System.Windows.Forms.Padding(0, 0, 3, 3);
             this.grpState.Name = "grpState";
-            this.grpState.Size = new System.Drawing.Size(319, 254);
+            this.leftLayout.SetRowSpan(this.grpState, 2);
+            this.grpState.Size = new System.Drawing.Size(332, 297);
             this.grpState.TabIndex = 0;
             this.grpState.TabStop = false;
             this.grpState.Text = "WORK INFO";
@@ -267,7 +275,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.stateLayout.Location = new System.Drawing.Point(3, 23);
             this.stateLayout.Name = "stateLayout";
-            this.stateLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
+            this.stateLayout.Padding = new System.Windows.Forms.Padding(8, 12, 8, 10);
             this.stateLayout.RowCount = 6;
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
@@ -275,7 +283,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.stateLayout.Size = new System.Drawing.Size(313, 228);
+            this.stateLayout.Size = new System.Drawing.Size(326, 271);
             this.stateLayout.TabIndex = 0;
             // 
             // lblGoodExistTitle
@@ -284,10 +292,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodExistTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodExistTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodExistTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodExistTitle.Location = new System.Drawing.Point(15, 18);
+            this.lblGoodExistTitle.Location = new System.Drawing.Point(11, 12);
             this.lblGoodExistTitle.Name = "lblGoodExistTitle";
             this.lblGoodExistTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodExistTitle.Size = new System.Drawing.Size(161, 32);
+            this.lblGoodExistTitle.Size = new System.Drawing.Size(173, 32);
             this.lblGoodExistTitle.TabIndex = 0;
             this.lblGoodExistTitle.Text = "GOOD EXIST";
             this.lblGoodExistTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -298,9 +306,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodExistValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodExistValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodExistValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodExistValue.Location = new System.Drawing.Point(182, 18);
+            this.lblGoodExistValue.Location = new System.Drawing.Point(190, 12);
             this.lblGoodExistValue.Name = "lblGoodExistValue";
-            this.lblGoodExistValue.Size = new System.Drawing.Size(116, 32);
+            this.lblGoodExistValue.Size = new System.Drawing.Size(125, 32);
             this.lblGoodExistValue.TabIndex = 1;
             this.lblGoodExistValue.Text = "EMPTY";
             this.lblGoodExistValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -311,10 +319,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodStateTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodStateTitle.Location = new System.Drawing.Point(15, 50);
+            this.lblGoodStateTitle.Location = new System.Drawing.Point(11, 44);
             this.lblGoodStateTitle.Name = "lblGoodStateTitle";
             this.lblGoodStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodStateTitle.Size = new System.Drawing.Size(161, 32);
+            this.lblGoodStateTitle.Size = new System.Drawing.Size(173, 32);
             this.lblGoodStateTitle.TabIndex = 2;
             this.lblGoodStateTitle.Text = "GOOD STATE";
             this.lblGoodStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -325,9 +333,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodStateValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodStateValue.Location = new System.Drawing.Point(182, 50);
+            this.lblGoodStateValue.Location = new System.Drawing.Point(190, 44);
             this.lblGoodStateValue.Name = "lblGoodStateValue";
-            this.lblGoodStateValue.Size = new System.Drawing.Size(116, 32);
+            this.lblGoodStateValue.Size = new System.Drawing.Size(125, 32);
             this.lblGoodStateValue.TabIndex = 3;
             this.lblGoodStateValue.Text = "INCOMPLETE";
             this.lblGoodStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -338,10 +346,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgExistTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgExistTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgExistTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgExistTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblNgExistTitle.Location = new System.Drawing.Point(11, 76);
             this.lblNgExistTitle.Name = "lblNgExistTitle";
             this.lblNgExistTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgExistTitle.Size = new System.Drawing.Size(161, 32);
+            this.lblNgExistTitle.Size = new System.Drawing.Size(173, 32);
             this.lblNgExistTitle.TabIndex = 4;
             this.lblNgExistTitle.Text = "NG EXIST";
             this.lblNgExistTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -352,9 +360,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgExistValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgExistValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgExistValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgExistValue.Location = new System.Drawing.Point(182, 82);
+            this.lblNgExistValue.Location = new System.Drawing.Point(190, 76);
             this.lblNgExistValue.Name = "lblNgExistValue";
-            this.lblNgExistValue.Size = new System.Drawing.Size(116, 32);
+            this.lblNgExistValue.Size = new System.Drawing.Size(125, 32);
             this.lblNgExistValue.TabIndex = 5;
             this.lblNgExistValue.Text = "EMPTY";
             this.lblNgExistValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -365,10 +373,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgStateTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgStateTitle.Location = new System.Drawing.Point(15, 114);
+            this.lblNgStateTitle.Location = new System.Drawing.Point(11, 108);
             this.lblNgStateTitle.Name = "lblNgStateTitle";
             this.lblNgStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgStateTitle.Size = new System.Drawing.Size(161, 32);
+            this.lblNgStateTitle.Size = new System.Drawing.Size(173, 32);
             this.lblNgStateTitle.TabIndex = 6;
             this.lblNgStateTitle.Text = "NG STATE";
             this.lblNgStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -379,9 +387,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgStateValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgStateValue.Location = new System.Drawing.Point(182, 114);
+            this.lblNgStateValue.Location = new System.Drawing.Point(190, 108);
             this.lblNgStateValue.Name = "lblNgStateValue";
-            this.lblNgStateValue.Size = new System.Drawing.Size(116, 32);
+            this.lblNgStateValue.Size = new System.Drawing.Size(125, 32);
             this.lblNgStateValue.TabIndex = 7;
             this.lblNgStateValue.Text = "INCOMPLETE";
             this.lblNgStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -392,9 +400,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpCounters.Controls.Add(this.counterLayout);
             this.grpCounters.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCounters.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpCounters.Location = new System.Drawing.Point(328, 3);
+            this.grpCounters.Location = new System.Drawing.Point(338, 0);
+            this.grpCounters.Margin = new System.Windows.Forms.Padding(3, 0, 3, 3);
             this.grpCounters.Name = "grpCounters";
-            this.grpCounters.Size = new System.Drawing.Size(260, 254);
+            this.grpCounters.Size = new System.Drawing.Size(203, 147);
             this.grpCounters.TabIndex = 1;
             this.grpCounters.TabStop = false;
             this.grpCounters.Text = "COUNTER";
@@ -402,8 +411,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // counterLayout
             // 
             this.counterLayout.ColumnCount = 2;
-            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58F));
-            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 42F));
+            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 67.9558F));
+            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 32.0442F));
             this.counterLayout.Controls.Add(this.lblGoodCountTitle, 0, 0);
             this.counterLayout.Controls.Add(this.lblGoodCountValue, 1, 0);
             this.counterLayout.Controls.Add(this.lblNgCountTitle, 0, 1);
@@ -413,13 +422,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.counterLayout.Location = new System.Drawing.Point(3, 23);
             this.counterLayout.Name = "counterLayout";
-            this.counterLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
+            this.counterLayout.Padding = new System.Windows.Forms.Padding(8, 12, 8, 10);
             this.counterLayout.RowCount = 4;
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.counterLayout.Size = new System.Drawing.Size(254, 228);
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.counterLayout.Size = new System.Drawing.Size(197, 121);
             this.counterLayout.TabIndex = 0;
             // 
             // lblGoodCountTitle
@@ -428,10 +437,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodCountTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodCountTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodCountTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodCountTitle.Location = new System.Drawing.Point(15, 18);
+            this.lblGoodCountTitle.Location = new System.Drawing.Point(11, 12);
             this.lblGoodCountTitle.Name = "lblGoodCountTitle";
             this.lblGoodCountTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodCountTitle.Size = new System.Drawing.Size(127, 32);
+            this.lblGoodCountTitle.Size = new System.Drawing.Size(117, 24);
             this.lblGoodCountTitle.TabIndex = 0;
             this.lblGoodCountTitle.Text = "GOOD COUNT";
             this.lblGoodCountTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -442,9 +451,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodCountValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodCountValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodCountValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodCountValue.Location = new System.Drawing.Point(148, 18);
+            this.lblGoodCountValue.Location = new System.Drawing.Point(134, 12);
             this.lblGoodCountValue.Name = "lblGoodCountValue";
-            this.lblGoodCountValue.Size = new System.Drawing.Size(91, 32);
+            this.lblGoodCountValue.Size = new System.Drawing.Size(52, 24);
             this.lblGoodCountValue.TabIndex = 1;
             this.lblGoodCountValue.Text = "0 ea";
             this.lblGoodCountValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -455,10 +464,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgCountTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgCountTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgCountTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgCountTitle.Location = new System.Drawing.Point(15, 50);
+            this.lblNgCountTitle.Location = new System.Drawing.Point(11, 36);
             this.lblNgCountTitle.Name = "lblNgCountTitle";
             this.lblNgCountTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgCountTitle.Size = new System.Drawing.Size(127, 32);
+            this.lblNgCountTitle.Size = new System.Drawing.Size(117, 24);
             this.lblNgCountTitle.TabIndex = 2;
             this.lblNgCountTitle.Text = "NG COUNT";
             this.lblNgCountTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -469,9 +478,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgCountValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgCountValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgCountValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgCountValue.Location = new System.Drawing.Point(148, 50);
+            this.lblNgCountValue.Location = new System.Drawing.Point(134, 36);
             this.lblNgCountValue.Name = "lblNgCountValue";
-            this.lblNgCountValue.Size = new System.Drawing.Size(91, 32);
+            this.lblNgCountValue.Size = new System.Drawing.Size(52, 24);
             this.lblNgCountValue.TabIndex = 3;
             this.lblNgCountValue.Text = "0 ea";
             this.lblNgCountValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -482,10 +491,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblTotalCountTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTotalCountTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblTotalCountTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblTotalCountTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblTotalCountTitle.Location = new System.Drawing.Point(11, 60);
             this.lblTotalCountTitle.Name = "lblTotalCountTitle";
             this.lblTotalCountTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblTotalCountTitle.Size = new System.Drawing.Size(127, 32);
+            this.lblTotalCountTitle.Size = new System.Drawing.Size(117, 24);
             this.lblTotalCountTitle.TabIndex = 4;
             this.lblTotalCountTitle.Text = "TOTAL COUNT";
             this.lblTotalCountTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -496,9 +505,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblTotalCountValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTotalCountValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblTotalCountValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblTotalCountValue.Location = new System.Drawing.Point(148, 82);
+            this.lblTotalCountValue.Location = new System.Drawing.Point(134, 60);
             this.lblTotalCountValue.Name = "lblTotalCountValue";
-            this.lblTotalCountValue.Size = new System.Drawing.Size(91, 32);
+            this.lblTotalCountValue.Size = new System.Drawing.Size(52, 24);
             this.lblTotalCountValue.TabIndex = 5;
             this.lblTotalCountValue.Text = "0 ea";
             this.lblTotalCountValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -506,12 +515,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // grpCylinder
             // 
             this.grpCylinder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.leftLayout.SetColumnSpan(this.grpCylinder, 2);
             this.grpCylinder.Controls.Add(this.cylinderLayout);
             this.grpCylinder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCylinder.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpCylinder.Location = new System.Drawing.Point(594, 3);
+            this.grpCylinder.Location = new System.Drawing.Point(338, 153);
             this.grpCylinder.Name = "grpCylinder";
-            this.grpCylinder.Size = new System.Drawing.Size(390, 254);
+            this.grpCylinder.Size = new System.Drawing.Size(498, 144);
             this.grpCylinder.TabIndex = 2;
             this.grpCylinder.TabStop = false;
             this.grpCylinder.Text = "CYLINDER INFO";
@@ -519,8 +529,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // cylinderLayout
             // 
             this.cylinderLayout.ColumnCount = 2;
-            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58F));
-            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 42F));
+            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 41F));
+            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59F));
             this.cylinderLayout.Controls.Add(this.lblGoodGuideTitle, 0, 0);
             this.cylinderLayout.Controls.Add(this.lblGoodGuideValue, 1, 0);
             this.cylinderLayout.Controls.Add(this.lblGoodClampTitle, 0, 1);
@@ -536,15 +546,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cylinderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.cylinderLayout.Location = new System.Drawing.Point(3, 23);
             this.cylinderLayout.Name = "cylinderLayout";
-            this.cylinderLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
+            this.cylinderLayout.Padding = new System.Windows.Forms.Padding(8, 3, 8, 3);
             this.cylinderLayout.RowCount = 6;
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.cylinderLayout.Size = new System.Drawing.Size(384, 228);
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.cylinderLayout.Size = new System.Drawing.Size(492, 118);
             this.cylinderLayout.TabIndex = 0;
             // 
             // lblGoodGuideTitle
@@ -552,11 +562,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodGuideTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblGoodGuideTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodGuideTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodGuideTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodGuideTitle.Location = new System.Drawing.Point(15, 18);
+            this.lblGoodGuideTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblGoodGuideTitle.Location = new System.Drawing.Point(11, 3);
             this.lblGoodGuideTitle.Name = "lblGoodGuideTitle";
             this.lblGoodGuideTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodGuideTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblGoodGuideTitle.Size = new System.Drawing.Size(189, 18);
             this.lblGoodGuideTitle.TabIndex = 0;
             this.lblGoodGuideTitle.Text = "GOOD GUIDE";
             this.lblGoodGuideTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -566,10 +576,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodGuideValue.BackColor = System.Drawing.Color.White;
             this.lblGoodGuideValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodGuideValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodGuideValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodGuideValue.Location = new System.Drawing.Point(223, 18);
+            this.lblGoodGuideValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblGoodGuideValue.Location = new System.Drawing.Point(206, 3);
             this.lblGoodGuideValue.Name = "lblGoodGuideValue";
-            this.lblGoodGuideValue.Size = new System.Drawing.Size(146, 32);
+            this.lblGoodGuideValue.Size = new System.Drawing.Size(275, 18);
             this.lblGoodGuideValue.TabIndex = 1;
             this.lblGoodGuideValue.Text = "--";
             this.lblGoodGuideValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -579,11 +589,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblGoodClampTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodClampTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodClampTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodClampTitle.Location = new System.Drawing.Point(15, 50);
+            this.lblGoodClampTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblGoodClampTitle.Location = new System.Drawing.Point(11, 21);
             this.lblGoodClampTitle.Name = "lblGoodClampTitle";
             this.lblGoodClampTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodClampTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblGoodClampTitle.Size = new System.Drawing.Size(189, 18);
             this.lblGoodClampTitle.TabIndex = 2;
             this.lblGoodClampTitle.Text = "GOOD CLAMP LIFT";
             this.lblGoodClampTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -593,10 +603,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampValue.BackColor = System.Drawing.Color.White;
             this.lblGoodClampValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodClampValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodClampValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodClampValue.Location = new System.Drawing.Point(223, 50);
+            this.lblGoodClampValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblGoodClampValue.Location = new System.Drawing.Point(206, 21);
             this.lblGoodClampValue.Name = "lblGoodClampValue";
-            this.lblGoodClampValue.Size = new System.Drawing.Size(146, 32);
+            this.lblGoodClampValue.Size = new System.Drawing.Size(275, 18);
             this.lblGoodClampValue.TabIndex = 3;
             this.lblGoodClampValue.Text = "--";
             this.lblGoodClampValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -606,11 +616,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampStateTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblGoodClampStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodClampStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblGoodClampStateTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblGoodClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblGoodClampStateTitle.Location = new System.Drawing.Point(11, 39);
             this.lblGoodClampStateTitle.Name = "lblGoodClampStateTitle";
             this.lblGoodClampStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodClampStateTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblGoodClampStateTitle.Size = new System.Drawing.Size(189, 18);
             this.lblGoodClampStateTitle.TabIndex = 8;
             this.lblGoodClampStateTitle.Text = "GOOD CLAMP";
             this.lblGoodClampStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -620,10 +630,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampStateValue.BackColor = System.Drawing.Color.White;
             this.lblGoodClampStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodClampStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodClampStateValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodClampStateValue.Location = new System.Drawing.Point(223, 82);
+            this.lblGoodClampStateValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblGoodClampStateValue.Location = new System.Drawing.Point(206, 39);
             this.lblGoodClampStateValue.Name = "lblGoodClampStateValue";
-            this.lblGoodClampStateValue.Size = new System.Drawing.Size(146, 32);
+            this.lblGoodClampStateValue.Size = new System.Drawing.Size(275, 18);
             this.lblGoodClampStateValue.TabIndex = 9;
             this.lblGoodClampStateValue.Text = "--";
             this.lblGoodClampStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -633,11 +643,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgGuideTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblNgGuideTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgGuideTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgGuideTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgGuideTitle.Location = new System.Drawing.Point(15, 114);
+            this.lblNgGuideTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblNgGuideTitle.Location = new System.Drawing.Point(11, 57);
             this.lblNgGuideTitle.Name = "lblNgGuideTitle";
             this.lblNgGuideTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgGuideTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblNgGuideTitle.Size = new System.Drawing.Size(189, 18);
             this.lblNgGuideTitle.TabIndex = 10;
             this.lblNgGuideTitle.Text = "NG GUIDE";
             this.lblNgGuideTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -647,10 +657,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgGuideValue.BackColor = System.Drawing.Color.White;
             this.lblNgGuideValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgGuideValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgGuideValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgGuideValue.Location = new System.Drawing.Point(223, 114);
+            this.lblNgGuideValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblNgGuideValue.Location = new System.Drawing.Point(206, 57);
             this.lblNgGuideValue.Name = "lblNgGuideValue";
-            this.lblNgGuideValue.Size = new System.Drawing.Size(146, 32);
+            this.lblNgGuideValue.Size = new System.Drawing.Size(275, 18);
             this.lblNgGuideValue.TabIndex = 11;
             this.lblNgGuideValue.Text = "--";
             this.lblNgGuideValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -660,11 +670,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblNgClampTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgClampTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgClampTitle.Location = new System.Drawing.Point(15, 146);
+            this.lblNgClampTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblNgClampTitle.Location = new System.Drawing.Point(11, 75);
             this.lblNgClampTitle.Name = "lblNgClampTitle";
             this.lblNgClampTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgClampTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblNgClampTitle.Size = new System.Drawing.Size(189, 18);
             this.lblNgClampTitle.TabIndex = 12;
             this.lblNgClampTitle.Text = "NG CLAMP LIFT";
             this.lblNgClampTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -674,10 +684,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampValue.BackColor = System.Drawing.Color.White;
             this.lblNgClampValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgClampValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgClampValue.Location = new System.Drawing.Point(223, 146);
+            this.lblNgClampValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblNgClampValue.Location = new System.Drawing.Point(206, 75);
             this.lblNgClampValue.Name = "lblNgClampValue";
-            this.lblNgClampValue.Size = new System.Drawing.Size(146, 32);
+            this.lblNgClampValue.Size = new System.Drawing.Size(275, 18);
             this.lblNgClampValue.TabIndex = 13;
             this.lblNgClampValue.Text = "--";
             this.lblNgClampValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -687,11 +697,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampStateTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblNgClampStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblNgClampStateTitle.Location = new System.Drawing.Point(15, 178);
+            this.lblNgClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblNgClampStateTitle.Location = new System.Drawing.Point(11, 93);
             this.lblNgClampStateTitle.Name = "lblNgClampStateTitle";
             this.lblNgClampStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgClampStateTitle.Size = new System.Drawing.Size(202, 38);
+            this.lblNgClampStateTitle.Size = new System.Drawing.Size(189, 22);
             this.lblNgClampStateTitle.TabIndex = 14;
             this.lblNgClampStateTitle.Text = "NG CLAMP";
             this.lblNgClampStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -701,10 +711,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampStateValue.BackColor = System.Drawing.Color.White;
             this.lblNgClampStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgClampStateValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgClampStateValue.Location = new System.Drawing.Point(223, 178);
+            this.lblNgClampStateValue.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblNgClampStateValue.Location = new System.Drawing.Point(206, 93);
             this.lblNgClampStateValue.Name = "lblNgClampStateValue";
-            this.lblNgClampStateValue.Size = new System.Drawing.Size(146, 38);
+            this.lblNgClampStateValue.Size = new System.Drawing.Size(275, 22);
             this.lblNgClampStateValue.TabIndex = 15;
             this.lblNgClampStateValue.Text = "--";
             this.lblNgClampStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -712,23 +722,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // grpInfo
             // 
             this.grpInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.leftLayout.SetColumnSpan(this.grpInfo, 3);
             this.grpInfo.Controls.Add(this.infoLayout);
             this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpInfo.Location = new System.Drawing.Point(3, 263);
+            this.grpInfo.Location = new System.Drawing.Point(547, 0);
+            this.grpInfo.Margin = new System.Windows.Forms.Padding(3, 0, 3, 3);
             this.grpInfo.Name = "grpInfo";
-            this.grpInfo.Size = new System.Drawing.Size(981, 486);
+            this.grpInfo.Size = new System.Drawing.Size(289, 147);
             this.grpInfo.TabIndex = 3;
             this.grpInfo.TabStop = false;
             this.grpInfo.Text = "INFO";
             // 
             // infoLayout
             // 
-            this.infoLayout.ColumnCount = 3;
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
+            this.infoLayout.ColumnCount = 2;
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.infoLayout.Controls.Add(this.goodYPanel, 0, 0);
             this.infoLayout.Controls.Add(this.goodZPanel, 1, 0);
             this.infoLayout.Controls.Add(this.ngYPanel, 0, 1);
@@ -736,13 +745,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
-            this.infoLayout.Padding = new System.Windows.Forms.Padding(18, 28, 18, 18);
-            this.infoLayout.RowCount = 4;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.infoLayout.Size = new System.Drawing.Size(975, 460);
+            this.infoLayout.Padding = new System.Windows.Forms.Padding(8, 12, 8, 12);
+            this.infoLayout.RowCount = 2;
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.infoLayout.Size = new System.Drawing.Size(283, 121);
             this.infoLayout.TabIndex = 0;
             // 
             // goodYPanel
@@ -752,13 +759,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.goodYPanel.Controls.Add(this.lblGoodYTitle, 0, 0);
             this.goodYPanel.Controls.Add(this.lblGoodYValue, 0, 1);
             this.goodYPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.goodYPanel.Location = new System.Drawing.Point(22, 32);
-            this.goodYPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.goodYPanel.Location = new System.Drawing.Point(9, 13);
+            this.goodYPanel.Margin = new System.Windows.Forms.Padding(1);
             this.goodYPanel.Name = "goodYPanel";
             this.goodYPanel.RowCount = 2;
-            this.goodYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.goodYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.goodYPanel.Size = new System.Drawing.Size(304, 56);
+            this.goodYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.goodYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.goodYPanel.Size = new System.Drawing.Size(131, 46);
             this.goodYPanel.TabIndex = 0;
             // 
             // lblGoodYTitle
@@ -770,7 +777,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodYTitle.Location = new System.Drawing.Point(3, 0);
             this.lblGoodYTitle.Name = "lblGoodYTitle";
             this.lblGoodYTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodYTitle.Size = new System.Drawing.Size(298, 26);
+            this.lblGoodYTitle.Size = new System.Drawing.Size(125, 20);
             this.lblGoodYTitle.TabIndex = 0;
             this.lblGoodYTitle.Text = "GOOD STAGE Y";
             this.lblGoodYTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -781,9 +788,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodYValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodYValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodYValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodYValue.Location = new System.Drawing.Point(3, 26);
+            this.lblGoodYValue.Location = new System.Drawing.Point(3, 20);
             this.lblGoodYValue.Name = "lblGoodYValue";
-            this.lblGoodYValue.Size = new System.Drawing.Size(298, 32);
+            this.lblGoodYValue.Size = new System.Drawing.Size(125, 26);
             this.lblGoodYValue.TabIndex = 1;
             this.lblGoodYValue.Text = "0 um";
             this.lblGoodYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -795,13 +802,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.goodZPanel.Controls.Add(this.lblGoodZTitle, 0, 0);
             this.goodZPanel.Controls.Add(this.lblGoodZValue, 0, 1);
             this.goodZPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.goodZPanel.Location = new System.Drawing.Point(334, 32);
-            this.goodZPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.goodZPanel.Location = new System.Drawing.Point(142, 13);
+            this.goodZPanel.Margin = new System.Windows.Forms.Padding(1);
             this.goodZPanel.Name = "goodZPanel";
             this.goodZPanel.RowCount = 2;
-            this.goodZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.goodZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.goodZPanel.Size = new System.Drawing.Size(304, 56);
+            this.goodZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.goodZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.goodZPanel.Size = new System.Drawing.Size(132, 46);
             this.goodZPanel.TabIndex = 1;
             // 
             // lblGoodZTitle
@@ -813,7 +820,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodZTitle.Location = new System.Drawing.Point(3, 0);
             this.lblGoodZTitle.Name = "lblGoodZTitle";
             this.lblGoodZTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblGoodZTitle.Size = new System.Drawing.Size(298, 26);
+            this.lblGoodZTitle.Size = new System.Drawing.Size(126, 20);
             this.lblGoodZTitle.TabIndex = 0;
             this.lblGoodZTitle.Text = "GOOD STAGE Z";
             this.lblGoodZTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -824,9 +831,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodZValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblGoodZValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGoodZValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblGoodZValue.Location = new System.Drawing.Point(3, 26);
+            this.lblGoodZValue.Location = new System.Drawing.Point(3, 20);
             this.lblGoodZValue.Name = "lblGoodZValue";
-            this.lblGoodZValue.Size = new System.Drawing.Size(298, 32);
+            this.lblGoodZValue.Size = new System.Drawing.Size(126, 26);
             this.lblGoodZValue.TabIndex = 1;
             this.lblGoodZValue.Text = "0 um";
             this.lblGoodZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -838,13 +845,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.ngYPanel.Controls.Add(this.lblNgYTitle, 0, 0);
             this.ngYPanel.Controls.Add(this.lblNgYValue, 0, 1);
             this.ngYPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ngYPanel.Location = new System.Drawing.Point(22, 96);
-            this.ngYPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.ngYPanel.Location = new System.Drawing.Point(9, 61);
+            this.ngYPanel.Margin = new System.Windows.Forms.Padding(1);
             this.ngYPanel.Name = "ngYPanel";
             this.ngYPanel.RowCount = 2;
-            this.ngYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.ngYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.ngYPanel.Size = new System.Drawing.Size(304, 56);
+            this.ngYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.ngYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.ngYPanel.Size = new System.Drawing.Size(131, 47);
             this.ngYPanel.TabIndex = 2;
             // 
             // lblNgYTitle
@@ -856,7 +863,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgYTitle.Location = new System.Drawing.Point(3, 0);
             this.lblNgYTitle.Name = "lblNgYTitle";
             this.lblNgYTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNgYTitle.Size = new System.Drawing.Size(298, 26);
+            this.lblNgYTitle.Size = new System.Drawing.Size(125, 20);
             this.lblNgYTitle.TabIndex = 0;
             this.lblNgYTitle.Text = "NG STAGE Y";
             this.lblNgYTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -867,9 +874,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgYValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgYValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgYValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgYValue.Location = new System.Drawing.Point(3, 26);
+            this.lblNgYValue.Location = new System.Drawing.Point(3, 20);
             this.lblNgYValue.Name = "lblNgYValue";
-            this.lblNgYValue.Size = new System.Drawing.Size(298, 32);
+            this.lblNgYValue.Size = new System.Drawing.Size(125, 27);
             this.lblNgYValue.TabIndex = 1;
             this.lblNgYValue.Text = "0 um";
             this.lblNgYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -881,13 +888,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.visionXPanel.Controls.Add(this.lblVisionXTitle, 0, 0);
             this.visionXPanel.Controls.Add(this.lblVisionXValue, 0, 1);
             this.visionXPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionXPanel.Location = new System.Drawing.Point(334, 96);
-            this.visionXPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.visionXPanel.Location = new System.Drawing.Point(142, 61);
+            this.visionXPanel.Margin = new System.Windows.Forms.Padding(1);
             this.visionXPanel.Name = "visionXPanel";
             this.visionXPanel.RowCount = 2;
-            this.visionXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.visionXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.visionXPanel.Size = new System.Drawing.Size(304, 56);
+            this.visionXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.visionXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.visionXPanel.Size = new System.Drawing.Size(132, 47);
             this.visionXPanel.TabIndex = 3;
             // 
             // lblVisionXTitle
@@ -899,7 +906,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblVisionXTitle.Location = new System.Drawing.Point(3, 0);
             this.lblVisionXTitle.Name = "lblVisionXTitle";
             this.lblVisionXTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblVisionXTitle.Size = new System.Drawing.Size(298, 26);
+            this.lblVisionXTitle.Size = new System.Drawing.Size(126, 20);
             this.lblVisionXTitle.TabIndex = 0;
             this.lblVisionXTitle.Text = "VISION AXIS X";
             this.lblVisionXTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -910,12 +917,232 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblVisionXValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVisionXValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionXValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblVisionXValue.Location = new System.Drawing.Point(3, 26);
+            this.lblVisionXValue.Location = new System.Drawing.Point(3, 20);
             this.lblVisionXValue.Name = "lblVisionXValue";
-            this.lblVisionXValue.Size = new System.Drawing.Size(298, 32);
+            this.lblVisionXValue.Size = new System.Drawing.Size(126, 27);
             this.lblVisionXValue.TabIndex = 1;
             this.lblVisionXValue.Text = "0 um";
             this.lblVisionXValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // grpAction
+            // 
+            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.Controls.Add(this.actionBar);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpAction.Location = new System.Drawing.Point(0, 303);
+            this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
+            this.grpAction.Name = "grpAction";
+            this.grpAction.Size = new System.Drawing.Size(836, 567);
+            this.grpAction.TabIndex = 1;
+            this.grpAction.TabStop = false;
+            this.grpAction.Text = "ACTION";
+            // 
+            // actionBar
+            // 
+            this.actionBar.ColumnCount = 1;
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.Controls.Add(this.actionPanel, 0, 0);
+            this.actionBar.Controls.Add(this.actionRightPanel, 0, 1);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBar.Location = new System.Drawing.Point(3, 23);
+            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Name = "actionBar";
+            this.actionBar.RowCount = 2;
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 230F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.Size = new System.Drawing.Size(830, 541);
+            this.actionBar.TabIndex = 2;
+            // 
+            // actionPanel
+            // 
+            this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.actionPanel.ColumnCount = 2;
+            this.actionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionPanel.Controls.Add(this.btnStageReady, 0, 0);
+            this.actionPanel.Controls.Add(this.btnNgStageReady, 1, 0);
+            this.actionPanel.Controls.Add(this.btnGoodProcess, 0, 1);
+            this.actionPanel.Controls.Add(this.btnNgProcess, 1, 1);
+            this.actionPanel.Controls.Add(this.btnGoodReceive, 0, 2);
+            this.actionPanel.Controls.Add(this.btnNgReceive, 1, 2);
+            this.actionPanel.Controls.Add(this.btnGoodUnload, 0, 3);
+            this.actionPanel.Controls.Add(this.btnNgUnload, 1, 3);
+            this.actionPanel.Controls.Add(this.btnInspect, 0, 4);
+            this.actionPanel.Controls.Add(this.btnStageInit, 1, 4);
+            this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionPanel.Location = new System.Drawing.Point(0, 0);
+            this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.actionPanel.Name = "actionPanel";
+            this.actionPanel.RowCount = 5;
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionPanel.Size = new System.Drawing.Size(830, 230);
+            this.actionPanel.TabIndex = 0;
+            // 
+            // btnStageReady
+            // 
+            this.btnStageReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnStageReady.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStageReady.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStageReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnStageReady.ForeColor = System.Drawing.Color.White;
+            this.btnStageReady.Location = new System.Drawing.Point(3, 3);
+            this.btnStageReady.Name = "btnStageReady";
+            this.btnStageReady.Size = new System.Drawing.Size(409, 40);
+            this.btnStageReady.TabIndex = 0;
+            this.btnStageReady.Text = "GOOD LOAD";
+            // 
+            // btnNgStageReady
+            // 
+            this.btnNgStageReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgStageReady.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgStageReady.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgStageReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgStageReady.ForeColor = System.Drawing.Color.White;
+            this.btnNgStageReady.Location = new System.Drawing.Point(418, 3);
+            this.btnNgStageReady.Name = "btnNgStageReady";
+            this.btnNgStageReady.Size = new System.Drawing.Size(409, 40);
+            this.btnNgStageReady.TabIndex = 1;
+            this.btnNgStageReady.Text = "NG LOAD";
+            // 
+            // btnGoodProcess
+            // 
+            this.btnGoodProcess.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodProcess.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodProcess.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodProcess.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodProcess.ForeColor = System.Drawing.Color.White;
+            this.btnGoodProcess.Location = new System.Drawing.Point(3, 49);
+            this.btnGoodProcess.Name = "btnGoodProcess";
+            this.btnGoodProcess.Size = new System.Drawing.Size(409, 40);
+            this.btnGoodProcess.TabIndex = 2;
+            this.btnGoodProcess.Text = "GOOD PROCESS";
+            // 
+            // btnNgProcess
+            // 
+            this.btnNgProcess.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgProcess.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgProcess.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgProcess.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgProcess.ForeColor = System.Drawing.Color.White;
+            this.btnNgProcess.Location = new System.Drawing.Point(418, 49);
+            this.btnNgProcess.Name = "btnNgProcess";
+            this.btnNgProcess.Size = new System.Drawing.Size(409, 40);
+            this.btnNgProcess.TabIndex = 3;
+            this.btnNgProcess.Text = "NG PROCESS";
+            // 
+            // btnGoodReceive
+            // 
+            this.btnGoodReceive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodReceive.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodReceive.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodReceive.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodReceive.ForeColor = System.Drawing.Color.White;
+            this.btnGoodReceive.Location = new System.Drawing.Point(3, 95);
+            this.btnGoodReceive.Name = "btnGoodReceive";
+            this.btnGoodReceive.Size = new System.Drawing.Size(409, 40);
+            this.btnGoodReceive.TabIndex = 4;
+            this.btnGoodReceive.Text = "RECEIVE GOOD";
+            // 
+            // btnNgReceive
+            // 
+            this.btnNgReceive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgReceive.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgReceive.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgReceive.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgReceive.ForeColor = System.Drawing.Color.White;
+            this.btnNgReceive.Location = new System.Drawing.Point(418, 95);
+            this.btnNgReceive.Name = "btnNgReceive";
+            this.btnNgReceive.Size = new System.Drawing.Size(409, 40);
+            this.btnNgReceive.TabIndex = 5;
+            this.btnNgReceive.Text = "RECEIVE NG";
+            // 
+            // btnGoodUnload
+            // 
+            this.btnGoodUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodUnload.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodUnload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodUnload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodUnload.ForeColor = System.Drawing.Color.White;
+            this.btnGoodUnload.Location = new System.Drawing.Point(3, 141);
+            this.btnGoodUnload.Name = "btnGoodUnload";
+            this.btnGoodUnload.Size = new System.Drawing.Size(409, 40);
+            this.btnGoodUnload.TabIndex = 6;
+            this.btnGoodUnload.Text = "GOOD UNLOAD";
+            // 
+            // btnNgUnload
+            // 
+            this.btnNgUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgUnload.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgUnload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgUnload.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgUnload.ForeColor = System.Drawing.Color.White;
+            this.btnNgUnload.Location = new System.Drawing.Point(418, 141);
+            this.btnNgUnload.Name = "btnNgUnload";
+            this.btnNgUnload.Size = new System.Drawing.Size(409, 40);
+            this.btnNgUnload.TabIndex = 7;
+            this.btnNgUnload.Text = "NG UNLOAD";
+            // 
+            // btnInspect
+            // 
+            this.btnInspect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnInspect.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnInspect.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnInspect.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnInspect.ForeColor = System.Drawing.Color.White;
+            this.btnInspect.Location = new System.Drawing.Point(3, 187);
+            this.btnInspect.Name = "btnInspect";
+            this.btnInspect.Size = new System.Drawing.Size(409, 40);
+            this.btnInspect.TabIndex = 8;
+            this.btnInspect.Text = "INSPECT";
+            // 
+            // btnStageInit
+            // 
+            this.btnStageInit.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnStageInit.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStageInit.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStageInit.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnStageInit.ForeColor = System.Drawing.Color.White;
+            this.btnStageInit.Location = new System.Drawing.Point(418, 187);
+            this.btnStageInit.Name = "btnStageInit";
+            this.btnStageInit.Size = new System.Drawing.Size(409, 40);
+            this.btnStageInit.TabIndex = 9;
+            this.btnStageInit.Text = "AVOID";
+            // 
+            // actionRightPanel
+            // 
+            this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.actionRightPanel.ColumnCount = 2;
+            this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionRightPanel.Controls.Add(this.btnStop, 1, 0);
+            this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionRightPanel.Location = new System.Drawing.Point(0, 230);
+            this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.actionRightPanel.Name = "actionRightPanel";
+            this.actionRightPanel.RowCount = 3;
+            this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionRightPanel.Size = new System.Drawing.Size(830, 311);
+            this.actionRightPanel.TabIndex = 1;
+            // 
+            // btnStop
+            // 
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.btnStop.ForeColor = System.Drawing.Color.White;
+            this.btnStop.Location = new System.Drawing.Point(418, 3);
+            this.btnStop.Name = "btnStop";
+            this.btnStop.Size = new System.Drawing.Size(409, 40);
+            this.btnStop.TabIndex = 10;
+            this.btnStop.Text = "STOP";
             // 
             // materialPanel
             // 
@@ -924,12 +1151,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialPanel.Controls.Add(this.materialHeaderLayout, 0, 0);
             this.materialPanel.Controls.Add(this.materialDetailView, 0, 1);
             this.materialPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.materialPanel.Location = new System.Drawing.Point(1004, 11);
+            this.materialPanel.Location = new System.Drawing.Point(842, 0);
+            this.materialPanel.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
             this.materialPanel.Name = "materialPanel";
             this.materialPanel.RowCount = 2;
+            this.contentLayout.SetRowSpan(this.materialPanel, 2);
             this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 76F));
             this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.materialPanel.Size = new System.Drawing.Size(657, 752);
+            this.materialPanel.Size = new System.Drawing.Size(836, 870);
             this.materialPanel.TabIndex = 1;
             // 
             // materialHeaderLayout
@@ -946,7 +1175,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialHeaderLayout.Location = new System.Drawing.Point(3, 3);
             this.materialHeaderLayout.Name = "materialHeaderLayout";
             this.materialHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.materialHeaderLayout.Size = new System.Drawing.Size(651, 70);
+            this.materialHeaderLayout.Size = new System.Drawing.Size(830, 70);
             this.materialHeaderLayout.TabIndex = 0;
             // 
             // lblMaterialTitle
@@ -955,7 +1184,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblMaterialTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblMaterialTitle.Location = new System.Drawing.Point(3, 0);
             this.lblMaterialTitle.Name = "lblMaterialTitle";
-            this.lblMaterialTitle.Size = new System.Drawing.Size(457, 70);
+            this.lblMaterialTitle.Size = new System.Drawing.Size(636, 70);
             this.lblMaterialTitle.TabIndex = 0;
             this.lblMaterialTitle.Text = "STAGE";
             this.lblMaterialTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -965,7 +1194,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoGoodMaterial.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoGoodMaterial.Checked = true;
             this.rdoGoodMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoGoodMaterial.Location = new System.Drawing.Point(466, 3);
+            this.rdoGoodMaterial.Location = new System.Drawing.Point(645, 3);
             this.rdoGoodMaterial.Name = "rdoGoodMaterial";
             this.rdoGoodMaterial.Size = new System.Drawing.Size(84, 64);
             this.rdoGoodMaterial.TabIndex = 1;
@@ -977,7 +1206,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.rdoNgMaterial.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoNgMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoNgMaterial.Location = new System.Drawing.Point(556, 3);
+            this.rdoNgMaterial.Location = new System.Drawing.Point(735, 3);
             this.rdoNgMaterial.Name = "rdoNgMaterial";
             this.rdoNgMaterial.Size = new System.Drawing.Size(84, 64);
             this.rdoNgMaterial.TabIndex = 2;
@@ -989,205 +1218,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialDetailView.Location = new System.Drawing.Point(4, 80);
-            this.materialDetailView.Margin = new System.Windows.Forms.Padding(4);
+            this.materialDetailView.Margin = new System.Windows.Forms.Padding(0);
             this.materialDetailView.Name = "materialDetailView";
-            this.materialDetailView.Size = new System.Drawing.Size(649, 668);
+            this.materialDetailView.ShowProcessTestDataButton = false;
+            this.materialDetailView.Size = new System.Drawing.Size(828, 786);
             this.materialDetailView.TabIndex = 1;
-            // 
-            // actionPanel
-            // 
-            this.actionPanel.AutoScroll = true;
-            this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.actionPanel.Controls.Add(this.btnStageReady);
-            this.actionPanel.Controls.Add(this.btnNgStageReady);
-            this.actionPanel.Controls.Add(this.btnGoodProcess);
-            this.actionPanel.Controls.Add(this.btnNgProcess);
-            this.actionPanel.Controls.Add(this.btnGoodReceive);
-            this.actionPanel.Controls.Add(this.btnNgReceive);
-            this.actionPanel.Controls.Add(this.btnGoodUnload);
-            this.actionPanel.Controls.Add(this.btnNgUnload);
-            this.actionPanel.Controls.Add(this.btnInspect);
-            this.actionPanel.Controls.Add(this.btnStageInit);
-            this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionPanel.Margin = new System.Windows.Forms.Padding(0);
-            this.actionPanel.Name = "actionPanel";
-            this.actionPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.actionPanel.TabIndex = 0;
-            this.actionPanel.WrapContents = false;
-            //
-            // actionBar
-            //
-            this.actionBar.ColumnCount = 2;
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 54F));
-            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 46F));
-            this.actionBar.Controls.Add(this.actionPanel, 0, 0);
-            this.actionBar.Controls.Add(this.actionRightPanel, 1, 0);
-            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
-            this.actionBar.Name = "actionBar";
-            this.actionBar.RowCount = 1;
-            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionBar.TabIndex = 2;
-            //
-            // actionRightPanel
-            //
-            this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.actionRightPanel.Controls.Add(this.btnStop);
-            this.actionRightPanel.AutoSize = true;
-            this.actionRightPanel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Right;
-            this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
-            this.actionRightPanel.Name = "actionRightPanel";
-            this.actionRightPanel.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
-            this.actionRightPanel.TabIndex = 1;
-            this.actionRightPanel.WrapContents = false;
-            // 
-            // btnStageReady
-            // 
-            this.btnStageReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnStageReady.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnStageReady.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnStageReady.ForeColor = System.Drawing.Color.White;
-            this.btnStageReady.Location = new System.Drawing.Point(24, 16);
-            this.btnStageReady.Margin = new System.Windows.Forms.Padding(6);
-            this.btnStageReady.Name = "btnStageReady";
-            this.btnStageReady.Size = new System.Drawing.Size(132, 60);
-            this.btnStageReady.TabIndex = 0;
-            this.btnStageReady.Text = "GOOD LOAD";
-            // 
-            // btnNgStageReady
-            // 
-            this.btnNgStageReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgStageReady.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgStageReady.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNgStageReady.ForeColor = System.Drawing.Color.White;
-            this.btnNgStageReady.Location = new System.Drawing.Point(164, 16);
-            this.btnNgStageReady.Margin = new System.Windows.Forms.Padding(6);
-            this.btnNgStageReady.Name = "btnNgStageReady";
-            this.btnNgStageReady.Size = new System.Drawing.Size(132, 60);
-            this.btnNgStageReady.TabIndex = 1;
-            this.btnNgStageReady.Text = "NG LOAD";
-            // 
-            // btnGoodProcess
-            // 
-            this.btnGoodProcess.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodProcess.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodProcess.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnGoodProcess.ForeColor = System.Drawing.Color.White;
-            this.btnGoodProcess.Location = new System.Drawing.Point(304, 16);
-            this.btnGoodProcess.Margin = new System.Windows.Forms.Padding(6);
-            this.btnGoodProcess.Name = "btnGoodProcess";
-            this.btnGoodProcess.Size = new System.Drawing.Size(132, 60);
-            this.btnGoodProcess.TabIndex = 2;
-            this.btnGoodProcess.Text = "GOOD PROCESS";
-            // 
-            // btnNgProcess
-            // 
-            this.btnNgProcess.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgProcess.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgProcess.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNgProcess.ForeColor = System.Drawing.Color.White;
-            this.btnNgProcess.Location = new System.Drawing.Point(444, 16);
-            this.btnNgProcess.Margin = new System.Windows.Forms.Padding(6);
-            this.btnNgProcess.Name = "btnNgProcess";
-            this.btnNgProcess.Size = new System.Drawing.Size(132, 60);
-            this.btnNgProcess.TabIndex = 3;
-            this.btnNgProcess.Text = "NG PROCESS";
-            // 
-            // btnGoodReceive
-            // 
-            this.btnGoodReceive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodReceive.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodReceive.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnGoodReceive.ForeColor = System.Drawing.Color.White;
-            this.btnGoodReceive.Location = new System.Drawing.Point(584, 16);
-            this.btnGoodReceive.Margin = new System.Windows.Forms.Padding(6);
-            this.btnGoodReceive.Name = "btnGoodReceive";
-            this.btnGoodReceive.Size = new System.Drawing.Size(132, 60);
-            this.btnGoodReceive.TabIndex = 4;
-            this.btnGoodReceive.Text = "RECEIVE GOOD";
-            // 
-            // btnNgReceive
-            // 
-            this.btnNgReceive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgReceive.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgReceive.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNgReceive.ForeColor = System.Drawing.Color.White;
-            this.btnNgReceive.Location = new System.Drawing.Point(724, 16);
-            this.btnNgReceive.Margin = new System.Windows.Forms.Padding(6);
-            this.btnNgReceive.Name = "btnNgReceive";
-            this.btnNgReceive.Size = new System.Drawing.Size(132, 60);
-            this.btnNgReceive.TabIndex = 5;
-            this.btnNgReceive.Text = "RECEIVE NG";
-            // 
-            // btnGoodUnload
-            // 
-            this.btnGoodUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodUnload.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnGoodUnload.ForeColor = System.Drawing.Color.White;
-            this.btnGoodUnload.Location = new System.Drawing.Point(864, 16);
-            this.btnGoodUnload.Margin = new System.Windows.Forms.Padding(6);
-            this.btnGoodUnload.Name = "btnGoodUnload";
-            this.btnGoodUnload.Size = new System.Drawing.Size(132, 60);
-            this.btnGoodUnload.TabIndex = 6;
-            this.btnGoodUnload.Text = "GOOD UNLOAD";
-            // 
-            // btnNgUnload
-            // 
-            this.btnNgUnload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgUnload.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgUnload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNgUnload.ForeColor = System.Drawing.Color.White;
-            this.btnNgUnload.Location = new System.Drawing.Point(1004, 16);
-            this.btnNgUnload.Margin = new System.Windows.Forms.Padding(6);
-            this.btnNgUnload.Name = "btnNgUnload";
-            this.btnNgUnload.Size = new System.Drawing.Size(132, 60);
-            this.btnNgUnload.TabIndex = 7;
-            this.btnNgUnload.Text = "NG UNLOAD";
-            // 
-            // btnInspect
-            // 
-            this.btnInspect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnInspect.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnInspect.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnInspect.ForeColor = System.Drawing.Color.White;
-            this.btnInspect.Location = new System.Drawing.Point(1144, 16);
-            this.btnInspect.Margin = new System.Windows.Forms.Padding(6);
-            this.btnInspect.Name = "btnInspect";
-            this.btnInspect.Size = new System.Drawing.Size(132, 60);
-            this.btnInspect.TabIndex = 8;
-            this.btnInspect.Text = "INSPECT";
-            // 
-            // btnStageInit
-            // 
-            this.btnStageInit.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnStageInit.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnStageInit.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnStageInit.ForeColor = System.Drawing.Color.White;
-            this.btnStageInit.Location = new System.Drawing.Point(1284, 16);
-            this.btnStageInit.Margin = new System.Windows.Forms.Padding(6);
-            this.btnStageInit.Name = "btnStageInit";
-            this.btnStageInit.Size = new System.Drawing.Size(132, 60);
-            this.btnStageInit.TabIndex = 9;
-            this.btnStageInit.Text = "AVOID";
-            // 
-            // btnStop
-            // 
-            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
-            this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(1424, 16);
-            this.btnStop.Margin = new System.Windows.Forms.Padding(6);
-            this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(132, 60);
-            this.btnStop.TabIndex = 10;
-            this.btnStop.Text = "STOP";
             // 
             // OutputStagePage
             // 
             this.Controls.Add(this.rootLayout);
+            this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "OutputStagePage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
@@ -1205,11 +1245,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.goodZPanel.ResumeLayout(false);
             this.ngYPanel.ResumeLayout(false);
             this.visionXPanel.ResumeLayout(false);
-            this.materialPanel.ResumeLayout(false);
-            this.materialHeaderLayout.ResumeLayout(false);
+            this.grpAction.ResumeLayout(false);
+            this.actionBar.ResumeLayout(false);
             this.actionPanel.ResumeLayout(false);
             this.actionRightPanel.ResumeLayout(false);
-            this.actionBar.ResumeLayout(false);
+            this.materialPanel.ResumeLayout(false);
+            this.materialHeaderLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

@@ -51,7 +51,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             rbTargetOk.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
             rbTargetNg.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
             ConfigureTargetButtonVisuals();
-            EnsureStopButtonLast();
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -131,15 +130,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void SetSequenceButtonsEnabled(bool enabled)
         {
-            actionPanel.Enabled = true;
-            foreach (Control control in actionPanel.Controls)
+            actionBar.Enabled = true;
+            foreach (Control control in actionBar.Controls)
             {
                 if (!ReferenceEquals(control, btnStop))
                     control.Enabled = enabled;
             }
 
             btnStop.Enabled = true;
-            EnsureStopButtonLast();
         }
 
         private async Task StopManualActionAsync()
@@ -160,16 +158,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionPanel == null || btnStop == null || !actionPanel.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionPanel.Controls.Count - 1;
-            if (actionPanel.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionPanel.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<bool> RunLoadFromCassetteAsync(Form1 host)

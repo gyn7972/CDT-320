@@ -17,7 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     public partial class InputFeederPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private System.Windows.Forms.Timer _timer;
-        private FlowLayoutPanel _sequenceActions;
+        private TableLayoutPanel _sequenceActions;
         private bool _manualSequenceRunning;
         private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
@@ -46,7 +46,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                _sequenceActions = actionsLayout;
+                _sequenceActions = actionBar;
                 btnLoadFromCassette.Click += async (s, e) => await RunSequenceAction(btnLoadFromCassette.Text, RunLoadFromCassetteAsync);
                 btnLoadToStage.Click += async (s, e) => await RunSequenceAction(btnLoadToStage.Text, RunLoadToStageAsync);
                 btnUnloadFromStage.Click += async (s, e) => await RunSequenceAction(btnUnloadFromStage.Text, RunUnloadFromStageAsync);
@@ -55,7 +55,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
                 materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
                 materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
-                EnsureStopButtonLast();
             }
             catch (Exception ex)
             {
@@ -64,23 +63,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void AddSequenceButton(string text, Func<Form1, Task<bool>> action)
-        {
-            var button = new ActionButton
-            {
-                Text = text,
-                BackColor = Color.FromArgb(128, 128, 128),
-                Cursor = Cursors.Hand,
-                Font = new Font("맑은 고딕", 11F),
-                ForeColor = Color.White,
-                Width = 180,
-                Height = 64,
-                Margin = new Padding(6)
-            };
-            button.Click += async (s, e) => await RunSequenceAction(text, action);
-            _sequenceActions.Controls.Add(button);
         }
 
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
@@ -171,10 +153,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             if (btnStop != null)
-            {
                 btnStop.Enabled = true;
-                EnsureStopButtonLast();
-            }
         }
 
         private async Task StopManualActionAsync()
@@ -195,16 +174,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionsLayout.Controls.Count - 1;
-            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<bool> RunLoadFromCassetteAsync(Form1 host)
@@ -316,10 +285,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 : loader.HasWaferOnFeeder();
             _lblExist.Text = hasFeederWafer ? "WAFER" : "--";
 
-            _markRing.BackColor = loader.IsWaferFeederSimulationOrDryRun()
-                ? (hasFeederWaferData ? Color.LimeGreen : Color.Black)
-                : (loader.WaferFeederRingCheckSensor.IsOn ? Color.LimeGreen : Color.Black);
-            _markOverload.BackColor = loader.IsWaferFeederOverload() ? Color.Red : Color.Black;
+            dotRing.IsOn = loader.IsWaferFeederSimulationOrDryRun()
+                ? hasFeederWaferData
+                : loader.WaferFeederRingCheckSensor.IsOn;
+            dotOverload.IsOn = loader.IsWaferFeederOverload();
 
             RefreshMaterialDetail(false);
         }

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  QmcVisionCuda.vcxproj — Visual Studio CUDA 프로젝트(src\*.cu → QmcVisionCuda.dll 1개).
+  build_all.bat(nvcc 한 줄)로도 동일하게 만들 수 있으나, VS 솔루션 통합 빌드를 원할 때 사용.
+
+  요구: VS 2022 + "C++ 데스크톱 개발" 워크로드 + CUDA Toolkit(VS 통합 포함).
+        아래 ImportGroup 의 "CUDA 12.6" 부분을 설치한 CUDA 버전으로 바꿀 것.
+  출력: x64\Release\QmcVisionCuda.dll (정적 CUDART). 이후 ..\QMC.Vision\NativeDeps\ 로 3개 이름 복사.
+-->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8F2C7A41-3B2E-4C77-9E1A-3C0D32015A7E}</ProjectGuid>
+    <RootNamespace>QmcVisionCuda</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Release'">false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+    <!-- CUDA 설치 버전에 맞게 수정 (예: CUDA 12.6) -->
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.6.props" />
+  </ImportGroup>
+  <ItemDefinitionGroup>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <!-- 빌드 PC 와 다른 GPU 에서도 동작하도록 주요 arch + PTX 포함 -->
+      <CodeGeneration>compute_52,sm_52;compute_61,sm_61;compute_75,sm_75;compute_86,sm_86;compute_89,sm_89;compute_90,sm_90;compute_90,compute_90</CodeGeneration>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreaded</RuntimeLibrary>
+      <CudaRuntime>Static</CudaRuntime>
+      <AdditionalOptions>-I"$(ProjectDir)include" %(AdditionalOptions)</AdditionalOptions>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\device_info.cu" />
+    <CudaCompile Include="src\device_memory.cu" />
+    <CudaCompile Include="src\morphology.cu" />
+    <CudaCompile Include="src\edge_line.cu" />
+    <CudaCompile Include="src\stddev_filter.cu" />
+    <CudaCompile Include="src\autofocus.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\qmc_cuda.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 12.6.targets" />
+  </ImportGroup>
+</Project>

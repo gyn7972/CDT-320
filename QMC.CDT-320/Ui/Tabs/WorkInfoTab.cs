@@ -23,9 +23,8 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnOutputStage,          "wi.outputStage",       op, () => new OutputStagePage());
             RegisterSidebarButton(BtnOutputFeeder,         "wi.outputFeeder",      op, () => new OutputFeederPage());
             RegisterSidebarButton(BtnOutputCassette,       "wi.outputCassette",    op, () => new OutputCassettePage());
-            RegisterSidebarButton(BtnActiveLot,            "wi.activeLot",         op, () => new ActiveLotPage());
-            RegisterSidebarButton(BtnOperationPanelStatus, "wi.opPanelStatus",     op, () => new OperationPanelStatusPage());
-            RegisterSidebarButton(BtnPlateStatus,          "wi.plateStatus",       op, () => new PlateStatusPage());
+            RegisterSidebarButton(BtnState,                "wi.state",             op, () => new StatePage());
+            RegisterSidebarButton(BtnVisionTest,           "wi.visionTest",        op, () => new VisionTestPage());
             RegisterSidebarButton(BtnLogic,                "wi.logic", UserLevel.Engineer, () => new LogicDetailPage());
         }
     }

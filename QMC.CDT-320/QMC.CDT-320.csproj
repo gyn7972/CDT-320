@@ -293,8 +293,8 @@
     <Compile Include="Ui\Pages\Settings\MotionPage.Status.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.Designer.cs">
-      <DependentUpon>ActiveLotPage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\WorkInfo\StatePage.Designer.cs">
+      <DependentUpon>StatePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
       <SubType>UserControl</SubType>
@@ -302,14 +302,11 @@
     <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.Designer.cs">
       <DependentUpon>InputCassettePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.cs">
+    <Compile Include="Ui\Pages\WorkInfo\VisionTestPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.Designer.cs">
-      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.cs">
-      <SubType>UserControl</SubType>
+    <Compile Include="Ui\Pages\WorkInfo\VisionTestPage.Designer.cs">
+      <DependentUpon>VisionTestPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\PickupSubsetPage.cs">
       <SubType>UserControl</SubType>
@@ -552,7 +549,7 @@
     <Compile Include="Ui\Pages\User\UserAccountPage.Designer.cs">
       <DependentUpon>UserAccountPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
+    <Compile Include="Ui\Pages\WorkInfo\StatePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Ui / Pages / Material (310 ?�식) -->
@@ -613,9 +610,6 @@
     <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
-    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.Designer.cs">
-      <DependentUpon>PlateStatusPage.cs</DependentUpon>
-    </Compile>
     <!-- UI / Theme + Localization + Security -->
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
@@ -862,6 +856,7 @@
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomAndSideInspectionSequence.cs" />
+    <Compile Include="Sequencing\Picker\PickerPlaceSynchronizedArrivalMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
     <Compile Include="Sequencing\FrontPickerSequence.cs" />
@@ -1265,8 +1260,11 @@
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputStagePage.resx">
       <DependentUpon>InputStagePage.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
-      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\StatePage.resx">
+      <DependentUpon>StatePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\VisionTestPage.resx">
+      <DependentUpon>VisionTestPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputCassettePage.resx">
       <DependentUpon>OutputCassettePage.cs</DependentUpon>

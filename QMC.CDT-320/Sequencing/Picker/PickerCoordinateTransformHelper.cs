@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing

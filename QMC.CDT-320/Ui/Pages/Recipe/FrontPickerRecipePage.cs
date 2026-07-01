@@ -255,6 +255,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Header("BOTTOM MOTION SETTING", bottomMotionSettingGroup));
             AddBottomMotionSettingItems(optionItems, bottomMotionSettingGroup);
 
+            const string placeMotionSettingGroup = "K_PLACE_MOTION_SETTING";
+            optionItems.Add(ParameterGridItem.Header("PLACE MOTION SETTING", placeMotionSettingGroup));
+            AddPlaceMotionSettingItems(optionItems, placeMotionSettingGroup);
+
             const string safetySettingGroup = "K_SAFETY_SETTING";
             optionItems.Add(ParameterGridItem.Header("SAFETY SETTING", safetySettingGroup));
             optionItems.Add(InGroup(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v), safetySettingGroup));
@@ -328,6 +332,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "START MODE가 DelayMs일 때 대기할 시간입니다.\r\n0 ms면 지연 없이 바로 시작합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("BOTTOM FLYING Z START X REMAINING", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => bottom.FlyingZStartXRemainingDistance, v => bottom.FlyingZStartXRemainingDistance = PickerBottomInspectionMotionConfig.NormalizeDistance(v)),
                 "START MODE가 XRemainingDistance일 때 사용하는 X축 잔여 거리 기준입니다.\r\n예: 5 mm면 Picker X가 목표 위치 5 mm 이내로 들어온 뒤 Z 선행 하강을 시작합니다."), groupKey));
+        }
+
+        private void AddPlaceMotionSettingItems(List<ParameterGridItem> items, string groupKey)
+        {
+            PickerPlaceMotionConfig place = unit.Config.Place;
+            if (place == null)
+                unit.Config.Place = place = new PickerPlaceMotionConfig();
+
+            place.Ensure();
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPlaceMotionMode>("PLACE MOTION MODE", "mode", ParameterGridScope.Config, () => place.MotionMode, v => place.MotionMode = v),
+                "Default는 기존 Place 이동 순서를 사용합니다.\r\nSynchronizedArrival은 Ajin 보간으로 OutputStageY/PickerX/PickerZ가 같은 타이밍에 도착하도록 시도하고, 실패하면 기존 이동으로 되돌아갑니다."), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC COORDINATE", "coord", ParameterGridScope.Config, () => place.InterpolationCoordinate, v => place.InterpolationCoordinate = Math.Max(0, v)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC VELOCITY", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.SynchronizedVelocity, v => place.SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 1.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.SynchronizedAcceleration, v => place.SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.SynchronizedDeceleration, v => place.SynchronizedDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)), groupKey));
+            items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC TIMEOUT", "ms", ParameterGridScope.Config, () => place.SynchronizedTimeoutMs, v => place.SynchronizedTimeoutMs = Math.Max(1, v)), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE SYNC MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.MaxSynchronizedTravelDistance, v => place.MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 37.0)),
+                "현재 위치에서 Place 목표 위치까지 한 축이라도 이 거리보다 많이 움직이면 보간을 사용하지 않고 기존 이동 방식으로 접근합니다.\r\n알람/정지 후 Avoid 위치에서 재시작할 때 긴 거리를 보간으로 이동하지 않게 막는 값입니다."), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(

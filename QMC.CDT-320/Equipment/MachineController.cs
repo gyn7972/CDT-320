@@ -272,7 +272,7 @@ namespace QMC.CDT320
 
         // ------------------------------------------------------------------
         // Stage 58: 운영 통계(Work Info / Work Time)
-        // WorkMainPage / OperationPanelStatusPage에서 읽습니다.
+        // WorkMainPage / StatePage에서 읽습니다.
         // internal setter는 Cycle 실행 중 누적하고 Init에서 리셋합니다.
         // ------------------------------------------------------------------
         /// <summary>PICK 실패 누적 수량(재시도 후 최종 실패로 카운트되는 경우).</summary>

@@ -1932,7 +1932,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblProcessDetailValue.ForeColor = Color.Black;
             _lblProcessDetailValue.BackColor = detail != null && detail.Contains("이동 중")
                 ? Color.FromArgb(255, 242, 204)
-                : Color.White;
+                : Color.FromArgb(240, 240, 240);
         }
 
         private string NormalizeFlowProcess(string process)
