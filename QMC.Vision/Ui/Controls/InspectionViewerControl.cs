@@ -202,7 +202,7 @@ namespace QMC.Vision.Ui.Controls
                         if (it != null && it.Image != null && !ReferenceEquals(_boundCh[p, c], it))
                         {
                             // 바인딩이 실제로 성공(클론 OK)했을 때만 기록 — 실패 시 다음 갱신에 재시도(빈 채로 굳지 않게)
-                            if (pks[p - 1].SetChannel(c, it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it)))
+                            if (pks[p - 1].SetChannel(c, it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it), it.Geom))
                                 _boundCh[p, c] = it;
                         }
                     }
@@ -214,7 +214,7 @@ namespace QMC.Vision.Ui.Controls
                 {
                     var it = InspectionResultStore.Latest(mode, p);
                     if (it != null && it.Image != null)
-                        pks[p - 1].SetSingle(it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it));
+                        pks[p - 1].SetSingle(it.Image, it.Box, it.Pass, it.Pass ? "Good" : "NG", it.Lines, MarksOf(it), it.Geom);
                 }
             }
 

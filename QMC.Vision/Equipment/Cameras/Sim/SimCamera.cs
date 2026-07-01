@@ -48,7 +48,9 @@ namespace QMC.Vision.Cameras.Sim
         public override GrabResult Grab(int timeoutMs = 3000)
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
-            return new GrabResult(GetFrameClone(), _frameCounter++, Info.Id);
+            // 합성 OFF면 소스를 'sim-blank'로 표시 → VisionModule 이 뷰어(_lastFrame)에 반영하지 않고 이전 화면을 유지.
+            string src = SyntheticEnabled() ? Info.Id : "sim-blank";
+            return new GrabResult(GetFrameClone(), _frameCounter++, src);
         }
 
         /// <summary>캐시된 합성 프레임의 사본을 반환(소비자가 Dispose). 해상도 변경 시 1회 재생성.</summary>

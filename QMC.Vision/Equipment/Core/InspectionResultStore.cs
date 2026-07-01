@@ -29,6 +29,7 @@ namespace QMC.Vision.Core
             public string[] Lines;          // 패널 표시 텍스트
             public PointF[] Box;            // 검출 박스(이미지 px)
             public List<DefectMark> Defects;
+            public InspectionOverlayStore.Geom Geom;   // 검출 기하(박스/프로파일/결함) — 팝업이 모니터링과 동일 렌더러로 그림(썸네일 배율 스케일).
             public Bitmap Image;            // 표시 이미지(클론 보관)
             public DateTime Time = DateTime.Now;
         }
@@ -262,7 +263,7 @@ namespace QMC.Vision.Core
             => FromResult(mode, picker, -1, ix, iy, r, image, box);
 
         /// <summary>채널 지정 변환(Side 4채널: channel 0~3, 그 외 -1). box=검출 박스(이미지 px, 픽커 오버레이용).</summary>
-        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null)
+        public static Item FromResult(string mode, int picker, int channel, int ix, int iy, InspectionResult r, Bitmap image, PointF[] box = null, InspectionOverlayStore.Geom geom = null)
         {
             var it = new Item { Mode = mode, Picker = picker, Channel = channel, IndexX = ix, IndexY = iy, Pass = r != null && r.IsPass };
             var lines = new List<string>();
@@ -275,6 +276,7 @@ namespace QMC.Vision.Core
             it.Lines = lines.ToArray();
             it.Defects = r?.Defects;
             it.Box = box;   // 검출 박스(픽커 패널 오버레이) — 아래 썸네일 배율로 함께 축소.
+            it.Geom = geom; // 검출 기하 — 아래 배율로 스케일된 복사본으로 교체(원본은 모니터링 전체해상도용 보존).
             // 표시용 이미지는 썸네일로 축소 보관(원본 12000²=432MB → OOM 방지). 뷰어 픽커 패널은 작아 충분.
             // 박스/결함 좌표도 같은 배율로 축소해 이미지와 정합. 원본(r.Defects)은 보존(클론 축소).
             if (image != null)
@@ -298,11 +300,26 @@ namespace QMC.Vision.Core
                             for (int i = 0; i < bx.Length; i++) bx[i] = new PointF(it.Box[i].X / f, it.Box[i].Y / f);
                             it.Box = bx;
                         }
+                        if (it.Geom != null) it.Geom = ScaleGeom(it.Geom, f);
                     }
                 }
                 catch { }
             }
             return it;
+        }
+
+        /// <summary>Geom 을 정수배(1/f)로 스케일한 새 복사본 — 원본(모니터링 전체해상도용)은 보존.</summary>
+        private static InspectionOverlayStore.Geom ScaleGeom(InspectionOverlayStore.Geom g, int f)
+        {
+            if (g == null || f <= 1) return g;
+            PointF[] SP(PointF[] a) { if (a == null) return null; var o = new PointF[a.Length]; for (int i = 0; i < a.Length; i++) o[i] = new PointF(a[i].X / f, a[i].Y / f); return o; }
+            List<DefectMark> SD(List<DefectMark> a) { if (a == null) return null; var o = new List<DefectMark>(a.Count); foreach (var d in a) o.Add(new DefectMark { X = d.X / f, Y = d.Y / f, Width = d.Width / f, Height = d.Height / f, Area = d.Area, Type = d.Type }); return o; }
+            return new InspectionOverlayStore.Geom
+            {
+                Kind = g.Kind, Caption = g.Caption, Pass = g.Pass,
+                Corners = SP(g.Corners), TopProfile = SP(g.TopProfile), BotProfile = SP(g.BotProfile), RefCorners = SP(g.RefCorners),
+                Defects = SD(g.Defects)
+            };
         }
 
         private static int ThumbFactor(int w, int h, int maxDim)

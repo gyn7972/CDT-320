@@ -63,8 +63,16 @@ namespace QMC.Vision.Core
                 foreach (var kv in d)
                 {
                     if (!kv.Value.Pass) allPass = false;
-                    string items = string.IsNullOrEmpty(kv.Value.Items) ? "" : "  " + kv.Value.Items;
-                    list.Add($"[{kv.Key}] {(kv.Value.Pass ? "OK" : "NG")}{items}");
+                    // 헤더 1줄 + 항목별 1줄씩(우측하단 열 표시 — 레시피 검출과 동일). 콤마조인 문자열을 항목 단위로 분해.
+                    list.Add($"[{kv.Key}] {(kv.Value.Pass ? "OK" : "NG")}");
+                    if (!string.IsNullOrEmpty(kv.Value.Items))
+                        foreach (var tok in kv.Value.Items.Split(';'))
+                        {
+                            var t = tok.Trim();
+                            if (t.Length == 0) continue;
+                            int eq = t.IndexOf('=');
+                            list.Add(eq > 0 ? (t.Substring(0, eq).Trim() + " : " + t.Substring(eq + 1).Trim()) : t);
+                        }
                 }
                 lines = list.ToArray();
             }
