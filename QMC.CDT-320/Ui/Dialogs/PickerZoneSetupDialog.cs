@@ -74,7 +74,55 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                using (var dlg = new NumericKeypadDialog("Zone Tolerance", txtTolerance.Text, "mm"))
+                EditPositiveDistance(txtTolerance, "Zone Tolerance", "Zone 허용오차 값이 올바르지 않습니다.");
+            }
+            catch (Exception ex)
+            {
+                MessageDialog.Show("Zone 허용오차 수정 실패: " + ex.Message, "Picker Zone",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnXClearanceClick(object sender, EventArgs e)
+        {
+            try
+            {
+                EditPositiveDistance(txtXClearance, "Picker X Clearance", "Picker X 안전거리 값이 올바르지 않습니다.");
+            }
+            catch (Exception ex)
+            {
+                MessageDialog.Show("Picker X 안전거리 수정 실패: " + ex.Message, "Picker Zone",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnYOutDistanceClick(object sender, EventArgs e)
+        {
+            try
+            {
+                EditPositiveDistance(txtYOutDistance, "Picker Y Out Distance", "Picker Y 돌출 판정 거리 값이 올바르지 않습니다.");
+            }
+            catch (Exception ex)
+            {
+                MessageDialog.Show("Picker Y 돌출 판정 거리 수정 실패: " + ex.Message, "Picker Zone",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private void EditPositiveDistance(TextBox targetTextBox, string title, string invalidMessage)
+        {
+            try
+            {
+                using (var dlg = new NumericKeypadDialog(title, targetTextBox != null ? targetTextBox.Text : string.Empty, "mm"))
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK)
                         return;
@@ -82,19 +130,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                     double value;
                     if (!TryParseDouble(dlg.ValueText, out value) || value <= 0.0)
                     {
-                        MessageDialog.Show("Zone 허용오차 값이 올바르지 않습니다.", "Picker Zone",
+                        MessageDialog.Show(invalidMessage, "Picker Zone",
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
-                    txtTolerance.Text = FormatNumber(value);
+                    if (targetTextBox != null)
+                        targetTextBox.Text = FormatNumber(value);
                     UpdateCurrentDisplay();
                 }
             }
             catch (Exception ex)
             {
-                MessageDialog.Show("Zone 허용오차 수정 실패: " + ex.Message, "Picker Zone",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                throw new InvalidOperationException(title + " 수정 중 예외가 발생했습니다. " + ex.Message, ex);
             }
             finally
             {
@@ -183,6 +231,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 //}
 
                 ApplyGridToSetup(setup);
+                ApplySafetyToSelectedPickerSetup();
 
                 Form1 host = Owner as Form1;
                 if (host != null && !string.IsNullOrWhiteSpace(host.CurrentRecipeName))
@@ -236,6 +285,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 setup.Ensure();
                 chkUseEncoderZone.Checked = setup.UseEncoderZone;
                 txtTolerance.Text = FormatNumber(setup.ZoneTolerance);
+                LoadSelectedSafetySettings();
                 gridZones.Rows.Clear();
                 AddZoneRow("Avoid", "AVOID", setup.Avoid);
                 AddZoneRow("Input", "PICKUP", setup.Input);
@@ -297,6 +347,91 @@ namespace QMC.CDT_320.Ui.Dialogs
                 range.Enabled = IsRangeRowEnabled(row);
                 range.MinX = min;
                 range.MaxX = max;
+            }
+        }
+
+        private void LoadSelectedSafetySettings()
+        {
+            try
+            {
+                CDT320_Machine machine = _controller != null ? _controller.Machine : null;
+                bool isFront = cboSide == null || cboSide.SelectedIndex <= 0;
+
+                if (machine == null)
+                {
+                    txtXClearance.Text = FormatNumber(150.0);
+                    txtYOutDistance.Text = FormatNumber(1.0);
+                    return;
+                }
+
+                if (isFront)
+                {
+                    if (machine.PickerFrontUnit == null || machine.PickerFrontUnit.Setup == null)
+                        return;
+
+                    machine.PickerFrontUnit.Setup.EnsureGeometryData();
+                    txtXClearance.Text = FormatNumber(machine.PickerFrontUnit.Setup.PickerYFacingXClearance);
+                    txtYOutDistance.Text = FormatNumber(machine.PickerFrontUnit.Setup.PickerYOutDistance);
+                    return;
+                }
+
+                if (machine.PickerRearUnit == null || machine.PickerRearUnit.Setup == null)
+                    return;
+
+                machine.PickerRearUnit.Setup.EnsureGeometryData();
+                txtXClearance.Text = FormatNumber(machine.PickerRearUnit.Setup.PickerYFacingXClearance);
+                txtYOutDistance.Text = FormatNumber(machine.PickerRearUnit.Setup.PickerYOutDistance);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "안전거리 불러오기 실패: " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplySafetyToSelectedPickerSetup()
+        {
+            try
+            {
+                CDT320_Machine machine = _controller != null ? _controller.Machine : null;
+                if (machine == null)
+                    return;
+
+                double xClearance;
+                if (!TryParseDouble(txtXClearance.Text, out xClearance) || xClearance <= 0.0)
+                    xClearance = 150.0;
+
+                double yOutDistance;
+                if (!TryParseDouble(txtYOutDistance.Text, out yOutDistance) || yOutDistance <= 0.0)
+                    yOutDistance = 1.0;
+
+                bool isFront = cboSide == null || cboSide.SelectedIndex <= 0;
+                if (isFront)
+                {
+                    if (machine.PickerFrontUnit == null || machine.PickerFrontUnit.Setup == null)
+                        return;
+
+                    machine.PickerFrontUnit.Setup.EnsureGeometryData();
+                    machine.PickerFrontUnit.Setup.PickerYFacingXClearance = xClearance;
+                    machine.PickerFrontUnit.Setup.PickerYOutDistance = yOutDistance;
+                    return;
+                }
+
+                if (machine.PickerRearUnit == null || machine.PickerRearUnit.Setup == null)
+                    return;
+
+                machine.PickerRearUnit.Setup.EnsureGeometryData();
+                machine.PickerRearUnit.Setup.PickerYFacingXClearance = xClearance;
+                machine.PickerRearUnit.Setup.PickerYOutDistance = yOutDistance;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Picker 안전거리 설정 적용 중 예외가 발생했습니다. " + ex.Message, ex);
+            }
+            finally
+            {
             }
         }
 

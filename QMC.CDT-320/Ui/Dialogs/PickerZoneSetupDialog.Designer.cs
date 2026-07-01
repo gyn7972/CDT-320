@@ -11,6 +11,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private System.Windows.Forms.CheckBox chkUseEncoderZone;
         private System.Windows.Forms.Label lblTolerance;
         private System.Windows.Forms.TextBox txtTolerance;
+        private System.Windows.Forms.Label lblXClearance;
+        private System.Windows.Forms.TextBox txtXClearance;
+        private System.Windows.Forms.Label lblYOutDistance;
+        private System.Windows.Forms.TextBox txtYOutDistance;
         private System.Windows.Forms.Label lblCurrent;
         private System.Windows.Forms.DataGridView gridZones;
         private System.Windows.Forms.FlowLayoutPanel pnlButtons;
@@ -47,6 +51,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.chkUseEncoderZone = new System.Windows.Forms.CheckBox();
             this.lblTolerance = new System.Windows.Forms.Label();
             this.txtTolerance = new System.Windows.Forms.TextBox();
+            this.lblXClearance = new System.Windows.Forms.Label();
+            this.txtXClearance = new System.Windows.Forms.TextBox();
+            this.lblYOutDistance = new System.Windows.Forms.Label();
+            this.txtYOutDistance = new System.Windows.Forms.TextBox();
             this.lblCurrent = new System.Windows.Forms.Label();
             this.gridZones = new System.Windows.Forms.DataGridView();
             this.colUse = new System.Windows.Forms.DataGridViewCheckBoxColumn();
@@ -67,9 +75,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             ((System.ComponentModel.ISupportInitialize)(this.gridZones)).BeginInit();
             this.pnlButtons.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // layoutRoot
-            // 
+            //
             this.layoutRoot.ColumnCount = 1;
             this.layoutRoot.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.layoutRoot.Controls.Add(this.lblTitle, 0, 0);
@@ -88,9 +96,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.layoutRoot.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.layoutRoot.Size = new System.Drawing.Size(760, 386);
             this.layoutRoot.TabIndex = 0;
-            // 
+            //
             // lblTitle
-            // 
+            //
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
@@ -99,23 +107,27 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.lblTitle.TabIndex = 0;
             this.lblTitle.Text = "Picker X Zone Setup";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // pnlTop
-            // 
+            //
             this.pnlTop.Controls.Add(this.lblSide);
             this.pnlTop.Controls.Add(this.cboSide);
             this.pnlTop.Controls.Add(this.chkUseEncoderZone);
             this.pnlTop.Controls.Add(this.lblTolerance);
             this.pnlTop.Controls.Add(this.txtTolerance);
+            this.pnlTop.Controls.Add(this.lblXClearance);
+            this.pnlTop.Controls.Add(this.txtXClearance);
+            this.pnlTop.Controls.Add(this.lblYOutDistance);
+            this.pnlTop.Controls.Add(this.txtYOutDistance);
             this.pnlTop.Controls.Add(this.lblCurrent);
             this.pnlTop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlTop.Location = new System.Drawing.Point(3, 39);
             this.pnlTop.Name = "pnlTop";
             this.pnlTop.Size = new System.Drawing.Size(754, 58);
             this.pnlTop.TabIndex = 1;
-            // 
+            //
             // lblSide
-            // 
+            //
             this.lblSide.Location = new System.Drawing.Point(0, 8);
             this.lblSide.Name = "lblSide";
             this.lblSide.Size = new System.Drawing.Size(56, 24);
@@ -164,6 +176,44 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.txtTolerance.TabIndex = 4;
             this.txtTolerance.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.txtTolerance.Click += new System.EventHandler(this.OnToleranceClick);
+            //
+            // lblXClearance
+            //
+            this.lblXClearance.Location = new System.Drawing.Point(0, 34);
+            this.lblXClearance.Name = "lblXClearance";
+            this.lblXClearance.Size = new System.Drawing.Size(96, 22);
+            this.lblXClearance.TabIndex = 5;
+            this.lblXClearance.Text = "X Clearance";
+            this.lblXClearance.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // txtXClearance
+            //
+            this.txtXClearance.Location = new System.Drawing.Point(102, 34);
+            this.txtXClearance.Name = "txtXClearance";
+            this.txtXClearance.ReadOnly = true;
+            this.txtXClearance.Size = new System.Drawing.Size(80, 23);
+            this.txtXClearance.TabIndex = 6;
+            this.txtXClearance.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.txtXClearance.Click += new System.EventHandler(this.OnXClearanceClick);
+            //
+            // lblYOutDistance
+            //
+            this.lblYOutDistance.Location = new System.Drawing.Point(204, 34);
+            this.lblYOutDistance.Name = "lblYOutDistance";
+            this.lblYOutDistance.Size = new System.Drawing.Size(116, 22);
+            this.lblYOutDistance.TabIndex = 7;
+            this.lblYOutDistance.Text = "Y Out Distance";
+            this.lblYOutDistance.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
+            // txtYOutDistance
+            //
+            this.txtYOutDistance.Location = new System.Drawing.Point(326, 34);
+            this.txtYOutDistance.Name = "txtYOutDistance";
+            this.txtYOutDistance.ReadOnly = true;
+            this.txtYOutDistance.Size = new System.Drawing.Size(80, 23);
+            this.txtYOutDistance.TabIndex = 8;
+            this.txtYOutDistance.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.txtYOutDistance.Click += new System.EventHandler(this.OnYOutDistanceClick);
             // 
             // lblCurrent
             // 
@@ -171,7 +221,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.lblCurrent.Location = new System.Drawing.Point(574, 8);
             this.lblCurrent.Name = "lblCurrent";
             this.lblCurrent.Size = new System.Drawing.Size(177, 24);
-            this.lblCurrent.TabIndex = 5;
+            this.lblCurrent.TabIndex = 9;
             this.lblCurrent.Text = "Current X: -";
             this.lblCurrent.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 

@@ -36,6 +36,8 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class ColletCalibrationRecord
     {
+        private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
+
         [DataMember] public VisionFocusPickerSide Side { get; set; }
         [DataMember] public int ColletNo { get; set; }
         [DataMember] public double CenterPixelX { get; set; }
@@ -54,6 +56,15 @@ namespace QMC.CDT320.Calibration
         {
             Side = side;
             ColletNo = colletNo < 1 ? 1 : colletNo > 4 ? 4 : colletNo;
+            UpdatedAt = EnsureSerializableDateTime(UpdatedAt);
+        }
+
+        private static DateTime EnsureSerializableDateTime(DateTime value)
+        {
+            if (value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                return SafeUnsetDateTime;
+
+            return value;
         }
     }
 

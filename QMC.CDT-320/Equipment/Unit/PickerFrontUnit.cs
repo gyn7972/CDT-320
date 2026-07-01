@@ -114,6 +114,7 @@ namespace QMC.CDT320
         [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
         [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
         [DataMember] public double PickerYFacingXClearance { get; set; } = 300.0; // Front/Rear PickerX가 마주보는 위치에서 PickerY 동시 전진을 막기 위한 X축 최소 안전거리입니다.
+        [DataMember] public double PickerYOutDistance { get; set; } = 1.0; // PickerY가 Avoid/Home 안전 위치에서 이 거리 이상 벗어나면 전진 상태로 판단합니다.
         [DataMember] public PickerVisionCoordinateOffsets InputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // InputVisionX/StageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
@@ -136,6 +137,8 @@ namespace QMC.CDT320
                 ZoneX = new PickerZoneXSetup();
             if (PickerYFacingXClearance <= 0.0)
                 PickerYFacingXClearance = 150.0;
+            if (PickerYOutDistance <= 0.0)
+                PickerYOutDistance = 1.0;
 
             InputVisionToPicker.EnsureArrays();
             OutputVisionToPicker.EnsureArrays();

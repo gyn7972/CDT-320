@@ -633,7 +633,18 @@ namespace QMC.CDT320
             {
                 double targetX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
                 if (!IsInputStageWorkPointInArea(targetX, target, out reason))
+                {
+                    if (IsNeedleZInHomeOrSafePosition())
+                        return true;
+
+                    reason = "InputStageY 원형 작업영역 밖 이동 전 NeedleZ가 반드시 Home 또는 Avoid 위치에 있어야 합니다. " +
+                        reason +
+                        ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
+                        ", needleZHome=0.000" +
+                        ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
+                        ", tolerance=" + ResolveNeedleZInPositionTolerance().ToString("F3");
                     return false;
+                }
 
                 if (!IsNeedleZInSafePosition())
                 {
@@ -729,21 +740,37 @@ namespace QMC.CDT320
             if (axis == WaferStageAxis.WaferY)
             {
                 double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
-                double stageYTarget;
-                if (!TryResolveCircularJogTarget(
-                    motionAxis.ActualPosition,
-                    visionX,
-                    ResolveWorkAreaCenterY(),
-                    ResolveWorkAreaCenterX(),
-                    ResolveWorkAreaRadius(),
-                    direction,
-                    "InputStage work area",
-                    out stageYTarget,
-                    out reason))
+                double stageYActual = motionAxis.ActualPosition;
+                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                    ? motionAxis.Setup.SoftLimitPlus
+                    : motionAxis.Setup.SoftLimitMinus);
+                if (!VerifyJogDirectionTarget(axis, direction, target, out reason))
                     return false;
 
-                target = ClampToSoftLimit(motionAxis, stageYTarget);
-                return VerifyResolvedJogTarget(axis, direction, target, out reason);
+                string currentAreaReason;
+                string targetAreaReason;
+                bool currentPointInArea = IsInputStageWorkPointInArea(visionX, stageYActual, out currentAreaReason);
+                bool targetPointInArea = IsInputStageWorkPointInArea(visionX, target, out targetAreaReason);
+                if ((!currentPointInArea || !targetPointInArea) &&
+                    !IsNeedleZInHomeOrSafePosition())
+                {
+                    reason = "InputStageY 원형 작업영역 밖 조그 전 NeedleZ가 반드시 Home 또는 Avoid 위치에 있어야 합니다. " +
+                        "currentInArea=" + (currentPointInArea ? "Y" : "N") +
+                        ", targetInArea=" + (targetPointInArea ? "Y" : "N") +
+                        ", currentReason=" + currentAreaReason +
+                        ", targetReason=" + targetAreaReason +
+                        ", targetY=" + target.ToString("F3") +
+                        ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
+                        ", needleZHome=0.000" +
+                        ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
+                        ", tolerance=" + ResolveNeedleZInPositionTolerance().ToString("F3");
+                    return false;
+                }
+
+                if (!targetPointInArea)
+                    return true;
+
+                return IsInputStageAxisTargetAllowedInWorkArea(axis, target, out reason);
             }
 
             if (axis == WaferStageAxis.NeedleX)
@@ -893,6 +920,67 @@ namespace QMC.CDT320
                 return false;
             }
 
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool TryResolveWaferYContinuousJogTarget(
+            double stageYActual,
+            double visionXActual,
+            double stageYCenter,
+            double visionXCenter,
+            double radius,
+            Direction direction,
+            out double target,
+            out bool visionXOutsideCircularBand,
+            out string reason)
+        {
+            visionXOutsideCircularBand = false;
+            if (TryResolveCircularJogTarget(
+                stageYActual,
+                visionXActual,
+                stageYCenter,
+                visionXCenter,
+                radius,
+                direction,
+                "InputStage work area",
+                out target,
+                out reason))
+            {
+                return true;
+            }
+
+            double xDelta = visionXActual - visionXCenter;
+            if (radius <= 0.0 || Math.Abs(xDelta) <= radius)
+                return false;
+
+            visionXOutsideCircularBand = true;
+            double tolerance = 0.0001;
+            if (Math.Abs(stageYActual - stageYCenter) <= tolerance)
+            {
+                reason = "InputStageY가 이미 복귀 기준 위치입니다. y=" + stageYActual.ToString("F3") +
+                    ", centerY=" + stageYCenter.ToString("F3") +
+                    ", visionX=" + visionXActual.ToString("F3") +
+                    ", centerX=" + visionXCenter.ToString("F3") +
+                    ", radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            bool towardCenter = direction == Direction.Plus
+                ? stageYCenter > stageYActual
+                : stageYCenter < stageYActual;
+            if (!towardCenter)
+            {
+                reason = "InputStageY 조그 방향이 복귀 방향이 아닙니다. y=" + stageYActual.ToString("F3") +
+                    ", centerY=" + stageYCenter.ToString("F3") +
+                    ", direction=" + direction +
+                    ", visionX=" + visionXActual.ToString("F3") +
+                    ", centerX=" + visionXCenter.ToString("F3") +
+                    ", radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            target = stageYCenter;
             reason = string.Empty;
             return true;
         }
@@ -1534,6 +1622,15 @@ namespace QMC.CDT320
                 return -1;
             }
 
+            if (axis == WaferStageAxis.VisionX)
+            {
+                // VisionX continuous jog must be judged by current clearance and moving direction.
+                // Do not dispatch it as an ABS move to the soft limit; that over-blocks normal jog.
+                StartContinuousJogVelocity(item, dir, speed);
+                LastStageMoveFailureMessage = string.Empty;
+                return 0;
+            }
+
             StartBoundedJogMoveAsync(item, target, speed);
             LastStageMoveFailureMessage = string.Empty;
             return 0;
@@ -1546,12 +1643,9 @@ namespace QMC.CDT320
                 if (axis == null)
                     return;
 
-                double guardTarget = axis.Setup != null
-                    ? (direction == Direction.Plus ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus)
-                    : axis.ActualPosition;
-
-                using (MotionGuardRuntime.BeginAxisTeachingMove(axis, guardTarget, ContinuousJogTargetName))
-                    axis.MoveJogContinuous((int)direction, JogSpeedType.Custom, speed);
+                // Continuous jog has no fixed teaching target. SharedRailX must judge it by
+                // current clearance + jog direction and then monitor clearance while moving.
+                axis.MoveJogContinuous((int)direction, JogSpeedType.Custom, speed);
             }
             catch (Exception ex)
             {

@@ -24,3 +24,25 @@ DLL 갱신(알고리즘 .cu 수정 시)
   2. docs\Collet Finder\ColletFinderCuda\ColletFinderCuda.dll
   3. docs\Collet Finder\ColletFinderCuda\x64\$(Configuration)\ColletFinderCuda.dll
   4. docs\Collet Finder\ColletFinder\bin\$(Configuration)\ColletFinderCuda.dll
+
+
+통합 CUDA DLL (권장) — 모든 알고리즘 GPU 경로를 한 번에
+========================================================
+native\build_all.bat 를 실행하면 src\*.cu 를 한 번 컴파일해
+아래 3개 이름으로 이 폴더(NativeDeps\)에 자동 배포한다(내용 동일, 모든 export 포함):
+
+  MakePixelShiftImage.dll   ← CudaInterop  : 디바이스 메모리/측면 라인/Black-Hat 모폴로지/다이 4변 에지
+  ColletFinderCuda.dll      ← StdDevFilter : 표준편차 텍스처 필터(콜렛/플랫콜렛)
+  AutoFocusCuda.dll         ← AutoFocus    : 초점 점수
+
+각 DLL 은 csproj 의 Copy 타깃(CopyColletFinderCuda / CopyVisionInspectorNativeDeps /
+CopyAutoFocusCuda)이 빌드 시 출력 폴더로 자동 복사한다.
+DLL 이 없으면 모든 알고리즘이 CPU 로 폴백한다(안전, 결과 동일·속도만 차이).
+
+CudaBackend.dll / MakePixelShiftImage.dll (레거시 개별 빌드)
+-----------------------------------------------------------
+VisionInspector\CudaBackend\, VisionInspector\MakePixelShiftImage\ 의 .cu 로 따로 빌드한
+구버전. 통합 DLL(QmcVisionCuda)로 대체 권장. 통합 DLL 이 동일 export 를 모두 포함하므로
+MakePixelShiftImage.dll 을 통합 DLL 로 덮어쓰면 측면 라인/모폴로지/다이 에지 GPU 가 활성화된다.
+(주의: 기존 NativeDeps\MakePixelShiftImage.dll 은 cf_morph_box_u8/FindTopBottomLineCandidates
+ export 가 없어 해당 경로가 조용히 CPU 로 폴백한다 — 통합 DLL 로 교체 필요.)

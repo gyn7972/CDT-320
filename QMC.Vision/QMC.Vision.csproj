@@ -603,4 +603,15 @@
     <Message Importance="high" Condition="'@(_VInsNativeDll)' != ''" Text="[VisionInspector] native dll → $(OutDir): @(_VInsNativeDll)" />
     <Message Importance="high" Condition="'@(_VInsNativeDll)' == ''" Text="[VisionInspector] MakePixelShiftImage.dll/CudaBackend.dll 없음 → CUDA 경로 비활성(레거시 폴백). QMC.Vision\NativeDeps\ 에 두면 자동 배포." />
   </Target>
+  <!-- AutoFocusCuda.dll(오토포커스 CUDA 백엔드, AutoFocusNativeCuda 가 P/Invoke)을 출력 폴더로 자동 복사.
+       native\QmcVisionCuda\build.bat 가 통합 DLL 을 이 이름으로 NativeDeps\ 에 배포한다.
+       없으면 AutoFocusCore 가 CPU 로 폴백(안전). -->
+  <Target Name="CopyAutoFocusCuda" AfterTargets="Build">
+    <ItemGroup>
+      <_AfCudaDll Include="$(ProjectDir)NativeDeps\AutoFocusCuda.dll" Condition="Exists('$(ProjectDir)NativeDeps\AutoFocusCuda.dll')" />
+    </ItemGroup>
+    <Copy Condition="'@(_AfCudaDll)' != ''" SourceFiles="@(_AfCudaDll)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Message Importance="high" Condition="'@(_AfCudaDll)' != ''" Text="[AutoFocus] AutoFocusCuda.dll → $(OutDir)" />
+    <Message Importance="high" Condition="'@(_AfCudaDll)' == ''" Text="[AutoFocus] AutoFocusCuda.dll 없음 → 오토포커스 CPU 폴백. native\QmcVisionCuda\build.bat 실행 시 NativeDeps\ 로 자동 배포." />
+  </Target>
 </Project>
