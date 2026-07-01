@@ -64,6 +64,10 @@ namespace QMC.CDT_320
             Application.ThreadException += (s, e) => HandleFatalException(e.Exception, "UI-THREAD");
             AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalException(e.ExceptionObject as Exception, "APP-DOMAIN");
 
+            // 기존에 쌓인 이벤트 로그의 메시지 종류를 번역 카탈로그에 1회 시드한다(백그라운드).
+            // 메시지편집 페이지가 과거 메시지까지 바로 보이도록 하되, UI 시작은 막지 않는다(마커로 1회만 실행).
+            QMC.Common.Logging.MessageCatalog.SeedFromLogsInBackground();
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());

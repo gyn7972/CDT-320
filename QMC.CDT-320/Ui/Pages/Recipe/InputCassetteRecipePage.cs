@@ -385,7 +385,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit.InputLifterZ != null && !_InputCassetteUnit.InputLifterZ.IsHomeDone)
                 {
                     string homeMsg = actionName + " 불가: Input Lifter Z 축 HOME END(원점복귀)가 완료되지 않았습니다.";
-                    EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", homeMsg);
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "INPUT-CASSETTE", "UI", homeMsg);
                     QMC.Common.MessageDialog.Show(this, homeMsg, actionName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }

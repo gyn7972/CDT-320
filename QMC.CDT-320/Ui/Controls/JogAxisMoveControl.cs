@@ -2476,7 +2476,7 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     string homeEndMsg = (item.AxisName ?? "Axis") +
                         " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";
-                    EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", homeEndMsg);
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "JOG-AXIS", "UI", homeEndMsg);
                     QMC.Common.MessageDialog.Show(this, homeEndMsg, "Jog Axis",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;

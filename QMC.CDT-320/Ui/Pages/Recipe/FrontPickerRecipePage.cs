@@ -597,8 +597,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private int AbortSeq(string title, string message)
         {
-            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
-            EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", title + " 시퀀스 중단: " + message);
+            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "FRONT-PICKER", "UI", title + " 시퀀스 중단: " + message);
             lastAbortReason = message;
             return -1;
         }

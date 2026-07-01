@@ -219,7 +219,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (string.IsNullOrEmpty(message)) message = "I/O write failed.";
             lblStatus.Text = message;
-            EventLogger.Write(EventKind.Alarm, "QMC", "IO-DO", message);
+            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "IO-DO", "QMC", message);
             QMC.Common.MessageDialog.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 

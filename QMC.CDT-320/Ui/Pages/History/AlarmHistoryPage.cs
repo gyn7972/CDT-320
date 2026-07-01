@@ -15,10 +15,19 @@ namespace QMC.CDT_320.Ui.Pages.History
         private const int MaxLiveFlushRows = 50;
         private const int MaxPendingLiveRows = 500;
 
+        // 첫 컬럼(시간) = 행 전체 선택 트리거. 컬럼 순서: [0]시간, Severity, Code, Source, [4]Message, [5]Cause, [6]Action.
+        private const int RowSelectColumnIndex = 0;
+
+        // 긴 텍스트 컬럼(Message/Cause/Action) 시작 인덱스. 이 이상 컬럼을 더블클릭하면 전체 내용을 큰 창으로 보여준다.
+        private const int LongTextColumnStart = 4;
+
         private readonly object _pendingAlarmRowsLock = new object();
         private readonly Queue<AlarmRecord> _pendingAlarmRows = new Queue<AlarmRecord>();
         private readonly Timer _liveFlushTimer = new Timer();
         private bool _alarmEventSubscribed;
+
+        // 첫 컬럼(시간)은 행 헤더처럼 동작한다. Shift 범위 선택의 기준이 되는 직전 클릭 행(-1 이면 없음).
+        private int _lastRowClicked = -1;
 
         public AlarmHistoryPage()
         {
@@ -41,6 +50,65 @@ namespace QMC.CDT_320.Ui.Pages.History
             btnClear.Click += (s, e) => { AlarmManager.ClearAll(); LoadGrid(); };
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
             _liveFlushTimer.Tick += (s, e) => FlushPendingAlarmRows();
+            // 행 헤더가 숨겨져 있으므로 첫 컬럼(시간)을 행 헤더처럼 써서 행 전체를 선택한다.
+            _grid.CellClick += Grid_CellClick;
+            // Message/Cause/Action 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
+            _grid.CellDoubleClick += Grid_CellDoubleClick;
+        }
+
+        // 긴 텍스트 컬럼(Message/Cause/Action)을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
+        private void Grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex < LongTextColumnStart) return;
+
+                string text = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value as string ?? string.Empty;
+                if (text.Length == 0) return;
+
+                string title = _grid.Columns[e.ColumnIndex].HeaderText;
+                if (string.IsNullOrEmpty(title)) title = "DESCRIPTION";
+
+                using (var dlg = new Ui.Dialogs.TextViewerDialog(title, text, false))
+                    dlg.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // 첫 컬럼(시간)을 행 헤더처럼 다뤄 행 전체를 선택한다. 다른 컬럼은 기본 셀 단위 선택을 유지한다.
+        // 일반 클릭=단일 행, Ctrl+클릭=행 토글(다중), Shift+클릭=직전 클릭 행부터 범위 선택.
+        private void Grid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex != RowSelectColumnIndex)
+                return;
+
+            Keys mod = Control.ModifierKeys;
+
+            if ((mod & Keys.Control) == Keys.Control)
+            {
+                // Ctrl+클릭: 해당 행 선택을 토글하고 기존 선택은 유지한다.
+                _grid.Rows[e.RowIndex].Selected = !_grid.Rows[e.RowIndex].Selected;
+            }
+            else if ((mod & Keys.Shift) == Keys.Shift && _lastRowClicked >= 0)
+            {
+                // Shift+클릭: 직전 클릭 행부터 현재 행까지 범위 선택.
+                _grid.ClearSelection();
+                int from = Math.Min(_lastRowClicked, e.RowIndex);
+                int to   = Math.Max(_lastRowClicked, e.RowIndex);
+                for (int i = from; i <= to && i < _grid.Rows.Count; i++)
+                    _grid.Rows[i].Selected = true;
+            }
+            else
+            {
+                // 일반 클릭: 그 행만 선택한다.
+                _grid.ClearSelection();
+                _grid.Rows[e.RowIndex].Selected = true;
+            }
+
+            _lastRowClicked = e.RowIndex;
         }
 
         // 전체 재생성 — 초기 로드 / 필터 변경 / Clear 같은 사용자 액션에서만 호출한다.
@@ -80,8 +148,8 @@ namespace QMC.CDT_320.Ui.Pages.History
         private bool PassesFilter(AlarmRecord a)
         {
             if (a == null) return false;
-            // 로딩 부하를 줄이기 위해 현재시간 기준 최근 1시간 이내만 표시.
-            if (a.Raised < DateTime.Now.AddHours(-1)) return false;
+            // 오늘 발생한 알람만 표시한다(재시작 후 오늘자 복원 이력도 함께 보이도록). 개수는 MaxRows 로 제한.
+            if (a.Raised.Date != DateTime.Today) return false;
             string sev = _cbSeverity?.SelectedItem?.ToString() ?? "(All)";
             if (sev != "(All)" && a.Severity.ToString() != sev) return false;
 
@@ -115,6 +183,20 @@ namespace QMC.CDT_320.Ui.Pages.History
                 cause,
                 action);
             row.Tag = a.Id; // 행 ↔ 알람 식별 (후속 상태 표시용)
+
+            // 활성/해제 시각 구분: 해제된 알람은 흐리게(회색), 활성은 심각도에 따라 강조.
+            // (복원된 이전 세션 이력도 이 규칙으로 활성/해제가 구분되어 보인다.)
+            if (a.Cleared.HasValue)
+            {
+                row.DefaultCellStyle.ForeColor = System.Drawing.Color.Gray;
+            }
+            else
+            {
+                row.DefaultCellStyle.ForeColor = a.Severity >= AlarmSeverity.Critical
+                    ? System.Drawing.Color.FromArgb(192, 57, 43)    // 치명적 — 레드
+                    : System.Drawing.Color.FromArgb(44, 62, 80);    // 활성 — 진한 남색
+            }
+
             return row;
         }
 
@@ -250,6 +332,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             if (ShouldRefreshVisible(this))
             {
+                // 페이지는 캐시되어 재사용되므로, 다시 보일 때마다 AlarmManager.History 를 재로드한다.
+                // 재로드하지 않으면 페이지가 숨겨진 동안 발생한 알람(라이브 큐는 숨김 시 비워짐)이 누락된다.
+                LoadGrid();
                 SubscribeAlarmEvents();
                 if (!_liveFlushTimer.Enabled)
                     _liveFlushTimer.Start();
