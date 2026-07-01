@@ -23,6 +23,7 @@ namespace QMC.Vision.Ui.Controls
         public InspectionViewerControl()
         {
             InitializeComponent();
+            WireMapInteractions();
             SetMode(InspectionMode.Bottom);
         }
 
@@ -161,27 +162,40 @@ namespace QMC.Vision.Ui.Controls
         {
             base.OnHandleCreated(e);
             InspectionResultStore.Changed += OnStoreChanged;
+            if (_refreshTimer == null)
+            {
+                _refreshTimer = new System.Windows.Forms.Timer { Interval = 120 };   // ~8Hz 코얼레싱
+                _refreshTimer.Tick += RefreshTimer_Tick;
+            }
+            _refreshTimer.Start();
         }
         protected override void OnHandleDestroyed(EventArgs e)
         {
             InspectionResultStore.Changed -= OnStoreChanged;
+            _refreshTimer?.Stop();
             base.OnHandleDestroyed(e);
         }
 
-        private volatile bool _refreshPending;   // 갱신 합치기(8샷/사이클의 Changed 폭주 → 1회)
+        // 갱신 코얼레싱 — Changed(샷/다이마다 폭주)를 타이머로 모아 최대 ~8Hz 로만 전체 재구축한다.
+        private volatile bool _storeDirty;
+        private System.Windows.Forms.Timer _refreshTimer;
         private readonly InspectionResultStore.Item[,] _boundCh = new InspectionResultStore.Item[5, 4];  // 픽커×채널 직전 바인딩(중복 생략)
 
         private void OnStoreChanged(string mode)
         {
             if (IsDisposed || !string.Equals(mode, ModeKey(), StringComparison.OrdinalIgnoreCase)) return;
-            if (_refreshPending) return;          // 이미 갱신 예약됨 → 폭주 흡수(완성 상태로 1회만)
-            _refreshPending = true;
-            try
+            _storeDirty = true;   // 실제 재구축은 _refreshTimer 가 모아서 1회 수행(UI 스레드)
+        }
+
+        private void RefreshTimer_Tick(object sender, EventArgs e)
+        {
+            if (IsDisposed || !_storeDirty) return;
+            _storeDirty = false;
+            try { RefreshFromStore(); }
+            catch (Exception ex)
             {
-                if (InvokeRequired) BeginInvoke((Action)(() => { _refreshPending = false; RefreshFromStore(); }));
-                else { _refreshPending = false; RefreshFromStore(); }
+                System.Diagnostics.Debug.WriteLine("[InspectionViewerControl] RefreshTimer_Tick 실패: " + ex.Message);
             }
-            catch { _refreshPending = false; }
         }
 
         /// <summary>스토어 실데이터로 Picker(단일)·차트·그리드 갱신. 데이터 없으면 샘플 유지.</summary>
@@ -231,6 +245,9 @@ namespace QMC.Vision.Ui.Controls
                 SampleData.Series(Mode, 1, out up, out lo, out title, out col); ApplyChartLimits(1, ref up, ref lo);
                 if (vb.Length > 0) _chart2.SetData(DispSeries(vb), up, lo, UnitTitle(title), col);
 
+                var asmS = _grid.AutoSizeColumnsMode;
+                _grid.SuspendLayout();
+                _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
                 _grid.Rows.Clear();
                 foreach (var d in dies)
                 {
@@ -247,6 +264,8 @@ namespace QMC.Vision.Ui.Controls
                     }
                     _grid.Rows.Add(row);
                 }
+                _grid.AutoSizeColumnsMode = asmS;
+                _grid.ResumeLayout();
                 return;
             }
 
@@ -261,6 +280,9 @@ namespace QMC.Vision.Ui.Controls
                 if (v2.Length > 0) _chart2.SetData(DispSeries(v2), up, lo, UnitTitle(title), col);
             }
 
+            var asmB = _grid.AutoSizeColumnsMode;
+            _grid.SuspendLayout();
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _grid.Rows.Clear();
             foreach (var it in hist)
             {
@@ -275,6 +297,8 @@ namespace QMC.Vision.Ui.Controls
                 }
                 _grid.Rows.Add(row);
             }
+            _grid.AutoSizeColumnsMode = asmB;
+            _grid.ResumeLayout();
 
             BuildPositionMaps(Mode);   // 위치별 4-맵 갱신(Bottom/Side/Bin)
         }
@@ -560,6 +584,101 @@ namespace QMC.Vision.Ui.Controls
             if (mode == InspectionResultStore.Side) return new SideAppearanceInspector("manual");
             if (mode == InspectionResultStore.Bin)  return new PlacementGapInspector("manual");
             return new BottomInspector("manual");
+        }
+
+        // ── Map 상호작용(셀 클릭→표 행 선택, 호버→툴팁) ──
+        // 4-맵 스트립에서 셀 클릭 시 해당 Die(Index X/Y)의 결과 표 행을 선택·스크롤하고,
+        // 호버 셀에는 표(SSOT)의 값으로 Die 번호+측정값 툴팁을 띄운다.
+        private void WireMapInteractions()
+        {
+            try
+            {
+                if (_waferMap == null) return;
+                _waferMap.CellClicked += Map_CellClicked;
+                _waferMap.SelectionChanged += Map_SelectionChanged;
+                _waferMap.SetCellInfoProvider(BuildCellInfo);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[InspectionViewerControl] WireMapInteractions 실패: " + ex.Message);
+            }
+        }
+
+        private void Map_CellClicked(int indexX, int indexY)
+        {
+            try
+            {
+                var row = FindDieRow(indexX, indexY);
+                if (row == null) return;
+                _grid.ClearSelection();
+                row.Selected = true;
+                if (_grid.Columns.Count > 0) _grid.CurrentCell = row.Cells[0];
+                if (row.Index >= 0 && row.Index < _grid.RowCount)
+                    _grid.FirstDisplayedScrollingRowIndex = row.Index;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[InspectionViewerControl] Map_CellClicked 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>맵 선택 해제((-1,-1)) 시 결과 표 선택도 함께 해제.</summary>
+        private void Map_SelectionChanged(int col, int row)
+        {
+            try { if (col < 0 || row < 0) _grid.ClearSelection(); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[InspectionViewerControl] Map_SelectionChanged 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>호버 셀(Index X/Y)의 툴팁 텍스트 — 결과 표 행에서 Die 번호+각 지표 값을 구성.</summary>
+        private string BuildCellInfo(int indexX, int indexY)
+        {
+            try
+            {
+                var row = FindDieRow(indexX, indexY);
+                if (row == null) return null;
+                var sb = new System.Text.StringBuilder();
+                sb.Append("Die  X=").Append(indexX).Append(", Y=").Append(indexY);
+                for (int c = 0; c < _grid.Columns.Count; c++)
+                {
+                    string h = _grid.Columns[c].HeaderText;
+                    if (h == "Index X" || h == "Index Y") continue;
+                    string val = row.Cells[c].Value == null ? null : row.Cells[c].Value.ToString();
+                    if (string.IsNullOrEmpty(val)) continue;
+                    sb.Append('\n').Append(h).Append(": ").Append(val);
+                }
+                return sb.ToString();
+            }
+            catch { return null; }
+        }
+
+        /// <summary>결과 표에서 Index X/Y 가 일치하는 행을 찾는다(없으면 null).</summary>
+        private DataGridViewRow FindDieRow(int indexX, int indexY)
+        {
+            if (_grid == null) return null;
+            int cx = ColIndex("Index X"), cy = ColIndex("Index Y");
+            if (cx < 0 || cy < 0) return null;
+            foreach (DataGridViewRow row in _grid.Rows)
+            {
+                if (row.IsNewRow) continue;
+                if (ParseInt(row.Cells[cx].Value) == indexX && ParseInt(row.Cells[cy].Value) == indexY)
+                    return row;
+            }
+            return null;
+        }
+
+        private int ColIndex(string header)
+        {
+            for (int c = 0; c < _grid.Columns.Count; c++)
+                if (string.Equals(_grid.Columns[c].HeaderText, header, StringComparison.Ordinal)) return c;
+            return -1;
+        }
+
+        private static int ParseInt(object v)
+        {
+            return v != null && int.TryParse(v.ToString().Trim(), out int n) ? n : int.MinValue;
         }
 
         private void BuildGridColumns(params string[] headers)

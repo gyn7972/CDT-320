@@ -105,7 +105,7 @@ namespace QMC.Vision.Ui.Pages
         private void OnImageReady(Bitmap img)
         {
             if (img == null) return;
-            if (_cam != null) _cam.InfoText = "STAGE\r\nW:" + img.Width + " H:" + img.Height;
+            if (_cam != null) _cam.InfoText = CamName() + "\r\nW:" + img.Width + " H:" + img.Height;
             bool changed = FitDefaultRoiToImage(img);
             if (_cam != null) { _cam.CustomOverlayPaint = null; _cam.SetOverlay(_inspector?.InspectionRoi, null); }   // 새 이미지 → 이전 검출 오버레이 제거
             _params?.RefreshValues();
@@ -464,6 +464,7 @@ namespace QMC.Vision.Ui.Pages
                 _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 inspector 주입
                 _params.RefreshValues();
                 RefreshOverlay();
+                RefreshStageInfo();             // 그랩 전에도 STAGE 를 실제(저장 이미지) 해상도로 표시
                 _dirty = false;                 // 저장본으로 되돌렸으므로 변경상태 해제
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -475,6 +476,50 @@ namespace QMC.Vision.Ui.Pages
         private Bitmap _loadedImage;
         // 페이지 자체 Grab/Load 외에, 툴바 Grab/Live 로 CameraView 가 표시 중인 실제 프레임도 사용.
         private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage ?? _cam?.CurrentFrame;
+
+        /// <summary>페이지 열 때(그랩 전)에도 STAGE 표시를 실제 이미지 해상도로 세팅 — 레시피 저장 이미지 크기를
+        /// 헤더만 읽어 반영(전체 그랩/로드 없이 해상도만). 구하지 못하면 기존 표시 유지.</summary>
+        /// <summary>이 카메라(모듈) 표시명 — 라벨 "STAGE" 대체. 모듈명이 없으면 "CAMERA".</summary>
+        private string CamName()
+        {
+            string n = _module?.Name;
+            return string.IsNullOrWhiteSpace(n) ? "CAMERA" : n;
+        }
+
+        private void RefreshStageInfo()
+        {
+            try
+            {
+                if (_cam == null) return;
+                var sz = EffectiveImageSize();
+                string head = CamName();
+                _cam.InfoText = sz.HasValue ? head + "\r\nW:" + sz.Value.Width + " H:" + sz.Value.Height : head;
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[InspectorTargetPage] RefreshStageInfo: " + ex.Message); }
+        }
+
+        /// <summary>현재 유효 이미지 크기 — 이미 표시 중 프레임 우선, 없으면 이 도구의 저장 이미지(경로) 헤더에서.</summary>
+        private System.Drawing.Size? EffectiveImageSize()
+        {
+            var cur = CurrentImage;
+            if (cur != null) return new System.Drawing.Size(cur.Width, cur.Height);
+            string p = (_node?.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath;
+            return ReadImageSize(p);
+        }
+
+        /// <summary>이미지 파일의 크기만 읽는다(픽셀 전체 디코드 없이 헤더). 실패/미존재면 null.</summary>
+        private static System.Drawing.Size? ReadImageSize(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                using (var img = System.Drawing.Image.FromStream(fs, false, false))
+                    return new System.Drawing.Size(img.Width, img.Height);
+            }
+            catch { return null; }
+        }
+
 
         private void OnGrabClick(object sender, EventArgs e) => DoGrab();
         private void OnInspectClick(object sender, EventArgs e) => DoInspect();
