@@ -44,18 +44,30 @@ QMC.Vision/Equipment/Core/
   DLL 부재(`DllNotFoundException`) 또는 익스포트 부재(`EntryPointNotFoundException`) 시 한 번 실패하면
   이후 그 기능은 CPU 로 고정 → 반복 예외 없음.
 
-### 알고리즘별 CUDA 상태
+### 알고리즘별 CUDA 상태 (2026-06-30 갱신 — 통합 DLL + 후크 일원화)
 
-| 알고리즘 | 위치 | CUDA 경로 | 폴백(CPU) | 필요한 네이티브 export |
+> **권장 배포**: `native\build_all.bat` 로 통합 DLL(`QmcVisionCuda.dll`)을 빌드하면
+> 아래 모든 export 가 들어간 DLL 1개가 나온다. build.bat 가 그것을 3개 이름
+> (`MakePixelShiftImage.dll` / `ColletFinderCuda.dll` / `AutoFocusCuda.dll`)으로
+> `QMC.Vision\NativeDeps\` 에 배포 → csproj Copy 타깃이 출력 폴더로 자동 복사.
+
+| 알고리즘 | 위치 | C# 후크 | 폴백(CPU) | 네이티브 export |
 |---|---|---|---|---|
-| 이물(Black-Hat 모폴로지) | `ContaminationDetector` (Bottom+Side 공용) | ✅ 연결됨 | 분리형 O(w·h) | `cf_morph_box_u8` |
-| 측면 라인 검출 | `SideChippingCore.FindTopBottom` | ✅ 연결됨(기존) | 310 FindLine 교차 | `FindTopBottomLineCandidates` (보유) |
-| Bottom 다이 4변 검출 | `BottomInspector.FindDie` | ⬜ 후보 | 교차검출(현행) | 상/하=`FindTopBottomLineCandidates`, 좌/우=`cf_find_left_right_candidates`(신규 필요) |
-| 배치/갭 | `PlacementGapInspector` | ⬜ 후보 | 현행 CPU | `cf_edge_scan`(신규) |
-| 오토포커스 메트릭 | `AutoFocusCore` | ⬜ 후보 | 현행 CPU | `cf_focus_metric`(신규) |
+| 이물(Black-Hat 모폴로지) | `ContaminationDetector` (Bottom+Side 공용) | ✅ 연결됨 | 분리형 O(w·h) | `cf_morph_box_u8` ✅통합DLL |
+| 측면 라인 검출 | `SideChippingCore.GetLineCandidates` | ✅ 연결됨 | 310 FindLine 교차 | `FindTopBottomLineCandidates` ✅통합DLL |
+| **Bottom 다이 4변 검출** | `BottomInspector.FindDie` | ✅ **이번 연결** | Parallel.For 교차 | `cf_find_die_edges` ✅통합DLL(신규) |
+| 표준편차 필터(콜렛/플랫콜렛) | `Collet.StdDevFilter` / `FlatColletFinder` | ✅ 연결됨 | SAT 멀티스레드 | `cf_stddev_filter_cuda` ✅통합DLL |
+| 오토포커스 점수 | `AutoFocusCore.ScoreGray` | ✅ 연결됨 | 8-이웃 라플라시안 | `af_focus_score_cuda` ✅통합DLL |
+| 배치/갭 | `PlacementGapInspector` | ⬜ CPU 유지(설계) | 현행 CPU | 소형 ROI·순차집계라 GPU 이득 낮음 |
+| 정렬각 추정 | `AlignAngleEstimator` | ⬜ CPU 유지(설계) | 현행 CPU | 소형·저비용 |
 
-✅ = 이번에 연결(장비 PC DLL 이 해당 export 보유 시 자동 GPU).
-⬜ = C# 폴백은 동작, GPU 로 올리려면 아래 export 를 DLL 에 추가하면 자동 연결되도록 후크만 추가하면 됨.
+✅ = C# 후크 연결 완료(통합 DLL export 존재 시 자동 GPU, 없으면 CPU).
+⬜ = 의도적 CPU 유지(ROI 가 작아 H2D 전송비용 > 연산이득). 필요 시 동일 패턴으로 후크 추가 가능.
+
+> ⚠️ **중요(현황)**: 기존 `NativeDeps\MakePixelShiftImage.dll` 은
+> `cf_morph_box_u8` / `FindTopBottomLineCandidates` / `cf_find_die_edges` export 가 **없어서**
+> 이물·측면라인·Bottom 다이 경로가 그동안 **조용히 CPU 로 폴백**해 왔다(실제 GPU 는 콜렛뿐).
+> 통합 DLL 로 교체해야 위 경로가 실제 GPU 로 동작한다.
 
 ---
 

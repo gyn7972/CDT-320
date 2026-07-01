@@ -35,8 +35,14 @@ namespace QMC.Vision.Core
         [DllImport(DLL, CallingConvention = CallingConvention.Cdecl)]
         private static extern int cf_morph_box_u8(byte[] src, byte[] dst, int width, int height, int radius, int isMax);
 
+        /// <summary>다이 4변 에지 후보(상/하=열당 int[w], 좌/우=행당 int[h]). 2픽셀 확인 교차, 없으면 -1. 성공 0.</summary>
+        [DllImport(DLL, CallingConvention = CallingConvention.Cdecl)]
+        private static extern int cf_find_die_edges(byte[] gray, int w, int h, int thr,
+                                                    int[] topE, int[] botE, int[] leftE, int[] rightE);
+
         private static int _avail = -1;   // -1=미확인, 0=불가, 1=가능
         private static int _morph = -1;   // 박스 모폴로지 익스포트 가용성(기능별 캐시)
+        private static int _dieEdges = -1; // 다이 4변 에지 익스포트 가용성(기능별 캐시)
         private static string _devName;   // 1회 조회 캐시
         private static readonly object _lock = new object();
 
@@ -154,6 +160,27 @@ namespace QMC.Vision.Core
                 _morph = 1; dst = o; return true;
             }
             catch { _morph = 0; return false; }   // EntryPointNotFound/런타임 실패 → 이후 CPU 고정
+        }
+
+        /// <summary>
+        /// 다이 4변 에지 후보 GPU 시도(BottomInspector.FindDie 동등). 성공 시 true + 4개 배열
+        /// (topE/botE 길이 w, leftE/rightE 길이 h, 각 -1=없음), 미가용/실패 시 false(호출측 CPU 폴백).
+        /// 교차정의는 CPU 와 동일(2픽셀 확인). 결과는 CPU 와 픽셀 단위 동일해야 한다.
+        /// </summary>
+        public static bool TryFindDieEdges(byte[] gray, int w, int h, int thr,
+                                           out int[] topE, out int[] botE, out int[] leftE, out int[] rightE)
+        {
+            topE = null; botE = null; leftE = null; rightE = null;
+            if (_dieEdges == 0 || gray == null || w <= 2 || h <= 2 || !Available) return false;
+            try
+            {
+                var tE = new int[w]; var bE = new int[w];
+                var lE = new int[h]; var rE = new int[h];
+                int st = cf_find_die_edges(gray, w, h, thr, tE, bE, lE, rE);
+                if (st != 0) return false;
+                _dieEdges = 1; topE = tE; botE = bE; leftE = lE; rightE = rE; return true;
+            }
+            catch { _dieEdges = 0; return false; }   // EntryPointNotFound/런타임 실패 → 이후 CPU 고정
         }
     }
 }
