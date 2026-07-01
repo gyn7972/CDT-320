@@ -221,7 +221,11 @@ namespace QMC.Vision
             try
             {
                 var cfg = QMC.Vision.Config.VisionConfigStore.Current ?? QMC.Vision.Config.VisionConfigStore.Load();
-                lblStatusL.Text = $"● READY   |   Recipe: {_statusRecipe}   |   Backend: {Backend?.Name}   |   TCP: W={cfg.WaferVisionPort} B={cfg.BinVisionPort} Bot={cfg.InspectionVisionPort}   |   {_resMon.ShortText()}";
+                // 실상태 표시 — RUN/STOP(핸들러 접속 시 자동 RUN), READY ON/OFF(ON=핸들러 통신 가능), 모드.
+                string runTok  = IsRunActive ? "▶ RUN" : "■ STOP";
+                string rdyTok  = IsReady ? "READY ON" : "READY OFF";
+                string modeTok = IsSelfRunMode ? "시뮬 모드" : (IsHandlerConnected ? "핸들러 연결" : "핸들러 대기");
+                lblStatusL.Text = $"{runTok}   |   {rdyTok}   |   {modeTok}   |   Recipe: {_statusRecipe}   |   Backend: {Backend?.Name}   |   TCP: W={cfg.WaferVisionPort} B={cfg.BinVisionPort} Bot={cfg.InspectionVisionPort}   |   {_resMon.ShortText()}";
             }
             catch { }
         }
@@ -491,7 +495,8 @@ namespace QMC.Vision
             // READY 게이트 — READY(작업자 승인 + RUN 활성) 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
             foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrFrontSideVision, _svrRearSideVision })
             {
-                s.IsCommandAllowed = () => IsReady;
+                // READY(핸들러용) 또는 자체 TCP 루프백 구동 중이면 명령 수락(후자는 핸들러/READY 없이 자기 명령 허용).
+                s.IsCommandAllowed = () => IsReady || QMC.Vision.Sequencing.VisionSelfRunTcpState.Active;
                 s.Log += QMC.Vision.Comm.VisionCommLog.Add;
             }
             try { _svrWafer            .Start(); } catch { }

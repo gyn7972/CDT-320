@@ -222,10 +222,10 @@ namespace QMC.Vision.Ui.Pages
             // 로드 시 Setup/Recipe POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
-                items.Add(ParameterGridItem.Bool("시뮬 저장이미지 사용", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.Bool("저장 이미지 사용 (이 도구 전용·모듈보다 우선)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
-                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
@@ -537,7 +537,7 @@ namespace QMC.Vision.Ui.Pages
         private void WireRoiPad()
         {
             _roiPad.MoveRequested     += Nudge;
-            _roiPad.ResizeRequested   += Resize;
+            _roiPad.ResizeRequested   += ResizeRoi;
             _roiPad.RecenterRequested += Recenter;
             _roiPad.FullSizeRequested += FullSizeRoi;
             SetTarget(_roiTrainTarget);
@@ -577,7 +577,7 @@ namespace QMC.Vision.Ui.Pages
             r.CenterX += dx * _moveStepPx; r.CenterY += dy * _moveStepPx;
             AfterRoiChange();
         }
-        private void Resize(int dw, int dh)
+        private void ResizeRoi(int dw, int dh)
         {
             var r = ActiveRoi(); if (r == null) return;
             r.Width  = System.Math.Max(4.0, r.Width  + dw * _sizeStepPx);

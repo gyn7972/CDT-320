@@ -459,9 +459,9 @@ namespace QMC.Vision.Ui.Pages
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
 
                 // 모듈 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 이 이미지를 그랩(테스트용)
-                ParameterGridItem.Bool("시뮬 이미지 사용(GRAB)", ParameterGridScope.Config,
+                ParameterGridItem.Bool("GRAB 소스: 저장 이미지 사용", ParameterGridScope.Config,
                     () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
-                ParameterGridItem.FilePath("시뮬 이미지 경로(GRAB)", ParameterGridScope.Config,
+                ParameterGridItem.FilePath("GRAB 저장 이미지 경로", ParameterGridScope.Config,
                     () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
             };

@@ -61,6 +61,8 @@
     <Compile Include="Sequencing\Common\SequenceStopException.cs" />
     <Compile Include="Sequencing\Common\IVisionCommandDispatcher.cs" />
     <Compile Include="Sequencing\Common\DirectVisionCommandDispatcher.cs" />
+    <Compile Include="Sequencing\Common\TcpLoopbackVisionCommandDispatcher.cs" />
+    <Compile Include="Sequencing\Common\VisionSelfRunTcpState.cs" />
     <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
     <Compile Include="Equipment\Core\AlignAngleEstimator.cs" />
     <Compile Include="Sequencing\Common\SequenceToolCatalog.cs" />

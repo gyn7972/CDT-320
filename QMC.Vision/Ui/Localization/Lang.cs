@@ -268,12 +268,12 @@ namespace QMC.Vision.Ui.Localization
 
             // GENERAL 페이지
             A("set.gen.language",     "언어 설정",         "Language");
-            A("set.gen.provider",     "Provider",         "Provider");
+            A("set.gen.provider",     "연산 백엔드(Provider)", "Compute Backend (Provider)");
             A("set.gen.backend",      "Vision Backend (재시작 후 반영)", "Vision Backend (applied after restart)");
             A("set.gen.cgxDiag",      "Cognex VisionPro 진단", "Cognex VisionPro diagnostics");
             A("set.gen.imageLog",     "이미지 로그 저장",   "Image log saver");
             A("set.gen.path",         "경로",              "Path");
-            A("set.gen.simAuto",      "Sim 자동 실행",      "Sim Auto Run");
+            A("set.gen.simAuto",      "시뮬 모드",          "Simulation Mode");
             A("set.gen.backendVer",   "백엔드 버전",        "Backend Version");
             A("set.gen.imgEnable",    "이미지 로그 사용",   "Enable Image Log");
             A("set.gen.imgPath",      "이미지 저장 경로",   "Image Save Path");
