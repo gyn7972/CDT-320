@@ -116,6 +116,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -399,10 +400,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpAction.Location = new System.Drawing.Point(0, 689);
+            this.grpAction.Location = new System.Drawing.Point(0, 702);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
-            this.grpAction.Size = new System.Drawing.Size(836, 181);
+            this.grpAction.Size = new System.Drawing.Size(836, 168);
             this.grpAction.TabIndex = 1;
             this.grpAction.TabStop = false;
             this.grpAction.Text = "ACTION";
@@ -418,16 +419,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Controls.Add(this.btnUnloadToCassette, 1, 1);
             this.actionBar.Controls.Add(this.btnRecover, 0, 2);
             this.actionBar.Controls.Add(this.btnStop, 1, 2);
-            this.actionBar.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionBar.Location = new System.Drawing.Point(3, 35);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
             this.actionBar.Name = "actionBar";
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.actionBar.RowCount = 4;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionBar.Size = new System.Drawing.Size(830, 143);
+            this.actionBar.Size = new System.Drawing.Size(830, 142);
             this.actionBar.TabIndex = 0;
             // 
             // btnLoadFromCassette
@@ -437,9 +439,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoadFromCassette.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadFromCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadFromCassette.ForeColor = System.Drawing.Color.White;
-            this.btnLoadFromCassette.Location = new System.Drawing.Point(3, 3);
+            this.btnLoadFromCassette.Location = new System.Drawing.Point(6, 1);
+            this.btnLoadFromCassette.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnLoadFromCassette.Name = "btnLoadFromCassette";
-            this.btnLoadFromCassette.Size = new System.Drawing.Size(409, 40);
+            this.btnLoadFromCassette.Size = new System.Drawing.Size(406, 44);
             this.btnLoadFromCassette.TabIndex = 0;
             this.btnLoadFromCassette.Text = "CST -> FEEDER";
             // 
@@ -450,9 +453,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoadToStage.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadToStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadToStage.ForeColor = System.Drawing.Color.White;
-            this.btnLoadToStage.Location = new System.Drawing.Point(418, 3);
+            this.btnLoadToStage.Location = new System.Drawing.Point(418, 1);
+            this.btnLoadToStage.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnLoadToStage.Name = "btnLoadToStage";
-            this.btnLoadToStage.Size = new System.Drawing.Size(409, 40);
+            this.btnLoadToStage.Size = new System.Drawing.Size(406, 44);
             this.btnLoadToStage.TabIndex = 1;
             this.btnLoadToStage.Text = "FEEDER -> STAGE";
             // 
@@ -463,9 +467,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnloadFromStage.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnUnloadFromStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnloadFromStage.ForeColor = System.Drawing.Color.White;
-            this.btnUnloadFromStage.Location = new System.Drawing.Point(3, 49);
+            this.btnUnloadFromStage.Location = new System.Drawing.Point(6, 47);
+            this.btnUnloadFromStage.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnUnloadFromStage.Name = "btnUnloadFromStage";
-            this.btnUnloadFromStage.Size = new System.Drawing.Size(409, 40);
+            this.btnUnloadFromStage.Size = new System.Drawing.Size(406, 44);
             this.btnUnloadFromStage.TabIndex = 2;
             this.btnUnloadFromStage.Text = "STAGE -> FEEDER";
             // 
@@ -476,9 +481,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnloadToCassette.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnUnloadToCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnloadToCassette.ForeColor = System.Drawing.Color.White;
-            this.btnUnloadToCassette.Location = new System.Drawing.Point(418, 49);
+            this.btnUnloadToCassette.Location = new System.Drawing.Point(418, 47);
+            this.btnUnloadToCassette.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnUnloadToCassette.Name = "btnUnloadToCassette";
-            this.btnUnloadToCassette.Size = new System.Drawing.Size(409, 40);
+            this.btnUnloadToCassette.Size = new System.Drawing.Size(406, 44);
             this.btnUnloadToCassette.TabIndex = 3;
             this.btnUnloadToCassette.Text = "FEEDER -> CST";
             // 
@@ -489,9 +495,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnRecover.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRecover.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnRecover.ForeColor = System.Drawing.Color.White;
-            this.btnRecover.Location = new System.Drawing.Point(3, 95);
+            this.btnRecover.Location = new System.Drawing.Point(6, 93);
+            this.btnRecover.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnRecover.Name = "btnRecover";
-            this.btnRecover.Size = new System.Drawing.Size(409, 40);
+            this.btnRecover.Size = new System.Drawing.Size(406, 44);
             this.btnRecover.TabIndex = 4;
             this.btnRecover.Text = "RECOVER";
             // 
@@ -502,9 +509,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(418, 95);
+            this.btnStop.Location = new System.Drawing.Point(418, 93);
+            this.btnStop.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(409, 40);
+            this.btnStop.Size = new System.Drawing.Size(406, 44);
             this.btnStop.TabIndex = 5;
             this.btnStop.Text = "STOP";
             // 
