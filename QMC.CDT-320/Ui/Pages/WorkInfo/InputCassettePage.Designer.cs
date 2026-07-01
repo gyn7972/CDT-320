@@ -163,6 +163,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -638,7 +639,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpAction.Location = new System.Drawing.Point(0, 713);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
-            this.grpAction.Size = new System.Drawing.Size(836, 157);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.grpAction.Size = new System.Drawing.Size(836, 122);
             this.grpAction.TabIndex = 2;
             this.grpAction.TabStop = false;
             this.grpAction.Text = "ACTION";
