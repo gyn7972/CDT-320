@@ -203,11 +203,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._grid.RowHeadersVisible = false;
             this._grid.RowTemplate.Height = 26;
             this._grid.SelectionChanged += new System.EventHandler(this.grid_SelectionChanged);
-            foreach (DataGridViewColumn column in this._grid.Columns)
-            {
-                column.SortMode = DataGridViewColumnSortMode.NotSortable;
-                column.Resizable = DataGridViewTriState.True;
-            }
 
             this._chartHost.BackColor = Color.White;
             this._chartHost.Dock = DockStyle.Fill;
