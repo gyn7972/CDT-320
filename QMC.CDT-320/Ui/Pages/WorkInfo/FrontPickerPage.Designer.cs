@@ -13,10 +13,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private GroupBox grpState;
         private GroupBox grpCounters;
         private GroupBox grpInfo;
-        private GroupBox grpAxis;
+        private GroupBox grpSensor;
         private TableLayoutPanel stateLayout;
         private TableLayoutPanel counterLayout;
         private TableLayoutPanel infoLayout;
+        private TableLayoutPanel sensorLayout;
         private TableLayoutPanel actionPanel;
         private Button btnCountClear;
         private Label lblHeadZoneTitle;
@@ -49,22 +50,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblCollet3UseValue;
         private Label lblCollet4UseTitle;
         private Label lblCollet4UseValue;
-        private TableLayoutPanel headAxisTPanel;
-        private Label lblHeadAxisTTitle;
-        private Label lblHeadAxisTValue;
-        private TableLayoutPanel headProcessPanel;
-        private Label lblHeadProcessTitle;
-        private Label lblHeadProcessValue;
-        private TableLayoutPanel processFlowPanel;
-        private Label lblFlowAvoid;
-        private Label lblFlowArrow1;
-        private Label lblFlowPickup;
-        private Label lblFlowArrow2;
-        private Label lblFlowBottom;
-        private Label lblFlowArrow3;
-        private Label lblFlowSide;
-        private Label lblFlowArrow4;
-        private Label lblFlowPlace;
         private Label lblProcessDetailTitle;
         private Label lblProcessDetailValue;
         private TableLayoutPanel headVacuum1Panel;
@@ -91,19 +76,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel headBlow4Panel;
         private IndicatorDot dotHeadBlow4;
         private Label lblHeadBlow4;
-        private TableLayoutPanel headFlow1Panel;
-        private IndicatorDot dotHeadFlow1;
-        private Label lblHeadFlow1;
-        private TableLayoutPanel headFlow2Panel;
-        private IndicatorDot dotHeadFlow2;
-        private Label lblHeadFlow2;
-        private TableLayoutPanel headFlow3Panel;
-        private IndicatorDot dotHeadFlow3;
-        private Label lblHeadFlow3;
-        private TableLayoutPanel headFlow4Panel;
-        private IndicatorDot dotHeadFlow4;
-        private Label lblHeadFlow4;
-        private DataGridView axisGrid;
+        private TableLayoutPanel axis1Panel;
+        private Label lblAxis1Title;
+        private Label lblAxis1Value;
+        private TableLayoutPanel axis2Panel;
+        private Label lblAxis2Title;
+        private Label lblAxis2Value;
+        private TableLayoutPanel axis3Panel;
+        private Label lblAxis3Title;
+        private Label lblAxis3Value;
+        private TableLayoutPanel axis4Panel;
+        private Label lblAxis4Title;
+        private Label lblAxis4Value;
+        private TableLayoutPanel axis5Panel;
+        private Label lblAxis5Title;
+        private Label lblAxis5Value;
+        private TableLayoutPanel axis6Panel;
+        private Label lblAxis6Title;
+        private Label lblAxis6Value;
+        private TableLayoutPanel axis7Panel;
+        private Label lblAxis7Title;
+        private Label lblAxis7Value;
+        private TableLayoutPanel axis8Panel;
+        private Label lblAxis8Title;
+        private Label lblAxis8Value;
+        private TableLayoutPanel axis9Panel;
+        private Label lblAxis9Title;
+        private Label lblAxis9Value;
+        private TableLayoutPanel axis10Panel;
+        private Label lblAxis10Title;
+        private Label lblAxis10Value;
+        private TableLayoutPanel materialPanel;
+        private TableLayoutPanel materialHeaderLayout;
+        private Label lblHeadDieTitle;
+        private Button btnHead1Select;
+        private Button btnHead2Select;
+        private Button btnHead3Select;
+        private Button btnHead4Select;
+        private QMC.CDT_320.Ui.Controls.MaterialDetailView headDieDetailView;
         private ActionButton btnInput;
         private ActionButton btnInspect;
         private ActionButton btnBottom;
@@ -162,6 +172,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblProcessDetailTitle = new System.Windows.Forms.Label();
             this.lblProcessDetailValue = new System.Windows.Forms.Label();
+            this.axis1Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis1Title = new System.Windows.Forms.Label();
+            this.lblAxis1Value = new System.Windows.Forms.Label();
+            this.axis2Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis2Title = new System.Windows.Forms.Label();
+            this.lblAxis2Value = new System.Windows.Forms.Label();
+            this.axis3Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis3Title = new System.Windows.Forms.Label();
+            this.lblAxis3Value = new System.Windows.Forms.Label();
+            this.axis4Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis4Title = new System.Windows.Forms.Label();
+            this.lblAxis4Value = new System.Windows.Forms.Label();
+            this.axis5Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis5Title = new System.Windows.Forms.Label();
+            this.lblAxis5Value = new System.Windows.Forms.Label();
+            this.axis6Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis6Title = new System.Windows.Forms.Label();
+            this.lblAxis6Value = new System.Windows.Forms.Label();
+            this.axis7Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis7Title = new System.Windows.Forms.Label();
+            this.lblAxis7Value = new System.Windows.Forms.Label();
+            this.axis8Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis8Title = new System.Windows.Forms.Label();
+            this.lblAxis8Value = new System.Windows.Forms.Label();
+            this.axis9Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis9Title = new System.Windows.Forms.Label();
+            this.lblAxis9Value = new System.Windows.Forms.Label();
+            this.axis10Panel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblAxis10Title = new System.Windows.Forms.Label();
+            this.lblAxis10Value = new System.Windows.Forms.Label();
+            this.grpSensor = new System.Windows.Forms.GroupBox();
+            this.sensorLayout = new System.Windows.Forms.TableLayoutPanel();
             this.headVacuum1Panel = new System.Windows.Forms.TableLayoutPanel();
             this.dotHeadVacuum1 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblHeadVacuum1 = new System.Windows.Forms.Label();
@@ -186,14 +228,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headBlow4Panel = new System.Windows.Forms.TableLayoutPanel();
             this.dotHeadBlow4 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblHeadBlow4 = new System.Windows.Forms.Label();
-            this.grpAxis = new System.Windows.Forms.GroupBox();
-            this.axisGrid = new System.Windows.Forms.DataGridView();
-            this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colCurrent = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colServo = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colHome = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colAlarm = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colMoving = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.materialPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.materialHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblHeadDieTitle = new System.Windows.Forms.Label();
+            this.btnHead1Select = new System.Windows.Forms.Button();
+            this.btnHead2Select = new System.Windows.Forms.Button();
+            this.btnHead3Select = new System.Windows.Forms.Button();
+            this.btnHead4Select = new System.Windows.Forms.Button();
+            this.headDieDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
             this.actionPanel = new System.Windows.Forms.TableLayoutPanel();
@@ -203,39 +245,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnSide = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnOutput = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnPickUpTest = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAjinLineMapTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAjinLineMoveTest = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.processFlowPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.lblFlowAvoid = new System.Windows.Forms.Label();
-            this.lblFlowArrow1 = new System.Windows.Forms.Label();
-            this.lblFlowPickup = new System.Windows.Forms.Label();
-            this.lblFlowArrow2 = new System.Windows.Forms.Label();
-            this.lblFlowBottom = new System.Windows.Forms.Label();
-            this.lblFlowArrow3 = new System.Windows.Forms.Label();
-            this.lblFlowSide = new System.Windows.Forms.Label();
-            this.lblFlowArrow4 = new System.Windows.Forms.Label();
-            this.lblFlowPlace = new System.Windows.Forms.Label();
-            this.headProcessPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.lblHeadProcessTitle = new System.Windows.Forms.Label();
-            this.lblHeadProcessValue = new System.Windows.Forms.Label();
-            this.headAxisTPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.lblHeadAxisTTitle = new System.Windows.Forms.Label();
-            this.lblHeadAxisTValue = new System.Windows.Forms.Label();
-            this.colCommand = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.headFlow1Panel = new System.Windows.Forms.TableLayoutPanel();
-            this.dotHeadFlow1 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblHeadFlow1 = new System.Windows.Forms.Label();
-            this.headFlow2Panel = new System.Windows.Forms.TableLayoutPanel();
-            this.dotHeadFlow2 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblHeadFlow2 = new System.Windows.Forms.Label();
-            this.headFlow3Panel = new System.Windows.Forms.TableLayoutPanel();
-            this.dotHeadFlow3 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblHeadFlow3 = new System.Windows.Forms.Label();
-            this.headFlow4Panel = new System.Windows.Forms.TableLayoutPanel();
-            this.dotHeadFlow4 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblHeadFlow4 = new System.Windows.Forms.Label();
+            this.actionRightPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.topLayout.SuspendLayout();
@@ -245,6 +258,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.SuspendLayout();
             this.grpInfo.SuspendLayout();
             this.infoLayout.SuspendLayout();
+            this.axis1Panel.SuspendLayout();
+            this.axis2Panel.SuspendLayout();
+            this.axis3Panel.SuspendLayout();
+            this.axis4Panel.SuspendLayout();
+            this.axis5Panel.SuspendLayout();
+            this.axis6Panel.SuspendLayout();
+            this.axis7Panel.SuspendLayout();
+            this.axis8Panel.SuspendLayout();
+            this.axis9Panel.SuspendLayout();
+            this.axis10Panel.SuspendLayout();
+            this.grpSensor.SuspendLayout();
+            this.sensorLayout.SuspendLayout();
             this.headVacuum1Panel.SuspendLayout();
             this.headVacuum2Panel.SuspendLayout();
             this.headVacuum3Panel.SuspendLayout();
@@ -253,19 +278,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headBlow2Panel.SuspendLayout();
             this.headBlow3Panel.SuspendLayout();
             this.headBlow4Panel.SuspendLayout();
-            this.grpAxis.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.axisGrid)).BeginInit();
+            this.materialPanel.SuspendLayout();
+            this.materialHeaderLayout.SuspendLayout();
             this.grpAction.SuspendLayout();
             this.actionBar.SuspendLayout();
             this.actionPanel.SuspendLayout();
             this.actionRightPanel.SuspendLayout();
-            this.processFlowPanel.SuspendLayout();
-            this.headProcessPanel.SuspendLayout();
-            this.headAxisTPanel.SuspendLayout();
-            this.headFlow1Panel.SuspendLayout();
-            this.headFlow2Panel.SuspendLayout();
-            this.headFlow3Panel.SuspendLayout();
-            this.headFlow4Panel.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -306,14 +324,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.Controls.Add(this.topLayout, 0, 0);
-            this.contentLayout.Controls.Add(this.grpAxis, 1, 0);
-            this.contentLayout.Controls.Add(this.grpAction, 0, 1);
+            this.contentLayout.Controls.Add(this.grpSensor, 0, 1);
+            this.contentLayout.Controls.Add(this.materialPanel, 1, 0);
+            this.contentLayout.Controls.Add(this.grpAction, 0, 2);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.RowCount = 2;
+            this.contentLayout.RowCount = 3;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 80F));
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 770);
             this.contentLayout.TabIndex = 1;
@@ -888,29 +908,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.infoLayout.Controls.Add(this.lblProcessDetailTitle, 0, 0);
             this.infoLayout.Controls.Add(this.lblProcessDetailValue, 1, 0);
-            this.infoLayout.Controls.Add(this.headVacuum1Panel, 0, 1);
-            this.infoLayout.Controls.Add(this.headVacuum2Panel, 0, 2);
-            this.infoLayout.Controls.Add(this.headVacuum3Panel, 0, 3);
-            this.infoLayout.Controls.Add(this.headVacuum4Panel, 0, 4);
-            this.infoLayout.Controls.Add(this.headBlow1Panel, 0, 5);
-            this.infoLayout.Controls.Add(this.headBlow2Panel, 0, 6);
-            this.infoLayout.Controls.Add(this.headBlow3Panel, 0, 7);
-            this.infoLayout.Controls.Add(this.headBlow4Panel, 0, 8);
+            this.infoLayout.Controls.Add(this.axis1Panel, 0, 1);
+            this.infoLayout.Controls.Add(this.axis2Panel, 0, 2);
+            this.infoLayout.Controls.Add(this.axis3Panel, 0, 3);
+            this.infoLayout.Controls.Add(this.axis4Panel, 0, 4);
+            this.infoLayout.Controls.Add(this.axis5Panel, 0, 5);
+            this.infoLayout.Controls.Add(this.axis6Panel, 0, 6);
+            this.infoLayout.Controls.Add(this.axis7Panel, 0, 7);
+            this.infoLayout.Controls.Add(this.axis8Panel, 0, 8);
+            this.infoLayout.Controls.Add(this.axis9Panel, 0, 9);
+            this.infoLayout.Controls.Add(this.axis10Panel, 0, 10);
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
             this.infoLayout.Padding = new System.Windows.Forms.Padding(2, 8, 2, 2);
-            this.infoLayout.RowCount = 10;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 11.11F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 0.009999002F));
+            this.infoLayout.RowCount = 12;
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 23F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.infoLayout.Size = new System.Drawing.Size(283, 271);
             this.infoLayout.TabIndex = 0;
             // 
@@ -922,7 +946,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblProcessDetailTitle.Location = new System.Drawing.Point(5, 8);
             this.lblProcessDetailTitle.Name = "lblProcessDetailTitle";
             this.lblProcessDetailTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblProcessDetailTitle.Size = new System.Drawing.Size(133, 28);
+            this.lblProcessDetailTitle.Size = new System.Drawing.Size(133, 23);
             this.lblProcessDetailTitle.TabIndex = 0;
             this.lblProcessDetailTitle.Text = "PROCESS";
             this.lblProcessDetailTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -934,36 +958,517 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblProcessDetailValue.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblProcessDetailValue.Location = new System.Drawing.Point(144, 8);
             this.lblProcessDetailValue.Name = "lblProcessDetailValue";
-            this.lblProcessDetailValue.Size = new System.Drawing.Size(134, 28);
+            this.lblProcessDetailValue.Size = new System.Drawing.Size(134, 23);
             this.lblProcessDetailValue.TabIndex = 1;
             this.lblProcessDetailValue.Text = "-";
             this.lblProcessDetailValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // axis1Panel
+            // 
+            this.axis1Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis1Panel, 2);
+            this.axis1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis1Panel.Controls.Add(this.lblAxis1Title, 0, 0);
+            this.axis1Panel.Controls.Add(this.lblAxis1Value, 1, 0);
+            this.axis1Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis1Panel.Location = new System.Drawing.Point(2, 32);
+            this.axis1Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis1Panel.Name = "axis1Panel";
+            this.axis1Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis1Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis1Panel.TabIndex = 1;
+            // 
+            // lblAxis1Title
+            // 
+            this.lblAxis1Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis1Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis1Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis1Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis1Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis1Title.Name = "lblAxis1Title";
+            this.lblAxis1Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis1Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis1Title.TabIndex = 0;
+            this.lblAxis1Title.Text = "PICKER X";
+            this.lblAxis1Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis1Value
+            // 
+            this.lblAxis1Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis1Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis1Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis1Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis1Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis1Value.Name = "lblAxis1Value";
+            this.lblAxis1Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis1Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis1Value.TabIndex = 1;
+            this.lblAxis1Value.Text = "-";
+            this.lblAxis1Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis2Panel
+            // 
+            this.axis2Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis2Panel, 2);
+            this.axis2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis2Panel.Controls.Add(this.lblAxis2Title, 0, 0);
+            this.axis2Panel.Controls.Add(this.lblAxis2Value, 1, 0);
+            this.axis2Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis2Panel.Location = new System.Drawing.Point(2, 55);
+            this.axis2Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis2Panel.Name = "axis2Panel";
+            this.axis2Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis2Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis2Panel.TabIndex = 2;
+            // 
+            // lblAxis2Title
+            // 
+            this.lblAxis2Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis2Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis2Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis2Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis2Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis2Title.Name = "lblAxis2Title";
+            this.lblAxis2Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis2Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis2Title.TabIndex = 0;
+            this.lblAxis2Title.Text = "PICKER Y";
+            this.lblAxis2Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis2Value
+            // 
+            this.lblAxis2Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis2Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis2Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis2Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis2Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis2Value.Name = "lblAxis2Value";
+            this.lblAxis2Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis2Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis2Value.TabIndex = 1;
+            this.lblAxis2Value.Text = "-";
+            this.lblAxis2Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis3Panel
+            // 
+            this.axis3Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis3Panel, 2);
+            this.axis3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis3Panel.Controls.Add(this.lblAxis3Title, 0, 0);
+            this.axis3Panel.Controls.Add(this.lblAxis3Value, 1, 0);
+            this.axis3Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis3Panel.Location = new System.Drawing.Point(2, 78);
+            this.axis3Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis3Panel.Name = "axis3Panel";
+            this.axis3Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis3Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis3Panel.TabIndex = 3;
+            // 
+            // lblAxis3Title
+            // 
+            this.lblAxis3Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis3Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis3Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis3Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis3Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis3Title.Name = "lblAxis3Title";
+            this.lblAxis3Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis3Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis3Title.TabIndex = 0;
+            this.lblAxis3Title.Text = "PICKER T#1";
+            this.lblAxis3Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis3Value
+            // 
+            this.lblAxis3Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis3Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis3Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis3Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis3Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis3Value.Name = "lblAxis3Value";
+            this.lblAxis3Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis3Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis3Value.TabIndex = 1;
+            this.lblAxis3Value.Text = "-";
+            this.lblAxis3Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis4Panel
+            // 
+            this.axis4Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis4Panel, 2);
+            this.axis4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis4Panel.Controls.Add(this.lblAxis4Title, 0, 0);
+            this.axis4Panel.Controls.Add(this.lblAxis4Value, 1, 0);
+            this.axis4Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis4Panel.Location = new System.Drawing.Point(2, 101);
+            this.axis4Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis4Panel.Name = "axis4Panel";
+            this.axis4Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis4Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis4Panel.TabIndex = 4;
+            // 
+            // lblAxis4Title
+            // 
+            this.lblAxis4Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis4Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis4Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis4Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis4Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis4Title.Name = "lblAxis4Title";
+            this.lblAxis4Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis4Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis4Title.TabIndex = 0;
+            this.lblAxis4Title.Text = "PICKER Z#1";
+            this.lblAxis4Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis4Value
+            // 
+            this.lblAxis4Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis4Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis4Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis4Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis4Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis4Value.Name = "lblAxis4Value";
+            this.lblAxis4Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis4Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis4Value.TabIndex = 1;
+            this.lblAxis4Value.Text = "-";
+            this.lblAxis4Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis5Panel
+            // 
+            this.axis5Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis5Panel, 2);
+            this.axis5Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis5Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis5Panel.Controls.Add(this.lblAxis5Title, 0, 0);
+            this.axis5Panel.Controls.Add(this.lblAxis5Value, 1, 0);
+            this.axis5Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis5Panel.Location = new System.Drawing.Point(2, 124);
+            this.axis5Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis5Panel.Name = "axis5Panel";
+            this.axis5Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis5Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis5Panel.TabIndex = 5;
+            // 
+            // lblAxis5Title
+            // 
+            this.lblAxis5Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis5Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis5Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis5Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis5Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis5Title.Name = "lblAxis5Title";
+            this.lblAxis5Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis5Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis5Title.TabIndex = 0;
+            this.lblAxis5Title.Text = "PICKER T#2";
+            this.lblAxis5Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis5Value
+            // 
+            this.lblAxis5Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis5Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis5Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis5Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis5Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis5Value.Name = "lblAxis5Value";
+            this.lblAxis5Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis5Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis5Value.TabIndex = 1;
+            this.lblAxis5Value.Text = "-";
+            this.lblAxis5Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis6Panel
+            // 
+            this.axis6Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis6Panel, 2);
+            this.axis6Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis6Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis6Panel.Controls.Add(this.lblAxis6Title, 0, 0);
+            this.axis6Panel.Controls.Add(this.lblAxis6Value, 1, 0);
+            this.axis6Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis6Panel.Location = new System.Drawing.Point(2, 147);
+            this.axis6Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis6Panel.Name = "axis6Panel";
+            this.axis6Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis6Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis6Panel.TabIndex = 6;
+            // 
+            // lblAxis6Title
+            // 
+            this.lblAxis6Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis6Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis6Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis6Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis6Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis6Title.Name = "lblAxis6Title";
+            this.lblAxis6Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis6Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis6Title.TabIndex = 0;
+            this.lblAxis6Title.Text = "PICKER Z#2";
+            this.lblAxis6Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis6Value
+            // 
+            this.lblAxis6Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis6Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis6Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis6Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis6Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis6Value.Name = "lblAxis6Value";
+            this.lblAxis6Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis6Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis6Value.TabIndex = 1;
+            this.lblAxis6Value.Text = "-";
+            this.lblAxis6Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis7Panel
+            // 
+            this.axis7Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis7Panel, 2);
+            this.axis7Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis7Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis7Panel.Controls.Add(this.lblAxis7Title, 0, 0);
+            this.axis7Panel.Controls.Add(this.lblAxis7Value, 1, 0);
+            this.axis7Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis7Panel.Location = new System.Drawing.Point(2, 170);
+            this.axis7Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis7Panel.Name = "axis7Panel";
+            this.axis7Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis7Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis7Panel.TabIndex = 7;
+            // 
+            // lblAxis7Title
+            // 
+            this.lblAxis7Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis7Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis7Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis7Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis7Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis7Title.Name = "lblAxis7Title";
+            this.lblAxis7Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis7Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis7Title.TabIndex = 0;
+            this.lblAxis7Title.Text = "PICKER T#3";
+            this.lblAxis7Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis7Value
+            // 
+            this.lblAxis7Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis7Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis7Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis7Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis7Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis7Value.Name = "lblAxis7Value";
+            this.lblAxis7Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis7Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis7Value.TabIndex = 1;
+            this.lblAxis7Value.Text = "-";
+            this.lblAxis7Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis8Panel
+            // 
+            this.axis8Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis8Panel, 2);
+            this.axis8Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis8Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis8Panel.Controls.Add(this.lblAxis8Title, 0, 0);
+            this.axis8Panel.Controls.Add(this.lblAxis8Value, 1, 0);
+            this.axis8Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis8Panel.Location = new System.Drawing.Point(2, 193);
+            this.axis8Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis8Panel.Name = "axis8Panel";
+            this.axis8Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis8Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis8Panel.TabIndex = 8;
+            // 
+            // lblAxis8Title
+            // 
+            this.lblAxis8Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis8Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis8Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis8Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis8Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis8Title.Name = "lblAxis8Title";
+            this.lblAxis8Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis8Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis8Title.TabIndex = 0;
+            this.lblAxis8Title.Text = "PICKER Z#3";
+            this.lblAxis8Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis8Value
+            // 
+            this.lblAxis8Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis8Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis8Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis8Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis8Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis8Value.Name = "lblAxis8Value";
+            this.lblAxis8Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis8Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis8Value.TabIndex = 1;
+            this.lblAxis8Value.Text = "-";
+            this.lblAxis8Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis9Panel
+            // 
+            this.axis9Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis9Panel, 2);
+            this.axis9Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis9Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis9Panel.Controls.Add(this.lblAxis9Title, 0, 0);
+            this.axis9Panel.Controls.Add(this.lblAxis9Value, 1, 0);
+            this.axis9Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis9Panel.Location = new System.Drawing.Point(2, 216);
+            this.axis9Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis9Panel.Name = "axis9Panel";
+            this.axis9Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis9Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis9Panel.TabIndex = 9;
+            // 
+            // lblAxis9Title
+            // 
+            this.lblAxis9Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis9Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis9Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis9Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis9Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis9Title.Name = "lblAxis9Title";
+            this.lblAxis9Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis9Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis9Title.TabIndex = 0;
+            this.lblAxis9Title.Text = "PICKER T#4";
+            this.lblAxis9Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis9Value
+            // 
+            this.lblAxis9Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis9Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis9Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis9Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis9Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis9Value.Name = "lblAxis9Value";
+            this.lblAxis9Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis9Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis9Value.TabIndex = 1;
+            this.lblAxis9Value.Text = "-";
+            this.lblAxis9Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // axis10Panel
+            // 
+            this.axis10Panel.ColumnCount = 2;
+            this.infoLayout.SetColumnSpan(this.axis10Panel, 2);
+            this.axis10Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
+            this.axis10Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.axis10Panel.Controls.Add(this.lblAxis10Title, 0, 0);
+            this.axis10Panel.Controls.Add(this.lblAxis10Value, 1, 0);
+            this.axis10Panel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.axis10Panel.Location = new System.Drawing.Point(2, 239);
+            this.axis10Panel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 1);
+            this.axis10Panel.Name = "axis10Panel";
+            this.axis10Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axis10Panel.Size = new System.Drawing.Size(279, 21);
+            this.axis10Panel.TabIndex = 10;
+            // 
+            // lblAxis10Title
+            // 
+            this.lblAxis10Title.BackColor = System.Drawing.Color.Black;
+            this.lblAxis10Title.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis10Title.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblAxis10Title.ForeColor = System.Drawing.Color.White;
+            this.lblAxis10Title.Location = new System.Drawing.Point(3, 0);
+            this.lblAxis10Title.Name = "lblAxis10Title";
+            this.lblAxis10Title.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblAxis10Title.Size = new System.Drawing.Size(147, 21);
+            this.lblAxis10Title.TabIndex = 0;
+            this.lblAxis10Title.Text = "PICKER Z#4";
+            this.lblAxis10Title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblAxis10Value
+            // 
+            this.lblAxis10Value.BackColor = System.Drawing.Color.White;
+            this.lblAxis10Value.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblAxis10Value.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblAxis10Value.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblAxis10Value.Location = new System.Drawing.Point(156, 0);
+            this.lblAxis10Value.Name = "lblAxis10Value";
+            this.lblAxis10Value.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblAxis10Value.Size = new System.Drawing.Size(120, 21);
+            this.lblAxis10Value.TabIndex = 1;
+            this.lblAxis10Value.Text = "-";
+            this.lblAxis10Value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // grpSensor
+            // 
+            this.grpSensor.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpSensor.Controls.Add(this.sensorLayout);
+            this.grpSensor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSensor.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpSensor.Location = new System.Drawing.Point(0, 303);
+            this.grpSensor.Margin = new System.Windows.Forms.Padding(0, 3, 3, 3);
+            this.grpSensor.Name = "grpSensor";
+            this.grpSensor.Size = new System.Drawing.Size(836, 74);
+            this.grpSensor.TabIndex = 3;
+            this.grpSensor.TabStop = false;
+            this.grpSensor.Text = "SENSOR STATE";
+            // 
+            // sensorLayout
+            // 
+            this.sensorLayout.ColumnCount = 8;
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.sensorLayout.Controls.Add(this.headVacuum1Panel, 0, 0);
+            this.sensorLayout.Controls.Add(this.headVacuum2Panel, 1, 0);
+            this.sensorLayout.Controls.Add(this.headVacuum3Panel, 2, 0);
+            this.sensorLayout.Controls.Add(this.headVacuum4Panel, 3, 0);
+            this.sensorLayout.Controls.Add(this.headBlow1Panel, 4, 0);
+            this.sensorLayout.Controls.Add(this.headBlow2Panel, 5, 0);
+            this.sensorLayout.Controls.Add(this.headBlow3Panel, 6, 0);
+            this.sensorLayout.Controls.Add(this.headBlow4Panel, 7, 0);
+            this.sensorLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.sensorLayout.Location = new System.Drawing.Point(3, 23);
+            this.sensorLayout.Name = "sensorLayout";
+            this.sensorLayout.Padding = new System.Windows.Forms.Padding(2, 4, 2, 2);
+            this.sensorLayout.RowCount = 1;
+            this.sensorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.sensorLayout.Size = new System.Drawing.Size(830, 48);
+            this.sensorLayout.TabIndex = 0;
+            // 
             // headVacuum1Panel
             // 
             this.headVacuum1Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headVacuum1Panel, 2);
-            this.headVacuum1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headVacuum1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headVacuum1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headVacuum1Panel.Controls.Add(this.dotHeadVacuum1, 0, 0);
             this.headVacuum1Panel.Controls.Add(this.lblHeadVacuum1, 1, 0);
             this.headVacuum1Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headVacuum1Panel.Location = new System.Drawing.Point(5, 39);
+            this.headVacuum1Panel.Location = new System.Drawing.Point(5, 7);
             this.headVacuum1Panel.Name = "headVacuum1Panel";
             this.headVacuum1Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headVacuum1Panel.Size = new System.Drawing.Size(273, 22);
+            this.headVacuum1Panel.Size = new System.Drawing.Size(97, 36);
             this.headVacuum1Panel.TabIndex = 1;
             // 
             // dotHeadVacuum1
             // 
+            this.dotHeadVacuum1.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadVacuum1.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadVacuum1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadVacuum1.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadVacuum1.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadVacuum1.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadVacuum1.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadVacuum1.Name = "dotHeadVacuum1";
             this.dotHeadVacuum1.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadVacuum1.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadVacuum1.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadVacuum1.Size = new System.Drawing.Size(12, 12);
             this.dotHeadVacuum1.TabIndex = 0;
             // 
             // lblHeadVacuum1
@@ -971,40 +1476,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum1.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.lblHeadVacuum1.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadVacuum1.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblHeadVacuum1.Location = new System.Drawing.Point(19, 0);
             this.lblHeadVacuum1.Name = "lblHeadVacuum1";
-            this.lblHeadVacuum1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadVacuum1.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadVacuum1.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadVacuum1.Size = new System.Drawing.Size(75, 36);
             this.lblHeadVacuum1.TabIndex = 1;
-            this.lblHeadVacuum1.Text = "HEAD VACUUM #1";
+            this.lblHeadVacuum1.Text = "VACUUM #1";
             this.lblHeadVacuum1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headVacuum2Panel
             // 
             this.headVacuum2Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headVacuum2Panel, 2);
-            this.headVacuum2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headVacuum2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headVacuum2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headVacuum2Panel.Controls.Add(this.dotHeadVacuum2, 0, 0);
             this.headVacuum2Panel.Controls.Add(this.lblHeadVacuum2, 1, 0);
             this.headVacuum2Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headVacuum2Panel.Location = new System.Drawing.Point(5, 67);
+            this.headVacuum2Panel.Location = new System.Drawing.Point(108, 7);
             this.headVacuum2Panel.Name = "headVacuum2Panel";
             this.headVacuum2Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headVacuum2Panel.Size = new System.Drawing.Size(273, 22);
+            this.headVacuum2Panel.Size = new System.Drawing.Size(97, 36);
             this.headVacuum2Panel.TabIndex = 2;
             // 
             // dotHeadVacuum2
             // 
+            this.dotHeadVacuum2.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadVacuum2.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadVacuum2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadVacuum2.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadVacuum2.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadVacuum2.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadVacuum2.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadVacuum2.Name = "dotHeadVacuum2";
             this.dotHeadVacuum2.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadVacuum2.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadVacuum2.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadVacuum2.Size = new System.Drawing.Size(12, 12);
             this.dotHeadVacuum2.TabIndex = 0;
             // 
             // lblHeadVacuum2
@@ -1012,40 +1516,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum2.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadVacuum2.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadVacuum2.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadVacuum2.Location = new System.Drawing.Point(19, 0);
             this.lblHeadVacuum2.Name = "lblHeadVacuum2";
-            this.lblHeadVacuum2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadVacuum2.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadVacuum2.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadVacuum2.Size = new System.Drawing.Size(75, 36);
             this.lblHeadVacuum2.TabIndex = 1;
-            this.lblHeadVacuum2.Text = "HEAD VACUUM #2";
+            this.lblHeadVacuum2.Text = "VACUUM #2";
             this.lblHeadVacuum2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headVacuum3Panel
             // 
             this.headVacuum3Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headVacuum3Panel, 2);
-            this.headVacuum3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headVacuum3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headVacuum3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headVacuum3Panel.Controls.Add(this.dotHeadVacuum3, 0, 0);
             this.headVacuum3Panel.Controls.Add(this.lblHeadVacuum3, 1, 0);
             this.headVacuum3Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headVacuum3Panel.Location = new System.Drawing.Point(5, 95);
+            this.headVacuum3Panel.Location = new System.Drawing.Point(211, 7);
             this.headVacuum3Panel.Name = "headVacuum3Panel";
             this.headVacuum3Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headVacuum3Panel.Size = new System.Drawing.Size(273, 22);
+            this.headVacuum3Panel.Size = new System.Drawing.Size(97, 36);
             this.headVacuum3Panel.TabIndex = 3;
             // 
             // dotHeadVacuum3
             // 
+            this.dotHeadVacuum3.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadVacuum3.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadVacuum3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadVacuum3.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadVacuum3.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadVacuum3.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadVacuum3.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadVacuum3.Name = "dotHeadVacuum3";
             this.dotHeadVacuum3.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadVacuum3.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadVacuum3.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadVacuum3.Size = new System.Drawing.Size(12, 12);
             this.dotHeadVacuum3.TabIndex = 0;
             // 
             // lblHeadVacuum3
@@ -1053,40 +1556,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum3.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadVacuum3.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadVacuum3.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadVacuum3.Location = new System.Drawing.Point(19, 0);
             this.lblHeadVacuum3.Name = "lblHeadVacuum3";
-            this.lblHeadVacuum3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadVacuum3.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadVacuum3.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadVacuum3.Size = new System.Drawing.Size(75, 36);
             this.lblHeadVacuum3.TabIndex = 1;
-            this.lblHeadVacuum3.Text = "HEAD VACUUM #3";
+            this.lblHeadVacuum3.Text = "VACUUM #3";
             this.lblHeadVacuum3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headVacuum4Panel
             // 
             this.headVacuum4Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headVacuum4Panel, 2);
-            this.headVacuum4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headVacuum4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headVacuum4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headVacuum4Panel.Controls.Add(this.dotHeadVacuum4, 0, 0);
             this.headVacuum4Panel.Controls.Add(this.lblHeadVacuum4, 1, 0);
             this.headVacuum4Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headVacuum4Panel.Location = new System.Drawing.Point(5, 123);
+            this.headVacuum4Panel.Location = new System.Drawing.Point(314, 7);
             this.headVacuum4Panel.Name = "headVacuum4Panel";
             this.headVacuum4Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headVacuum4Panel.Size = new System.Drawing.Size(273, 22);
+            this.headVacuum4Panel.Size = new System.Drawing.Size(97, 36);
             this.headVacuum4Panel.TabIndex = 4;
             // 
             // dotHeadVacuum4
             // 
+            this.dotHeadVacuum4.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadVacuum4.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadVacuum4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadVacuum4.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadVacuum4.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadVacuum4.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadVacuum4.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadVacuum4.Name = "dotHeadVacuum4";
             this.dotHeadVacuum4.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadVacuum4.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadVacuum4.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadVacuum4.Size = new System.Drawing.Size(12, 12);
             this.dotHeadVacuum4.TabIndex = 0;
             // 
             // lblHeadVacuum4
@@ -1094,40 +1596,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadVacuum4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadVacuum4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadVacuum4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadVacuum4.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadVacuum4.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadVacuum4.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadVacuum4.Location = new System.Drawing.Point(19, 0);
             this.lblHeadVacuum4.Name = "lblHeadVacuum4";
-            this.lblHeadVacuum4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadVacuum4.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadVacuum4.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadVacuum4.Size = new System.Drawing.Size(75, 36);
             this.lblHeadVacuum4.TabIndex = 1;
-            this.lblHeadVacuum4.Text = "HEAD VACUUM #4";
+            this.lblHeadVacuum4.Text = "VACUUM #4";
             this.lblHeadVacuum4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headBlow1Panel
             // 
             this.headBlow1Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headBlow1Panel, 2);
-            this.headBlow1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headBlow1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headBlow1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headBlow1Panel.Controls.Add(this.dotHeadBlow1, 0, 0);
             this.headBlow1Panel.Controls.Add(this.lblHeadBlow1, 1, 0);
             this.headBlow1Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headBlow1Panel.Location = new System.Drawing.Point(5, 151);
+            this.headBlow1Panel.Location = new System.Drawing.Point(417, 7);
             this.headBlow1Panel.Name = "headBlow1Panel";
             this.headBlow1Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headBlow1Panel.Size = new System.Drawing.Size(273, 22);
+            this.headBlow1Panel.Size = new System.Drawing.Size(97, 36);
             this.headBlow1Panel.TabIndex = 5;
             // 
             // dotHeadBlow1
             // 
+            this.dotHeadBlow1.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadBlow1.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadBlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadBlow1.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadBlow1.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadBlow1.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadBlow1.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadBlow1.Name = "dotHeadBlow1";
             this.dotHeadBlow1.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadBlow1.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadBlow1.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadBlow1.Size = new System.Drawing.Size(12, 12);
             this.dotHeadBlow1.TabIndex = 0;
             // 
             // lblHeadBlow1
@@ -1135,40 +1636,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow1.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadBlow1.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadBlow1.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadBlow1.Location = new System.Drawing.Point(19, 0);
             this.lblHeadBlow1.Name = "lblHeadBlow1";
-            this.lblHeadBlow1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadBlow1.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadBlow1.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadBlow1.Size = new System.Drawing.Size(75, 36);
             this.lblHeadBlow1.TabIndex = 1;
-            this.lblHeadBlow1.Text = "HEAD BLOW #1";
+            this.lblHeadBlow1.Text = "BLOW #1";
             this.lblHeadBlow1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headBlow2Panel
             // 
             this.headBlow2Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headBlow2Panel, 2);
-            this.headBlow2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headBlow2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headBlow2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headBlow2Panel.Controls.Add(this.dotHeadBlow2, 0, 0);
             this.headBlow2Panel.Controls.Add(this.lblHeadBlow2, 1, 0);
             this.headBlow2Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headBlow2Panel.Location = new System.Drawing.Point(5, 179);
+            this.headBlow2Panel.Location = new System.Drawing.Point(520, 7);
             this.headBlow2Panel.Name = "headBlow2Panel";
             this.headBlow2Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headBlow2Panel.Size = new System.Drawing.Size(273, 22);
+            this.headBlow2Panel.Size = new System.Drawing.Size(97, 36);
             this.headBlow2Panel.TabIndex = 6;
             // 
             // dotHeadBlow2
             // 
+            this.dotHeadBlow2.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadBlow2.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadBlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadBlow2.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadBlow2.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadBlow2.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadBlow2.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadBlow2.Name = "dotHeadBlow2";
             this.dotHeadBlow2.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadBlow2.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadBlow2.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadBlow2.Size = new System.Drawing.Size(12, 12);
             this.dotHeadBlow2.TabIndex = 0;
             // 
             // lblHeadBlow2
@@ -1176,40 +1676,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow2.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadBlow2.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadBlow2.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadBlow2.Location = new System.Drawing.Point(19, 0);
             this.lblHeadBlow2.Name = "lblHeadBlow2";
-            this.lblHeadBlow2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadBlow2.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadBlow2.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadBlow2.Size = new System.Drawing.Size(75, 36);
             this.lblHeadBlow2.TabIndex = 1;
-            this.lblHeadBlow2.Text = "HEAD BLOW #2";
+            this.lblHeadBlow2.Text = "BLOW #2";
             this.lblHeadBlow2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headBlow3Panel
             // 
             this.headBlow3Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headBlow3Panel, 2);
-            this.headBlow3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headBlow3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headBlow3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headBlow3Panel.Controls.Add(this.dotHeadBlow3, 0, 0);
             this.headBlow3Panel.Controls.Add(this.lblHeadBlow3, 1, 0);
             this.headBlow3Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headBlow3Panel.Location = new System.Drawing.Point(5, 207);
+            this.headBlow3Panel.Location = new System.Drawing.Point(623, 7);
             this.headBlow3Panel.Name = "headBlow3Panel";
             this.headBlow3Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headBlow3Panel.Size = new System.Drawing.Size(273, 22);
+            this.headBlow3Panel.Size = new System.Drawing.Size(97, 36);
             this.headBlow3Panel.TabIndex = 7;
             // 
             // dotHeadBlow3
             // 
+            this.dotHeadBlow3.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadBlow3.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadBlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadBlow3.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadBlow3.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadBlow3.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadBlow3.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadBlow3.Name = "dotHeadBlow3";
             this.dotHeadBlow3.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadBlow3.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadBlow3.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadBlow3.Size = new System.Drawing.Size(12, 12);
             this.dotHeadBlow3.TabIndex = 0;
             // 
             // lblHeadBlow3
@@ -1217,40 +1716,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow3.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadBlow3.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadBlow3.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadBlow3.Location = new System.Drawing.Point(19, 0);
             this.lblHeadBlow3.Name = "lblHeadBlow3";
-            this.lblHeadBlow3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadBlow3.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadBlow3.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadBlow3.Size = new System.Drawing.Size(75, 36);
             this.lblHeadBlow3.TabIndex = 1;
-            this.lblHeadBlow3.Text = "HEAD BLOW #3";
+            this.lblHeadBlow3.Text = "BLOW #3";
             this.lblHeadBlow3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // headBlow4Panel
             // 
             this.headBlow4Panel.ColumnCount = 2;
-            this.infoLayout.SetColumnSpan(this.headBlow4Panel, 2);
-            this.headBlow4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.headBlow4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
             this.headBlow4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.headBlow4Panel.Controls.Add(this.dotHeadBlow4, 0, 0);
             this.headBlow4Panel.Controls.Add(this.lblHeadBlow4, 1, 0);
             this.headBlow4Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headBlow4Panel.Location = new System.Drawing.Point(5, 235);
+            this.headBlow4Panel.Location = new System.Drawing.Point(726, 7);
             this.headBlow4Panel.Name = "headBlow4Panel";
             this.headBlow4Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headBlow4Panel.Size = new System.Drawing.Size(273, 22);
+            this.headBlow4Panel.Size = new System.Drawing.Size(99, 36);
             this.headBlow4Panel.TabIndex = 8;
             // 
             // dotHeadBlow4
             // 
+            this.dotHeadBlow4.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotHeadBlow4.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadBlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadBlow4.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadBlow4.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
+            this.dotHeadBlow4.Location = new System.Drawing.Point(2, 12);
+            this.dotHeadBlow4.Margin = new System.Windows.Forms.Padding(2);
             this.dotHeadBlow4.Name = "dotHeadBlow4";
             this.dotHeadBlow4.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotHeadBlow4.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadBlow4.Size = new System.Drawing.Size(18, 6);
+            this.dotHeadBlow4.Size = new System.Drawing.Size(12, 12);
             this.dotHeadBlow4.TabIndex = 0;
             // 
             // lblHeadBlow4
@@ -1258,95 +1756,134 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadBlow4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblHeadBlow4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblHeadBlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadBlow4.Font = new System.Drawing.Font("맑은 고딕", 8.25F, System.Drawing.FontStyle.Bold);
-            this.lblHeadBlow4.Location = new System.Drawing.Point(25, 0);
+            this.lblHeadBlow4.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblHeadBlow4.Location = new System.Drawing.Point(19, 0);
             this.lblHeadBlow4.Name = "lblHeadBlow4";
-            this.lblHeadBlow4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadBlow4.Size = new System.Drawing.Size(245, 22);
+            this.lblHeadBlow4.Padding = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this.lblHeadBlow4.Size = new System.Drawing.Size(77, 36);
             this.lblHeadBlow4.TabIndex = 1;
-            this.lblHeadBlow4.Text = "HEAD BLOW #4";
+            this.lblHeadBlow4.Text = "BLOW #4";
             this.lblHeadBlow4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // grpAxis
+            // materialPanel
             // 
-            this.grpAxis.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.grpAxis.Controls.Add(this.axisGrid);
-            this.grpAxis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpAxis.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpAxis.Location = new System.Drawing.Point(842, 0);
-            this.grpAxis.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
-            this.grpAxis.Name = "grpAxis";
-            this.contentLayout.SetRowSpan(this.grpAxis, 2);
-            this.grpAxis.Size = new System.Drawing.Size(836, 770);
-            this.grpAxis.TabIndex = 1;
-            this.grpAxis.TabStop = false;
-            this.grpAxis.Text = "PICKER AXIS MONITOR";
+            this.materialPanel.ColumnCount = 1;
+            this.materialPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.materialPanel.Controls.Add(this.materialHeaderLayout, 0, 0);
+            this.materialPanel.Controls.Add(this.headDieDetailView, 0, 1);
+            this.materialPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.materialPanel.Location = new System.Drawing.Point(842, 0);
+            this.materialPanel.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
+            this.materialPanel.Name = "materialPanel";
+            this.materialPanel.RowCount = 2;
+            this.contentLayout.SetRowSpan(this.materialPanel, 3);
+            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.materialPanel.Size = new System.Drawing.Size(836, 770);
+            this.materialPanel.TabIndex = 1;
             // 
-            // axisGrid
+            // materialHeaderLayout
             // 
-            this.axisGrid.AllowUserToAddRows = false;
-            this.axisGrid.AllowUserToDeleteRows = false;
-            this.axisGrid.AllowUserToResizeRows = false;
-            this.axisGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            this.axisGrid.BackgroundColor = System.Drawing.Color.White;
-            this.axisGrid.ColumnHeadersHeight = 28;
-            this.axisGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            this.axisGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.colAxis,
-            this.colCurrent,
-            this.colServo,
-            this.colHome,
-            this.colAlarm,
-            this.colMoving});
-            this.axisGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.axisGrid.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
-            this.axisGrid.EnableHeadersVisualStyles = false;
-            this.axisGrid.Location = new System.Drawing.Point(3, 23);
-            this.axisGrid.Name = "axisGrid";
-            this.axisGrid.RowHeadersVisible = false;
-            this.axisGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.axisGrid.Size = new System.Drawing.Size(830, 744);
-            this.axisGrid.TabIndex = 0;
+            this.materialHeaderLayout.ColumnCount = 5;
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.materialHeaderLayout.Controls.Add(this.lblHeadDieTitle, 0, 0);
+            this.materialHeaderLayout.Controls.Add(this.btnHead1Select, 1, 0);
+            this.materialHeaderLayout.Controls.Add(this.btnHead2Select, 2, 0);
+            this.materialHeaderLayout.Controls.Add(this.btnHead3Select, 3, 0);
+            this.materialHeaderLayout.Controls.Add(this.btnHead4Select, 4, 0);
+            this.materialHeaderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.materialHeaderLayout.Location = new System.Drawing.Point(3, 3);
+            this.materialHeaderLayout.Name = "materialHeaderLayout";
+            this.materialHeaderLayout.RowCount = 1;
+            this.materialHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.materialHeaderLayout.Size = new System.Drawing.Size(830, 46);
+            this.materialHeaderLayout.TabIndex = 0;
             // 
-            // colAxis
+            // lblHeadDieTitle
             // 
-            this.colAxis.HeaderText = "Axis";
-            this.colAxis.Name = "colAxis";
-            this.colAxis.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.lblHeadDieTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeadDieTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeadDieTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblHeadDieTitle.Name = "lblHeadDieTitle";
+            this.lblHeadDieTitle.Size = new System.Drawing.Size(544, 46);
+            this.lblHeadDieTitle.TabIndex = 0;
+            this.lblHeadDieTitle.Text = "HEAD DIE";
+            this.lblHeadDieTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // colCurrent
+            // btnHead1Select
             // 
-            this.colCurrent.HeaderText = "Current";
-            this.colCurrent.Name = "colCurrent";
-            this.colCurrent.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.btnHead1Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnHead1Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead1Select.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnHead1Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnHead1Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnHead1Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead1Select.Location = new System.Drawing.Point(553, 3);
+            this.btnHead1Select.Name = "btnHead1Select";
+            this.btnHead1Select.Size = new System.Drawing.Size(64, 40);
+            this.btnHead1Select.TabIndex = 1;
+            this.btnHead1Select.Text = "HEAD 1";
+            this.btnHead1Select.UseVisualStyleBackColor = false;
             // 
-            // colServo
+            // btnHead2Select
             // 
-            this.colServo.HeaderText = "Servo";
-            this.colServo.Name = "colServo";
-            this.colServo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colServo.Visible = false;
+            this.btnHead2Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnHead2Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead2Select.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnHead2Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnHead2Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnHead2Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead2Select.Location = new System.Drawing.Point(623, 3);
+            this.btnHead2Select.Name = "btnHead2Select";
+            this.btnHead2Select.Size = new System.Drawing.Size(64, 40);
+            this.btnHead2Select.TabIndex = 2;
+            this.btnHead2Select.Text = "HEAD 2";
+            this.btnHead2Select.UseVisualStyleBackColor = false;
             // 
-            // colHome
+            // btnHead3Select
             // 
-            this.colHome.HeaderText = "Home";
-            this.colHome.Name = "colHome";
-            this.colHome.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colHome.Visible = false;
+            this.btnHead3Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnHead3Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead3Select.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnHead3Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnHead3Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnHead3Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead3Select.Location = new System.Drawing.Point(693, 3);
+            this.btnHead3Select.Name = "btnHead3Select";
+            this.btnHead3Select.Size = new System.Drawing.Size(64, 40);
+            this.btnHead3Select.TabIndex = 3;
+            this.btnHead3Select.Text = "HEAD 3";
+            this.btnHead3Select.UseVisualStyleBackColor = false;
             // 
-            // colAlarm
+            // btnHead4Select
             // 
-            this.colAlarm.HeaderText = "Alarm";
-            this.colAlarm.Name = "colAlarm";
-            this.colAlarm.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colAlarm.Visible = false;
+            this.btnHead4Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnHead4Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead4Select.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnHead4Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnHead4Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnHead4Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead4Select.Location = new System.Drawing.Point(763, 3);
+            this.btnHead4Select.Name = "btnHead4Select";
+            this.btnHead4Select.Size = new System.Drawing.Size(64, 40);
+            this.btnHead4Select.TabIndex = 4;
+            this.btnHead4Select.Text = "HEAD 4";
+            this.btnHead4Select.UseVisualStyleBackColor = false;
             // 
-            // colMoving
+            // headDieDetailView
             // 
-            this.colMoving.HeaderText = "Moving";
-            this.colMoving.Name = "colMoving";
-            this.colMoving.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colMoving.Visible = false;
+            this.headDieDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.headDieDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.headDieDetailView.Location = new System.Drawing.Point(0, 52);
+            this.headDieDetailView.Margin = new System.Windows.Forms.Padding(0);
+            this.headDieDetailView.Name = "headDieDetailView";
+            this.headDieDetailView.ShowProcessTestDataButton = false;
+            this.headDieDetailView.Size = new System.Drawing.Size(836, 718);
+            this.headDieDetailView.TabIndex = 1;
             // 
             // grpAction
             // 
@@ -1354,10 +1891,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpAction.Location = new System.Drawing.Point(0, 303);
+            this.grpAction.Location = new System.Drawing.Point(0, 383);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
-            this.grpAction.Size = new System.Drawing.Size(836, 467);
+            this.grpAction.Size = new System.Drawing.Size(836, 387);
             this.grpAction.TabIndex = 2;
             this.grpAction.TabStop = false;
             this.grpAction.Text = "ACTION";
@@ -1375,7 +1912,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.RowCount = 2;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 184F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionBar.Size = new System.Drawing.Size(830, 441);
+            this.actionBar.Size = new System.Drawing.Size(830, 361);
             this.actionBar.TabIndex = 2;
             // 
             // actionPanel
@@ -1481,9 +2018,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickUpTest.Size = new System.Drawing.Size(409, 40);
             this.btnPickUpTest.TabIndex = 5;
             this.btnPickUpTest.Text = "PICKUP TEST";
-            //
+            // 
             // btnAjinLineMapTest
-            //
+            // 
             this.btnAjinLineMapTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAjinLineMapTest.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAjinLineMapTest.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1495,9 +2032,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnAjinLineMapTest.TabIndex = 6;
             this.btnAjinLineMapTest.Text = "LINE MAP TEST";
             this.btnAjinLineMapTest.Click += new System.EventHandler(this.btnAjinLineMapTest_Click);
-            //
+            // 
             // btnAjinLineMoveTest
-            //
+            // 
             this.btnAjinLineMoveTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAjinLineMoveTest.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAjinLineMoveTest.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1509,16 +2046,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnAjinLineMoveTest.TabIndex = 7;
             this.btnAjinLineMoveTest.Text = "LINE MOVE TEST";
             this.btnAjinLineMoveTest.Click += new System.EventHandler(this.btnAjinLineMoveTest_Click);
-            //
+            // 
             // actionRightPanel
-            //
+            // 
             this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.actionRightPanel.ColumnCount = 2;
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.Controls.Add(this.btnStop, 1, 0);
             this.actionRightPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionRightPanel.Location = new System.Drawing.Point(0, 138);
+            this.actionRightPanel.Location = new System.Drawing.Point(0, 184);
             this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionRightPanel.Name = "actionRightPanel";
             this.actionRightPanel.RowCount = 5;
@@ -1527,7 +2064,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionRightPanel.Size = new System.Drawing.Size(830, 303);
+            this.actionRightPanel.Size = new System.Drawing.Size(830, 177);
             this.actionRightPanel.TabIndex = 1;
             // 
             // btnStop
@@ -1542,399 +2079,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Size = new System.Drawing.Size(409, 40);
             this.btnStop.TabIndex = 8;
             this.btnStop.Text = "STOP";
-            // 
-            // processFlowPanel
-            // 
-            this.processFlowPanel.ColumnCount = 9;
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 16F));
-            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.processFlowPanel.Controls.Add(this.lblFlowAvoid, 0, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowArrow1, 1, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowPickup, 2, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowArrow2, 3, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowBottom, 4, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowArrow3, 5, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowSide, 6, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowArrow4, 7, 0);
-            this.processFlowPanel.Controls.Add(this.lblFlowPlace, 8, 0);
-            this.processFlowPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.processFlowPanel.Location = new System.Drawing.Point(13, 151);
-            this.processFlowPanel.Name = "processFlowPanel";
-            this.processFlowPanel.RowCount = 1;
-            this.processFlowPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.processFlowPanel.Size = new System.Drawing.Size(265, 32);
-            this.processFlowPanel.TabIndex = 10;
-            // 
-            // lblFlowAvoid
-            // 
-            this.lblFlowAvoid.BackColor = System.Drawing.Color.DimGray;
-            this.lblFlowAvoid.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblFlowAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowAvoid.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this.lblFlowAvoid.ForeColor = System.Drawing.Color.White;
-            this.lblFlowAvoid.Location = new System.Drawing.Point(3, 0);
-            this.lblFlowAvoid.Name = "lblFlowAvoid";
-            this.lblFlowAvoid.Size = new System.Drawing.Size(34, 32);
-            this.lblFlowAvoid.TabIndex = 0;
-            this.lblFlowAvoid.Text = "AVOID";
-            this.lblFlowAvoid.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowArrow1
-            // 
-            this.lblFlowArrow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowArrow1.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblFlowArrow1.Location = new System.Drawing.Point(43, 0);
-            this.lblFlowArrow1.Name = "lblFlowArrow1";
-            this.lblFlowArrow1.Size = new System.Drawing.Size(10, 32);
-            this.lblFlowArrow1.TabIndex = 1;
-            this.lblFlowArrow1.Text = ">";
-            this.lblFlowArrow1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowPickup
-            // 
-            this.lblFlowPickup.BackColor = System.Drawing.Color.DimGray;
-            this.lblFlowPickup.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblFlowPickup.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowPickup.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this.lblFlowPickup.ForeColor = System.Drawing.Color.White;
-            this.lblFlowPickup.Location = new System.Drawing.Point(59, 0);
-            this.lblFlowPickup.Name = "lblFlowPickup";
-            this.lblFlowPickup.Size = new System.Drawing.Size(34, 32);
-            this.lblFlowPickup.TabIndex = 2;
-            this.lblFlowPickup.Text = "PICKUP";
-            this.lblFlowPickup.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowArrow2
-            // 
-            this.lblFlowArrow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowArrow2.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblFlowArrow2.Location = new System.Drawing.Point(99, 0);
-            this.lblFlowArrow2.Name = "lblFlowArrow2";
-            this.lblFlowArrow2.Size = new System.Drawing.Size(10, 32);
-            this.lblFlowArrow2.TabIndex = 3;
-            this.lblFlowArrow2.Text = ">";
-            this.lblFlowArrow2.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowBottom
-            // 
-            this.lblFlowBottom.BackColor = System.Drawing.Color.DimGray;
-            this.lblFlowBottom.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblFlowBottom.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowBottom.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this.lblFlowBottom.ForeColor = System.Drawing.Color.White;
-            this.lblFlowBottom.Location = new System.Drawing.Point(115, 0);
-            this.lblFlowBottom.Name = "lblFlowBottom";
-            this.lblFlowBottom.Size = new System.Drawing.Size(34, 32);
-            this.lblFlowBottom.TabIndex = 4;
-            this.lblFlowBottom.Text = "BOTTOM";
-            this.lblFlowBottom.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowArrow3
-            // 
-            this.lblFlowArrow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowArrow3.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblFlowArrow3.Location = new System.Drawing.Point(155, 0);
-            this.lblFlowArrow3.Name = "lblFlowArrow3";
-            this.lblFlowArrow3.Size = new System.Drawing.Size(10, 32);
-            this.lblFlowArrow3.TabIndex = 5;
-            this.lblFlowArrow3.Text = ">";
-            this.lblFlowArrow3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowSide
-            // 
-            this.lblFlowSide.BackColor = System.Drawing.Color.DimGray;
-            this.lblFlowSide.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblFlowSide.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowSide.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this.lblFlowSide.ForeColor = System.Drawing.Color.White;
-            this.lblFlowSide.Location = new System.Drawing.Point(171, 0);
-            this.lblFlowSide.Name = "lblFlowSide";
-            this.lblFlowSide.Size = new System.Drawing.Size(34, 32);
-            this.lblFlowSide.TabIndex = 6;
-            this.lblFlowSide.Text = "SIDE";
-            this.lblFlowSide.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowArrow4
-            // 
-            this.lblFlowArrow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowArrow4.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblFlowArrow4.Location = new System.Drawing.Point(211, 0);
-            this.lblFlowArrow4.Name = "lblFlowArrow4";
-            this.lblFlowArrow4.Size = new System.Drawing.Size(10, 32);
-            this.lblFlowArrow4.TabIndex = 7;
-            this.lblFlowArrow4.Text = ">";
-            this.lblFlowArrow4.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFlowPlace
-            // 
-            this.lblFlowPlace.BackColor = System.Drawing.Color.DimGray;
-            this.lblFlowPlace.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblFlowPlace.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFlowPlace.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this.lblFlowPlace.ForeColor = System.Drawing.Color.White;
-            this.lblFlowPlace.Location = new System.Drawing.Point(227, 0);
-            this.lblFlowPlace.Name = "lblFlowPlace";
-            this.lblFlowPlace.Size = new System.Drawing.Size(35, 32);
-            this.lblFlowPlace.TabIndex = 8;
-            this.lblFlowPlace.Text = "PLACE";
-            this.lblFlowPlace.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // headProcessPanel
-            // 
-            this.headProcessPanel.ColumnCount = 2;
-            this.headProcessPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
-            this.headProcessPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headProcessPanel.Controls.Add(this.lblHeadProcessTitle, 0, 0);
-            this.headProcessPanel.Controls.Add(this.lblHeadProcessValue, 1, 0);
-            this.headProcessPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headProcessPanel.Location = new System.Drawing.Point(13, 151);
-            this.headProcessPanel.Name = "headProcessPanel";
-            this.headProcessPanel.RowCount = 1;
-            this.headProcessPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headProcessPanel.Size = new System.Drawing.Size(265, 30);
-            this.headProcessPanel.TabIndex = 9;
-            // 
-            // lblHeadProcessTitle
-            // 
-            this.lblHeadProcessTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadProcessTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadProcessTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadProcessTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadProcessTitle.Location = new System.Drawing.Point(3, 0);
-            this.lblHeadProcessTitle.Name = "lblHeadProcessTitle";
-            this.lblHeadProcessTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadProcessTitle.Size = new System.Drawing.Size(114, 30);
-            this.lblHeadProcessTitle.TabIndex = 0;
-            this.lblHeadProcessTitle.Text = "CURRENT STEP";
-            this.lblHeadProcessTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblHeadProcessValue
-            // 
-            this.lblHeadProcessValue.BackColor = System.Drawing.Color.White;
-            this.lblHeadProcessValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadProcessValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadProcessValue.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblHeadProcessValue.Location = new System.Drawing.Point(123, 0);
-            this.lblHeadProcessValue.Name = "lblHeadProcessValue";
-            this.lblHeadProcessValue.Size = new System.Drawing.Size(139, 30);
-            this.lblHeadProcessValue.TabIndex = 1;
-            this.lblHeadProcessValue.Text = "-";
-            this.lblHeadProcessValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // headAxisTPanel
-            // 
-            this.headAxisTPanel.ColumnCount = 2;
-            this.headAxisTPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
-            this.headAxisTPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
-            this.headAxisTPanel.Controls.Add(this.lblHeadAxisTTitle, 0, 0);
-            this.headAxisTPanel.Controls.Add(this.lblHeadAxisTValue, 1, 0);
-            this.headAxisTPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headAxisTPanel.Location = new System.Drawing.Point(15, 21);
-            this.headAxisTPanel.Name = "headAxisTPanel";
-            this.headAxisTPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headAxisTPanel.Size = new System.Drawing.Size(422, 32);
-            this.headAxisTPanel.TabIndex = 0;
-            // 
-            // lblHeadAxisTTitle
-            // 
-            this.lblHeadAxisTTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadAxisTTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadAxisTTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadAxisTTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadAxisTTitle.Location = new System.Drawing.Point(3, 0);
-            this.lblHeadAxisTTitle.Name = "lblHeadAxisTTitle";
-            this.lblHeadAxisTTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadAxisTTitle.Size = new System.Drawing.Size(226, 32);
-            this.lblHeadAxisTTitle.TabIndex = 0;
-            this.lblHeadAxisTTitle.Text = "PICKER T1";
-            this.lblHeadAxisTTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblHeadAxisTValue
-            // 
-            this.lblHeadAxisTValue.BackColor = System.Drawing.Color.White;
-            this.lblHeadAxisTValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadAxisTValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadAxisTValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadAxisTValue.Location = new System.Drawing.Point(235, 0);
-            this.lblHeadAxisTValue.Name = "lblHeadAxisTValue";
-            this.lblHeadAxisTValue.Size = new System.Drawing.Size(184, 32);
-            this.lblHeadAxisTValue.TabIndex = 1;
-            this.lblHeadAxisTValue.Text = "0 deg";
-            this.lblHeadAxisTValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // colCommand
-            // 
-            this.colCommand.HeaderText = "Command";
-            this.colCommand.Name = "colCommand";
-            this.colCommand.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            this.colCommand.Visible = false;
-            // 
-            // headFlow1Panel
-            // 
-            this.headFlow1Panel.ColumnCount = 2;
-            this.headFlow1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.headFlow1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headFlow1Panel.Controls.Add(this.dotHeadFlow1, 0, 0);
-            this.headFlow1Panel.Controls.Add(this.lblHeadFlow1, 1, 0);
-            this.headFlow1Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headFlow1Panel.Location = new System.Drawing.Point(15, 135);
-            this.headFlow1Panel.Name = "headFlow1Panel";
-            this.headFlow1Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headFlow1Panel.Size = new System.Drawing.Size(208, 32);
-            this.headFlow1Panel.TabIndex = 9;
-            // 
-            // dotHeadFlow1
-            // 
-            this.dotHeadFlow1.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadFlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadFlow1.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadFlow1.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
-            this.dotHeadFlow1.Name = "dotHeadFlow1";
-            this.dotHeadFlow1.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotHeadFlow1.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadFlow1.Size = new System.Drawing.Size(18, 16);
-            this.dotHeadFlow1.TabIndex = 0;
-            // 
-            // lblHeadFlow1
-            // 
-            this.lblHeadFlow1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadFlow1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadFlow1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow1.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadFlow1.Location = new System.Drawing.Point(25, 0);
-            this.lblHeadFlow1.Name = "lblHeadFlow1";
-            this.lblHeadFlow1.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadFlow1.Size = new System.Drawing.Size(180, 32);
-            this.lblHeadFlow1.TabIndex = 1;
-            this.lblHeadFlow1.Text = "HEAD FLOW #1 : OFF";
-            this.lblHeadFlow1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // headFlow2Panel
-            // 
-            this.headFlow2Panel.ColumnCount = 2;
-            this.headFlow2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.headFlow2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headFlow2Panel.Controls.Add(this.dotHeadFlow2, 0, 0);
-            this.headFlow2Panel.Controls.Add(this.lblHeadFlow2, 1, 0);
-            this.headFlow2Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headFlow2Panel.Location = new System.Drawing.Point(229, 135);
-            this.headFlow2Panel.Name = "headFlow2Panel";
-            this.headFlow2Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headFlow2Panel.Size = new System.Drawing.Size(208, 32);
-            this.headFlow2Panel.TabIndex = 10;
-            // 
-            // dotHeadFlow2
-            // 
-            this.dotHeadFlow2.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadFlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadFlow2.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadFlow2.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
-            this.dotHeadFlow2.Name = "dotHeadFlow2";
-            this.dotHeadFlow2.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotHeadFlow2.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadFlow2.Size = new System.Drawing.Size(18, 16);
-            this.dotHeadFlow2.TabIndex = 0;
-            // 
-            // lblHeadFlow2
-            // 
-            this.lblHeadFlow2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadFlow2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadFlow2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow2.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadFlow2.Location = new System.Drawing.Point(25, 0);
-            this.lblHeadFlow2.Name = "lblHeadFlow2";
-            this.lblHeadFlow2.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadFlow2.Size = new System.Drawing.Size(180, 32);
-            this.lblHeadFlow2.TabIndex = 1;
-            this.lblHeadFlow2.Text = "HEAD FLOW #2 : OFF";
-            this.lblHeadFlow2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // headFlow3Panel
-            // 
-            this.headFlow3Panel.ColumnCount = 2;
-            this.headFlow3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.headFlow3Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headFlow3Panel.Controls.Add(this.dotHeadFlow3, 0, 0);
-            this.headFlow3Panel.Controls.Add(this.lblHeadFlow3, 1, 0);
-            this.headFlow3Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headFlow3Panel.Location = new System.Drawing.Point(443, 135);
-            this.headFlow3Panel.Name = "headFlow3Panel";
-            this.headFlow3Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headFlow3Panel.Size = new System.Drawing.Size(208, 32);
-            this.headFlow3Panel.TabIndex = 11;
-            // 
-            // dotHeadFlow3
-            // 
-            this.dotHeadFlow3.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadFlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadFlow3.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadFlow3.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
-            this.dotHeadFlow3.Name = "dotHeadFlow3";
-            this.dotHeadFlow3.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotHeadFlow3.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadFlow3.Size = new System.Drawing.Size(18, 16);
-            this.dotHeadFlow3.TabIndex = 0;
-            // 
-            // lblHeadFlow3
-            // 
-            this.lblHeadFlow3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadFlow3.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadFlow3.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow3.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadFlow3.Location = new System.Drawing.Point(25, 0);
-            this.lblHeadFlow3.Name = "lblHeadFlow3";
-            this.lblHeadFlow3.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadFlow3.Size = new System.Drawing.Size(180, 32);
-            this.lblHeadFlow3.TabIndex = 1;
-            this.lblHeadFlow3.Text = "HEAD FLOW #3 : OFF";
-            this.lblHeadFlow3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // headFlow4Panel
-            // 
-            this.headFlow4Panel.ColumnCount = 2;
-            this.headFlow4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.headFlow4Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.headFlow4Panel.Controls.Add(this.dotHeadFlow4, 0, 0);
-            this.headFlow4Panel.Controls.Add(this.lblHeadFlow4, 1, 0);
-            this.headFlow4Panel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.headFlow4Panel.Location = new System.Drawing.Point(657, 135);
-            this.headFlow4Panel.Name = "headFlow4Panel";
-            this.headFlow4Panel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.headFlow4Panel.Size = new System.Drawing.Size(210, 32);
-            this.headFlow4Panel.TabIndex = 12;
-            // 
-            // dotHeadFlow4
-            // 
-            this.dotHeadFlow4.BackColor = System.Drawing.Color.Transparent;
-            this.dotHeadFlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotHeadFlow4.Location = new System.Drawing.Point(2, 8);
-            this.dotHeadFlow4.Margin = new System.Windows.Forms.Padding(2, 8, 2, 8);
-            this.dotHeadFlow4.Name = "dotHeadFlow4";
-            this.dotHeadFlow4.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotHeadFlow4.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotHeadFlow4.Size = new System.Drawing.Size(18, 16);
-            this.dotHeadFlow4.TabIndex = 0;
-            // 
-            // lblHeadFlow4
-            // 
-            this.lblHeadFlow4.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblHeadFlow4.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHeadFlow4.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeadFlow4.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblHeadFlow4.Location = new System.Drawing.Point(25, 0);
-            this.lblHeadFlow4.Name = "lblHeadFlow4";
-            this.lblHeadFlow4.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblHeadFlow4.Size = new System.Drawing.Size(182, 32);
-            this.lblHeadFlow4.TabIndex = 1;
-            this.lblHeadFlow4.Text = "HEAD FLOW #4 : OFF";
-            this.lblHeadFlow4.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // FrontPickerPage
             // 
@@ -1951,6 +2095,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.counterLayout.ResumeLayout(false);
             this.grpInfo.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
+            this.axis1Panel.ResumeLayout(false);
+            this.axis2Panel.ResumeLayout(false);
+            this.axis3Panel.ResumeLayout(false);
+            this.axis4Panel.ResumeLayout(false);
+            this.axis5Panel.ResumeLayout(false);
+            this.axis6Panel.ResumeLayout(false);
+            this.axis7Panel.ResumeLayout(false);
+            this.axis8Panel.ResumeLayout(false);
+            this.axis9Panel.ResumeLayout(false);
+            this.axis10Panel.ResumeLayout(false);
+            this.grpSensor.ResumeLayout(false);
+            this.sensorLayout.ResumeLayout(false);
             this.headVacuum1Panel.ResumeLayout(false);
             this.headVacuum2Panel.ResumeLayout(false);
             this.headVacuum3Panel.ResumeLayout(false);
@@ -1959,29 +2115,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headBlow2Panel.ResumeLayout(false);
             this.headBlow3Panel.ResumeLayout(false);
             this.headBlow4Panel.ResumeLayout(false);
-            this.grpAxis.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.axisGrid)).EndInit();
+            this.materialPanel.ResumeLayout(false);
+            this.materialHeaderLayout.ResumeLayout(false);
             this.grpAction.ResumeLayout(false);
             this.actionBar.ResumeLayout(false);
             this.actionPanel.ResumeLayout(false);
             this.actionRightPanel.ResumeLayout(false);
-            this.processFlowPanel.ResumeLayout(false);
-            this.headProcessPanel.ResumeLayout(false);
-            this.headAxisTPanel.ResumeLayout(false);
-            this.headFlow1Panel.ResumeLayout(false);
-            this.headFlow2Panel.ResumeLayout(false);
-            this.headFlow3Panel.ResumeLayout(false);
-            this.headFlow4Panel.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
-
-        private DataGridViewTextBoxColumn colAxis;
-        private DataGridViewTextBoxColumn colCurrent;
-        private DataGridViewTextBoxColumn colServo;
-        private DataGridViewTextBoxColumn colHome;
-        private DataGridViewTextBoxColumn colAlarm;
-        private DataGridViewTextBoxColumn colMoving;
-        private DataGridViewTextBoxColumn colCommand;
     }
 }

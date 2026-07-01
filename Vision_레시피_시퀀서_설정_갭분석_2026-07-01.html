@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QMC.Vision 레시피·시퀀서·설정 갭분석 / 실장비 검증 체크리스트</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#2a2f3a; --tx:#e6e9ef; --mut:#9aa4b2;
+    --ok:#3fb950; --warn:#d29922; --gap:#f85149; --info:#58a6ff; --accent:#7c8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--tx);font-family:"Segoe UI","Malgun Gothic",sans-serif;line-height:1.6;font-size:15px}
+  header{padding:28px 32px 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#191d26,#12141a)}
+  header h1{margin:0 0 6px;font-size:22px}
+  header .sub{color:var(--mut);font-size:13px}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 32px 80px}
+  h2{margin:34px 0 4px;font-size:19px;border-left:4px solid var(--accent);padding-left:10px}
+  h2 .n{color:var(--accent)}
+  .req{background:#12233a;border:1px solid #244; border-radius:8px;padding:10px 14px;margin:10px 0 16px;font-size:13.5px;color:#cfe3ff}
+  .req b{color:#8ec7ff}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0;margin:14px 0;overflow:hidden}
+  .card h3{margin:0;padding:12px 16px;background:#1c2029;font-size:15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .card .body{padding:12px 16px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  td code, .body code{background:#20242e;padding:1px 6px;border-radius:4px;font-size:12.5px;color:#c8d3ff}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .t-ok{background:rgba(63,185,80,.15);color:var(--ok);border:1px solid rgba(63,185,80,.35)}
+  .t-warn{background:rgba(210,153,34,.15);color:var(--warn);border:1px solid rgba(210,153,34,.35)}
+  .t-gap{background:rgba(248,81,73,.15);color:var(--gap);border:1px solid rgba(248,81,73,.4)}
+  .t-info{background:rgba(88,166,255,.15);color:var(--info);border:1px solid rgba(88,166,255,.35)}
+  ul.chk{list-style:none;padding:0;margin:6px 0}
+  ul.chk li{padding:7px 4px 7px 0;border-bottom:1px dashed var(--line);display:flex;gap:10px;align-items:flex-start}
+  ul.chk li:last-child{border-bottom:none}
+  ul.chk input{margin-top:4px;width:16px;height:16px;accent-color:var(--ok);cursor:pointer;flex:0 0 auto}
+  ul.chk label{cursor:pointer}
+  .path{color:var(--mut);font-size:12px}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0 0;font-size:12px;color:var(--mut)}
+  .summary{background:#131722;border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:8px 0 4px}
+  .summary b{color:var(--accent)}
+  .kpi{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+  .kpi div{flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .kpi .num{font-size:24px;font-weight:800}
+  .kpi .lbl{color:var(--mut);font-size:12px}
+  .note{font-size:12.5px;color:var(--mut);margin-top:6px}
+  @media print{body{background:#fff;color:#111}.card,.summary,.kpi div{background:#fff;border-color:#ccc}header{background:#fff}h2{color:#111}}
+</style>
+</head>
+<body>
+<header>
+  <h1>QMC.Vision — 레시피 · 시퀀서 · 설정 갭분석 & 실장비 검증 체크리스트</h1>
+  <div class="sub">CDT-320 핸들러+비전 연동 테스트 · 작성 2026-07-01 · 코드베이스 실조사 기반 (QMC.Vision)</div>
+  <div class="legend">
+    <span><span class="tag t-ok">구현됨</span> 요구 충족</span>
+    <span><span class="tag t-warn">부분/미노출</span> 있으나 보완 필요</span>
+    <span><span class="tag t-gap">갭</span> 누락 — 조치 필요</span>
+    <span><span class="tag t-info">참고</span> 설계 메모</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="summary">
+    <b>요약.</b> 말씀하신 세 영역(레시피·시퀀서·설정)의 뼈대는 모두 구현되어 있습니다. 실장비 구동 전 반드시 손봐야 할
+    <b>핵심 갭은 1건</b>: <span class="tag t-gap">갭</span> <b>시퀀서 시작 전 “레시피 시뮬이미지·검출 준비 완료” 사전 검증 게이트가 없음</b>
+    (원하신 “레시피에서 미리 시뮬이미지 및 데이터 검출이 가능한지 모두 검증” 요건). 그 외는 미노출/네이밍/재시작 필요 수준의 보완 항목입니다.
+  </div>
+
+  <div class="kpi">
+    <div><div class="num" style="color:var(--ok)">대부분</div><div class="lbl">3개 영역 뼈대 구현 완료</div></div>
+    <div><div class="num" style="color:var(--gap)">1</div><div class="lbl">필수 갭 (시퀀서 사전검증 게이트)</div></div>
+    <div><div class="num" style="color:var(--warn)">5</div><div class="lbl">보완 권고 항목</div></div>
+  </div>
+
+  <!-- ================= 1. 레시피 ================= -->
+  <h2><span class="n">1.</span> 레시피 (Recipe)</h2>
+  <div class="req">
+    <b>요구:</b> 레시피 설정 및 전체 사용 가능한 탭. 각 카메라(모듈)마다 도구들이 있고, 도구들은 각각의 셋팅(차트, 시뮬이미지, 검출 셋팅 등)이 가능.
+  </div>
+
+  <div class="card">
+    <h3>현재 구현 현황</h3>
+    <div class="body">
+    <table>
+      <tr><th>요구 항목</th><th>상태</th><th>구현 위치 / 내용</th></tr>
+      <tr>
+        <td>레시피 탭 + 2단 네비 (모듈 → 도구)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>좌측 = 5개 모듈(Wafer/Bin/Bottom/FrontSide/RearSide), 도구 = 모듈별 <code>Finders</code>/<code>Inspectors</code>.<br><span class="path">RecipePage.cs:151-155, 295-324</span></td>
+      </tr>
+      <tr>
+        <td>도구별 검출 셋팅 (Finder/Inspector 파라미터)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>Finder=<code>VisionTargetPage</code> (ROI·Train·Threshold·Angle), Inspector=<code>InspectorTargetPage</code> (알고리즘별 파라미터 그리드). Recipe/Config/Setup 스코프별 저장.<br><span class="path">VisionTargetPage.cs:176-188, InspectorTargetPage.cs:298-336</span></td>
+      </tr>
+      <tr>
+        <td>도구별 시뮬이미지 지정</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>SimUseSavedImage</code> + <code>SimSavedImagePath</code> (Inspector는 Ch1/Ch2 2채널). GRAB 시 저장이미지 우선 로드.<br><span class="path">VisionTargetPage.cs:223-226/385-391, InspectorTargetPage.cs:369-396</span></td>
+      </tr>
+      <tr>
+        <td>도구별 차트 (SPC)</td>
+        <td><span class="tag t-warn">부분/미노출</span></td>
+        <td><code>SpcChartPage</code>(CSV→X-bar 차트)는 구현되어 있으나 <code>ShowSpc()</code>가 <b>private, UI 미노출</b>. 도구 세팅에서 차트 진입 경로 없음.<br><span class="path">RecipePage.cs:18, 122 / SpcChartPage.cs</span></td>
+      </tr>
+      <tr>
+        <td>레시피 저장/로드 + 상태 표시</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>Recipes/{name}/{key}.recipe.json</code> + Train PNG. 사이드바 상태닷(Off/Done/Dirty).<br><span class="path">RecipePage.cs:320-392</span></td>
+      </tr>
+      <tr>
+        <td>보조 페이지 (웨이퍼 사양/픽업 순서/INPUT DIE/조명)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>WaferSpecPage</code>, <code>PickupSequencePage</code>, <code>InputDieMapPage</code>, <code>InspectionLightPanel</code>.</td>
+      </tr>
+      <tr>
+        <td>탭 사이드바 정렬</td>
+        <td><span class="tag t-info">참고</span></td>
+        <td>현재 <code>RecipeTab</code>은 사이드바 숨기고 RecipePage 자체 네비 사용. “알고리즘 네비를 탭 사이드바로 끌어올려 완전 정렬”은 후속 예정(주석 명시). 기능엔 영향 없음.<br><span class="path">RecipeTab.cs:6-11</span></td>
+      </tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>갭 & 권고</h3>
+    <div class="body">
+      <p><span class="tag t-gap">갭</span> <b>도구별 SPC 차트 미노출</b> — 요구의 “도구별 셋팅(차트…)”을 충족하려면 <code>ShowSpc()</code>를 도구 세팅 화면에 버튼/탭으로 노출. 이미 로직은 있으므로 진입점만 연결하면 됨.</p>
+      <p><span class="tag t-info">참고</span> <code>AppendNodeParams()</code> 확장 지점이 case 0(빈 상태)로 존재 — 알고리즘별 커스텀 파라미터 추가용 인프라만 마련. 신규 알고리즘 추가 시 여기에 케이스 추가.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>실장비 구동 확인 체크리스트</h3>
+    <div class="body">
+    <ul class="chk">
+      <li><input type="checkbox" id="r1"><label for="r1">5개 모듈 모두 좌측 네비에 나오고, 각 모듈 선택 시 Finder/Inspector 목록이 뜬다</label></li>
+      <li><input type="checkbox" id="r2"><label for="r2">각 도구에서 ROI 편집 → 검출 파라미터 변경 → <b>저장</b> 후 상태닷이 Dirty→Done으로 바뀐다</label></li>
+      <li><input type="checkbox" id="r3"><label for="r3">도구별 <b>시뮬이미지</b>를 지정하고 GRAB 시 그 이미지가 로드되어 검출이 돈다 (Inspector는 Ch1/Ch2 각각 확인)</label></li>
+      <li><input type="checkbox" id="r4"><label for="r4">시뮬이미지로 <b>검출 결과(스코어/판정)</b>가 정상 산출된다 — 이 확인이 시퀀서 전제조건</label></li>
+      <li><input type="checkbox" id="r5"><label for="r5">레시피 저장 후 재로드 시 파라미터·Train 이미지가 복원된다</label></li>
+      <li><input type="checkbox" id="r6"><label for="r6">(권고 반영 시) 도구 세팅에서 SPC 차트를 열 수 있다</label></li>
+    </ul>
+    </div>
+  </div>
+
+  <!-- ================= 2. 시퀀서 ================= -->
+  <h2><span class="n">2.</span> 시퀀서 (Sequencer)</h2>
+  <div class="req">
+    <b>요구:</b> 실제 핸들러와 통신 전 비전 자체 테스트 검증. 설정에서 사용자가 <b>핸들러처럼 동작하게 실행</b>도 가능하고, 아니면 <b>비전만 동작</b>해 실제 동작되는지 확인.
+    <u>레시피에서 미리 시뮬이미지 및 데이터 검출이 가능한지 모두 검증해야 함.</u>
+  </div>
+
+  <div class="card">
+    <h3>현재 구현 현황</h3>
+    <div class="body">
+    <table>
+      <tr><th>요구 항목</th><th>상태</th><th>구현 위치 / 내용</th></tr>
+      <tr>
+        <td>모듈/모드 선택 + 시작·정지·한단계 + 실시간 로그</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>모듈 7종(전체/5모듈/측면 앞+뒤 동시), 모드 Auto·Step. 도구 다중선택 동시실행.<br><span class="path">SequencerPage.cs:18-28, 240-275</span></td>
+      </tr>
+      <tr>
+        <td>“핸들러처럼 동작” 모드</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>SimSelfRunOverTcp=true</code> → <code>TcpLoopbackVisionCommandDispatcher</code>가 127.0.0.1 자기 TCP서버로 접속, 실제 프로토콜/소켓 경로 그대로 검증. <code>VisionSelfRunTcpState.Active</code>로 게이트 해제.<br><span class="path">VisionAutoSequenceHost.cs:122-128, VisionSelfRunTcpState.cs</span></td>
+      </tr>
+      <tr>
+        <td>“비전만 동작” 모드</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>SimSelfRunOverTcp=false</code> → <code>DirectVisionCommandDispatcher</code>가 in-process로 <code>VisionCommandCore</code> 직접 호출. 두 경로 결과 계약 동일.<br><span class="path">VisionAutoSequenceHost.cs:129-131</span></td>
+      </tr>
+      <tr>
+        <td>모드 전환 토글 위치</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>설정 GENERAL의 <code>SimAutoSequence</code>(자체구동 on/off) + <code>SimSelfRunOverTcp</code>(TCP vs in-process). 저장 시 <code>ApplySimAutoSequence()</code> 반영.<br><span class="path">ConfigurationPage.cs:51-57, Form1.cs:267-271</span></td>
+      </tr>
+      <tr>
+        <td>5개 모듈 시퀀스 실동작</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>Wafer/Bin/Bottom/FrontSide/RearSide 모두 <code>ModuleSequenceBase</code> 상속, <code>CycleSteps()</code> 완비. 스텁 아님. <code>SequenceToolCatalog</code>가 SSOT.<br><span class="path">*Sequence.cs, SequenceToolCatalog.cs:20-65</span></td>
+      </tr>
+      <tr>
+        <td><b>레시피 준비(시뮬이미지·검출) 사전 검증 게이트</b></td>
+        <td><span class="tag t-gap">갭</span></td>
+        <td><b>시작 전 사전 검증 없음.</b> 검증은 실행 도중 dispatch 시점에만 발생(<code>fail:...train</code>, <code>fail:...inspector</code>). “시작 누르기 전에 레시피가 다 준비됐는지” 확인하는 게이트/체크리스트가 없음.<br><span class="path">AutoSequenceCoordinator.cs:40-52 (실행중 검사만)</span></td>
+      </tr>
+      <tr>
+        <td>Manual 모드</td>
+        <td><span class="tag t-warn">부분/미노출</span></td>
+        <td><code>SequenceRunMode.Manual</code> 정의는 있으나 UI엔 Auto/Step만 노출.<br><span class="path">SequenceRunMode.cs, SequencerPage.cs:246-247</span></td>
+      </tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>갭 & 권고 <span class="tag t-gap" style="margin-left:6px">핵심</span></h3>
+    <div class="body">
+      <p><span class="tag t-gap">갭</span> <b>시작 전 레시피 준비 검증 게이트 추가 (요구 직결).</b> 원하신 “레시피에서 미리 시뮬이미지 및 데이터 검출이 가능한지 모두 검증”을 시퀀서 진입 조건으로 강제하려면, Start 시 아래를 사전 점검하고 통과해야만 실행하도록:</p>
+      <ul class="chk" style="margin-left:8px">
+        <li><input type="checkbox" id="g1"><label for="g1">선택 모듈의 모든 Finder에 Train 데이터 존재</label></li>
+        <li><input type="checkbox" id="g2"><label for="g2">모든 Inspector 정의/파라미터 유효</label></li>
+        <li><input type="checkbox" id="g3"><label for="g3">시뮬 모드일 때 각 도구 시뮬이미지 경로 지정 + 파일 존재</label></li>
+        <li><input type="checkbox" id="g4"><label for="g4">각 도구 시뮬이미지로 검출 1회 리허설 → 스코어 산출 확인</label></li>
+      </ul>
+      <p class="note">구현 제안: <code>SequencerPage</code> Start 핸들러에서 <code>ActiveRecipeContext.Current</code> 기준으로 위 4개를 검사하는 <code>ValidateRecipeReady()</code> 추가 → 실패 시 어떤 도구가 미준비인지 목록 표시 후 실행 차단. 레시피 탭에도 동일 검사를 “준비 완료” 배지로 노출하면 왕복이 줄어듦.</p>
+      <p><span class="tag t-info">참고</span> <code>ModuleSequenceBase</code>(Model A)는 Coordinator가 쓰지 않는 참조 설계 — 혼선 방지 위해 주석/문서에 “미사용, 향후 TCP 통합용” 명시 권고.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>실장비 구동 확인 체크리스트</h3>
+    <div class="body">
+    <ul class="chk">
+      <li><input type="checkbox" id="s1"><label for="s1">설정 GENERAL에서 <b>SimAutoSequence</b> on, <b>SimSelfRunOverTcp</b> off → “비전만 동작”으로 전체 모듈 Auto 사이클이 돈다</label></li>
+      <li><input type="checkbox" id="s2"><label for="s2"><b>SimSelfRunOverTcp</b> on → “핸들러처럼 동작”(TCP 루프백)으로 동일 결과가 나온다 (로그에 TX/RX/ACK 확인)</label></li>
+      <li><input type="checkbox" id="s3"><label for="s3">모듈 개별 선택 + <b>Step</b> 모드로 한 단계씩 진행되고 로그가 단계별로 남는다</label></li>
+      <li><input type="checkbox" id="s4"><label for="s4">측면(앞+뒤 동시) 선택 시 Front/Rear가 병렬 실행된다</label></li>
+      <li><input type="checkbox" id="s5"><label for="s5">Train 없는 Finder/미정의 Inspector로 돌리면 <code>fail:...train</code> 등으로 NG가 명확히 뜬다</label></li>
+      <li><input type="checkbox" id="s6"><label for="s6">(권고 반영 시) 레시피 미준비 상태로 Start하면 <b>사전 게이트</b>가 실행을 막고 미준비 도구를 알려준다</label></li>
+      <li><input type="checkbox" id="s7"><label for="s7">자체 검증 통과 후 실제 핸들러 연결로 전환했을 때 동일 시퀀스가 재현된다</label></li>
+    </ul>
+    </div>
+  </div>
+
+  <!-- ================= 3. 설정 ================= -->
+  <h2><span class="n">3.</span> 설정 (Settings)</h2>
+  <div class="req">
+    <b>요구:</b> 시뮬·테스트·전체 셋업에 필요한 데이터. 카메라, 통신, 오토포커스 등 <b>레시피로 구분 없이 공통</b>으로 쓰는 것들.
+  </div>
+
+  <div class="card">
+    <h3>현재 구현 현황</h3>
+    <div class="body">
+    <table>
+      <tr><th>요구 항목</th><th>상태</th><th>구현 위치 / 내용</th></tr>
+      <tr>
+        <td>GENERAL (실행모드/백엔드/로그/데이터 루트)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>언어, Sim/OpenCV/Cognex Provider, 시뮬토글, 표시단위(mm/px), 이미지로그, DataRoot(기본 <code>D:\CDT-320</code>). 진단 Probe/Test 버튼.<br><span class="path">ConfigurationPage.cs:40-118</span></td>
+      </tr>
+      <tr>
+        <td>카메라 셋업 (모듈별)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>노출/게인/FPS/트리거/픽셀포맷/ROI/스케일·반전·회전/보정, Hik .mfs, MIL DCF, MVS 노드 파라미터, 조명 결선.<br><span class="path">CameraMappingPanel.cs:116-152, 437-468, 780-793</span></td>
+      </tr>
+      <tr>
+        <td>통신 (TCP 포트/상태)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>6채널 명령포트(5100~5106)+뷰어포트(5200~5206), 셀 클릭 편집, Listening/Connected/Last-RX 실시간 표시.<br><span class="path">CommLinkPage.cs:27-102</span></td>
+      </tr>
+      <tr>
+        <td>오토포커스 (공통)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>(카메라×타겟)별 4 ROI 드래그, 4색 오버레이, BEST 표, 4색 포커스 곡선, 시뮬 Test Scan/Step + TCP Scan. ROI 즉시 저장.<br><span class="path">AutoFocusPanel.cs:65-373, AutoFocusRoiStore.cs</span></td>
+      </tr>
+      <tr>
+        <td>조명 셋업 (공통)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td>컨트롤러 인벤토리(포트/채널/페이지/벤더), 채널 라벨, LFine 하드웨어 모드. <code>light_system.json</code> 저장.<br><span class="path">LightSystemSetupPage.cs</span></td>
+      </tr>
+      <tr>
+        <td>영속화 (공통 저장)</td>
+        <td><span class="tag t-ok">구현됨</span></td>
+        <td><code>Config/vision.json</code>(전역), <code>light_system.json</code>, 모듈 Config, AutoFocusRoiStore. 스코프 분리(전역/모듈/레시피).<br><span class="path">VisionConfig.cs:224-253</span></td>
+      </tr>
+      <tr>
+        <td>“핸들러처럼 동작” 토글 네이밍</td>
+        <td><span class="tag t-warn">부분/미노출</span></td>
+        <td>토글은 있으나 이름이 <code>SimAutoSequence</code>/<code>SimSelfRunOverTcp</code>라 “핸들러처럼 동작 / 비전만 동작” 의도가 UI 라벨에서 직관적이지 않음.</td>
+      </tr>
+      <tr>
+        <td>포트·DataRoot 변경 시</td>
+        <td><span class="tag t-info">참고</span></td>
+        <td>일부 설정(TCP 포트, DataRoot)은 <b>앱 재시작</b> 후 적용(핫스왑 아님).</td>
+      </tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>갭 & 권고</h3>
+    <div class="body">
+      <p><span class="tag t-warn">권고</span> GENERAL의 시뮬 토글 라벨을 사용자 표현에 맞게 재정의: 예) “실행 방식: ① 비전만 자체구동  ② 핸들러처럼 자체 TCP 구동  ③ 실제 핸들러 연결”. 내부 플래그는 그대로 두고 라벨/설명만 정리하면 혼선 감소.</p>
+      <p><span class="tag t-info">참고</span> 설정 항목은 모두 “레시피 무관 공통”으로 이미 분리되어 있음(전역 vision.json). 요구 충족.</p>
+      <p><span class="tag t-info">참고</span> 재시작 필요한 항목(포트/DataRoot)은 저장 시 “재시작 후 적용” 안내 문구가 있으면 오해가 줄어듦.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>실장비 구동 확인 체크리스트</h3>
+    <div class="body">
+    <ul class="chk">
+      <li><input type="checkbox" id="c1"><label for="c1">Provider(Sim/OpenCV/Cognex) 전환이 정상 반영되고 진단 Test가 통과한다</label></li>
+      <li><input type="checkbox" id="c2"><label for="c2">모듈별 카메라 노출/게인/트리거/스케일 저장 후 GRAB에 반영된다</label></li>
+      <li><input type="checkbox" id="c3"><label for="c3">통신 탭 포트 설정 후(재시작) 6채널이 Listening 되고 핸들러 접속 시 Connected로 바뀐다</label></li>
+      <li><input type="checkbox" id="c4"><label for="c4">오토포커스 ROI를 (카메라×타겟)별로 그려 저장하면 재기동 후에도 유지된다</label></li>
+      <li><input type="checkbox" id="c5"><label for="c5">오토포커스 Test Scan(시뮬)으로 4색 곡선·BEST 표가 채워진다</label></li>
+      <li><input type="checkbox" id="c6"><label for="c6">조명 컨트롤러/채널 설정이 레시피 조명 패널에 반영된다</label></li>
+      <li><input type="checkbox" id="c7"><label for="c7">(권고 반영 시) 실행 방식 라벨이 “비전만 / 핸들러처럼 / 실제 핸들러”로 명확하다</label></li>
+    </ul>
+    </div>
+  </div>
+
+  <!-- ================= 종합 순서 ================= -->
+  <h2><span class="n">4.</span> 실장비 구동 권장 순서</h2>
+  <div class="card">
+    <div class="body">
+    <ul class="chk">
+      <li><input type="checkbox" id="o1"><label for="o1"><b>설정</b> 먼저: Provider·카메라·통신 포트·오토포커스·조명 공통 셋업 확정</label></li>
+      <li><input type="checkbox" id="o2"><label for="o2"><b>레시피</b>: 모듈별 도구 검출 파라미터 + 시뮬이미지 지정 → 시뮬이미지로 검출 리허설 통과(스코어/판정 확인)</label></li>
+      <li><input type="checkbox" id="o3"><label for="o3"><b>시퀀서(비전만)</b>: SimSelfRunOverTcp off로 전체/개별 Auto·Step 자체 검증</label></li>
+      <li><input type="checkbox" id="o4"><label for="o4"><b>시퀀서(핸들러처럼)</b>: SimSelfRunOverTcp on으로 TCP 경로까지 동일 결과 확인</label></li>
+      <li><input type="checkbox" id="o5"><label for="o5"><b>실제 핸들러 연결</b>: 자체 검증 통과분과 동일 재현 확인</label></li>
+    </ul>
+    <p class="note">우선 조치 1건: 시퀀서 <b>사전 검증 게이트</b>(2번 섹션). 이것이 있어야 “레시피에서 미리 시뮬이미지·검출 검증” 요건이 실행 흐름에 강제됩니다.</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

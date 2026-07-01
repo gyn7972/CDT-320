@@ -331,7 +331,8 @@ namespace QMC.Vision.Modules
             var g = Camera.Grab(timeoutMs);
             if (g != null && g.IsSuccess)
             {
-                if (g.Image != null)
+                // 합성 OFF 빈 프레임(sim-blank)은 뷰어(_lastFrame)에 반영하지 않고 이전 화면 유지.
+                if (g.Image != null && g.Source != "sim-blank")
                     TapFrame(g.Image);
             }
             else
@@ -394,7 +395,7 @@ namespace QMC.Vision.Modules
             }
             // 측면 채널2(90°)면 Ch2 전용 이미지 사용(있을 때). 채널 홀수(1=Front ch2, 3=Back ch2)=90°.
             string path = s.SimSavedImagePath;
-            int ch = QMC.Vision.Core.VisionCommandCore.CurrentInspectChannel;
+            int ch = QMC.Vision.Core.VisionCommandCore.CurrentInspectChannel(Name);
             if ((ch % 2) == 1 && !string.IsNullOrWhiteSpace(s.SimSavedImagePathCh2))
                 path = s.SimSavedImagePathCh2;
             LogGrab("toolId='" + toolId + "' SimUseSavedImage=true, ch=" + ch + ", 경로='" + (path ?? "") + "' → 저장이미지 로드 시도");

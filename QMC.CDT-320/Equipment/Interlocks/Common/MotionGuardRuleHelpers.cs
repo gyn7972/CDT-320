@@ -64,7 +64,7 @@ namespace QMC.CDT320.Interlocks
         {
             try
             {
-                EventLogger.Write(EventKind.Alarm, "INTERLOCK", "MOTION-GUARD", reason);
+                QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "MOTION-GUARD", "INTERLOCK", reason);
             }
             catch
             {

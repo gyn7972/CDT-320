@@ -136,10 +136,10 @@ namespace QMC.Vision.Sequencing
                     string last = null;
                     for (int chOff = 0; chOff <= 1 && !ct.IsCancellationRequested; chOff++)   // ch1(0°)→ch2(90°)
                     {
-                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, baseCh + chOff, ix, iy);
+                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, picker, baseCh + chOff, ix, iy);
                         last = Context.Dispatch(Module, Cmd, args);   // INSPECT=GrabForTool(채널별 시뮬 이미지)+검사
                     }
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, 0, -1, 0, 0);   // 컨텍스트 리셋
                     result = last;
                 }
                 else if (IsBottomInspect() || IsBinInspect())
@@ -152,9 +152,9 @@ namespace QMC.Vision.Sequencing
                     _curPicker = picker; _curDie = seq;
                     chipUid = ResolveChipUid(ix, iy);           // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
                     args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(picker, -1, ix, iy);
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, picker, -1, ix, iy);
                     result = Context.Dispatch(Module, Cmd, args);
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(0, -1, 0, 0);   // 컨텍스트 리셋
+                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, 0, -1, 0, 0);   // 컨텍스트 리셋
                 }
                 else
                 {

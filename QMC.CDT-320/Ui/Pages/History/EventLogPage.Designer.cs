@@ -180,13 +180,13 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("Consolas", 10F);
             this._grid.Location = new System.Drawing.Point(3, 83);
-            this._grid.MultiSelect = false;
+            this._grid.MultiSelect = true;
             this._grid.Name = "_grid";
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
             this._grid.RowTemplate.Height = 26;
-            this._grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this._grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.RowHeaderSelect;
             this._grid.Size = new System.Drawing.Size(1672, 814);
             this._grid.TabIndex = 2;
             // 

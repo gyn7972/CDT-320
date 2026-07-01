@@ -212,11 +212,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // slotStateLayout
             // 
             this.slotStateLayout.ColumnCount = 5;
-            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 18F));
-            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 24F));
-            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 18F));
+            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16F));
+            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 23F));
+            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 19F));
+            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 19F));
+            this.slotStateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 23F));
             this.slotStateLayout.Controls.Add(this.lblSlotNoTitle, 0, 0);
             this.slotStateLayout.Controls.Add(this.lblSlotNoValue, 1, 0);
             this.slotStateLayout.Controls.Add(this.btnPrev, 2, 0);
@@ -242,7 +242,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotNoTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSlotNoTitle.Location = new System.Drawing.Point(9, 4);
             this.lblSlotNoTitle.Name = "lblSlotNoTitle";
-            this.lblSlotNoTitle.Size = new System.Drawing.Size(141, 39);
+            this.lblSlotNoTitle.Size = new System.Drawing.Size(124, 39);
             this.lblSlotNoTitle.TabIndex = 0;
             this.lblSlotNoTitle.Text = "Slot No";
             this.lblSlotNoTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -252,9 +252,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotNoValue.BackColor = System.Drawing.SystemColors.Control;
             this.lblSlotNoValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSlotNoValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblSlotNoValue.Location = new System.Drawing.Point(156, 4);
+            this.lblSlotNoValue.Location = new System.Drawing.Point(139, 4);
             this.lblSlotNoValue.Name = "lblSlotNoValue";
-            this.lblSlotNoValue.Size = new System.Drawing.Size(190, 39);
+            this.lblSlotNoValue.Size = new System.Drawing.Size(182, 39);
             this.lblSlotNoValue.TabIndex = 1;
             this.lblSlotNoValue.Text = "BIN 1";
             this.lblSlotNoValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -264,9 +264,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPrev.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnPrev.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnPrev.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnPrev.Location = new System.Drawing.Point(352, 7);
+            this.btnPrev.Location = new System.Drawing.Point(327, 7);
             this.btnPrev.Name = "btnPrev";
-            this.btnPrev.Size = new System.Drawing.Size(157, 33);
+            this.btnPrev.Size = new System.Drawing.Size(149, 33);
             this.btnPrev.TabIndex = 4;
             this.btnPrev.Text = "PREV";
             // 
@@ -275,27 +275,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnNext.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNext.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnNext.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNext.Location = new System.Drawing.Point(515, 7);
+            this.btnNext.Location = new System.Drawing.Point(482, 7);
             this.btnNext.Name = "btnNext";
-            this.btnNext.Size = new System.Drawing.Size(157, 33);
+            this.btnNext.Size = new System.Drawing.Size(149, 33);
             this.btnNext.TabIndex = 5;
             this.btnNext.Text = "NEXT";
             // 
             // lifterAxisPanel
             // 
+            this.lifterAxisPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lifterAxisPanel.ColumnCount = 1;
             this.lifterAxisPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
             this.lifterAxisPanel.Controls.Add(this.lblLifterAxisTitle, 0, 0);
             this.lifterAxisPanel.Controls.Add(this._lifterPosLabel, 0, 1);
-            this.lifterAxisPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lifterAxisPanel.Location = new System.Drawing.Point(679, 8);
+            this.lifterAxisPanel.Location = new System.Drawing.Point(638, 8);
             this.lifterAxisPanel.Margin = new System.Windows.Forms.Padding(4);
             this.lifterAxisPanel.Name = "lifterAxisPanel";
             this.lifterAxisPanel.RowCount = 2;
             this.slotStateLayout.SetRowSpan(this.lifterAxisPanel, 2);
             this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.lifterAxisPanel.Size = new System.Drawing.Size(141, 71);
+            this.lifterAxisPanel.Size = new System.Drawing.Size(182, 71);
             this.lifterAxisPanel.TabIndex = 0;
             // 
             // lblLifterAxisTitle
@@ -307,7 +307,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblLifterAxisTitle.Location = new System.Drawing.Point(3, 0);
             this.lblLifterAxisTitle.Name = "lblLifterAxisTitle";
             this.lblLifterAxisTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLifterAxisTitle.Size = new System.Drawing.Size(135, 24);
+            this.lblLifterAxisTitle.Size = new System.Drawing.Size(176, 24);
             this.lblLifterAxisTitle.TabIndex = 0;
             this.lblLifterAxisTitle.Text = "LIFTER AXIS Z";
             this.lblLifterAxisTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -321,7 +321,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lifterPosLabel.Location = new System.Drawing.Point(3, 24);
             this._lifterPosLabel.Name = "_lifterPosLabel";
             this._lifterPosLabel.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this._lifterPosLabel.Size = new System.Drawing.Size(135, 47);
+            this._lifterPosLabel.Size = new System.Drawing.Size(176, 47);
             this._lifterPosLabel.TabIndex = 1;
             this._lifterPosLabel.Text = "0.000 mm";
             this._lifterPosLabel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -332,7 +332,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotStateTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSlotStateTitle.Location = new System.Drawing.Point(9, 43);
             this.lblSlotStateTitle.Name = "lblSlotStateTitle";
-            this.lblSlotStateTitle.Size = new System.Drawing.Size(141, 40);
+            this.lblSlotStateTitle.Size = new System.Drawing.Size(124, 40);
             this.lblSlotStateTitle.TabIndex = 2;
             this.lblSlotStateTitle.Text = "State";
             this.lblSlotStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -342,9 +342,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblSlotStateValue.BackColor = System.Drawing.SystemColors.Control;
             this.lblSlotStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSlotStateValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblSlotStateValue.Location = new System.Drawing.Point(156, 43);
+            this.lblSlotStateValue.Location = new System.Drawing.Point(139, 43);
             this.lblSlotStateValue.Name = "lblSlotStateValue";
-            this.lblSlotStateValue.Size = new System.Drawing.Size(190, 40);
+            this.lblSlotStateValue.Size = new System.Drawing.Size(182, 40);
             this.lblSlotStateValue.TabIndex = 3;
             this.lblSlotStateValue.Text = "EMPTY";
             this.lblSlotStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -354,9 +354,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInit.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnInit.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnInit.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.btnInit.Location = new System.Drawing.Point(352, 46);
+            this.btnInit.Location = new System.Drawing.Point(327, 46);
             this.btnInit.Name = "btnInit";
-            this.btnInit.Size = new System.Drawing.Size(157, 34);
+            this.btnInit.Size = new System.Drawing.Size(149, 34);
             this.btnInit.TabIndex = 6;
             this.btnInit.Text = "LIFTER INIT";
             // 
@@ -365,9 +365,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnReady.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReady.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.btnReady.Location = new System.Drawing.Point(515, 46);
+            this.btnReady.Location = new System.Drawing.Point(482, 46);
             this.btnReady.Name = "btnReady";
-            this.btnReady.Size = new System.Drawing.Size(157, 34);
+            this.btnReady.Size = new System.Drawing.Size(149, 34);
             this.btnReady.TabIndex = 7;
             this.btnReady.Text = "LIFTER READY";
             // 
@@ -427,12 +427,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblLegendReadyColor
             // 
+            this.lblLegendReadyColor.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblLegendReadyColor.BackColor = System.Drawing.Color.Cyan;
-            this.lblLegendReadyColor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLegendReadyColor.Location = new System.Drawing.Point(2, 5);
-            this.lblLegendReadyColor.Margin = new System.Windows.Forms.Padding(2, 5, 2, 5);
+            this.lblLegendReadyColor.Location = new System.Drawing.Point(9, 1);
+            this.lblLegendReadyColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendReadyColor.Name = "lblLegendReadyColor";
-            this.lblLegendReadyColor.Size = new System.Drawing.Size(26, 5);
+            this.lblLegendReadyColor.Size = new System.Drawing.Size(12, 12);
             this.lblLegendReadyColor.TabIndex = 0;
             // 
             // lblLegendReadyText
@@ -463,12 +463,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblLegendEmptyColor
             // 
+            this.lblLegendEmptyColor.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblLegendEmptyColor.BackColor = System.Drawing.Color.Lime;
-            this.lblLegendEmptyColor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLegendEmptyColor.Location = new System.Drawing.Point(2, 5);
-            this.lblLegendEmptyColor.Margin = new System.Windows.Forms.Padding(2, 5, 2, 5);
+            this.lblLegendEmptyColor.Location = new System.Drawing.Point(9, 1);
+            this.lblLegendEmptyColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendEmptyColor.Name = "lblLegendEmptyColor";
-            this.lblLegendEmptyColor.Size = new System.Drawing.Size(26, 5);
+            this.lblLegendEmptyColor.Size = new System.Drawing.Size(12, 12);
             this.lblLegendEmptyColor.TabIndex = 0;
             // 
             // lblLegendEmptyText
@@ -499,12 +499,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblLegendWorkingColor
             // 
+            this.lblLegendWorkingColor.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblLegendWorkingColor.BackColor = System.Drawing.Color.Orange;
-            this.lblLegendWorkingColor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLegendWorkingColor.Location = new System.Drawing.Point(2, 5);
-            this.lblLegendWorkingColor.Margin = new System.Windows.Forms.Padding(2, 5, 2, 5);
+            this.lblLegendWorkingColor.Location = new System.Drawing.Point(9, 1);
+            this.lblLegendWorkingColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendWorkingColor.Name = "lblLegendWorkingColor";
-            this.lblLegendWorkingColor.Size = new System.Drawing.Size(26, 5);
+            this.lblLegendWorkingColor.Size = new System.Drawing.Size(12, 12);
             this.lblLegendWorkingColor.TabIndex = 0;
             // 
             // lblLegendWorkingText
@@ -535,12 +535,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblLegendFinishColor
             // 
+            this.lblLegendFinishColor.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblLegendFinishColor.BackColor = System.Drawing.Color.Red;
-            this.lblLegendFinishColor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLegendFinishColor.Location = new System.Drawing.Point(2, 5);
-            this.lblLegendFinishColor.Margin = new System.Windows.Forms.Padding(2, 5, 2, 5);
+            this.lblLegendFinishColor.Location = new System.Drawing.Point(9, 1);
+            this.lblLegendFinishColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendFinishColor.Name = "lblLegendFinishColor";
-            this.lblLegendFinishColor.Size = new System.Drawing.Size(26, 5);
+            this.lblLegendFinishColor.Size = new System.Drawing.Size(12, 12);
             this.lblLegendFinishColor.TabIndex = 0;
             // 
             // lblLegendFinishText
@@ -571,12 +571,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblLegendWorkReadyColor
             // 
+            this.lblLegendWorkReadyColor.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.lblLegendWorkReadyColor.BackColor = System.Drawing.Color.Navy;
-            this.lblLegendWorkReadyColor.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLegendWorkReadyColor.Location = new System.Drawing.Point(2, 5);
-            this.lblLegendWorkReadyColor.Margin = new System.Windows.Forms.Padding(2, 5, 2, 5);
+            this.lblLegendWorkReadyColor.Location = new System.Drawing.Point(9, 1);
+            this.lblLegendWorkReadyColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendWorkReadyColor.Name = "lblLegendWorkReadyColor";
-            this.lblLegendWorkReadyColor.Size = new System.Drawing.Size(26, 5);
+            this.lblLegendWorkReadyColor.Size = new System.Drawing.Size(12, 12);
             this.lblLegendWorkReadyColor.TabIndex = 0;
             // 
             // lblLegendWorkReadyText

@@ -11,17 +11,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel contentLayout;
         private GroupBox pnlInfo;
         private TableLayoutPanel infoLayout;
+        private TableLayoutPanel leftInfo;
+        private TableLayoutPanel rightInfo;
         private GroupBox grpAction;
         private TableLayoutPanel actionBar;
         private MaterialDetailView materialDetailView;
         private Label lblExistCaption;
         private Label _lblExist;
-        private Label lblFeederPosCaption;
-        private Label _lblFeederPos;
         private Label lblClampCaption;
         private Label _lblClampState;
         private Label lblUpDownCaption;
         private Label _lblUpDownState;
+        private TableLayoutPanel lifterAxisPanel;
+        private Label lblLifterAxisTitle;
+        private Label _lblLifterPos;
         private TableLayoutPanel ringOverloadPanel;
         private Label lblRingCaption;
         private IndicatorDot dotRing;
@@ -41,14 +44,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
             this.pnlInfo = new System.Windows.Forms.GroupBox();
             this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.leftInfo = new System.Windows.Forms.TableLayoutPanel();
             this.lblExistCaption = new System.Windows.Forms.Label();
             this._lblExist = new System.Windows.Forms.Label();
-            this.lblFeederPosCaption = new System.Windows.Forms.Label();
-            this._lblFeederPos = new System.Windows.Forms.Label();
             this.lblClampCaption = new System.Windows.Forms.Label();
             this._lblClampState = new System.Windows.Forms.Label();
             this.lblUpDownCaption = new System.Windows.Forms.Label();
             this._lblUpDownState = new System.Windows.Forms.Label();
+            this.rightInfo = new System.Windows.Forms.TableLayoutPanel();
+            this.lifterAxisPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblLifterAxisTitle = new System.Windows.Forms.Label();
+            this._lblLifterPos = new System.Windows.Forms.Label();
             this.ringOverloadPanel = new System.Windows.Forms.TableLayoutPanel();
             this.dotRing = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblRingCaption = new System.Windows.Forms.Label();
@@ -67,6 +73,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.SuspendLayout();
             this.pnlInfo.SuspendLayout();
             this.infoLayout.SuspendLayout();
+            this.leftInfo.SuspendLayout();
+            this.rightInfo.SuspendLayout();
+            this.lifterAxisPanel.SuspendLayout();
             this.ringOverloadPanel.SuspendLayout();
             this.grpAction.SuspendLayout();
             this.actionBar.SuspendLayout();
@@ -140,40 +149,51 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // infoLayout
             // 
             this.infoLayout.ColumnCount = 2;
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.66093F));
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 66.33907F));
-            this.infoLayout.Controls.Add(this.lblExistCaption, 0, 0);
-            this.infoLayout.Controls.Add(this._lblExist, 1, 0);
-            this.infoLayout.Controls.Add(this.lblFeederPosCaption, 0, 1);
-            this.infoLayout.Controls.Add(this._lblFeederPos, 1, 1);
-            this.infoLayout.Controls.Add(this.lblClampCaption, 0, 2);
-            this.infoLayout.Controls.Add(this._lblClampState, 1, 2);
-            this.infoLayout.Controls.Add(this.lblUpDownCaption, 0, 3);
-            this.infoLayout.Controls.Add(this._lblUpDownState, 1, 3);
-            this.infoLayout.Controls.Add(this.ringOverloadPanel, 0, 4);
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 77F));
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 23F));
+            this.infoLayout.Controls.Add(this.leftInfo, 0, 0);
+            this.infoLayout.Controls.Add(this.rightInfo, 1, 0);
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
-            this.infoLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 8);
-            this.infoLayout.RowCount = 5;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.infoLayout.Padding = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.infoLayout.RowCount = 1;
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.infoLayout.Size = new System.Drawing.Size(830, 271);
             this.infoLayout.TabIndex = 0;
+            // 
+            // leftInfo
+            // 
+            this.leftInfo.ColumnCount = 2;
+            this.leftInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.66093F));
+            this.leftInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 66.33907F));
+            this.leftInfo.Controls.Add(this.lblExistCaption, 0, 0);
+            this.leftInfo.Controls.Add(this._lblExist, 1, 0);
+            this.leftInfo.Controls.Add(this.lblClampCaption, 0, 1);
+            this.leftInfo.Controls.Add(this._lblClampState, 1, 1);
+            this.leftInfo.Controls.Add(this.lblUpDownCaption, 0, 2);
+            this.leftInfo.Controls.Add(this._lblUpDownState, 1, 2);
+            this.leftInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.leftInfo.Location = new System.Drawing.Point(8, 6);
+            this.leftInfo.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.leftInfo.Name = "leftInfo";
+            this.leftInfo.RowCount = 3;
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.Size = new System.Drawing.Size(618, 257);
+            this.leftInfo.TabIndex = 0;
             // 
             // lblExistCaption
             // 
             this.lblExistCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblExistCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblExistCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblExistCaption.Location = new System.Drawing.Point(10, 8);
+            this.lblExistCaption.Location = new System.Drawing.Point(2, 2);
             this.lblExistCaption.Margin = new System.Windows.Forms.Padding(2);
             this.lblExistCaption.Name = "lblExistCaption";
             this.lblExistCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblExistCaption.Size = new System.Drawing.Size(269, 47);
+            this.lblExistCaption.Size = new System.Drawing.Size(204, 81);
             this.lblExistCaption.TabIndex = 0;
             this.lblExistCaption.Text = "EXIST";
             this.lblExistCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -183,52 +203,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lblExist.BackColor = System.Drawing.Color.White;
             this._lblExist.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblExist.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblExist.Location = new System.Drawing.Point(283, 8);
+            this._lblExist.Location = new System.Drawing.Point(210, 2);
             this._lblExist.Margin = new System.Windows.Forms.Padding(2);
             this._lblExist.Name = "_lblExist";
-            this._lblExist.Size = new System.Drawing.Size(537, 47);
+            this._lblExist.Size = new System.Drawing.Size(406, 81);
             this._lblExist.TabIndex = 1;
             this._lblExist.Text = "--";
             this._lblExist.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // lblFeederPosCaption
-            // 
-            this.lblFeederPosCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.lblFeederPosCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFeederPosCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblFeederPosCaption.Location = new System.Drawing.Point(10, 59);
-            this.lblFeederPosCaption.Margin = new System.Windows.Forms.Padding(2);
-            this.lblFeederPosCaption.Name = "lblFeederPosCaption";
-            this.lblFeederPosCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblFeederPosCaption.Size = new System.Drawing.Size(269, 47);
-            this.lblFeederPosCaption.TabIndex = 2;
-            this.lblFeederPosCaption.Text = "FEEDER AXIS Y";
-            this.lblFeederPosCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // _lblFeederPos
-            // 
-            this._lblFeederPos.BackColor = System.Drawing.Color.White;
-            this._lblFeederPos.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblFeederPos.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblFeederPos.Location = new System.Drawing.Point(283, 59);
-            this._lblFeederPos.Margin = new System.Windows.Forms.Padding(2);
-            this._lblFeederPos.Name = "_lblFeederPos";
-            this._lblFeederPos.Padding = new System.Windows.Forms.Padding(0, 0, 8, 0);
-            this._lblFeederPos.Size = new System.Drawing.Size(537, 47);
-            this._lblFeederPos.TabIndex = 3;
-            this._lblFeederPos.Text = "0 um";
-            this._lblFeederPos.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblClampCaption
             // 
             this.lblClampCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblClampCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblClampCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblClampCaption.Location = new System.Drawing.Point(10, 110);
+            this.lblClampCaption.Location = new System.Drawing.Point(2, 87);
             this.lblClampCaption.Margin = new System.Windows.Forms.Padding(2);
             this.lblClampCaption.Name = "lblClampCaption";
             this.lblClampCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblClampCaption.Size = new System.Drawing.Size(269, 47);
+            this.lblClampCaption.Size = new System.Drawing.Size(204, 81);
             this.lblClampCaption.TabIndex = 4;
             this.lblClampCaption.Text = "FEEDER CLAMP";
             this.lblClampCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -238,10 +230,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lblClampState.BackColor = System.Drawing.Color.White;
             this._lblClampState.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblClampState.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblClampState.Location = new System.Drawing.Point(283, 110);
+            this._lblClampState.Location = new System.Drawing.Point(210, 87);
             this._lblClampState.Margin = new System.Windows.Forms.Padding(2);
             this._lblClampState.Name = "_lblClampState";
-            this._lblClampState.Size = new System.Drawing.Size(537, 47);
+            this._lblClampState.Size = new System.Drawing.Size(406, 81);
             this._lblClampState.TabIndex = 5;
             this._lblClampState.Text = "--";
             this._lblClampState.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -251,11 +243,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblUpDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblUpDownCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUpDownCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblUpDownCaption.Location = new System.Drawing.Point(10, 161);
+            this.lblUpDownCaption.Location = new System.Drawing.Point(2, 172);
             this.lblUpDownCaption.Margin = new System.Windows.Forms.Padding(2);
             this.lblUpDownCaption.Name = "lblUpDownCaption";
             this.lblUpDownCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblUpDownCaption.Size = new System.Drawing.Size(269, 47);
+            this.lblUpDownCaption.Size = new System.Drawing.Size(204, 83);
             this.lblUpDownCaption.TabIndex = 6;
             this.lblUpDownCaption.Text = "FEEDER UP DOWN";
             this.lblUpDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -265,82 +257,140 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lblUpDownState.BackColor = System.Drawing.Color.White;
             this._lblUpDownState.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblUpDownState.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblUpDownState.Location = new System.Drawing.Point(283, 161);
+            this._lblUpDownState.Location = new System.Drawing.Point(210, 172);
             this._lblUpDownState.Margin = new System.Windows.Forms.Padding(2);
             this._lblUpDownState.Name = "_lblUpDownState";
-            this._lblUpDownState.Size = new System.Drawing.Size(537, 47);
+            this._lblUpDownState.Size = new System.Drawing.Size(406, 83);
             this._lblUpDownState.TabIndex = 7;
             this._lblUpDownState.Text = "--";
             this._lblUpDownState.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // rightInfo
+            // 
+            this.rightInfo.ColumnCount = 1;
+            this.rightInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightInfo.Controls.Add(this.lifterAxisPanel, 0, 0);
+            this.rightInfo.Controls.Add(this.ringOverloadPanel, 0, 1);
+            this.rightInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rightInfo.Location = new System.Drawing.Point(632, 6);
+            this.rightInfo.Margin = new System.Windows.Forms.Padding(0);
+            this.rightInfo.Name = "rightInfo";
+            this.rightInfo.RowCount = 2;
+            this.rightInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 79F));
+            this.rightInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightInfo.Size = new System.Drawing.Size(190, 257);
+            this.rightInfo.TabIndex = 1;
+            // 
+            // lifterAxisPanel
+            // 
+            this.lifterAxisPanel.ColumnCount = 1;
+            this.lifterAxisPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.lifterAxisPanel.Controls.Add(this.lblLifterAxisTitle, 0, 0);
+            this.lifterAxisPanel.Controls.Add(this._lblLifterPos, 0, 1);
+            this.lifterAxisPanel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
+            this.lifterAxisPanel.Location = new System.Drawing.Point(4, 4);
+            this.lifterAxisPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.lifterAxisPanel.Name = "lifterAxisPanel";
+            this.lifterAxisPanel.RowCount = 2;
+            this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.lifterAxisPanel.Size = new System.Drawing.Size(182, 71);
+            this.lifterAxisPanel.TabIndex = 0;
+            // 
+            // lblLifterAxisTitle
+            // 
+            this.lblLifterAxisTitle.BackColor = System.Drawing.Color.Black;
+            this.lblLifterAxisTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLifterAxisTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblLifterAxisTitle.ForeColor = System.Drawing.Color.White;
+            this.lblLifterAxisTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblLifterAxisTitle.Name = "lblLifterAxisTitle";
+            this.lblLifterAxisTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblLifterAxisTitle.Size = new System.Drawing.Size(176, 24);
+            this.lblLifterAxisTitle.TabIndex = 0;
+            this.lblLifterAxisTitle.Text = "LIFTER AXIS Z";
+            this.lblLifterAxisTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _lblLifterPos
+            // 
+            this._lblLifterPos.BackColor = System.Drawing.Color.White;
+            this._lblLifterPos.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblLifterPos.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblLifterPos.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblLifterPos.Location = new System.Drawing.Point(3, 24);
+            this._lblLifterPos.Name = "_lblLifterPos";
+            this._lblLifterPos.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this._lblLifterPos.Size = new System.Drawing.Size(176, 47);
+            this._lblLifterPos.TabIndex = 1;
+            this._lblLifterPos.Text = "0.000 mm";
+            this._lblLifterPos.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
             // ringOverloadPanel
             // 
-            this.ringOverloadPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
-            this.ringOverloadPanel.ColumnCount = 4;
-            this.infoLayout.SetColumnSpan(this.ringOverloadPanel, 2);
-            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 35F));
-            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 35F));
-            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.ringOverloadPanel.BackColor = System.Drawing.SystemColors.Control;
+            this.ringOverloadPanel.ColumnCount = 2;
+            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.ringOverloadPanel.Controls.Add(this.dotRing, 0, 0);
             this.ringOverloadPanel.Controls.Add(this.lblRingCaption, 1, 0);
-            this.ringOverloadPanel.Controls.Add(this.dotOverload, 2, 0);
-            this.ringOverloadPanel.Controls.Add(this.lblOverloadCaption, 3, 0);
+            this.ringOverloadPanel.Controls.Add(this.dotOverload, 0, 1);
+            this.ringOverloadPanel.Controls.Add(this.lblOverloadCaption, 1, 1);
             this.ringOverloadPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ringOverloadPanel.Location = new System.Drawing.Point(10, 212);
-            this.ringOverloadPanel.Margin = new System.Windows.Forms.Padding(2);
+            this.ringOverloadPanel.Location = new System.Drawing.Point(4, 83);
+            this.ringOverloadPanel.Margin = new System.Windows.Forms.Padding(4);
             this.ringOverloadPanel.Name = "ringOverloadPanel";
-            this.ringOverloadPanel.RowCount = 1;
-            this.ringOverloadPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.ringOverloadPanel.Size = new System.Drawing.Size(810, 49);
+            this.ringOverloadPanel.RowCount = 2;
+            this.ringOverloadPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.ringOverloadPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.ringOverloadPanel.Size = new System.Drawing.Size(182, 170);
             this.ringOverloadPanel.TabIndex = 8;
             // 
             // dotRing
             // 
-            this.dotRing.BackColor = System.Drawing.Color.Transparent;
-            this.dotRing.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dotRing.BackColor = System.Drawing.SystemColors.Control;
+            this.dotRing.Anchor = System.Windows.Forms.AnchorStyles.None;
             this.dotRing.Location = new System.Drawing.Point(6, 7);
-            this.dotRing.Margin = new System.Windows.Forms.Padding(6, 7, 4, 7);
+            this.dotRing.Margin = new System.Windows.Forms.Padding(3);
             this.dotRing.Name = "dotRing";
             this.dotRing.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotRing.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotRing.Size = new System.Drawing.Size(25, 35);
+            this.dotRing.Size = new System.Drawing.Size(34, 34);
             this.dotRing.TabIndex = 0;
             // 
             // lblRingCaption
             // 
-            this.lblRingCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblRingCaption.BackColor = System.Drawing.SystemColors.Control;
             this.lblRingCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRingCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblRingCaption.Location = new System.Drawing.Point(35, 0);
+            this.lblRingCaption.Location = new System.Drawing.Point(50, 0);
             this.lblRingCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblRingCaption.Name = "lblRingCaption";
-            this.lblRingCaption.Size = new System.Drawing.Size(370, 49);
+            this.lblRingCaption.Size = new System.Drawing.Size(132, 85);
             this.lblRingCaption.TabIndex = 1;
             this.lblRingCaption.Text = "RING CHECK";
             this.lblRingCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // dotOverload
             // 
-            this.dotOverload.BackColor = System.Drawing.Color.Transparent;
-            this.dotOverload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotOverload.Location = new System.Drawing.Point(411, 7);
-            this.dotOverload.Margin = new System.Windows.Forms.Padding(6, 7, 4, 7);
+            this.dotOverload.BackColor = System.Drawing.SystemColors.Control;
+            this.dotOverload.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.dotOverload.Location = new System.Drawing.Point(6, 92);
+            this.dotOverload.Margin = new System.Windows.Forms.Padding(3);
             this.dotOverload.Name = "dotOverload";
             this.dotOverload.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotOverload.OnColor = System.Drawing.Color.Red;
-            this.dotOverload.Size = new System.Drawing.Size(25, 35);
+            this.dotOverload.Size = new System.Drawing.Size(34, 34);
             this.dotOverload.TabIndex = 2;
             // 
             // lblOverloadCaption
             // 
-            this.lblOverloadCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblOverloadCaption.BackColor = System.Drawing.SystemColors.Control;
             this.lblOverloadCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblOverloadCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblOverloadCaption.Location = new System.Drawing.Point(440, 0);
+            this.lblOverloadCaption.Location = new System.Drawing.Point(50, 85);
             this.lblOverloadCaption.Margin = new System.Windows.Forms.Padding(0);
             this.lblOverloadCaption.Name = "lblOverloadCaption";
-            this.lblOverloadCaption.Size = new System.Drawing.Size(370, 49);
+            this.lblOverloadCaption.Size = new System.Drawing.Size(132, 85);
             this.lblOverloadCaption.TabIndex = 3;
             this.lblOverloadCaption.Text = "OVERLOAD CHECK";
             this.lblOverloadCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -483,6 +533,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.ResumeLayout(false);
             this.pnlInfo.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
+            this.leftInfo.ResumeLayout(false);
+            this.rightInfo.ResumeLayout(false);
+            this.lifterAxisPanel.ResumeLayout(false);
             this.ringOverloadPanel.ResumeLayout(false);
             this.grpAction.ResumeLayout(false);
             this.actionBar.ResumeLayout(false);

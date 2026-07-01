@@ -28,23 +28,34 @@ namespace QMC.Vision.Core
             set { _suppressExposurePush = value; }
         }
 
-        // INSPECT 결과를 구조화 스토어에 태깅할 픽커/인덱스 컨텍스트(시퀀서/수동테스트가 INSPECT 전에 설정).
-        [ThreadStatic] private static int _inspectPicker;
-        [ThreadStatic] private static int _inspectChannel;
-        [ThreadStatic] private static int _inspectIndexX;
-        [ThreadStatic] private static int _inspectIndexY;
+        // INSPECT 결과 태깅용 픽커/인덱스/채널 컨텍스트 — 모듈명 기준 in-process 스토어.
+        // ThreadStatic 이 아니라 스토어로 두어 TCP 자체실행(서버가 다른 스레드에서 INSPECT 처리)에서도
+        // 시퀀서가 넣은 컨텍스트를 그대로 읽는다(같은 프로세스, 모듈명 키 매칭). 와이어 포맷은 변경하지 않는다.
+        private struct InspectCtx { public int Picker; public int Channel; public int IndexX; public int IndexY; }
+        private static readonly System.Collections.Generic.Dictionary<string, InspectCtx> _inspectCtx =
+            new System.Collections.Generic.Dictionary<string, InspectCtx>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _inspectCtxLock = new object();
 
-        /// <summary>현재 INSPECT 채널(0~3: Front ch1/ch2, Back ch1/ch2; -1=미지정). 그랩이 채널별 시뮬 이미지 선택에 사용.</summary>
-        public static int CurrentInspectChannel => _inspectChannel;
-
-        /// <summary>다음 INSPECT 결과에 붙일 픽커(1~4)·다이 인덱스 설정. picker=0 이면 이력에만 기록.</summary>
-        public static void SetInspectContext(int picker, int indexX, int indexY)
-            => SetInspectContext(picker, -1, indexX, indexY);
-
-        /// <summary>채널 지정 컨텍스트(Side 4채널: channel 0~3 — Front ch1/2, Back ch1/2, 그 외 -1).</summary>
-        public static void SetInspectContext(int picker, int channel, int indexX, int indexY)
+        private static InspectCtx GetInspectCtx(string module)
         {
-            _inspectPicker = picker; _inspectChannel = channel; _inspectIndexX = indexX; _inspectIndexY = indexY;
+            if (string.IsNullOrEmpty(module)) return new InspectCtx { Channel = -1 };
+            lock (_inspectCtxLock)
+                return _inspectCtx.TryGetValue(module, out var c) ? c : new InspectCtx { Channel = -1 };
+        }
+
+        /// <summary>현재 INSPECT 채널(0~3: Front ch1/ch2, Back ch1/ch2; -1=미지정). 그랩이 채널별 시뮬 이미지 선택에 사용(모듈 기준).</summary>
+        public static int CurrentInspectChannel(string module) => GetInspectCtx(module).Channel;
+
+        /// <summary>다음 INSPECT 결과에 붙일 픽커(1~4)·다이 인덱스 설정(모듈 기준). picker=0 이면 이력에만 기록.</summary>
+        public static void SetInspectContext(string module, int picker, int indexX, int indexY)
+            => SetInspectContext(module, picker, -1, indexX, indexY);
+
+        /// <summary>채널 지정 컨텍스트(Side 4채널: channel 0~3 — Front ch1/2, Back ch1/2, 그 외 -1) — 모듈명 키 저장.</summary>
+        public static void SetInspectContext(string module, int picker, int channel, int indexX, int indexY)
+        {
+            if (string.IsNullOrEmpty(module)) return;
+            lock (_inspectCtxLock)
+                _inspectCtx[module] = new InspectCtx { Picker = picker, Channel = channel, IndexX = indexX, IndexY = indexY };
         }
 
         /// <summary>1장 그랩. "w=..;h=..;frame=.." 또는 "fail:..".</summary>
@@ -161,7 +172,7 @@ namespace QMC.Vision.Core
             }
             catch { }
 
-            return $"OK;x={xOut:F3};y={yOut:F3};r={rOut:F3};score={b.Score:F3}";
+            return $"OK;x={b.CenterX:F3};y={b.CenterY:F3};r={rOut:F3};score={b.Score:F3};width={image.Width};height={image.Height}";   // 항상 픽셀 + 이미지크기(px) — 핸들러가 mm 변환
         }
 
         /// <summary>외관/배치 검사. chipUid 있으면 MaterialTracker 누적 + 이미지/데이터 로그.</summary>
@@ -219,12 +230,25 @@ namespace QMC.Vision.Core
 
             var r = ins.Inspect(image);
             if (r == null || r.Items == null) return "fail:inspect returned null";
-            var items = string.Join(",", r.Items.Select(i => $"{i.Name}={i.Value}"));
+            var items = string.Join(";", r.Items.Select(i => $"{i.Name}={i.Value}"));   // 핸들러 프로토콜: ; 구분
 
             // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 OK/NG + 결과 라인 오버레이로 표시.
             ModuleResultStore.Record(m.Name, inspId, r.IsPass, items);
 
             // 구조화 결과 스토어 — 작업화면 뷰어(Picker 이미지/추세/그리드)가 구독. 모드/픽커 태그.
+            // 검사 종류별 오버레이 기하 — 모니터링 뷰와 팝업이 동일 렌더러(InspectionOverlayRenderer)로 그리도록 한 번만 생성.
+            InspectionOverlayStore.Geom geom = null;
+            try
+            {
+                if (ins is SideAppearanceInspector siG && siG.IsChippingRole && siG.LastValid)
+                    geom = new InspectionOverlayStore.Geom { Kind = InspectionOverlayStore.OverlayKind.Side, TopProfile = siG.LastTopProfile, BotProfile = siG.LastBotProfile, RefCorners = siG.LastCorners, Defects = r.Defects, Pass = siG.LastPass };
+                else if (ins is BottomInspector biG && biG.LastValid)
+                    geom = new InspectionOverlayStore.Geom { Kind = InspectionOverlayStore.OverlayKind.Bottom, Corners = biG.LastCorners, Defects = r.Defects, Caption = BottomCaption(r), Pass = r.IsPass };
+                else if (ins is PlacementGapInspector pgG && pgG.LastValid)
+                    geom = new InspectionOverlayStore.Geom { Kind = InspectionOverlayStore.OverlayKind.Bin, Corners = pgG.LastCorners, Defects = r.Defects, Pass = r.IsPass };
+            }
+            catch { }
+
             try
             {
                 string mode = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
@@ -234,7 +258,8 @@ namespace QMC.Vision.Core
                     System.Drawing.PointF[] box = (ins as PlacementGapInspector)?.LastCorners
                                               ?? (ins as BottomInspector)?.LastCorners
                                               ?? (ins as SideAppearanceInspector)?.LastCorners;
-                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, _inspectPicker, _inspectChannel, _inspectIndexX, _inspectIndexY, r, image, box));
+                    var ctx = GetInspectCtx(m.Name);
+                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom));
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionCommandCore] InspectionResultStore.Record 실패: " + ex.Message); }
@@ -251,30 +276,11 @@ namespace QMC.Vision.Core
             }
             catch { }
 
-            // 검사 종류별 전용 오버레이 기하 → 작업 모니터링 뷰가 레시피와 동일 렌더러로 표시(모든 Inspection 동일 구조).
+            // 검사 종류별 전용 오버레이 기하 → 모니터링 뷰/팝업이 동일 렌더러로 표시(위에서 만든 geom 재사용).
             try
             {
-                if (ins is SideAppearanceInspector si && si.IsChippingRole && si.LastValid)
-                    InspectionOverlayStore.Record(m.Name, new InspectionOverlayStore.Geom
-                    {
-                        Kind = InspectionOverlayStore.OverlayKind.Side,
-                        TopProfile = si.LastTopProfile, BotProfile = si.LastBotProfile,
-                        RefCorners = si.LastCorners, Defects = r.Defects, Pass = si.LastPass
-                    });
-                else if (ins is BottomInspector bi && bi.LastValid)
-                    InspectionOverlayStore.Record(m.Name, new InspectionOverlayStore.Geom
-                    {
-                        Kind = InspectionOverlayStore.OverlayKind.Bottom,
-                        Corners = bi.LastCorners, Defects = r.Defects, Caption = BottomCaption(r), Pass = r.IsPass
-                    });
-                else if (ins is PlacementGapInspector pg && pg.LastValid)
-                    InspectionOverlayStore.Record(m.Name, new InspectionOverlayStore.Geom
-                    {
-                        Kind = InspectionOverlayStore.OverlayKind.Bin,
-                        Corners = pg.LastCorners, Defects = r.Defects, Pass = r.IsPass
-                    });
-                else
-                    InspectionOverlayStore.Clear(m.Name);
+                if (geom != null) InspectionOverlayStore.Record(m.Name, geom);
+                else InspectionOverlayStore.Clear(m.Name);
             }
             catch { }
 
@@ -301,7 +307,20 @@ namespace QMC.Vision.Core
                 catch { }
             }
 
-            return $"{(r.IsPass ? "PASS" : "FAIL")};{items}";
+            // INSPECT 응답을 '핸들러가 실제 소비하는 필드'로 검사기 타입별 분기:
+            //  • Bin 배치검사(PlacementInspector=PlacementGapInspector) → PASS/FAIL + 픽셀 offset(x/y) + 이미지크기(px).
+            //      핸들러(CheckPlacement→InspectCalibrated)가 PixelToMm 로 배치보정에 사용.
+            //  • 표면/칩핑 검사(Surface/Chipping=Bottom/SideAppearanceInspector) → PASS/FAIL 만(핸들러는 IsPass만 소비).
+            //      칩 측정 상세(Width/Chipping/Foreign mm)는 비전 자체 표시용(ModuleResultStore/팝업)으로만 유지.
+            string verdict = r.IsPass ? "PASS" : "FAIL";
+            if (ins is PlacementGapInspector)
+            {
+                var mpOff = m.ExportCameraMapping();
+                double oxPx = ItemPx(r.Items, "Offset X", mpOff.ScaleX);   // 검사기 mm ÷ Scale = 원본 픽셀(Scale<=0이면 이미 px)
+                double oyPx = ItemPx(r.Items, "Offset Y", mpOff.ScaleY);
+                return $"{verdict};x={oxPx:F3};y={oyPx:F3};width={image.Width};height={image.Height}";
+            }
+            return verdict;
         }
 
         /// <summary>패턴 학습.</summary>
@@ -316,6 +335,17 @@ namespace QMC.Vision.Core
                 f.Train(g.Image);
                 return "OK";
             }
+        }
+
+        /// <summary>검사 items 에서 지정 항목(mm)을 픽셀로 역변환(÷scale). 항목 없으면 0. scale&lt;=0(미보정)이면 값 그대로(이미 px).</summary>
+        private static double ItemPx(System.Collections.Generic.IEnumerable<InspectionItem> items, string name, double scale)
+        {
+            if (items == null) return 0.0;
+            foreach (var it in items)
+                if (it != null && string.Equals(it.Name, name, StringComparison.OrdinalIgnoreCase)
+                    && double.TryParse(it.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v))
+                    return v / (scale > 0 ? scale : 1.0);
+            return 0.0;
         }
 
         private static bool HasChip(string chipUid)

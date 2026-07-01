@@ -255,6 +255,13 @@ namespace QMC.Common.Logging
 
                 foreach (EventRow row in rows)
                     WriteLegacyLog(row);
+
+                // 발생한 메시지 종류를 번역 카탈로그에 자동 등록한다(편집 페이지가 로그 전체를 다시 훑지 않도록).
+                // 이 메서드는 백그라운드 writer 스레드에서만 실행되므로 UI 부하가 없고, 새 종류가 생긴
+                // 배치에 한해 1회만 파일로 flush 한다(EnsureRegistered/FlushIfDirty 는 예외를 던지지 않음).
+                foreach (EventRow row in rows)
+                    MessageCatalog.EnsureRegistered(row.Kind, row.Code, row.Description);
+                MessageCatalog.FlushIfDirty();
             }
             catch
             {

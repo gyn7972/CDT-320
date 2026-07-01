@@ -27,18 +27,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblPickFailValue,
                 lblPlaceFailValue,
                 lblHeadZoneValue,
-                null,
-                null,
                 lblProcessDetailValue,
                 new Label[] { lblCollet1UseTitle, lblCollet2UseTitle, lblCollet3UseTitle, lblCollet4UseTitle },
                 new Label[] { lblCollet1UseValue, lblCollet2UseValue, lblCollet3UseValue, lblCollet4UseValue },
                 new IndicatorDot[] { dotHeadVacuum1, dotHeadVacuum2, dotHeadVacuum3, dotHeadVacuum4 },
                 new IndicatorDot[] { dotHeadBlow1, dotHeadBlow2, dotHeadBlow3, dotHeadBlow4 },
-                new IndicatorDot[] { dotHeadFlow1, dotHeadFlow2, dotHeadFlow3, dotHeadFlow4 },
                 new Label[] { lblHeadVacuum1, lblHeadVacuum2, lblHeadVacuum3, lblHeadVacuum4 },
                 new Label[] { lblHeadBlow1, lblHeadBlow2, lblHeadBlow3, lblHeadBlow4 },
-                new Label[] { lblHeadFlow1, lblHeadFlow2, lblHeadFlow3, lblHeadFlow4 },
-                axisGrid,
+                new Label[] { lblAxis1Value, lblAxis2Value, lblAxis3Value, lblAxis4Value, lblAxis5Value, lblAxis6Value, lblAxis7Value, lblAxis8Value, lblAxis9Value, lblAxis10Value },
+                headDieDetailView,
+                new Button[] { btnHead1Select, btnHead2Select, btnHead3Select, btnHead4Select },
                 btnCountClear,
                 btnInput,
                 btnInspect,
@@ -72,7 +70,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
                 else
                 {
-                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(visionIndex % 2, 2 + visionIndex / 2));
+                    actionRightPanel.SetCellPosition(button, new TableLayoutPanelCellPosition(visionIndex % 2, 1 + visionIndex / 2));
                     visionIndex++;
                 }
             }

@@ -105,7 +105,7 @@ namespace QMC.Vision.Ui.Pages
         private void OnImageReady(Bitmap img)
         {
             if (img == null) return;
-            if (_cam != null) _cam.InfoText = "STAGE\r\nW:" + img.Width + " H:" + img.Height;
+            if (_cam != null) _cam.InfoText = CamName() + "\r\nW:" + img.Width + " H:" + img.Height;
             bool changed = FitDefaultRoiToImage(img);
             if (_cam != null) { _cam.CustomOverlayPaint = null; _cam.SetOverlay(_inspector?.InspectionRoi, null); }   // 새 이미지 → 이전 검출 오버레이 제거
             _params?.RefreshValues();
@@ -141,7 +141,7 @@ namespace QMC.Vision.Ui.Pages
         private void WireRoiPad()
         {
             _roiPad.MoveRequested     += Nudge;
-            _roiPad.ResizeRequested   += Resize;
+            _roiPad.ResizeRequested   += ResizeRoi;
             _roiPad.RecenterRequested += Recenter;
             _roiPad.FullSizeRequested += FullSizeRoi;
             UpdateRoiInfo();
@@ -163,7 +163,7 @@ namespace QMC.Vision.Ui.Pages
             r.CenterX += dx * _moveStepPx; r.CenterY += dy * _moveStepPx;
             AfterRoiChange();
         }
-        private void Resize(int dw, int dh)
+        private void ResizeRoi(int dw, int dh)
         {
             var r = ActiveRoi(); if (r == null) return;
             r.Width  = System.Math.Max(4.0, r.Width  + dw * _sizeStepPx);
@@ -393,15 +393,15 @@ namespace QMC.Vision.Ui.Pages
             // 로드 시 Setup POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
-                items.Add(ParameterGridItem.Bool("시뮬 저장이미지 사용", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.Bool("저장 이미지 사용 (이 도구 전용·모듈보다 우선)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
                 string imgFilter = "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*";
-                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로 Ch1(0°)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로 Ch1(0°)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     imgFilter));
-                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로 Ch2(90°)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로 Ch2(90°)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePathCh2 ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePathCh2 = v?.Trim() ?? ""; MarkDirty(); } },
                     imgFilter));
@@ -464,6 +464,7 @@ namespace QMC.Vision.Ui.Pages
                 _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 inspector 주입
                 _params.RefreshValues();
                 RefreshOverlay();
+                RefreshStageInfo();             // 그랩 전에도 STAGE 를 실제(저장 이미지) 해상도로 표시
                 _dirty = false;                 // 저장본으로 되돌렸으므로 변경상태 해제
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
             }
@@ -475,6 +476,50 @@ namespace QMC.Vision.Ui.Pages
         private Bitmap _loadedImage;
         // 페이지 자체 Grab/Load 외에, 툴바 Grab/Live 로 CameraView 가 표시 중인 실제 프레임도 사용.
         private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage ?? _cam?.CurrentFrame;
+
+        /// <summary>페이지 열 때(그랩 전)에도 STAGE 표시를 실제 이미지 해상도로 세팅 — 레시피 저장 이미지 크기를
+        /// 헤더만 읽어 반영(전체 그랩/로드 없이 해상도만). 구하지 못하면 기존 표시 유지.</summary>
+        /// <summary>이 카메라(모듈) 표시명 — 라벨 "STAGE" 대체. 모듈명이 없으면 "CAMERA".</summary>
+        private string CamName()
+        {
+            string n = _module?.Name;
+            return string.IsNullOrWhiteSpace(n) ? "CAMERA" : n;
+        }
+
+        private void RefreshStageInfo()
+        {
+            try
+            {
+                if (_cam == null) return;
+                var sz = EffectiveImageSize();
+                string head = CamName();
+                _cam.InfoText = sz.HasValue ? head + "\r\nW:" + sz.Value.Width + " H:" + sz.Value.Height : head;
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[InspectorTargetPage] RefreshStageInfo: " + ex.Message); }
+        }
+
+        /// <summary>현재 유효 이미지 크기 — 이미 표시 중 프레임 우선, 없으면 이 도구의 저장 이미지(경로) 헤더에서.</summary>
+        private System.Drawing.Size? EffectiveImageSize()
+        {
+            var cur = CurrentImage;
+            if (cur != null) return new System.Drawing.Size(cur.Width, cur.Height);
+            string p = (_node?.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath;
+            return ReadImageSize(p);
+        }
+
+        /// <summary>이미지 파일의 크기만 읽는다(픽셀 전체 디코드 없이 헤더). 실패/미존재면 null.</summary>
+        private static System.Drawing.Size? ReadImageSize(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                using (var img = System.Drawing.Image.FromStream(fs, false, false))
+                    return new System.Drawing.Size(img.Width, img.Height);
+            }
+            catch { return null; }
+        }
+
 
         private void OnGrabClick(object sender, EventArgs e) => DoGrab();
         private void OnInspectClick(object sender, EventArgs e) => DoInspect();

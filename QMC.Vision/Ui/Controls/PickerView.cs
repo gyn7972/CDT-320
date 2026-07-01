@@ -22,10 +22,11 @@ namespace QMC.Vision.Ui.Controls
         }
 
         /// <summary>단일 이미지 모드(Bottom/Bin) — 이미지 + 검출 오버레이.</summary>
-        public void SetSingle(Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks)
+        public void SetSingle(Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks, QMC.Vision.Core.InspectionOverlayStore.Geom geom = null)
         {
             _single.SetImage(bmp);
             _single.SetOverlay(box, pass, verdict, lines, marks);
+            _single.SetInspectionGeom(geom);
             ShowSingle();
         }
 
@@ -54,11 +55,12 @@ namespace QMC.Vision.Ui.Controls
         }
 
         /// <summary>4채널 중 한 채널 이미지+검출 오버레이 설정(Side 시퀀서/실데이터). 반환: 이미지 표시 성공.</summary>
-        public bool SetChannel(int idx, Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks)
+        public bool SetChannel(int idx, Bitmap bmp, PointF[] box, bool pass, string verdict, string[] lines, PointF[] marks, QMC.Vision.Core.InspectionOverlayStore.Geom geom = null)
         {
             if (idx < 0 || idx >= 4) return false;
             bool ok = _ch[idx].SetImage(bmp);
             _ch[idx].SetOverlay(box, pass, verdict, lines, marks);
+            _ch[idx].SetInspectionGeom(geom);
             ShowChannels();
             return ok;
         }

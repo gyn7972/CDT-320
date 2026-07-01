@@ -198,9 +198,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // leftLayout
             // 
             this.leftLayout.ColumnCount = 3;
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 35F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 34F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 19F));
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 47F));
             this.leftLayout.Controls.Add(this.grpState, 0, 0);
             this.leftLayout.Controls.Add(this.grpCounters, 1, 0);
             this.leftLayout.Controls.Add(this.grpInfo, 2, 0);
@@ -210,8 +210,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.leftLayout.Margin = new System.Windows.Forms.Padding(0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 60F));
             this.leftLayout.Size = new System.Drawing.Size(839, 300);
             this.leftLayout.TabIndex = 0;
             // 
@@ -225,7 +225,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpState.Margin = new System.Windows.Forms.Padding(0, 0, 3, 3);
             this.grpState.Name = "grpState";
             this.leftLayout.SetRowSpan(this.grpState, 2);
-            this.grpState.Size = new System.Drawing.Size(332, 297);
+            this.grpState.Size = new System.Drawing.Size(282, 297);
             this.grpState.TabIndex = 0;
             this.grpState.TabStop = false;
             this.grpState.Text = "WORK INFO";
@@ -233,8 +233,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // stateLayout
             // 
             this.stateLayout.ColumnCount = 2;
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 48.46154F));
+            this.stateLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 51.53846F));
             this.stateLayout.Controls.Add(this.lblStageExistTitle, 0, 0);
             this.stateLayout.Controls.Add(this.lblStageExistValue, 1, 0);
             this.stateLayout.Controls.Add(this.lblStageAlignTitle, 0, 1);
@@ -262,7 +262,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.stateLayout.Size = new System.Drawing.Size(326, 271);
+            this.stateLayout.Size = new System.Drawing.Size(276, 271);
             this.stateLayout.TabIndex = 0;
             // 
             // lblStageExistTitle
@@ -270,11 +270,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageExistTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageExistTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageExistTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageExistTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageExistTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageExistTitle.Location = new System.Drawing.Point(11, 12);
             this.lblStageExistTitle.Name = "lblStageExistTitle";
             this.lblStageExistTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageExistTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageExistTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageExistTitle.TabIndex = 0;
             this.lblStageExistTitle.Text = "STAGE EXIST";
             this.lblStageExistTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -285,9 +285,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageExistValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageExistValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageExistValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageExistValue.Location = new System.Drawing.Point(166, 12);
+            this.lblStageExistValue.Location = new System.Drawing.Point(137, 12);
             this.lblStageExistValue.Name = "lblStageExistValue";
-            this.lblStageExistValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageExistValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageExistValue.TabIndex = 1;
             this.lblStageExistValue.Text = "EMPTY";
             this.lblStageExistValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -297,11 +297,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageAlignTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageAlignTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageAlignTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageAlignTitle.Location = new System.Drawing.Point(11, 47);
             this.lblStageAlignTitle.Name = "lblStageAlignTitle";
             this.lblStageAlignTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageAlignTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageAlignTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageAlignTitle.TabIndex = 2;
             this.lblStageAlignTitle.Text = "STAGE ALIGN";
             this.lblStageAlignTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -312,9 +312,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageAlignValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageAlignValue.Location = new System.Drawing.Point(166, 47);
+            this.lblStageAlignValue.Location = new System.Drawing.Point(137, 47);
             this.lblStageAlignValue.Name = "lblStageAlignValue";
-            this.lblStageAlignValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageAlignValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageAlignValue.TabIndex = 3;
             this.lblStageAlignValue.Text = "INCOMPLETE";
             this.lblStageAlignValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -324,11 +324,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageAlignOffsetTitle.Location = new System.Drawing.Point(11, 82);
             this.lblStageAlignOffsetTitle.Name = "lblStageAlignOffsetTitle";
             this.lblStageAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageAlignOffsetTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageAlignOffsetTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageAlignOffsetTitle.TabIndex = 4;
             this.lblStageAlignOffsetTitle.Text = "ALIGN OFFSET";
             this.lblStageAlignOffsetTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -339,9 +339,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 7.5F);
-            this.lblStageAlignOffsetValue.Location = new System.Drawing.Point(166, 82);
+            this.lblStageAlignOffsetValue.Location = new System.Drawing.Point(137, 82);
             this.lblStageAlignOffsetValue.Name = "lblStageAlignOffsetValue";
-            this.lblStageAlignOffsetValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageAlignOffsetValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageAlignOffsetValue.TabIndex = 5;
             this.lblStageAlignOffsetValue.Text = "X0/Y0";
             this.lblStageAlignOffsetValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -351,11 +351,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageBarcodeTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageBarcodeTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageBarcodeTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageBarcodeTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageBarcodeTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageBarcodeTitle.Location = new System.Drawing.Point(11, 117);
             this.lblStageBarcodeTitle.Name = "lblStageBarcodeTitle";
             this.lblStageBarcodeTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageBarcodeTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageBarcodeTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageBarcodeTitle.TabIndex = 6;
             this.lblStageBarcodeTitle.Text = "STAGE BARCODE";
             this.lblStageBarcodeTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -366,9 +366,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageBarcodeValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageBarcodeValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageBarcodeValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageBarcodeValue.Location = new System.Drawing.Point(166, 117);
+            this.lblStageBarcodeValue.Location = new System.Drawing.Point(137, 117);
             this.lblStageBarcodeValue.Name = "lblStageBarcodeValue";
-            this.lblStageBarcodeValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageBarcodeValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageBarcodeValue.TabIndex = 7;
             this.lblStageBarcodeValue.Text = "INCOMPLETE";
             this.lblStageBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -378,11 +378,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageChipAlignTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageChipAlignTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageChipAlignTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageChipAlignTitle.Location = new System.Drawing.Point(11, 152);
             this.lblStageChipAlignTitle.Name = "lblStageChipAlignTitle";
             this.lblStageChipAlignTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageChipAlignTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageChipAlignTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageChipAlignTitle.TabIndex = 8;
             this.lblStageChipAlignTitle.Text = "STAGE CHIP ALIGN";
             this.lblStageChipAlignTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -393,9 +393,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageChipAlignValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageChipAlignValue.Location = new System.Drawing.Point(166, 152);
+            this.lblStageChipAlignValue.Location = new System.Drawing.Point(137, 152);
             this.lblStageChipAlignValue.Name = "lblStageChipAlignValue";
-            this.lblStageChipAlignValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageChipAlignValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageChipAlignValue.TabIndex = 9;
             this.lblStageChipAlignValue.Text = "INCOMPLETE";
             this.lblStageChipAlignValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -405,11 +405,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageChipAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageChipAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageChipAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageChipAlignOffsetTitle.Location = new System.Drawing.Point(11, 187);
             this.lblStageChipAlignOffsetTitle.Name = "lblStageChipAlignOffsetTitle";
             this.lblStageChipAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageChipAlignOffsetTitle.Size = new System.Drawing.Size(149, 35);
+            this.lblStageChipAlignOffsetTitle.Size = new System.Drawing.Size(120, 35);
             this.lblStageChipAlignOffsetTitle.TabIndex = 10;
             this.lblStageChipAlignOffsetTitle.Text = "DIE MAP OFFSET";
             this.lblStageChipAlignOffsetTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -419,10 +419,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignOffsetValue.BackColor = System.Drawing.Color.White;
             this.lblStageChipAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageChipAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 7.5F);
-            this.lblStageChipAlignOffsetValue.Location = new System.Drawing.Point(166, 187);
+            this.lblStageChipAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 6F);
+            this.lblStageChipAlignOffsetValue.Location = new System.Drawing.Point(137, 187);
             this.lblStageChipAlignOffsetValue.Name = "lblStageChipAlignOffsetValue";
-            this.lblStageChipAlignOffsetValue.Size = new System.Drawing.Size(149, 35);
+            this.lblStageChipAlignOffsetValue.Size = new System.Drawing.Size(128, 35);
             this.lblStageChipAlignOffsetValue.TabIndex = 11;
             this.lblStageChipAlignOffsetValue.Text = "X0/Y0";
             this.lblStageChipAlignOffsetValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -432,11 +432,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageFinishTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblStageFinishTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageFinishTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStageFinishTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblStageFinishTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblStageFinishTitle.Location = new System.Drawing.Point(11, 222);
             this.lblStageFinishTitle.Name = "lblStageFinishTitle";
             this.lblStageFinishTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblStageFinishTitle.Size = new System.Drawing.Size(149, 39);
+            this.lblStageFinishTitle.Size = new System.Drawing.Size(120, 39);
             this.lblStageFinishTitle.TabIndex = 12;
             this.lblStageFinishTitle.Text = "STAGE FINISH";
             this.lblStageFinishTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -447,9 +447,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageFinishValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageFinishValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageFinishValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageFinishValue.Location = new System.Drawing.Point(166, 222);
+            this.lblStageFinishValue.Location = new System.Drawing.Point(137, 222);
             this.lblStageFinishValue.Name = "lblStageFinishValue";
-            this.lblStageFinishValue.Size = new System.Drawing.Size(149, 39);
+            this.lblStageFinishValue.Size = new System.Drawing.Size(128, 39);
             this.lblStageFinishValue.TabIndex = 13;
             this.lblStageFinishValue.Text = "INCOMPLETE";
             this.lblStageFinishValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -460,31 +460,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpCounters.Controls.Add(this.counterLayout);
             this.grpCounters.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCounters.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpCounters.Location = new System.Drawing.Point(338, 0);
+            this.grpCounters.Location = new System.Drawing.Point(288, 0);
             this.grpCounters.Margin = new System.Windows.Forms.Padding(3, 0, 3, 3);
             this.grpCounters.Name = "grpCounters";
-            this.grpCounters.Size = new System.Drawing.Size(203, 147);
+            this.grpCounters.Size = new System.Drawing.Size(153, 147);
             this.grpCounters.TabIndex = 1;
             this.grpCounters.TabStop = false;
             this.grpCounters.Text = "COUNTER";
             // 
             // counterLayout
             // 
-            this.counterLayout.ColumnCount = 2;
-            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 62F));
-            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 38F));
+            this.counterLayout.ColumnCount = 1;
+            this.counterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.counterLayout.Controls.Add(this.lblNeedleUsingTitle, 0, 0);
-            this.counterLayout.Controls.Add(this.lblNeedleUsingValue, 1, 0);
-            this.counterLayout.Controls.Add(this.lblJellPadUsingTitle, 0, 1);
-            this.counterLayout.Controls.Add(this.lblJellPadUsingValue, 1, 1);
+            this.counterLayout.Controls.Add(this.lblNeedleUsingValue, 0, 1);
+            this.counterLayout.Controls.Add(this.lblJellPadUsingTitle, 0, 2);
+            this.counterLayout.Controls.Add(this.lblJellPadUsingValue, 0, 3);
             this.counterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.counterLayout.Location = new System.Drawing.Point(3, 23);
             this.counterLayout.Name = "counterLayout";
-            this.counterLayout.Padding = new System.Windows.Forms.Padding(8, 12, 8, 10);
-            this.counterLayout.RowCount = 2;
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.counterLayout.Size = new System.Drawing.Size(197, 121);
+            this.counterLayout.Padding = new System.Windows.Forms.Padding(8, 4, 8, 4);
+            this.counterLayout.RowCount = 4;
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 18F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 18F));
+            this.counterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.counterLayout.Size = new System.Drawing.Size(147, 121);
             this.counterLayout.TabIndex = 0;
             // 
             // lblNeedleUsingTitle
@@ -492,11 +493,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleUsingTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblNeedleUsingTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUsingTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNeedleUsingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblNeedleUsingTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblNeedleUsingTitle.Location = new System.Drawing.Point(11, 12);
             this.lblNeedleUsingTitle.Name = "lblNeedleUsingTitle";
             this.lblNeedleUsingTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNeedleUsingTitle.Size = new System.Drawing.Size(106, 49);
+            this.lblNeedleUsingTitle.Size = new System.Drawing.Size(75, 49);
             this.lblNeedleUsingTitle.TabIndex = 0;
             this.lblNeedleUsingTitle.Text = "NEEDLE USING";
             this.lblNeedleUsingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -507,9 +508,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleUsingValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUsingValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNeedleUsingValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNeedleUsingValue.Location = new System.Drawing.Point(123, 12);
+            this.lblNeedleUsingValue.Location = new System.Drawing.Point(92, 12);
             this.lblNeedleUsingValue.Name = "lblNeedleUsingValue";
-            this.lblNeedleUsingValue.Size = new System.Drawing.Size(63, 49);
+            this.lblNeedleUsingValue.Size = new System.Drawing.Size(44, 49);
             this.lblNeedleUsingValue.TabIndex = 1;
             this.lblNeedleUsingValue.Text = "0 ea";
             this.lblNeedleUsingValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -519,11 +520,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblJellPadUsingTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblJellPadUsingTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblJellPadUsingTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblJellPadUsingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblJellPadUsingTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblJellPadUsingTitle.Location = new System.Drawing.Point(11, 61);
             this.lblJellPadUsingTitle.Name = "lblJellPadUsingTitle";
             this.lblJellPadUsingTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblJellPadUsingTitle.Size = new System.Drawing.Size(106, 50);
+            this.lblJellPadUsingTitle.Size = new System.Drawing.Size(75, 50);
             this.lblJellPadUsingTitle.TabIndex = 2;
             this.lblJellPadUsingTitle.Text = "JELL PAD USING";
             this.lblJellPadUsingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -534,9 +535,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblJellPadUsingValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblJellPadUsingValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblJellPadUsingValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblJellPadUsingValue.Location = new System.Drawing.Point(123, 61);
+            this.lblJellPadUsingValue.Location = new System.Drawing.Point(92, 61);
             this.lblJellPadUsingValue.Name = "lblJellPadUsingValue";
-            this.lblJellPadUsingValue.Size = new System.Drawing.Size(63, 50);
+            this.lblJellPadUsingValue.Size = new System.Drawing.Size(44, 50);
             this.lblJellPadUsingValue.TabIndex = 3;
             this.lblJellPadUsingValue.Text = "0 ea";
             this.lblJellPadUsingValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -547,11 +548,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.Controls.Add(this.infoLayout);
             this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpInfo.Location = new System.Drawing.Point(547, 0);
+            this.grpInfo.Location = new System.Drawing.Point(447, 0);
             this.grpInfo.Margin = new System.Windows.Forms.Padding(3, 0, 3, 3);
             this.grpInfo.Name = "grpInfo";
             this.leftLayout.SetRowSpan(this.grpInfo, 2);
-            this.grpInfo.Size = new System.Drawing.Size(289, 297);
+            this.grpInfo.Size = new System.Drawing.Size(389, 297);
             this.grpInfo.TabIndex = 3;
             this.grpInfo.TabStop = false;
             this.grpInfo.Text = "INFO";
@@ -568,7 +569,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.Controls.Add(this.tableLayoutPanel2, 0, 2);
             this.infoLayout.Controls.Add(this.needleAxisZPanel, 1, 2);
             this.infoLayout.Controls.Add(this.tableLayoutPanel3, 0, 3);
-            this.infoLayout.Controls.Add(this.needleVacuumPanel, 1, 3);
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
@@ -578,7 +578,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.infoLayout.Size = new System.Drawing.Size(283, 271);
+            this.infoLayout.Size = new System.Drawing.Size(383, 271);
             this.infoLayout.TabIndex = 0;
             // 
             // stageAxisYPanel
@@ -594,7 +594,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stageAxisYPanel.RowCount = 2;
             this.stageAxisYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.stageAxisYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.stageAxisYPanel.Size = new System.Drawing.Size(125, 50);
+            this.stageAxisYPanel.Size = new System.Drawing.Size(175, 50);
             this.stageAxisYPanel.TabIndex = 2;
             // 
             // lblStageAxisYTitle
@@ -606,7 +606,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisYTitle.Location = new System.Drawing.Point(3, 0);
             this.lblStageAxisYTitle.Name = "lblStageAxisYTitle";
             this.lblStageAxisYTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblStageAxisYTitle.Size = new System.Drawing.Size(119, 24);
+            this.lblStageAxisYTitle.Size = new System.Drawing.Size(169, 24);
             this.lblStageAxisYTitle.TabIndex = 0;
             this.lblStageAxisYTitle.Text = "STAGE AXIS Y";
             this.lblStageAxisYTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -620,7 +620,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisYValue.Location = new System.Drawing.Point(3, 24);
             this.lblStageAxisYValue.Name = "lblStageAxisYValue";
             this.lblStageAxisYValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblStageAxisYValue.Size = new System.Drawing.Size(119, 26);
+            this.lblStageAxisYValue.Size = new System.Drawing.Size(169, 26);
             this.lblStageAxisYValue.TabIndex = 1;
             this.lblStageAxisYValue.Text = "0 um";
             this.lblStageAxisYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -632,13 +632,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stageAxisTPanel.Controls.Add(this.lblStageAxisTTitle, 0, 0);
             this.stageAxisTPanel.Controls.Add(this.lblStageAxisTValue, 0, 1);
             this.stageAxisTPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.stageAxisTPanel.Location = new System.Drawing.Point(145, 16);
+            this.stageAxisTPanel.Location = new System.Drawing.Point(195, 16);
             this.stageAxisTPanel.Margin = new System.Windows.Forms.Padding(4);
             this.stageAxisTPanel.Name = "stageAxisTPanel";
             this.stageAxisTPanel.RowCount = 2;
             this.stageAxisTPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.stageAxisTPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.stageAxisTPanel.Size = new System.Drawing.Size(126, 50);
+            this.stageAxisTPanel.Size = new System.Drawing.Size(176, 50);
             this.stageAxisTPanel.TabIndex = 1;
             // 
             // lblStageAxisTTitle
@@ -650,7 +650,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisTTitle.Location = new System.Drawing.Point(3, 0);
             this.lblStageAxisTTitle.Name = "lblStageAxisTTitle";
             this.lblStageAxisTTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblStageAxisTTitle.Size = new System.Drawing.Size(120, 24);
+            this.lblStageAxisTTitle.Size = new System.Drawing.Size(170, 24);
             this.lblStageAxisTTitle.TabIndex = 0;
             this.lblStageAxisTTitle.Text = "STAGE AXIS T";
             this.lblStageAxisTTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -664,7 +664,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisTValue.Location = new System.Drawing.Point(3, 24);
             this.lblStageAxisTValue.Name = "lblStageAxisTValue";
             this.lblStageAxisTValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblStageAxisTValue.Size = new System.Drawing.Size(120, 26);
+            this.lblStageAxisTValue.Size = new System.Drawing.Size(170, 26);
             this.lblStageAxisTValue.TabIndex = 1;
             this.lblStageAxisTValue.Text = "0 um";
             this.lblStageAxisTValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -682,7 +682,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tableLayoutPanel1.RowCount = 2;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(125, 50);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(175, 50);
             this.tableLayoutPanel1.TabIndex = 2;
             // 
             // lblStageAxisZTitle
@@ -694,7 +694,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisZTitle.Location = new System.Drawing.Point(3, 0);
             this.lblStageAxisZTitle.Name = "lblStageAxisZTitle";
             this.lblStageAxisZTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblStageAxisZTitle.Size = new System.Drawing.Size(119, 24);
+            this.lblStageAxisZTitle.Size = new System.Drawing.Size(169, 24);
             this.lblStageAxisZTitle.TabIndex = 0;
             this.lblStageAxisZTitle.Text = "STAGE AXIS Z";
             this.lblStageAxisZTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -708,7 +708,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisZValue.Location = new System.Drawing.Point(3, 24);
             this.lblStageAxisZValue.Name = "lblStageAxisZValue";
             this.lblStageAxisZValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblStageAxisZValue.Size = new System.Drawing.Size(119, 26);
+            this.lblStageAxisZValue.Size = new System.Drawing.Size(169, 26);
             this.lblStageAxisZValue.TabIndex = 1;
             this.lblStageAxisZValue.Text = "0 um";
             this.lblStageAxisZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -720,13 +720,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stageAxisXPanel.Controls.Add(this.lblStageAxisXTitle, 0, 0);
             this.stageAxisXPanel.Controls.Add(this.lblVisionAxisXValue, 0, 1);
             this.stageAxisXPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.stageAxisXPanel.Location = new System.Drawing.Point(145, 74);
+            this.stageAxisXPanel.Location = new System.Drawing.Point(195, 74);
             this.stageAxisXPanel.Margin = new System.Windows.Forms.Padding(4);
             this.stageAxisXPanel.Name = "stageAxisXPanel";
             this.stageAxisXPanel.RowCount = 2;
             this.stageAxisXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.stageAxisXPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.stageAxisXPanel.Size = new System.Drawing.Size(126, 50);
+            this.stageAxisXPanel.Size = new System.Drawing.Size(176, 50);
             this.stageAxisXPanel.TabIndex = 0;
             // 
             // lblStageAxisXTitle
@@ -738,7 +738,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAxisXTitle.Location = new System.Drawing.Point(3, 0);
             this.lblStageAxisXTitle.Name = "lblStageAxisXTitle";
             this.lblStageAxisXTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblStageAxisXTitle.Size = new System.Drawing.Size(120, 24);
+            this.lblStageAxisXTitle.Size = new System.Drawing.Size(170, 24);
             this.lblStageAxisXTitle.TabIndex = 0;
             this.lblStageAxisXTitle.Text = "VISION AXIS X";
             this.lblStageAxisXTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -752,7 +752,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblVisionAxisXValue.Location = new System.Drawing.Point(3, 24);
             this.lblVisionAxisXValue.Name = "lblVisionAxisXValue";
             this.lblVisionAxisXValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblVisionAxisXValue.Size = new System.Drawing.Size(120, 26);
+            this.lblVisionAxisXValue.Size = new System.Drawing.Size(170, 26);
             this.lblVisionAxisXValue.TabIndex = 1;
             this.lblVisionAxisXValue.Text = "0 um";
             this.lblVisionAxisXValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -771,7 +771,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.tableLayoutPanel2.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.tableLayoutPanel2.Size = new System.Drawing.Size(125, 50);
+            this.tableLayoutPanel2.Size = new System.Drawing.Size(175, 50);
             this.tableLayoutPanel2.TabIndex = 7;
             // 
             // label1
@@ -783,7 +783,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.label1.Location = new System.Drawing.Point(3, 0);
             this.label1.Name = "label1";
             this.label1.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.label1.Size = new System.Drawing.Size(119, 24);
+            this.label1.Size = new System.Drawing.Size(169, 24);
             this.label1.TabIndex = 0;
             this.label1.Text = "NEEDLE AXIS X";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -797,7 +797,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.label2.Location = new System.Drawing.Point(3, 24);
             this.label2.Name = "label2";
             this.label2.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.label2.Size = new System.Drawing.Size(119, 26);
+            this.label2.Size = new System.Drawing.Size(169, 26);
             this.label2.TabIndex = 1;
             this.label2.Text = "0 um";
             this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -809,13 +809,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.needleAxisZPanel.Controls.Add(this.lblNeedleAxisZTitle, 0, 0);
             this.needleAxisZPanel.Controls.Add(this.lblNeedleAxisZValue, 0, 1);
             this.needleAxisZPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.needleAxisZPanel.Location = new System.Drawing.Point(145, 132);
+            this.needleAxisZPanel.Location = new System.Drawing.Point(195, 132);
             this.needleAxisZPanel.Margin = new System.Windows.Forms.Padding(4);
             this.needleAxisZPanel.Name = "needleAxisZPanel";
             this.needleAxisZPanel.RowCount = 2;
             this.needleAxisZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.needleAxisZPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.needleAxisZPanel.Size = new System.Drawing.Size(126, 50);
+            this.needleAxisZPanel.Size = new System.Drawing.Size(176, 50);
             this.needleAxisZPanel.TabIndex = 3;
             // 
             // lblNeedleAxisZTitle
@@ -827,7 +827,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleAxisZTitle.Location = new System.Drawing.Point(3, 0);
             this.lblNeedleAxisZTitle.Name = "lblNeedleAxisZTitle";
             this.lblNeedleAxisZTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNeedleAxisZTitle.Size = new System.Drawing.Size(120, 24);
+            this.lblNeedleAxisZTitle.Size = new System.Drawing.Size(170, 24);
             this.lblNeedleAxisZTitle.TabIndex = 0;
             this.lblNeedleAxisZTitle.Text = "NEEDLE AXIS Z";
             this.lblNeedleAxisZTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -841,7 +841,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleAxisZValue.Location = new System.Drawing.Point(3, 24);
             this.lblNeedleAxisZValue.Name = "lblNeedleAxisZValue";
             this.lblNeedleAxisZValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblNeedleAxisZValue.Size = new System.Drawing.Size(120, 26);
+            this.lblNeedleAxisZValue.Size = new System.Drawing.Size(170, 26);
             this.lblNeedleAxisZValue.TabIndex = 1;
             this.lblNeedleAxisZValue.Text = "0 um";
             this.lblNeedleAxisZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -859,7 +859,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.tableLayoutPanel3.RowCount = 2;
             this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.tableLayoutPanel3.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.tableLayoutPanel3.Size = new System.Drawing.Size(125, 65);
+            this.tableLayoutPanel3.Size = new System.Drawing.Size(175, 65);
             this.tableLayoutPanel3.TabIndex = 8;
             // 
             // label3
@@ -871,7 +871,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.label3.Location = new System.Drawing.Point(3, 0);
             this.label3.Name = "label3";
             this.label3.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.label3.Size = new System.Drawing.Size(119, 24);
+            this.label3.Size = new System.Drawing.Size(169, 24);
             this.label3.TabIndex = 0;
             this.label3.Text = "EJECT PIN AXIS Z";
             this.label3.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -885,7 +885,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.label4.Location = new System.Drawing.Point(3, 24);
             this.label4.Name = "label4";
             this.label4.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.label4.Size = new System.Drawing.Size(119, 41);
+            this.label4.Size = new System.Drawing.Size(169, 41);
             this.label4.TabIndex = 1;
             this.label4.Text = "0 um";
             this.label4.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -893,17 +893,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // needleVacuumPanel
             // 
             this.needleVacuumPanel.ColumnCount = 2;
-            this.needleVacuumPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 31F));
+            this.needleVacuumPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.needleVacuumPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.needleVacuumPanel.Controls.Add(this.dotNeedleVacuum, 0, 0);
             this.needleVacuumPanel.Controls.Add(this.lblNeedleVacuum, 1, 0);
             this.needleVacuumPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.needleVacuumPanel.Location = new System.Drawing.Point(145, 190);
+            this.needleVacuumPanel.Location = new System.Drawing.Point(195, 190);
             this.needleVacuumPanel.Margin = new System.Windows.Forms.Padding(4);
             this.needleVacuumPanel.Name = "needleVacuumPanel";
             this.needleVacuumPanel.RowCount = 1;
             this.needleVacuumPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.needleVacuumPanel.Size = new System.Drawing.Size(126, 65);
+            this.needleVacuumPanel.Size = new System.Drawing.Size(176, 65);
             this.needleVacuumPanel.TabIndex = 6;
             // 
             // dotNeedleVacuum
@@ -911,22 +911,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.dotNeedleVacuum.BackColor = System.Drawing.Color.Transparent;
             this.dotNeedleVacuum.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotNeedleVacuum.Location = new System.Drawing.Point(6, 8);
-            this.dotNeedleVacuum.Margin = new System.Windows.Forms.Padding(6, 8, 6, 8);
+            this.dotNeedleVacuum.Margin = new System.Windows.Forms.Padding(9, 7, 9, 7);
             this.dotNeedleVacuum.Name = "dotNeedleVacuum";
             this.dotNeedleVacuum.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this.dotNeedleVacuum.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotNeedleVacuum.Size = new System.Drawing.Size(19, 49);
+            this.dotNeedleVacuum.Size = new System.Drawing.Size(30, 30);
             this.dotNeedleVacuum.TabIndex = 0;
             // 
             // lblNeedleVacuum
             // 
             this.lblNeedleVacuum.BackColor = System.Drawing.SystemColors.Control;
             this.lblNeedleVacuum.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNeedleVacuum.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblNeedleVacuum.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblNeedleVacuum.Location = new System.Drawing.Point(34, 0);
             this.lblNeedleVacuum.Name = "lblNeedleVacuum";
             this.lblNeedleVacuum.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNeedleVacuum.Size = new System.Drawing.Size(89, 65);
+            this.lblNeedleVacuum.Size = new System.Drawing.Size(139, 65);
             this.lblNeedleVacuum.TabIndex = 1;
             this.lblNeedleVacuum.Text = "NEEDLE VACUUM";
             this.lblNeedleVacuum.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -937,30 +937,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpCylinder.Controls.Add(this.cylinderLayout);
             this.grpCylinder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCylinder.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpCylinder.Location = new System.Drawing.Point(338, 153);
+            this.grpCylinder.Location = new System.Drawing.Point(288, 153);
             this.grpCylinder.Name = "grpCylinder";
-            this.grpCylinder.Size = new System.Drawing.Size(203, 144);
+            this.grpCylinder.Size = new System.Drawing.Size(153, 144);
             this.grpCylinder.TabIndex = 2;
             this.grpCylinder.TabStop = false;
-            this.grpCylinder.Text = "NEEDLE CYLINDER INFO";
+            this.grpCylinder.Text = "NEEDLE INFO";
             // 
             // cylinderLayout
             // 
-            this.cylinderLayout.ColumnCount = 2;
-            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 62F));
-            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 38F));
-            this.cylinderLayout.Controls.Add(this.lblExpendingTitle, 0, 0);
-            this.cylinderLayout.Controls.Add(this.lblExpendingValue, 1, 0);
-            this.cylinderLayout.Controls.Add(this.lblNeedleUpDownTitle, 0, 1);
-            this.cylinderLayout.Controls.Add(this.lblNeedleUpDownValue, 1, 1);
+            this.cylinderLayout.ColumnCount = 1;
+            this.cylinderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.cylinderLayout.Controls.Add(this.needleVacuumPanel, 0, 0);
+            this.cylinderLayout.Controls.Add(this.lblExpendingTitle, 0, 1);
+            this.cylinderLayout.Controls.Add(this.lblExpendingValue, 0, 2);
+            this.cylinderLayout.Controls.Add(this.lblNeedleUpDownTitle, 0, 3);
+            this.cylinderLayout.Controls.Add(this.lblNeedleUpDownValue, 0, 4);
             this.cylinderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.cylinderLayout.Location = new System.Drawing.Point(3, 23);
             this.cylinderLayout.Name = "cylinderLayout";
-            this.cylinderLayout.Padding = new System.Windows.Forms.Padding(8, 12, 8, 10);
-            this.cylinderLayout.RowCount = 2;
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.cylinderLayout.Size = new System.Drawing.Size(197, 118);
+            this.cylinderLayout.Padding = new System.Windows.Forms.Padding(8, 8, 8, 8);
+            this.cylinderLayout.RowCount = 5;
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.cylinderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.cylinderLayout.Size = new System.Drawing.Size(147, 118);
             this.cylinderLayout.TabIndex = 0;
             // 
             // lblExpendingTitle
@@ -968,11 +971,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblExpendingTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblExpendingTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpendingTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblExpendingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblExpendingTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblExpendingTitle.Location = new System.Drawing.Point(11, 12);
             this.lblExpendingTitle.Name = "lblExpendingTitle";
             this.lblExpendingTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblExpendingTitle.Size = new System.Drawing.Size(106, 48);
+            this.lblExpendingTitle.Size = new System.Drawing.Size(75, 48);
             this.lblExpendingTitle.TabIndex = 0;
             this.lblExpendingTitle.Text = "EXPENDING";
             this.lblExpendingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -983,9 +986,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblExpendingValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpendingValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblExpendingValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblExpendingValue.Location = new System.Drawing.Point(123, 12);
+            this.lblExpendingValue.Location = new System.Drawing.Point(92, 12);
             this.lblExpendingValue.Name = "lblExpendingValue";
-            this.lblExpendingValue.Size = new System.Drawing.Size(63, 48);
+            this.lblExpendingValue.Size = new System.Drawing.Size(44, 48);
             this.lblExpendingValue.TabIndex = 1;
             this.lblExpendingValue.Text = "...";
             this.lblExpendingValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -995,11 +998,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleUpDownTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
             this.lblNeedleUpDownTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUpDownTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNeedleUpDownTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblNeedleUpDownTitle.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this.lblNeedleUpDownTitle.Location = new System.Drawing.Point(11, 60);
             this.lblNeedleUpDownTitle.Name = "lblNeedleUpDownTitle";
             this.lblNeedleUpDownTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblNeedleUpDownTitle.Size = new System.Drawing.Size(106, 48);
+            this.lblNeedleUpDownTitle.Size = new System.Drawing.Size(75, 48);
             this.lblNeedleUpDownTitle.TabIndex = 2;
             this.lblNeedleUpDownTitle.Text = "NEEDLE UP/DOWN";
             this.lblNeedleUpDownTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1010,9 +1013,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNeedleUpDownValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUpDownValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNeedleUpDownValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNeedleUpDownValue.Location = new System.Drawing.Point(123, 60);
+            this.lblNeedleUpDownValue.Location = new System.Drawing.Point(92, 60);
             this.lblNeedleUpDownValue.Name = "lblNeedleUpDownValue";
-            this.lblNeedleUpDownValue.Size = new System.Drawing.Size(63, 48);
+            this.lblNeedleUpDownValue.Size = new System.Drawing.Size(44, 48);
             this.lblNeedleUpDownValue.TabIndex = 3;
             this.lblNeedleUpDownValue.Text = "...";
             this.lblNeedleUpDownValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;

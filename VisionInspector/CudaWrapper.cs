@@ -64,6 +64,26 @@ public class CudaWrapper
         int width,
         int height);
 
+    // ── CUDA 가용성 캐시 ─────────────────────────────────
+    // 무-CUDA(개발) PC 에서 매 검사마다 MakePixelShiftImage.dll(CUDA) 를 호출해 error 35(드라이버 없음)를
+    // 반복 출력/예외 발생시키던 문제를 막는다. 첫 호출에서 실패(예외 또는 status!=0)하면 이후 호출은 건너뛰고
+    // 빈 결과를 반환한다(실패 시 기존 동작과 동일한 결과 — 콘솔 스팸/예외 반복만 제거).
+    // 실제 CUDA 장비 PC 는 첫 호출이 성공(0)하므로 계속 GPU 경로를 사용한다.
+    // -1=미확인, 0=불가(이후 스킵), 1=가능.
+    private static int _cudaState = -1;
+
+    /// <summary>CUDA 가 사용 불가로 확정되었는가(첫 호출 실패 후 true). 진단용.</summary>
+    public static bool CudaUnavailable => _cudaState == 0;
+
+    /// <summary>이번 호출에서 CUDA 시도를 건너뛸지 여부(불가로 확정된 경우).</summary>
+    private static bool SkipCuda => _cudaState == 0;
+
+    /// <summary>CUDA 호출 결과 기록 — 성공(0)이면 가능, 실패/예외면 불가로 고정.</summary>
+    private static void MarkCuda(bool ok)
+    {
+        _cudaState = ok ? 1 : 0;
+    }
+
     //public byte[,] DetectChippingWithCuda(byte[,] imageArray, PointF topLeft, PointF topRight, PointF bottomRight, PointF bottomLeft, byte threshold, int margin)
     //{
     //    // 4개의 점으로부터 4개의 Line 객체 생성
@@ -81,6 +101,10 @@ public class CudaWrapper
     {
         int height = imageArray.GetLength(0);
         int width = imageArray.GetLength(1);
+
+        // CUDA 불가로 확정된 PC(무-CUDA)에서는 DLL 호출 없이 빈 마스크 반환(반복 호출/스팸 방지).
+        if (SkipCuda)
+            return (new byte[height, width], new byte[height, width]);
 
         // C#의 Line 객체를 CUDA가 사용할 LineParams 구조체로 변환
         LineParams cudaLineTop = new LineParams { slope = (float)csharpLineTop.mA, intercept = (float)csharpLineTop.mB };
@@ -105,36 +129,37 @@ public class CudaWrapper
             IntPtr ptrOutput2 = hOutput2.AddrOfPinnedObject();
 
             // 첫 번째 FindChipping 호출 (margin 적용)
-            int cudaStatus = FindChipping(
-                ptrInput,
-                ptrOutput1,
-                ptrOutput2,
-                width, height,
-                cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
-                threshold, margin,
-                topHatRadius,
-                topHatThreshold
-            );
+            int cudaStatus;
+            try
+            {
+                cudaStatus = FindChipping(
+                    ptrInput,
+                    ptrOutput1,
+                    ptrOutput2,
+                    width, height,
+                    cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
+                    threshold, margin,
+                    topHatRadius,
+                    topHatThreshold
+                );
+            }
+            catch (Exception ex)
+            {
+                // DLL/익스포트 없음(DllNotFound/EntryPointNotFound) 또는 런타임 실패 → 이후 CUDA 스킵(고정).
+                MarkCuda(false);
+                Console.WriteLine($"CUDA unavailable -> CPU/skip fixed: {ex.GetType().Name}: {ex.Message}");
+                return (outputMask2D1, outputMask2D2);
+            }
 
             if (cudaStatus != 0) // cudaSuccess는 0
             {
-                Console.WriteLine($"CUDA error 1: {cudaStatus}");
+                // 첫 실패면 불가로 확정(다음 호출부터 스킵) — 스팸 방지.
+                MarkCuda(false);
+                Console.WriteLine($"CUDA error 1: {cudaStatus} -> skip subsequent CUDA calls (no-CUDA PC)");
             }
-
-            //// 두 번째 FindChipping 호출 (margin = 0)
-            //cudaStatus = FindChipping(
-            //    ptrInput,
-            //    ptrOutput2,
-            //    width, height,
-            //    cudaLineTop, cudaLineBottom, cudaLineLeft, cudaLineRight,
-            //    threshold, 0,
-            //    topHatRadius,
-            //    topHatThreshold
-            //);
-
-            if (cudaStatus != 0)
+            else
             {
-                Console.WriteLine($"CUDA error 2: {cudaStatus}");
+                MarkCuda(true);
             }
         }
         finally
@@ -149,6 +174,9 @@ public class CudaWrapper
 
     public byte[,] ApplySobelFilter(byte[,] imageArray)
     {
+        if (SkipCuda)
+            return null;
+
         int height = imageArray.GetLength(0);
         int width = imageArray.GetLength(1);
 
@@ -166,18 +194,30 @@ public class CudaWrapper
         try
         {
             // CUDA 함수 호출
-            int cudaStatus = ApplySobelFilter(
-                hInput.AddrOfPinnedObject(),
-                hOutput.AddrOfPinnedObject(),
-                width, height
-            );
+            int cudaStatus;
+            try
+            {
+                cudaStatus = ApplySobelFilter(
+                    hInput.AddrOfPinnedObject(),
+                    hOutput.AddrOfPinnedObject(),
+                    width, height
+                );
+            }
+            catch (Exception ex)
+            {
+                MarkCuda(false);
+                Console.WriteLine($"CUDA unavailable(Sobel) -> skip fixed: {ex.GetType().Name}: {ex.Message}");
+                return null;
+            }
 
             if (cudaStatus != 0) // cudaSuccess는 0
             {
-                Console.WriteLine($"CUDA error in ApplySobelFilter: {cudaStatus}");
+                MarkCuda(false);
+                Console.WriteLine($"CUDA error in ApplySobelFilter: {cudaStatus} -> skip subsequent CUDA");
             }
             else
             {
+                MarkCuda(true);
                 // 결과를 다시 2차원 배열로 변환
                 outputImage2D = new byte[height, width];
                 Buffer.BlockCopy(output1D, 0, outputImage2D, 0, output1D.Length);
@@ -195,6 +235,9 @@ public class CudaWrapper
     public List<ChippingInfo> DetectChippingBlobsWithCuda(byte[,] imageArray, byte threshold, int minDefectSize)
     {
         var chippingInfos = new List<ChippingInfo>();
+        if (SkipCuda)
+            return chippingInfos;
+
         int height = imageArray.GetLength(0);
         int width = imageArray.GetLength(1);
         int imageSize = width * height;
@@ -207,11 +250,24 @@ public class CudaWrapper
 
         try
         {
-            int status = FindBlobsWithCuda(
-                h_input.AddrOfPinnedObject(),
-                width, height, threshold, minDefectSize,
-                out h_blobInfos, out int blobCount
-            );
+            int status;
+            int blobCount = 0;
+            try
+            {
+                status = FindBlobsWithCuda(
+                    h_input.AddrOfPinnedObject(),
+                    width, height, threshold, minDefectSize,
+                    out h_blobInfos, out blobCount
+                );
+            }
+            catch (Exception ex)
+            {
+                MarkCuda(false);
+                Console.WriteLine($"CUDA unavailable(FindBlobs) -> skip fixed: {ex.GetType().Name}: {ex.Message}");
+                return chippingInfos;
+            }
+
+            if (status != 0) MarkCuda(false); else MarkCuda(true);
 
             if (status == 0 && blobCount > 0)
             {

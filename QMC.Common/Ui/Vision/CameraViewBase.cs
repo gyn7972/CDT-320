@@ -617,31 +617,9 @@ namespace QMC.Common.Ui.Controls
 
             DrawMeasure(g);
 
-            if (!string.IsNullOrEmpty(_verdict))
-                using (var f  = new Font("Segoe UI", 26F, FontStyle.Bold))
-                using (var br = new SolidBrush(_verdictPass ? Color.LimeGreen : Color.Red))
-                {
-                    var sz = g.MeasureString(_verdict, f);
-                    g.DrawString(_verdict, f, br, ClientSize.Width - sz.Width - 14, 6 + TopInset);
-                }
-
-            if (_resultLines != null && _resultLines.Length > 0)
-                using (var f = new Font("맑은 고딕", 9F))
-                {
-                    Color def = _verdictPass ? Color.FromArgb(120, 230, 120) : Color.FromArgb(255, 120, 120);
-                    float y = ClientSize.Height - 6 - _resultLines.Length * 17;
-                    for (int i = 0; i < _resultLines.Length; i++)
-                    {
-                        string line = _resultLines[i];
-                        if (string.IsNullOrEmpty(line)) { y += 17; continue; }
-                        Color c = (_resultLineColors != null && i < _resultLineColors.Length && _resultLineColors[i].A != 0)
-                                  ? _resultLineColors[i] : def;
-                        var sz = g.MeasureString(line, f);
-                        using (var br = new SolidBrush(c))
-                            g.DrawString(line, f, br, ClientSize.Width - sz.Width - 10, y);
-                        y += 17;
-                    }
-                }
+            // 판정 + 결과라인 — 공용 렌더러(VisionImageView 팝업과 동일 코드로 통일).
+            ResultOverlayRenderer.Draw(g, ClientSize.Width, ClientSize.Height, TopInset,
+                                       _verdict, _verdictPass, _resultLines, _resultLineColors);
 
             using (var p = new Pen(Color.DimGray, 1f))
                 g.DrawRectangle(p, 0, 0, Width - 1, Height - 1);

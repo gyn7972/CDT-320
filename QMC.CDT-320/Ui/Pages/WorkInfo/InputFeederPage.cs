@@ -269,7 +269,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host?.Machine == null) return;
             var loader = host.Machine.InputFeederUnit;
 
-            _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
+            // LIFTER AXIS Z: Input Cassette 유닛의 InputLifterZ 위치를 표시 (InputCassette 페이지와 동일 소스)
+            var cassette = host.Machine.InputCassetteUnit;
+            if (cassette != null && cassette.InputLifterZ != null)
+                _lblLifterPos.Text = AxisUnitConverter.FormatDisplay(cassette.InputLifterZ.ActualPosition, cassette.InputLifterZ, "0.###", true);
             bool clamp = loader.IsWaferFeederClamp();
             bool unclamp = loader.IsWaferFeederUnclamp();
             _lblClampState.Text = clamp ? "CLAMP" : (unclamp ? "UNCLAMP" : "ERROR");
