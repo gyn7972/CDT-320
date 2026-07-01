@@ -395,6 +395,17 @@ namespace QMC.Vision.Core
             out int[] topE, out int[] botE, out int[] leftE, out int[] rightE,
             out int ty, out int by, out int lx, out int rx)
         {
+            // CUDA 가용 시 GPU(4변 한 번에), 아니면 CPU 폴백. 원칙: "CUDA 가능하면 CUDA, 아니면 CPU 폴백".
+            // 결과는 두 경로 동일(GPU 커널이 아래 CPU 교차정의를 그대로 구현).
+            if (CudaInterop.TryFindDieEdges(g, w, h, thr, out var gTop, out var gBot, out var gLeft, out var gRight))
+            {
+                GpuBackend.Note("BottomDie", ComputeBackend.Cuda);
+                topE = gTop; botE = gBot; leftE = gLeft; rightE = gRight;
+                ty = MedianValid(topE); by = MedianValid(botE); lx = MedianValid(leftE); rx = MedianValid(rightE);
+                return ty >= 0 && by > ty && lx >= 0 && rx > lx;
+            }
+            GpuBackend.Note("BottomDie", ComputeBackend.Cpu);
+
             // 각 열/행 독립 → Parallel.For 로 병렬화(대형 12000² 이미지에서 단일스레드 대비 코어수만큼 단축).
             var tE = new int[w]; var bE = new int[w];
             Parallel.For(0, w, x =>
