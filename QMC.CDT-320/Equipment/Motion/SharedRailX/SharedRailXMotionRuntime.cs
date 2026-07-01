@@ -78,7 +78,11 @@ namespace QMC.CDT320.Motion.SharedRailX
             {
                 string reason;
                 double guardTarget = ResolveJogGuardTarget(axis, direction);
-                if (!MotionGuardRuntime.VerifyAxisMoveWithoutSharedRailX(axis, guardTarget, out reason))
+                if (!MotionGuardRuntime.VerifyAxisContinuousJogWithoutSharedRailX(
+                    axis,
+                    guardTarget,
+                    BuildContinuousJogTargetName(direction),
+                    out reason))
                     return;
 
                 if (!service.VerifyJogMove(axis, direction, out reason))
@@ -107,7 +111,16 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             double velocity = ResolveJogVelocity(axis, speedType, customSpeed);
             double target = axis.ActualPosition + ((direction < 0 ? -1.0 : 1.0) * Math.Abs(stepDistance));
+            string reason;
+            if (!MotionGuardRuntime.VerifyAxisStepJogWithoutSharedRailX(axis, target, "StepJog", out reason))
+                return Task.FromResult(-1);
+
             return MoveAxisAsync(axis, target, velocity);
+        }
+
+        private static string BuildContinuousJogTargetName(int direction)
+        {
+            return direction >= 0 ? "ContinuousJogPlus" : "ContinuousJogMinus";
         }
 
         private static double ResolveJogVelocity(BaseAxis axis, JogSpeedType speedType, double customSpeed)
@@ -132,7 +145,27 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (axis == null || axis.Setup == null)
                 return axis != null ? axis.ActualPosition : 0.0;
 
-            return direction > 0 ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus;
+            double sign = direction > 0 ? 1.0 : -1.0;
+            double probeDistance = ResolveJogGuardProbeDistance(axis);
+            double target = axis.ActualPosition + (sign * probeDistance);
+
+            if (axis.Setup.SoftLimitEnabled)
+            {
+                if (target > axis.Setup.SoftLimitPlus)
+                    target = axis.Setup.SoftLimitPlus;
+                if (target < axis.Setup.SoftLimitMinus)
+                    target = axis.Setup.SoftLimitMinus;
+            }
+
+            return target;
+        }
+
+        private static double ResolveJogGuardProbeDistance(BaseAxis axis)
+        {
+            double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return Math.Max(1.0, tolerance * 10.0);
         }
 
         public static SharedRailXMotionService ResolveService(CDT320_Machine machine)

@@ -41,7 +41,9 @@ namespace QMC.CDT320
 
         [DataMember] public double NeedleWorkAreaCenterY { get; set; } = 0.0;
 
-        [DataMember] public double NeedleXToVisionXOffset { get; set; } = 0.0;
+        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = "NeedlePinCal";
+
+        [DataMember] public int NeedlePinCalVisionTimeoutMs { get; set; } = 5000;
 
         [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
 
@@ -54,6 +56,10 @@ namespace QMC.CDT320
                 WorkAreaRadius = 150.0;
             if (NeedleWorkAreaRadius <= 0.0)
                 NeedleWorkAreaRadius = 125.0;
+            if (string.IsNullOrWhiteSpace(NeedlePinCalVisionTargetId))
+                NeedlePinCalVisionTargetId = "NeedlePinCal";
+            if (NeedlePinCalVisionTimeoutMs <= 0)
+                NeedlePinCalVisionTimeoutMs = 5000;
         }
     }
 
@@ -140,6 +146,7 @@ namespace QMC.CDT320
         [DataMember] public double UnloadPosition { get; set; }
         [DataMember] public double ReadyPosition { get; set; }
         [DataMember] public double ReticlePosition { get; set; }
+        [DataMember] public double NeedlePinCalPosition { get; set; }
         [DataMember] public double[] DiePosition { get; set; } = new double[0];
     }
 
@@ -568,7 +575,7 @@ namespace QMC.CDT320
             if (Setup != null && Math.Abs(Setup.NeedleWorkAreaCenterX) > 1e-9)
                 return Setup.NeedleWorkAreaCenterX;
 
-            return ResolveWorkAreaCenterX() - (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+            return ResolveWorkAreaCenterX();
         }
 
         public double ResolveNeedleWorkAreaCenterY()
@@ -581,7 +588,7 @@ namespace QMC.CDT320
 
         public double ConvertNeedleXToVisionX(double needleX)
         {
-            return needleX + (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+            return needleX;
         }
 
         public bool IsInputStageWorkPointInArea(double visionX, double stageY, out string reason)
@@ -729,11 +736,11 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.VisionX)
             {
-                // VisionX 조그는 wafer 작업 원 경계가 아니라 축 soft limit까지 허용한다.
-                // 실제 상부 간섭은 StartBoundedJogMoveAsync의 MotionGuard/SharedRailX에서 최종 방어한다.
-                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
-                    ? motionAxis.Setup.SoftLimitPlus
-                    : motionAxis.Setup.SoftLimitMinus);
+                // VisionX continuous jog has no fixed ABS target. Use a short probe target
+                // only to verify direction/limit; SharedRailX monitors current clearance while moving.
+                double sign = direction == Direction.Plus ? 1.0 : -1.0;
+                double probeDistance = Math.Max(1.0, ResolveAxisPositionTolerance(motionAxis) * 10.0);
+                target = ClampToSoftLimit(motionAxis, motionAxis.ActualPosition + (sign * probeDistance));
                 return VerifyJogDirectionTarget(axis, direction, target, out reason);
             }
 
@@ -1616,6 +1623,12 @@ namespace QMC.CDT320
             string interlockReason;
             if (!TryResolveInputStageContinuousJogTarget(axis, dir, out target, out interlockReason))
             {
+                if (IsJogBoundaryNoMoveReason(interlockReason))
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
+                }
+
                 string message = axis + " jog blocked by work area interlock. direction=" + dir + ". " + interlockReason;
                 LastStageMoveFailureMessage = message;
                 AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-INTERLOCK", Name, message);
@@ -1654,6 +1667,15 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static bool IsJogBoundaryNoMoveReason(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return false;
+
+            return reason.IndexOf("Jog plus direction is blocked at work area boundary", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reason.IndexOf("Jog minus direction is blocked at work area boundary", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void StartBoundedJogMoveAsync(BaseAxis axis, double target, double speed)

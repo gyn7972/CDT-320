@@ -503,7 +503,7 @@ namespace QMC.CDT320.Sequencing
                 if (pitchX <= 0.0 || pitchY <= 0.0)
                     return Fail("IN-STAGE-DIEMAP-PITCH", "InputStageDieMappingSequence", "Die map pitch is invalid.");
 
-                bool processCenterMode = IsSimulationOrDryRun();
+                bool processCenterMode = IsAxisSimulationMode();
                 double signX = processCenterMode ? 1.0 : (right.X >= left.X ? 1.0 : -1.0);
                 double signY = processCenterMode ? 1.0 : (bottom.Y >= top.Y ? 1.0 : -1.0);
                 double centerX;
@@ -1499,6 +1499,33 @@ namespace QMC.CDT320.Sequencing
                     return true;
 
                 return Stage != null && Stage.IsInputStageSimulationOrDryRun();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsAxisSimulationMode()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings != null)
+                {
+                    if (settings.SimulationMode || settings.BypassHardware || !settings.UseAjin)
+                        return true;
+
+                    if (settings.DryRunMode)
+                        return false;
+                }
+
+                return Stage != null &&
+                       Stage.Setup != null &&
+                       Stage.Setup.IsSimulationMode;
             }
             catch
             {

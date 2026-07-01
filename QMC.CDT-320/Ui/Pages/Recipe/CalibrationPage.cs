@@ -10,7 +10,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     {
         private VisionCameraCalibrationDialog _visionCameraDialog;
         private ColletCalibrationDialog _colletDialog;
-        private CalibrationSetupDialog _needleDialog;
+        private NeedlePinCalibrationDialog _needleDialog;
         private CalibrationSetupDialog _colletZHeightDialog;
         private VisionFocusCalibrationDialog _visionFocusDialog;
         private CalibrationSetupDialog _colletRotationCenterDialog;
@@ -189,6 +189,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "COLLET ROTATION CENTER CAL",
                 "Bottom 카메라에서 콜렛 회전 각도별 위치를 측정해 회전 중심과 보정 오프셋을 계산하는 캘리브레이션입니다.",
                 "저장 제안: 콜렛별 회전 중심 보정값은 Config에 저장합니다.");
+        }
+
+        private void ShowDialogOnce(ref NeedlePinCalibrationDialog dialog, string title, string purpose, string storageGuide)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (dialog == null || dialog.IsDisposed)
+                {
+                    dialog = NeedlePinCalibrationDialog.Open(host);
+                    dialog.StartPosition = FormStartPosition.Manual;
+                    dialog.Location = ResolveDialogLocation(dialog);
+                    lblStatus.Text = "NEEDLE PIN CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, dialog);
+                lblStatus.Text = "NEEDLE PIN CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NEEDLE-PIN-CAL-OPEN", "NEEDLE PIN CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "NEEDLE PIN CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private void ShowDialogOnce(ref CalibrationSetupDialog dialog, string title, string purpose, string storageGuide)

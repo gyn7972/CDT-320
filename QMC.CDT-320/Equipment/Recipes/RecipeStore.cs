@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using QMC.Common.Data.Store;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Recipes
 {
@@ -135,12 +136,17 @@ namespace QMC.CDT320.Recipes
                     return EnsureDefaults((RecipeProject)ser.ReadObject(fs));
                 }
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "DATA", "PROJECT-RECIPE-LOAD",
+                    "Project recipe 로드 실패. path=" + path + ", error=" + ex.Message);
+                return null;
+            }
         }
 
-        public static void Save(RecipeProject p)
+        public static bool Save(RecipeProject p)
         {
-            if (p == null || string.IsNullOrEmpty(p.FileName)) return;
+            if (p == null || string.IsNullOrEmpty(p.FileName)) return false;
             EnsureDefaults(p);
             var name = p.FileName + ".Project";
             var path = Path.Combine(Dir, name);
@@ -150,8 +156,16 @@ namespace QMC.CDT320.Recipes
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(RecipeProject), p);
                 }
+                EventLogger.Write(EventKind.Event, "DATA", "PROJECT-RECIPE-SAVE",
+                    "Project recipe 저장 완료. path=" + path);
+                return true;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "DATA", "PROJECT-RECIPE-SAVE",
+                    "Project recipe 저장 실패. path=" + path + ", error=" + ex.Message);
+                return false;
+            }
         }
 
         private static RecipeProject EnsureDefaults(RecipeProject project)

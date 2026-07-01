@@ -40,11 +40,20 @@ namespace QMC.CDT_320.Ui.Tabs
         public virtual void AttachHost(Form1 host)
         {
             Host = host;
-            // 첫 버튼이 있으면 기본 선택
-            if (!string.IsNullOrEmpty(_currentKey)) ShowPage(_currentKey);
-            else if (SidebarButtons.Count > 0)
+        }
+
+        public void EnsureDefaultPageShown()
+        {
+            if (!string.IsNullOrEmpty(_currentKey))
             {
-                foreach (var kv in SidebarButtons) { ShowPage(kv.Key); break; }
+                ShowPage(_currentKey);
+                return;
+            }
+
+            foreach (var kv in SidebarButtons)
+            {
+                ShowPage(kv.Key);
+                break;
             }
         }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT320.Calibration;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -40,6 +41,8 @@ namespace QMC.CDT320.Interlocks
             return moveKind == MotionGuardMoveKind.AxisMove
                 || moveKind == MotionGuardMoveKind.AxisHome
                 || moveKind == MotionGuardMoveKind.AxisTeachingMove
+                || moveKind == MotionGuardMoveKind.AxisContinuousJog
+                || moveKind == MotionGuardMoveKind.AxisStepJog
                 || moveKind == MotionGuardMoveKind.CylinderMove
                 || moveKind == MotionGuardMoveKind.CylinderInitialize;
         }
@@ -210,6 +213,119 @@ namespace QMC.CDT320.Interlocks
             name = name.Replace("_", string.Empty);
             name = name.Replace(" ", string.Empty);
             return name.Trim();
+        }
+
+        public static bool IsColletCalibrationFineAlignMove(MotionGuardRuleContext request, bool isFront, out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                {
+                    detail = "request 또는 machine 정보가 없습니다.";
+                    return false;
+                }
+
+                string targetName = request.TargetName ?? string.Empty;
+                if (targetName.IndexOf("ColletCalibrationFineAlign", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    detail = "ColletCalibrationFineAlign targetName이 아닙니다.";
+                    return false;
+                }
+
+                if (request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
+                {
+                    detail = "자동 티칭 이동이 아닙니다. moveKind=" + request.MoveKind;
+                    return false;
+                }
+
+                if (targetName.IndexOf("PickerZone=Bottom", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    detail = "Bottom zone 미세 정렬 이동이 아닙니다. targetName=" + targetName;
+                    return false;
+                }
+
+                if (!IsMoving(request,
+                    isFront ? "FrontPickerX" : "RearPickerX",
+                    isFront ? "FrontPickerY" : "RearPickerY"))
+                {
+                    detail = "Picker X/Y 이동이 아닙니다. moving=" + request.MovingName;
+                    return false;
+                }
+
+                PickerWorkZone workZone;
+                string owner;
+                if (!PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner) ||
+                    workZone != PickerWorkZone.Bottom ||
+                    owner.IndexOf("ColletCalibration", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    detail = "ColletCalibration Bottom 작업 점유 상태가 아닙니다. workZone=" + workZone +
+                        ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner);
+                    return false;
+                }
+
+                BaseAxis axis = request.GetAxis(request.MovingName);
+                if (axis == null)
+                {
+                    detail = "이동 축 정보를 찾을 수 없습니다. moving=" + request.MovingName;
+                    return false;
+                }
+
+                double maxMove = ResolveColletFineAlignMaxMoveMm(request.Machine);
+                double distance = Math.Abs(request.TargetValue - axis.ActualPosition);
+                if (distance > maxMove)
+                {
+                    detail = "ColletCalibrationFineAlign 이동량이 허용값을 초과했습니다. moving=" + request.MovingName +
+                        ", distance=" + distance.ToString("F6") +
+                        ", max=" + maxMove.ToString("F6") +
+                        ", actual=" + axis.ActualPosition.ToString("F6") +
+                        ", target=" + request.TargetValue.ToString("F6");
+                    return false;
+                }
+
+                detail = "ColletCalibrationFineAlign 허용. moving=" + request.MovingName +
+                    ", distance=" + distance.ToString("F6") +
+                    ", max=" + maxMove.ToString("F6") +
+                    ", owner=" + owner;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "ColletCalibrationFineAlign 판정 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveColletFineAlignMaxMoveMm(CDT320_Machine machine)
+        {
+            try
+            {
+                ColletCalibrationSettings settings = machine != null &&
+                    machine.VisionUnit != null &&
+                    machine.VisionUnit.Config != null &&
+                    machine.VisionUnit.Config.CalibrationData != null &&
+                    machine.VisionUnit.Config.CalibrationData.Collet != null
+                        ? machine.VisionUnit.Config.CalibrationData.Collet.Settings
+                        : null;
+
+                if (settings != null)
+                {
+                    settings.EnsureDefaults();
+                    return settings.FineAlignMaxXyMoveMm;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.2;
         }
 
         private static double ResolveTolerance(BaseAxis axis)

@@ -125,6 +125,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 _loading = true;
+                ApplyButtonStyle();
                 LoadSettingsToUi();
                 RefreshSavedGrid();
                 lblStatus.Text = "대기 중입니다. Focus 기준 위치를 확인한 뒤 START SCAN을 실행하세요.";
@@ -134,6 +135,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _loading = false;
                 RefreshSettingGrid();
             }
+        }
+
+        private void ApplyButtonStyle()
+        {
+            CalibrationDialogButtonStyle.ApplyFooterButtons(
+                new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnReload, btnClose },
+                new[] { btnStartScan },
+                new[] { btnSave });
         }
 
         private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)

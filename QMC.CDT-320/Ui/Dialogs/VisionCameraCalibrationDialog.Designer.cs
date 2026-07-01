@@ -24,21 +24,21 @@ namespace QMC.CDT_320.Ui.Dialogs
         private DataGridViewTextBoxColumn colCurrentValue;
         private DataGridViewTextBoxColumn colApplyValue;
         private TableLayoutPanel valueButtonLayout;
-        private Button btnLoadValues;
-        private Button btnSaveReticleValues;
+        private CalibrationDialogButton btnLoadValues;
+        private CalibrationDialogButton btnSaveReticleValues;
         private Label lblOffsets;
         private Label lblStatus;
         private Panel buttonPanel;
         private TableLayoutPanel buttonLayout;
-        private Button btnCheck;
-        private Button btnFindBottom;
-        private Button btnFindInput;
-        private Button btnFindOutput;
-        private Button btnRunAll;
-        private Button btnRetractReticle;
-        private Button btnCalculateSave;
-        private Button btnHelp;
-        private Button btnClose;
+        private CalibrationDialogButton btnCheck;
+        private CalibrationDialogButton btnFindBottom;
+        private CalibrationDialogButton btnFindInput;
+        private CalibrationDialogButton btnFindOutput;
+        private CalibrationDialogButton btnRunAll;
+        private CalibrationDialogButton btnRetractReticle;
+        private CalibrationDialogButton btnCalculateSave;
+        private CalibrationDialogButton btnHelp;
+        private CalibrationDialogButton btnClose;
         private ToolTip toolTip;
 
         protected override void Dispose(bool disposing)
@@ -70,21 +70,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colCurrentValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colApplyValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.valueButtonLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnLoadValues = new System.Windows.Forms.Button();
-            this.btnSaveReticleValues = new System.Windows.Forms.Button();
+            this.btnLoadValues = new CalibrationDialogButton();
+            this.btnSaveReticleValues = new CalibrationDialogButton();
             this.lblOffsets = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
             this.buttonPanel = new System.Windows.Forms.Panel();
             this.buttonLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnCheck = new System.Windows.Forms.Button();
-            this.btnRunAll = new System.Windows.Forms.Button();
-            this.btnFindBottom = new System.Windows.Forms.Button();
-            this.btnFindInput = new System.Windows.Forms.Button();
-            this.btnFindOutput = new System.Windows.Forms.Button();
-            this.btnRetractReticle = new System.Windows.Forms.Button();
-            this.btnCalculateSave = new System.Windows.Forms.Button();
-            this.btnHelp = new System.Windows.Forms.Button();
-            this.btnClose = new System.Windows.Forms.Button();
+            this.btnCheck = new CalibrationDialogButton();
+            this.btnRunAll = new CalibrationDialogButton();
+            this.btnFindBottom = new CalibrationDialogButton();
+            this.btnFindInput = new CalibrationDialogButton();
+            this.btnFindOutput = new CalibrationDialogButton();
+            this.btnRetractReticle = new CalibrationDialogButton();
+            this.btnCalculateSave = new CalibrationDialogButton();
+            this.btnHelp = new CalibrationDialogButton();
+            this.btnClose = new CalibrationDialogButton();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
@@ -343,6 +343,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnLoadValues.TabIndex = 0;
             this.btnLoadValues.Text = "LOAD";
             this.btnLoadValues.UseVisualStyleBackColor = true;
+            this.btnLoadValues.Role = CalibrationDialogButtonRole.Normal;
             this.btnLoadValues.Click += new System.EventHandler(this.btnLoadValues_Click);
             // 
             // btnSaveReticleValues
@@ -355,6 +356,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnSaveReticleValues.TabIndex = 1;
             this.btnSaveReticleValues.Text = "SAVE POS";
             this.btnSaveReticleValues.UseVisualStyleBackColor = true;
+            this.btnSaveReticleValues.Role = CalibrationDialogButtonRole.Normal;
             this.btnSaveReticleValues.Click += new System.EventHandler(this.btnSaveReticleValues_Click);
             // 
             // lblOffsets
@@ -398,25 +400,26 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             // buttonLayout
             // 
-            this.buttonLayout.ColumnCount = 9;
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 136F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 196F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
+            this.buttonLayout.ColumnCount = 10;
             this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 130F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 136F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 132F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 118F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 118F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 124F));
             this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 88F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 124F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.buttonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 82F));
             this.buttonLayout.Controls.Add(this.btnCheck, 0, 0);
             this.buttonLayout.Controls.Add(this.btnRunAll, 1, 0);
             this.buttonLayout.Controls.Add(this.btnFindBottom, 2, 0);
             this.buttonLayout.Controls.Add(this.btnFindInput, 3, 0);
             this.buttonLayout.Controls.Add(this.btnFindOutput, 4, 0);
             this.buttonLayout.Controls.Add(this.btnRetractReticle, 5, 0);
-            this.buttonLayout.Controls.Add(this.btnCalculateSave, 6, 0);
-            this.buttonLayout.Controls.Add(this.btnHelp, 7, 0);
-            this.buttonLayout.Controls.Add(this.btnClose, 8, 0);
+            this.buttonLayout.Controls.Add(this.btnCalculateSave, 7, 0);
+            this.buttonLayout.Controls.Add(this.btnHelp, 8, 0);
+            this.buttonLayout.Controls.Add(this.btnClose, 9, 0);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonLayout.Location = new System.Drawing.Point(0, 0);
             this.buttonLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -433,75 +436,81 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnCheck.Location = new System.Drawing.Point(6, 6);
             this.btnCheck.Margin = new System.Windows.Forms.Padding(6);
             this.btnCheck.Name = "btnCheck";
-            this.btnCheck.Size = new System.Drawing.Size(124, 40);
+            this.btnCheck.Size = new System.Drawing.Size(108, 40);
             this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK READY";
             this.btnCheck.UseVisualStyleBackColor = true;
+            this.btnCheck.Role = CalibrationDialogButtonRole.Normal;
             this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
             // 
             // btnRunAll
             // 
             this.btnRunAll.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRunAll.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRunAll.Location = new System.Drawing.Point(142, 6);
+            this.btnRunAll.Location = new System.Drawing.Point(126, 6);
             this.btnRunAll.Margin = new System.Windows.Forms.Padding(6);
             this.btnRunAll.Name = "btnRunAll";
-            this.btnRunAll.Size = new System.Drawing.Size(184, 40);
+            this.btnRunAll.Size = new System.Drawing.Size(168, 40);
             this.btnRunAll.TabIndex = 1;
             this.btnRunAll.Text = "PREPARE && FIND BOTTOM";
             this.btnRunAll.UseVisualStyleBackColor = true;
+            this.btnRunAll.Role = CalibrationDialogButtonRole.Normal;
             this.btnRunAll.Click += new System.EventHandler(this.btnRunAll_Click);
             // 
             // btnFindBottom
             // 
             this.btnFindBottom.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnFindBottom.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindBottom.Location = new System.Drawing.Point(338, 6);
+            this.btnFindBottom.Location = new System.Drawing.Point(306, 6);
             this.btnFindBottom.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindBottom.Name = "btnFindBottom";
-            this.btnFindBottom.Size = new System.Drawing.Size(118, 40);
+            this.btnFindBottom.Size = new System.Drawing.Size(106, 40);
             this.btnFindBottom.TabIndex = 2;
             this.btnFindBottom.Text = "FIND BOTTOM";
             this.btnFindBottom.UseVisualStyleBackColor = true;
+            this.btnFindBottom.Role = CalibrationDialogButtonRole.Normal;
             this.btnFindBottom.Click += new System.EventHandler(this.btnFindBottom_Click);
             // 
             // btnFindInput
             // 
             this.btnFindInput.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnFindInput.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindInput.Location = new System.Drawing.Point(468, 6);
+            this.btnFindInput.Location = new System.Drawing.Point(424, 6);
             this.btnFindInput.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindInput.Name = "btnFindInput";
-            this.btnFindInput.Size = new System.Drawing.Size(108, 40);
+            this.btnFindInput.Size = new System.Drawing.Size(98, 40);
             this.btnFindInput.TabIndex = 3;
             this.btnFindInput.Text = "FIND INPUT";
             this.btnFindInput.UseVisualStyleBackColor = true;
+            this.btnFindInput.Role = CalibrationDialogButtonRole.Normal;
             this.btnFindInput.Click += new System.EventHandler(this.btnFindInput_Click);
             // 
             // btnFindOutput
             // 
             this.btnFindOutput.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnFindOutput.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFindOutput.Location = new System.Drawing.Point(588, 6);
+            this.btnFindOutput.Location = new System.Drawing.Point(534, 6);
             this.btnFindOutput.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindOutput.Name = "btnFindOutput";
-            this.btnFindOutput.Size = new System.Drawing.Size(118, 40);
+            this.btnFindOutput.Size = new System.Drawing.Size(106, 40);
             this.btnFindOutput.TabIndex = 4;
             this.btnFindOutput.Text = "FIND OUTPUT";
             this.btnFindOutput.UseVisualStyleBackColor = true;
+            this.btnFindOutput.Role = CalibrationDialogButtonRole.Normal;
             this.btnFindOutput.Click += new System.EventHandler(this.btnFindOutput_Click);
             // 
             // btnRetractReticle
             // 
             this.btnRetractReticle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRetractReticle.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnRetractReticle.Location = new System.Drawing.Point(718, 6);
+            this.btnRetractReticle.Location = new System.Drawing.Point(652, 6);
             this.btnRetractReticle.Margin = new System.Windows.Forms.Padding(6);
             this.btnRetractReticle.Name = "btnRetractReticle";
-            this.btnRetractReticle.Size = new System.Drawing.Size(124, 40);
+            this.btnRetractReticle.Size = new System.Drawing.Size(112, 40);
             this.btnRetractReticle.TabIndex = 5;
             this.btnRetractReticle.Text = "RETICLE BACK";
             this.btnRetractReticle.UseVisualStyleBackColor = true;
+            this.btnRetractReticle.Role = CalibrationDialogButtonRole.Normal;
             this.btnRetractReticle.Click += new System.EventHandler(this.btnRetractReticle_Click);
             // 
             // btnCalculateSave
@@ -511,39 +520,42 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnCalculateSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCalculateSave.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
             this.btnCalculateSave.ForeColor = System.Drawing.Color.White;
-            this.btnCalculateSave.Location = new System.Drawing.Point(854, 6);
+            this.btnCalculateSave.Location = new System.Drawing.Point(828, 6);
             this.btnCalculateSave.Margin = new System.Windows.Forms.Padding(6);
             this.btnCalculateSave.Name = "btnCalculateSave";
-            this.btnCalculateSave.Size = new System.Drawing.Size(120, 40);
+            this.btnCalculateSave.Size = new System.Drawing.Size(112, 40);
             this.btnCalculateSave.TabIndex = 6;
             this.btnCalculateSave.Text = "CALC / SAVE";
             this.btnCalculateSave.UseVisualStyleBackColor = false;
+            this.btnCalculateSave.Role = CalibrationDialogButtonRole.Primary;
             this.btnCalculateSave.Click += new System.EventHandler(this.btnCalculateSave_Click);
             // 
             // btnHelp
             // 
-            this.btnHelp.Dock = System.Windows.Forms.DockStyle.Right;
+            this.btnHelp.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnHelp.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Bold);
-            this.btnHelp.Location = new System.Drawing.Point(946, 6);
+            this.btnHelp.Location = new System.Drawing.Point(952, 6);
             this.btnHelp.Margin = new System.Windows.Forms.Padding(6);
             this.btnHelp.Name = "btnHelp";
             this.btnHelp.Size = new System.Drawing.Size(40, 40);
             this.btnHelp.TabIndex = 7;
             this.btnHelp.Text = "?";
             this.btnHelp.UseVisualStyleBackColor = true;
+            this.btnHelp.Role = CalibrationDialogButtonRole.Help;
             this.btnHelp.Click += new System.EventHandler(this.btnHelp_Click);
             // 
             // btnClose
             // 
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnClose.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Bold);
-            this.btnClose.Location = new System.Drawing.Point(998, 6);
+            this.btnClose.Location = new System.Drawing.Point(1004, 6);
             this.btnClose.Margin = new System.Windows.Forms.Padding(6);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(76, 40);
+            this.btnClose.Size = new System.Drawing.Size(70, 40);
             this.btnClose.TabIndex = 8;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = true;
+            this.btnClose.Role = CalibrationDialogButtonRole.Normal;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
             // VisionCameraCalibrationDialog
@@ -568,3 +580,5 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
     }
 }
+
+

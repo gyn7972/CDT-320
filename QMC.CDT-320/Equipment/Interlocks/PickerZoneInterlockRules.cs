@@ -552,6 +552,27 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
+                string fineAlignDetail;
+                if (MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, isFront, out fineAlignDetail))
+                {
+                    string fineFacingDetail;
+                    if (!CanMovePickerXByFacingYInterlock(
+                        request.Machine,
+                        isFront,
+                        request.TargetValue,
+                        null,
+                        request.TargetName,
+                        out fineFacingDetail))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            movingName + " ColletCalibrationFineAlign 이동 불가: " + fineFacingDetail,
+                            out reason);
+                    }
+
+                    return true;
+                }
+
                 if (!IsInspectionContinuousProcessMove(request, currentZone, targetZone) &&
                     !IsPickerYAtAvoid(request.Machine, isFront))
                 {

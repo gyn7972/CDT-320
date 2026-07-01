@@ -354,7 +354,7 @@ namespace QMC.CDT320.Sequencing
                 X = ResolvePickerZoneX("DieBottomPosition", pickerIndex),
                 Y = ResolvePickerZoneY("DieBottomPosition", pickerIndex),
                 Z = GetPickerTeachingPosition(GetPickerZAxis(pickerIndex), "BottomPosition"),
-                T0 = GetPickerTeachingPosition(GetPickerTAxis(pickerIndex), "BottomPosition") + ResolvePickerAlignOffsetT(pickerIndex)
+                T0 = ResolvePickerZoneT("DieBottomPosition", pickerIndex)
             };
         }
 
@@ -591,7 +591,7 @@ namespace QMC.CDT320.Sequencing
             if (die == null)
                 return null;
 
-            double t0 = GetPickerTeachingPosition(GetPickerTAxis(pickerIndex), "SidePosition") + ResolvePickerAlignOffsetT(pickerIndex);
+            double t0 = ResolvePickerZoneT("DieSidePosition", pickerIndex);
             return new InspectionTarget
             {
                 PickerIndex = pickerIndex,

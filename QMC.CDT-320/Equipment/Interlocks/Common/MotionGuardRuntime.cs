@@ -27,6 +27,26 @@ namespace QMC.CDT320.Interlocks
             return VerifyAxisMove(axis, targetPosition, true, out reason);
         }
 
+        public static bool VerifyAxisContinuousJog(BaseAxis axis, double probeTargetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, probeTargetPosition, targetName, MotionGuardMoveKind.AxisContinuousJog, false, out reason);
+        }
+
+        public static bool VerifyAxisContinuousJogWithoutSharedRailX(BaseAxis axis, double probeTargetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, probeTargetPosition, targetName, MotionGuardMoveKind.AxisContinuousJog, true, out reason);
+        }
+
+        public static bool VerifyAxisStepJog(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, targetPosition, targetName, MotionGuardMoveKind.AxisStepJog, false, out reason);
+        }
+
+        public static bool VerifyAxisStepJogWithoutSharedRailX(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, targetPosition, targetName, MotionGuardMoveKind.AxisStepJog, true, out reason);
+        }
+
         private static bool VerifyAxisMove(
             BaseAxis axis,
             double targetPosition,
@@ -68,6 +88,49 @@ namespace QMC.CDT320.Interlocks
                 reason = "Motion guard exception. axis=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
                 AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK-GUARD", axis != null ? axis.Name : "Axis", reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - Failed");
+                return false;
+            }
+        }
+
+        private static bool VerifyAxisJog(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardMoveKind moveKind,
+            bool skipSharedRailXRule,
+            out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!Enabled || axis == null)
+                    return true;
+
+                MotionGuardService service = GetService();
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                MotionGuardExecutionMode executionMode = ResolveExecutionMode();
+                MotionGuardResult result = moveKind == MotionGuardMoveKind.AxisStepJog
+                    ? service.VerifyAxisStepJog(axis, targetPosition, targetName, context, skipSharedRailXRule, executionMode)
+                    : service.VerifyAxisContinuousJog(axis, targetPosition, targetName, context, skipSharedRailXRule, executionMode);
+                if (result == null)
+                    return true;
+
+                reason = result.Message ?? "";
+                if (result.RequiresDetailedCheck)
+                    Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogCheck");
+
+                if (result.Allowed)
+                    return true;
+
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name, reason);
+                Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogBlocked");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "Motion guard exception. axis jog=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK-GUARD", axis != null ? axis.Name : "Axis", reason);
+                Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogFailed");
                 return false;
             }
         }

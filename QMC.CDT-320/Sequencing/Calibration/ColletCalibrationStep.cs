@@ -7,6 +7,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         MoveColletToBottomView,
         FindCollet,
         AdjustThetaToZero,
+        AdjustXyToCenter,
         FindColletAgain,
         CalculateOffset,
         SaveColletCalibration,

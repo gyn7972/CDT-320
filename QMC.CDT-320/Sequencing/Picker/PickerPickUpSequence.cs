@@ -1010,21 +1010,36 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + offsetReason);
                 }
 
-                _targetStageY = _pickTarget.TargetY +
-                    inputVisionToPickerY +
-                    _visionOffset.DeltaY;
-                _targetPickerX = _pickTarget.TargetX +
-                    inputVisionToPickerX +
-                    ResolvePickerAlignOffsetX(_currentPickerIndex) +
-                    _visionOffset.DeltaX;
-                _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
-                _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition") +
-                    ResolvePickerAlignOffsetT(_currentPickerIndex) +
-                    _visionOffset.DeltaTheta;
-                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
-                _targetNeedleX = ResolveNeedleXForVisionX(_pickTarget.TargetX, _visionOffset.DeltaX);
-                _targetNeedleZ = ResolveNeedleZPickTarget();
-                _targetEjectPinZ = ResolveEjectPinZPickTarget();
+                PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(
+                    Name,
+                    Side,
+                    _currentPickerIndex,
+                    _currentDieId,
+                    _pickTarget.TargetX,
+                    _pickTarget.TargetY,
+                    inputVisionToPickerX,
+                    inputVisionToPickerY,
+                    ResolvePickerAlignOffsetX(_currentPickerIndex),
+                    ResolvePickerAlignOffsetT(_currentPickerIndex),
+                    _visionOffset.DeltaX,
+                    _visionOffset.DeltaY,
+                    _visionOffset.DeltaTheta,
+                    ResolveNeedleCalibrationOffsetX(),
+                    ResolveNeedleCalibrationOffsetY(),
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition"),
+                    GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition"),
+                    GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition"),
+                    ResolveNeedleZPickTarget(),
+                    ResolveEjectPinZPickTarget());
+
+                _targetStageY = coordinate.StageY;
+                _targetPickerX = coordinate.PickerX;
+                _targetPickerY = coordinate.PickerY;
+                _targetPickerT = coordinate.PickerT;
+                _targetPickerZ = coordinate.PickerZ;
+                _targetNeedleX = coordinate.NeedleX;
+                _targetNeedleZ = coordinate.NeedleZ;
+                _targetEjectPinZ = coordinate.EjectPinZ;
 
                 WriteLog("PickerPickUpSequence",
                     Name + " calculated pick target. die=" + _currentDieId +
@@ -1041,8 +1056,10 @@ namespace QMC.CDT320.Sequencing
                     ", inputStageY=" + _pickTarget.TargetY +
                     ", inputVisionToPickerOffsetX=" + inputVisionToPickerX +
                     ", inputVisionToPickerOffsetY=" + inputVisionToPickerY +
+                    ", formula=" + coordinate.Formula +
                     ", visionOffsetX=" + _visionOffset.DeltaX +
                     ", visionOffsetY=" + _visionOffset.DeltaY +
+                    ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", visionOffsetT=" + _visionOffset.DeltaTheta + " - Ok");
 
                 return 0;
@@ -3149,11 +3166,41 @@ namespace QMC.CDT320.Sequencing
 
         private double ResolveNeedleXForVisionX(double visionX, double visionOffsetX = 0.0)
         {
-            InputStageUnit stage = ResolveInputStage();
-            double offset = stage != null && stage.Setup != null
-                ? stage.Setup.NeedleXToVisionXOffset
-                : 0.0;
+            double offset = ResolveNeedleCalibrationOffsetX();
             return visionX + visionOffsetX - offset;
+        }
+
+        private double ResolveNeedleYForVisionYOffset()
+        {
+            return ResolveNeedleCalibrationOffsetY();
+        }
+
+        private double ResolveNeedleCalibrationOffsetX()
+        {
+            if (Context == null ||
+                Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                !Context.Machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                return 0.0;
+
+            return Context.Machine.VisionUnit.Config.CalibrationData.Needle.NeedleXToVisionXOffset;
+        }
+
+        private double ResolveNeedleCalibrationOffsetY()
+        {
+            if (Context == null ||
+                Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                !Context.Machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                return 0.0;
+
+            return Context.Machine.VisionUnit.Config.CalibrationData.Needle.NeedleYToVisionYOffset;
         }
 
         private double ResolveNeedleZPickTarget()

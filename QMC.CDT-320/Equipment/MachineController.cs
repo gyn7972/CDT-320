@@ -14,6 +14,7 @@ using QMC.CDT320.Jobs;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Alarms;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Initialization;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.Recipes;
@@ -340,6 +341,12 @@ namespace QMC.CDT320
         {
             if (moveKind == AxisMotionGuardKind.Home)
                 return MotionGuardRuntime.VerifyAxisHome(axis, out reason);
+
+            if (moveKind == AxisMotionGuardKind.JogContinuous)
+                return MotionGuardRuntime.VerifyAxisContinuousJog(axis, targetPosition, "ContinuousJog", out reason);
+
+            if (moveKind == AxisMotionGuardKind.JogStep)
+                return MotionGuardRuntime.VerifyAxisStepJog(axis, targetPosition, "StepJog", out reason);
 
             return MotionGuardRuntime.VerifyAxisMove(axis, targetPosition, out reason);
         }
@@ -1178,6 +1185,78 @@ namespace QMC.CDT320
             reason = "오토 시작 전 Reticle은 반드시 안전 복귀 상태여야 합니다. " +
                      MotionGuardRuleHelpers.BuildReticleStateDetail(vision);
             return false;
+        }
+
+        private bool EnsureCalibrationReadyForAutoStart(string source)
+        {
+            try
+            {
+                string reason;
+                if (IsCalibrationReadyForAutoStart(out reason))
+                    return true;
+
+                LastActionFailureMessage = "자동 운전 시작 불가: " + reason;
+                QMC.Common.Log.Write("Main", "SYSTEM", source, LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "START-CALIBRATION-NOT-READY", "CalibrationData", LastActionFailureMessage);
+                Log("[START] failed: calibration data is not ready. " + reason);
+                SetStatus(EquipmentStatus.Alarm);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "자동 운전 시작 전 CalibrationData 확인 실패. " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", source, LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "START-CALIBRATION-CHECK-EX", "CalibrationData", LastActionFailureMessage);
+                Log("[START] failed: calibration check exception. " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsCalibrationReadyForAutoStart(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                CalibrationData data = CalibrationCoordinateService.ResolveData(_machine);
+                if (data == null)
+                {
+                    reason = "CalibrationData가 준비되지 않았습니다.";
+                    return false;
+                }
+
+                data.EnsureObjects();
+                if (data.Camera == null || !data.Camera.Valid)
+                {
+                    reason = "Camera Calibration이 유효하지 않습니다. Bottom/Input/Output 카메라 Reticle 캘리브레이션을 완료하세요.";
+                    return false;
+                }
+
+                if (data.Needle == null || !data.Needle.Valid)
+                {
+                    reason = "Needle Calibration이 유효하지 않습니다. Input 카메라와 NeedleX 캘리브레이션을 완료하세요.";
+                    return false;
+                }
+
+                if (!CalibrationCoordinateService.AreAllColletsValid(_machine))
+                {
+                    reason = "Collet Calibration이 유효하지 않습니다. Front/Rear Collet 1~4 전체 캘리브레이션을 완료하세요.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "CalibrationData 유효성 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private bool TryRecoverMachineInitializedFromAxisState(string reason)
@@ -5384,6 +5463,9 @@ namespace QMC.CDT320
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
 
+                if (!EnsureCalibrationReadyForAutoStart("StartAsync"))
+                    return -1;
+
                 Log("[START] Process auto sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
 
@@ -6145,6 +6227,10 @@ namespace QMC.CDT320
 
                 if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
                     !EnsureReticleAvoidForAutoStart("StartSequenceAsync"))
+                    return;
+
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto &&
+                    !EnsureCalibrationReadyForAutoStart("StartSequenceAsync"))
                     return;
 
                 _autoCts = new CancellationTokenSource();
@@ -7435,6 +7521,173 @@ namespace QMC.CDT320
         }
 
         // ------------------------------------------------------------------
+        // Tree traversal helpers
+        // ------------------------------------------------------------------
+
+        private IEnumerable<BaseAxis> EnumerateAxes()
+        {
+            foreach (var u in _machine.Units)
+                foreach (var ax in EnumerateAxesRec(u))
+                    yield return ax;
+        }
+
+        private BaseAxis FindAxisByName(string axisName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(axisName))
+                    return null;
+
+                foreach (var axis in EnumerateAxes())
+                {
+                    if (string.Equals(axis.Name, axisName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return axis;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private BaseCylinder FindCylinderByName(string cylinderName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(cylinderName))
+                    return null;
+
+                BaseCylinder cylinder;
+                if (QMC.CDT320.Ajin.CylinderManager.Items.TryGetValue(cylinderName.Trim(), out cylinder) &&
+                    cylinder != null)
+                    return cylinder;
+
+                foreach (var item in QMC.CDT320.Ajin.CylinderManager.Items.Values)
+                {
+                    if (item != null && string.Equals(item.Name, cylinderName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return item;
+                }
+
+                return QMC.CDT320.Ajin.CylinderManager.Get(cylinderName.Trim());
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static IEnumerable<BaseAxis> EnumerateAxesRec(BaseEquipmentNode node)
+        {
+            if (node is BaseAxis ax) { yield return ax; yield break; }
+            var prop = node.GetType().GetProperty("Components");
+            if (prop != null && prop.GetValue(node) is System.Collections.IEnumerable comps)
+                foreach (BaseEquipmentNode c in comps)
+                    foreach (var a in EnumerateAxesRec(c))
+                        yield return a;
+        }
+
+        // ------------------------------------------------------------------
+        // Status / log helpers
+        // ------------------------------------------------------------------
+
+        private void SetStatus(EquipmentStatus s)
+        {
+            if (_status == s) return;
+            EquipmentStatus old = _status;
+            _status = s;
+            try { Stats.OnStateChanged(old, s, DateTime.UtcNow); } catch { }
+            var h = StatusChanged;
+            if (h != null) try { h(s); } catch { }
+        }
+
+        private void SetReadySequenceProgress(MachineReadyProgress progress)
+        {
+            if (progress == null)
+                return;
+
+            _readySequenceProgress = progress;
+            var h = ReadySequenceProgressChanged;
+            if (h != null) try { h(progress); } catch { }
+        }
+
+        private void SetReadySequenceProgress(
+            MachineReadySequenceState state,
+            int percent,
+            int completedSteps,
+            int totalSteps,
+            string currentStepName,
+            string message)
+        {
+            SetReadySequenceProgress(new MachineReadyProgress(
+                state,
+                percent,
+                completedSteps,
+                totalSteps,
+                currentStepName,
+                message));
+        }
+
+        private void Log(string msg)
+        {
+            var h = LogMessage;
+            if (h != null) try { h(msg); } catch { }
+        }
+
+        /// <summary>외부 시퀀스 계층에서 장비 로그를 기록하기 위한 공개 로그 브리지입니다.</summary>
+        public void LogPublic(string msg)
+        {
+            Log(msg);
+        }
+
+        public void RequestOperatorMessage(string title, string message)
+        {
+            try
+            {
+                title = string.IsNullOrWhiteSpace(title) ? "작업자 확인" : title;
+                message = string.IsNullOrWhiteSpace(message) ? "작업자 확인이 필요합니다." : message;
+
+                string key = title + "|" + message;
+                lock (_operatorMessageLock)
+                {
+                    DateTime now = DateTime.UtcNow;
+                    if (string.Equals(_lastOperatorMessageKey, key, StringComparison.Ordinal) &&
+                        (now - _lastOperatorMessageTimeUtc).TotalSeconds < 5.0)
+                        return;
+
+                    _lastOperatorMessageKey = key;
+                    _lastOperatorMessageTimeUtc = now;
+                }
+
+                var handler = OperatorMessageRequested;
+                if (handler != null)
+                    handler(title, message);
+
+                Log("[OPERATOR-MESSAGE] " + title + " - " + message);
+            }
+            catch (Exception ex)
+            {
+                Log("[OPERATOR-MESSAGE] request failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RaiseProgress()
+        {
+            var h = CycleProgress;
+            if (h != null) try { h(CycleDone, CycleTotal); } catch { }
+        }
+
+        // ------------------------------------------------------------------
         // Legacy cycle compatibility area
         // 현재 자동 운전은 StartSequenceAsync/AutoSequenceCoordinator 계열이 기준입니다.
         // 아래 CycleRunAsync/DoOneDieAsync 계열은 Form1 및 일부 구형 경로에서 아직 참조하므로
@@ -8612,172 +8865,6 @@ namespace QMC.CDT320
             Log($"[CYCLE {cycleIdx + 1}] dies {dieBase + 1}~{dieBase + pickers}/{CycleTotal} good={goodInCycle} ng={ngInCycle}");
         }
 
-        // ------------------------------------------------------------------
-        // Tree traversal helpers
-        // ------------------------------------------------------------------
-
-        private IEnumerable<BaseAxis> EnumerateAxes()
-        {
-            foreach (var u in _machine.Units)
-                foreach (var ax in EnumerateAxesRec(u))
-                    yield return ax;
-        }
-
-        private BaseAxis FindAxisByName(string axisName)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(axisName))
-                    return null;
-
-                foreach (var axis in EnumerateAxes())
-                {
-                    if (string.Equals(axis.Name, axisName.Trim(), StringComparison.OrdinalIgnoreCase))
-                        return axis;
-                }
-
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
-            finally
-            {
-            }
-        }
-
-        private BaseCylinder FindCylinderByName(string cylinderName)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(cylinderName))
-                    return null;
-
-                BaseCylinder cylinder;
-                if (QMC.CDT320.Ajin.CylinderManager.Items.TryGetValue(cylinderName.Trim(), out cylinder) &&
-                    cylinder != null)
-                    return cylinder;
-
-                foreach (var item in QMC.CDT320.Ajin.CylinderManager.Items.Values)
-                {
-                    if (item != null && string.Equals(item.Name, cylinderName.Trim(), StringComparison.OrdinalIgnoreCase))
-                        return item;
-                }
-
-                return QMC.CDT320.Ajin.CylinderManager.Get(cylinderName.Trim());
-            }
-            catch
-            {
-                return null;
-            }
-            finally
-            {
-            }
-        }
-
-        private static IEnumerable<BaseAxis> EnumerateAxesRec(BaseEquipmentNode node)
-        {
-            if (node is BaseAxis ax) { yield return ax; yield break; }
-            var prop = node.GetType().GetProperty("Components");
-            if (prop != null && prop.GetValue(node) is System.Collections.IEnumerable comps)
-                foreach (BaseEquipmentNode c in comps)
-                    foreach (var a in EnumerateAxesRec(c))
-                        yield return a;
-        }
-
-        // ------------------------------------------------------------------
-        // Status / log helpers
-        // ------------------------------------------------------------------
-
-        private void SetStatus(EquipmentStatus s)
-        {
-            if (_status == s) return;
-            EquipmentStatus old = _status;
-            _status = s;
-            try { Stats.OnStateChanged(old, s, DateTime.UtcNow); } catch { }
-            var h = StatusChanged;
-            if (h != null) try { h(s); } catch { }
-        }
-
-        private void SetReadySequenceProgress(MachineReadyProgress progress)
-        {
-            if (progress == null)
-                return;
-
-            _readySequenceProgress = progress;
-            var h = ReadySequenceProgressChanged;
-            if (h != null) try { h(progress); } catch { }
-        }
-
-        private void SetReadySequenceProgress(
-            MachineReadySequenceState state,
-            int percent,
-            int completedSteps,
-            int totalSteps,
-            string currentStepName,
-            string message)
-        {
-            SetReadySequenceProgress(new MachineReadyProgress(
-                state,
-                percent,
-                completedSteps,
-                totalSteps,
-                currentStepName,
-                message));
-        }
-
-        private void Log(string msg)
-        {
-            var h = LogMessage;
-            if (h != null) try { h(msg); } catch { }
-        }
-
-        /// <summary>외부 시퀀스 계층에서 장비 로그를 기록하기 위한 공개 로그 브리지입니다.</summary>
-        public void LogPublic(string msg)
-        {
-            Log(msg);
-        }
-
-        public void RequestOperatorMessage(string title, string message)
-        {
-            try
-            {
-                title = string.IsNullOrWhiteSpace(title) ? "작업자 확인" : title;
-                message = string.IsNullOrWhiteSpace(message) ? "작업자 확인이 필요합니다." : message;
-
-                string key = title + "|" + message;
-                lock (_operatorMessageLock)
-                {
-                    DateTime now = DateTime.UtcNow;
-                    if (string.Equals(_lastOperatorMessageKey, key, StringComparison.Ordinal) &&
-                        (now - _lastOperatorMessageTimeUtc).TotalSeconds < 5.0)
-                        return;
-
-                    _lastOperatorMessageKey = key;
-                    _lastOperatorMessageTimeUtc = now;
-                }
-
-                var handler = OperatorMessageRequested;
-                if (handler != null)
-                    handler(title, message);
-
-                Log("[OPERATOR-MESSAGE] " + title + " - " + message);
-            }
-            catch (Exception ex)
-            {
-                Log("[OPERATOR-MESSAGE] request failed: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private void RaiseProgress()
-        {
-            var h = CycleProgress;
-            if (h != null) try { h(CycleDone, CycleTotal); } catch { }
-        }
     }
 }
 

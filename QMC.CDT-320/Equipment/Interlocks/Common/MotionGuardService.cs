@@ -11,6 +11,8 @@ namespace QMC.CDT320.Interlocks
         AxisMove,
         AxisHome,
         AxisTeachingMove,
+        AxisContinuousJog,
+        AxisStepJog,
         CylinderMove,
         CylinderInitialize
     }
@@ -148,6 +150,44 @@ namespace QMC.CDT320.Interlocks
             return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisTeachingMove, targetName, context, false, executionMode);
         }
 
+        public MotionGuardResult VerifyAxisContinuousJog(
+            BaseAxis axis,
+            double probeTargetPosition,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
+            string movingName = axis != null ? axis.Name : string.Empty;
+            return VerifyMove(
+                movingName,
+                probeTargetPosition,
+                MotionGuardMoveKind.AxisContinuousJog,
+                targetName,
+                context,
+                skipSharedRailXRule,
+                executionMode);
+        }
+
+        public MotionGuardResult VerifyAxisStepJog(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
+            string movingName = axis != null ? axis.Name : string.Empty;
+            return VerifyMove(
+                movingName,
+                targetPosition,
+                MotionGuardMoveKind.AxisStepJog,
+                targetName,
+                context,
+                skipSharedRailXRule,
+                executionMode);
+        }
+
         public MotionGuardResult VerifyCylinderMove(BaseCylinder cylinder, bool moveFwd, MotionGuardContext context)
         {
             string movingName = cylinder != null ? cylinder.Name : string.Empty;
@@ -253,6 +293,12 @@ namespace QMC.CDT320.Interlocks
             if (executionMode == MotionGuardExecutionMode.ManualSequenceProcess &&
                 moveKind == MotionGuardMoveKind.AxisMove)
                 return MotionGuardMoveKind.AxisTeachingMove;
+
+            if (moveKind == MotionGuardMoveKind.AxisContinuousJog)
+                return MotionGuardMoveKind.AxisTeachingMove;
+
+            if (moveKind == MotionGuardMoveKind.AxisStepJog)
+                return MotionGuardMoveKind.AxisMove;
 
             return moveKind;
         }
