@@ -192,8 +192,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "ColletCalibration");
-
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 진입 전 Z 안전 위치 확인. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
@@ -206,7 +204,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
                     ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
 
-                result = await MoveAllPickerZToAvoidAndVerifyAsync("Collet Calibration 전 PickerZ 전체 Avoid", ct).ConfigureAwait(false);
+                result = await MoveCurrentPickerToAvoidAndVerifyAsync("Collet Calibration start current Picker Avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+                ApplyCurrentPickerAvoidPositionForSimulation();
+
+                result = await EnsureInputOutputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
                 ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ0, GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition"));
@@ -214,9 +217,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ2, GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition"));
                 ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ3, GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition"));
 
-                result = await MoveOppositePickerToAvoidAndVerifyAsync("Collet Calibration 진입 전 상대 Picker Avoid", ct).ConfigureAwait(false);
+                result = await MoveOppositePickerToOutsideForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "ColletCalibration");
 
                 _targetPickerX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition") +
                                  ResolvePickerPitchXOffset("DieBottomPosition", _colletIndex);
@@ -291,6 +296,237 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet을 Bottom Camera 위치로 이동 중 예외가 발생했습니다. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureInputOutputVisionAvoidForStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await EnsureInputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await EnsureOutputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-CAMERA-AVOID-EX", Name,
+                    "Collet Calibration start camera avoid exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureInputVisionAvoidForStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+                if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
+                    return Fail("COLLET-CAL-INPUT-CAMERA-MISSING", "InputStageUnit",
+                        "Collet Calibration start InputVisionX Avoid move missing axis/recipe.");
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return 0;
+
+                double target = stage.Recipe.VisionX.AvoidPosition;
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                    "Collet Calibration start InputVisionX Avoid move. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", actual=" + stage.CameraX.ActualPosition.ToString("F6") +
+                    ", target=" + target.ToString("F6"));
+
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-INPUT-CAMERA-MOVE", "InputStageUnit",
+                        "Collet Calibration start InputVisionX Avoid move failed. result=" + result +
+                        ", target=" + target.ToString("F3"));
+
+                result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-INPUT-CAMERA-WAIT", "InputStageUnit",
+                        "Collet Calibration start InputVisionX Avoid wait failed. result=" + result +
+                        ", target=" + target.ToString("F3"));
+
+                if (!stage.IsVisionXInAvoidPosition())
+                    return Fail("COLLET-CAL-INPUT-CAMERA-CHECK", "InputStageUnit",
+                        "Collet Calibration start InputVisionX Avoid final check failed. actual=" +
+                        stage.CameraX.ActualPosition.ToString("F3") +
+                        ", target=" + target.ToString("F3"));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-INPUT-CAMERA-EX", "InputStageUnit",
+                    "Collet Calibration start InputVisionX Avoid exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureOutputVisionAvoidForStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
+                if (stage == null || stage.OutputCameraX == null)
+                    return Fail("COLLET-CAL-OUTPUT-CAMERA-MISSING", "OutputStageUnit",
+                        "Collet Calibration start OutputVisionX Avoid move missing axis.");
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return 0;
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                    "Collet Calibration start OutputVisionX Avoid move. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", actual=" + stage.OutputCameraX.ActualPosition.ToString("F6"));
+
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit",
+                        "Collet Calibration start OutputVisionX Avoid move failed. result=" + result);
+
+                if (!stage.IsVisionXInAvoidPosition())
+                    return Fail("COLLET-CAL-OUTPUT-CAMERA-CHECK", "OutputStageUnit",
+                        "Collet Calibration start OutputVisionX Avoid final check failed. actual=" +
+                        stage.OutputCameraX.ActualPosition.ToString("F3"));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-OUTPUT-CAMERA-EX", "OutputStageUnit",
+                    "Collet Calibration start OutputVisionX Avoid exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveOppositePickerToOutsideForStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                bool fine = Options != null && Options.FineMove;
+
+                if (Side == PickerSequenceSide.Front)
+                    return await MoveRearPickerToOutsideForStartAsync(fine, ct).ConfigureAwait(false);
+
+                return await MoveFrontPickerToOutsideForStartAsync(fine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-OPPOSITE-PICKER-OUTSIDE-EX", Name,
+                    "Collet Calibration start opposite Picker Outside move exception. side=" + _calibrationSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveFrontPickerToOutsideForStartAsync(bool fine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (FrontPicker == null)
+                    return 0;
+
+                if (FrontPicker.IsPickerInOutputSideAvoidPosition())
+                    return 0;
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                    "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo);
+
+                int result = await FrontPicker.MoveToOutputSideAvoidPosition(fine).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-FRONT-OUTSIDE", "PickerFrontUnit",
+                        "Collet Calibration start FrontPicker Outside(Output-side Avoid) move failed. result=" + result);
+
+                if (!FrontPicker.IsPickerInOutputSideAvoidPosition())
+                    return Fail("COLLET-CAL-FRONT-OUTSIDE-CHECK", "PickerFrontUnit",
+                        "Collet Calibration start FrontPicker Outside(Output-side Avoid) final check failed.");
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-FRONT-OUTSIDE-EX", "PickerFrontUnit",
+                    "Collet Calibration start FrontPicker Outside(Output-side Avoid) exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveRearPickerToOutsideForStartAsync(bool fine, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (RearPicker == null)
+                    return 0;
+
+                if (RearPicker.IsPickerInOutputSideAvoidPosition())
+                    return 0;
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                    "Collet Calibration start RearPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo);
+
+                int result = await RearPicker.MoveToOutputSideAvoidPosition(fine).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("COLLET-CAL-REAR-OUTSIDE", "PickerRearUnit",
+                        "Collet Calibration start RearPicker Outside(Output-side Avoid) move failed. result=" + result);
+
+                if (!RearPicker.IsPickerInOutputSideAvoidPosition())
+                    return Fail("COLLET-CAL-REAR-OUTSIDE-CHECK", "PickerRearUnit",
+                        "Collet Calibration start RearPicker Outside(Output-side Avoid) final check failed.");
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-REAR-OUTSIDE-EX", "PickerRearUnit",
+                    "Collet Calibration start RearPicker Outside(Output-side Avoid) exception. error=" + ex.Message);
             }
             finally
             {
@@ -1170,6 +1406,34 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             if (IsPickerThetaAxis(axis))
                 _simPickerT = target;
+        }
+
+        private void ApplyCurrentPickerAvoidPositionForSimulation()
+        {
+            PickerAxis[] axes =
+            {
+                PickerAxis.PickerX,
+                PickerAxis.PickerY,
+                PickerAxis.PickerT0,
+                PickerAxis.PickerT1,
+                PickerAxis.PickerT2,
+                PickerAxis.PickerT3,
+                PickerAxis.PickerZ0,
+                PickerAxis.PickerZ1,
+                PickerAxis.PickerZ2,
+                PickerAxis.PickerZ3
+            };
+
+            for (int i = 0; i < axes.Length; i++)
+            {
+                PickerAxis axis = axes[i];
+                double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                ApplyPickerAxisPositionForSimulation(axis, target);
+                if (axis == PickerAxis.PickerX ||
+                    axis == PickerAxis.PickerY ||
+                    axis == GetPickerTAxis(_colletIndex))
+                    UpdateSimulatedPickerPosition(axis, target);
+            }
         }
 
         private void ApplyPickerAxisPositionForSimulation(PickerAxis axis, double target)

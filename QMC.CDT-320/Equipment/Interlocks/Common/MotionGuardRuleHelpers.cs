@@ -237,12 +237,14 @@ namespace QMC.CDT320.Interlocks
                 if (request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
                 {
                     detail = "자동 티칭 이동이 아닙니다. moveKind=" + request.MoveKind;
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
                 if (targetName.IndexOf("PickerZone=Bottom", StringComparison.OrdinalIgnoreCase) < 0)
                 {
                     detail = "Bottom zone 미세 정렬 이동이 아닙니다. targetName=" + targetName;
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
@@ -251,6 +253,7 @@ namespace QMC.CDT320.Interlocks
                     isFront ? "FrontPickerY" : "RearPickerY"))
                 {
                     detail = "Picker X/Y 이동이 아닙니다. moving=" + request.MovingName;
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
@@ -262,6 +265,7 @@ namespace QMC.CDT320.Interlocks
                 {
                     detail = "ColletCalibration Bottom 작업 점유 상태가 아닙니다. workZone=" + workZone +
                         ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner);
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
@@ -269,6 +273,7 @@ namespace QMC.CDT320.Interlocks
                 if (axis == null)
                 {
                     detail = "이동 축 정보를 찾을 수 없습니다. moving=" + request.MovingName;
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
@@ -281,6 +286,7 @@ namespace QMC.CDT320.Interlocks
                         ", max=" + maxMove.ToString("F6") +
                         ", actual=" + axis.ActualPosition.ToString("F6") +
                         ", target=" + request.TargetValue.ToString("F6");
+                    WriteColletFineAlignDecision(request, isFront, false, detail);
                     return false;
                 }
 
@@ -288,12 +294,58 @@ namespace QMC.CDT320.Interlocks
                     ", distance=" + distance.ToString("F6") +
                     ", max=" + maxMove.ToString("F6") +
                     ", owner=" + owner;
+                WriteColletFineAlignDecision(request, isFront, true, detail);
                 return true;
             }
             catch (Exception ex)
             {
                 detail = "ColletCalibrationFineAlign 판정 중 예외가 발생했습니다. error=" + ex.Message;
+                WriteColletFineAlignDecision(request, isFront, false, detail);
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteColletFineAlignDecision(MotionGuardRuleContext request, bool isFront, bool allowed, string detail)
+        {
+            try
+            {
+                if (request == null)
+                    return;
+
+                string targetName = request.TargetName ?? string.Empty;
+                if (targetName.IndexOf("ColletCalibrationFineAlign", StringComparison.OrdinalIgnoreCase) < 0)
+                    return;
+
+                PickerWorkZone workZone;
+                string owner;
+                bool workArea = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
+                BaseAxis axis = request.GetAxis(request.MovingName);
+                double actual = axis != null ? axis.ActualPosition : 0.0;
+                double maxMove = ResolveColletFineAlignMaxMoveMm(request.Machine);
+                double distance = axis != null ? Math.Abs(request.TargetValue - axis.ActualPosition) : 0.0;
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalFineAlignGuard",
+                    "ColletCalibrationFineAlign 인터락 판정. side=" + (isFront ? "Front" : "Rear") +
+                    ", allowed=" + allowed +
+                    ", detail=" + (string.IsNullOrWhiteSpace(detail) ? "-" : detail) +
+                    ", moving=" + request.MovingName +
+                    ", moveKind=" + request.MoveKind +
+                    ", originalMoveKind=" + request.OriginalMoveKind +
+                    ", executionMode=" + request.ExecutionMode +
+                    ", target=" + request.TargetValue.ToString("F6") +
+                    ", targetName=" + targetName +
+                    ", axisActual=" + (axis != null ? actual.ToString("F6") : "null") +
+                    ", distance=" + (axis != null ? distance.ToString("F6") : "null") +
+                    ", max=" + maxMove.ToString("F6") +
+                    ", workArea=" + workArea +
+                    ", workZone=" + workZone +
+                    ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner));
+            }
+            catch
+            {
             }
             finally
             {

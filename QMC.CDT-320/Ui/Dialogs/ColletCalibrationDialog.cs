@@ -245,9 +245,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SaveSettingsFromUi(false);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
+                PickerSequenceOptions options = PickerSequenceOptions.Default();
+                options.RunMode = SequenceRunMode.Manual;
+                options.StartMode = SequenceStartMode.Restart;
+                options.PickerNo = _colletNo;
+                options.RestrictToPickerNo = _colletNo;
 
                 lblStatus.Text = "Collet Calibration 실행 중입니다. Side=" + _side + ", Collet=" + _colletNo;
-                int result = await sequence.RunAsync(CancellationToken.None, PickerSequenceOptions.Default()).ConfigureAwait(true);
+                int result = await sequence.RunAsync(CancellationToken.None, options).ConfigureAwait(true);
                 RefreshResultGrid();
 
                 if (result != 0)
