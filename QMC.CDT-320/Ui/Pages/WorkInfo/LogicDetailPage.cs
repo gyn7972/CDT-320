@@ -19,6 +19,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             InitializeComponent();
 
+            // 디자이너 CodeDom 파서는 InitializeComponent 안의 foreach 를 지원하지 않으므로
+            // 컬럼 속성 설정은 생성자(런타임 경로)에서 처리한다.
+            foreach (DataGridViewColumn column in _grid.Columns)
+            {
+                column.SortMode = DataGridViewColumnSortMode.NotSortable;
+                column.Resizable = DataGridViewTriState.True;
+            }
+
             if (!IsDesignerMode())
             {
                 if (cmbCategory.Items.Count > 0)

@@ -13,6 +13,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private GroupBox grpInfo;
         private TableLayoutPanel infoWrap;
         private TableLayoutPanel workLayout;
+        private TableLayoutPanel axisYPanel;
         private TableLayoutPanel infoLayout;
         private GroupBox grpAction;
         private TableLayoutPanel actionBar;
@@ -88,6 +89,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo = new System.Windows.Forms.GroupBox();
             this.infoWrap = new System.Windows.Forms.TableLayoutPanel();
             this.workLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.axisYPanel = new System.Windows.Forms.TableLayoutPanel();
             this.lblExistCaption = new System.Windows.Forms.Label();
             this._lblExist = new System.Windows.Forms.Label();
             this.lblSideCaption = new System.Windows.Forms.Label();
@@ -156,6 +158,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.SuspendLayout();
             this.infoWrap.SuspendLayout();
             this.workLayout.SuspendLayout();
+            this.axisYPanel.SuspendLayout();
             this.targetSideLayout.SuspendLayout();
             this.infoLayout.SuspendLayout();
             this.sensorRingPanel.SuspendLayout();
@@ -262,9 +265,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoWrap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoWrap.Location = new System.Drawing.Point(3, 23);
             this.infoWrap.Name = "infoWrap";
-            this.infoWrap.Padding = new System.Windows.Forms.Padding(8, 6, 8, 8);
+            this.infoWrap.Padding = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.infoWrap.RowCount = 2;
-            this.infoWrap.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.infoWrap.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 139F));
             this.infoWrap.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.infoWrap.Size = new System.Drawing.Size(830, 271);
             this.infoWrap.TabIndex = 0;
@@ -273,34 +276,35 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.workLayout.ColumnCount = 4;
             this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 26F));
-            this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 24F));
+            this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 26F));
-            this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 24F));
+            this.workLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 23F));
             this.workLayout.Controls.Add(this.lblExistCaption, 0, 0);
             this.workLayout.Controls.Add(this._lblExist, 1, 0);
-            this.workLayout.Controls.Add(this.lblSideCaption, 2, 0);
-            this.workLayout.Controls.Add(this._lblSide, 3, 0);
             this.workLayout.Controls.Add(this.lblSlotCaption, 0, 1);
             this.workLayout.Controls.Add(this._lblSlot, 1, 1);
-            this.workLayout.Controls.Add(this.lblFeederPosCaption, 2, 1);
-            this.workLayout.Controls.Add(this._lblFeederPos, 3, 1);
-            this.workLayout.Controls.Add(this.lblClampCaption, 0, 2);
-            this.workLayout.Controls.Add(this._lblClampState, 1, 2);
-            this.workLayout.Controls.Add(this.lblUpDownCaption, 2, 2);
-            this.workLayout.Controls.Add(this._lblUpDownState, 3, 2);
+            this.workLayout.Controls.Add(this.lblSideCaption, 0, 2);
+            this.workLayout.Controls.Add(this._lblSide, 1, 2);
             this.workLayout.Controls.Add(this.lblTargetCaption, 0, 3);
             this.workLayout.Controls.Add(this.targetSideLayout, 1, 3);
+            this.workLayout.Controls.Add(this.axisYPanel, 3, 0);
+            this.workLayout.Controls.Add(this.lblClampCaption, 2, 2);
+            this.workLayout.Controls.Add(this._lblClampState, 3, 2);
+            this.workLayout.Controls.Add(this.lblUpDownCaption, 2, 3);
+            this.workLayout.Controls.Add(this._lblUpDownState, 3, 3);
             this.workLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.workLayout.Location = new System.Drawing.Point(8, 6);
             this.workLayout.Margin = new System.Windows.Forms.Padding(0);
             this.workLayout.Name = "workLayout";
             this.workLayout.RowCount = 4;
+            this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
+            this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 39F));
             this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workLayout.Size = new System.Drawing.Size(814, 120);
+            this.workLayout.Size = new System.Drawing.Size(814, 131);
             this.workLayout.TabIndex = 0;
+            this.workLayout.SetColumnSpan(this.axisYPanel, 1);
+            this.workLayout.SetRowSpan(this.axisYPanel, 2);
             // 
             // lblExistCaption
             // 
@@ -383,33 +387,50 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this._lblSlot.Text = "--";
             this._lblSlot.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // axisYPanel
+            //
+            this.axisYPanel.ColumnCount = 1;
+            this.axisYPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axisYPanel.Controls.Add(this.lblFeederPosCaption, 0, 0);
+            this.axisYPanel.Controls.Add(this._lblFeederPos, 0, 1);
+            this.axisYPanel.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
+            this.axisYPanel.Location = new System.Drawing.Point(408, 4);
+            this.axisYPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.axisYPanel.Name = "axisYPanel";
+            this.axisYPanel.RowCount = 2;
+            this.axisYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.axisYPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.axisYPanel.Size = new System.Drawing.Size(182, 71);
+            this.axisYPanel.TabIndex = 6;
+            //
             // lblFeederPosCaption
-            // 
-            this.lblFeederPosCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            //
+            this.lblFeederPosCaption.BackColor = System.Drawing.Color.Black;
             this.lblFeederPosCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFeederPosCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblFeederPosCaption.Location = new System.Drawing.Point(408, 32);
-            this.lblFeederPosCaption.Margin = new System.Windows.Forms.Padding(2);
+            this.lblFeederPosCaption.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFeederPosCaption.ForeColor = System.Drawing.Color.White;
+            this.lblFeederPosCaption.Location = new System.Drawing.Point(3, 0);
             this.lblFeederPosCaption.Name = "lblFeederPosCaption";
-            this.lblFeederPosCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblFeederPosCaption.Size = new System.Drawing.Size(207, 26);
-            this.lblFeederPosCaption.TabIndex = 6;
+            this.lblFeederPosCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblFeederPosCaption.Size = new System.Drawing.Size(176, 24);
+            this.lblFeederPosCaption.TabIndex = 0;
             this.lblFeederPosCaption.Text = "FEEDER AXIS Y";
             this.lblFeederPosCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // _lblFeederPos
-            // 
+            //
             this._lblFeederPos.BackColor = System.Drawing.Color.White;
+            this._lblFeederPos.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this._lblFeederPos.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._lblFeederPos.Font = new System.Drawing.Font("Consolas", 9F);
-            this._lblFeederPos.Location = new System.Drawing.Point(619, 32);
-            this._lblFeederPos.Margin = new System.Windows.Forms.Padding(2);
+            this._lblFeederPos.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblFeederPos.Location = new System.Drawing.Point(3, 24);
             this._lblFeederPos.Name = "_lblFeederPos";
-            this._lblFeederPos.Size = new System.Drawing.Size(193, 26);
-            this._lblFeederPos.TabIndex = 7;
+            this._lblFeederPos.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this._lblFeederPos.Size = new System.Drawing.Size(176, 47);
+            this._lblFeederPos.TabIndex = 1;
             this._lblFeederPos.Text = "0 um";
-            this._lblFeederPos.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            this._lblFeederPos.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            //
             // lblClampCaption
             // 
             this.lblClampCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
@@ -482,7 +503,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.targetSideLayout.BackColor = System.Drawing.Color.White;
             this.targetSideLayout.ColumnCount = 2;
-            this.workLayout.SetColumnSpan(this.targetSideLayout, 3);
             this.targetSideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.targetSideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.targetSideLayout.Controls.Add(this.rbTargetOk, 0, 0);
@@ -577,11 +597,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markRing.BackColor = System.Drawing.Color.Black;
             this._markRing.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markRing.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markRing.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markRing.AutoSize = false;
             this._markRing.Location = new System.Drawing.Point(4, 12);
-            this._markRing.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markRing.Margin = new System.Windows.Forms.Padding(0);
             this._markRing.Name = "_markRing";
-            this._markRing.Size = new System.Drawing.Size(18, 6);
+            this._markRing.Size = new System.Drawing.Size(18, 18);
             this._markRing.TabIndex = 0;
             // 
             // lblRingCaption
@@ -617,11 +638,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markOverload.BackColor = System.Drawing.Color.Black;
             this._markOverload.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markOverload.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markOverload.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markOverload.AutoSize = false;
             this._markOverload.Location = new System.Drawing.Point(4, 12);
-            this._markOverload.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markOverload.Margin = new System.Windows.Forms.Padding(0);
             this._markOverload.Name = "_markOverload";
-            this._markOverload.Size = new System.Drawing.Size(18, 6);
+            this._markOverload.Size = new System.Drawing.Size(18, 18);
             this._markOverload.TabIndex = 0;
             // 
             // lblOverloadCaption
@@ -657,11 +679,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markUnclamp.BackColor = System.Drawing.Color.Black;
             this._markUnclamp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markUnclamp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markUnclamp.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markUnclamp.AutoSize = false;
             this._markUnclamp.Location = new System.Drawing.Point(4, 12);
-            this._markUnclamp.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markUnclamp.Margin = new System.Windows.Forms.Padding(0);
             this._markUnclamp.Name = "_markUnclamp";
-            this._markUnclamp.Size = new System.Drawing.Size(18, 6);
+            this._markUnclamp.Size = new System.Drawing.Size(18, 18);
             this._markUnclamp.TabIndex = 0;
             // 
             // lblUnclampSensorCaption
@@ -697,11 +720,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markUp.BackColor = System.Drawing.Color.Black;
             this._markUp.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markUp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markUp.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markUp.AutoSize = false;
             this._markUp.Location = new System.Drawing.Point(4, 12);
-            this._markUp.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markUp.Margin = new System.Windows.Forms.Padding(0);
             this._markUp.Name = "_markUp";
-            this._markUp.Size = new System.Drawing.Size(18, 6);
+            this._markUp.Size = new System.Drawing.Size(18, 18);
             this._markUp.TabIndex = 0;
             // 
             // lblUpSensorCaption
@@ -737,11 +761,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markDown.BackColor = System.Drawing.Color.Black;
             this._markDown.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markDown.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markDown.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markDown.AutoSize = false;
             this._markDown.Location = new System.Drawing.Point(4, 12);
-            this._markDown.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markDown.Margin = new System.Windows.Forms.Padding(0);
             this._markDown.Name = "_markDown";
-            this._markDown.Size = new System.Drawing.Size(18, 6);
+            this._markDown.Size = new System.Drawing.Size(18, 18);
             this._markDown.TabIndex = 0;
             // 
             // lblDownSensorCaption
@@ -777,11 +802,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markNgBw.BackColor = System.Drawing.Color.Black;
             this._markNgBw.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markNgBw.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markNgBw.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markNgBw.AutoSize = false;
             this._markNgBw.Location = new System.Drawing.Point(4, 12);
-            this._markNgBw.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markNgBw.Margin = new System.Windows.Forms.Padding(0);
             this._markNgBw.Name = "_markNgBw";
-            this._markNgBw.Size = new System.Drawing.Size(18, 6);
+            this._markNgBw.Size = new System.Drawing.Size(18, 18);
             this._markNgBw.TabIndex = 0;
             // 
             // lblNgBwCaption
@@ -817,11 +843,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markMapping.BackColor = System.Drawing.Color.Black;
             this._markMapping.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markMapping.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markMapping.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markMapping.AutoSize = false;
             this._markMapping.Location = new System.Drawing.Point(4, 12);
-            this._markMapping.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markMapping.Margin = new System.Windows.Forms.Padding(0);
             this._markMapping.Name = "_markMapping";
-            this._markMapping.Size = new System.Drawing.Size(18, 6);
+            this._markMapping.Size = new System.Drawing.Size(18, 18);
             this._markMapping.TabIndex = 0;
             // 
             // lblMappingCaption
@@ -857,11 +884,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markProtrusion.BackColor = System.Drawing.Color.Black;
             this._markProtrusion.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markProtrusion.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markProtrusion.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markProtrusion.AutoSize = false;
             this._markProtrusion.Location = new System.Drawing.Point(4, 12);
-            this._markProtrusion.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markProtrusion.Margin = new System.Windows.Forms.Padding(0);
             this._markProtrusion.Name = "_markProtrusion";
-            this._markProtrusion.Size = new System.Drawing.Size(18, 6);
+            this._markProtrusion.Size = new System.Drawing.Size(18, 18);
             this._markProtrusion.TabIndex = 0;
             // 
             // lblProtrusionCaption
@@ -897,11 +925,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markNgLock.BackColor = System.Drawing.Color.Black;
             this._markNgLock.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markNgLock.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markNgLock.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markNgLock.AutoSize = false;
             this._markNgLock.Location = new System.Drawing.Point(4, 12);
-            this._markNgLock.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markNgLock.Margin = new System.Windows.Forms.Padding(0);
             this._markNgLock.Name = "_markNgLock";
-            this._markNgLock.Size = new System.Drawing.Size(18, 6);
+            this._markNgLock.Size = new System.Drawing.Size(18, 18);
             this._markNgLock.TabIndex = 0;
             // 
             // lblNgLockCaption
@@ -937,11 +966,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markGood1.BackColor = System.Drawing.Color.Black;
             this._markGood1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markGood1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markGood1.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markGood1.AutoSize = false;
             this._markGood1.Location = new System.Drawing.Point(4, 12);
-            this._markGood1.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markGood1.Margin = new System.Windows.Forms.Padding(0);
             this._markGood1.Name = "_markGood1";
-            this._markGood1.Size = new System.Drawing.Size(18, 7);
+            this._markGood1.Size = new System.Drawing.Size(18, 18);
             this._markGood1.TabIndex = 0;
             // 
             // lblGood1Caption
@@ -977,11 +1007,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markGood2.BackColor = System.Drawing.Color.Black;
             this._markGood2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markGood2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markGood2.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markGood2.AutoSize = false;
             this._markGood2.Location = new System.Drawing.Point(4, 12);
-            this._markGood2.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markGood2.Margin = new System.Windows.Forms.Padding(0);
             this._markGood2.Name = "_markGood2";
-            this._markGood2.Size = new System.Drawing.Size(18, 7);
+            this._markGood2.Size = new System.Drawing.Size(18, 18);
             this._markGood2.TabIndex = 0;
             // 
             // lblGood2Caption
@@ -1017,11 +1048,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._markNg.BackColor = System.Drawing.Color.Black;
             this._markNg.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._markNg.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._markNg.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this._markNg.AutoSize = false;
             this._markNg.Location = new System.Drawing.Point(4, 12);
-            this._markNg.Margin = new System.Windows.Forms.Padding(4, 12, 4, 12);
+            this._markNg.Margin = new System.Windows.Forms.Padding(0);
             this._markNg.Name = "_markNg";
-            this._markNg.Size = new System.Drawing.Size(18, 7);
+            this._markNg.Size = new System.Drawing.Size(18, 18);
             this._markNg.TabIndex = 0;
             // 
             // lblNgCaption
@@ -1174,6 +1206,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.ResumeLayout(false);
             this.infoWrap.ResumeLayout(false);
             this.workLayout.ResumeLayout(false);
+            this.axisYPanel.ResumeLayout(false);
             this.targetSideLayout.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
             this.sensorRingPanel.ResumeLayout(false);

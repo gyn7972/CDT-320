@@ -1156,7 +1156,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialPanel.Name = "materialPanel";
             this.materialPanel.RowCount = 2;
             this.contentLayout.SetRowSpan(this.materialPanel, 2);
-            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 76F));
+            this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.materialPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.materialPanel.Size = new System.Drawing.Size(836, 870);
             this.materialPanel.TabIndex = 1;
@@ -1175,7 +1175,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialHeaderLayout.Location = new System.Drawing.Point(3, 3);
             this.materialHeaderLayout.Name = "materialHeaderLayout";
             this.materialHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.materialHeaderLayout.Size = new System.Drawing.Size(830, 70);
+            this.materialHeaderLayout.Size = new System.Drawing.Size(830, 46);
             this.materialHeaderLayout.TabIndex = 0;
             // 
             // lblMaterialTitle
@@ -1184,7 +1184,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblMaterialTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblMaterialTitle.Location = new System.Drawing.Point(3, 0);
             this.lblMaterialTitle.Name = "lblMaterialTitle";
-            this.lblMaterialTitle.Size = new System.Drawing.Size(636, 70);
+            this.lblMaterialTitle.Size = new System.Drawing.Size(636, 46);
             this.lblMaterialTitle.TabIndex = 0;
             this.lblMaterialTitle.Text = "STAGE";
             this.lblMaterialTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1196,7 +1196,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoGoodMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoGoodMaterial.Location = new System.Drawing.Point(645, 3);
             this.rdoGoodMaterial.Name = "rdoGoodMaterial";
-            this.rdoGoodMaterial.Size = new System.Drawing.Size(84, 64);
+            this.rdoGoodMaterial.Size = new System.Drawing.Size(84, 40);
             this.rdoGoodMaterial.TabIndex = 1;
             this.rdoGoodMaterial.TabStop = true;
             this.rdoGoodMaterial.Text = "GOOD";
@@ -1208,7 +1208,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rdoNgMaterial.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoNgMaterial.Location = new System.Drawing.Point(735, 3);
             this.rdoNgMaterial.Name = "rdoNgMaterial";
-            this.rdoNgMaterial.Size = new System.Drawing.Size(84, 64);
+            this.rdoNgMaterial.Size = new System.Drawing.Size(84, 40);
             this.rdoNgMaterial.TabIndex = 2;
             this.rdoNgMaterial.Text = "NG";
             this.rdoNgMaterial.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -1217,11 +1217,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.materialDetailView.Location = new System.Drawing.Point(4, 80);
+            this.materialDetailView.Location = new System.Drawing.Point(0, 52);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(0);
             this.materialDetailView.Name = "materialDetailView";
             this.materialDetailView.ShowProcessTestDataButton = false;
-            this.materialDetailView.Size = new System.Drawing.Size(828, 786);
+            this.materialDetailView.Size = new System.Drawing.Size(836, 818);
             this.materialDetailView.TabIndex = 1;
             // 
             // OutputStagePage
