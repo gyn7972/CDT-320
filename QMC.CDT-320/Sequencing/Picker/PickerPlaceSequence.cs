@@ -33,6 +33,8 @@ namespace QMC.CDT320.Sequencing
         private SequenceResourceLease _outputFeederLease;
         private bool _outputInspectBatchOpen;
         private bool _pickerZPlacedBySynchronizedArrival;
+        private int _pendingSynchronizedRetreatPickerIndex = -1;
+        private int _pendingSynchronizedRetreatPickerNo;
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -49,6 +51,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                ClearPendingSynchronizedRetreat();
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
                 ReleaseOutputFeederArea();
@@ -827,10 +830,20 @@ namespace QMC.CDT320.Sequencing
 
             PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
             if (placeConfig == null || placeConfig.MotionMode != PickerPlaceMotionMode.SynchronizedArrival)
+            {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place 보간 모드가 아니어서 이전 PickerZ를 먼저 Avoid 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
                 return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+            }
 
             if (IsFirstPlaceMoveInBatch())
             {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place 첫 번째 접근 전 이전 PickerZ 안전 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
                 WriteLog("PickerPlaceSequence",
                     Name + " Place 첫 번째 접근 이동은 보간을 사용하지 않고 기존 이동 방식으로 진행합니다. " +
                     "pickerNo=" + _currentPickerNo +
@@ -844,10 +857,20 @@ namespace QMC.CDT320.Sequencing
             BaseAxis stageY = ResolveOutputStageYAxis(yAxis);
             BaseAxis pickerX = GetPickerAxis(PickerAxis.PickerX);
             BaseAxis pickerZ = GetPickerAxis(GetPickerZAxis(_currentPickerIndex));
+            BaseAxis previousPickerZ = HasPendingSynchronizedRetreat()
+                ? GetPickerAxis(GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex))
+                : null;
+            double previousPickerZAvoid = HasPendingSynchronizedRetreat()
+                ? GetPickerTeachingPosition(GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex), "AvoidPosition")
+                : 0.0;
 
             string guardReason;
-            if (!CanUseSynchronizedArrivalFromCurrentPosition(stageY, pickerX, pickerZ, placeConfig, out guardReason))
+            if (!CanUseSynchronizedArrivalFromCurrentPosition(stageY, pickerX, pickerZ, previousPickerZ, previousPickerZAvoid, placeConfig, out guardReason))
             {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place 보간 조건 불만족으로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
                 WriteLog("PickerPlaceSequence",
                     Name + " Place 보간 이동 조건 불만족으로 기존 이동 방식으로 접근합니다. " +
                     "reason=" + guardReason +
@@ -860,6 +883,7 @@ namespace QMC.CDT320.Sequencing
                     ", stageYTravel=" + FormatTravel(stageY, _targetOutputStageY) +
                     ", pickerXTravel=" + FormatTravel(pickerX, _targetPickerX) +
                     ", pickerZTravel=" + FormatTravel(pickerZ, _targetPickerZ) +
+                    ", previousPickerZTravel=" + FormatTravel(previousPickerZ, previousPickerZAvoid) +
                     " - Check");
                 return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
             }
@@ -878,6 +902,8 @@ namespace QMC.CDT320.Sequencing
                     _targetOutputStageY,
                     pickerX,
                     _targetPickerX,
+                    previousPickerZ,
+                    previousPickerZAvoid,
                     pickerZ,
                     _targetPickerZ,
                     placeConfig,
@@ -887,6 +913,8 @@ namespace QMC.CDT320.Sequencing
             {
                 int finalWait = await WaitSynchronizedArrivalFinalPositionAsync(
                     yAxis,
+                    HasPendingSynchronizedRetreat() ? GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex) : (PickerAxis?)null,
+                    previousPickerZAvoid,
                     GetPickerZAxis(_currentPickerIndex),
                     Math.Max(placeConfig.SynchronizedTimeoutMs, ResolveTimeout()),
                     ct).ConfigureAwait(false);
@@ -898,6 +926,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo +
                     ", outputSide=" + _currentOutputSide +
                     ", " + syncResult + " - Ok");
+                ClearPendingSynchronizedRetreat();
                 _pickerZPlacedBySynchronizedArrival = true;
                 return 0;
             }
@@ -922,12 +951,18 @@ namespace QMC.CDT320.Sequencing
                 ", reason=" + (syncResult != null ? syncResult.Message : "결과 없음") +
                 " - Check");
 
+            int pendingFallbackResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place 보간 명령 전 실패로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+            if (pendingFallbackResult != 0)
+                return pendingFallbackResult;
+
             _pickerZPlacedBySynchronizedArrival = false;
             return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
         }
 
         private async Task<int> WaitSynchronizedArrivalFinalPositionAsync(
             BinStageAxis yAxis,
+            PickerAxis? previousPickerZAxis,
+            double previousPickerZAvoid,
             PickerAxis pickerZAxis,
             int timeoutMs,
             CancellationToken ct)
@@ -956,6 +991,21 @@ namespace QMC.CDT320.Sequencing
                     FormatAxisMoveWaitResult(pickerXWait, BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX)));
             }
 
+            if (previousPickerZAxis.HasValue)
+            {
+                AxisMoveWaitResult previousPickerZWait = await WaitPickerAxisMoveDoneAsync(
+                    previousPickerZAxis.Value,
+                    previousPickerZAvoid,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+                if (previousPickerZWait == null || !previousPickerZWait.Success)
+                {
+                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PLACE-SYNC-PREV-PICKER-Z", previousPickerZWait), Name,
+                        "Place 보간 이동 후 이전 PickerZ Avoid 최종 위치 대기 실패. pickerNo=" + _pendingSynchronizedRetreatPickerNo +
+                        ". " + FormatAxisMoveWaitResult(previousPickerZWait, BuildPickerAxisState(previousPickerZAxis.Value, previousPickerZAvoid)));
+                }
+            }
+
             AxisMoveWaitResult pickerZWait = await WaitPickerAxisMoveDoneAsync(
                 pickerZAxis,
                 _targetPickerZ,
@@ -980,6 +1030,8 @@ namespace QMC.CDT320.Sequencing
             BaseAxis stageY,
             BaseAxis pickerX,
             BaseAxis pickerZ,
+            BaseAxis previousPickerZ,
+            double previousPickerZAvoid,
             PickerPlaceMotionConfig placeConfig,
             out string reason)
         {
@@ -1003,6 +1055,12 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
+            if (HasPendingSynchronizedRetreat() && previousPickerZ == null)
+            {
+                reason = "이전 PickerZ 복귀 대상 축을 찾을 수 없습니다.";
+                return false;
+            }
+
             double maxTravel = placeConfig != null ? placeConfig.MaxSynchronizedTravelDistance : 37.0;
             if (maxTravel <= 0.0)
                 maxTravel = 37.0;
@@ -1010,6 +1068,7 @@ namespace QMC.CDT320.Sequencing
             double stageYTravel = Math.Abs(_targetOutputStageY - stageY.ActualPosition);
             double pickerXTravel = Math.Abs(_targetPickerX - pickerX.ActualPosition);
             double pickerZTravel = Math.Abs(_targetPickerZ - pickerZ.ActualPosition);
+            double previousPickerZTravel = previousPickerZ != null ? Math.Abs(previousPickerZAvoid - previousPickerZ.ActualPosition) : 0.0;
 
             if (IsPickerXAxisAtAnyAvoidPosition())
             {
@@ -1017,7 +1076,7 @@ namespace QMC.CDT320.Sequencing
                 return false;
             }
 
-            if (stageYTravel > maxTravel || pickerXTravel > maxTravel || pickerZTravel > maxTravel)
+            if (stageYTravel > maxTravel || pickerXTravel > maxTravel || pickerZTravel > maxTravel || previousPickerZTravel > maxTravel)
             {
                 reason = "현재 위치가 연속 Place 보간 허용 거리 밖입니다.";
                 return false;
@@ -1031,6 +1090,87 @@ namespace QMC.CDT320.Sequencing
             return IsPickerAxisAlreadyInPosition(PickerAxis.PickerX, GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition")) ||
                 IsPickerAxisAlreadyInPosition(PickerAxis.PickerX, GetPickerTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition")) ||
                 IsPickerAxisAlreadyInPosition(PickerAxis.PickerX, GetPickerTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"));
+        }
+
+        private bool ShouldDelayCurrentPickerZRetreatForNextSynchronizedPlace()
+        {
+            PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
+            if (placeConfig == null || placeConfig.MotionMode != PickerPlaceMotionMode.SynchronizedArrival)
+                return false;
+
+            int nextCursor = _pickerCursor + 1;
+            if (nextCursor >= _pickedPickerIndexes.Count)
+                return false;
+
+            int nextPickerIndex = _pickedPickerIndexes[nextCursor];
+            int nextPickerNo = ToPickerNo(nextPickerIndex);
+            DieMaterial nextDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, nextPickerNo);
+            if (nextDie == null)
+                return false;
+
+            BinSide nextSide;
+            if (!TryResolveOutputSide(nextDie, out nextSide))
+                return false;
+
+            return nextSide == _currentOutputSide;
+        }
+
+        private static bool TryResolveOutputSide(DieMaterial die, out BinSide side)
+        {
+            side = BinSide.Good;
+            if (die == null)
+                return false;
+
+            if (die.Result == DieResult.Good)
+            {
+                side = BinSide.Good;
+                return true;
+            }
+
+            if (die.Result == DieResult.NG)
+            {
+                side = BinSide.Ng;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool HasPendingSynchronizedRetreat()
+        {
+            return _pendingSynchronizedRetreatPickerIndex >= 0;
+        }
+
+        private void SetPendingSynchronizedRetreat(int pickerIndex, int pickerNo)
+        {
+            _pendingSynchronizedRetreatPickerIndex = pickerIndex;
+            _pendingSynchronizedRetreatPickerNo = pickerNo;
+        }
+
+        private void ClearPendingSynchronizedRetreat()
+        {
+            _pendingSynchronizedRetreatPickerIndex = -1;
+            _pendingSynchronizedRetreatPickerNo = 0;
+        }
+
+        private async Task<int> CompletePendingSynchronizedRetreatIfNeededAsync(string description, CancellationToken ct)
+        {
+            if (!HasPendingSynchronizedRetreat())
+                return 0;
+
+            PickerAxis zAxis = GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex);
+            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                zAxis,
+                avoid,
+                description,
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            ClearPendingSynchronizedRetreat();
+            return 0;
         }
 
         private static string FormatTravel(BaseAxis axis, double target)
@@ -1234,6 +1374,19 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                if (ShouldDelayCurrentPickerZRetreatForNextSynchronizedPlace())
+                {
+                    SetPendingSynchronizedRetreat(_currentPickerIndex, _currentPickerNo);
+                    WriteLog("PickerPlaceSequence",
+                        Name + " 다음 Place 보간 이동에 현재 PickerZ Avoid 복귀를 포함하기 위해 Z 복귀를 지연합니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", cursor=" + _pickerCursor +
+                        ", outputSide=" + _currentOutputSide + " - Check");
+                    CurrentStep = PickerPlaceStep.VerifyFlowOff;
+                    return 0;
+                }
+
                 CurrentStep = PickerPlaceStep.MovePickerZToAvoid;
                 return 0;
             }
@@ -1258,6 +1411,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            ClearPendingSynchronizedRetreat();
             CurrentStep = PickerPlaceStep.VerifyFlowOff;
             return 0;
         }
@@ -1365,6 +1519,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (HasPendingSynchronizedRetreat())
+                {
+                    CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+                    return 0;
+                }
+
                 if (_currentOutputSide != BinSide.Ng)
                 {
                     ReleaseOutputStageArea();

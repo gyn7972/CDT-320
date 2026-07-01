@@ -12,6 +12,8 @@ namespace QMC.CDT320.Sequencing
             double outputStageYTarget,
             BaseAxis pickerX,
             double pickerXTarget,
+            BaseAxis previousPickerZ,
+            double previousPickerZTarget,
             BaseAxis pickerZ,
             double pickerZTarget,
             PickerPlaceMotionConfig config,
@@ -26,24 +28,33 @@ namespace QMC.CDT320.Sequencing
                 string readyReason;
                 if (!IsAxisReady(outputStageY, "OutputStageY", out readyReason) ||
                     !IsAxisReady(pickerX, "PickerX", out readyReason) ||
-                    !IsAxisReady(pickerZ, "PickerZ", out readyReason))
+                    !IsAxisReady(pickerZ, "PickerZ", out readyReason) ||
+                    (previousPickerZ != null && !IsAxisReady(previousPickerZ, "PreviousPickerZ", out readyReason)))
                 {
                     return Fail("Place 보간 이동 전 축 준비 상태가 맞지 않습니다. " + readyReason);
                 }
 
-                int[] axes =
-                {
-                    outputStageY.Setup.AxisNo,
-                    pickerX.Setup.AxisNo,
-                    pickerZ.Setup.AxisNo
-                };
+                int axisCount = previousPickerZ != null ? 4 : 3;
+                int[] axes = new int[axisCount];
+                double[] rel = new double[axisCount];
 
-                double[] rel =
+                axes[0] = outputStageY.Setup.AxisNo;
+                axes[1] = pickerX.Setup.AxisNo;
+                rel[0] = outputStageYTarget - outputStageY.ActualPosition;
+                rel[1] = pickerXTarget - pickerX.ActualPosition;
+
+                if (previousPickerZ != null)
                 {
-                    outputStageYTarget - outputStageY.ActualPosition,
-                    pickerXTarget - pickerX.ActualPosition,
-                    pickerZTarget - pickerZ.ActualPosition
-                };
+                    axes[2] = previousPickerZ.Setup.AxisNo;
+                    axes[3] = pickerZ.Setup.AxisNo;
+                    rel[2] = previousPickerZTarget - previousPickerZ.ActualPosition;
+                    rel[3] = pickerZTarget - pickerZ.ActualPosition;
+                }
+                else
+                {
+                    axes[2] = pickerZ.Setup.AxisNo;
+                    rel[2] = pickerZTarget - pickerZ.ActualPosition;
+                }
 
                 return await AjinInterpolatedMotionService.RunSynchronizedArrivalRelativeMoveAsync(
                     config.InterpolationCoordinate,
