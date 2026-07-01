@@ -5192,6 +5192,52 @@ namespace QMC.CDT320
             return false;
         }
 
+        private async Task<int> RunReadySequenceBeforeStartAsync()
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                    "START 전 Ready 시퀀스를 자동 실행합니다. - Start");
+                Log("[START] Ready sequence before auto start.");
+
+                int result = await RunReadySequenceAsync().ConfigureAwait(false);
+                if (result != 0)
+                {
+                    string reason = string.IsNullOrWhiteSpace(LastActionFailureMessage)
+                        ? "START 전 Ready 시퀀스가 실패했습니다."
+                        : LastActionFailureMessage;
+                    LastActionFailureMessage = reason;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                        "START 전 Ready 시퀀스 실패. result=" + result + ", reason=" + reason + " - Failed");
+                    return result;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                    "START 전 Ready 시퀀스가 완료되었습니다. - Ok");
+                Log("[START] Ready sequence before auto start complete.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "START 전 Ready 시퀀스가 정지되었습니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                    LastActionFailureMessage + " - Stopped");
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "START 전 Ready 시퀀스 실행 중 예외 발생: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "START-READY-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>장비 READY: 초기화된 장비의 주요 모션을 안전한 Avoid 위치로 복귀합니다.</summary>
         public async Task<int> RunReadySequenceAsync()
         {
@@ -5330,6 +5376,10 @@ namespace QMC.CDT320
 
                 if (!EnsureMachineInitializedForRun("StartAsync"))
                     return -1;
+
+                int readyResult = await RunReadySequenceBeforeStartAsync().ConfigureAwait(false);
+                if (readyResult != 0)
+                    return readyResult;
 
                 if (!EnsureReticleAvoidForAutoStart("StartAsync"))
                     return -1;
