@@ -53,7 +53,8 @@ namespace QMC.CDT320.Interlocks
         {
             get
             {
-                return YAvoid &&
+                bool yClearForRequestedTransport = RequestedZone == PickerWorkZone.Input || YAvoid;
+                return yClearForRequestedTransport &&
                        CurrentZone != RequestedZone &&
                        TargetZone != RequestedZone &&
                        !IsAxisMoving(PickerX) &&
@@ -639,6 +640,7 @@ namespace QMC.CDT320.Interlocks
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output) ||
+                (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Output);
 
             if (!allowedTransition)
@@ -1233,6 +1235,14 @@ namespace QMC.CDT320.Interlocks
         {
             try
             {
+                BaseAxis x = GetPickerX(machine, isFront);
+                if (x == null)
+                    return PickerWorkZone.Unknown;
+
+                PickerWorkZone xZone = ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
+                if (xZone != PickerWorkZone.Unknown)
+                    return xZone;
+
                 PickerWorkZone resourceZone;
                 string owner;
                 if (TryGetPickerWorkArea(isFront, out resourceZone, out owner) &&
@@ -1249,10 +1259,6 @@ namespace QMC.CDT320.Interlocks
                 PickerWorkZone yZone = ResolveCurrentYZone(machine, isFront);
                 if (yZone != PickerWorkZone.Unknown && yZone != PickerWorkZone.Avoid)
                     return yZone;
-
-                BaseAxis x = GetPickerX(machine, isFront);
-                if (x == null)
-                    return PickerWorkZone.Unknown;
 
                 return ResolveXZoneByPositionWithContext(machine, isFront, x.ActualPosition);
             }

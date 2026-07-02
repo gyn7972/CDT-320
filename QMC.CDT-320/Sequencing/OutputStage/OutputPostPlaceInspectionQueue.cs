@@ -42,6 +42,7 @@ namespace QMC.CDT320.Sequencing
         private int _pendingOrRunning;
         private int _failed;
         private int _batchDepth;
+        private string _batchOwner = "";
         private string _failureCode = "";
         private string _failureMessage = "";
 
@@ -53,6 +54,8 @@ namespace QMC.CDT320.Sequencing
         public void BeginBatch(string owner)
         {
             int depth = Interlocked.Increment(ref _batchDepth);
+            if (depth == 1)
+                _batchOwner = string.IsNullOrWhiteSpace(owner) ? "" : owner;
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "Output camera 후검사 묶음 등록 시작. owner=" +
                 (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
@@ -67,6 +70,8 @@ namespace QMC.CDT320.Sequencing
                 Interlocked.Exchange(ref _batchDepth, 0);
                 depth = 0;
             }
+            if (depth == 0)
+                _batchOwner = "";
             Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                 "Output camera 후검사 묶음 등록 종료. owner=" +
                 (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
@@ -130,14 +135,63 @@ namespace QMC.CDT320.Sequencing
         public async Task<int> WaitUntilIdleAsync(string waiter, int timeoutMs, CancellationToken ct)
         {
             string safeWaiter = string.IsNullOrWhiteSpace(waiter) ? "Unknown" : waiter;
+            int safeTimeoutMs = timeoutMs > 0 ? timeoutMs : 0;
+            DateTime start = DateTime.UtcNow;
             bool waitLogged = false;
+            SequenceTrace.WaitStart("OutputPostPlaceInspectionIdle",
+                "waiter=" + safeWaiter,
+                "timeoutMs=" + safeTimeoutMs,
+                BuildWaitStateDetail());
             if (Volatile.Read(ref _failed) != 0)
+            {
+                SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                    -1,
+                    "waiter=" + safeWaiter,
+                    "status=FailedBeforeWait",
+                    BuildWaitStateDetail());
                 return ReportStoredFailure(safeWaiter);
+            }
             while (Volatile.Read(ref _pendingOrRunning) > 0)
             {
                 ct.ThrowIfCancellationRequested();
                 if (Volatile.Read(ref _failed) != 0)
+                {
+                    SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                        -1,
+                        "waiter=" + safeWaiter,
+                        "status=FailedDuringWait",
+                        "elapsedMs=" + ElapsedMs(start),
+                        BuildWaitStateDetail());
                     return ReportStoredFailure(safeWaiter);
+                }
+                if (Volatile.Read(ref _batchDepth) > 0 && IsSameBatchOwner(safeWaiter))
+                {
+                    SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                        0,
+                        "waiter=" + safeWaiter,
+                        "status=BatchOpenDeferred",
+                        "elapsedMs=" + ElapsedMs(start),
+                        BuildWaitStateDetail());
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        safeWaiter + " Output camera post-place inspection is deferred until current place batch ends. " +
+                        BuildWaitStateMessage() + " - Check");
+                    return 0;
+                }
+                if (safeTimeoutMs > 0 && (DateTime.UtcNow - start).TotalMilliseconds >= safeTimeoutMs)
+                {
+                    string message = safeWaiter +
+                        " Output camera post-place inspection idle wait timeout. timeoutMs=" + safeTimeoutMs +
+                        ", elapsedMs=" + ElapsedMs(start) +
+                        ", " + BuildWaitStateMessage();
+                    SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                        -1,
+                        "waiter=" + safeWaiter,
+                        "status=Timeout",
+                        "timeoutMs=" + safeTimeoutMs,
+                        "elapsedMs=" + ElapsedMs(start),
+                        BuildWaitStateDetail());
+                    return RaiseFailure("OUT-POST-INSPECT-IDLE-TIMEOUT", "OutputPostPlaceInspection", message);
+                }
                 if (!waitLogged)
                 {
                     Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
@@ -153,8 +207,56 @@ namespace QMC.CDT320.Sequencing
                     safeWaiter + " Output camera 후검사 완료 대기 종료. - Ok");
             }
             if (Volatile.Read(ref _failed) != 0)
+            {
+                SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                    -1,
+                    "waiter=" + safeWaiter,
+                    "status=FailedAfterWait",
+                    "elapsedMs=" + ElapsedMs(start),
+                    BuildWaitStateDetail());
                 return ReportStoredFailure(safeWaiter);
+            }
+            SequenceTrace.WaitEnd("OutputPostPlaceInspectionIdle",
+                0,
+                "waiter=" + safeWaiter,
+                "status=Idle",
+                "elapsedMs=" + ElapsedMs(start),
+                BuildWaitStateDetail());
             return 0;
+        }
+
+        private string BuildWaitStateDetail()
+        {
+            return "pendingOrRunning=" + Volatile.Read(ref _pendingOrRunning) +
+                   ",batchDepth=" + Volatile.Read(ref _batchDepth) +
+                   ",workerRunning=" + Volatile.Read(ref _workerRunning) +
+                   ",failed=" + Volatile.Read(ref _failed) +
+                   ",queueEmpty=" + _queue.IsEmpty +
+                   ",batchOwner=" + (string.IsNullOrWhiteSpace(_batchOwner) ? "-" : _batchOwner);
+        }
+
+        private string BuildWaitStateMessage()
+        {
+            return "pendingOrRunning=" + Volatile.Read(ref _pendingOrRunning) +
+                   ", batchDepth=" + Volatile.Read(ref _batchDepth) +
+                   ", workerRunning=" + Volatile.Read(ref _workerRunning) +
+                   ", failed=" + Volatile.Read(ref _failed) +
+                   ", queueEmpty=" + _queue.IsEmpty +
+                   ", batchOwner=" + (string.IsNullOrWhiteSpace(_batchOwner) ? "-" : _batchOwner);
+        }
+
+        private static string ElapsedMs(DateTime start)
+        {
+            return ((int)Math.Max(0.0, (DateTime.UtcNow - start).TotalMilliseconds)).ToString();
+        }
+
+        private bool IsSameBatchOwner(string waiter)
+        {
+            string owner = _batchOwner;
+            if (string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(waiter))
+                return false;
+
+            return waiter.IndexOf(owner, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private async Task ProcessQueueAsync(CancellationToken ct)

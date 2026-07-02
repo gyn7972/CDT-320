@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Recipes;
 using QMC.Common.Motion;
 using QMC.Common;
 
@@ -55,6 +56,7 @@ namespace QMC.CDT320.Sequencing
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
                 ReleaseOutputFeederArea();
+                EndOutputPostPlaceInspectionBatch();
                 CurrentStep = PickerPlaceStep.Complete;
             }
             catch
@@ -119,6 +121,7 @@ namespace QMC.CDT320.Sequencing
                     ReleaseOutputPlaceArea();
                     ReleaseOutputStageArea();
                     ReleaseOutputFeederArea();
+                    EndOutputPostPlaceInspectionBatch();
                 }
             }
         }
@@ -296,16 +299,24 @@ namespace QMC.CDT320.Sequencing
                     if (die == null)
                         continue;
 
-                    if (die.Result == DieResult.Good || die.Result == DieResult.NG)
+                    if (IsInspectionFlowComplete(die) &&
+                        (die.Result == DieResult.Good || die.Result == DieResult.NG))
                         continue;
 
-                    unknownItems.Add("pickerNo=" + pickerNo + ", pickerIndex=" + pickerIndex + ", die=" + die.DieId);
+                    unknownItems.Add(
+                        "pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", die=" + die.DieId +
+                        ", result=" + die.Result +
+                        ", bottomDone=" + HasInspectionResult(die, "Bottom") +
+                        ", side0Done=" + HasInspectionResult(die, "Side0") +
+                        ", side90Done=" + HasInspectionResult(die, "Side90"));
                 }
 
                 if (unknownItems.Count == 0)
                     return false;
 
-                reason = "Place 전에 검사 결과가 없는 Die가 있습니다. Bottom/Side 검사 또는 수동 Good/NG 판정 후 Place를 실행하세요. " +
+                reason = "Place 전에 Bottom/Side 검사 흐름이 완료되지 않은 Die가 있습니다. 검사 NG는 정지 조건이 아니며, Bottom/Side 검사를 모두 완료한 뒤 Good/NG 판정에 따라 Place해야 합니다. " +
                          string.Join("; ", unknownItems);
                 return true;
             }
@@ -313,6 +324,43 @@ namespace QMC.CDT320.Sequencing
             {
                 reason = "Place 전 Die 검사 결과 확인 중 예외가 발생했습니다. error=" + ex.Message;
                 return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInspectionFlowComplete(DieMaterial die)
+        {
+            return HasInspectionResult(die, "Bottom") &&
+                   HasInspectionResult(die, "Side0") &&
+                   HasInspectionResult(die, "Side90");
+        }
+
+        private static bool HasInspectionResult(DieMaterial die, string inspectionType)
+        {
+            try
+            {
+                if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
+                    return false;
+
+                for (int i = 0; i < die.Inspections.Count; i++)
+                {
+                    DieInspectionRecord record = die.Inspections[i];
+                    if (record == null)
+                        continue;
+
+                    if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    return record.Result != MaterialInspectionResult.Unknown;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -357,6 +405,17 @@ namespace QMC.CDT320.Sequencing
 
         private int ResolveOutputSide()
         {
+            if (!IsInspectionFlowComplete(_currentDie))
+            {
+                return Fail("PICKER-PLACE-INSPECTION-INCOMPLETE", "Material",
+                    "Place 전 Bottom/Side 검사 흐름이 완료되지 않았습니다. 검사 NG는 정지 조건이 아니며 모든 검사를 완료한 뒤 NG Stage로 배출해야 합니다. " +
+                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", bottomDone=" + HasInspectionResult(_currentDie, "Bottom") +
+                    ", side0Done=" + HasInspectionResult(_currentDie, "Side0") +
+                    ", side90Done=" + HasInspectionResult(_currentDie, "Side90"));
+            }
+
             if (_currentDie.Result == DieResult.Good)
             {
                 _currentOutputSide = BinSide.Good;
@@ -842,7 +901,7 @@ namespace QMC.CDT320.Sequencing
             _pickerZPlacedBySynchronizedArrival = false;
 
             PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
-            if (placeConfig == null || placeConfig.MotionMode != PickerPlaceMotionMode.SynchronizedArrival)
+            if (placeConfig == null || !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
             {
                 int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place 보간 모드가 아니어서 이전 PickerZ를 먼저 Avoid 복귀", ct).ConfigureAwait(false);
                 if (pendingResult != 0)
@@ -876,6 +935,19 @@ namespace QMC.CDT320.Sequencing
             double previousPickerZAvoid = HasPendingSynchronizedRetreat()
                 ? GetPickerTeachingPosition(GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex), "AvoidPosition")
                 : 0.0;
+
+            if (placeConfig.MotionMode == PickerPlaceMotionMode.ContiSegmentedPlace)
+            {
+                return await MoveOutputStageYPickerXAndPickerZByContiSegmentedPlaceAsync(
+                    yAxis,
+                    stageY,
+                    pickerX,
+                    previousPickerZ,
+                    previousPickerZAvoid,
+                    pickerZ,
+                    placeConfig,
+                    ct).ConfigureAwait(false);
+            }
 
             string guardReason;
             if (!CanUseSynchronizedArrivalFromCurrentPosition(stageY, pickerX, pickerZ, previousPickerZ, previousPickerZAvoid, placeConfig, out guardReason))
@@ -970,6 +1042,319 @@ namespace QMC.CDT320.Sequencing
 
             _pickerZPlacedBySynchronizedArrival = false;
             return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+        }
+
+        private static bool IsCoordinatedPlaceMotionMode(PickerPlaceMotionMode mode)
+        {
+            return mode == PickerPlaceMotionMode.SynchronizedArrival ||
+                mode == PickerPlaceMotionMode.ContiSegmentedPlace;
+        }
+
+        private async Task<int> MoveOutputStageYPickerXAndPickerZByContiSegmentedPlaceAsync(
+            BinStageAxis yAxis,
+            BaseAxis stageY,
+            BaseAxis pickerX,
+            BaseAxis previousPickerZ,
+            double previousPickerZAvoid,
+            BaseAxis pickerZ,
+            PickerPlaceMotionConfig placeConfig,
+            CancellationToken ct)
+        {
+            string guardReason;
+            if (!CanUseContiSegmentedPlaceFromCurrentPosition(stageY, pickerX, pickerZ, previousPickerZ, previousPickerZAvoid, placeConfig, out guardReason))
+            {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place ContiNode 조건 불만족으로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode 이동 조건 불만족으로 기존 이동 방식으로 접근합니다. " +
+                    "reason=" + guardReason +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", cursor=" + _pickerCursor +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", outputSide=" + _currentOutputSide +
+                    ", maxTravel=" + placeConfig.MaxSynchronizedTravelDistance.ToString("F3") +
+                    ", stageYTravel=" + FormatTravel(stageY, _targetOutputStageY) +
+                    ", pickerXTravel=" + FormatTravel(pickerX, _targetPickerX) +
+                    ", previousPickerZTravel=" + FormatTravel(previousPickerZ, previousPickerZAvoid) +
+                    " - Check");
+                return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+            }
+
+            IList<PickerPlaceContiNode> nodes = BuildContiSegmentedPlaceNodes(stageY, pickerX, previousPickerZ, pickerZ, placeConfig);
+            if (nodes == null || nodes.Count == 0)
+            {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place ContiNode 노드 생성 실패로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode 노드 생성 실패로 기존 이동 방식으로 접근합니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", outputSide=" + _currentOutputSide + " - Check");
+                return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+            }
+
+            if (!CanUseContiSegmentedNodesFromCurrentPosition(stageY, pickerX, previousPickerZ, pickerZ, nodes, placeConfig, out guardReason))
+            {
+                int pendingResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place ContiNode 노드 거리 조건 불만족으로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+                if (pendingResult != 0)
+                    return pendingResult;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode 노드 거리 조건 불만족으로 기존 이동 방식으로 접근합니다. " +
+                    "reason=" + guardReason +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", outputSide=" + _currentOutputSide + " - Check");
+                return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+            }
+
+            int preMove = await MovePickerYAndTToPlaceBeforeSynchronizedArrivalAsync(ct).ConfigureAwait(false);
+            if (preMove != 0)
+                return preMove;
+
+            int zReady = await EnsureOutputStageZReadyForPlaceAsync(ct).ConfigureAwait(false);
+            if (zReady != 0)
+                return zReady;
+
+            double finalPickerZ = nodes[nodes.Count - 1].PickerZ;
+            double originalPickerZTarget = _targetPickerZ;
+            _targetPickerZ = finalPickerZ;
+
+            InterpolatedMotionMoveResult contiResult =
+                await PickerPlaceContiSegmentedMotion.MoveStageYPickerXAndPickerZByNodesAsync(
+                    stageY,
+                    pickerX,
+                    previousPickerZ,
+                    pickerZ,
+                    nodes,
+                    placeConfig,
+                    ct).ConfigureAwait(false);
+
+            if (contiResult != null && contiResult.Success)
+            {
+                int finalWait = await WaitSynchronizedArrivalFinalPositionAsync(
+                    yAxis,
+                    HasPendingSynchronizedRetreat() ? GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex) : (PickerAxis?)null,
+                    previousPickerZAvoid,
+                    GetPickerZAxis(_currentPickerIndex),
+                    Math.Max(placeConfig.SynchronizedTimeoutMs, ResolveTimeout()),
+                    ct).ConfigureAwait(false);
+                if (finalWait != 0)
+                    return finalWait;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode 이동 완료. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", basePickerZ=" + originalPickerZTarget.ToString("F3") +
+                    ", finalPickerZ=" + finalPickerZ.ToString("F3") +
+                    ", " + contiResult + " - Ok");
+                ClearPendingSynchronizedRetreat();
+                _pickerZPlacedBySynchronizedArrival = true;
+                return 0;
+            }
+
+            if (contiResult != null && contiResult.CommandIssued)
+            {
+                _pickerZPlacedBySynchronizedArrival = false;
+                return Fail("PICKER-PLACE-CONTI-MOVE", Name,
+                    "Place ContiNode 이동 명령 후 완료 확인에 실패했습니다. 기존 이동 방식으로 전환하지 않고 정지합니다. " +
+                    "die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", " + contiResult);
+            }
+
+            _targetPickerZ = originalPickerZTarget;
+            WriteLog("PickerPlaceSequence",
+                Name + " Place ContiNode 이동 명령 전 실패로 기존 이동 방식으로 전환합니다. die=" +
+                (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", outputSide=" + _currentOutputSide +
+                ", result=" + (contiResult != null ? contiResult.ResultCode.ToString() : "-") +
+                ", reason=" + (contiResult != null ? contiResult.Message : "결과 없음") +
+                " - Check");
+
+            int pendingFallbackResult = await CompletePendingSynchronizedRetreatIfNeededAsync("Place ContiNode 명령 전 실패로 기존 이동 전 이전 PickerZ Avoid 복귀", ct).ConfigureAwait(false);
+            if (pendingFallbackResult != 0)
+                return pendingFallbackResult;
+
+            _pickerZPlacedBySynchronizedArrival = false;
+            return await MoveOutputStageYAndPickerXYTToPlaceAsync(yAxis, ct).ConfigureAwait(false);
+        }
+
+        private IList<PickerPlaceContiNode> BuildContiSegmentedPlaceNodes(
+            BaseAxis stageY,
+            BaseAxis pickerX,
+            BaseAxis previousPickerZ,
+            BaseAxis pickerZ,
+            PickerPlaceMotionConfig placeConfig)
+        {
+            if (stageY == null || pickerX == null || previousPickerZ == null || pickerZ == null || placeConfig == null)
+                return new List<PickerPlaceContiNode>();
+
+            PickerAxis previousZAxis = GetPickerZAxis(_pendingSynchronizedRetreatPickerIndex);
+            PickerAxis currentZAxis = GetPickerZAxis(_currentPickerIndex);
+
+            double previousPlaceBase = GetPickerTeachingPosition(previousZAxis, "PlacePosition");
+            double previousAvoid = GetPickerTeachingPosition(previousZAxis, "AvoidPosition");
+            double currentPlaceBase = _targetPickerZ;
+            double currentAvoid = GetPickerTeachingPosition(currentZAxis, "AvoidPosition");
+            double tapeThickness = ResolveTapeThicknessMm(placeConfig);
+            double dieThickness = ResolveDieThicknessMm(placeConfig);
+            double materialOffset = tapeThickness + dieThickness;
+            double previousMaterialBase = previousPlaceBase + materialOffset;
+            double currentMaterialBase = currentPlaceBase + materialOffset;
+
+            double previousZNode0 = previousMaterialBase + placeConfig.ContiZ1Step1Clearance;
+            double previousZNode1 = previousMaterialBase + placeConfig.ContiZ1Step1Clearance + placeConfig.ContiZ1Step2Clearance;
+            double previousZNearAvoid = ResolveNearAvoidPosition(previousAvoid, previousPlaceBase, placeConfig.ContiNearAvoidDistance);
+            double currentZNearAvoid = ResolveNearAvoidPosition(currentAvoid, currentPlaceBase, placeConfig.ContiNearAvoidDistance);
+            double currentZNode3 = currentMaterialBase + placeConfig.ContiZ1Step1Clearance + placeConfig.ContiZ1Step2Clearance;
+            double currentZFinal = currentMaterialBase - placeConfig.ContiOverDrive;
+
+            double ratio = placeConfig.ContiXYMidRatio;
+            double stageYMid = stageY.ActualPosition + ((_targetOutputStageY - stageY.ActualPosition) * ratio);
+            double pickerXMid = pickerX.ActualPosition + ((_targetPickerX - pickerX.ActualPosition) * ratio);
+
+            var nodes = new List<PickerPlaceContiNode>();
+            nodes.Add(new PickerPlaceContiNode(0, stageY.ActualPosition, pickerX.ActualPosition, previousZNode0, pickerZ.ActualPosition));
+            nodes.Add(new PickerPlaceContiNode(1, stageY.ActualPosition, pickerX.ActualPosition, previousZNode1, pickerZ.ActualPosition));
+            nodes.Add(new PickerPlaceContiNode(2, stageYMid, pickerXMid, previousZNearAvoid, currentZNearAvoid));
+            nodes.Add(new PickerPlaceContiNode(3, _targetOutputStageY, _targetPickerX, previousZNearAvoid, currentZNode3));
+            nodes.Add(new PickerPlaceContiNode(4, _targetOutputStageY, _targetPickerX, previousAvoid, currentZFinal));
+            return nodes;
+        }
+
+        private bool CanUseContiSegmentedPlaceFromCurrentPosition(
+            BaseAxis stageY,
+            BaseAxis pickerX,
+            BaseAxis pickerZ,
+            BaseAxis previousPickerZ,
+            double previousPickerZAvoid,
+            PickerPlaceMotionConfig placeConfig,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (!HasPendingSynchronizedRetreat())
+            {
+                reason = "이전 PickerZ 복귀 지연 대상이 없어 ContiNode에 포함할 Z1 축이 없습니다.";
+                return false;
+            }
+
+            if (!CanUseSynchronizedArrivalFromCurrentPosition(stageY, pickerX, pickerZ, previousPickerZ, previousPickerZAvoid, placeConfig, out reason))
+                return false;
+
+            return true;
+        }
+
+        private bool CanUseContiSegmentedNodesFromCurrentPosition(
+            BaseAxis stageY,
+            BaseAxis pickerX,
+            BaseAxis previousPickerZ,
+            BaseAxis pickerZ,
+            IList<PickerPlaceContiNode> nodes,
+            PickerPlaceMotionConfig placeConfig,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (nodes == null || nodes.Count == 0)
+            {
+                reason = "ContiNode 노드가 없습니다.";
+                return false;
+            }
+
+            double maxTravel = placeConfig != null ? placeConfig.MaxSynchronizedTravelDistance : 37.0;
+            if (maxTravel <= 0.0)
+                maxTravel = 37.0;
+
+            foreach (PickerPlaceContiNode node in nodes)
+            {
+                if (Math.Abs(node.StageY - stageY.ActualPosition) > maxTravel ||
+                    Math.Abs(node.PickerX - pickerX.ActualPosition) > maxTravel ||
+                    Math.Abs(node.PreviousPickerZ - previousPickerZ.ActualPosition) > maxTravel ||
+                    Math.Abs(node.PickerZ - pickerZ.ActualPosition) > maxTravel)
+                {
+                    reason = "node" + node.Index + " 목표 위치가 연속 Place ContiNode 허용 거리 밖입니다.";
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static double ResolveNearAvoidPosition(double avoidPosition, double placePosition, double distanceFromAvoid)
+        {
+            if (distanceFromAvoid <= 0.0)
+                return avoidPosition;
+
+            double directionToPlace = placePosition >= avoidPosition ? 1.0 : -1.0;
+            return avoidPosition + (directionToPlace * distanceFromAvoid);
+        }
+
+        private double ResolveTapeThicknessMm(PickerPlaceMotionConfig placeConfig)
+        {
+            double fallback = placeConfig != null ? placeConfig.ContiTapeThicknessFallback : 0.10;
+
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project != null)
+                    return NormalizeThicknessMm(project.TapeThickness, fallback);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode Tape 두께 로드 실패. fallback=" + fallback.ToString("F3") +
+                    ", error=" + ex.Message + " - Check");
+            }
+
+            return fallback;
+        }
+
+        private double ResolveDieThicknessMm(PickerPlaceMotionConfig placeConfig)
+        {
+            double fallback = placeConfig != null ? placeConfig.ContiDieThicknessFallback : 0.15;
+
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project != null)
+                {
+                    if (project.Die != null && project.Die.ThicknessMm > 0.0)
+                        return NormalizeThicknessMm(project.Die.ThicknessMm, fallback);
+
+                    return NormalizeThicknessMm(project.ChipThickness, fallback);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Place ContiNode Die 두께 로드 실패. fallback=" + fallback.ToString("F3") +
+                    ", error=" + ex.Message + " - Check");
+            }
+
+            return fallback;
+        }
+
+        private static double NormalizeThicknessMm(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
+                return fallback;
+
+            if (value > 5.0)
+                return value / 1000.0;
+
+            return value;
         }
 
         private async Task<int> WaitSynchronizedArrivalFinalPositionAsync(
@@ -1108,7 +1493,7 @@ namespace QMC.CDT320.Sequencing
         private bool ShouldDelayCurrentPickerZRetreatForNextSynchronizedPlace()
         {
             PickerPlaceMotionConfig placeConfig = ResolvePlaceMotionConfig();
-            if (placeConfig == null || placeConfig.MotionMode != PickerPlaceMotionMode.SynchronizedArrival)
+            if (placeConfig == null || !IsCoordinatedPlaceMotionMode(placeConfig.MotionMode))
                 return false;
 
             int nextCursor = _pickerCursor + 1;
@@ -1594,9 +1979,13 @@ namespace QMC.CDT320.Sequencing
                 if (Context == null || Context.OutputPostPlaceInspections == null)
                     return 0;
 
+                int idleTimeoutMs = Options != null && Options.RunMode == SequenceRunMode.Auto
+                    ? 0
+                    : ResolveTimeout();
+
                 return await Context.OutputPostPlaceInspections.WaitUntilIdleAsync(
                     Name + " Place 진입",
-                    ResolveTimeout(),
+                    idleTimeoutMs,
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)

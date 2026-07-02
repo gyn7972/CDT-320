@@ -50,6 +50,11 @@ namespace QMC.CDT320.Sequencing
             get { return Side == PickerSequenceSide.Front ? MaterialLocationKind.PickerFront : MaterialLocationKind.PickerRear; }
         }
 
+        protected SequenceResourceKind PickerResourceKind
+        {
+            get { return Side == PickerSequenceSide.Front ? SequenceResourceKind.FrontPicker : SequenceResourceKind.RearPicker; }
+        }
+
         public async Task<int> RunAsync(CancellationToken ct, PickerSequenceOptions options)
         {
             Options = options ?? PickerSequenceOptions.Default();
@@ -57,29 +62,41 @@ namespace QMC.CDT320.Sequencing
 
             using (SequenceLog.Push(
                 Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq,
-                Name, () => CurrentStep.ToString()))
+                Name, () => CurrentStep.ToString(), GetType().Name, Options.RunMode.ToString()))
             try
             {
                 ct.ThrowIfCancellationRequested();
+                SequenceTrace.RunStart(GetType().Name, Options.RunMode.ToString(), "name=" + Name, "side=" + Side, "kind=" + Kind);
                 WriteLog("RunAsync", Name + " sequence start. kind=" + Kind + " - Start");
                 int result = await ExecuteAsync(ct).ConfigureAwait(false);
                 if (result == 0)
+                {
                     WriteLog("RunAsync", Name + " sequence complete. kind=" + Kind + " - Ok");
+                    SequenceTrace.RunEnd(GetType().Name, "Completed", result, "name=" + Name, "side=" + Side, "kind=" + Kind);
+                }
+                else
+                {
+                    SequenceTrace.RunEnd(GetType().Name, "Failed", result, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep);
+                }
                 return result;
             }
             catch (OperationCanceledException)
             {
                 WriteLog("RunAsync", Name + " sequence canceled. kind=" + Kind + " - Failed");
+                SequenceTrace.RunEnd(GetType().Name, "Canceled", -1, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep);
                 throw;
             }
             catch (SequenceStopException ex)
             {
                 WriteLog("RunAsync", Name + " sequence stopped. kind=" + Kind + ", reason=" + ex.Message + " - Stopped");
+                SequenceTrace.RunEnd(GetType().Name, "Stopped", -1, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep, "reason=" + ex.Message);
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-SEQ-EX", Name, Name + " sequence exception: " + ex.Message);
+                int failResult = Fail("PICKER-SEQ-EX", Name, Name + " sequence exception: " + ex.Message);
+                SequenceTrace.RunEnd(GetType().Name, "Failed", failResult, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep, "error=" + ex.Message);
+                return failResult;
             }
             finally
             {
@@ -320,10 +337,21 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("PickerMove",
                         Name + " " + description + " move skipped. Axis already in position. " +
                         BuildPickerAxisState(axis, target) + " - Ok");
+                    SequenceTrace.MotionEnd("PickerMove", 0,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=AlreadyInPosition");
                     return 0;
                 }
 
                 PickerMoveAxisLogDetail axisDetail = BuildPickerMoveAxisLogDetail(axis, target);
+                SequenceTrace.MotionStart("PickerMove",
+                    "axis=" + axis,
+                    "target=" + target,
+                    "actual=" + axisDetail.Start,
+                    "description=" + description,
+                    "targetName=" + targetName);
 
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     axis,
@@ -352,6 +380,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, null);
+                    SequenceTrace.MotionEnd("PickerMove", result,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=CommandFailed");
                     return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
                 }
 
@@ -361,6 +394,13 @@ namespace QMC.CDT320.Sequencing
                 if (waitResult == null || !waitResult.Success)
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    SequenceTrace.MotionEnd("PickerMove", -1,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=WaitFailed",
+                        "timeoutMs=" + ResolveTimeout(),
+                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
@@ -369,12 +409,25 @@ namespace QMC.CDT320.Sequencing
                 if (!IsPickerAxisInPosition(axis, target))
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    SequenceTrace.MotionEnd("PickerMove", -1,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=FinalPositionFailed");
                     return Fail("PICKER-MOVE-FINAL-POS", Name,
                         description + " final position check failed after move. " +
                         BuildPickerAxisState(axis, target));
                 }
 
                 //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                SequenceTrace.MotionEnd("PickerMove", 0,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "actual=" + (GetPickerAxis(axis) != null ? GetPickerAxis(axis).ActualPosition.ToString() : ""),
+                    "description=" + description,
+                    "commandMs=" + commandMs,
+                    "waitMs=" + waitMs,
+                    "elapsedMs=" + totalWatch.ElapsedMilliseconds);
                 ct.ThrowIfCancellationRequested();
                 return 0;
             }
@@ -384,6 +437,12 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                SequenceTrace.MotionEnd("PickerMove", -1,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "description=" + description,
+                    "status=Exception",
+                    "error=" + ex.Message);
                 return Fail("PICKER-MOVE-EX", Name, description + " move exception: " + ex.Message);
             }
             finally

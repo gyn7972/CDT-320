@@ -40,6 +40,12 @@ namespace QMC.CDT320.Sequencing
             bool acquired = false;
             try
             {
+                SequenceTrace.WaitStart("SequenceResource",
+                    "resource=" + resource,
+                    "holder=" + safeHolder,
+                    "timeoutMs=" + timeoutMs,
+                    "current=" + slot.Holder);
+
                 if (timeoutMs <= 0)
                 {
                     await slot.Gate.WaitAsync(ct).ConfigureAwait(false);
@@ -54,6 +60,13 @@ namespace QMC.CDT320.Sequencing
                 {
                     string message = resource + " resource acquire timeout. holder=" + safeHolder +
                                      ", current=" + slot.Holder;
+                    SequenceTrace.WaitEnd("SequenceResource",
+                        -1,
+                        "resource=" + resource,
+                        "holder=" + safeHolder,
+                        "timeoutMs=" + timeoutMs,
+                        "current=" + slot.Holder,
+                        "reason=Timeout");
                     if (raiseAlarmOnTimeout)
                     {
                         Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Blocked");
@@ -63,12 +76,26 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 slot.Holder = safeHolder;
+                SequenceTrace.WaitEnd("SequenceResource",
+                    0,
+                    "resource=" + resource,
+                    "holder=" + safeHolder,
+                    "timeoutMs=" + timeoutMs);
+                SequenceTrace.ResourceAcquire(resource.ToString(),
+                    "holder=" + safeHolder,
+                    "result=0");
                 Log.Write("Main", "SYSTEM", "SequenceResource",
                     resource + " acquired by " + safeHolder + " - Ok");
                 return new SequenceResourceLease(this, resource, safeHolder);
             }
             catch (OperationCanceledException)
             {
+                SequenceTrace.WaitEnd("SequenceResource",
+                    -1,
+                    "resource=" + resource,
+                    "holder=" + safeHolder,
+                    "timeoutMs=" + timeoutMs,
+                    "status=Canceled");
                 throw;
             }
             catch (Exception ex)
@@ -78,6 +105,12 @@ namespace QMC.CDT320.Sequencing
 
                 string message = resource + " resource acquire failed. holder=" + safeHolder +
                                  ", error=" + ex.Message;
+                SequenceTrace.WaitEnd("SequenceResource",
+                    -1,
+                    "resource=" + resource,
+                    "holder=" + safeHolder,
+                    "timeoutMs=" + timeoutMs,
+                    "error=" + ex.Message);
                 Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-RESOURCE-EX", safeHolder, message);
                 return null;
@@ -120,6 +153,9 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 slot.Gate.Release();
+                SequenceTrace.ResourceRelease(resource.ToString(),
+                    "holder=" + holder,
+                    "result=0");
                 Log.Write("Main", "SYSTEM", "SequenceResource",
                     resource + " released by " + holder + " - Ok");
             }

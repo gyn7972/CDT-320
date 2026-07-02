@@ -607,10 +607,12 @@ namespace QMC.CDT320.Interlocks
 
             bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
-            bool blocking = state != null && (state.BlocksTransport || xMoving || yMoving);
+            bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+            bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideInput);
             string detail =
                 "movingX=" + xMoving +
                 ", movingY=" + yMoving +
+                ", movingInputRisk=" + movingIntoOrInsideInput +
                 ", " + (state != null ? state.Describe() : "state=null");
 
             if (!blocking)
@@ -620,6 +622,21 @@ namespace QMC.CDT320.Interlocks
                 "InputVisionX",
                 "InputVisionX 이동 불가: " + prefix + "Picker가 Input 영역을 점유하거나 간섭 중입니다. " + detail,
                 out reason);
+        }
+
+        private static bool IsPickerInputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
+        {
+            if (!xMoving && !yMoving)
+                return false;
+
+            if (state == null)
+                return true;
+
+            return state.CurrentZone == PickerWorkZone.Input ||
+                   state.TargetZone == PickerWorkZone.Input ||
+                   state.CurrentZone == PickerWorkZone.Unknown ||
+                   state.TargetZone == PickerWorkZone.Unknown ||
+                   state.UnknownUnsafe;
         }
 
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)

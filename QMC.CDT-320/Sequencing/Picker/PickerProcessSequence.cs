@@ -71,12 +71,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (IsStepRunMode())
+                using (SequenceResourceLease pickerLease = await AcquireResourceAsync(PickerResourceKind, Name + ":Process", ct).ConfigureAwait(false))
                 {
-                    return await ExecuteSingleProcessStepAsync(ct).ConfigureAwait(false);
-                }
+                    if (pickerLease == null)
+                        return Fail("PICKER-RESOURCE", Name, "Picker 리소스 점유 실패. resource=" + PickerResourceKind);
 
-                return await ExecuteProcessUntilCompleteAsync(ct).ConfigureAwait(false);
+                    if (IsStepRunMode())
+                    {
+                        return await ExecuteSingleProcessStepAsync(ct).ConfigureAwait(false);
+                    }
+
+                    return await ExecuteProcessUntilCompleteAsync(ct).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -414,9 +420,9 @@ namespace QMC.CDT320.Sequencing
                     _pickUpSequence = new PickerPickUpSequence(Context, Side);
                 }
 
-                int result = await _pickUpSequence
-                    .RunAsync(ct, BuildChildSequenceOptions())
-                    .ConfigureAwait(false);
+                int result = await SequenceTrace.ChildAsync("PickerPickUpSequence", "PickUp",
+                    () => _pickUpSequence.RunAsync(ct, BuildChildSequenceOptions()),
+                    "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
                 {
@@ -554,12 +560,12 @@ namespace QMC.CDT320.Sequencing
                 if (_bottomInspectionSequence == null || _bottomInspectionSequence.IsComplete)
                     _bottomInspectionSequence = new PickerBottomInspectionSequence(Context, Side);
 
-                int result = await _bottomInspectionSequence
-                    .RunAsync(ct, BuildChildSequenceOptions(
+                int result = await SequenceTrace.ChildAsync("PickerBottomInspectionSequence", "BottomInspection",
+                    () => _bottomInspectionSequence.RunAsync(ct, BuildChildSequenceOptions(
                         Options == null || Options.RunMode == SequenceRunMode.Auto,
                         false,
-                        false))
-                    .ConfigureAwait(false);
+                        false)),
+                    "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
                 {
@@ -646,12 +652,12 @@ namespace QMC.CDT320.Sequencing
                 if (_bottomAndSideInspectionSequence == null || _bottomAndSideInspectionSequence.IsComplete)
                     _bottomAndSideInspectionSequence = new PickerBottomAndSideInspectionSequence(Context, Side);
 
-                int result = await _bottomAndSideInspectionSequence
-                    .RunAsync(ct, BuildChildSequenceOptions(
+                int result = await SequenceTrace.ChildAsync("PickerBottomAndSideInspectionSequence", "BottomAndSideInspection",
+                    () => _bottomAndSideInspectionSequence.RunAsync(ct, BuildChildSequenceOptions(
                         true,
                         true,
-                        true))
-                    .ConfigureAwait(false);
+                        true)),
+                    "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
                 {
@@ -1023,12 +1029,12 @@ namespace QMC.CDT320.Sequencing
                 if (_sideInspectionSequence == null || _sideInspectionSequence.IsComplete)
                     _sideInspectionSequence = new PickerSideInspectionSequence(Context, Side);
 
-                int result = await _sideInspectionSequence
-                    .RunAsync(ct, BuildChildSequenceOptions(
+                int result = await SequenceTrace.ChildAsync("PickerSideInspectionSequence", "SideInspection",
+                    () => _sideInspectionSequence.RunAsync(ct, BuildChildSequenceOptions(
                         false,
                         _bottomInspectionCompletedInCurrentRun,
-                        Options == null || Options.RunMode == SequenceRunMode.Auto))
-                    .ConfigureAwait(false);
+                        Options == null || Options.RunMode == SequenceRunMode.Auto)),
+                    "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
                 {
@@ -1088,9 +1094,9 @@ namespace QMC.CDT320.Sequencing
                     _placeSequence = new PickerPlaceSequence(Context, Side);
                 }
 
-                int result = await _placeSequence
-                    .RunAsync(ct, BuildChildSequenceOptions())
-                    .ConfigureAwait(false);
+                int result = await SequenceTrace.ChildAsync("PickerPlaceSequence", "Place",
+                    () => _placeSequence.RunAsync(ct, BuildChildSequenceOptions()),
+                    "side=" + Side).ConfigureAwait(false);
 
                 if (result != 0)
                 {

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
 using QMC.Common.Logging;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing.Calibration
 {
@@ -23,6 +24,10 @@ namespace QMC.CDT320.Sequencing.Calibration
 
     public sealed class NeedlePinCalibrationSequence
     {
+        private const double SimVisionOffsetRangeMm = 0.03;
+        private static readonly object SimVisionRandomLock = new object();
+        private static readonly Random SimVisionRandom = new Random();
+
         private readonly MachineSequenceContext _context;
         private readonly bool _fineMove;
 
@@ -216,18 +221,73 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0)
                 return Fail(axis + " move failed. target=" + target.ToString("F6") + ", result=" + result);
 
-            result = await stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail(axis + " in-position wait failed. target=" + target.ToString("F6") + ", result=" + result);
+            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+            {
+                if (IsStageAxisAtTarget(stage, axis, target))
+                {
+                    EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-WAIT-ACCEPT",
+                        axis + " wait returned non-success but actual position is already acceptable. target=" +
+                        target.ToString("F6") + ", " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+                    return 0;
+                }
+
+                return Fail(axis + " in-position wait failed. target=" + target.ToString("F6") +
+                    ", " + AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+            }
 
             return 0;
+        }
+
+        private static bool IsStageAxisAtTarget(InputStageUnit stage, WaferStageAxis axis, double target)
+        {
+            BaseAxis item = ResolveStageAxis(stage, axis);
+            if (item == null)
+                return false;
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+
+            return item.IsServoOn &&
+                   !item.IsAlarm &&
+                   !item.IsMoving &&
+                   item.IsInPosition &&
+                   Math.Abs(item.ActualPosition - target) <= tolerance;
+        }
+
+        private static BaseAxis ResolveStageAxis(InputStageUnit stage, WaferStageAxis axis)
+        {
+            if (stage == null)
+                return null;
+
+            switch (axis)
+            {
+                case WaferStageAxis.WaferY:
+                    return stage.StageY;
+                case WaferStageAxis.WaferT:
+                    return stage.StageT;
+                case WaferStageAxis.WaferExpandingZ:
+                    return stage.ExpanderZ;
+                case WaferStageAxis.VisionX:
+                    return stage.CameraX;
+                case WaferStageAxis.NeedleX:
+                    return stage.NeedleBlockX;
+                case WaferStageAxis.NeedleZ:
+                    return stage.NeedleZ;
+                case WaferStageAxis.EjectPinZ:
+                    return stage.EjectPinZ;
+                default:
+                    return null;
+            }
         }
 
         private async Task<VisionAlignResult> RequestVisionAsync(CancellationToken ct)
         {
             InputStageUnit stage = _context.Machine.InputStageUnit;
-            if (stage.IsInputStageSimulationOrDryRun() || stage.Vision == null)
-                return new VisionAlignResult();
+            if (IsSimulationOrVisionBypass(stage))
+                return CreateSimulatedVisionResult(stage);
 
             string targetId = stage.Setup.NeedlePinCalVisionTargetId;
             if (string.IsNullOrWhiteSpace(targetId))
@@ -235,6 +295,60 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             ct.ThrowIfCancellationRequested();
             return await stage.Vision.TriggerAlignAsync(targetId).ConfigureAwait(false);
+        }
+
+        private bool IsSimulationOrVisionBypass(InputStageUnit stage)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null &&
+                (settings.SimulationMode ||
+                 settings.DryRunMode ||
+                 settings.BypassHardware ||
+                 !settings.UseVision))
+                return true;
+
+            if (stage == null)
+                return true;
+
+            return stage.IsInputStageSimulationOrDryRun() || stage.Vision == null;
+        }
+
+        private VisionAlignResult CreateSimulatedVisionResult(InputStageUnit stage)
+        {
+            double offsetX;
+            double offsetY;
+            lock (SimVisionRandomLock)
+            {
+                offsetX = NextSignedOffset(SimVisionRandom, SimVisionOffsetRangeMm);
+                offsetY = NextSignedOffset(SimVisionRandom, SimVisionOffsetRangeMm);
+            }
+
+            string targetId = stage != null && stage.Setup != null ? stage.Setup.NeedlePinCalVisionTargetId : null;
+            if (string.IsNullOrWhiteSpace(targetId))
+                targetId = "NeedlePinCal";
+
+            EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-SIM-VISION",
+                "Needle Pin Cal simulated vision offset generated. target=" + targetId +
+                ", offsetX=" + offsetX.ToString("F6") +
+                ", offsetY=" + offsetY.ToString("F6") +
+                ", range=+/-" + SimVisionOffsetRangeMm.ToString("F6") + "mm");
+
+            return new VisionAlignResult
+            {
+                DeltaX = offsetX,
+                DeltaY = offsetY,
+                DeltaTheta = 0.0,
+                PitchX = 0.0,
+                PitchY = 0.0
+            };
+        }
+
+        private static double NextSignedOffset(Random random, double range)
+        {
+            if (random == null || range <= 0.0)
+                return 0.0;
+
+            return (random.NextDouble() * 2.0 - 1.0) * range;
         }
 
         private void SaveCalibration(VisionAlignResult vision)

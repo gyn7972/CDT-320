@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Text;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 using QMC.CDT_320.Ui.Localization;
@@ -13,7 +14,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private static readonly Font AlarmFont = new Font("Consolas", 10F, FontStyle.Bold);
 
         // 표시 상한(최신 N개). 최근 1시간 필터와 함께 로딩 부하를 제한한다.
-        private const int MaxRows = 500;
+        private const int DefaultMaxRows = 500;
         private const int LiveFlushIntervalMs = 250;
         private const int MaxLiveFlushRows = 100;
         private const int MaxPendingLiveRows = 1000;
@@ -80,6 +81,13 @@ namespace QMC.CDT_320.Ui.Pages.History
             _dp.Value = DateTime.Today;
             // 날짜를 바꾸면 파일 열기 모드를 해제하고 날짜 기준으로 돌아간다.
             _dp.ValueChanged += (s, e) => { _overridePath = null; ReloadCurrent(); };
+            txtRunId.TextChanged += (s, e) => ReloadCurrent();
+            txtSource.TextChanged += (s, e) => ReloadCurrent();
+            txtSearch.TextChanged += (s, e) => ReloadCurrent();
+            chkRecentHour.CheckedChanged += (s, e) => ReloadCurrent();
+            cmbLimit.Items.AddRange(new object[] { "500", "2000", "ALL" });
+            cmbLimit.SelectedIndex = 0;
+            cmbLimit.SelectedIndexChanged += (s, e) => ReloadCurrent();
             btnRefresh.Click += (s, e) => ReloadCurrent();
             btnOpenFile.Click += (s, e) => OpenFile();
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
@@ -140,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                 string text = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value as string ?? string.Empty;
                 if (text.Length == 0) return;
 
-                using (var dlg = new Ui.Dialogs.TextViewerDialog("DESCRIPTION", text, false))
+                using (var dlg = new Ui.Dialogs.TextViewerDialog("DESCRIPTION", FormatDescriptionForDetail(text), false))
                     dlg.ShowDialog(this);
             }
             catch (Exception ex)
@@ -156,6 +164,39 @@ namespace QMC.CDT_320.Ui.Pages.History
             return _presetKind == null || kind == _presetKind.Value;
         }
 
+        private bool PassesEventFilter(EventRow r)
+        {
+            if (r == null || !PassesKindFilter(r.Kind))
+                return false;
+
+            if (chkRecentHour != null && chkRecentHour.Checked && r.When < DateTime.Now.AddHours(-1))
+                return false;
+
+            string description = ResolveDescription(r);
+            string runId = txtRunId != null ? (txtRunId.Text ?? "").Trim() : "";
+            if (runId.Length > 0 &&
+                IndexOfIgnoreCase(description, "run=" + runId) < 0 &&
+                IndexOfIgnoreCase(description, runId) < 0)
+            {
+                return false;
+            }
+
+            string source = txtSource != null ? (txtSource.Text ?? "").Trim() : "";
+            if (source.Length > 0 && IndexOfIgnoreCase(r.Source ?? "", source) < 0)
+                return false;
+
+            string search = txtSearch != null ? (txtSearch.Text ?? "").Trim() : "";
+            if (search.Length > 0 &&
+                IndexOfIgnoreCase(r.Code ?? "", search) < 0 &&
+                IndexOfIgnoreCase(r.Source ?? "", search) < 0 &&
+                IndexOfIgnoreCase(description, search) < 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         // 현재 소스(직접 연 파일 또는 DATE 날짜)를 다시 읽어 그리드에 채운다.
         private void ReloadCurrent()
         {
@@ -167,17 +208,14 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void LoadRows(List<EventRow> source)
         {
-            // 로딩 부하를 줄이기 위해 (1) 최근 1시간 이내 + (2) 최신 MaxRows(500)개로 제한한다.
-            DateTime cutoff = DateTime.Now.AddHours(-1);
+            int maxRows = GetRowLimit();
 
-            // CSV 는 과거→최신 순이므로 뒤(최신)부터 훑어 최신순으로 최대 500개만 만든다.
-            // (필요한 만큼만 BuildRow 하므로 거대 파일에서도 행 생성 비용이 500개로 제한됨)
+            // CSV 는 과거→최신 순이므로 뒤(최신)부터 훑어 최신순으로 필요한 만큼만 만든다.
             var rows = new List<DataGridViewRow>();
-            for (int i = source.Count - 1; i >= 0 && rows.Count < MaxRows; i--)
+            for (int i = source.Count - 1; i >= 0 && (maxRows <= 0 || rows.Count < maxRows); i--)
             {
                 var r = source[i];
-                if (r.When < cutoff) continue;          // 최근 1시간만
-                if (!PassesKindFilter(r.Kind)) continue;
+                if (!PassesEventFilter(r)) continue;
                 rows.Add(BuildRow(r));                  // 뒤에서부터 → 이미 최신순
             }
 
@@ -264,7 +302,7 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void OnLiveEvent(EventRow r)
         {
-            if (r == null || !PassesKindFilter(r.Kind))
+            if (r == null || !PassesEventFilter(r))
                 return;
 
             lock (_pendingLiveRowsLock)
@@ -292,7 +330,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             if (rows.Count == 0)
                 return;
 
-            DateTime cutoff = DateTime.Now.AddHours(-1);
+            int maxRows = GetRowLimit();
             var prevAutoSize = _grid.AutoSizeColumnsMode;
             _grid.SuspendLayout();
             try
@@ -300,11 +338,11 @@ namespace QMC.CDT_320.Ui.Pages.History
                 _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
                 foreach (EventRow row in rows)
                 {
-                    if (row == null || row.When < cutoff)
+                    if (!PassesEventFilter(row))
                         continue;
 
                     _grid.Rows.Insert(0, BuildRow(row));
-                    while (_grid.Rows.Count > MaxRows)
+                    while (maxRows > 0 && _grid.Rows.Count > maxRows)
                         _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
                 }
             }
@@ -338,9 +376,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         // EventRow 하나를 그리드에 넣을 DataGridViewRow 로 변환한다(셀 값 + Kind별 강조 스타일).
         private DataGridViewRow BuildRow(EventRow r)
         {
-            // 메시지 카탈로그에 코드가 등록돼 있으면 그 문구(현재 언어)를 우선 표시하고, 없으면 기록된 설명을 그대로 쓴다.
-            string lang = Lang.Current ?? "ko";
-            string desc = MessageCatalog.Resolve(r.Kind, r.Code, lang, r.Description ?? "");
+            string desc = ResolveDescription(r);
 
             var row = new DataGridViewRow();
             row.CreateCells(_grid,
@@ -350,6 +386,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                 r.Code ?? "",
                 r.Source ?? "",
                 desc);
+            row.Tag = r;
 
             // Kind 별 글씨 색상 — 페이지마다 한 종류만 표시되므로 서로 뚜렷이 구분되는 색을 쓴다(흰 배경에서 가독성 확보).
             switch (r.Kind)
@@ -385,6 +422,90 @@ namespace QMC.CDT_320.Ui.Pages.History
             }
 
             return row;
+        }
+
+        private static string ResolveDescription(EventRow r)
+        {
+            if (r == null)
+                return "";
+
+            // 메시지 카탈로그에 코드가 등록돼 있으면 그 문구(현재 언어)를 우선 표시하고, 없으면 기록된 설명을 그대로 쓴다.
+            string lang = Lang.Current ?? "ko";
+            return MessageCatalog.Resolve(r.Kind, r.Code, lang, r.Description ?? "");
+        }
+
+        private int GetRowLimit()
+        {
+            if (cmbLimit == null || cmbLimit.SelectedItem == null)
+                return DefaultMaxRows;
+
+            string value = cmbLimit.SelectedItem.ToString();
+            if (string.Equals(value, "ALL", StringComparison.OrdinalIgnoreCase))
+                return 0;
+
+            int parsed;
+            return int.TryParse(value, out parsed) && parsed > 0 ? parsed : DefaultMaxRows;
+        }
+
+        private static int IndexOfIgnoreCase(string text, string value)
+        {
+            if (text == null || value == null)
+                return -1;
+
+            return text.IndexOf(value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string FormatDescriptionForDetail(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || text.IndexOf('=') < 0)
+                return text ?? "";
+
+            List<string> tokens = SplitKeyValueTokens(text);
+            if (tokens.Count <= 1)
+                return text;
+
+            var sb = new StringBuilder();
+            foreach (string token in tokens)
+            {
+                if (sb.Length > 0)
+                    sb.AppendLine();
+                sb.Append(token);
+            }
+
+            return sb.ToString();
+        }
+
+        private static List<string> SplitKeyValueTokens(string text)
+        {
+            var tokens = new List<string>();
+            if (string.IsNullOrEmpty(text))
+                return tokens;
+
+            var sb = new StringBuilder();
+            bool inQuote = false;
+            for (int i = 0; i < text.Length; i++)
+            {
+                char ch = text[i];
+                if (ch == '"')
+                    inQuote = !inQuote;
+
+                if (!inQuote && char.IsWhiteSpace(ch))
+                {
+                    if (sb.Length > 0)
+                    {
+                        tokens.Add(sb.ToString());
+                        sb.Length = 0;
+                    }
+                    continue;
+                }
+
+                sb.Append(ch);
+            }
+
+            if (sb.Length > 0)
+                tokens.Add(sb.ToString());
+
+            return tokens;
         }
     }
 }

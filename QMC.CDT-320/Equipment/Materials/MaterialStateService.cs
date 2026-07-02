@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.Sequencing;
 
 namespace QMC.CDT320.Materials
 {
@@ -155,6 +156,7 @@ namespace QMC.CDT320.Materials
                     if (die == null)
                         return;
 
+                    MaterialLocation previousLocation = die.CurrentLocation;
                     die.Result = result;
                     if (result == DieResult.NG && !string.IsNullOrWhiteSpace(ngCode))
                     {
@@ -165,6 +167,13 @@ namespace QMC.CDT320.Materials
                     }
 
                     die.UpdatedAt = DateTime.Now;
+                    SequenceTrace.MaterialChange(
+                        "ApplyDieInspectionResult",
+                        "die=" + die.DieId,
+                        "from=" + previousLocation,
+                        "to=" + die.CurrentLocation,
+                        "result=" + die.Result,
+                        "ngCode=" + ngCode);
                     NotifyAndSave(reason);
                 }
             }
@@ -534,7 +543,7 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.SourceCassetteRole = CassetteMaterialRole.Input1;
                     inputStageWafer.SourceSlotNumber = 0;
                     inputStageWafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
-                    inputStageWafer.State = WaferMaterialState.WorkReady;
+                    inputStageWafer.State = WaferMaterialState.Working;
                     inputStageWafer.TapeFrameSpecName = tapeFrameSpecName;
                     inputStageWafer.DieMapFrameObjId = string.IsNullOrWhiteSpace(inputMap.FrameObjId) ? inputStageWafer.WaferId : inputMap.FrameObjId;
                     inputStageWafer.HasInputStageAlignResult = true;
@@ -548,11 +557,35 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.InputStageDieMappingOffsetX = 0.0;
                     inputStageWafer.InputStageDieMappingOffsetY = 0.0;
                     inputStageWafer.UpdatedAt = DateTime.Now;
+                    BindProcessTestStageWaferToCassetteSlotNoLock(
+                        CassetteMaterialRole.Input1,
+                        0,
+                        inputStageWafer,
+                        MaterialLocationKind.InputStage,
+                        WaferMaterialState.Working,
+                        lotId,
+                        tapeFrameSpecName);
 
                     int inputTargetCount = ApplyProcessTestInputDieMaterialsNoLock(inputMap, inputStageWafer);
 
                     WaferMaterial goodStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Good, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
                     WaferMaterial ngStageWafer = CreateProcessTestOutputStageWaferNoLock(QMC.CDT320.BinSide.Ng, lotId, timestamp, tapeFrameSpecName, inputStageWafer.WaferId, project);
+                    BindProcessTestStageWaferToCassetteSlotNoLock(
+                        CassetteMaterialRole.Good1,
+                        0,
+                        goodStageWafer,
+                        MaterialLocationKind.OutputStageGood,
+                        WaferMaterialState.Working,
+                        lotId,
+                        tapeFrameSpecName);
+                    BindProcessTestStageWaferToCassetteSlotNoLock(
+                        CassetteMaterialRole.Ng1,
+                        0,
+                        ngStageWafer,
+                        MaterialLocationKind.OutputStageNg,
+                        WaferMaterialState.Working,
+                        lotId,
+                        tapeFrameSpecName);
 
                     State.LotId = lotId;
                     State.RecipeName = project != null ? project.FileName ?? "" : State.RecipeName;
@@ -708,6 +741,7 @@ namespace QMC.CDT320.Materials
             if (slotNumber < 0 || slotNumber >= cassette.Slots.Count) return;
 
             var wafer = GetOrCreateWafer(waferId);
+            MaterialLocation previousLocation = wafer.CurrentLocation;
             wafer.CassetteLotId = cassetteLotId ?? "";
             wafer.CurrentLocation = MaterialLocation.Cassette(
                 cassetteRole == CassetteMaterialRole.Input1 || cassetteRole == CassetteMaterialRole.Input2
@@ -726,6 +760,14 @@ namespace QMC.CDT320.Materials
             cassette.IsMapped = true;
             cassette.LastScanTime = DateTime.Now;
 
+            SequenceTrace.MaterialChange(
+                "PutWaferInCassette",
+                "wafer=" + wafer.WaferId,
+                "from=" + previousLocation,
+                "to=" + wafer.CurrentLocation,
+                "state=" + wafer.State,
+                "slot=" + slotNumber,
+                "cassette=" + cassetteRole);
             NotifyAndSave("PutWaferInCassette");
         }
 
@@ -1085,10 +1127,17 @@ namespace QMC.CDT320.Materials
         public static void MoveWafer(string waferId, MaterialLocation location, WaferMaterialState state)
         {
             var wafer = GetOrCreateWafer(waferId);
+            MaterialLocation previousLocation = wafer.CurrentLocation;
             RemoveWaferFromCassetteSlot(wafer.WaferId);
             wafer.CurrentLocation = location ?? MaterialLocation.Unknown();
             wafer.State = WaferMaterialStateText.Normalize(state);
             wafer.UpdatedAt = DateTime.Now;
+            SequenceTrace.MaterialChange(
+                "MoveWafer",
+                "wafer=" + wafer.WaferId,
+                "from=" + previousLocation,
+                "to=" + wafer.CurrentLocation,
+                "state=" + wafer.State);
             NotifyAndSave("MoveWafer");
         }
 
@@ -1139,6 +1188,14 @@ namespace QMC.CDT320.Materials
                 outputWafer.State = WaferMaterialState.WorkReady;
                 outputWafer.UpdatedAt = DateTime.Now;
 
+                SequenceTrace.MaterialChange(
+                    "OutputStageReceivePlanInitialize",
+                    "wafer=" + outputWafer.WaferId,
+                    "to=" + outputWafer.CurrentLocation,
+                    "state=" + outputWafer.State,
+                    "side=" + side,
+                    "total=" + outputWafer.OutputReceiveTotalCount,
+                    "sourceWafer=" + outputWafer.OutputReceiveSourceWaferId);
                 NotifyAndSave("OutputStageReceivePlanInitialize");
                 return true;
             }
@@ -1210,6 +1267,15 @@ namespace QMC.CDT320.Materials
 
                     outputWafer.OutputReceiveNextIndex = index;
                     outputWafer.UpdatedAt = DateTime.Now;
+                    SequenceTrace.MaterialChange(
+                        "OutputStageReceiveTargetReserve",
+                        "wafer=" + outputWafer.WaferId,
+                        "to=" + outputWafer.CurrentLocation,
+                        "state=" + outputWafer.State,
+                        "side=" + side,
+                        "order=" + index,
+                        "mapX=" + entry.DieMapX,
+                        "mapY=" + entry.DieMapY);
                     NotifyAndSave("OutputStageReceiveTargetReserve");
                     return target;
                 }
@@ -1249,6 +1315,7 @@ namespace QMC.CDT320.Materials
                     }
 
                     DieMaterial die = GetOrCreateDieMaterial(dieId);
+                    MaterialLocation previousLocation = die.CurrentLocation;
                     die.CurrentLocation = new MaterialLocation { Kind = stageLocation };
                     die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
                     die.WaferID_Output = outputWafer.WaferId;
@@ -1277,6 +1344,16 @@ namespace QMC.CDT320.Materials
                         ? WaferMaterialState.Finish
                         : WaferMaterialState.Working;
                     outputWafer.UpdatedAt = DateTime.Now;
+                    SequenceTrace.MaterialChange(
+                        "MoveDieToOutputStage",
+                        "die=" + die.DieId,
+                        "wafer=" + outputWafer.WaferId,
+                        "from=" + previousLocation,
+                        "to=" + die.CurrentLocation,
+                        "state=" + outputWafer.State,
+                        "side=" + side,
+                        "order=" + outputWafer.OutputReceiveNextIndex,
+                        "result=" + die.Result);
                     NotifyAndSave("MoveDieToOutputStage");
                     return true;
                 }
@@ -1830,6 +1907,89 @@ namespace QMC.CDT320.Materials
             return targetCount;
         }
 
+        private static void BindProcessTestStageWaferToCassetteSlotNoLock(
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            WaferMaterial wafer,
+            MaterialLocationKind stageLocation,
+            WaferMaterialState state,
+            string lotId,
+            string tapeFrameSpecName)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                CassetteMaterial cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+                if (cassette == null)
+                    return;
+
+                cassette.EnsureSlots();
+                if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                    return;
+
+                CassetteSlotMaterial slot = cassette.Slots[slotNumber];
+                string previousWaferId = slot != null ? slot.WaferId : "";
+                if (!string.IsNullOrWhiteSpace(previousWaferId) &&
+                    !string.Equals(previousWaferId, wafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                {
+                    WaferMaterial previous = State.Wafers.FirstOrDefault(w =>
+                        string.Equals(w.WaferId, previousWaferId, StringComparison.OrdinalIgnoreCase));
+                    if (previous != null)
+                    {
+                        previous.CurrentLocation = MaterialLocation.Unknown();
+                        previous.State = WaferMaterialState.Empty;
+                        previous.UpdatedAt = DateTime.Now;
+                    }
+                }
+
+                wafer.CassetteLotId = lotId ?? wafer.CassetteLotId;
+                wafer.SourceCassetteId = cassette.CassetteId;
+                wafer.SourceCassetteRole = cassetteRole;
+                wafer.SourceSlotNumber = slotNumber;
+                wafer.CurrentLocation = new MaterialLocation { Kind = stageLocation };
+                wafer.State = WaferMaterialStateText.Normalize(state);
+                wafer.TapeFrameSpecName = tapeFrameSpecName ?? wafer.TapeFrameSpecName;
+                ApplyWaferCassettePosition(wafer, ResolveSlotPosition(null, slotNumber));
+
+                if (cassetteRole == CassetteMaterialRole.Good1 ||
+                    cassetteRole == CassetteMaterialRole.Good2 ||
+                    cassetteRole == CassetteMaterialRole.Ng1)
+                {
+                    wafer.OutputCassetteId = cassette.CassetteId;
+                    wafer.OutputCassetteRole = cassetteRole;
+                    wafer.OutputSlotNumber = slotNumber;
+                }
+
+                cassette.CassetteLotId = lotId ?? cassette.CassetteLotId;
+                cassette.IsMapped = true;
+                cassette.IsEnabled = true;
+                cassette.IsPresent = true;
+                cassette.LastScanTime = DateTime.Now;
+                slot.WaferId = wafer.WaferId;
+                slot.HasWafer = true;
+                wafer.UpdatedAt = DateTime.Now;
+
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 Stage wafer와 Cassette slot을 동기화했습니다. role=" + cassetteRole +
+                    ", slot=" + (slotNumber + 1).ToString("00") +
+                    ", wafer=" + wafer.WaferId +
+                    ", location=" + stageLocation +
+                    ", state=" + wafer.State + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "공정 테스트 Stage/Cassette slot 동기화 실패: role=" + cassetteRole +
+                    ", slot=" + (slotNumber + 1).ToString("00") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         private static string BuildProcessTestDieId(WaferMaterial wafer, int mapY, int mapX)
         {
             string waferId = wafer != null && !string.IsNullOrWhiteSpace(wafer.WaferId) ? wafer.WaferId : "TEST";
@@ -1852,11 +2012,14 @@ namespace QMC.CDT320.Materials
             WaferMaterial wafer = GetOrCreateWafer(waferId);
             wafer.CassetteLotId = lotId;
             wafer.CurrentLocation = new MaterialLocation { Kind = location };
-            wafer.State = WaferMaterialState.WorkReady;
+            wafer.State = WaferMaterialState.Working;
             wafer.TapeFrameSpecName = tapeFrameSpecName;
             wafer.OutputGrade = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
             wafer.OutputCassetteRole = side == QMC.CDT320.BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
             wafer.OutputSlotNumber = 0;
+            wafer.SourceCassetteId = wafer.OutputCassetteRole.ToString();
+            wafer.SourceCassetteRole = wafer.OutputCassetteRole;
+            wafer.SourceSlotNumber = 0;
 
             DieMap binMap = LoadRecipeBinMap(side);
             if (!IsUsableSourceMap(binMap))
@@ -3379,10 +3542,17 @@ namespace QMC.CDT320.Materials
         public static void MoveDie(string dieId, MaterialLocation location)
         {
             var die = GetOrCreateDieMaterial(dieId);
+            MaterialLocation previousLocation = die.CurrentLocation;
             die.CurrentLocation = location ?? MaterialLocation.Unknown();
             die.ReservedPickerLocation = MaterialLocationKind.Unknown;
             die.ReservedPickerNo = -1;
             die.UpdatedAt = DateTime.Now;
+            SequenceTrace.MaterialChange(
+                "MoveDie",
+                "die=" + die.DieId,
+                "from=" + previousLocation,
+                "to=" + die.CurrentLocation,
+                "result=" + die.Result);
             NotifyAndSave("MoveDie");
         }
 
@@ -3444,6 +3614,7 @@ namespace QMC.CDT320.Materials
                         return false;
                     }
 
+                    MaterialLocation previousLocation = die.CurrentLocation;
                     die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;
@@ -3451,6 +3622,14 @@ namespace QMC.CDT320.Materials
                     die.PickedPickerNo = pickerNo;
                     die.PickedAt = DateTime.Now;
                     die.UpdatedAt = DateTime.Now;
+                    SequenceTrace.MaterialChange(
+                        "PickDie",
+                        "die=" + die.DieId,
+                        "from=" + previousLocation,
+                        "to=" + die.CurrentLocation,
+                        "pickerLocation=" + pickerLocation,
+                        "pickerNo=" + pickerNo,
+                        "result=" + die.Result);
                     NotifyAndSave("PickDie");
                     return true;
                 }

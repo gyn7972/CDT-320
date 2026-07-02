@@ -10,7 +10,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 {
     public partial class AxisPositionPopup : Form
     {
-        private const int DefaultTargetRows = 26;
+        private const int DefaultTargetRows = 40;
         private const int RefreshIntervalMs = 500;
 
         private readonly List<BaseAxis> _axes;

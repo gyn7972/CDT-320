@@ -357,6 +357,12 @@ namespace QMC.CDT320.Motion.SharedRailX
             SharedRailXMovePlan plan,
             IReadOnlyList<SharedRailXAxisSetting> settings)
         {
+            if (IsInputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
+                return IsInputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true);
+
+            if (IsInputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
+                return IsInputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false);
+
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
                 return IsOutputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true, plan, settings);
 
@@ -364,6 +370,39 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return IsOutputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false, plan, settings);
 
             return true;
+        }
+
+        private static bool IsInputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
+        {
+            return pair.Matches(SharedRailXAxis.InputVisionX, pickerAxis);
+        }
+
+        private bool IsInputVisionPickerPairRequired(SharedRailXAxis pickerAxis, bool isFront)
+        {
+            try
+            {
+                PickerWorkZone workZone;
+                string owner;
+                bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
+                if (workAreaActive && workZone == PickerWorkZone.Bottom)
+                {
+                    QMC.Common.Log.Write("SharedRailX",
+                        "InputVisionX/" + pickerAxis +
+                        " pair clearance bypassed because picker is in Bottom inspection work area. side=" +
+                        (isFront ? "Front" : "Rear") +
+                        ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner));
+                    return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsOutputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
