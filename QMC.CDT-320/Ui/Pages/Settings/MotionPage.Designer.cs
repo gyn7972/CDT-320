@@ -49,6 +49,7 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnParaLoad;
         private QMC.CDT_320.Ui.Controls.ActionButton btnParaSave;
         private QMC.CDT_320.Ui.Controls.ActionButton btnBoardScan;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnMotionTest;
 
         protected override void Dispose(bool disposing)
         {
@@ -142,6 +143,7 @@
             this.btnParaLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnParaSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnBoardScan = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnMotionTest = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.configTabs.SuspendLayout();
@@ -896,20 +898,21 @@
             // 
             // actionsPanel
             // 
-            this.actionsPanel.ColumnCount = 13;
+            this.actionsPanel.ColumnCount = 14;
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 6F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 6F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 9F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.Controls.Add(this.btnEnable, 0, 0);
             this.actionsPanel.Controls.Add(this.btnDisable, 1, 0);
             this.actionsPanel.Controls.Add(this.btnHome, 2, 0);
@@ -923,6 +926,7 @@
             this.actionsPanel.Controls.Add(this.btnParaLoad, 10, 0);
             this.actionsPanel.Controls.Add(this.btnParaSave, 11, 0);
             this.actionsPanel.Controls.Add(this.btnBoardScan, 12, 0);
+            this.actionsPanel.Controls.Add(this.btnMotionTest, 13, 0);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionsPanel.Location = new System.Drawing.Point(8, 832);
             this.actionsPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -1113,6 +1117,20 @@
             this.btnBoardScan.Size = new System.Drawing.Size(110, 44);
             this.btnBoardScan.TabIndex = 10;
             this.btnBoardScan.Text = "BOARD SCAN";
+            // 
+            // btnMotionTest
+            // 
+            this.btnMotionTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMotionTest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMotionTest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMotionTest.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnMotionTest.ForeColor = System.Drawing.Color.White;
+            this.btnMotionTest.Location = new System.Drawing.Point(1532, 8);
+            this.btnMotionTest.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
+            this.btnMotionTest.Name = "btnMotionTest";
+            this.btnMotionTest.Size = new System.Drawing.Size(126, 44);
+            this.btnMotionTest.TabIndex = 11;
+            this.btnMotionTest.Text = "MOTION TEST";
             // 
             // MotionPage
             // 

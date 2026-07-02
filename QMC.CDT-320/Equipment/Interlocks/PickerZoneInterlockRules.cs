@@ -459,6 +459,118 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        public static bool VerifyFacingYDistanceFirst(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                    return true;
+
+                if (!IsAxisMotionRequest(request.MoveKind))
+                    return true;
+
+                bool isFront;
+                PickerAxis axis;
+                string movingName;
+                if (!TryResolvePickerXYRequest(request, out isFront, out axis, out movingName))
+                    return true;
+
+                string detail;
+                bool allowed = CanMovePickerAxisByFacingYInterlock(
+                    request.Machine,
+                    isFront,
+                    axis,
+                    request.TargetValue,
+                    request.TargetName,
+                    null,
+                    null,
+                    out detail);
+                if (allowed)
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 1차 거리 인터락 차단: Front/Rear PickerX 거리와 PickerY 돌출 상태가 안전하지 않습니다. " +
+                    "moveKind=" + request.MoveKind +
+                    ", originalMoveKind=" + request.OriginalMoveKind +
+                    ", executionMode=" + request.ExecutionMode +
+                    ", target=" + request.TargetValue.ToString("0.###") +
+                    ", targetName=" + (string.IsNullOrWhiteSpace(request.TargetName) ? "-" : request.TargetName) +
+                    ", detail=" + detail,
+                    out reason);
+            }
+            catch (Exception ex)
+            {
+                string movingName = request != null ? request.MovingName : "Picker";
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Front/Rear PickerY 돌출 X거리 1차 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisMotionRequest(MotionGuardMoveKind moveKind)
+        {
+            return moveKind == MotionGuardMoveKind.AxisMove ||
+                   moveKind == MotionGuardMoveKind.AxisHome ||
+                   moveKind == MotionGuardMoveKind.AxisTeachingMove ||
+                   moveKind == MotionGuardMoveKind.AxisContinuousJog ||
+                   moveKind == MotionGuardMoveKind.AxisStepJog;
+        }
+
+        private static bool TryResolvePickerXYRequest(
+            MotionGuardRuleContext request,
+            out bool isFront,
+            out PickerAxis axis,
+            out string movingName)
+        {
+            isFront = false;
+            axis = PickerAxis.PickerX;
+            movingName = request != null ? request.MovingName : string.Empty;
+
+            if (request == null)
+                return false;
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "FrontPickerX"))
+            {
+                isFront = true;
+                axis = PickerAxis.PickerX;
+                movingName = "FrontPickerX";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "FrontPickerY"))
+            {
+                isFront = true;
+                axis = PickerAxis.PickerY;
+                movingName = "FrontPickerY";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "RearPickerX"))
+            {
+                isFront = false;
+                axis = PickerAxis.PickerX;
+                movingName = "RearPickerX";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "RearPickerY"))
+            {
+                isFront = false;
+                axis = PickerAxis.PickerY;
+                movingName = "RearPickerY";
+                return true;
+            }
+
+            return false;
+        }
+
         private static bool VerifyPickerXMove(
             MotionGuardRuleContext request,
             bool isFront,

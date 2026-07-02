@@ -355,6 +355,8 @@ namespace QMC.CDT320.Sequencing
 
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     axis,
+                    target,
+                    null,
                     targetName,
                     description,
                     ct).ConfigureAwait(false);
@@ -735,8 +737,11 @@ namespace QMC.CDT320.Sequencing
             if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
                 return 0;
 
+            double pairedXTarget;
             return await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                 PickerAxis.PickerY,
+                target,
+                targets.TryGetValue(PickerAxis.PickerX, out pairedXTarget) ? (double?)pairedXTarget : null,
                 targetName,
                 description,
                 ct).ConfigureAwait(false);
@@ -744,6 +749,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
             PickerAxis axis,
+            double target,
+            double? pairedXTarget,
             string targetName,
             string description,
             CancellationToken ct)
@@ -761,7 +768,8 @@ namespace QMC.CDT320.Sequencing
 
                 bool waitLogged = false;
                 PickerWorkZone targetZone = ResolvePickerYForwardTargetZone(targetName);
-                while (!IsOppositePickerYReadyForForwardMove(targetZone))
+                string gateDetail;
+                while (!IsOppositePickerYReadyForForwardMove(targetZone, target, pairedXTarget, targetName, out gateDetail))
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
@@ -774,12 +782,18 @@ namespace QMC.CDT320.Sequencing
                             "side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
                             ", targetZone=" + targetZone +
+                            ", targetY=" + target.ToString("0.###") +
+                            ", pairedXTarget=" + (pairedXTarget.HasValue ? pairedXTarget.Value.ToString("0.###") : "-") +
                             ", description=" + description +
+                            ", gate=" + gateDetail +
                             ", opposite=" + BuildOppositePickerYState() + " - Wait");
                         WriteSharedRailXLog(
                             Name + " PickerYMoveGate wait. side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
                             ", targetZone=" + targetZone +
+                            ", targetY=" + target.ToString("0.###") +
+                            ", pairedXTarget=" + (pairedXTarget.HasValue ? pairedXTarget.Value.ToString("0.###") : "-") +
+                            ", gate=" + gateDetail +
                             ", description=" + description +
                             ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                         waitLogged = true;
@@ -843,14 +857,66 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
-        private bool IsOppositePickerYReadyForForwardMove(PickerWorkZone targetZone)
+        private bool IsOppositePickerYReadyForForwardMove(
+            PickerWorkZone targetZone,
+            double targetY,
+            double? pairedXTarget,
+            string targetName,
+            out string detail)
         {
+            detail = string.Empty;
+
             try
             {
                 bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+
+                string facingDetail;
+                bool facingClear = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
+                    Context != null ? Context.Machine : null,
+                    Side == PickerSequenceSide.Front,
+                    PickerAxis.PickerY,
+                    targetY,
+                    targetName,
+                    pairedXTarget,
+                    null,
+                    out facingDetail);
+                if (!facingClear)
+                {
+                    detail = "FacingYDistanceBlocked: " + facingDetail;
+                    return false;
+                }
+
+                if (targetZone == PickerWorkZone.Bottom &&
+                    IsOppositePickerInPlacePhase() &&
+                    !IsOppositePickerYAtAvoidPosition())
+                {
+                    detail = "OppositePlacePhaseYOut";
+                    return false;
+                }
+
+                PickerWorkZone workAreaZone;
+                string workAreaOwner;
+                bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    oppositeIsFront,
+                    out workAreaZone,
+                    out workAreaOwner);
+                if (targetZone == PickerWorkZone.Bottom &&
+                    oppositeWorkActive &&
+                    workAreaZone == PickerWorkZone.Output &&
+                    !IsOppositePickerYAtAvoidPosition())
+                {
+                    detail = "OppositeOutputWorkAreaYOut owner=" + workAreaOwner;
+                    return false;
+                }
+
                 PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
                 if (activeTargetZone != PickerWorkZone.Unknown)
-                    return PickerZoneInterlockRules.CanShareForwardY(targetZone, activeTargetZone);
+                {
+                    bool canShare = PickerZoneInterlockRules.CanShareForwardY(targetZone, activeTargetZone);
+                    if (!canShare)
+                        detail = "OppositeActiveYTargetZone=" + activeTargetZone;
+                    return canShare;
+                }
 
                 if (IsOppositePickerYAtAvoidPosition())
                     return true;
@@ -858,11 +924,35 @@ namespace QMC.CDT320.Sequencing
                 PickerWorkZone oppositeZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
                     Context != null ? Context.Machine : null,
                     oppositeIsFront);
-                return PickerZoneInterlockRules.CanShareForwardY(targetZone, oppositeZone);
+                bool shareByZone = PickerZoneInterlockRules.CanShareForwardY(targetZone, oppositeZone);
+                if (!shareByZone)
+                    detail = "OppositeCurrentZone=" + oppositeZone;
+                return shareByZone;
             }
             catch
             {
+                detail = "OppositePickerYReadyCheckException";
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerInPlacePhase()
+        {
+            try
+            {
+                if (Context == null || Context.PickerPhases == null)
+                    return false;
+
+                PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                PickerPhaseState opposite = Side == PickerSequenceSide.Front ? snapshot.Rear : snapshot.Front;
+                return opposite.Phase == PickerProcessPhase.Place;
+            }
+            catch
+            {
+                return true;
             }
             finally
             {

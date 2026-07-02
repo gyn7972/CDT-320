@@ -719,6 +719,12 @@
     <Compile Include="Ui\Dialogs\AxisJogPopup.Designer.cs">
       <DependentUpon>AxisJogPopup.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\MotionTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MotionTestDialog.Designer.cs">
+      <DependentUpon>MotionTestDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\AxisPositionPopup.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1166,6 +1172,9 @@
     <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
       <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\MotionTestDialog.resx">
+      <DependentUpon>MotionTestDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\NumericKeypadDialog.resx">
       <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -1268,6 +1277,11 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.resx">
       <DependentUpon>MotionPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.Speed.resx">
+      <DependentUpon>MotionPage.Speed.cs</DependentUpon>
+      <ManifestResourceName>QMC.CDT_320.Ui.Pages.Settings.MotionPage.Speed</ManifestResourceName>
+      <LogicalName>QMC.CDT_320.Ui.Pages.Settings.MotionPage.Speed.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>

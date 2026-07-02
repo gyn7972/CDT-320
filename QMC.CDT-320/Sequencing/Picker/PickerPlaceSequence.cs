@@ -438,6 +438,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                bool safeWaitPositionPrepared = false;
                 while (!ct.IsCancellationRequested)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -472,6 +473,15 @@ namespace QMC.CDT320.Sequencing
                     if (!autoMode)
                         return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material", detail);
 
+                    if (!safeWaitPositionPrepared)
+                    {
+                        int waitSafeResult = await MovePickerToSafeYBeforeOutputStageReadyWaitAsync(ct).ConfigureAwait(false);
+                        if (waitSafeResult != 0)
+                            return waitSafeResult;
+
+                        safeWaitPositionPrepared = true;
+                    }
+
                     WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
                     Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitOutputStageReady");
                     await Task.Delay(1, ct).ConfigureAwait(false);
@@ -496,6 +506,58 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PLACE-OUTPUT-STAGE-READY-EX", "Material",
                     "OutputStage 수령 준비 확인 중 예외가 발생했습니다. side=" + _currentOutputSide +
                     ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MovePickerToSafeYBeforeOutputStageReadyWaitAsync(CancellationToken ct)
+        {
+            try
+            {
+                int zResult = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    "Place 준비 대기 전 PickerZ 전체 Avoid",
+                    ct).ConfigureAwait(false);
+                if (zResult != 0)
+                    return zResult;
+
+                double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                if (IsPickerAxisInPosition(PickerAxis.PickerY, yAvoid))
+                    return 0;
+
+                int yResult = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    yAvoid,
+                    "Place 준비 대기 전 PickerY SafeY",
+                    ct,
+                    "AvoidPosition;PickerPhase=PlaceReadyWaitSafeY").ConfigureAwait(false);
+                if (yResult != 0)
+                    return yResult;
+
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputStage 준비 대기 전 PickerY를 SafeY/Avoid로 이동했습니다. " +
+                    "side=" + Side +
+                    ", outputSide=" + _currentOutputSide +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-WAIT-SAFE-Y-EX", Name,
+                    "OutputStage 준비 대기 전 PickerY SafeY 이동 중 예외가 발생했습니다. side=" +
+                    Side + ", outputSide=" + _currentOutputSide +
                     ", pickerNo=" + _currentPickerNo +
                     ", error=" + ex.Message);
             }
