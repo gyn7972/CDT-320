@@ -12,6 +12,12 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double ThetaToleranceDeg { get; set; } = 0.02;
         [DataMember] public int MaxThetaIterations { get; set; } = 5;
         [DataMember] public double ThetaMoveGain { get; set; } = 1.0;
+        [DataMember] public double XyToleranceMm { get; set; } = 0.001;
+        [DataMember] public int MaxXyIterations { get; set; } = 5;
+        [DataMember] public double XyMoveGainX { get; set; } = 1.0;
+        [DataMember] public double XyMoveGainY { get; set; } = 1.0;
+        [DataMember] public bool UseDiagonalXyTolerance { get; set; } = true;
+        [DataMember] public double FineAlignMaxXyMoveMm { get; set; } = 0.2;
         [DataMember] public bool RunAutoFocusAfterTheta { get; set; } = true;
 
         public void EnsureDefaults()
@@ -30,6 +36,20 @@ namespace QMC.CDT320.Calibration
                 MaxThetaIterations = 20;
             if (ThetaMoveGain <= 0.0)
                 ThetaMoveGain = 1.0;
+            if (XyToleranceMm <= 0.0)
+                XyToleranceMm = 0.001;
+            if (MaxXyIterations <= 0)
+                MaxXyIterations = 5;
+            if (MaxXyIterations > 20)
+                MaxXyIterations = 20;
+            if (Math.Abs(XyMoveGainX) <= double.Epsilon)
+                XyMoveGainX = 1.0;
+            if (Math.Abs(XyMoveGainY) <= double.Epsilon)
+                XyMoveGainY = 1.0;
+            if (FineAlignMaxXyMoveMm <= 0.0)
+                FineAlignMaxXyMoveMm = 0.2;
+            if (FineAlignMaxXyMoveMm > 2.0)
+                FineAlignMaxXyMoveMm = 2.0;
         }
     }
 
@@ -49,6 +69,10 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double ThetaOffset { get; set; }
         [DataMember] public double TZeroHomeOffset { get; set; }
         [DataMember] public double MeasuredTPosition { get; set; }
+        [DataMember] public double FinalPickerX { get; set; }
+        [DataMember] public double FinalPickerY { get; set; }
+        [DataMember] public double FinalPickerZ { get; set; }
+        [DataMember] public double FinalPickerT { get; set; }
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
 

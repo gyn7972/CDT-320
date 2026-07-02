@@ -1895,10 +1895,22 @@ namespace QMC.CDT320.Sequencing
 
         private double ResolveNeedleXForVisionX(InputStageUnit stage, double visionX, double visionOffsetX = 0.0)
         {
-            double offset = stage != null && stage.Setup != null
-                ? stage.Setup.NeedleXToVisionXOffset
-                : 0.0;
+            double offset = ResolveNeedleCalibrationOffsetX();
             return visionX + visionOffsetX - offset;
+        }
+
+        private double ResolveNeedleCalibrationOffsetX()
+        {
+            if (Context == null ||
+                Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                !Context.Machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                return 0.0;
+
+            return Context.Machine.VisionUnit.Config.CalibrationData.Needle.NeedleXToVisionXOffset;
         }
 
         private InputStageUnit ResolveInputStage()

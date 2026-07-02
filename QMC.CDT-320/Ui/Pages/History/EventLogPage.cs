@@ -28,6 +28,15 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 사용자가 직접 연 로그 파일 경로. null 이면 DATE 피커 날짜 기준으로 읽는다.
         private string _overridePath;
 
+        // 첫 컬럼(시간)은 행 헤더처럼 동작한다. Shift 범위 선택의 기준이 되는 직전 클릭 행(-1 이면 없음).
+        private int _lastRowClicked = -1;
+
+        // 첫 컬럼(시간) = 행 전체 선택 트리거. 컬럼 순서: [0]When, Kind, User, Code, Source, [5]Description.
+        private const int RowSelectColumnIndex = 0;
+
+        // Description 컬럼(마지막). 더블클릭하면 전체 내용을 큰 창으로 보여준다.
+        private const int DescriptionColumnIndex = 5;
+
         public EventLogPage()
             : this(null)
         {
@@ -75,6 +84,10 @@ namespace QMC.CDT_320.Ui.Pages.History
             btnOpenFile.Click += (s, e) => OpenFile();
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
             _liveFlushTimer.Tick += (s, e) => FlushPendingLiveRows();
+            // 행 헤더가 숨겨져 있으므로 첫 컬럼(시간)을 행 헤더처럼 써서 행 전체를 선택한다.
+            _grid.CellClick += Grid_CellClick;
+            // Description 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
+            _grid.CellDoubleClick += Grid_CellDoubleClick;
             Disposed += (s, e) =>
             {
                 UnsubscribeLiveEvents();
@@ -82,6 +95,58 @@ namespace QMC.CDT_320.Ui.Pages.History
                 _liveFlushTimer.Dispose();
             };
             Load += (s, e) => ReloadCurrent();
+        }
+
+        // 첫 컬럼(시간)을 행 헤더처럼 다뤄 행 전체를 선택한다. 다른 컬럼은 기본 셀 단위 선택을 유지한다.
+        // 일반 클릭=단일 행, Ctrl+클릭=행 토글(다중), Shift+클릭=직전 클릭 행부터 범위 선택.
+        private void Grid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex != RowSelectColumnIndex)
+                return;
+
+            Keys mod = Control.ModifierKeys;
+
+            if ((mod & Keys.Control) == Keys.Control)
+            {
+                // Ctrl+클릭: 해당 행 선택을 토글하고 기존 선택은 유지한다.
+                _grid.Rows[e.RowIndex].Selected = !_grid.Rows[e.RowIndex].Selected;
+            }
+            else if ((mod & Keys.Shift) == Keys.Shift && _lastRowClicked >= 0)
+            {
+                // Shift+클릭: 직전 클릭 행부터 현재 행까지 범위 선택.
+                _grid.ClearSelection();
+                int from = Math.Min(_lastRowClicked, e.RowIndex);
+                int to   = Math.Max(_lastRowClicked, e.RowIndex);
+                for (int i = from; i <= to && i < _grid.Rows.Count; i++)
+                    _grid.Rows[i].Selected = true;
+            }
+            else
+            {
+                // 일반 클릭: 그 행만 선택한다.
+                _grid.ClearSelection();
+                _grid.Rows[e.RowIndex].Selected = true;
+            }
+
+            _lastRowClicked = e.RowIndex;
+        }
+
+        // Description 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
+        private void Grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex < 0 || e.ColumnIndex != DescriptionColumnIndex) return;
+
+                string text = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value as string ?? string.Empty;
+                if (text.Length == 0) return;
+
+                using (var dlg = new Ui.Dialogs.TextViewerDialog("DESCRIPTION", text, false))
+                    dlg.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         // 페이지에 지정된 고정 Kind 만 표시한다(프리셋이 없으면 전체 표시).
@@ -164,6 +229,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             if (ShouldRefreshVisible(this))
             {
+                // 페이지는 캐시되어 재사용되므로(TabBase.PageCache), 다시 보일 때마다 CSV를 재로드한다.
+                // 재로드하지 않으면 페이지가 숨겨진 동안 기록된 이벤트(라이브 큐는 숨김 시 비워짐)가 누락된다.
+                ReloadCurrent();
                 SubscribeLiveEvents();
                 if (!_liveFlushTimer.Enabled)
                     _liveFlushTimer.Start();

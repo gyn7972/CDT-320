@@ -112,10 +112,13 @@
         {
             try
             {
-                return EquipmentDataStore.Save(data, storageKey, "Setup").Success;
+                DataStoreResult result = EquipmentDataStore.Save(data, storageKey, "Setup");
+                LogSaveFailureIfNeeded(result, "Setup", storageKey, string.Empty);
+                return result.Success;
             }
-            catch
+            catch (System.Exception ex)
             {
+                LogStoreException("Setup", storageKey, string.Empty, ex);
                 return false;
             }
             finally
@@ -127,10 +130,13 @@
         {
             try
             {
-                return EquipmentDataStore.Save(data, storageKey, "Config").Success;
+                DataStoreResult result = EquipmentDataStore.Save(data, storageKey, "Config");
+                LogSaveFailureIfNeeded(result, "Config", storageKey, string.Empty);
+                return result.Success;
             }
-            catch
+            catch (System.Exception ex)
             {
+                LogStoreException("Config", storageKey, string.Empty, ex);
                 return false;
             }
             finally
@@ -142,16 +148,71 @@
         {
             try
             {
-                return RecipeDataStore.Save(data, recipeName, storageKey).Success;
+                DataStoreResult result = RecipeDataStore.Save(data, recipeName, storageKey);
+                LogSaveFailureIfNeeded(result, "Recipe", storageKey, recipeName);
+                return result.Success;
             }
-            catch
+            catch (System.Exception ex)
             {
+                LogStoreException("Recipe", storageKey, recipeName, ex);
                 return false;
             }
             finally
             {
             }
         }
+
+        private static void LogSaveFailureIfNeeded(DataStoreResult result, string category, string storageKey, string recipeName)
+        {
+            try
+            {
+                if (result != null && result.Success)
+                    return;
+
+                string message = result != null ? result.Message : "저장 결과가 없습니다.";
+                string path = result != null ? result.Path : string.Empty;
+                System.Exception exception = result != null ? result.Exception : null;
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "DATA",
+                    "UNIT-DATA-SAVE",
+                    "Unit data 저장 실패. category=" + category +
+                    ", recipe=" + (recipeName ?? string.Empty) +
+                    ", storageKey=" + (storageKey ?? string.Empty) +
+                    ", path=" + (path ?? string.Empty) +
+                    ", message=" + (message ?? string.Empty) +
+                    (exception != null ? ", exception=" + exception.Message : string.Empty));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void LogStoreException(string category, string storageKey, string recipeName, System.Exception ex)
+        {
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    "DATA",
+                    "UNIT-DATA-SAVE-EX",
+                    "Unit data 저장 예외. category=" + category +
+                    ", recipe=" + (recipeName ?? string.Empty) +
+                    ", storageKey=" + (storageKey ?? string.Empty) +
+                    ", error=" + (ex != null ? ex.Message : string.Empty));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         public static bool DeleteSetup(string storageKey)
         {
             try

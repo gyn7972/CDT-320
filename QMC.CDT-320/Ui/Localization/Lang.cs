@@ -272,9 +272,8 @@ namespace QMC.CDT_320.Ui.Localization
 
             // Stage 4 — RemoteViewer + ActiveLot
             A("settings.remoteViewer","원격 뷰어",           "Remote Viewer");
-            A("wi.activeLot",         "현재 LOT",            "Active Lot");
-            A("wi.opPanelStatus",     "운전 패널 상태",       "OP Panel Status");
-            A("wi.plateStatus",       "Plate 적재 현황",      "Plate Status");
+            A("wi.state",             "STATE",              "STATE");
+            A("wi.visionTest",        "VISION TEST",        "VISION TEST");
             // Stage 19 — Alarm Master
             A("settings.alarmMaster", "알람 마스터",         "Alarm Master");
 
@@ -458,9 +457,8 @@ namespace QMC.CDT_320.Ui.Localization
             Z("settings.remoteViewer","远程查看器");
 
             // 작업 정보
-            Z("wi.activeLot",        "当前批次");
-            Z("wi.opPanelStatus",    "操作面板状态");
-            Z("wi.plateStatus",      "Plate 状态");
+            Z("wi.state",            "STATE");
+            Z("wi.visionTest",       "VISION TEST");
             Z("recipe.moduleSubset", "模块选项");
             Z("recipe.outputSubset", "输出选项");
             Z("wi.inputCassette",    "输入卡匣");
@@ -553,9 +551,8 @@ namespace QMC.CDT_320.Ui.Localization
             J("settings.remoteViewer","リモートビューア");
 
             // 작업 정보
-            J("wi.activeLot",        "アクティブロット");
-            J("wi.opPanelStatus",    "操作パネル状態");
-            J("wi.plateStatus",      "Plate ステータス");
+            J("wi.state",            "STATE");
+            J("wi.visionTest",       "VISION TEST");
             J("recipe.moduleSubset", "モジュールオプション");
             J("recipe.outputSubset", "出力オプション");
             J("wi.inputCassette",    "入力カセット");

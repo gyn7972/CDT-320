@@ -416,8 +416,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private int AbortSeq(string title, string message)
         {
-            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
-            EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", title + " 시퀀스 중단: " + message);
+            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "OUTPUT-STAGE", "UI", title + " 시퀀스 중단: " + message);
             _lastAbortReason = message;
             return -1;
         }
@@ -647,7 +646,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         if (!_outputStageUnit.IsStageAxisHomeDone(axis))
                         {
                             string homeMsg = optionParameterGrid.SelectedItem.Key + " 불가: " + axis + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
-                            EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", homeMsg);
+                            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "OUTPUT-STAGE", "UI", homeMsg);
                             QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
                         }
@@ -831,7 +830,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     if (!VerifyNamedCylinderMove(movingName, forwardOn, out reason))
                     {
-                        EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", movingName + " output blocked by interlock: " + reason);
+                        QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "OUTPUT-STAGE", "UI", movingName + " output blocked by interlock: " + reason);
                         return Task.FromResult(-1);
                     }
                 }

@@ -176,6 +176,10 @@ namespace QMC.CDT320.Interlocks
             if (IsInspectionZHoldMove(request))
                 return true;
 
+            string fineAlignDetail;
+            if (MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail))
+                return true;
+
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
             for (int i = 0; i < zAxes.Length; i++)
             {
@@ -226,7 +230,9 @@ namespace QMC.CDT320.Interlocks
         private static bool CanAutoRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
+            string fineAlignDetail;
             if (!IsInspectionZHoldMove(request) &&
+                !MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail) &&
                 !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                 return false;
 

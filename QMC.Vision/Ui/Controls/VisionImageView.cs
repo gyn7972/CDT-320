@@ -18,6 +18,7 @@ namespace QMC.Vision.Ui.Controls
         private bool _pass = true;
         private string[] _lines;        // 좌상단 측정값 텍스트
         private PointF[] _marks;         // 칩핑/이물 마크(이미지 좌표)
+        private QMC.Vision.Core.InspectionOverlayStore.Geom _geom;   // 검출 기하 — 있으면 모니터링과 동일 렌더러로 그림
 
         private float _zoom = 1f;
         private PointF _pan = PointF.Empty;
@@ -95,9 +96,12 @@ namespace QMC.Vision.Ui.Controls
             Invalidate();
         }
 
+        /// <summary>검출 기하(박스/프로파일/결함) 설정 — 있으면 모니터링과 동일 렌더러로 그린다.</summary>
+        public void SetInspectionGeom(QMC.Vision.Core.InspectionOverlayStore.Geom geom) { _geom = geom; Invalidate(); }
+
         public void ClearOverlay()
         {
-            _box = null; _marks = null; _lines = null; _verdict = "";
+            _box = null; _marks = null; _lines = null; _verdict = ""; _geom = null;
             Invalidate();
         }
 
@@ -137,51 +141,24 @@ namespace QMC.Vision.Ui.Controls
                 }
             }
 
-            // 검출 박스
-            if (_box != null && _box.Length >= 2)
+            // 검출 박스/마크 — Geom 있으면 모니터링과 동일 렌더러(종류별 Bottom/Side/Bin), 없으면 구형 폴백(박스+원).
+            if (_geom != null)
+                QMC.Vision.Core.InspectionOverlayRenderer.Draw(g, ToScreen, _geom);
+            else
             {
-                using (var pen = new Pen(_pass ? Color.FromArgb(0x4C, 0xE0, 0x6E) : Color.FromArgb(0xFF, 0x8A, 0x3A), 2f))
-                {
-                    PointF[] scr = ToScreen(_box);
-                    g.DrawPolygon(pen, scr);
-                }
+                if (_box != null && _box.Length >= 2)
+                    using (var pen = new Pen(_pass ? Color.FromArgb(0x4C, 0xE0, 0x6E) : Color.FromArgb(0xFF, 0x8A, 0x3A), 2f))
+                        g.DrawPolygon(pen, ToScreen(_box));
+                if (_marks != null)
+                    using (var pen = new Pen(Color.FromArgb(0xFF, 0x5A, 0x4A), 2f))
+                        foreach (PointF m in _marks)
+                        {
+                            PointF p = ToScreen(m);
+                            g.DrawEllipse(pen, p.X - 9, p.Y - 9, 18, 18);
+                        }
             }
-            // 마크(칩핑/이물)
-            if (_marks != null)
-            {
-                using (var pen = new Pen(Color.FromArgb(0xFF, 0x5A, 0x4A), 2f))
-                    foreach (PointF m in _marks)
-                    {
-                        PointF p = ToScreen(m);
-                        g.DrawEllipse(pen, p.X - 9, p.Y - 9, 18, 18);
-                    }
-            }
-            // 측정값 패널 — 불투명 검정 박스(반투명이면 제품이 비쳐 지저분), 텍스트 폭에 딱 맞춰 제품 가림 최소화.
-            if (_lines != null && _lines.Length > 0)
-            {
-                int maxW = 0;
-                foreach (string ln in _lines)
-                {
-                    int w = TextRenderer.MeasureText(g, ln, Font).Width;
-                    if (w > maxW) maxW = w;
-                }
-                int boxW = maxW + 10, boxH = 6 + _lines.Length * 16;
-                using (var bg = new SolidBrush(Color.Black))   // 완전 불투명
-                    g.FillRectangle(bg, 6, 6, boxW, boxH);
-                int y = 8;
-                foreach (string ln in _lines)
-                {
-                    TextRenderer.DrawText(g, ln, Font, new Point(10, y), Color.White);
-                    y += 16;
-                }
-            }
-            // 판정
-            if (!string.IsNullOrEmpty(_verdict))
-            {
-                using (var f = new Font("Segoe UI", 14F, FontStyle.Bold))
-                    TextRenderer.DrawText(g, _verdict, f, new Point(Width - 120, 8),
-                        _pass ? Color.FromArgb(0x4C, 0xE0, 0x6E) : Color.FromArgb(0xFF, 0x6B, 0x6B));
-            }
+            // 판정(우상단) + 측정값(우측하단 열) — CameraViewBase 와 동일한 공용 렌더러로 그린다(표시 통일).
+            QMC.Common.Ui.Controls.ResultOverlayRenderer.Draw(g, Width, Height, 0, _verdict, _pass, _lines, null);
         }
 
         private PointF[] ToScreen(PointF[] pts)
@@ -254,6 +231,7 @@ namespace QMC.Vision.Ui.Controls
                 view.Crossline = _crossline;
                 view.SetImage((Bitmap)_img.Clone());
                 view.SetOverlay(_box, _pass, _verdict, _lines, _marks);
+                view.SetInspectionGeom(_geom);
                 var f = new Form
                 {
                     Text = "Vision View — 확대 (휠 줌 / 드래그 이동 / 더블클릭 리셋)",

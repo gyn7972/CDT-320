@@ -239,12 +239,12 @@ namespace QMC.CDT_320
             return 0;
         }
 
-        internal void SaveMachineRecipe(string recipeName)
+        internal bool SaveMachineRecipe(string recipeName)
         {
             try
             {
                 if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
-                    return;
+                    return false;
 
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
                 if (!Machine.SaveRecipe(recipeName))
@@ -254,7 +254,15 @@ namespace QMC.CDT_320
                         UserSession.Name,
                         "DATA-SAVE",
                         "Machine recipe save returned false: " + recipeName);
+                    return false;
                 }
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "DATA-SAVE",
+                    "Machine recipe saved: " + CurrentRecipeName);
+                return true;
             }
             catch (Exception ex)
             {
@@ -263,6 +271,7 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine recipe save failed: " + recipeName + " / " + ex.Message);
+                return false;
             }
             finally
             {
@@ -845,7 +854,8 @@ namespace QMC.CDT_320
 
                 if (result == DialogResult.Yes)
                 {
-                    _materialSnapshotRestored = MaterialStorage.RestoreLastSnapshot();
+                    MaterialStorage.ReplaceState(snapshot);
+                    _materialSnapshotRestored = true;
                     if (!_materialSnapshotRestored)
                     {
                         Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restore failed. New empty Material state will be created. - Failed");
@@ -1060,10 +1070,18 @@ namespace QMC.CDT_320
             }
             if (active != null)
             {
+                EnsureDefaultPageShown(active);
                 Lang.Apply(active);
                 AccessControl.Apply(active);
             }
             _mainTabShown = true;
+        }
+
+        private static void EnsureDefaultPageShown(Control active)
+        {
+            var tab = active as TabBase;
+            if (tab != null)
+                tab.EnsureDefaultPageShown();
         }
 
         private static void SetVisibleIfChanged(Control control, bool visible)

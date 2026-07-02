@@ -240,13 +240,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null || host.Machine.VisionUnit.Config == null)
                     throw new InvalidOperationException("VisionUnit Config가 준비되지 않아 Camera Scale을 저장할 수 없습니다.");
 
-                VisionCameraCalibrationData data = host.Machine.VisionUnit.Config.CameraCalibration;
-                if (data == null)
-                {
-                    data = new VisionCameraCalibrationData();
-                    host.Machine.VisionUnit.Config.CameraCalibration = data;
-                }
-
+                host.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                VisionCameraCalibrationData data = host.Machine.VisionUnit.Config.CalibrationData.Camera;
                 data.EnsureObjects();
                 foreach (DataGridViewRow row in gridCameraScale.Rows)
                 {
@@ -283,15 +278,16 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Valid = false;
                 data.UpdatedAt = DateTime.Now;
                 data.UpdatedBy = "CameraScaleDialog";
+                host.Machine.VisionUnit.Config.CalibrationData.Touch("CameraScaleDialog");
 
                 host.SaveMachineSettings();
                 string saveReason;
-                if (!VisionCameraScaleStore.Save(data, out saveReason))
-                    throw new InvalidOperationException("Camera Scale 전용 저장 파일 쓰기에 실패했습니다. path=" + VisionCameraScaleStore.FilePath + ", reason=" + saveReason);
+                if (!CalibrationDataStore.Save(host.Machine.VisionUnit.Config.CalibrationData, out saveReason))
+                    throw new InvalidOperationException("CalibrationData 저장 실패. path=" + CalibrationDataStore.FilePath + ", reason=" + saveReason);
 
                 RefreshOpenVisionViewers();
                 EventLogger.Write(EventKind.Event, "VISION", "VISION-CAMERA-SCALE-SAVE",
-                    "카메라 Pixel Scale을 저장했습니다. path=" + VisionCameraScaleStore.FilePath);
+                    "카메라 Pixel Scale을 CalibrationData에 저장했습니다. path=" + CalibrationDataStore.FilePath);
                 if (showMessage)
                     QMC.Common.MessageDialog.Show(this, "카메라 Pixel Scale을 저장했습니다.\r\nCenter는 Width/2, Height/2로 자동 계산됩니다.\r\nVision Camera Cal Offset은 CALC/SAVE를 다시 실행해 갱신하세요.", "VISION", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return true;
@@ -316,15 +312,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (host == null || host.Machine == null || host.Machine.VisionUnit == null || host.Machine.VisionUnit.Config == null)
                 return null;
 
-            if (host.Machine.VisionUnit.Config.CameraCalibration == null)
-                host.Machine.VisionUnit.Config.CameraCalibration = new VisionCameraCalibrationData();
-
-            VisionCameraCalibrationData saved;
-            if (VisionCameraScaleStore.TryLoad(out saved))
-                host.Machine.VisionUnit.Config.CameraCalibration = saved;
-
-            host.Machine.VisionUnit.Config.CameraCalibration.EnsureObjects();
-            return host.Machine.VisionUnit.Config.CameraCalibration;
+            host.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+            host.Machine.VisionUnit.Config.CalibrationData.Camera.EnsureObjects();
+            return host.Machine.VisionUnit.Config.CalibrationData.Camera;
         }
 
         private static VisionCameraPixelCalibration ResolvePixelCalibration(VisionCameraCalibrationData data, string key)

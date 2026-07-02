@@ -248,7 +248,7 @@ namespace QMC.CDT320
             PickerRearUnit = new PickerRearUnit();
             VisionUnit = new VisionUnit();
             Calibration.VisionCameraCalibrationTransform.CalibrationProvider =
-                () => VisionUnit != null && VisionUnit.Config != null ? VisionUnit.Config.CameraCalibration : null;
+                () => Calibration.CalibrationCoordinateService.ResolveCamera(this);
 
             OutputFeederUnit = new OutputFeederUnit();
             OutputCassetteUnit = new OutputCassetteUnit();

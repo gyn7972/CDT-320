@@ -76,8 +76,10 @@
     <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
     <Compile Include="Equipment\Alarms\AlarmStopScope.cs" />
     <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationData.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationDataStore.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationCoordinateService.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
-    <Compile Include="Equipment\Calibration\VisionCameraScaleStore.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionFocusCalibrationData.cs" />
@@ -213,6 +215,12 @@
     <Compile Include="Ui\Dialogs\NumericKeypadDialog.Designer.cs">
       <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\TextViewerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\TextViewerDialog.Designer.cs">
+      <DependentUpon>TextViewerDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\Common\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
       <SubType>UserControl</SubType>
@@ -293,8 +301,8 @@
     <Compile Include="Ui\Pages\Settings\MotionPage.Status.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.Designer.cs">
-      <DependentUpon>ActiveLotPage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\WorkInfo\StatePage.Designer.cs">
+      <DependentUpon>StatePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
       <SubType>UserControl</SubType>
@@ -302,14 +310,11 @@
     <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.Designer.cs">
       <DependentUpon>InputCassettePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.cs">
+    <Compile Include="Ui\Pages\WorkInfo\VisionTestPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.Designer.cs">
-      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.cs">
-      <SubType>UserControl</SubType>
+    <Compile Include="Ui\Pages\WorkInfo\VisionTestPage.Designer.cs">
+      <DependentUpon>VisionTestPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\PickupSubsetPage.cs">
       <SubType>UserControl</SubType>
@@ -343,6 +348,7 @@
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\NeedlePinCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
@@ -552,7 +558,7 @@
     <Compile Include="Ui\Pages\User\UserAccountPage.Designer.cs">
       <DependentUpon>UserAccountPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
+    <Compile Include="Ui\Pages\WorkInfo\StatePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Ui / Pages / Material (310 ?�식) -->
@@ -613,9 +619,6 @@
     <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
     <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
-    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.Designer.cs">
-      <DependentUpon>PlateStatusPage.cs</DependentUpon>
-    </Compile>
     <!-- UI / Theme + Localization + Security -->
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
@@ -663,6 +666,15 @@
     <Compile Include="Ui\Dialogs\CalibrationSetupDialog.Designer.cs">
       <DependentUpon>CalibrationSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\HelpTextDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\HelpTextDialog.Designer.cs">
+      <DependentUpon>HelpTextDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\Common\CalibrationDialogButtonStyle.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -690,6 +702,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.Designer.cs">
+      <DependentUpon>NeedlePinCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
@@ -850,6 +868,7 @@
     <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
+    <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
@@ -1136,6 +1155,9 @@
     <EmbeddedResource Include="Ui\Dialogs\AxisPositionPopup.resx">
       <DependentUpon>AxisPositionPopup.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ColletCalibrationDialog.resx">
+      <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -1266,8 +1288,11 @@
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputStagePage.resx">
       <DependentUpon>InputStagePage.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
-      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\StatePage.resx">
+      <DependentUpon>StatePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\VisionTestPage.resx">
+      <DependentUpon>VisionTestPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputCassettePage.resx">
       <DependentUpon>OutputCassettePage.cs</DependentUpon>

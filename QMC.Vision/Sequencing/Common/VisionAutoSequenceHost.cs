@@ -14,6 +14,8 @@ namespace QMC.Vision.Sequencing
         private readonly VisionMachine _machine;
         private readonly Action<string> _log;
         private AutoSequenceCoordinator _coordinator;
+        // 자체 TCP 루프백 구동 시 사용하는 디스패처(비-null 이면 실제 TCP 경로). Stop 시 해제.
+        private TcpLoopbackVisionCommandDispatcher _tcpDispatcher;
 
         /// <summary>시퀀스 로그 메시지(시작/정지/단계) — 시퀀서 테스트 페이지 등이 구독.</summary>
         public event Action<string> Message;
@@ -113,7 +115,23 @@ namespace QMC.Vision.Sequencing
         private void EnsureCoordinator(int cycleIntervalMs)
         {
             if (_coordinator != null) return;
-            var ctx = new VisionSequenceContext(_machine, null, LogSink)
+
+            IVisionCommandDispatcher dispatcher = null;   // null = Direct(in-process)
+            var cfg = VisionConfigStore.Current;
+            bool overTcp = cfg != null && cfg.SimSelfRunOverTcp;
+            if (overTcp)
+            {
+                _tcpDispatcher = new TcpLoopbackVisionCommandDispatcher();
+                dispatcher = _tcpDispatcher;
+                VisionSelfRunTcpState.Active = true;   // VisionTcpServer 명령 게이트 개방(자기 명령 허용)
+                LogSink("[SEQ] 자체 실행 경로 = 실제 TCP 루프백(127.0.0.1). 서버 게이트 개방.");
+            }
+            else
+            {
+                LogSink("[SEQ] 자체 실행 경로 = in-process 직접 호출.");
+            }
+
+            var ctx = new VisionSequenceContext(_machine, dispatcher, LogSink)
             {
                 CycleIntervalMs = cycleIntervalMs > 0 ? cycleIntervalMs : 500
             };
@@ -130,6 +148,12 @@ namespace QMC.Vision.Sequencing
             try { _coordinator?.Stop(); }
             catch { }
             _coordinator = null;
+
+            // 자체 TCP 루프백 정리 — 게이트 닫고 연결 해제.
+            VisionSelfRunTcpState.Active = false;
+            try { _tcpDispatcher?.Dispose(); }
+            catch { }
+            _tcpDispatcher = null;
         }
     }
 }

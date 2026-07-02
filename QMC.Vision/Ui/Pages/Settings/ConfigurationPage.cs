@@ -51,6 +51,14 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Bool(Lang.T("set.gen.simAuto"), sc,
                     () => VisionConfigStore.Current.SimAutoSequence,
                     v => VisionConfigStore.Current.SimAutoSequence = v),
+                // 자체 실행(Sim 자동 실행)을 in-process 직접 호출 대신 실제 TCP 루프백으로 구동('Sim 자동 실행'과 함께 사용).
+                ParameterGridItem.Bool("└ 통신 경로: TCP 루프백 (시뮬 모드 ON일 때만·켜면 비전이 핸들러처럼 자체구동, 해제=in-process)", sc,
+                    () => VisionConfigStore.Current.SimSelfRunOverTcp,
+                    v => VisionConfigStore.Current.SimSelfRunOverTcp = v),
+                // 합성 카메라 이미지 — 해제(기본)면 SimCamera 가 그리드/노이즈 합성 대신 빈 화면. 저장이미지 경로에서 합성 배제용.
+                ParameterGridItem.Bool("합성 카메라 이미지 사용 (해제 시 빈 화면)", sc,
+                    () => VisionConfigStore.Current.SimSyntheticImage,
+                    v => VisionConfigStore.Current.SimSyntheticImage = v),
                 // 측정 표시 단위 — 체크=mm(카메라 ScaleX/Y 환산), 해제=px. 전역(모든 레시피/검사/차트 공통).
                 ParameterGridItem.Bool("측정 단위 mm 표시 (해제=px)", sc,
                     () => VisionConfigStore.Current.DisplayMm,

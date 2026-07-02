@@ -388,8 +388,7 @@ namespace QMC.CDT320.Sequencing
             _targetPickerX = ResolvePickerZoneX("DieSidePosition", _currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DieSidePosition", _currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "SidePosition");
-            _targetPickerT0 = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "SidePosition") +
-                ResolvePickerAlignOffsetT(_currentPickerIndex);
+            _targetPickerT0 = ResolvePickerZoneT("DieSidePosition", _currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
 
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);

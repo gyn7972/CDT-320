@@ -862,8 +862,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private int AbortStage(string title, string message)
         {
-            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
-            EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", title + " 시퀀스 중단: " + message);
+            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "INPUT-STAGE", "UI", title + " 시퀀스 중단: " + message);
             _lastAbortReason = message;
             return -1;
         }
@@ -1199,7 +1198,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(AxisDouble("VISION WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaCenterY, v => unit.Setup.WorkAreaCenterY = v));
                 items.Add(AxisDouble("NEEDLE WORK AREA CENTER X", ParameterGridScope.Setup, unit.NeedleBlockX, () => unit.Setup.NeedleWorkAreaCenterX, v => unit.Setup.NeedleWorkAreaCenterX = v));
                 items.Add(AxisDouble("NEEDLE WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaCenterY, v => unit.Setup.NeedleWorkAreaCenterY = v));
-                items.Add(AxisDouble("NEEDLE X TO VISION X OFFSET", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.NeedleXToVisionXOffset, v => unit.Setup.NeedleXToVisionXOffset = v));
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
@@ -1495,7 +1493,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!axis.IsHomeDone)
                 {
                     string homeMsg = axis.Name + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
-                    EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", homeMsg);
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "INPUT-STAGE", "UI", homeMsg);
                     _lastAbortReason = homeMsg;
                     return -1;
                 }
@@ -1676,9 +1674,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 var host = FindHostForm();
                 if (host == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
-                    return;
+                    throw new InvalidOperationException("활성 Recipe가 없어 Input Stage 값을 저장할 수 없습니다.");
 
-                host.SaveMachineRecipe(host.CurrentRecipeName);
+                if (!host.SaveMachineRecipe(host.CurrentRecipeName))
+                    throw new InvalidOperationException("Input Stage Recipe 저장에 실패했습니다. recipe=" + host.CurrentRecipeName);
             }
             catch
             {

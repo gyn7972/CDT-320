@@ -21,8 +21,6 @@ namespace QMC.Vision.Ui.Pages
         private Button         _btnReload;
         private Label          _lblStats;
         private Chart          _chart;
-        private ChartArea      _ca;
-        private Legend         _legend;
 
         protected override void Dispose(bool disposing)
         {

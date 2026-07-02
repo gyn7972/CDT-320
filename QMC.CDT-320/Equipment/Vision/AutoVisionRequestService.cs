@@ -18,6 +18,11 @@ namespace QMC.CDT320.VisionComm
 
     public static class AutoVisionRequestService
     {
+        private static readonly object SimVisionRandomLock = new object();
+        private static readonly Random SimVisionRandom = new Random();
+        private const double SimVisionMaxPixelOffset = 25.0;
+        private const double SimVisionMaxAngleDeg = 0.08;
+
         public static Task<bool> GrabAsync(AutoVisionChannel channel, int index, int timeoutMs, CancellationToken ct)
         {
             try
@@ -284,7 +289,12 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 if (ShouldBypassVisionResultRequests())
-                    return BuildBypassAlignResult(channel, finder, index, pitchMm);
+                {
+                    MatchResultDto simulated = BuildBypassMatchResult(channel, finder, index);
+                    VisionAlignResult bypassAlign = VisionCameraCalibrationTransform.ToAlignResult(channel, simulated, pitchMm);
+                    LogSimulatedAlignResult(channel, finder, index, bypassAlign);
+                    return bypassAlign;
+                }
 
                 MatchResultDto match = await MatchAsync(channel, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 VisionAlignResult align = VisionCameraCalibrationTransform.ToAlignResult(channel, match, pitchMm);
@@ -331,7 +341,12 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 if (ShouldBypassVisionResultRequests())
-                    return new BottomVisionOffset { PickerNo = pickerNo, OffsetX = 0.0, OffsetY = 0.0, OffsetT = 0.0, IsOk = true };
+                {
+                    MatchResultDto simulated = BuildBypassMatchResult(AutoVisionChannel.BottomInspection, finder, index);
+                    BottomVisionOffset bypassOffset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, simulated, scoreThreshold);
+                    LogSimulatedBottomOffset(pickerNo, finder, index, bypassOffset);
+                    return bypassOffset;
+                }
 
                 MatchResultDto match = await MatchAsync(AutoVisionChannel.BottomInspection, finder, index, timeoutMs, ct).ConfigureAwait(false);
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, match, scoreThreshold);
@@ -440,7 +455,12 @@ namespace QMC.CDT320.VisionComm
                 ct.ThrowIfCancellationRequested();
 
                 if (ShouldBypassVisionResultRequests())
-                    return BuildBypassInspectionResult(channel, inspector, index);
+                {
+                    InspectionResultDto simulated = BuildBypassInspectionResult(channel, inspector, index);
+                    InspectionResultDto calibratedBypass = VisionCameraCalibrationTransform.ToInspectionResult(channel, simulated);
+                    LogSimulatedInspectionResult(channel, inspector, index, calibratedBypass);
+                    return calibratedBypass;
+                }
 
                 InspectionResultDto raw = await InspectAsync(channel, inspector, index, timeoutMs, ct).ConfigureAwait(false);
                 InspectionResultDto calibrated = VisionCameraCalibrationTransform.ToInspectionResult(channel, raw);
@@ -574,72 +594,174 @@ namespace QMC.CDT320.VisionComm
 
         private static bool ShouldBypassVisionResultRequests()
         {
-            return IsDryRunMode() || IsVisionDisabled();
+            return IsDryRunMode() || IsSimulationVisionBypassed() || IsVisionDisabled();
         }
 
         /// <summary>바이패스 로그에 사용할 사유 문자열.</summary>
         private static string BypassReason()
         {
-            if (IsVisionDisabled()) return "\uBE44\uC804 \uBBF8\uC0AC\uC6A9 \uC124\uC815\uC774\uB77C";
-            if (IsDryRunMode()) return "DryRun \uBAA8\uB4DC\uB77C";
-            return "\uBC14\uC774\uD328\uC2A4 \uC124\uC815\uC774\uB77C";
+            if (IsVisionDisabled()) return "비전 미사용 설정이라";
+            if (IsDryRunMode()) return "DryRun 모드라";
+            if (IsSimulationVisionBypassed()) return "Simulation/Bypass 모드라";
+            return "바이패스 설정이라";
         }
 
         private static MatchResultDto BuildBypassMatchResult(AutoVisionChannel channel, string finder, int index)
         {
+            VisionCameraPixelCalibration camera = ResolveCameraCalibration(channel);
+            bool simulateOffset = ShouldSimulateVisionOffset();
+            double pixelX = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelX, SimVisionMaxPixelOffset) : camera.ImageCenterPixelX;
+            double pixelY = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelY, SimVisionMaxPixelOffset) : camera.ImageCenterPixelY;
+            double angle = simulateOffset ? NextSimulatedPixel(0.0, SimVisionMaxAngleDeg) : 0.0;
+            double score = simulateOffset ? NextSimulatedScore() : 1.0;
+
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-BYPASS",
-                BypassReason() + " Vision 매칭 결과 요청을 생략합니다. channel=" + channel +
+                BypassReason() + (simulateOffset ? " Vision 매칭 결과를 시뮬레이션합니다. " : " Vision 매칭 결과를 0 offset으로 통과합니다. ") +
+                "channel=" + channel +
                 ", finder=" + finder +
-                ", index=" + index);
+                ", index=" + index +
+                ", centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + ", " + camera.ImageCenterPixelY.ToString("F3") + ")" +
+                ", simulatedPixel=(" + pixelX.ToString("F3") + ", " + pixelY.ToString("F3") + ")" +
+                ", scale=(" + camera.PixelToMmX.ToString("F9") + ", " + camera.PixelToMmY.ToString("F9") + ") mm/px" +
+                ", image=(" + camera.ImageWidthPixel.ToString("F0") + "x" + camera.ImageHeightPixel.ToString("F0") + ")" +
+                ", score=" + score.ToString("F6") +
+                ", angle=" + angle.ToString("F6"));
 
             return new MatchResultDto
             {
                 Success = true,
-                X = 320.0,
-                Y = 240.0,
-                AngleDeg = 0.0,
-                Score = 1.0,
+                X = pixelX,
+                Y = pixelY,
+                AngleDeg = angle,
+                Score = score,
                 HasImageSize = true,
-                ImageWidthPixel = 640.0,
-                ImageHeightPixel = 480.0,
-                RawError = "BYPASS:SimulationOrDryRun"
-            };
-        }
-
-        private static VisionAlignResult BuildBypassAlignResult(AutoVisionChannel channel, string finder, int index, double pitchMm)
-        {
-            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL-BYPASS",
-                BypassReason() + " Vision 매칭 보정을 0으로 통과합니다. channel=" + channel +
-                ", finder=" + finder +
-                ", index=" + index);
-
-            return new VisionAlignResult
-            {
-                DeltaX = 0.0,
-                DeltaY = 0.0,
-                DeltaTheta = 0.0,
-                PitchX = pitchMm,
-                PitchY = pitchMm
+                ImageWidthPixel = camera.ImageWidthPixel,
+                ImageHeightPixel = camera.ImageHeightPixel,
+                RawError = simulateOffset ? "SIMULATION:VisionPixelOffset" : "BYPASS:VisionDisabled"
             };
         }
 
         private static InspectionResultDto BuildBypassInspectionResult(AutoVisionChannel channel, string inspector, int index)
         {
+            VisionCameraPixelCalibration camera = ResolveCameraCalibration(channel);
+            bool simulateOffset = ShouldSimulateVisionOffset();
+            double pixelX = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelX, SimVisionMaxPixelOffset) : camera.ImageCenterPixelX;
+            double pixelY = simulateOffset ? NextSimulatedPixel(camera.ImageCenterPixelY, SimVisionMaxPixelOffset) : camera.ImageCenterPixelY;
+            double angle = simulateOffset ? NextSimulatedPixel(0.0, SimVisionMaxAngleDeg) : 0.0;
+            double score = simulateOffset ? NextSimulatedScore() : 1.0;
+
             EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-BYPASS",
-                BypassReason() + " Vision INSPECT 결과 요청을 생략합니다. channel=" + channel +
+                BypassReason() + (simulateOffset ? " Vision INSPECT 결과를 시뮬레이션합니다. " : " Vision INSPECT 결과를 0 offset으로 통과합니다. ") +
+                "channel=" + channel +
                 ", inspector=" + inspector +
-                ", index=" + index);
+                ", index=" + index +
+                ", centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + ", " + camera.ImageCenterPixelY.ToString("F3") + ")" +
+                ", simulatedPixel=(" + pixelX.ToString("F3") + ", " + pixelY.ToString("F3") + ")" +
+                ", scale=(" + camera.PixelToMmX.ToString("F9") + ", " + camera.PixelToMmY.ToString("F9") + ") mm/px" +
+                ", image=(" + camera.ImageWidthPixel.ToString("F0") + "x" + camera.ImageHeightPixel.ToString("F0") + ")" +
+                ", score=" + score.ToString("F6") +
+                ", angle=" + angle.ToString("F6"));
 
             return new InspectionResultDto
             {
                 IsPass = true,
                 HasOffset = true,
-                OffsetX = 0.0,
-                OffsetY = 0.0,
-                OffsetT = 0.0,
-                Score = 1.0,
-                Raw = "BYPASS:SimulationOrDryRun"
+                OffsetX = pixelX,
+                OffsetY = pixelY,
+                OffsetT = angle,
+                Score = score,
+                HasImageSize = true,
+                ImageWidthPixel = camera.ImageWidthPixel,
+                ImageHeightPixel = camera.ImageHeightPixel,
+                Raw = simulateOffset ? "SIMULATION:VisionPixelOffset" : "BYPASS:VisionDisabled"
             };
+        }
+
+        private static bool ShouldSimulateVisionOffset()
+        {
+            return IsVisionDisabled() || IsDryRunMode() || IsSimulationVisionBypassed();
+        }
+
+        private static VisionCameraPixelCalibration ResolveCameraCalibration(AutoVisionChannel channel)
+        {
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(null, channel);
+            if (camera == null)
+                camera = new VisionCameraPixelCalibration();
+
+            camera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
+            return camera;
+        }
+
+        private static double NextSimulatedPixel(double center, double maxAbsOffset)
+        {
+            lock (SimVisionRandomLock)
+            {
+                return center + ((SimVisionRandom.NextDouble() * 2.0) - 1.0) * maxAbsOffset;
+            }
+        }
+
+        private static double NextSimulatedScore()
+        {
+            lock (SimVisionRandomLock)
+            {
+                return 0.985 + (SimVisionRandom.NextDouble() * 0.014);
+            }
+        }
+
+        private static void LogSimulatedAlignResult(
+            AutoVisionChannel channel,
+            string finder,
+            int index,
+            VisionAlignResult result)
+        {
+            if (result == null)
+                return;
+
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-MATCH-CAL-BYPASS",
+                BypassReason() + " Vision 매칭 보정을 시뮬레이션했습니다. channel=" + channel +
+                ", finder=" + finder +
+                ", index=" + index +
+                ", dxMm=" + result.DeltaX.ToString("F6") +
+                ", dyMm=" + result.DeltaY.ToString("F6") +
+                ", dt=" + result.DeltaTheta.ToString("F6"));
+        }
+
+        private static void LogSimulatedBottomOffset(
+            int pickerNo,
+            string finder,
+            int index,
+            BottomVisionOffset result)
+        {
+            if (result == null)
+                return;
+
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-CAL-BYPASS",
+                BypassReason() + " Bottom Vision 보정을 시뮬레이션했습니다. pickerNo=" + pickerNo +
+                ", finder=" + finder +
+                ", index=" + index +
+                ", ok=" + result.IsOk +
+                ", dxMm=" + result.OffsetX.ToString("F6") +
+                ", dyMm=" + result.OffsetY.ToString("F6") +
+                ", dt=" + result.OffsetT.ToString("F6"));
+        }
+
+        private static void LogSimulatedInspectionResult(
+            AutoVisionChannel channel,
+            string inspector,
+            int index,
+            InspectionResultDto result)
+        {
+            if (result == null)
+                return;
+
+            EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT-CAL-BYPASS",
+                BypassReason() + " Vision INSPECT 보정을 시뮬레이션했습니다. channel=" + channel +
+                ", inspector=" + inspector +
+                ", index=" + index +
+                ", pass=" + result.IsPass +
+                ", offsetXmm=" + result.OffsetX.ToString("F6") +
+                ", offsetYmm=" + result.OffsetY.ToString("F6") +
+                ", offsetT=" + result.OffsetT.ToString("F6"));
         }
 
         private static MatchResultDto BuildMatchFailure(string reason)

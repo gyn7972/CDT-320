@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,6 +24,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             ThetaTolerance,
             MaxThetaIteration,
             ThetaGain,
+            XyTolerance,
+            MaxXyIteration,
+            XyGainX,
+            XyGainY,
+            XyFineMax,
+            XyToleranceMode,
             ScoreThreshold,
             VisionTimeout,
             AutoFocus
@@ -42,6 +48,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static readonly string[] SideOptions = { "Front", "Rear" };
         private static readonly string[] ColletOptions = { "1", "2", "3", "4" };
         private static readonly string[] BoolOptions = { "True", "False" };
+        private static readonly string[] XyToleranceModeOptions = { "Diagonal", "Axis" };
 
         private bool _loading;
         private bool _busy;
@@ -51,6 +58,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double _thetaToleranceDeg = 0.02;
         private int _maxThetaIterations = 5;
         private double _thetaGain = 1.0;
+        private double _xyToleranceMm = 0.001;
+        private int _maxXyIterations = 5;
+        private double _xyGainX = 1.0;
+        private double _xyGainY = 1.0;
+        private double _xyFineMaxMm = 0.2;
+        private bool _useDiagonalXyTolerance = true;
         private double _scoreThreshold = 0.0;
         private int _visionTimeoutMs = 5000;
         private bool _autoFocus = true;
@@ -68,6 +81,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 InitializeComponent();
+                ApplyButtonStyle();
                 LoadSettingsToUi();
                 RefreshResultGrid();
                 lblStatus.Text = "대기 중입니다. Collet과 보정 조건을 확인한 뒤 START를 실행하세요.";
@@ -81,6 +95,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
             }
+        }
+
+        private void ApplyButtonStyle()
+        {
+            CalibrationDialogButtonStyle.ApplyFooterButtons(
+                new[] { btnCheck, btnApplyHomeOffset, btnReload, btnClose },
+                new[] { btnStart },
+                new[] { btnSave });
         }
 
         private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)
@@ -223,9 +245,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SaveSettingsFromUi(false);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
+                PickerSequenceOptions options = PickerSequenceOptions.Default();
+                options.RunMode = SequenceRunMode.Manual;
+                options.StartMode = SequenceStartMode.Restart;
+                options.PickerNo = _colletNo;
+                options.RestrictToPickerNo = _colletNo;
 
                 lblStatus.Text = "Collet Calibration 실행 중입니다. Side=" + _side + ", Collet=" + _colletNo;
-                int result = await sequence.RunAsync(CancellationToken.None, PickerSequenceOptions.Default()).ConfigureAwait(true);
+                int result = await sequence.RunAsync(CancellationToken.None, options).ConfigureAwait(true);
                 RefreshResultGrid();
 
                 if (result != 0)
@@ -274,6 +301,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _thetaToleranceDeg = settings.ThetaToleranceDeg;
                 _maxThetaIterations = settings.MaxThetaIterations;
                 _thetaGain = settings.ThetaMoveGain;
+                _xyToleranceMm = settings.XyToleranceMm;
+                _maxXyIterations = settings.MaxXyIterations;
+                _xyGainX = settings.XyMoveGainX;
+                _xyGainY = settings.XyMoveGainY;
+                _xyFineMaxMm = settings.FineAlignMaxXyMoveMm;
+                _useDiagonalXyTolerance = settings.UseDiagonalXyTolerance;
                 _scoreThreshold = settings.ScoreThreshold;
                 _visionTimeoutMs = settings.VisionTimeoutMs;
                 _autoFocus = settings.RunAutoFocusAfterTheta;
@@ -306,11 +339,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Settings.ThetaToleranceDeg = _thetaToleranceDeg;
                 data.Settings.MaxThetaIterations = _maxThetaIterations;
                 data.Settings.ThetaMoveGain = _thetaGain;
+                data.Settings.XyToleranceMm = _xyToleranceMm;
+                data.Settings.MaxXyIterations = _maxXyIterations;
+                data.Settings.XyMoveGainX = _xyGainX;
+                data.Settings.XyMoveGainY = _xyGainY;
+                data.Settings.FineAlignMaxXyMoveMm = _xyFineMaxMm;
+                data.Settings.UseDiagonalXyTolerance = _useDiagonalXyTolerance;
                 data.Settings.ScoreThreshold = _scoreThreshold;
                 data.Settings.VisionTimeoutMs = _visionTimeoutMs;
                 data.Settings.RunAutoFocusAfterTheta = _autoFocus;
                 data.Settings.EnsureDefaults();
                 host.SaveMachineSettings();
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
+                    "Collet Calibration 설정 저장. side=" + _side +
+                    ", colletNo=" + _colletNo +
+                    ", finder=" + data.Settings.BottomFinderName +
+                    ", thetaTolDeg=" + data.Settings.ThetaToleranceDeg.ToString("F6") +
+                    ", thetaRetry=" + data.Settings.MaxThetaIterations +
+                    ", thetaGain=" + data.Settings.ThetaMoveGain.ToString("F6") +
+                    ", xyTolMm=" + data.Settings.XyToleranceMm.ToString("F6") +
+                    ", xyRetry=" + data.Settings.MaxXyIterations +
+                    ", xyGainX=" + data.Settings.XyMoveGainX.ToString("F6") +
+                    ", xyGainY=" + data.Settings.XyMoveGainY.ToString("F6") +
+                    ", xyFineMaxMm=" + data.Settings.FineAlignMaxXyMoveMm.ToString("F6") +
+                    ", xyTolMode=" + (data.Settings.UseDiagonalXyTolerance ? "Diagonal" : "Axis") +
+                    ", scoreMin=" + data.Settings.ScoreThreshold.ToString("F6") +
+                    ", visionTimeoutMs=" + data.Settings.VisionTimeoutMs +
+                    ", autoFocus=" + data.Settings.RunAutoFocusAfterTheta);
                 RefreshResultGrid();
 
                 if (showMessage)
@@ -339,6 +394,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumber(SettingKey.ThetaTolerance, "Theta Tol", "deg", false), _thetaToleranceDeg.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MaxThetaIteration, "Theta Retry", "ea", true), _maxThetaIterations.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", false), _thetaGain.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyTolerance, "XY Tol", "mm", false), _xyToleranceMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MaxXyIteration, "XY Retry", "ea", true), _maxXyIterations.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.XyGainX, "XY Gain X", "x", false), _xyGainX.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyGainY, "XY Gain Y", "x", false), _xyGainY.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.XyFineMax, "XY Fine Max", "mm", false), _xyFineMaxMm.ToString("F6"));
+                AddSettingRow(CreateOption(SettingKey.XyToleranceMode, "XY Tol Mode", XyToleranceModeOptions), _useDiagonalXyTolerance ? "Diagonal" : "Axis");
                 AddSettingRow(CreateNumber(SettingKey.ScoreThreshold, "Score Min", "score", false), _scoreThreshold.ToString("F3"));
                 AddSettingRow(CreateNumber(SettingKey.VisionTimeout, "Vision Timeout", "ms", true), _visionTimeoutMs.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", BoolOptions), _autoFocus ? "True" : "False");
@@ -396,6 +457,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 case SettingKey.AutoFocus:
                     _autoFocus = value == "True";
                     break;
+                case SettingKey.XyToleranceMode:
+                    _useDiagonalXyTolerance = value != "Axis";
+                    break;
                 case SettingKey.Finder:
                     _finder = value;
                     break;
@@ -418,6 +482,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.ThetaGain:
                     _thetaGain = Math.Max(0.0001, value);
+                    break;
+                case SettingKey.XyTolerance:
+                    _xyToleranceMm = Math.Max(0.000001, value);
+                    break;
+                case SettingKey.MaxXyIteration:
+                    _maxXyIterations = Math.Max(1, Math.Min(20, (int)Math.Round(value)));
+                    break;
+                case SettingKey.XyGainX:
+                    _xyGainX = Math.Abs(value) <= double.Epsilon ? 1.0 : value;
+                    break;
+                case SettingKey.XyGainY:
+                    _xyGainY = Math.Abs(value) <= double.Epsilon ? 1.0 : value;
+                    break;
+                case SettingKey.XyFineMax:
+                    _xyFineMaxMm = Math.Max(0.000001, Math.Min(2.0, value));
                     break;
                 case SettingKey.ScoreThreshold:
                     _scoreThreshold = Math.Max(0.0, value);
@@ -463,6 +542,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     record.OffsetY.ToString("F6"),
                     record.ThetaOffset.ToString("F6"),
                     record.TZeroHomeOffset.ToString("F6"),
+                    record.FinalPickerX.ToString("F6"),
+                    record.FinalPickerY.ToString("F6"),
                     record.Valid ? "OK" : "-");
             }
         }
@@ -470,10 +551,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private ColletCalibrationData ResolveData(CDT320_Machine machine)
         {
             machine.VisionUnit.Config.EnsureCalibrationObjects();
-            if (machine.VisionUnit.Config.ColletCalibration == null)
-                machine.VisionUnit.Config.ColletCalibration = new ColletCalibrationData();
-            machine.VisionUnit.Config.ColletCalibration.EnsureObjects();
-            return machine.VisionUnit.Config.ColletCalibration;
+            machine.VisionUnit.Config.CalibrationData.Collet.EnsureObjects();
+            return machine.VisionUnit.Config.CalibrationData.Collet;
         }
 
         private bool CanRunManualCalibration(out string reason)

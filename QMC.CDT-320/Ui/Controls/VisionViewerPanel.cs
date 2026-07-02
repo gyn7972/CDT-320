@@ -190,10 +190,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private VisionCameraPixelCalibration ResolveSavedPixelCalibration()
         {
-            VisionCameraCalibrationData data;
-            if (!VisionCameraScaleStore.TryLoad(out data))
-                data = ResolveMachineCameraCalibration();
-
+            VisionCameraCalibrationData data = ResolveMachineCameraCalibration();
             if (data == null)
                 return null;
 
@@ -208,10 +205,10 @@ namespace QMC.CDT_320.Ui.Controls
                 host.Machine == null ||
                 host.Machine.VisionUnit == null ||
                 host.Machine.VisionUnit.Config == null ||
-                host.Machine.VisionUnit.Config.CameraCalibration == null)
+                host.Machine.VisionUnit.Config.CalibrationData == null)
                 return null;
 
-            VisionCameraCalibrationData data = host.Machine.VisionUnit.Config.CameraCalibration;
+            VisionCameraCalibrationData data = host.Machine.VisionUnit.Config.CalibrationData.Camera;
             data.EnsureObjects();
             return data;
         }

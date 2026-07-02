@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 
@@ -8,37 +8,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private TableLayoutPanel rootPanel;
         private Label lblHeader;
-        private TableLayoutPanel topLayout;
         private TableLayoutPanel contentLayout;
-        private GroupBox pnlWork;
-        private GroupBox pnlCylinder;
         private GroupBox pnlInfo;
-        private TableLayoutPanel workLayout;
-        private TableLayoutPanel cylinderLayout;
         private TableLayoutPanel infoLayout;
-        private Button btnRefreshMaterial;
+        private TableLayoutPanel leftInfo;
+        private TableLayoutPanel rightInfo;
+        private GroupBox grpAction;
+        private TableLayoutPanel actionBar;
         private MaterialDetailView materialDetailView;
-        private TableLayoutPanel axisPanel;
-        private TableLayoutPanel ringPanel;
-        private TableLayoutPanel overloadPanel;
-        private Label lblWorkHeader;
-        private Label lblCylinderHeader;
-        private Label lblInfoHeader;
         private Label lblExistCaption;
         private Label _lblExist;
         private Label lblClampCaption;
         private Label _lblClampState;
         private Label lblUpDownCaption;
         private Label _lblUpDownState;
-        private Label lblFeederPosCaption;
-        private Label _lblFeederPos;
-        private Label _markRing;
+        private TableLayoutPanel lifterAxisPanel;
+        private Label lblLifterAxisTitle;
+        private Label _lblLifterPos;
+        private TableLayoutPanel ringOverloadPanel;
         private Label lblRingCaption;
-        private Label _markOverload;
+        private IndicatorDot dotRing;
         private Label lblOverloadCaption;
-        private FlowLayoutPanel actionsLayout;
-        private TableLayoutPanel actionBar;
-        private FlowLayoutPanel actionRightPanel;
+        private IndicatorDot dotOverload;
         private ActionButton btnLoadFromCassette;
         private ActionButton btnLoadToStage;
         private ActionButton btnUnloadFromStage;
@@ -48,388 +39,514 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void InitializeComponent()
         {
-            this.rootPanel = new TableLayoutPanel();
-            this.lblHeader = new Label();
-            this.topLayout = new TableLayoutPanel();
-            this.axisPanel = new TableLayoutPanel();
-            this.lblFeederPosCaption = new Label();
-            this._lblFeederPos = new Label();
-            this.ringPanel = new TableLayoutPanel();
-            this._markRing = new Label();
-            this.lblRingCaption = new Label();
-            this.overloadPanel = new TableLayoutPanel();
-            this._markOverload = new Label();
-            this.lblOverloadCaption = new Label();
-            this.contentLayout = new TableLayoutPanel();
-            this.pnlWork = new GroupBox();
-            this.workLayout = new TableLayoutPanel();
-            this.lblWorkHeader = new Label();
-            this.lblExistCaption = new Label();
-            this._lblExist = new Label();
-            this.pnlCylinder = new GroupBox();
-            this.cylinderLayout = new TableLayoutPanel();
-            this.lblCylinderHeader = new Label();
-            this.lblClampCaption = new Label();
-            this._lblClampState = new Label();
-            this.lblUpDownCaption = new Label();
-            this._lblUpDownState = new Label();
-            this.pnlInfo = new GroupBox();
-            this.infoLayout = new TableLayoutPanel();
-            this.btnRefreshMaterial = new Button();
-            this.materialDetailView = new MaterialDetailView();
-            this.lblInfoHeader = new Label();
-            this.actionsLayout = new FlowLayoutPanel();
-            this.actionBar = new TableLayoutPanel();
-            this.actionRightPanel = new FlowLayoutPanel();
-            this.btnLoadFromCassette = new ActionButton();
-            this.btnLoadToStage = new ActionButton();
-            this.btnUnloadFromStage = new ActionButton();
-            this.btnUnloadToCassette = new ActionButton();
-            this.btnRecover = new ActionButton();
-            this.btnStop = new ActionButton();
+            this.rootPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblHeader = new System.Windows.Forms.Label();
+            this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.pnlInfo = new System.Windows.Forms.GroupBox();
+            this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.leftInfo = new System.Windows.Forms.TableLayoutPanel();
+            this.lblExistCaption = new System.Windows.Forms.Label();
+            this._lblExist = new System.Windows.Forms.Label();
+            this.lblClampCaption = new System.Windows.Forms.Label();
+            this._lblClampState = new System.Windows.Forms.Label();
+            this.lblUpDownCaption = new System.Windows.Forms.Label();
+            this._lblUpDownState = new System.Windows.Forms.Label();
+            this.rightInfo = new System.Windows.Forms.TableLayoutPanel();
+            this.lifterAxisPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblLifterAxisTitle = new System.Windows.Forms.Label();
+            this._lblLifterPos = new System.Windows.Forms.Label();
+            this.ringOverloadPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.dotRing = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lblRingCaption = new System.Windows.Forms.Label();
+            this.dotOverload = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lblOverloadCaption = new System.Windows.Forms.Label();
+            this.grpAction = new System.Windows.Forms.GroupBox();
+            this.actionBar = new System.Windows.Forms.TableLayoutPanel();
+            this.btnLoadFromCassette = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnLoadToStage = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnUnloadFromStage = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnUnloadToCassette = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnRecover = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.materialDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.rootPanel.SuspendLayout();
-            this.topLayout.SuspendLayout();
-            this.axisPanel.SuspendLayout();
-            this.ringPanel.SuspendLayout();
-            this.overloadPanel.SuspendLayout();
             this.contentLayout.SuspendLayout();
-            this.pnlWork.SuspendLayout();
-            this.workLayout.SuspendLayout();
-            this.pnlCylinder.SuspendLayout();
-            this.cylinderLayout.SuspendLayout();
             this.pnlInfo.SuspendLayout();
             this.infoLayout.SuspendLayout();
-            this.actionsLayout.SuspendLayout();
+            this.leftInfo.SuspendLayout();
+            this.rightInfo.SuspendLayout();
+            this.lifterAxisPanel.SuspendLayout();
+            this.ringOverloadPanel.SuspendLayout();
+            this.grpAction.SuspendLayout();
             this.actionBar.SuspendLayout();
-            this.actionRightPanel.SuspendLayout();
             this.SuspendLayout();
-
-            this.rootPanel.BackColor = Color.FromArgb(191, 191, 191);
+            // 
+            // rootPanel
+            // 
+            this.rootPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this.rootPanel.ColumnCount = 1;
-            this.rootPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.rootPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
-            this.rootPanel.Controls.Add(this.topLayout, 0, 1);
-            this.rootPanel.Controls.Add(this.contentLayout, 0, 2);
-            this.rootPanel.Controls.Add(this.actionBar, 0, 3);
-            this.rootPanel.Dock = DockStyle.Fill;
-            this.rootPanel.Location = new Point(0, 0);
+            this.rootPanel.Controls.Add(this.contentLayout, 0, 1);
+            this.rootPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rootPanel.Location = new System.Drawing.Point(0, 0);
+            this.rootPanel.Margin = new System.Windows.Forms.Padding(0);
             this.rootPanel.Name = "rootPanel";
-            this.rootPanel.RowCount = 4;
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 143F));
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 108F));
-            this.rootPanel.Size = new Size(1678, 900);
+            this.rootPanel.RowCount = 2;
+            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.rootPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootPanel.Size = new System.Drawing.Size(1678, 900);
             this.rootPanel.TabIndex = 0;
-
-            this.lblHeader.BackColor = Color.FromArgb(217, 119, 6);
-            this.lblHeader.Dock = DockStyle.Fill;
-            this.lblHeader.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.lblHeader.ForeColor = Color.White;
-            this.lblHeader.Padding = new Padding(10, 0, 0, 0);
+            // 
+            // lblHeader
+            // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
+            this.lblHeader.Location = new System.Drawing.Point(0, 0);
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
+            this.lblHeader.Name = "lblHeader";
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
+            this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:wi.inputFeeder";
             this.lblHeader.Text = "INPUT FEEDER";
-            this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
-
-            this.topLayout.ColumnCount = 3;
-            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260F));
-            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280F));
-            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.topLayout.Controls.Add(this.axisPanel, 0, 0);
-            this.topLayout.Controls.Add(this.ringPanel, 1, 0);
-            this.topLayout.Controls.Add(this.overloadPanel, 2, 0);
-            this.topLayout.Dock = DockStyle.Fill;
-            this.topLayout.Padding = new Padding(8);
-            this.topLayout.RowCount = 1;
-            this.topLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            this.axisPanel.ColumnCount = 1;
-            this.axisPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.axisPanel.Controls.Add(this.lblFeederPosCaption, 0, 0);
-            this.axisPanel.Controls.Add(this._lblFeederPos, 0, 1);
-            this.axisPanel.Dock = DockStyle.Fill;
-            this.axisPanel.Margin = new Padding(4);
-            this.axisPanel.RowCount = 2;
-            this.axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
-            this.axisPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            this.lblFeederPosCaption.BackColor = Color.Black;
-            this.lblFeederPosCaption.Dock = DockStyle.Fill;
-            this.lblFeederPosCaption.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.lblFeederPosCaption.ForeColor = Color.White;
-            this.lblFeederPosCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblFeederPosCaption.Text = "FEEDER AXIS Y";
-            this.lblFeederPosCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this._lblFeederPos.BackColor = Color.White;
-            this._lblFeederPos.BorderStyle = BorderStyle.FixedSingle;
-            this._lblFeederPos.Dock = DockStyle.Fill;
-            this._lblFeederPos.Font = new Font("Consolas", 10F);
-            this._lblFeederPos.Padding = new Padding(0, 0, 6, 0);
-            this._lblFeederPos.Text = "0 um";
-            this._lblFeederPos.TextAlign = ContentAlignment.MiddleRight;
-
-            this.ringPanel.ColumnCount = 2;
-            this.ringPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46F));
-            this.ringPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.ringPanel.Controls.Add(this._markRing, 0, 0);
-            this.ringPanel.Controls.Add(this.lblRingCaption, 1, 0);
-            this.ringPanel.Dock = DockStyle.Fill;
-            this.ringPanel.Margin = new Padding(4);
-            this.ringPanel.RowCount = 1;
-            this.ringPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this._markRing.BackColor = Color.Black;
-            this._markRing.BorderStyle = BorderStyle.FixedSingle;
-            this._markRing.Dock = DockStyle.Fill;
-            this._markRing.Margin = new Padding(10, 20, 10, 20);
-            this.lblRingCaption.BackColor = Color.FromArgb(200, 200, 200);
-            this.lblRingCaption.Dock = DockStyle.Fill;
-            this.lblRingCaption.Font = new Font("Consolas", 10F);
-            this.lblRingCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblRingCaption.Text = "FEEDER RING CHECK";
-            this.lblRingCaption.TextAlign = ContentAlignment.MiddleLeft;
-
-            this.overloadPanel.ColumnCount = 2;
-            this.overloadPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46F));
-            this.overloadPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.overloadPanel.Controls.Add(this._markOverload, 0, 0);
-            this.overloadPanel.Controls.Add(this.lblOverloadCaption, 1, 0);
-            this.overloadPanel.Dock = DockStyle.Fill;
-            this.overloadPanel.Margin = new Padding(4);
-            this.overloadPanel.RowCount = 1;
-            this.overloadPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this._markOverload.BackColor = Color.Black;
-            this._markOverload.BorderStyle = BorderStyle.FixedSingle;
-            this._markOverload.Dock = DockStyle.Fill;
-            this._markOverload.Margin = new Padding(10, 20, 10, 20);
-            this.lblOverloadCaption.BackColor = Color.FromArgb(200, 200, 200);
-            this.lblOverloadCaption.Dock = DockStyle.Fill;
-            this.lblOverloadCaption.Font = new Font("Consolas", 10F);
-            this.lblOverloadCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblOverloadCaption.Text = "FEEDER OVERLOAD CHECK";
-            this.lblOverloadCaption.TextAlign = ContentAlignment.MiddleLeft;
-
-            this.contentLayout.ColumnCount = 3;
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260F));
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.contentLayout.Controls.Add(this.pnlWork, 0, 0);
-            this.contentLayout.Controls.Add(this.pnlCylinder, 1, 0);
-            this.contentLayout.Controls.Add(this.materialDetailView, 2, 0);
-            this.contentLayout.Dock = DockStyle.Fill;
-            this.contentLayout.Padding = new Padding(12, 8, 12, 8);
-            this.contentLayout.RowCount = 1;
-            this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            this.pnlWork.BackColor = Color.FromArgb(240, 240, 240);
-            this.pnlWork.Controls.Add(this.workLayout);
-            this.pnlWork.Dock = DockStyle.Fill;
-            this.pnlWork.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.pnlWork.Text = "WORK INFO";
-            this.workLayout.ColumnCount = 2;
-            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
-            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.workLayout.Controls.Add(this.lblExistCaption, 0, 0);
-            this.workLayout.Controls.Add(this._lblExist, 1, 0);
-            this.workLayout.Dock = DockStyle.Top;
-            this.workLayout.Location = new Point(3, 23);
-            this.workLayout.Padding = new Padding(8);
-            this.workLayout.RowCount = 1;
-            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.workLayout.Size = new Size(254, 56);
-
-            this.lblExistCaption.BackColor = Color.FromArgb(200, 200, 200);
-            this.lblExistCaption.Dock = DockStyle.Fill;
-            this.lblExistCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.lblExistCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblExistCaption.Text = "EXIST";
-            this.lblExistCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this._lblExist.BackColor = Color.White;
-            this._lblExist.BorderStyle = BorderStyle.FixedSingle;
-            this._lblExist.Dock = DockStyle.Fill;
-            this._lblExist.Font = new Font("Consolas", 10F);
-            this._lblExist.Padding = new Padding(0, 0, 6, 0);
-            this._lblExist.Text = "--";
-            this._lblExist.TextAlign = ContentAlignment.MiddleRight;
-
-            this.pnlCylinder.BackColor = Color.FromArgb(240, 240, 240);
-            this.pnlCylinder.Controls.Add(this.cylinderLayout);
-            this.pnlCylinder.Dock = DockStyle.Fill;
-            this.pnlCylinder.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.pnlCylinder.Text = "FEEDER CYLINDER INFO";
-            this.cylinderLayout.ColumnCount = 2;
-            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.cylinderLayout.Controls.Add(this.lblClampCaption, 0, 0);
-            this.cylinderLayout.Controls.Add(this._lblClampState, 1, 0);
-            this.cylinderLayout.Controls.Add(this.lblUpDownCaption, 0, 1);
-            this.cylinderLayout.Controls.Add(this._lblUpDownState, 1, 1);
-            this.cylinderLayout.Dock = DockStyle.Top;
-            this.cylinderLayout.Location = new Point(3, 23);
-            this.cylinderLayout.Padding = new Padding(8);
-            this.cylinderLayout.RowCount = 2;
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.cylinderLayout.Size = new Size(314, 92);
-
-            this.lblClampCaption.BackColor = Color.FromArgb(200, 200, 200);
-            this.lblClampCaption.Dock = DockStyle.Fill;
-            this.lblClampCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.lblClampCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblClampCaption.Text = "FEEDER CLAMP";
-            this.lblClampCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this._lblClampState.BackColor = Color.White;
-            this._lblClampState.BorderStyle = BorderStyle.FixedSingle;
-            this._lblClampState.Dock = DockStyle.Fill;
-            this._lblClampState.Font = new Font("Consolas", 10F);
-            this._lblClampState.Padding = new Padding(0, 0, 6, 0);
-            this._lblClampState.Text = "--";
-            this._lblClampState.TextAlign = ContentAlignment.MiddleRight;
-            this.lblUpDownCaption.BackColor = Color.FromArgb(200, 200, 200);
-            this.lblUpDownCaption.Dock = DockStyle.Fill;
-            this.lblUpDownCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.lblUpDownCaption.Padding = new Padding(6, 0, 0, 0);
-            this.lblUpDownCaption.Text = "FEEDER UP DOWN";
-            this.lblUpDownCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this._lblUpDownState.BackColor = Color.White;
-            this._lblUpDownState.BorderStyle = BorderStyle.FixedSingle;
-            this._lblUpDownState.Dock = DockStyle.Fill;
-            this._lblUpDownState.Font = new Font("Consolas", 10F);
-            this._lblUpDownState.Padding = new Padding(0, 0, 6, 0);
-            this._lblUpDownState.Text = "--";
-            this._lblUpDownState.TextAlign = ContentAlignment.MiddleRight;
-
-            this.pnlInfo.BackColor = Color.FromArgb(240, 240, 240);
+            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // contentLayout
+            // 
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.contentLayout.ColumnCount = 2;
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.contentLayout.Controls.Add(this.pnlInfo, 0, 0);
+            this.contentLayout.Controls.Add(this.grpAction, 0, 1);
+            this.contentLayout.Controls.Add(this.materialDetailView, 1, 0);
+            this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.contentLayout.Location = new System.Drawing.Point(0, 30);
+            this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.contentLayout.Name = "contentLayout";
+            this.contentLayout.RowCount = 2;
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 300F));
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
+            this.contentLayout.TabIndex = 1;
+            // 
+            // pnlInfo
+            // 
+            this.pnlInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.pnlInfo.Controls.Add(this.infoLayout);
-            this.pnlInfo.Dock = DockStyle.Fill;
-            this.pnlInfo.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.pnlInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.pnlInfo.Location = new System.Drawing.Point(0, 0);
+            this.pnlInfo.Margin = new System.Windows.Forms.Padding(0, 0, 3, 3);
+            this.pnlInfo.Name = "pnlInfo";
+            this.pnlInfo.Size = new System.Drawing.Size(836, 297);
+            this.pnlInfo.TabIndex = 0;
+            this.pnlInfo.TabStop = false;
             this.pnlInfo.Text = "INFO";
-            this.infoLayout.ColumnCount = 1;
-            this.infoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.infoLayout.Controls.Add(this.btnRefreshMaterial, 0, 0);
-            this.infoLayout.Dock = DockStyle.Fill;
-            this.infoLayout.Padding = new Padding(6);
-            this.infoLayout.RowCount = 2;
-            this.infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-            this.infoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this.btnRefreshMaterial.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            this.btnRefreshMaterial.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnRefreshMaterial.Cursor = Cursors.Hand;
-            this.btnRefreshMaterial.FlatStyle = FlatStyle.Flat;
-            this.btnRefreshMaterial.Font = new Font("Consolas", 10F, FontStyle.Bold);
-            this.btnRefreshMaterial.ForeColor = Color.White;
-            this.btnRefreshMaterial.Margin = new Padding(6);
-            this.btnRefreshMaterial.Name = "btnRefreshMaterial";
-            this.btnRefreshMaterial.Size = new Size(110, 30);
-            this.btnRefreshMaterial.Text = "REFRESH";
-            this.btnRefreshMaterial.UseVisualStyleBackColor = false;
-            this.materialDetailView.BackColor = Color.FromArgb(240, 240, 240);
-            this.materialDetailView.Dock = DockStyle.Fill;
-            this.materialDetailView.Name = "materialDetailView";
-            this.materialDetailView.Visible = true;
-
-            this.actionsLayout.AutoScroll = true;
-            this.actionsLayout.BackColor = Color.FromArgb(191, 191, 191);
-            this.actionsLayout.Controls.Add(this.btnLoadFromCassette);
-            this.actionsLayout.Controls.Add(this.btnLoadToStage);
-            this.actionsLayout.Controls.Add(this.btnUnloadFromStage);
-            this.actionsLayout.Controls.Add(this.btnUnloadToCassette);
-            this.actionsLayout.Controls.Add(this.btnRecover);
-            this.actionsLayout.Dock = DockStyle.Fill;
-            this.actionsLayout.Margin = new Padding(0);
-            this.actionsLayout.Padding = new Padding(12, 8, 12, 8);
-            this.actionsLayout.WrapContents = false;
-            //
+            // 
+            // infoLayout
+            // 
+            this.infoLayout.ColumnCount = 2;
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 77F));
+            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 23F));
+            this.infoLayout.Controls.Add(this.leftInfo, 0, 0);
+            this.infoLayout.Controls.Add(this.rightInfo, 1, 0);
+            this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.infoLayout.Location = new System.Drawing.Point(3, 23);
+            this.infoLayout.Name = "infoLayout";
+            this.infoLayout.Padding = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.infoLayout.RowCount = 1;
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.infoLayout.Size = new System.Drawing.Size(830, 271);
+            this.infoLayout.TabIndex = 0;
+            // 
+            // leftInfo
+            // 
+            this.leftInfo.ColumnCount = 2;
+            this.leftInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.66093F));
+            this.leftInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 66.33907F));
+            this.leftInfo.Controls.Add(this.lblExistCaption, 0, 0);
+            this.leftInfo.Controls.Add(this._lblExist, 1, 0);
+            this.leftInfo.Controls.Add(this.lblClampCaption, 0, 1);
+            this.leftInfo.Controls.Add(this._lblClampState, 1, 1);
+            this.leftInfo.Controls.Add(this.lblUpDownCaption, 0, 2);
+            this.leftInfo.Controls.Add(this._lblUpDownState, 1, 2);
+            this.leftInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.leftInfo.Location = new System.Drawing.Point(6, 4);
+            this.leftInfo.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.leftInfo.Name = "leftInfo";
+            this.leftInfo.RowCount = 3;
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.leftInfo.Size = new System.Drawing.Size(623, 263);
+            this.leftInfo.TabIndex = 0;
+            // 
+            // lblExistCaption
+            // 
+            this.lblExistCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblExistCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblExistCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblExistCaption.Location = new System.Drawing.Point(2, 2);
+            this.lblExistCaption.Margin = new System.Windows.Forms.Padding(2);
+            this.lblExistCaption.Name = "lblExistCaption";
+            this.lblExistCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblExistCaption.Size = new System.Drawing.Size(205, 83);
+            this.lblExistCaption.TabIndex = 0;
+            this.lblExistCaption.Text = "EXIST";
+            this.lblExistCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _lblExist
+            // 
+            this._lblExist.BackColor = System.Drawing.Color.White;
+            this._lblExist.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblExist.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblExist.Location = new System.Drawing.Point(211, 2);
+            this._lblExist.Margin = new System.Windows.Forms.Padding(2);
+            this._lblExist.Name = "_lblExist";
+            this._lblExist.Size = new System.Drawing.Size(410, 83);
+            this._lblExist.TabIndex = 1;
+            this._lblExist.Text = "--";
+            this._lblExist.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblClampCaption
+            // 
+            this.lblClampCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblClampCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblClampCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblClampCaption.Location = new System.Drawing.Point(2, 89);
+            this.lblClampCaption.Margin = new System.Windows.Forms.Padding(2);
+            this.lblClampCaption.Name = "lblClampCaption";
+            this.lblClampCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblClampCaption.Size = new System.Drawing.Size(205, 83);
+            this.lblClampCaption.TabIndex = 4;
+            this.lblClampCaption.Text = "FEEDER CLAMP";
+            this.lblClampCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _lblClampState
+            // 
+            this._lblClampState.BackColor = System.Drawing.Color.White;
+            this._lblClampState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblClampState.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblClampState.Location = new System.Drawing.Point(211, 89);
+            this._lblClampState.Margin = new System.Windows.Forms.Padding(2);
+            this._lblClampState.Name = "_lblClampState";
+            this._lblClampState.Size = new System.Drawing.Size(410, 83);
+            this._lblClampState.TabIndex = 5;
+            this._lblClampState.Text = "--";
+            this._lblClampState.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblUpDownCaption
+            // 
+            this.lblUpDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblUpDownCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUpDownCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblUpDownCaption.Location = new System.Drawing.Point(2, 176);
+            this.lblUpDownCaption.Margin = new System.Windows.Forms.Padding(2);
+            this.lblUpDownCaption.Name = "lblUpDownCaption";
+            this.lblUpDownCaption.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblUpDownCaption.Size = new System.Drawing.Size(205, 85);
+            this.lblUpDownCaption.TabIndex = 6;
+            this.lblUpDownCaption.Text = "FEEDER UP DOWN";
+            this.lblUpDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _lblUpDownState
+            // 
+            this._lblUpDownState.BackColor = System.Drawing.Color.White;
+            this._lblUpDownState.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblUpDownState.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblUpDownState.Location = new System.Drawing.Point(211, 176);
+            this._lblUpDownState.Margin = new System.Windows.Forms.Padding(2);
+            this._lblUpDownState.Name = "_lblUpDownState";
+            this._lblUpDownState.Size = new System.Drawing.Size(410, 85);
+            this._lblUpDownState.TabIndex = 7;
+            this._lblUpDownState.Text = "--";
+            this._lblUpDownState.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // rightInfo
+            // 
+            this.rightInfo.ColumnCount = 1;
+            this.rightInfo.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightInfo.Controls.Add(this.lifterAxisPanel, 0, 0);
+            this.rightInfo.Controls.Add(this.ringOverloadPanel, 0, 1);
+            this.rightInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rightInfo.Location = new System.Drawing.Point(635, 4);
+            this.rightInfo.Margin = new System.Windows.Forms.Padding(0);
+            this.rightInfo.Name = "rightInfo";
+            this.rightInfo.RowCount = 2;
+            this.rightInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 79F));
+            this.rightInfo.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightInfo.Size = new System.Drawing.Size(189, 263);
+            this.rightInfo.TabIndex = 1;
+            // 
+            // lifterAxisPanel
+            // 
+            this.lifterAxisPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lifterAxisPanel.ColumnCount = 1;
+            this.lifterAxisPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.lifterAxisPanel.Controls.Add(this.lblLifterAxisTitle, 0, 0);
+            this.lifterAxisPanel.Controls.Add(this._lblLifterPos, 0, 1);
+            this.lifterAxisPanel.Location = new System.Drawing.Point(4, 4);
+            this.lifterAxisPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.lifterAxisPanel.Name = "lifterAxisPanel";
+            this.lifterAxisPanel.RowCount = 2;
+            this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.lifterAxisPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.lifterAxisPanel.Size = new System.Drawing.Size(181, 71);
+            this.lifterAxisPanel.TabIndex = 0;
+            // 
+            // lblLifterAxisTitle
+            // 
+            this.lblLifterAxisTitle.BackColor = System.Drawing.Color.Black;
+            this.lblLifterAxisTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLifterAxisTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblLifterAxisTitle.ForeColor = System.Drawing.Color.White;
+            this.lblLifterAxisTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblLifterAxisTitle.Name = "lblLifterAxisTitle";
+            this.lblLifterAxisTitle.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblLifterAxisTitle.Size = new System.Drawing.Size(175, 24);
+            this.lblLifterAxisTitle.TabIndex = 0;
+            this.lblLifterAxisTitle.Text = "LIFTER AXIS Z";
+            this.lblLifterAxisTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _lblLifterPos
+            // 
+            this._lblLifterPos.BackColor = System.Drawing.Color.White;
+            this._lblLifterPos.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this._lblLifterPos.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._lblLifterPos.Font = new System.Drawing.Font("Consolas", 10F);
+            this._lblLifterPos.Location = new System.Drawing.Point(3, 24);
+            this._lblLifterPos.Name = "_lblLifterPos";
+            this._lblLifterPos.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this._lblLifterPos.Size = new System.Drawing.Size(175, 47);
+            this._lblLifterPos.TabIndex = 1;
+            this._lblLifterPos.Text = "0.000 mm";
+            this._lblLifterPos.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            // 
+            // ringOverloadPanel
+            // 
+            this.ringOverloadPanel.BackColor = System.Drawing.SystemColors.Control;
+            this.ringOverloadPanel.ColumnCount = 2;
+            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.ringOverloadPanel.Controls.Add(this.dotRing, 0, 0);
+            this.ringOverloadPanel.Controls.Add(this.lblRingCaption, 1, 0);
+            this.ringOverloadPanel.Controls.Add(this.dotOverload, 0, 1);
+            this.ringOverloadPanel.Controls.Add(this.lblOverloadCaption, 1, 1);
+            this.ringOverloadPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ringOverloadPanel.Location = new System.Drawing.Point(4, 83);
+            this.ringOverloadPanel.Margin = new System.Windows.Forms.Padding(4);
+            this.ringOverloadPanel.Name = "ringOverloadPanel";
+            this.ringOverloadPanel.RowCount = 2;
+            this.ringOverloadPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.ringOverloadPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.ringOverloadPanel.Size = new System.Drawing.Size(181, 176);
+            this.ringOverloadPanel.TabIndex = 8;
+            // 
+            // dotRing
+            // 
+            this.dotRing.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.dotRing.BackColor = System.Drawing.SystemColors.Control;
+            this.dotRing.Location = new System.Drawing.Point(8, 27);
+            this.dotRing.Name = "dotRing";
+            this.dotRing.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotRing.OnColor = System.Drawing.Color.LimeGreen;
+            this.dotRing.Size = new System.Drawing.Size(34, 34);
+            this.dotRing.TabIndex = 0;
+            // 
+            // lblRingCaption
+            // 
+            this.lblRingCaption.BackColor = System.Drawing.SystemColors.Control;
+            this.lblRingCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRingCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblRingCaption.Location = new System.Drawing.Point(50, 0);
+            this.lblRingCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblRingCaption.Name = "lblRingCaption";
+            this.lblRingCaption.Size = new System.Drawing.Size(131, 88);
+            this.lblRingCaption.TabIndex = 1;
+            this.lblRingCaption.Text = "RING CHECK";
+            this.lblRingCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // dotOverload
+            // 
+            this.dotOverload.Anchor = System.Windows.Forms.AnchorStyles.None;
+            this.dotOverload.BackColor = System.Drawing.SystemColors.Control;
+            this.dotOverload.Location = new System.Drawing.Point(8, 115);
+            this.dotOverload.Name = "dotOverload";
+            this.dotOverload.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotOverload.OnColor = System.Drawing.Color.Red;
+            this.dotOverload.Size = new System.Drawing.Size(34, 34);
+            this.dotOverload.TabIndex = 2;
+            // 
+            // lblOverloadCaption
+            // 
+            this.lblOverloadCaption.BackColor = System.Drawing.SystemColors.Control;
+            this.lblOverloadCaption.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblOverloadCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblOverloadCaption.Location = new System.Drawing.Point(50, 88);
+            this.lblOverloadCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblOverloadCaption.Name = "lblOverloadCaption";
+            this.lblOverloadCaption.Size = new System.Drawing.Size(131, 88);
+            this.lblOverloadCaption.TabIndex = 3;
+            this.lblOverloadCaption.Text = "OVERLOAD CHECK";
+            this.lblOverloadCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // grpAction
+            // 
+            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.Controls.Add(this.actionBar);
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpAction.Location = new System.Drawing.Point(0, 702);
+            this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
+            this.grpAction.Name = "grpAction";
+            this.grpAction.Size = new System.Drawing.Size(836, 168);
+            this.grpAction.TabIndex = 1;
+            this.grpAction.TabStop = false;
+            this.grpAction.Text = "ACTION";
+            // 
             // actionBar
-            //
+            // 
             this.actionBar.ColumnCount = 2;
-            this.actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54F));
-            this.actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46F));
-            this.actionBar.Controls.Add(this.actionsLayout, 0, 0);
-            this.actionBar.Controls.Add(this.actionRightPanel, 1, 0);
-            this.actionBar.Dock = DockStyle.Fill;
-            this.actionBar.Margin = new Padding(0);
-            this.actionBar.RowCount = 1;
-            this.actionBar.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            //
-            // actionRightPanel
-            //
-            this.actionRightPanel.BackColor = Color.FromArgb(191, 191, 191);
-            this.actionRightPanel.Controls.Add(this.btnStop);
-            this.actionRightPanel.AutoSize = true;
-            this.actionRightPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            this.actionRightPanel.Dock = DockStyle.Right;
-            this.actionRightPanel.Margin = new Padding(0);
-            this.actionRightPanel.Padding = new Padding(12, 8, 12, 8);
-            this.actionRightPanel.WrapContents = false;
-            this.btnLoadFromCassette.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnLoadFromCassette.Cursor = Cursors.Hand;
-            this.btnLoadFromCassette.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.btnLoadFromCassette.ForeColor = Color.White;
-            this.btnLoadFromCassette.Margin = new Padding(6);
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionBar.Controls.Add(this.btnLoadFromCassette, 0, 0);
+            this.actionBar.Controls.Add(this.btnLoadToStage, 1, 0);
+            this.actionBar.Controls.Add(this.btnUnloadFromStage, 0, 1);
+            this.actionBar.Controls.Add(this.btnUnloadToCassette, 1, 1);
+            this.actionBar.Controls.Add(this.btnRecover, 0, 2);
+            this.actionBar.Controls.Add(this.btnStop, 1, 2);
+            this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionBar.Location = new System.Drawing.Point(3, 23);
+            this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Name = "actionBar";
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
+            this.actionBar.RowCount = 4;
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionBar.Size = new System.Drawing.Size(830, 142);
+            this.actionBar.TabIndex = 0;
+            // 
+            // btnLoadFromCassette
+            // 
+            this.btnLoadFromCassette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoadFromCassette.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLoadFromCassette.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadFromCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoadFromCassette.ForeColor = System.Drawing.Color.White;
+            this.btnLoadFromCassette.Location = new System.Drawing.Point(6, 1);
+            this.btnLoadFromCassette.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnLoadFromCassette.Name = "btnLoadFromCassette";
-            this.btnLoadFromCassette.Size = new Size(132, 60);
+            this.btnLoadFromCassette.Size = new System.Drawing.Size(406, 44);
+            this.btnLoadFromCassette.TabIndex = 0;
             this.btnLoadFromCassette.Text = "CST -> FEEDER";
-            this.btnLoadToStage.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnLoadToStage.Cursor = Cursors.Hand;
-            this.btnLoadToStage.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.btnLoadToStage.ForeColor = Color.White;
-            this.btnLoadToStage.Margin = new Padding(6);
+            // 
+            // btnLoadToStage
+            // 
+            this.btnLoadToStage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoadToStage.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnLoadToStage.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadToStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoadToStage.ForeColor = System.Drawing.Color.White;
+            this.btnLoadToStage.Location = new System.Drawing.Point(418, 1);
+            this.btnLoadToStage.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnLoadToStage.Name = "btnLoadToStage";
-            this.btnLoadToStage.Size = new Size(132, 60);
+            this.btnLoadToStage.Size = new System.Drawing.Size(406, 44);
+            this.btnLoadToStage.TabIndex = 1;
             this.btnLoadToStage.Text = "FEEDER -> STAGE";
-            this.btnUnloadFromStage.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnUnloadFromStage.Cursor = Cursors.Hand;
-            this.btnUnloadFromStage.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.btnUnloadFromStage.ForeColor = Color.White;
-            this.btnUnloadFromStage.Margin = new Padding(6);
+            // 
+            // btnUnloadFromStage
+            // 
+            this.btnUnloadFromStage.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnloadFromStage.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUnloadFromStage.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnUnloadFromStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnUnloadFromStage.ForeColor = System.Drawing.Color.White;
+            this.btnUnloadFromStage.Location = new System.Drawing.Point(6, 47);
+            this.btnUnloadFromStage.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnUnloadFromStage.Name = "btnUnloadFromStage";
-            this.btnUnloadFromStage.Size = new Size(132, 60);
+            this.btnUnloadFromStage.Size = new System.Drawing.Size(406, 44);
+            this.btnUnloadFromStage.TabIndex = 2;
             this.btnUnloadFromStage.Text = "STAGE -> FEEDER";
-            this.btnUnloadToCassette.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnUnloadToCassette.Cursor = Cursors.Hand;
-            this.btnUnloadToCassette.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.btnUnloadToCassette.ForeColor = Color.White;
-            this.btnUnloadToCassette.Margin = new Padding(6);
+            // 
+            // btnUnloadToCassette
+            // 
+            this.btnUnloadToCassette.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnUnloadToCassette.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnUnloadToCassette.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnUnloadToCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnUnloadToCassette.ForeColor = System.Drawing.Color.White;
+            this.btnUnloadToCassette.Location = new System.Drawing.Point(418, 47);
+            this.btnUnloadToCassette.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnUnloadToCassette.Name = "btnUnloadToCassette";
-            this.btnUnloadToCassette.Size = new Size(132, 60);
+            this.btnUnloadToCassette.Size = new System.Drawing.Size(406, 44);
+            this.btnUnloadToCassette.TabIndex = 3;
             this.btnUnloadToCassette.Text = "FEEDER -> CST";
-            this.btnRecover.BackColor = Color.FromArgb(128, 128, 128);
-            this.btnRecover.Cursor = Cursors.Hand;
-            this.btnRecover.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
-            this.btnRecover.ForeColor = Color.White;
-            this.btnRecover.Margin = new Padding(6);
+            // 
+            // btnRecover
+            // 
+            this.btnRecover.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnRecover.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnRecover.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRecover.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnRecover.ForeColor = System.Drawing.Color.White;
+            this.btnRecover.Location = new System.Drawing.Point(6, 93);
+            this.btnRecover.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnRecover.Name = "btnRecover";
-            this.btnRecover.Size = new Size(132, 60);
+            this.btnRecover.Size = new System.Drawing.Size(406, 44);
+            this.btnRecover.TabIndex = 4;
             this.btnRecover.Text = "RECOVER";
-            this.btnStop.BackColor = Color.FromArgb(214, 40, 40);
-            this.btnStop.Cursor = Cursors.Hand;
-            this.btnStop.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
-            this.btnStop.ForeColor = Color.White;
-            this.btnStop.Margin = new Padding(6);
+            // 
+            // btnStop
+            // 
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(214)))), ((int)(((byte)(40)))), ((int)(((byte)(40)))));
+            this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnStop.ForeColor = System.Drawing.Color.White;
+            this.btnStop.Location = new System.Drawing.Point(418, 93);
+            this.btnStop.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new Size(132, 60);
+            this.btnStop.Size = new System.Drawing.Size(406, 44);
+            this.btnStop.TabIndex = 5;
             this.btnStop.Text = "STOP";
-
-            this.BackColor = Color.FromArgb(191, 191, 191);
+            // 
+            // materialDetailView
+            // 
+            this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.materialDetailView.Location = new System.Drawing.Point(842, 0);
+            this.materialDetailView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
+            this.materialDetailView.Name = "materialDetailView";
+            this.contentLayout.SetRowSpan(this.materialDetailView, 2);
+            this.materialDetailView.ShowProcessTestDataButton = false;
+            this.materialDetailView.Size = new System.Drawing.Size(836, 870);
+            this.materialDetailView.TabIndex = 2;
+            // 
+            // InputFeederPage
+            // 
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this.Controls.Add(this.rootPanel);
+            this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "InputFeederPage";
-            this.Size = new Size(1678, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootPanel.ResumeLayout(false);
-            this.topLayout.ResumeLayout(false);
-            this.axisPanel.ResumeLayout(false);
-            this.ringPanel.ResumeLayout(false);
-            this.overloadPanel.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
-            this.pnlWork.ResumeLayout(false);
-            this.workLayout.ResumeLayout(false);
-            this.pnlCylinder.ResumeLayout(false);
-            this.cylinderLayout.ResumeLayout(false);
             this.pnlInfo.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
-            this.actionsLayout.ResumeLayout(false);
-            this.actionRightPanel.ResumeLayout(false);
+            this.leftInfo.ResumeLayout(false);
+            this.rightInfo.ResumeLayout(false);
+            this.lifterAxisPanel.ResumeLayout(false);
+            this.ringOverloadPanel.ResumeLayout(false);
+            this.grpAction.ResumeLayout(false);
             this.actionBar.ResumeLayout(false);
             this.ResumeLayout(false);
+
         }
     }
 }

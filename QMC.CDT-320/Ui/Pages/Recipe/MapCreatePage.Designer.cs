@@ -79,9 +79,6 @@
             this.mapLibraryBar = new System.Windows.Forms.TableLayoutPanel();
             this._cbMapLibrary = new System.Windows.Forms.ComboBox();
             this._btnMapLoad = new System.Windows.Forms.Button();
-            this._btnMapNew = new System.Windows.Forms.Button();
-            this._btnMapRename = new System.Windows.Forms.Button();
-            this._btnMapDelete = new System.Windows.Forms.Button();
             this.mapViewPanel = new System.Windows.Forms.Panel();
             this._mapView = new QMC.CDT320.Ui.Controls.DieMapView();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -124,6 +121,9 @@
             this.btnAutoMatch = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnXyMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this._btnMapNew = new System.Windows.Forms.Button();
+            this._btnMapRename = new System.Windows.Forms.Button();
+            this._btnMapDelete = new System.Windows.Forms.Button();
             this.mainLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.mapSection.SuspendLayout();
@@ -256,17 +256,11 @@
             // mapLibraryBar
             // 
             this.mapLibraryBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
-            this.mapLibraryBar.ColumnCount = 5;
+            this.mapLibraryBar.ColumnCount = 2;
             this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.mapLibraryBar.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.mapLibraryBar.Controls.Add(this._cbMapLibrary, 0, 0);
             this.mapLibraryBar.Controls.Add(this._btnMapLoad, 1, 0);
-            this.mapLibraryBar.Controls.Add(this._btnMapNew, 2, 0);
-            this.mapLibraryBar.Controls.Add(this._btnMapRename, 3, 0);
-            this.mapLibraryBar.Controls.Add(this._btnMapDelete, 4, 0);
             this.mapLibraryBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapLibraryBar.Location = new System.Drawing.Point(0, 0);
             this.mapLibraryBar.Margin = new System.Windows.Forms.Padding(0);
@@ -286,7 +280,7 @@
             this._cbMapLibrary.Location = new System.Drawing.Point(4, 5);
             this._cbMapLibrary.Margin = new System.Windows.Forms.Padding(0, 1, 4, 1);
             this._cbMapLibrary.Name = "_cbMapLibrary";
-            this._cbMapLibrary.Size = new System.Drawing.Size(930, 23);
+            this._cbMapLibrary.Size = new System.Drawing.Size(1100, 23);
             this._cbMapLibrary.TabIndex = 0;
             // 
             // _btnMapLoad
@@ -296,58 +290,13 @@
             this._btnMapLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnMapLoad.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapLoad.ForeColor = System.Drawing.Color.Black;
-            this._btnMapLoad.Location = new System.Drawing.Point(940, 4);
+            this._btnMapLoad.Location = new System.Drawing.Point(1110, 4);
             this._btnMapLoad.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
             this._btnMapLoad.Name = "_btnMapLoad";
-            this._btnMapLoad.Size = new System.Drawing.Size(68, 26);
+            this._btnMapLoad.Size = new System.Drawing.Size(118, 26);
             this._btnMapLoad.TabIndex = 1;
-            this._btnMapLoad.Text = "LOAD";
+            this._btnMapLoad.Text = "LOAD SPEC";
             this._btnMapLoad.UseVisualStyleBackColor = false;
-            // 
-            // _btnMapNew
-            // 
-            this._btnMapNew.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
-            this._btnMapNew.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._btnMapNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapNew.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this._btnMapNew.ForeColor = System.Drawing.Color.Black;
-            this._btnMapNew.Location = new System.Drawing.Point(1010, 4);
-            this._btnMapNew.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
-            this._btnMapNew.Name = "_btnMapNew";
-            this._btnMapNew.Size = new System.Drawing.Size(68, 26);
-            this._btnMapNew.TabIndex = 2;
-            this._btnMapNew.Text = "SAVE AS";
-            this._btnMapNew.UseVisualStyleBackColor = false;
-            // 
-            // _btnMapRename
-            // 
-            this._btnMapRename.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
-            this._btnMapRename.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._btnMapRename.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapRename.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this._btnMapRename.ForeColor = System.Drawing.Color.Black;
-            this._btnMapRename.Location = new System.Drawing.Point(1080, 4);
-            this._btnMapRename.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
-            this._btnMapRename.Name = "_btnMapRename";
-            this._btnMapRename.Size = new System.Drawing.Size(78, 26);
-            this._btnMapRename.TabIndex = 3;
-            this._btnMapRename.Text = "RENAME";
-            this._btnMapRename.UseVisualStyleBackColor = false;
-            // 
-            // _btnMapDelete
-            // 
-            this._btnMapDelete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
-            this._btnMapDelete.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._btnMapDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnMapDelete.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
-            this._btnMapDelete.ForeColor = System.Drawing.Color.Black;
-            this._btnMapDelete.Location = new System.Drawing.Point(1160, 4);
-            this._btnMapDelete.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
-            this._btnMapDelete.Name = "_btnMapDelete";
-            this._btnMapDelete.Size = new System.Drawing.Size(68, 26);
-            this._btnMapDelete.TabIndex = 4;
-            this._btnMapDelete.Text = "DELETE";
-            this._btnMapDelete.UseVisualStyleBackColor = false;
             // 
             // mapViewPanel
             // 
@@ -368,6 +317,7 @@
             this._mapView.CellStatusResolver = null;
             this._mapView.CellTextResolver = null;
             this._mapView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._mapView.LegendItemsResolver = null;
             this._mapView.Location = new System.Drawing.Point(0, 0);
             this._mapView.Map = null;
             this._mapView.Name = "_mapView";
@@ -1072,6 +1022,51 @@
             this.btnXyMatchMove.Size = new System.Drawing.Size(202, 76);
             this.btnXyMatchMove.TabIndex = 6;
             this.btnXyMatchMove.Text = "X/Y MATCH MOVE";
+            // 
+            // _btnMapNew
+            // 
+            this._btnMapNew.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
+            this._btnMapNew.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnMapNew.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnMapNew.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapNew.ForeColor = System.Drawing.Color.Black;
+            this._btnMapNew.Location = new System.Drawing.Point(1010, 4);
+            this._btnMapNew.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this._btnMapNew.Name = "_btnMapNew";
+            this._btnMapNew.Size = new System.Drawing.Size(68, 26);
+            this._btnMapNew.TabIndex = 2;
+            this._btnMapNew.Text = "SAVE AS";
+            this._btnMapNew.UseVisualStyleBackColor = false;
+            // 
+            // _btnMapRename
+            // 
+            this._btnMapRename.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
+            this._btnMapRename.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnMapRename.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnMapRename.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapRename.ForeColor = System.Drawing.Color.Black;
+            this._btnMapRename.Location = new System.Drawing.Point(1080, 4);
+            this._btnMapRename.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this._btnMapRename.Name = "_btnMapRename";
+            this._btnMapRename.Size = new System.Drawing.Size(78, 26);
+            this._btnMapRename.TabIndex = 3;
+            this._btnMapRename.Text = "RENAME";
+            this._btnMapRename.UseVisualStyleBackColor = false;
+            // 
+            // _btnMapDelete
+            // 
+            this._btnMapDelete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(230)))), ((int)(((byte)(230)))));
+            this._btnMapDelete.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._btnMapDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnMapDelete.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
+            this._btnMapDelete.ForeColor = System.Drawing.Color.Black;
+            this._btnMapDelete.Location = new System.Drawing.Point(1160, 4);
+            this._btnMapDelete.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
+            this._btnMapDelete.Name = "_btnMapDelete";
+            this._btnMapDelete.Size = new System.Drawing.Size(68, 26);
+            this._btnMapDelete.TabIndex = 4;
+            this._btnMapDelete.Text = "DELETE";
+            this._btnMapDelete.UseVisualStyleBackColor = false;
             // 
             // MapCreatePage
             // 

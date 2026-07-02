@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
@@ -1009,7 +1010,7 @@ namespace QMC.CDT320.Sequencing
             var xyTargets = new Dictionary<PickerAxis, double>();
             xyTargets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
             xyTargets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
-            xyTargets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName) + ResolvePickerAlignOffsetT(index);
+            xyTargets[GetPickerTAxis(index)] = ResolvePickerZoneT(positionArrayName, index);
 
             result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct, targetName).ConfigureAwait(false);
             if (result != 0)
@@ -1919,15 +1920,34 @@ namespace QMC.CDT320.Sequencing
 
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
-            return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(positionArrayName, pickerIndex) +
-                   ResolvePickerAlignOffsetX(pickerIndex);
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).X;
         }
 
         protected double ResolvePickerZoneY(string positionArrayName, int pickerIndex)
         {
-            return GetPickerTeachingPosition(PickerAxis.PickerY, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerAlignOffsetY(pickerIndex);
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).Y;
+        }
+
+        protected double ResolvePickerZoneT(string positionArrayName, int pickerIndex)
+        {
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).T;
+        }
+
+        protected PickerZoneCoordinateResult ResolvePickerZoneTarget(string positionArrayName, int pickerIndex)
+        {
+            string zonePositionName = ResolveZonePositionName(positionArrayName);
+            return DieCoordinateTransformService.CalculatePickerZoneTarget(
+                Name,
+                Side,
+                positionArrayName,
+                pickerIndex,
+                GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName),
+                GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName),
+                ResolveTPosition(positionArrayName),
+                ResolvePickerPitchXOffset(positionArrayName, pickerIndex),
+                ResolvePickerAlignOffsetX(pickerIndex),
+                ResolvePickerAlignOffsetY(pickerIndex),
+                ResolvePickerAlignOffsetT(pickerIndex));
         }
 
         protected string ResolveZonePositionName(string positionArrayName)
@@ -1982,7 +2002,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerAlignOffsetX(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetX : 0.0;
+            return (offset != null ? offset.AlignOffsetX : 0.0) + ResolveColletCalibrationOffsetX(index);
         }
 
         protected double ResolvePickerPitchXOffset(string positionArrayName, int index)
@@ -2015,13 +2035,42 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerAlignOffsetY(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetY : 0.0;
+            return (offset != null ? offset.AlignOffsetY : 0.0) + ResolveColletCalibrationOffsetY(index);
         }
 
         protected double ResolvePickerAlignOffsetT(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetT : 0.0;
+            return (offset != null ? offset.AlignOffsetT : 0.0) + ResolveColletCalibrationOffsetT(index);
+        }
+
+        private double ResolveColletCalibrationOffsetX(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.OffsetX : 0.0;
+        }
+
+        private double ResolveColletCalibrationOffsetY(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.OffsetY : 0.0;
+        }
+
+        private double ResolveColletCalibrationOffsetT(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.ThetaOffset : 0.0;
+        }
+
+        private ColletCalibrationRecord ResolveColletCalibrationRecord(int index)
+        {
+            if (Context == null || Context.Machine == null || index < 0)
+                return null;
+
+            VisionFocusPickerSide side = Side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
+            return CalibrationCoordinateService.ResolveCollet(Context.Machine, side, index);
         }
 
         protected double ResolveInputVisionToPickerXOffset(int index)

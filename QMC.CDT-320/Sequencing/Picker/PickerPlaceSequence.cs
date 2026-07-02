@@ -614,9 +614,6 @@ namespace QMC.CDT320.Sequencing
             EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "Place");
 
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
-            double baseY = _currentOutputSide == BinSide.Ng
-                ? OutputStage.Recipe.NGStageY.ProcessPosition
-                : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
             string offsetReason;
             if (!TryResolveOutputVisionToPickerOffsets(
@@ -634,10 +631,6 @@ namespace QMC.CDT320.Sequencing
                     ", pickerIndex=" + _currentPickerIndex +
                     ", reason=" + offsetReason);
             }
-
-            _targetOutputStageY = baseY +
-                _receiveTarget.TargetY +
-                _outputVisionToPickerY;
 
             CalculatePlaceTargetValues();
             Log.Write("PickerPlaceSequence", Name + " Place 대상 좌표 계산 완료. side=" + Side + ", step=" + CurrentStep);
@@ -747,14 +740,34 @@ namespace QMC.CDT320.Sequencing
 
         private void CalculatePlaceTargetValues()
         {
-            _targetPickerX = OutputStage.Recipe.VisionX.ProcessPosition +
-                _receiveTarget.TargetX +
-                _outputVisionToPickerX +
-                ResolvePickerAlignOffsetX(_currentPickerIndex);
-            _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition");
-            _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition") +
-                ResolvePickerAlignOffsetT(_currentPickerIndex);
-            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition");
+            string dieId = _currentDie != null ? _currentDie.DieId : string.Empty;
+            double outputStageBaseY = _currentOutputSide == BinSide.Ng
+                ? OutputStage.Recipe.NGStageY.ProcessPosition
+                : OutputStage.Recipe.GoodStageY.ProcessPosition;
+
+            PlaceCoordinateResult coordinate = DieCoordinateTransformService.CalculatePlaceTarget(
+                Name,
+                Side,
+                _currentPickerIndex,
+                dieId,
+                _currentOutputSide,
+                outputStageBaseY,
+                _receiveTarget != null ? _receiveTarget.TargetY : 0.0,
+                OutputStage.Recipe.VisionX.ProcessPosition,
+                _receiveTarget != null ? _receiveTarget.TargetX : 0.0,
+                _outputVisionToPickerX,
+                _outputVisionToPickerY,
+                ResolvePickerAlignOffsetX(_currentPickerIndex),
+                GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition"),
+                GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition"),
+                ResolvePickerAlignOffsetT(_currentPickerIndex),
+                GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition"));
+
+            _targetOutputStageY = coordinate.OutputStageY;
+            _targetPickerX = coordinate.PickerX;
+            _targetPickerY = coordinate.PickerY;
+            _targetPickerT = coordinate.PickerT;
+            _targetPickerZ = coordinate.PickerZ;
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)
@@ -1265,8 +1278,7 @@ namespace QMC.CDT320.Sequencing
             foreach (int pickerIndex in _pickedPickerIndexes)
             {
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                double target = GetPickerTeachingPosition(tAxis, "PlacePosition") +
-                    ResolvePickerAlignOffsetT(pickerIndex);
+                double target = ResolvePickerZoneT("DiePlacePosition", pickerIndex);
 
                 if (!IsPickerAxisAlreadyInPosition(tAxis, target))
                     targets[tAxis] = target;

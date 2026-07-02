@@ -40,18 +40,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label _lblPickFailValue;
         private readonly Label _lblPlaceFailValue;
         private readonly Label _lblHeadZoneValue;
-        private readonly Label _lblHeadProcessValue;
-        private readonly Label[] _processFlowLabels;
         private readonly Label _lblProcessDetailValue;
         private readonly Label[] _colletUseTitleLabels;
         private readonly Label[] _colletUseValueLabels;
         private readonly IndicatorDot[] _vacuumDots;
         private readonly IndicatorDot[] _blowDots;
-        private readonly IndicatorDot[] _flowDots;
         private readonly Label[] _vacuumLabels;
         private readonly Label[] _blowLabels;
-        private readonly Label[] _flowLabels;
-        private readonly DataGridView _axisGrid;
+        private readonly Label[] _axisValueLabels;
+        private readonly MaterialDetailView _headDieDetailView;
+        private readonly RadioButton[] _headSelectButtons;
+        private int _selectedHeadNo = 1;
         private readonly Button _btnCountClear;
         private readonly ActionButton _btnInput;
         private readonly ActionButton _btnInspect;
@@ -73,11 +72,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private bool _manualSequenceRunning;
         private string _lastStableProcess = "AVOID";
 
-        private sealed class RuntimeOffsetRowTag
-        {
-            public int PickerIndex { get; set; }
-        }
-
         public PickerWorkInfoPageRuntime(
             PageBase owner,
             PickerSequenceSide side,
@@ -91,18 +85,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Label lblPickFailValue,
             Label lblPlaceFailValue,
             Label lblHeadZoneValue,
-            Label lblHeadProcessValue,
-            Label[] processFlowLabels,
             Label lblProcessDetailValue,
             Label[] colletUseTitleLabels,
             Label[] colletUseValueLabels,
             IndicatorDot[] vacuumDots,
             IndicatorDot[] blowDots,
-            IndicatorDot[] flowDots,
             Label[] vacuumLabels,
             Label[] blowLabels,
-            Label[] flowLabels,
-            DataGridView axisGrid,
+            Label[] axisValueLabels,
+            MaterialDetailView headDieDetailView,
+            RadioButton[] headSelectButtons,
             Button btnCountClear,
             ActionButton btnInput,
             ActionButton btnInspect,
@@ -127,18 +119,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblPickFailValue = lblPickFailValue;
             _lblPlaceFailValue = lblPlaceFailValue;
             _lblHeadZoneValue = lblHeadZoneValue;
-            _lblHeadProcessValue = lblHeadProcessValue;
-            _processFlowLabels = processFlowLabels ?? new Label[0];
             _lblProcessDetailValue = lblProcessDetailValue;
             _colletUseTitleLabels = colletUseTitleLabels ?? new Label[0];
             _colletUseValueLabels = colletUseValueLabels ?? new Label[0];
             _vacuumDots = vacuumDots ?? new IndicatorDot[0];
             _blowDots = blowDots ?? new IndicatorDot[0];
-            _flowDots = flowDots ?? new IndicatorDot[0];
             _vacuumLabels = vacuumLabels ?? new Label[0];
             _blowLabels = blowLabels ?? new Label[0];
-            _flowLabels = flowLabels ?? new Label[0];
-            _axisGrid = axisGrid;
+            _axisValueLabels = axisValueLabels ?? new Label[0];
+            _headDieDetailView = headDieDetailView;
+            _headSelectButtons = headSelectButtons ?? new RadioButton[0];
             _btnCountClear = btnCountClear;
             _btnInput = btnInput;
             _btnInspect = btnInspect;
@@ -202,6 +192,36 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _cmbPickZTestPickerNo.SelectedIndex = 0;
             if (_cmbPickZTestPickerNo != null)
                 _cmbPickZTestPickerNo.Visible = false;
+
+            for (int i = 0; i < _headSelectButtons.Length; i++)
+            {
+                RadioButton button = _headSelectButtons[i];
+                if (button == null)
+                    continue;
+
+                int headNo = i + 1;
+                button.Click += (s, e) => SelectHead(headNo);
+            }
+        }
+
+        private void SelectHead(int headNo)
+        {
+            _selectedHeadNo = Math.Max(1, Math.Min(4, headNo));
+            UpdateHeadSelectButtons();
+            RefreshHeadDieDetail();
+        }
+
+        private void UpdateHeadSelectButtons()
+        {
+            for (int i = 0; i < _headSelectButtons.Length; i++)
+            {
+                RadioButton button = _headSelectButtons[i];
+                if (button == null)
+                    continue;
+
+                bool selected = (i + 1) == _selectedHeadNo;
+                button.Checked = selected;
+            }
         }
 
         public void Refresh()
@@ -217,7 +237,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 RefreshSummary(machine);
-                RefreshAxisGrid(machine);
+                RefreshAxisLabels(machine);
+                RefreshHeadDieDetail();
             }
             catch
             {
@@ -241,8 +262,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblPickFailValue.Text = "0 ea";
             _lblPlaceFailValue.Text = "0 ea";
             SetHeadZone("-");
-            SetHeadProcess("-");
-            SetProcessFlow("-");
             SetProcessDetail("-");
             for (int i = 0; i < _colletUseTitleLabels.Length; i++)
             {
@@ -262,13 +281,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetDot(_vacuumDots[i], false);
             for (int i = 0; i < _blowDots.Length; i++)
                 SetDot(_blowDots[i], false);
-            for (int i = 0; i < _flowDots.Length; i++)
-                SetDot(_flowDots[i], false);
-            for (int i = 0; i < _flowLabels.Length; i++)
-            {
-                if (_flowLabels[i] != null)
-                    _flowLabels[i].Text = "HEAD FLOW #" + (i + 1) + " : OFF";
-            }
         }
 
         private void RefreshSummary(CDT320_Machine machine)
@@ -286,7 +298,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 DieMaterial pickedDie = GetPickedDieMaterial(pickerNo);
                 bool hasPickedMaterial = pickedDie != null;
                 bool vacuumDisplay = vacuum || flow || (simulationOrDryRun && hasPickedMaterial);
-                bool flowDisplay = flow || (simulationOrDryRun && hasPickedMaterial);
 
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
@@ -310,18 +321,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 if (index < _vacuumLabels.Length && _vacuumLabels[index] != null)
-                    _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuumDisplay ? "ON" : "OFF");
+                    _vacuumLabels[index].Text = "VACUUM #" + pickerNo + "\r\n: " + (vacuumDisplay ? "ON" : "OFF");
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
-                    _blowLabels[index].Text = "HEAD BLOW #" + pickerNo + " : " + (blow ? "ON" : "OFF");
-                if (index < _flowLabels.Length && _flowLabels[index] != null)
-                    _flowLabels[index].Text = "HEAD FLOW #" + pickerNo + " : " + (flowDisplay ? "ON" : "OFF");
+                    _blowLabels[index].Text = "BLOW #" + pickerNo + "\r\n: " + (blow ? "ON" : "OFF");
 
                 if (index < _vacuumDots.Length)
                     SetDot(_vacuumDots[index], vacuumDisplay);
                 if (index < _blowDots.Length)
                     SetDot(_blowDots[index], blow);
-                if (index < _flowDots.Length)
-                    SetDot(_flowDots[index], flowDisplay);
             }
 
             _lblColletChangeValue.Text = cdaOk ? "READY" : "CHECK";
@@ -334,8 +341,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             string headProcess = ResolveHeadProcess(machine, headZone);
             bool pickerMoving = IsPickerMoving(machine);
             SetHeadZone(headZone);
-            SetHeadProcess(headProcess);
-            SetProcessFlow(headProcess);
             SetProcessDetail(ResolveProcessDetail(machine, headProcess, pickerMoving));
 
             if (!pickerMoving && IsStableProcess(headProcess))
@@ -381,70 +386,70 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void RefreshAxisGrid(CDT320_Machine machine)
+        private static readonly PickerAxis[] AxisLabelOrder = new PickerAxis[]
         {
-            if (_axisGrid.Columns.Count == 0)
-                return;
+            PickerAxis.PickerX,
+            PickerAxis.PickerY,
+            PickerAxis.PickerT0,
+            PickerAxis.PickerZ0,
+            PickerAxis.PickerT1,
+            PickerAxis.PickerZ1,
+            PickerAxis.PickerT2,
+            PickerAxis.PickerZ2,
+            PickerAxis.PickerT3,
+            PickerAxis.PickerZ3
+        };
 
-            ConfigureAxisGridColumns();
-
-            if (_axisGrid.Rows.Count != 10)
+        private void RefreshAxisLabels(CDT320_Machine machine)
+        {
+            for (int i = 0; i < _axisValueLabels.Length && i < AxisLabelOrder.Length; i++)
             {
-                _axisGrid.Rows.Clear();
-                AddAxisRow("PICKER X", PickerAxis.PickerX);
-                AddAxisRow("PICKER Y", PickerAxis.PickerY);
-                AddAxisRow("PICKER T #1", PickerAxis.PickerT0);
-                AddAxisRow("PICKER Z #1", PickerAxis.PickerZ0);
-                AddAxisRow("PICKER T #2", PickerAxis.PickerT1);
-                AddAxisRow("PICKER Z #2", PickerAxis.PickerZ1);
-                AddAxisRow("PICKER T #3", PickerAxis.PickerT2);
-                AddAxisRow("PICKER Z #3", PickerAxis.PickerZ2);
-                AddAxisRow("PICKER T #4", PickerAxis.PickerT3);
-                AddAxisRow("PICKER Z #4", PickerAxis.PickerZ3);
-            }
-
-            foreach (DataGridViewRow row in _axisGrid.Rows)
-            {
-                if (row.Tag == null)
+                Label label = _axisValueLabels[i];
+                if (label == null)
                     continue;
 
-                PickerAxis axisKey = (PickerAxis)row.Tag;
-                BaseAxis axis = GetAxis(machine, axisKey);
-                row.Cells["colCurrent"].Value = axis != null ? FormatAxisDisplay(axis.ActualPosition, axis) : "-";
+                BaseAxis axis = GetAxis(machine, AxisLabelOrder[i]);
+                label.Text = axis != null ? FormatAxisDisplay(axis.ActualPosition, axis) : "-";
             }
         }
 
-        private void ConfigureAxisGridColumns()
+        private void RefreshHeadDieDetail()
         {
-            try
-            {
-                foreach (DataGridViewColumn column in _axisGrid.Columns)
-                {
-                    column.SortMode = DataGridViewColumnSortMode.NotSortable;
-                    column.Visible = column.Name == "colAxis" || column.Name == "colCurrent";
-                    column.ReadOnly = true;
-                }
+            if (_headDieDetailView == null)
+                return;
 
-                if (_axisGrid.Columns.Contains("colAxis"))
-                {
-                    _axisGrid.Columns["colAxis"].HeaderText = "Axis Name";
-                    _axisGrid.Columns["colAxis"].Width = 210;
-                }
+            UpdateHeadSelectButtons();
 
-                if (_axisGrid.Columns.Contains("colCurrent"))
-                {
-                    _axisGrid.Columns["colCurrent"].HeaderText = "Position";
-                    _axisGrid.Columns["colCurrent"].Width = 180;
-                    _axisGrid.Columns["colCurrent"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
-                }
-            }
-            catch (Exception ex)
+            string sidePrefix = _side == PickerSequenceSide.Front ? "FRONT" : "REAR";
+            string title = sidePrefix + " PICKER HEAD #" + _selectedHeadNo + " DIE";
+            DieMaterial die = GetPickedDieMaterial(_selectedHeadNo);
+            _headDieDetailView.SetRows(title, BuildHeadDieRows(die));
+        }
+
+        private IEnumerable<MaterialDetailRow> BuildHeadDieRows(DieMaterial die)
+        {
+            return new[]
             {
-                WriteAlarm("Picker 축 그리드 컬럼 설정 실패: " + ex.Message);
-            }
-            finally
+                DetailRow("Die ID", die != null ? die.DieId : ""),
+                DetailRow("Wafer", die != null ? die.WaferID_Input : ""),
+                DetailRow("Sequence", die != null ? die.InputSequenceNo.ToString() : ""),
+                DetailRow("Map X/Y", die != null ? die.Wafer_IndexX + " / " + die.Wafer_IndexY : ""),
+                DetailRow("Location", die != null && die.CurrentLocation != null ? die.CurrentLocation.ToString() : ""),
+                DetailRow("Result", die != null ? die.Result.ToString() : "-"),
+                DetailRow("Input Target", die != null ? (die.IsInputTarget ? "YES" : "NO") : ""),
+                DetailRow("NG Code", die != null && die.NgCodes != null && die.NgCodes.Count > 0 ? string.Join(",", die.NgCodes.ToArray()) : ""),
+                DetailRow("Reason", "-")
+            };
+        }
+
+        private static MaterialDetailRow DetailRow(string name, string value)
+        {
+            return new MaterialDetailRow
             {
-            }
+                Name = name,
+                Value = string.IsNullOrWhiteSpace(value) ? "-" : value,
+                Editable = false
+            };
         }
 
         private string FormatAxisDisplay(double nativeValue, BaseAxis axis)
@@ -464,31 +469,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void AddAxisRow(string name, PickerAxis axis)
-        {
-            int rowIndex = _axisGrid.Rows.Add(name, "", "", "", "", "");
-            _axisGrid.Rows[rowIndex].Tag = axis;
-        }
-
-        private void AddOffsetRow(string name, int pickerIndex)
-        {
-            int rowIndex = _axisGrid.Rows.Add(name, "", "", "", "", "");
-            _axisGrid.Rows[rowIndex].Tag = new RuntimeOffsetRowTag { PickerIndex = pickerIndex };
-        }
-
-        private void RefreshOffsetRow(CDT320_Machine machine, DataGridViewRow row, int pickerIndex)
-        {
-            PickerAlignOffset offset = GetRuntimePickerOffset(machine, pickerIndex);
-            BaseAxis xAxis = GetAxis(machine, PickerAxis.PickerX);
-            BaseAxis yAxis = GetAxis(machine, PickerAxis.PickerY);
-
-            row.Cells["colCurrent"].Value = offset != null
-                ? "X=" + FormatAxisDisplay(offset.AlignOffsetX, xAxis) +
-                  " / Y=" + FormatAxisDisplay(offset.AlignOffsetY, yAxis) +
-                  " / T=" + offset.AlignOffsetT.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " deg"
-                : "-";
         }
 
         private async Task RunSequenceAction(string actionName, SequenceRunMode mode)
@@ -1793,43 +1773,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void SetHeadProcess(string process)
-        {
-            if (_lblHeadProcessValue == null)
-                return;
-
-            _lblHeadProcessValue.Text = string.IsNullOrEmpty(process) ? "-" : process;
-            _lblHeadProcessValue.ForeColor = Color.White;
-
-            switch (_lblHeadProcessValue.Text)
-            {
-                case "PICKUP":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(0, 128, 192);
-                    break;
-                case "INSPECT_B":
-                case "INSPECT_S":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(217, 119, 6);
-                    break;
-                case "PLACE":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(139, 92, 246);
-                    break;
-                case "AVOID":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(0, 176, 80);
-                    break;
-                case "MOVING":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(255, 192, 0);
-                    _lblHeadProcessValue.ForeColor = Color.Black;
-                    break;
-                case "UNKNOWN":
-                    _lblHeadProcessValue.BackColor = Color.FromArgb(160, 160, 160);
-                    break;
-                default:
-                    _lblHeadProcessValue.BackColor = Color.White;
-                    _lblHeadProcessValue.ForeColor = Color.Black;
-                    break;
-            }
-        }
-
         private bool IsPickerMoving(CDT320_Machine machine)
         {
             try
@@ -1908,21 +1851,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private void SetProcessFlow(string process)
-        {
-            string active = NormalizeFlowProcess(process);
-            for (int i = 0; i < _processFlowLabels.Length; i++)
-            {
-                Label label = _processFlowLabels[i];
-                if (label == null)
-                    continue;
-
-                bool selected = string.Equals(label.Text, active, StringComparison.OrdinalIgnoreCase);
-                label.BackColor = selected ? ResolveProcessColor(active) : Color.FromArgb(105, 105, 105);
-                label.ForeColor = selected && active == "SIDE" ? Color.Black : Color.White;
-            }
-        }
-
         private void SetProcessDetail(string detail)
         {
             if (_lblProcessDetailValue == null)
@@ -1932,7 +1860,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblProcessDetailValue.ForeColor = Color.Black;
             _lblProcessDetailValue.BackColor = detail != null && detail.Contains("이동 중")
                 ? Color.FromArgb(255, 242, 204)
-                : Color.White;
+                : Color.FromArgb(240, 240, 240);
         }
 
         private string NormalizeFlowProcess(string process)
@@ -1973,25 +1901,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                    value == "PLACE";
         }
 
-        private Color ResolveProcessColor(string process)
-        {
-            switch (process)
-            {
-                case "AVOID":
-                    return Color.FromArgb(0, 176, 80);
-                case "PICKUP":
-                    return Color.FromArgb(0, 128, 192);
-                case "BOTTOM":
-                    return Color.FromArgb(217, 119, 6);
-                case "SIDE":
-                    return Color.FromArgb(255, 192, 0);
-                case "PLACE":
-                    return Color.FromArgb(139, 92, 246);
-                default:
-                    return Color.FromArgb(160, 160, 160);
-            }
-        }
-
         private bool IsGroupInPosition(CDT320_Machine machine, string positionName)
         {
             PickerAxis[] axes = new PickerAxis[] { PickerAxis.PickerX, PickerAxis.PickerY, PickerAxis.PickerT0, PickerAxis.PickerT1, PickerAxis.PickerT2, PickerAxis.PickerT3, PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -2021,25 +1930,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_side == PickerSequenceSide.Front)
                 return machine.PickerFrontUnit.GetPickerTeachingPosition(axis, positionName);
             return machine.PickerRearUnit.GetPickerTeachingPosition(axis, positionName);
-        }
-
-        private PickerAlignOffset GetRuntimePickerOffset(CDT320_Machine machine, int pickerIndex)
-        {
-            if (machine == null || pickerIndex < 0)
-                return null;
-
-            if (_side == PickerSequenceSide.Front)
-            {
-                if (machine.PickerFrontUnit == null)
-                    return null;
-
-                return machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex);
-            }
-
-            if (machine.PickerRearUnit == null)
-                return null;
-
-            return machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex);
         }
 
         private bool UsePicker(CDT320_Machine machine, int pickerNo)

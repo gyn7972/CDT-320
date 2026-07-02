@@ -27,13 +27,13 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colValid;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.TableLayoutPanel buttonPanel;
-        private System.Windows.Forms.Button btnCheck;
-        private System.Windows.Forms.Button btnUseCurrent;
-        private System.Windows.Forms.Button btnMoveDefault;
-        private System.Windows.Forms.Button btnStartScan;
-        private System.Windows.Forms.Button btnReload;
-        private System.Windows.Forms.Button btnSave;
-        private System.Windows.Forms.Button btnClose;
+        private CalibrationDialogButton btnCheck;
+        private CalibrationDialogButton btnUseCurrent;
+        private CalibrationDialogButton btnMoveDefault;
+        private CalibrationDialogButton btnStartScan;
+        private CalibrationDialogButton btnReload;
+        private CalibrationDialogButton btnSave;
+        private CalibrationDialogButton btnClose;
 
         protected override void Dispose(bool disposing)
         {
@@ -68,13 +68,13 @@
             this.colValid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.lblStatus = new System.Windows.Forms.Label();
             this.buttonPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.btnCheck = new System.Windows.Forms.Button();
-            this.btnUseCurrent = new System.Windows.Forms.Button();
-            this.btnMoveDefault = new System.Windows.Forms.Button();
-            this.btnStartScan = new System.Windows.Forms.Button();
-            this.btnReload = new System.Windows.Forms.Button();
-            this.btnSave = new System.Windows.Forms.Button();
-            this.btnClose = new System.Windows.Forms.Button();
+            this.btnCheck = new CalibrationDialogButton();
+            this.btnUseCurrent = new CalibrationDialogButton();
+            this.btnMoveDefault = new CalibrationDialogButton();
+            this.btnStartScan = new CalibrationDialogButton();
+            this.btnReload = new CalibrationDialogButton();
+            this.btnSave = new CalibrationDialogButton();
+            this.btnClose = new CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.groupSetting.SuspendLayout();
@@ -414,6 +414,7 @@
             this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK READY";
             this.btnCheck.UseVisualStyleBackColor = false;
+            this.btnCheck.Role = CalibrationDialogButtonRole.Normal;
             this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
             // 
             // btnUseCurrent
@@ -432,6 +433,7 @@
             this.btnUseCurrent.TabIndex = 1;
             this.btnUseCurrent.Text = "USE CURRENT";
             this.btnUseCurrent.UseVisualStyleBackColor = false;
+            this.btnUseCurrent.Role = CalibrationDialogButtonRole.Normal;
             this.btnUseCurrent.Click += new System.EventHandler(this.btnUseCurrent_Click);
             // 
             // btnMoveDefault
@@ -450,6 +452,7 @@
             this.btnMoveDefault.TabIndex = 2;
             this.btnMoveDefault.Text = "MOVE DEFAULT";
             this.btnMoveDefault.UseVisualStyleBackColor = false;
+            this.btnMoveDefault.Role = CalibrationDialogButtonRole.Normal;
             this.btnMoveDefault.Click += new System.EventHandler(this.btnMoveDefault_Click);
             // 
             // btnStartScan
@@ -468,6 +471,7 @@
             this.btnStartScan.TabIndex = 3;
             this.btnStartScan.Text = "START SCAN";
             this.btnStartScan.UseVisualStyleBackColor = false;
+            this.btnStartScan.Role = CalibrationDialogButtonRole.Primary;
             this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
             // 
             // btnReload
@@ -486,6 +490,7 @@
             this.btnReload.TabIndex = 4;
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
+            this.btnReload.Role = CalibrationDialogButtonRole.Normal;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
             // 
             // btnSave
@@ -504,6 +509,7 @@
             this.btnSave.TabIndex = 5;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
+            this.btnSave.Role = CalibrationDialogButtonRole.Dark;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // btnClose
@@ -522,6 +528,7 @@
             this.btnClose.TabIndex = 6;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
+            this.btnClose.Role = CalibrationDialogButtonRole.Normal;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
             // VisionFocusCalibrationDialog
@@ -546,3 +553,5 @@
         }
     }
 }
+
+

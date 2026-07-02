@@ -83,8 +83,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT WAFER LOADING", LoadAsync);
                 btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
-                actionsLayout.WrapContents = false;
-                EnsureStopButtonLast();
 
                 if (cassetteSlotView != null)
                     cassetteSlotView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input1, e.SlotIndex);
@@ -281,13 +279,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnMap.Enabled = enabled;
                 btnLoad.Enabled = enabled;
                 btnUnload.Enabled = enabled;
-                if (actionsLayout != null)
-                    actionsLayout.Enabled = true;
                 if (btnStop != null)
-                {
                     btnStop.Enabled = true;
-                    EnsureStopButtonLast();
-                }
             }
             catch (Exception ex)
             {
@@ -316,16 +309,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
-        }
-
-        private void EnsureStopButtonLast()
-        {
-            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
-                return;
-
-            int lastIndex = actionsLayout.Controls.Count - 1;
-            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
-                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<int> LifterInitAsync(Form1 host)
@@ -1065,7 +1048,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     bool hasWafer;
                     bool known;
                     ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer, out known);
-                    Color stateColor = known ? GetStateColor(state) : Color.White;
+                    Color stateColor = known ? GetStateColor(state) : SystemColors.Control;
                     lblSlotStateValue.Text = known ? BuildStateText(state, waferId, false) : "-";
                     lblSlotStateValue.BackColor = stateColor;
                     lblSlotStateValue.ForeColor = stateColor == Color.Navy ? Color.White : Color.Black;
