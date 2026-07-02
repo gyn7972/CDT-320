@@ -1310,6 +1310,28 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             camera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
 
+            if (IsDryRunWithVisionDisabled())
+            {
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SIM-RETICLE-ZERO",
+                    ResolveCameraName(target) + " Vision ReticleFinder 결과를 0 보정으로 처리합니다. " + reason +
+                    " centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + ", " + camera.ImageCenterPixelY.ToString("F3") + ")" +
+                    ", scale=(" + camera.PixelToMmX.ToString("F9") + ", " + camera.PixelToMmY.ToString("F9") + ") mm/px" +
+                    ", image=(" + camera.ImageWidthPixel.ToString("F0") + "x" + camera.ImageHeightPixel.ToString("F0") + ")");
+
+                return new MatchResultDto
+                {
+                    Success = true,
+                    X = camera.ImageCenterPixelX,
+                    Y = camera.ImageCenterPixelY,
+                    AngleDeg = 0.0,
+                    Score = 1.0,
+                    HasImageSize = true,
+                    ImageWidthPixel = camera.ImageWidthPixel,
+                    ImageHeightPixel = camera.ImageHeightPixel,
+                    RawError = "SIM:ReticleFinderPixelOffset:ZeroOffset"
+                };
+            }
+
             double pixelX = NextSimulatedReticlePixel(camera.ImageCenterPixelX, SimReticleMaxPixelOffset);
             double pixelY = NextSimulatedReticlePixel(camera.ImageCenterPixelY, SimReticleMaxPixelOffset);
             double angle = NextSimulatedReticlePixel(0.0, SimReticleMaxAngleDeg);
@@ -1336,6 +1358,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ImageHeightPixel = camera.ImageHeightPixel,
                 RawError = "SIM:ReticleFinderPixelOffset"
             };
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private static double NextSimulatedReticlePixel(double center, double maxAbsOffset)

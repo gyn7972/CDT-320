@@ -1143,6 +1143,9 @@ namespace QMC.CDT320.Sequencing
 
         private VisionAlignResult SimulateInputVisionOffset()
         {
+            if (IsDryRunWithVisionDisabled())
+                return CreateZeroInputVisionOffset();
+
             lock (SimVisionRandomLock)
             {
                 return new VisionAlignResult
@@ -1295,14 +1298,12 @@ namespace QMC.CDT320.Sequencing
 
                 if (visionXInPosition && !stageYInPosition)
                 {
-                    int result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
-                    result = await MoveNeedleXAndVerifyAsync(
+                    int result = await MoveNeedleXAndStageYForVisionPrepareAsync(
                         stage,
                         targetNeedleX,
-                        description + " NeedleX",
+                        targetY,
+                        targetX,
+                        description + " NeedleX/StageY",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1314,16 +1315,21 @@ namespace QMC.CDT320.Sequencing
                 bool canMoveXFirst = stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason);
                 if (canMoveXFirst)
                 {
-                    int result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                    int result = await MoveInputVisionXAndVerifyAsync(
                         stage,
                         targetX,
-                        targetNeedleX,
-                        description,
+                        description + " VisionX",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
-                    result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    result = await MoveNeedleXAndStageYForVisionPrepareAsync(
+                        stage,
+                        targetNeedleX,
+                        targetY,
+                        targetX,
+                        description + " NeedleX/StageY",
+                        ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -1334,39 +1340,20 @@ namespace QMC.CDT320.Sequencing
                 bool canMoveYFirst = stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason);
                 if (canMoveYFirst)
                 {
-                    int result = await MoveInputStageYAndVerifyAsync(stage, currentX, targetY, description + " StageY", ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
-                    result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                    int result = await MoveNeedleXAndStageYForVisionPrepareAsync(
                         stage,
-                        targetX,
                         targetNeedleX,
-                        description,
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-
-                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
-                }
-
-                string finalTargetReason;
-                if (stage.IsInputStageWorkPointInArea(targetX, targetY, out finalTargetReason))
-                {
-                    int result = await MoveInputStageYAndVerifyAsync(
-                        stage,
-                        targetX,
                         targetY,
-                        description + " StageY 안전 진입",
+                        currentX,
+                        description + " NeedleX/StageY",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
-                    result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
+                    result = await MoveInputVisionXAndVerifyAsync(
                         stage,
                         targetX,
-                        targetNeedleX,
-                        description + " VisionX/NeedleX",
+                        description + " VisionX",
                         ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
@@ -1468,6 +1455,102 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-STAGE-XY-PARALLEL-EX", stage != null ? stage.Name : "InputStageUnit",
                     description + " 동시 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedleXAndStageYForVisionPrepareAsync(
+            InputStageUnit stage,
+            double needleTarget,
+            double stageYTarget,
+            double workAreaVisionX,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (stage == null)
+                    return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-STAGE-NO-UNIT", "InputStageUnit",
+                        description + " 이동 중 InputStageUnit이 없습니다.");
+
+                bool needleInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleX, needleTarget);
+                bool stageYInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, stageYTarget);
+                if (needleInPosition && stageYInPosition)
+                    return 0;
+
+                bool moveNeedleXFirst;
+                string reason;
+                if (!stage.TryResolveNeedleWorkPointMoveOrder(needleTarget, stageYTarget, out moveNeedleXFirst, out reason))
+                {
+                    return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-STAGE-PATH", stage.Name,
+                        description + " 이동 가능한 NeedleX/StageY 순서를 찾지 못했습니다. " + reason);
+                }
+
+                if (moveNeedleXFirst)
+                {
+                    if (!needleInPosition)
+                    {
+                        int result = await MoveNeedleXAndVerifyAsync(
+                            stage,
+                            needleTarget,
+                            description + " NeedleX",
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
+
+                    if (!stageYInPosition)
+                    {
+                        int result = await MoveInputStageYAndVerifyAsync(
+                            stage,
+                            workAreaVisionX,
+                            stageYTarget,
+                            description + " StageY",
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
+                }
+                else
+                {
+                    if (!stageYInPosition)
+                    {
+                        int result = await MoveInputStageYAndVerifyAsync(
+                            stage,
+                            workAreaVisionX,
+                            stageYTarget,
+                            description + " StageY",
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
+
+                    if (!needleInPosition)
+                    {
+                        int result = await MoveNeedleXAndVerifyAsync(
+                            stage,
+                            needleTarget,
+                            description + " NeedleX",
+                            ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                    }
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-NEEDLE-STAGE-PATH-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " NeedleX/StageY 이동 순서 처리 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {

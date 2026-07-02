@@ -850,6 +850,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (IsDryRunWithVisionDisabled())
+                {
+                    return new VisionAlignResult
+                    {
+                        DeltaX = 0.0,
+                        DeltaY = 0.0,
+                        DeltaTheta = 0.0,
+                        PitchX = ResolveAlignPitchX(null, null),
+                        PitchY = ResolveAlignPitchY(null, null)
+                    };
+                }
+
                 await Task.Delay(120, ct).ConfigureAwait(false);
 
                 double dx;
@@ -886,6 +898,12 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private double ResolveSimThetaOffset(string stepName)

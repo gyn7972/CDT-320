@@ -14,6 +14,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class PickerSequenceBase<TStep> where TStep : struct
     {
+        private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
+
         protected PickerSequenceBase(
             MachineSequenceContext context,
             PickerSequenceSide side,
@@ -171,6 +173,41 @@ namespace QMC.CDT320.Sequencing
                 return IsRearPickerSimulationOrDryRun();
 
             return false;
+        }
+
+        protected string AppendAutoProcessCorrectionTargetTag(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                targetName = string.Empty;
+
+            if (!IsRealEquipmentOrDryRunAutoSequence())
+                return targetName;
+
+            if (targetName.IndexOf("AutoProcessCorrection", StringComparison.OrdinalIgnoreCase) >= 0)
+                return targetName;
+
+            return targetName +
+                   ";AutoSequence;AutoProcessCorrection;AutoProcessCorrectionMax=" +
+                   DefaultAutoProcessCorrectionMaxDistance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        protected bool IsRealEquipmentOrDryRunAutoSequence()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.UseAjin && (settings.DryRunMode || !settings.SimulationMode);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         protected bool IsPickerMotionOnlyTestMode()
@@ -1731,6 +1768,12 @@ namespace QMC.CDT320.Sequencing
                 return true;
 
             return false;
+        }
+
+        protected bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private int ResolveVisionInspectionSettleMs()

@@ -13,6 +13,7 @@ namespace QMC.Common.Logging
         private static readonly object QueueSyncRoot = new object();
         private static readonly Queue<EventRow> PendingRows = new Queue<EventRow>();
         private const int FlushSleepMs = 20;
+        private const int DefaultSafeReadLimit = 10000;
         private static string _currentDate;
         private static string _currentPath;
         private static string _logRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
@@ -160,15 +161,8 @@ namespace QMC.Common.Logging
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return list;
 
-                foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
+                foreach (EventRow row in EnumerateFile(path))
                 {
-                    // 빈 줄과 CSV 헤더 줄("When,Kind,...")은 건너뛴다. 실제 데이터 행은 타임스탬프로 시작한다.
-                    if (string.IsNullOrWhiteSpace(line))
-                        continue;
-                    if (line.StartsWith("When,", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    EventRow row = EventRow.FromCsv(line);
                     if (row != null)
                         list.Add(row);
                 }
@@ -178,6 +172,86 @@ namespace QMC.Common.Logging
             catch
             {
                 return new List<EventRow>();
+            }
+            finally
+            {
+            }
+        }
+
+        public static IEnumerable<EventRow> EnumerateFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                yield break;
+
+            IEnumerable<string> lines;
+            try
+            {
+                lines = File.ReadLines(path, Encoding.UTF8);
+            }
+            catch
+            {
+                yield break;
+            }
+
+            foreach (string line in lines)
+            {
+                EventRow row = TryParseLogLine(line);
+                if (row != null)
+                    yield return row;
+            }
+        }
+
+        public static List<EventRow> ReadRecentFile(string path, int maxRows, Predicate<EventRow> filter = null)
+        {
+            try
+            {
+                int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
+                Queue<EventRow> rows = new Queue<EventRow>(Math.Min(limit, 1024));
+
+                foreach (EventRow row in EnumerateFile(path))
+                {
+                    if (row == null)
+                        continue;
+                    if (filter != null && !filter(row))
+                        continue;
+
+                    rows.Enqueue(row);
+                    while (rows.Count > limit)
+                        rows.Dequeue();
+                }
+
+                return new List<EventRow>(rows);
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
+            }
+        }
+
+        public static List<EventRow> ReadRecent(DateTime date, int maxRows, Predicate<EventRow> filter = null)
+        {
+            string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
+            return ReadRecentFile(path, maxRows, filter);
+        }
+
+        private static EventRow TryParseLogLine(string line)
+        {
+            try
+            {
+                // 빈 줄과 CSV 헤더 줄("When,Kind,...")은 건너뛴다. 실제 데이터 행은 타임스탬프로 시작한다.
+                if (string.IsNullOrWhiteSpace(line))
+                    return null;
+                if (line.StartsWith("When,", StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                return EventRow.FromCsv(line);
+            }
+            catch
+            {
+                return null;
             }
             finally
             {

@@ -159,7 +159,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
 
-                    ApplyNumericSetting(info, dialog.ValueText);
+                    double numericValue;
+                    if (!TryParseSettingNumber(dialog.ValueText, out numericValue))
+                    {
+                        lblStatus.Text = info.Name + " 설정값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        return;
+                    }
+
+                    ApplyNumericSetting(info, numericValue);
                     RefreshSettingGrid();
                 }
             }
@@ -242,7 +249,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                SaveSettingsFromUi(false);
+                if (!SaveSettingsFromUi(false))
+                    return;
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new ColletCalibrationSequence(context, _side, _colletNo);
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
@@ -322,16 +330,25 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void SaveSettingsFromUi(bool showMessage)
+        private bool SaveSettingsFromUi(bool showMessage)
         {
             try
             {
+                string editReason;
+                if (!CommitSettingGridEdits(out editReason))
+                {
+                    lblStatus.Text = editReason;
+                    if (showMessage)
+                        QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
+
                 string reason;
                 Form1 host = ResolveHost(out reason);
                 if (host == null || host.Machine == null || host.Machine.VisionUnit == null)
                 {
                     lblStatus.Text = reason;
-                    return;
+                    return false;
                 }
 
                 ColletCalibrationData data = ResolveData(host.Machine);
@@ -366,19 +383,80 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", scoreMin=" + data.Settings.ScoreThreshold.ToString("F6") +
                     ", visionTimeoutMs=" + data.Settings.VisionTimeoutMs +
                     ", autoFocus=" + data.Settings.RunAutoFocusAfterTheta);
+                RefreshSettingGrid();
                 RefreshResultGrid();
 
                 if (showMessage)
                     lblStatus.Text = "Collet Calibration 설정값을 저장했습니다.";
+
+                return true;
             }
             catch (Exception ex)
             {
                 lblStatus.Text = "Collet Calibration 설정 저장 실패: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-SAVE", lblStatus.Text);
+                return false;
             }
             finally
             {
             }
+        }
+
+        private bool CommitSettingGridEdits(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (gridSettings.IsCurrentCellDirty)
+                    gridSettings.CommitEdit(DataGridViewDataErrorContexts.Commit);
+
+                gridSettings.EndEdit();
+                Validate();
+
+                foreach (DataGridViewRow row in gridSettings.Rows)
+                {
+                    if (row == null || row.IsNewRow)
+                        continue;
+
+                    SettingInfo info = row.Tag as SettingInfo;
+                    if (info == null)
+                        continue;
+
+                    if (!ApplySettingRowValue(row, info, out reason))
+                        return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Collet Calibration 설정값 반영 실패: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ApplySettingRowValue(DataGridViewRow row, SettingInfo info, out string reason)
+        {
+            reason = string.Empty;
+            if (!info.Numeric)
+            {
+                ApplySettingValue(row);
+                return true;
+            }
+
+            string valueText = Convert.ToString(row.Cells[colSettingValue.Index].Value, CultureInfo.InvariantCulture);
+            double value;
+            if (!TryParseSettingNumber(valueText, out value))
+            {
+                reason = info.Name + " 설정값이 숫자가 아닙니다. value=" + valueText;
+                return false;
+            }
+
+            ApplyNumericSetting(info, value);
+            return true;
         }
 
         private void RefreshSettingGrid()
@@ -466,12 +544,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void ApplyNumericSetting(SettingInfo info, string valueText)
+        private static bool TryParseSettingNumber(string valueText, out double value)
         {
-            double value;
             if (!double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
-                double.TryParse(valueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+                return double.TryParse(valueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
 
+            return true;
+        }
+
+        private void ApplyNumericSetting(SettingInfo info, double value)
+        {
             switch (info.Key)
             {
                 case SettingKey.ThetaTolerance:

@@ -1623,7 +1623,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildPlaceMoveTargetName()
         {
-            return "DiePlacePosition[" + _currentPickerIndex + "];PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Place";
+            return AppendAutoProcessCorrectionTargetTag("DiePlacePosition[" + _currentPickerIndex + "];PickerPhase=InspectionZHold;InspectionContinuous;From=Side;To=Place");
         }
 
         private async Task<int> EnsureOutputStageZReadyForPlaceAsync(CancellationToken ct)

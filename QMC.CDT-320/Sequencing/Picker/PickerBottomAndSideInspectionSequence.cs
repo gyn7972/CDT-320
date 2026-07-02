@@ -414,7 +414,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildBottomTargetName(InspectionTarget target)
         {
-            return "DieBottomPosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom";
+            return AppendAutoProcessCorrectionTargetTag("DieBottomPosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
         }
 
         private async Task<int> TriggerBottomInspectionAsync(InspectionTarget target, CancellationToken ct)
@@ -839,7 +839,7 @@ namespace QMC.CDT320.Sequencing
 
         private string BuildSideTargetName(InspectionTarget target)
         {
-            return "DieSidePosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Side";
+            return AppendAutoProcessCorrectionTargetTag("DieSidePosition[" + target.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Side");
         }
 
         private void EnsureBottomSideProcessAreaReserved(string description)

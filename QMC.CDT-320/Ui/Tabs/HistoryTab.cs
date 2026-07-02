@@ -15,16 +15,27 @@ namespace QMC.CDT_320.Ui.Tabs
             SetSidebarHeader("tab.history");
             const UserLevel op = UserLevel.Operator;
 
-            RegisterSidebarButton(BtnEvent,        "hist.event",        op, () => new EventLogPage(EventKind.Event));
-            RegisterSidebarButton(BtnWarning,      "hist.warning",      op, () => new EventLogPage(EventKind.Warning));
+            HideFileLogHistoryButton(BtnEvent);
+            HideFileLogHistoryButton(BtnWarning);
             RegisterSidebarButton(BtnAlarm,        "hist.alarm",        op, () => new AlarmHistoryPage());
-            RegisterSidebarButton(BtnData,         "hist.data",         op, () => new EventLogPage(EventKind.Data));
-            RegisterSidebarButton(BtnWork,         "hist.work",         op, () => new EventLogPage(EventKind.Work));
-            RegisterSidebarButton(BtnInputSeq,     "hist.inputSeq",     op, () => new EventLogPage(EventKind.InputSeq));
-            RegisterSidebarButton(BtnFrontHeadSeq, "hist.frontHeadSeq", op, () => new EventLogPage(EventKind.FrontHeadSeq));
-            RegisterSidebarButton(BtnRearHeadSeq,  "hist.rearHeadSeq",  op, () => new EventLogPage(EventKind.RearHeadSeq));
-            RegisterSidebarButton(BtnOutputSeq,    "hist.outputSeq",    op, () => new EventLogPage(EventKind.OutputSeq));
-            RegisterSidebarButton(BtnMessageEdit,  "hist.msgEdit",      UserLevel.Maintenance, () => new MessageEditPage());
+            HideFileLogHistoryButton(BtnData);
+            HideFileLogHistoryButton(BtnWork);
+            HideFileLogHistoryButton(BtnInputSeq);
+            HideFileLogHistoryButton(BtnFrontHeadSeq);
+            HideFileLogHistoryButton(BtnRearHeadSeq);
+            HideFileLogHistoryButton(BtnOutputSeq);
+            HideFileLogHistoryButton(BtnMessageEdit);
+        }
+
+        private static void HideFileLogHistoryButton(System.Windows.Forms.Control button)
+        {
+            if (button == null)
+                return;
+
+            // 로그 파일 기반 Event/Sequence 이력은 메모리 사용량이 커서 우선 차단한다.
+            // 이력 탭은 AlarmHistoryPage만 표시한다.
+            button.Enabled = false;
+            button.Visible = false;
         }
     }
 }

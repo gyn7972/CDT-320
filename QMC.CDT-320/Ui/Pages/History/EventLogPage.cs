@@ -15,9 +15,14 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         // 표시 상한(최신 N개). 최근 1시간 필터와 함께 로딩 부하를 제한한다.
         private const int DefaultMaxRows = 500;
+        private const int MaxAllRowsSafeLimit = 10000;
         private const int LiveFlushIntervalMs = 250;
         private const int MaxLiveFlushRows = 100;
         private const int MaxPendingLiveRows = 1000;
+
+        // 메모리 보호를 위해 로그 파일 기반 이력 로드는 우선 비활성화한다.
+        // 이력 화면에서는 AlarmHistoryPage만 사용한다.
+        private static readonly bool FileLogHistoryEnabled = false;
 
         // 사이드바 버튼(경고/데이터/작업)이 지정하는 초기 Kind 프리셋. null 이면 전체(이벤트).
         private readonly EventKind? _presetKind;
@@ -48,7 +53,37 @@ namespace QMC.CDT_320.Ui.Pages.History
             _presetKind = presetKind;
             InitializeComponent();
             ApplyKindHeader();
+            if (!FileLogHistoryEnabled)
+            {
+                ApplyFileLogHistoryDisabledState();
+                return;
+            }
+
             WireEvents();
+        }
+
+        private void ApplyFileLogHistoryDisabledState()
+        {
+            if (filterLayout != null)
+                filterLayout.Enabled = false;
+
+            if (btnRefresh != null)
+                btnRefresh.Enabled = false;
+
+            if (btnOpenFile != null)
+                btnOpenFile.Enabled = false;
+
+            if (_grid == null)
+                return;
+
+            _grid.Rows.Clear();
+            _grid.Rows.Add(
+                DateTime.Now.ToString("HH:mm:ss.fff"),
+                EventKind.Event,
+                "",
+                "History",
+                "FILE-LOG-DISABLED",
+                "로그 파일 기반 Event/Sequence 이력 로드는 메모리 보호를 위해 비활성화했습니다. 이력 화면에서는 Alarm만 표시합니다.");
         }
 
         // 프리셋 Kind 에 맞춰 헤더 라벨 i18n 키를 교체한다.
@@ -200,9 +235,13 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 현재 소스(직접 연 파일 또는 DATE 날짜)를 다시 읽어 그리드에 채운다.
         private void ReloadCurrent()
         {
+            if (!FileLogHistoryEnabled)
+                return;
+
+            int maxRows = GetEffectiveReadLimit();
             var source = _overridePath != null
-                ? EventLogger.ReadFile(_overridePath)
-                : EventLogger.Read(_dp.Value.Date);
+                ? EventLogger.ReadRecentFile(_overridePath, maxRows, PassesEventFilter)
+                : EventLogger.ReadRecent(_dp.Value.Date, maxRows, PassesEventFilter);
             LoadRows(source);
         }
 
@@ -238,6 +277,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 로그 폴더에서 CSV 파일을 골라 그 내용을 그리드에 로드한다.
         private void OpenFile()
         {
+            if (!FileLogHistoryEnabled)
+                return;
+
             try
             {
                 using (var dlg = new OpenFileDialog())
@@ -260,6 +302,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         protected override void OnVisibleChanged(EventArgs e)
         {
             base.OnVisibleChanged(e);
+            if (!FileLogHistoryEnabled)
+                return;
+
             UpdateLiveEventSubscription();
         }
 
@@ -330,7 +375,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             if (rows.Count == 0)
                 return;
 
-            int maxRows = GetRowLimit();
+            int maxRows = GetEffectiveReadLimit();
             var prevAutoSize = _grid.AutoSizeColumnsMode;
             _grid.SuspendLayout();
             try
@@ -445,6 +490,12 @@ namespace QMC.CDT_320.Ui.Pages.History
 
             int parsed;
             return int.TryParse(value, out parsed) && parsed > 0 ? parsed : DefaultMaxRows;
+        }
+
+        private int GetEffectiveReadLimit()
+        {
+            int limit = GetRowLimit();
+            return limit > 0 ? limit : MaxAllRowsSafeLimit;
         }
 
         private static int IndexOfIgnoreCase(string text, string value)

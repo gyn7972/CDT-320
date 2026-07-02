@@ -14,10 +14,10 @@ namespace QMC.CDT320.Sequencing.Calibration
     {
         private const string BottomFinderTargetName = "ColletCalibration;PickerZone=Bottom";
         private const string FineAlignTargetName = "ColletCalibrationFineAlign;PickerZone=Bottom";
-        private const double SimColletMaxPixelOffset = 25.0;
-        private const double SimColletMaxAngleDeg = 0.08;
-        private const double SimColletNoisePixel = 0.2;
-        private const double SimColletNoiseAngleDeg = 0.001;
+        private const double SimColletMaxPixelOffset = 5.0;
+        private const double SimColletMaxAngleDeg = 0.03;
+        private const double SimColletNoisePixel = 0.05;
+        private const double SimColletNoiseAngleDeg = 0.0002;
         private static readonly object SimColletRandomLock = new object();
         private static readonly Random SimColletRandom = new Random();
 
@@ -204,20 +204,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", z2Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition").ToString("F6") +
                     ", z3Avoid=" + GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition").ToString("F6"));
 
-                result = await MoveCurrentPickerToAvoidAndVerifyAsync("Collet Calibration start current Picker Avoid", ct).ConfigureAwait(false);
+                result = await MoveCurrentPickerZAndYToAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-                ApplyCurrentPickerAvoidPositionForSimulation();
 
                 result = await EnsureInputOutputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ0, GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition"));
-                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ1, GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition"));
-                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ2, GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition"));
-                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ3, GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition"));
 
                 result = await MoveOppositePickerToOutsideForStartAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureInputOutputVisionAvoidForStartAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -321,7 +320,65 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("COLLET-CAL-CAMERA-AVOID-EX", Name,
-                    "Collet Calibration start camera avoid exception. error=" + ex.Message);
+                    "Collet Calibration 시작 전 Input/Output VisionX Avoid 처리 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveCurrentPickerZAndYToAvoidForStartAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    "Collet Calibration 시작 전 선택 Picker Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ0, GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition"));
+                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ1, GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition"));
+                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ2, GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition"));
+                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerZ3, GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition"));
+
+                double avoidY = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    avoidY,
+                    "Collet Calibration 시작 전 선택 PickerY Avoid",
+                    ct,
+                    "ColletCalibrationStart;PickerPhase=SafeY;PickerZone=Avoid").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ApplyPickerAxisPositionForSimulation(PickerAxis.PickerY, avoidY);
+                UpdateSimulatedPickerPosition(PickerAxis.PickerY, avoidY);
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
+                    "Collet Calibration 시작 전 선택 Picker Z/Y 안전 위치 완료. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", pickerXActual=" + (GetPickerAxis(PickerAxis.PickerX) != null ? GetPickerAxis(PickerAxis.PickerX).ActualPosition.ToString("F6") : "null") +
+                    ", pickerYTarget=" + avoidY.ToString("F6"));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-PICKER-ZY-AVOID-EX", Name,
+                    "Collet Calibration 시작 전 선택 Picker Z/Y Avoid 이동 중 예외가 발생했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -336,14 +393,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
                 if (stage == null || stage.CameraX == null || stage.Recipe == null || stage.Recipe.VisionX == null)
                     return Fail("COLLET-CAL-INPUT-CAMERA-MISSING", "InputStageUnit",
-                        "Collet Calibration start InputVisionX Avoid move missing axis/recipe.");
+                        "Collet Calibration 시작 전 InputVisionX Avoid 이동에 필요한 축/Recipe가 없습니다.");
 
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
-                    "Collet Calibration start InputVisionX Avoid move. side=" + _calibrationSide +
+                    "Collet Calibration 시작 전 InputVisionX Avoid 이동. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", actual=" + stage.CameraX.ActualPosition.ToString("F6") +
                     ", target=" + target.ToString("F6"));
@@ -351,18 +408,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-INPUT-CAMERA-MOVE", "InputStageUnit",
-                        "Collet Calibration start InputVisionX Avoid move failed. result=" + result +
+                        "Collet Calibration 시작 전 InputVisionX Avoid 이동 명령이 실패했습니다. result=" + result +
                         ", target=" + target.ToString("F3"));
 
                 result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-INPUT-CAMERA-WAIT", "InputStageUnit",
-                        "Collet Calibration start InputVisionX Avoid wait failed. result=" + result +
+                        "Collet Calibration 시작 전 InputVisionX Avoid 위치 대기가 실패했습니다. result=" + result +
                         ", target=" + target.ToString("F3"));
 
                 if (!stage.IsVisionXInAvoidPosition())
                     return Fail("COLLET-CAL-INPUT-CAMERA-CHECK", "InputStageUnit",
-                        "Collet Calibration start InputVisionX Avoid final check failed. actual=" +
+                        "Collet Calibration 시작 전 InputVisionX Avoid 최종 위치 확인이 실패했습니다. actual=" +
                         stage.CameraX.ActualPosition.ToString("F3") +
                         ", target=" + target.ToString("F3"));
 
@@ -375,7 +432,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("COLLET-CAL-INPUT-CAMERA-EX", "InputStageUnit",
-                    "Collet Calibration start InputVisionX Avoid exception. error=" + ex.Message);
+                    "Collet Calibration 시작 전 InputVisionX Avoid 이동 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -390,24 +447,24 @@ namespace QMC.CDT320.Sequencing.Calibration
                 var stage = Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null;
                 if (stage == null || stage.OutputCameraX == null)
                     return Fail("COLLET-CAL-OUTPUT-CAMERA-MISSING", "OutputStageUnit",
-                        "Collet Calibration start OutputVisionX Avoid move missing axis.");
+                        "Collet Calibration 시작 전 OutputVisionX Avoid 이동에 필요한 축이 없습니다.");
 
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
-                    "Collet Calibration start OutputVisionX Avoid move. side=" + _calibrationSide +
+                    "Collet Calibration 시작 전 OutputVisionX Avoid 이동. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", actual=" + stage.OutputCameraX.ActualPosition.ToString("F6"));
 
                 int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit",
-                        "Collet Calibration start OutputVisionX Avoid move failed. result=" + result);
+                        "Collet Calibration 시작 전 OutputVisionX Avoid 이동이 실패했습니다. result=" + result);
 
                 if (!stage.IsVisionXInAvoidPosition())
                     return Fail("COLLET-CAL-OUTPUT-CAMERA-CHECK", "OutputStageUnit",
-                        "Collet Calibration start OutputVisionX Avoid final check failed. actual=" +
+                        "Collet Calibration 시작 전 OutputVisionX Avoid 최종 위치 확인이 실패했습니다. actual=" +
                         stage.OutputCameraX.ActualPosition.ToString("F3"));
 
                 return 0;
@@ -419,7 +476,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("COLLET-CAL-OUTPUT-CAMERA-EX", "OutputStageUnit",
-                    "Collet Calibration start OutputVisionX Avoid exception. error=" + ex.Message);
+                    "Collet Calibration 시작 전 OutputVisionX Avoid 이동 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -445,7 +502,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("COLLET-CAL-OPPOSITE-PICKER-OUTSIDE-EX", Name,
-                    "Collet Calibration start opposite Picker Outside move exception. side=" + _calibrationSide +
+                    "Collet Calibration 시작 전 상대 Picker Output-side Avoid 이동 중 예외가 발생했습니다. side=" + _calibrationSide +
                     ", error=" + ex.Message);
             }
             finally
@@ -1276,6 +1333,27 @@ namespace QMC.CDT320.Sequencing.Calibration
                 AutoVisionChannel.BottomInspection);
             camera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
 
+            if (IsDryRunWithVisionDisabled())
+            {
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-SIM-VISION-ZERO",
+                    "드라이런 Vision 미사용 상태라 Collet Calibration Vision 보정값을 0으로 처리합니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + "," + camera.ImageCenterPixelY.ToString("F3") + ")");
+
+                return new MatchResultDto
+                {
+                    Success = true,
+                    X = camera.ImageCenterPixelX,
+                    Y = camera.ImageCenterPixelY,
+                    AngleDeg = 0.0,
+                    Score = 1.0,
+                    ImageWidthPixel = camera.ImageWidthPixel,
+                    ImageHeightPixel = camera.ImageHeightPixel,
+                    HasImageSize = true,
+                    RawError = "SIMULATION:ColletCalibration:ZeroOffset"
+                };
+            }
+
             BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
             BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
             BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(_colletIndex));
@@ -1294,7 +1372,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             double score = NextSimulatedScore();
 
             string simulationMessage =
-                "Collet Calibration Vision 결과를 시뮬레이션합니다. side=" + _calibrationSide +
+                "Collet Calibration Vision 결과를 작은 랜덤 오차로 시뮬레이션합니다. side=" + _calibrationSide +
                 ", colletNo=" + _colletNo +
                 ", centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + "," + camera.ImageCenterPixelY.ToString("F3") + ")" +
                 ", simulatedPixel=(" + pixelX.ToString("F3") + "," + pixelY.ToString("F3") + ")" +
@@ -1310,7 +1388,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSimVision", simulationMessage);
 
             EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-SIM-VISION",
-                "Collet Calibration Vision 결과를 시뮬레이션합니다. side=" + _calibrationSide +
+                "Collet Calibration Vision 결과를 작은 랜덤 오차로 시뮬레이션합니다. side=" + _calibrationSide +
                 ", colletNo=" + _colletNo +
                 ", centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + "," + camera.ImageCenterPixelY.ToString("F3") + ")" +
                 ", simulatedPixel=(" + pixelX.ToString("F3") + "," + pixelY.ToString("F3") + ")" +
@@ -1366,10 +1444,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private static double NextSimulatedScore()
         {
-            lock (SimColletRandomLock)
-            {
-                return 0.985 + (SimColletRandom.NextDouble() * 0.014);
-            }
+            return 1.0;
         }
 
         private double ReadPickerActual(PickerAxis axis, BaseAxis axisObject, double fallback)
