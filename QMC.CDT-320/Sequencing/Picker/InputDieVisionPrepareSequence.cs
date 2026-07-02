@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -692,15 +693,16 @@ namespace QMC.CDT320.Sequencing
                     state != null &&
                     (state.CurrentZone == PickerWorkZone.Input ||
                      state.TargetZone == PickerWorkZone.Input ||
-                     state.WorkAreaZone == PickerWorkZone.Input ||
                      state.BlocksTransport ||
                      state.UnknownUnsafe);
 
-                bool busy = inputRelated || xMoving || yMoving;
+                bool movingInputRisk = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+                bool busy = inputRelated || movingInputRisk;
                 detail = (isFront ? "FrontPicker" : "RearPicker") +
                          ", busy=" + busy +
                          ", movingX=" + xMoving +
                          ", movingY=" + yMoving +
+                         ", movingInputRisk=" + movingInputRisk +
                          ", " + (state != null ? state.Describe() : "state=null");
 
                 return busy;
@@ -714,6 +716,21 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsPickerInputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
+        {
+            if (!xMoving && !yMoving)
+                return false;
+
+            if (state == null)
+                return true;
+
+            return state.CurrentZone == PickerWorkZone.Input ||
+                   state.TargetZone == PickerWorkZone.Input ||
+                   state.CurrentZone == PickerWorkZone.Unknown ||
+                   state.TargetZone == PickerWorkZone.Unknown ||
+                   state.UnknownUnsafe;
         }
 
         private async Task<int> WaitPickerInputZonesClearForPreInspectionAsync(CancellationToken ct)
@@ -1709,6 +1726,14 @@ namespace QMC.CDT320.Sequencing
                 int result;
                 if (axis == WaferStageAxis.VisionX)
                 {
+                    int sharedRailWait = await WaitInputVisionXSharedRailClearAsync(
+                        stage,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (sharedRailWait != 0)
+                        return sharedRailWait;
+
                     using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "AutoInputDieVisionPrepare;Side=" + Side + ";InputVisionX;" + description))
                     {
                         result = await AwaitStepWithCancellationAsync(
@@ -1740,6 +1765,100 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-STAGE-MOVE-EX", stage != null ? stage.Name : "InputStageUnit",
                     description + " 이동 명령 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitInputVisionXSharedRailClearAsync(
+            InputStageUnit stage,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (stage == null || stage.CameraX == null)
+                    return 0;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context != null ? Context.Machine : null);
+                if (service == null || !service.IsSharedRailAxis(stage.CameraX))
+                    return 0;
+
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                string reason;
+                SequenceTrace.WaitStart("InputVisionXSharedRailClear",
+                    "target=" + target.ToString("F3"),
+                    "description=" + description,
+                    BuildInputStageAxisState(stage, WaferStageAxis.VisionX, target));
+
+                while (!service.VerifySingleAxisMove(stage.CameraX, target, out reason))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".InputVisionXSharedRailClear");
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        SequenceTrace.WaitEnd("InputVisionXSharedRailClear",
+                            -1,
+                            "status=Timeout",
+                            "elapsedMs=" + elapsedMs.ToString("0"),
+                            "timeoutMs=" + timeoutMs,
+                            "reason=" + reason);
+                        return Fail("INPUT-DIE-VISION-PREPARE-SHARED-RAIL-X-TIMEOUT", stage.Name,
+                            description + " SharedRailX clearance 대기 시간 초과. " +
+                            "target=" + target.ToString("F6") +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", reason=" + reason);
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputVisionX SharedRailX clearance 대기. " +
+                            "target=" + target.ToString("F6") +
+                            ", description=" + description +
+                            ", reason=" + reason + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " InputVisionX SharedRailX clearance 대기 완료. " +
+                        "target=" + target.ToString("F6") +
+                        ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
+                }
+
+                SequenceTrace.WaitEnd("InputVisionXSharedRailClear",
+                    0,
+                    "status=Clear",
+                    "elapsedMs=" + ((DateTime.UtcNow - start).TotalMilliseconds).ToString("0"),
+                    "target=" + target.ToString("F3"));
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-SHARED-RAIL-X-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " SharedRailX clearance 확인 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {

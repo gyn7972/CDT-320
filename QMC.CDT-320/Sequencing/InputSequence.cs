@@ -679,15 +679,25 @@ namespace QMC.CDT320.Sequencing
                     // 스테이지 로드 준비
                     case InputSequenceAutoStep.PrepareStageLoad:
                     {
+                        using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputPrepareLoad", ct).ConfigureAwait(false))
+                        using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputPrepareLoad", ct).ConfigureAwait(false))
                         using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareLoad", ct).ConfigureAwait(false))
                         {
+                            if (frontPickerLease == null || rearPickerLease == null)
+                                return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Load 준비 중 Picker 리소스 점유에 실패했습니다.");
                             if (lease == null)
                                 return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Load 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
+                            result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputPrepareLoad", ct).ConfigureAwait(false);
+                            if (result != 0)
+                                return result;
+
                             var stageSequence = new InputStageSequence(Context);
-                            result = await stageSequence.RunPrepareLoadAsync(
-                                ct,
-                                BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)).ConfigureAwait(false);
+                            result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
+                                () => stageSequence.RunPrepareLoadAsync(
+                                    ct,
+                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)),
+                                "wafer=" + _autoWaferId).ConfigureAwait(false);
                             if (result != 0)
                                 return Fail("SEQ-IN-STEP-STAGE-PREP", "InputStage",
                                     "InputStage Load 준비 실패. result=" + result);
@@ -707,7 +717,9 @@ namespace QMC.CDT320.Sequencing
                         var feederSequence = new InputFeederSequence(Context);
                         InputFeederSequenceOptions feederOptions =
                             BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await feederSequence.RunLoadFromCassetteAsync(ct, feederOptions).ConfigureAwait(false);
+                        result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
+                            () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
+                            "slot=" + _autoSlotIndex).ConfigureAwait(false);
                         if (result != 0)
                             return Fail("SEQ-IN-STEP-FEEDER-CST", "InputFeeder",
                                 "InputFeeder cassette loading 실패. result=" + result);
@@ -722,15 +734,25 @@ namespace QMC.CDT320.Sequencing
                         if (_autoSlotIndex < 0)
                             _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveFeederWaferFromRuntimeState());
 
+                        using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputFeederToStage", ct).ConfigureAwait(false))
+                        using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputFeederToStage", ct).ConfigureAwait(false))
                         using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputFeederToStage", ct).ConfigureAwait(false))
                         {
+                            if (frontPickerLease == null || rearPickerLease == null)
+                                return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Feeder -> Stage 이송 중 Picker 리소스 점유에 실패했습니다.");
                             if (lease == null)
                                 return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
+
+                            result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputFeederToStage", ct).ConfigureAwait(false);
+                            if (result != 0)
+                                return result;
 
                             var feederSequence = new InputFeederSequence(Context);
                             InputFeederSequenceOptions feederOptions =
                                 BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                            result = await feederSequence.RunLoadToStageAsync(ct, feederOptions).ConfigureAwait(false);
+                            result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
+                                () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
+                                "slot=" + _autoSlotIndex).ConfigureAwait(false);
                             if (result != 0)
                                 return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputFeeder",
                                     "InputFeeder -> InputStage loading 실패. result=" + result);
@@ -748,7 +770,9 @@ namespace QMC.CDT320.Sequencing
                         var feederSequence = new InputFeederSequence(Context);
                         InputFeederSequenceOptions feederOptions =
                             BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
-                        result = await feederSequence.RunRecoverAsync(ct, feederOptions).ConfigureAwait(false);
+                        result = await SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
+                            () => feederSequence.RunRecoverAsync(ct, feederOptions),
+                            "slot=" + _autoSlotIndex).ConfigureAwait(false);
                         if (result != 0)
                             return Fail("SEQ-IN-STEP-FEEDER-RECOVER", "InputFeeder",
                                 "InputFeeder recover 실패. result=" + result);
@@ -765,9 +789,12 @@ namespace QMC.CDT320.Sequencing
                                 return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Align 중 InputStageArea 리소스 점유에 실패했습니다.");
 
                             var stageSequence = new InputStageSequence(Context);
-                            result = await stageSequence.RunAlignAsync(
-                                ct,
-                                BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)).ConfigureAwait(false);
+                            result = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
+                                () => stageSequence.RunAlignAsync(
+                                    ct,
+                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                "wafer=" + _autoWaferId,
+                                "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
                             if (result != 0)
                                 return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputStage",
                                     "InputStage align 실패. result=" + result);
@@ -785,9 +812,12 @@ namespace QMC.CDT320.Sequencing
                                 return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Die mapping 중 InputStageArea 리소스 점유에 실패했습니다.");
 
                             var stageSequence = new InputStageSequence(Context);
-                            result = await stageSequence.RunDieMappingAsync(
-                                ct,
-                                BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)).ConfigureAwait(false);
+                            result = await SequenceTrace.ChildAsync("InputStageSequence", "DieMapping",
+                                () => stageSequence.RunDieMappingAsync(
+                                    ct,
+                                    BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)),
+                                "wafer=" + _autoWaferId,
+                                "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
                             if (result != 0)
                                 return Fail("SEQ-IN-STEP-STAGE-DIEMAP", "InputStage",
                                     "InputStage die mapping 실패. result=" + result);
@@ -832,7 +862,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunMappingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                return await SequenceTrace.ChildAsync("InputCassetteSequence", "Mapping",
+                    () => sequence.RunMappingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode))).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -853,7 +884,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunLoadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                return await SequenceTrace.ChildAsync("InputCassetteSequence", "Loading",
+                    () => sequence.RunLoadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode))).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -874,7 +906,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunUnloadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
+                return await SequenceTrace.ChildAsync("InputCassetteSequence", "Unloading",
+                    () => sequence.RunUnloadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode))).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -912,13 +945,23 @@ namespace QMC.CDT320.Sequencing
                     return StopInputNoReadyWafer();
 
                 string waferId = ResolveInputWaferId(slotIndex);
+                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "ManualInputPrepareLoad", ct).ConfigureAwait(false))
+                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "ManualInputPrepareLoad", ct).ConfigureAwait(false))
                 using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputPrepareLoad", ct).ConfigureAwait(false))
                 {
+                    if (frontPickerLease == null || rearPickerLease == null)
+                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "수동 웨이퍼 로딩 준비 중 Picker 리소스 점유에 실패했습니다.");
                     if (lease == null)
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 웨이퍼 로딩 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
+                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("ManualInputPrepareLoad", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
                     var stageSequence = new InputStageSequence(Context);
-                    result = await stageSequence.RunPrepareLoadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, waferId, false)).ConfigureAwait(false);
+                    result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareLoad",
+                        () => stageSequence.RunPrepareLoadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, waferId, false)),
+                        "wafer=" + waferId).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("SEQ-IN-STAGE-PREP", "InputStage",
                             "InputStage load 준비 실패. result=" + result);
@@ -927,23 +970,37 @@ namespace QMC.CDT320.Sequencing
                 var feederSequence = new InputFeederSequence(Context);
                 InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(slotIndex, slotIndex, bFine, moveTimeoutMs, startMode);
 
-                result = await feederSequence.RunLoadFromCassetteAsync(ct, feederOptions).ConfigureAwait(false);
+                result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadFromCassette",
+                    () => feederSequence.RunLoadFromCassetteAsync(ct, feederOptions),
+                    "slot=" + slotIndex).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-CST", "InputSequence", "InputFeeder cassette loading 실패. result=" + result);
 
                 UpdateInputSlotState(slotIndex, SlotPresence.Exist, ProcessState.Processing);
 
+                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "ManualInputFeederToStage", ct).ConfigureAwait(false))
+                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "ManualInputFeederToStage", ct).ConfigureAwait(false))
                 using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("ManualInputFeederToStage", ct).ConfigureAwait(false))
                 {
+                    if (frontPickerLease == null || rearPickerLease == null)
+                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "수동 Feeder -> Stage 이송 중 Picker 리소스 점유에 실패했습니다.");
                     if (lease == null)
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Feeder -> Stage 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await feederSequence.RunLoadToStageAsync(ct, feederOptions).ConfigureAwait(false);
+                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("ManualInputFeederToStage", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await SequenceTrace.ChildAsync("InputFeederSequence", "LoadToStage",
+                        () => feederSequence.RunLoadToStageAsync(ct, feederOptions),
+                        "slot=" + slotIndex).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("SEQ-IN-FEEDER-STAGE", "InputSequence", "InputFeeder -> InputStage 로딩 실패. result=" + result);
                 }
 
-                result = await feederSequence.RunRecoverAsync(ct, feederOptions).ConfigureAwait(false);
+                result = await SequenceTrace.ChildAsync("InputFeederSequence", "Recover",
+                    () => feederSequence.RunRecoverAsync(ct, feederOptions),
+                    "slot=" + slotIndex).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-RECOVER", "InputSequence", "Stage loading 후 InputFeeder recover 실패. result=" + result);
 
@@ -953,7 +1010,10 @@ namespace QMC.CDT320.Sequencing
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "수동 Align 중 InputStageArea 리소스 점유에 실패했습니다.");
 
                     var stageSequence = new InputStageSequence(Context);
-                    result = await stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, waferId, false)).ConfigureAwait(false);
+                    result = await SequenceTrace.ChildAsync("InputStageSequence", "Align",
+                        () => stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, waferId, false)),
+                        "wafer=" + waferId,
+                        "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("SEQ-IN-STAGE-ALIGN", "InputSequence", "InputStage align 실패. result=" + result);
                 }
@@ -996,13 +1056,23 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("ExecuteWaferUnloadingAsync", "Input wafer unloading sequence start. slot=" + slotIndex + " - Start");
 
                 int result;
+                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputPrepareUnload", ct).ConfigureAwait(false))
+                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputPrepareUnload", ct).ConfigureAwait(false))
                 using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareUnload", ct).ConfigureAwait(false))
                 {
+                    if (frontPickerLease == null || rearPickerLease == null)
+                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Unload 준비 중 Picker 리소스 점유에 실패했습니다.");
                     if (lease == null)
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Unload 준비 중 InputStageArea 리소스 점유에 실패했습니다.");
 
+                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputPrepareUnload", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
                     var stageSequence = new InputStageSequence(Context);
-                    result = await stageSequence.RunPrepareUnloadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, ResolveInputWaferId(slotIndex), false)).ConfigureAwait(false);
+                    result = await SequenceTrace.ChildAsync("InputStageSequence", "PrepareUnload",
+                        () => stageSequence.RunPrepareUnloadAsync(ct, BuildStageSequenceOptions(bFine, startMode, false, ResolveInputWaferId(slotIndex), false)),
+                        "slot=" + slotIndex).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("SEQ-IN-STAGE-UNLOAD-PREP", "InputStage",
                             "InputStage unload 준비 실패. result=" + result);
@@ -1011,17 +1081,29 @@ namespace QMC.CDT320.Sequencing
                 var feederSequence = new InputFeederSequence(Context);
                 InputFeederSequenceOptions feederOptions = BuildFeederSequenceOptions(slotIndex, slotIndex, bFine, moveTimeoutMs, startMode);
 
+                using (SequenceResourceLease frontPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.FrontPicker, "InputStageToFeeder", ct).ConfigureAwait(false))
+                using (SequenceResourceLease rearPickerLease = await AcquirePickerPauseResourceAsync(SequenceResourceKind.RearPicker, "InputStageToFeeder", ct).ConfigureAwait(false))
                 using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputStageToFeeder", ct).ConfigureAwait(false))
                 {
+                    if (frontPickerLease == null || rearPickerLease == null)
+                        return Fail("SEQ-IN-RESOURCE-PICKER", "InputSequence", "Stage -> Feeder 이송 중 Picker 리소스 점유에 실패했습니다.");
                     if (lease == null)
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Stage -> Feeder 이송 중 InputStageArea 리소스 점유에 실패했습니다.");
 
-                    result = await feederSequence.RunUnloadFromStageAsync(ct, feederOptions).ConfigureAwait(false);
+                    result = await EnsureInputPickersAvoidBeforeFeederMoveAsync("InputStageToFeeder", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await SequenceTrace.ChildAsync("InputFeederSequence", "UnloadFromStage",
+                        () => feederSequence.RunUnloadFromStageAsync(ct, feederOptions),
+                        "slot=" + slotIndex).ConfigureAwait(false);
                     if (result != 0)
                         return Fail("SEQ-IN-FEEDER-STAGE-UNLOAD", "InputSequence", "InputStage -> InputFeeder 언로딩 실패. result=" + result);
                 }
 
-                result = await feederSequence.RunUnloadToCassetteAsync(ct, feederOptions).ConfigureAwait(false);
+                result = await SequenceTrace.ChildAsync("InputFeederSequence", "UnloadToCassette",
+                    () => feederSequence.RunUnloadToCassetteAsync(ct, feederOptions),
+                    "slot=" + slotIndex).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("SEQ-IN-FEEDER-CST-UNLOAD", "InputSequence", "InputFeeder -> 카세트 언로딩 실패. result=" + result);
 
@@ -1103,7 +1185,9 @@ namespace QMC.CDT320.Sequencing
                         return Fail("SEQ-IN-RESOURCE-STAGE", "InputSequence", "Wafer align 중 InputStageArea 리소스 점유에 실패했습니다.");
 
                     var stageSequence = new InputStageSequence(Context);
-                    return await stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, "", false)).ConfigureAwait(false);
+                    return await SequenceTrace.ChildAsync("InputStageSequence", "Align",
+                        () => stageSequence.RunAlignAsync(ct, BuildStageSequenceOptions(bFine, startMode, requireVisionAlign, "", false)),
+                        "requireVisionAlign=" + requireVisionAlign).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)
@@ -1229,6 +1313,90 @@ namespace QMC.CDT320.Sequencing
             catch (Exception)
             {
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<SequenceResourceLease> AcquirePickerPauseResourceAsync(SequenceResourceKind resource, string holder, CancellationToken ct)
+        {
+            try
+            {
+                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
+                return await AcquireResourceForRunAsync(
+                    resource,
+                    safeHolder + ":PickerPause",
+                    30000,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureInputPickersAvoidBeforeFeederMoveAsync(string holder, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "InputSequence" : holder;
+                var front = Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null;
+                if (front != null && !front.IsFrontPickerInAvoidPosition())
+                {
+                    WriteLog("InputPickerAvoidGate",
+                        safeHolder + " 전 FrontPicker를 AVOID 위치로 이동합니다. - Start");
+                    int result = await front.MoveToFrontPickerAvoidPosition(false).ConfigureAwait(false);
+                    if (result != 0 || !front.IsFrontPickerInAvoidPosition())
+                        return Fail("SEQ-IN-PICKER-FRONT-AVOID", "InputSequence",
+                            safeHolder + " 전 FrontPicker AVOID 이동 실패. result=" + result +
+                            ", finalAvoid=" + front.IsFrontPickerInAvoidPosition());
+                    WriteLog("InputPickerAvoidGate",
+                        safeHolder + " 전 FrontPicker AVOID 이동 완료. - Ok");
+                }
+
+                var rear = Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null;
+                if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                {
+                    WriteLog("InputPickerAvoidGate",
+                        safeHolder + " 전 RearPicker를 AVOID 위치로 이동합니다. - Start");
+                    int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
+                    if (result != 0 || !rear.IsRearPickerInAvoidPosition())
+                        return Fail("SEQ-IN-PICKER-REAR-AVOID", "InputSequence",
+                            safeHolder + " 전 RearPicker AVOID 이동 실패. result=" + result +
+                            ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
+                    WriteLog("InputPickerAvoidGate",
+                        safeHolder + " 전 RearPicker AVOID 이동 완료. - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-PICKER-AVOID-EX", "InputSequence",
+                    "Input feeder/stage 이동 전 Picker Avoid 처리 중 예외 발생. holder=" + holder +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -1447,6 +1615,10 @@ namespace QMC.CDT320.Sequencing
 
                 message = SequenceFailureStore.AppendRecentDetail(message, "InputSequence", alarmCode);
                 SequenceFailureStore.Record("InputSequence", Kind.ToString(), "", alarmCode, source, message);
+                SequenceTrace.StepFail("InputSequence", _autoStep.ToString(), -1,
+                    "alarm=" + alarmCode,
+                    "source=" + source,
+                    "message=" + message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, alarmCode, source, message);
                 LogPublic("[UNIT-INPUT-LOADER] FAIL " + alarmCode + " - " + message);

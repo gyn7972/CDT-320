@@ -17,7 +17,11 @@ namespace QMC.CDT320.Sequencing
             if (string.IsNullOrWhiteSpace(signalName))
                 throw new ArgumentException("신호 이름이 필요합니다.", nameof(signalName));
 
-            GetSignal(signalName).TrySetResult(true);
+            var signal = GetSignal(signalName);
+            bool alreadySet = signal.Task.IsCompleted;
+            signal.TrySetResult(true);
+            if (!alreadySet)
+                SequenceTrace.SignalSet(signalName, "state=Set");
         }
 
         /// <summary>지정한 신호가 들어올 때까지 비동기로 대기합니다.</summary>
@@ -26,13 +30,18 @@ namespace QMC.CDT320.Sequencing
             if (string.IsNullOrWhiteSpace(signalName))
                 throw new ArgumentException("신호 이름이 필요합니다.", nameof(signalName));
 
+            SequenceTrace.SignalWaitStart(signalName);
             var task = GetSignal(signalName).Task;
             var cancelTask = Task.Delay(Timeout.Infinite, ct);
             var completed = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
             if (completed == cancelTask)
+            {
+                SequenceTrace.SignalWaitEnd(signalName, -1, "status=Canceled");
                 ct.ThrowIfCancellationRequested();
+            }
 
             await task.ConfigureAwait(false);
+            SequenceTrace.SignalWaitEnd(signalName, 0, "state=Set");
         }
 
         /// <summary>지정한 신호를 초기화하여 다음 핸드오프를 다시 기다릴 수 있게 합니다.</summary>
@@ -42,7 +51,8 @@ namespace QMC.CDT320.Sequencing
                 throw new ArgumentException("신호 이름이 필요합니다.", nameof(signalName));
 
             TaskCompletionSource<bool> ignored;
-            _signals.TryRemove(signalName, out ignored);
+            if (_signals.TryRemove(signalName, out ignored))
+                SequenceTrace.SignalReset(signalName, "state=Reset");
         }
 
         /// <summary>지정한 신호가 현재 Set 상태인지 확인합니다.</summary>

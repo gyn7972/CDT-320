@@ -395,9 +395,10 @@ namespace QMC.Common.Motion
 
         /// <summary>
         /// 시뮬레이션 절대 이동/홈 이동에만 적용하는 속도 배율입니다.
+        /// 1.0이면 실장비/드라이런과 동일한 DefaultVelocity 기준으로 이동합니다.
         /// 실장비 모션 속도에는 적용하지 않습니다.
         /// </summary>
-        public double SimulationSpeedScale { get; set; } = 3.0;
+        public double SimulationSpeedScale { get; set; } = 1.0;
 
         /// <summary>일반 이동 기본 속도 [mm/s 또는 deg/s].</summary>
         public double DefaultVelocity { get; set; } = 100.0;

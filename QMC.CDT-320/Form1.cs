@@ -607,7 +607,12 @@ namespace QMC.CDT_320
                 var seq = QMC.CDT320.Sequencing.SequenceLog.Current;
                 if (seq != null)
                 {
-                    QMC.Common.Logging.EventLogger.Write(seq.Kind, UserSession.Name, seq.Step, seq.Unit, s);
+                    QMC.Common.Logging.EventLogger.Write(
+                        seq.Kind,
+                        UserSession.Name,
+                        seq.Step,
+                        seq.Unit,
+                        QMC.CDT320.Sequencing.SequenceLog.FormatWithCurrentContext("PublicLog", seq.Unit, s));
                     return;
                 }
                 // 2순위(폴백): 스코프 없는 직접 호출 경로는 메시지 접두어로 시퀀스 종류 추정(아니면 Event).

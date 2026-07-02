@@ -48,11 +48,12 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct, OutputCassetteSequenceOptions options)
         {
-            using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString()))
+            Options = options ?? OutputCassetteSequenceOptions.Default();
+            using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
             try
             {
-                Options = options ?? OutputCassetteSequenceOptions.Default();
                 CurrentStep = ResolveStartStep(InitialStep);
+                SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
@@ -61,28 +62,38 @@ namespace QMC.CDT320.Sequencing
                     Context.LogPublic("[OUTPUT-CASSETTE] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
 
                     TStep executingStep = CurrentStep;
+                    SequenceTrace.StepStart(Name, executingStep.ToString(), "kind=" + Kind);
                     int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
                     if (result != 0)
+                    {
+                        SequenceTrace.StepFail(Name, executingStep.ToString(), result, "kind=" + Kind, "next=" + CurrentStep);
+                        SequenceTrace.RunEnd(Name, "Failed", result, "kind=" + Kind, "step=" + executingStep);
                         return result;
+                    }
 
                     if (!IsStep(CurrentStep, ErrorStep))
                         SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
+                    SequenceTrace.StepEnd(Name, executingStep.ToString(), result, "kind=" + Kind, "next=" + CurrentStep);
                 }
 
                 Context.LogPublic("[OUTPUT-CASSETTE] " + Options.RunMode + " " + Kind + " complete");
                 WriteLog("RunAsync", "Output cassette " + Kind + " sequence completed. - Ok");
                 SequenceResumeStore.MarkCompleted(SequenceStateName);
+                SequenceTrace.RunEnd(Name, "Completed", 0, "kind=" + Kind);
                 return 0;
             }
             catch (OperationCanceledException)
             {
                 WriteLog("RunAsync", "Output cassette " + Kind + " sequence canceled at step=" + CurrentStep + ". - Failed");
+                SequenceTrace.RunEnd(Name, "Canceled", -1, "kind=" + Kind, "step=" + CurrentStep);
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("OUT-CST-EXCEPTION", Name, "Output cassette " + Kind + " sequence exception at step=" + CurrentStep + ": " + ex.Message);
+                int failResult = Fail("OUT-CST-EXCEPTION", Name, "Output cassette " + Kind + " sequence exception at step=" + CurrentStep + ": " + ex.Message);
+                SequenceTrace.RunEnd(Name, "Failed", failResult, "kind=" + Kind, "step=" + CurrentStep, "error=" + ex.Message);
+                return failResult;
             }
             finally
             {

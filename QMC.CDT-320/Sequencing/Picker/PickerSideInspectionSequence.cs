@@ -393,9 +393,10 @@ namespace QMC.CDT320.Sequencing
 
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
+            bool continuousSideEntry = IsContinuousSideInspectionEntry();
             if (!IsCurrentPickerXInSideZone() &&
                 !IsPickerYAtXZoneMoveSafePosition() &&
-                !IsEnterSideFromBottomInspection())
+                !continuousSideEntry)
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
                 return 0;
@@ -425,11 +426,11 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveSideXToInspectionAsync(CancellationToken ct)
         {
             bool currentXInSideZone = IsCurrentPickerXInSideZone();
-            bool enterFromBottom = IsEnterSideFromBottomInspection();
+            bool continuousSideEntry = IsContinuousSideInspectionEntry();
             if (!currentXInSideZone &&
                 !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX) &&
                 !IsPickerYAtXZoneMoveSafePosition() &&
-                !enterFromBottom)
+                !continuousSideEntry)
             {
                 return await MoveSideEntryYToAvoidAsync(ct).ConfigureAwait(false);
             }
@@ -453,6 +454,13 @@ namespace QMC.CDT320.Sequencing
         private bool IsEnterSideFromBottomInspection()
         {
             return Options != null && Options.EnterSideFromBottomInspection;
+        }
+
+        private bool IsContinuousSideInspectionEntry()
+        {
+            return Options != null &&
+                   (Options.EnterSideFromBottomInspection ||
+                    Options.KeepZUntilSideInspectionComplete);
         }
 
         private string BuildSideMoveTargetName()
@@ -601,7 +609,9 @@ namespace QMC.CDT320.Sequencing
             }
 
             _inspectionYPositionReady = false;
-            CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
+            CurrentStep = IsContinuousSideInspectionEntry()
+                ? PickerSideInspectionStep.MoveSideXToInspection
+                : PickerSideInspectionStep.MoveSideEntryYToAvoid;
             return 0;
         }
 
