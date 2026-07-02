@@ -23,7 +23,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             Process,
             Unload,
             Ready,
-            Reticle
+            Reticle,
+            NeedlePinCal
         }
 
         private sealed class StageTeachingPosition
@@ -73,7 +74,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddTeachingAxis(axes, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ, false, false);
 
             var positions = new List<StageTeachingPosition>();
-            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle })
+            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle, StagePositionKind.NeedlePinCal })
             {
                 foreach (StageTeachingAxis axis in axes)
                 {
@@ -82,6 +83,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (kind == StagePositionKind.Reticle &&
                         !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "EXPANDER Z", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (kind == StagePositionKind.NeedlePinCal &&
+                        !string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "NEEDLE X", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "NEEDLE Z", StringComparison.OrdinalIgnoreCase) &&
+                        !string.Equals(axis.AxisLabel, "EJECT PIN Z", StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     AddTeachingPosition(positions, axis, kind);
@@ -178,6 +186,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     else
                         AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
                     break;
+                // Needle Pin Calibration 위치 레시피 항목 추가
+                case StagePositionKind.NeedlePinCal:
+                    if (string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase))
+                        AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
+                    else
+                        AddTeachingPosition(positions, axis, kind, set => set.NeedlePinCalPosition, (set, value) => set.NeedlePinCalPosition = value);
+                    break;
             }
         }
 
@@ -203,6 +218,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 // Reticle 위치 라벨 반환
                 case StagePositionKind.Reticle:
                     return "RETICLE POSITION";
+                // Needle Pin Calibration 위치 라벨 반환
+                case StagePositionKind.NeedlePinCal:
+                    return "NEEDLE PIN CAL POSITION";
                 default:
                     return kind.ToString().ToUpperInvariant() + " POSITION";
             }
@@ -933,6 +951,60 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return 0;
         }
 
+        private async Task<int> MoveVisionXOnlyAsync(StagePositionKind kind, string title, CDT320_Machine machine, bool requireReticleClear)
+        {
+            if (FindKindPosition(kind, "VISION X") == null)
+                return 0;
+
+            string reason;
+            if (!CheckVisionXClear(machine, out reason))
+                return AbortStage(title, "VISION X 전 " + reason);
+            if (requireReticleClear && !IsReticleClear(machine, out reason))
+                return AbortStage(title, "VISION X 전 레티클 " + reason);
+            if (await StepMoveKindAsync(kind, "VISION X") != 0)
+                return AbortStage(title, "VISION X 이동 실패");
+
+            return 0;
+        }
+
+        private async Task<int> MoveNeedleXAndWaferYSafelyByKindAsync(StagePositionKind kind, string title)
+        {
+            StageTeachingPosition needleX = FindKindPosition(kind, "NEEDLE X");
+            StageTeachingPosition waferY = FindKindPosition(kind, "WAFER Y");
+
+            if (needleX == null && waferY == null)
+                return 0;
+            if (needleX == null)
+                return await StepMoveKindAsync(kind, "WAFER Y") == 0 ? 0 : AbortStage(title, "WAFER Y 이동 실패");
+            if (waferY == null)
+                return await StepMoveKindAsync(kind, "NEEDLE X") == 0 ? 0 : AbortStage(title, "NEEDLE X 이동 실패");
+
+            double targetNeedleX = needleX.Getter(needleX.PositionSetGetter(_InputStageUnit));
+            double targetStageY = waferY.Getter(waferY.PositionSetGetter(_InputStageUnit));
+
+            bool moveNeedleXFirst;
+            string reason;
+            if (!_InputStageUnit.TryResolveNeedleWorkPointMoveOrder(targetNeedleX, targetStageY, out moveNeedleXFirst, out reason))
+                return AbortStage(title, "NEEDLE X/WAFER Y 이동 순서 확인 실패: " + reason);
+
+            if (moveNeedleXFirst)
+            {
+                if (await MoveByTeachingPositionAsync(needleX) != 0)
+                    return AbortStage(title, "NEEDLE X 이동 실패");
+                if (await MoveByTeachingPositionAsync(waferY) != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
+            }
+            else
+            {
+                if (await MoveByTeachingPositionAsync(waferY) != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
+                if (await MoveByTeachingPositionAsync(needleX) != 0)
+                    return AbortStage(title, "NEEDLE X 이동 실패");
+            }
+
+            return 0;
+        }
+
         // Z축(NeedleZ/EjectPinZ/ExpanderZ)이 모두 Avoid 위치에 있는지 확인
         private bool CheckStageZAxesAtAvoid(out string reason)
         {
@@ -1085,13 +1157,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if ((r = await MoveExpanderZAsync(kind, title, machine)) != 0)
                     return r;
 
-                // 2) X축(VISION X→NEEDLE X) — VISION X 전 픽커 Avoid 확인
-                if ((r = await MoveStageXAxesAsync(kind, title, machine, requireReticleClear: false)) != 0)
+                // 2) VISION X — 공유레일 간섭만 먼저 정리한다.
+                if ((r = await MoveVisionXOnlyAsync(kind, title, machine, requireReticleClear: false)) != 0)
                     return r;
 
-                // 3) WAFER Y — 피더 Clear (픽커 미적용)
+                // 3) NEEDLE X + WAFER Y — NeedleZ가 올라와 있으면 X/Y 중간 조합까지 보고 순서를 정한다.
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
-                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
+                if ((r = await MoveNeedleXAndWaferYSafelyByKindAsync(kind, title)) != 0)
+                    return r;
 
                 // 4) WAFER T — Wafer Y 정렬 완료 선행
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
@@ -1245,7 +1318,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             StagePositionKind.Unload,
             StagePositionKind.Ready,
             StagePositionKind.Process,
-            StagePositionKind.Reticle
+            StagePositionKind.Reticle,
+            StagePositionKind.NeedlePinCal
         };
 
         private void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
@@ -1256,6 +1330,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ParameterGridItem header = ParameterGridItem.Header(GetPositionLabel(kind), groupKey);
                 if (kind == StagePositionKind.Reticle)
                     header.Description = "Vision Cal Position";
+                if (kind == StagePositionKind.NeedlePinCal)
+                    header.Description = "Needle Pin Calibration teaching position. WAFER Y uses ProcessPosition.";
                 items.Add(header);
 
                 foreach (StageTeachingPosition position in TeachingPositions)

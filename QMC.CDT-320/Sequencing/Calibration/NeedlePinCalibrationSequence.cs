@@ -205,7 +205,12 @@ namespace QMC.CDT320.Sequencing.Calibration
             int result = await MoveStageAxisAsync(stage, WaferStageAxis.VisionX, stage.Recipe.VisionX.NeedlePinCalPosition, ct).ConfigureAwait(false);
             if (result != 0) return result;
 
-            result = await MoveStageAxisAsync(stage, WaferStageAxis.NeedleX, stage.Recipe.NeedleX.NeedlePinCalPosition, ct).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+            result = await stage.MoveNeedleWorkPointSafelyAsync(
+                stage.Recipe.NeedleX.NeedlePinCalPosition,
+                stage.Recipe.WaferY.ProcessPosition,
+                _fineMove,
+                "NeedlePinCalibrationSequence.MoveNeedlePinCalPositionAsync").ConfigureAwait(false);
             if (result != 0) return result;
 
             result = await MoveStageAxisAsync(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.NeedlePinCalPosition, ct).ConfigureAwait(false);
@@ -315,6 +320,9 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private VisionAlignResult CreateSimulatedVisionResult(InputStageUnit stage)
         {
+            if (IsDryRunWithVisionDisabled())
+                return CreateZeroVisionResult();
+
             double offsetX;
             double offsetY;
             lock (SimVisionRandomLock)
@@ -341,6 +349,24 @@ namespace QMC.CDT320.Sequencing.Calibration
                 PitchX = 0.0,
                 PitchY = 0.0
             };
+        }
+
+        private static VisionAlignResult CreateZeroVisionResult()
+        {
+            return new VisionAlignResult
+            {
+                DeltaX = 0.0,
+                DeltaY = 0.0,
+                DeltaTheta = 0.0,
+                PitchX = 0.0,
+                PitchY = 0.0
+            };
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private static double NextSignedOffset(Random random, double range)

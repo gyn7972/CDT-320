@@ -528,7 +528,7 @@ namespace QMC.CDT320.Interlocks
             {
                 CDT320_Machine machine = request != null ? request.Machine : null;
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
-                if (!VerifyGoodStageYMechanicalClear(request, "OutputGoodStageY", out reason))
+                if (!VerifyGoodStageYHomeMechanicalClear(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
                 if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
@@ -831,6 +831,21 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     movingName,
                     movingName + " 이동 불가: GoodStageY 공정 이동 전 OutputGoodStageZ는 Avoid 또는 Process 위치여야 합니다.",
+                    out reason);
+
+            return true;
+        }
+
+        private static bool VerifyGoodStageYHomeMechanicalClear(OutputStageUnit outputStage, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (outputStage == null)
+                return true;
+
+            if (!outputStage.IsGoodStageZAtAvoid())
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " HOME 이동 불가: OutputGoodStageZ가 Avoid 위치가 아닙니다.",
                     out reason);
 
             return true;

@@ -57,6 +57,9 @@ namespace QMC.CDT320.Interlocks
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
                 if (!VerifyFrontPickerZAxesAvoidForMove(front, "FrontPickerX", request, out reason))
                     return false;
+
+                if (!VerifyVisionXAvoidForColletCalibrationBottomMove(machine, "FrontPickerX", request, out reason))
+                    return false;
                 
                 if (!PickerZoneInterlockRules.VerifyFrontPickerXMove(request, out reason))
                     return false;
@@ -110,6 +113,63 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 이동 전 InputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
+        }
+
+        private static bool VerifyVisionXAvoidForColletCalibrationBottomMove(CDT320_Machine machine, string movingName, MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            if (!IsColletCalibrationBottomMove(request))
+                return true;
+
+            if (!VerifyInputVisionXAvoidForPickerX(machine, movingName, out reason))
+                return false;
+
+            try
+            {
+                OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+                if (stage == null || stage.OutputCameraX == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAxisMoving(stage.OutputCameraX))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: Collet Calibration Bottom 진입 전 OutputVisionX가 이동 중입니다.",
+                        out reason);
+                }
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return true;
+
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Collet Calibration Bottom 진입 전 OutputVisionX가 Avoid 위치에 있어야 합니다. actual=" +
+                    stage.OutputCameraX.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " Collet Calibration Bottom 진입 전 OutputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        private static bool IsColletCalibrationBottomMove(MotionGuardRuleContext request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                return false;
+
+            string name = request.TargetName;
+            if (name.IndexOf("ColletCalibration", System.StringComparison.OrdinalIgnoreCase) < 0)
+                return false;
+
+            return name.IndexOf("PickerZone=Bottom", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   name.IndexOf("BottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   name.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool VerifyFrontPickerZAxesAvoidForMove(PickerFrontUnit picker, string movingName, MotionGuardRuleContext request, out string reason)

@@ -28,6 +28,7 @@ namespace QMC.Common.Logging
         // 자동 등록 항목 수 상한(백스톱). 정상적으로 Code+Kind 단위면 수백 개에서 포화하므로
         // 도달할 일이 거의 없지만, Code 가 가변값을 포함하는 예외 상황의 무한 증식을 막는다.
         private const int MaxAutoEntries = 5000;
+        private const long MaxSeedLogBytes = 50L * 1024L * 1024L;
 
         // --- Fields ---
 
@@ -307,6 +308,7 @@ namespace QMC.Common.Logging
         /// 앱 시작 시 1회만, 기존 이벤트 로그(Log\Event\*.csv)를 훑어 등장한 메시지 종류를 카탈로그에 시드한다.
         /// 마커 파일(seed_done.flag)이 있으면 건너뛴다(다음 실행부터는 전체 로그를 다시 훑지 않음).
         /// 전체 로그를 읽는 무거운 작업이므로 반드시 백그라운드 스레드에서 호출한다(<see cref="SeedFromLogsInBackground"/>).
+        /// 장비 PC 메모리 보호를 위해 대용량 로그는 시드 대상에서 제외한다.
         /// </summary>
         public static void SeedFromLogs()
         {
@@ -323,8 +325,13 @@ namespace QMC.Common.Logging
                     Array.Sort(files, StringComparer.OrdinalIgnoreCase);
 
                     foreach (var path in files)
-                        foreach (var r in EventLogger.ReadFile(path))
+                    {
+                        if (ShouldSkipSeedLog(path))
+                            continue;
+
+                        foreach (var r in EventLogger.EnumerateFile(path))
                             EnsureRegistered(r.Kind, r.Code, r.Description);
+                    }
                 }
 
                 FlushIfDirty();
@@ -348,6 +355,25 @@ namespace QMC.Common.Logging
         }
 
         // --- Private Methods ---
+
+        private static bool ShouldSkipSeedLog(string path)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return true;
+
+                var info = new FileInfo(path);
+                return info.Length > MaxSeedLogBytes;
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
+        }
 
         // 현재 _items 기준으로 색인을 다시 만든다. 반드시 _sync 락 안에서 호출한다.
         // 색인 키는 Code+Kind 단위이므로, 편집 화면에서 같은 코드의 여러 행이 있어도

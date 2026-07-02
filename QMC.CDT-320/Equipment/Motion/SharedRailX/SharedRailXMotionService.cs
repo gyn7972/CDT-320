@@ -364,10 +364,10 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return IsInputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false);
 
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
-                return IsOutputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true, plan, settings);
+                return true;
 
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
-                return IsOutputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false, plan, settings);
+                return true;
 
             return true;
         }
@@ -408,42 +408,6 @@ namespace QMC.CDT320.Motion.SharedRailX
         private static bool IsOutputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
         {
             return pair.Matches(SharedRailXAxis.OutputVisionX, pickerAxis);
-        }
-
-        private bool IsOutputVisionPickerPairRequired(
-            SharedRailXAxis pickerAxis,
-            bool isFront,
-            SharedRailXMovePlan plan,
-            IReadOnlyList<SharedRailXAxisSetting> settings)
-        {
-            try
-            {
-                SharedRailXAxisSetting picker = settings != null
-                    ? settings.FirstOrDefault(x => x != null && x.RailAxis == pickerAxis && x.Axis != null)
-                    : null;
-                if (picker == null || picker.Axis == null)
-                    return true;
-
-                double target;
-                if (plan == null || !plan.TryGetTarget(pickerAxis, out target))
-                    target = picker.Axis.ActualPosition;
-
-                string detail;
-                return PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
-                    _machine,
-                    isFront,
-                    PickerWorkZone.Output,
-                    target,
-                    "SharedRailXTarget",
-                    out detail);
-            }
-            catch
-            {
-                return true;
-            }
-            finally
-            {
-            }
         }
 
         private SharedRailXValidationResult ValidateJogCurrentDistance(

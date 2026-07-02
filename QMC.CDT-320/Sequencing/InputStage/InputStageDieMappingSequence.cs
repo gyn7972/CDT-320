@@ -1077,6 +1077,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (IsDryRunWithVisionDisabled())
+                {
+                    return new VisionAlignResult
+                    {
+                        DeltaX = 0.0,
+                        DeltaY = 0.0,
+                        DeltaTheta = 0.0,
+                        PitchX = ResolvePitchX(),
+                        PitchY = ResolvePitchY()
+                    };
+                }
+
                 await Task.Delay(120, ct).ConfigureAwait(false);
                 bool ok;
                 double dx;
@@ -1112,6 +1124,12 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private async Task<int> MoveAxisCommandAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)

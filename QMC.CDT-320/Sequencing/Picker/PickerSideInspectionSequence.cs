@@ -468,7 +468,7 @@ namespace QMC.CDT320.Sequencing
             string targetName = "DieSidePosition[" + _currentPickerIndex + "]";
             if (!IsEnterSideFromBottomInspection() &&
                 (Options == null || !Options.KeepZUntilSideInspectionComplete))
-                return targetName;
+                return AppendAutoProcessCorrectionTargetTag(targetName);
 
             string phase = ";PickerPhase=InspectionZHold";
             if (IsEnterSideFromBottomInspection())
@@ -476,7 +476,7 @@ namespace QMC.CDT320.Sequencing
             else if (Options != null && Options.KeepZUntilSideInspectionComplete)
                 phase += ";InspectionContinuous;From=Side;To=Side";
 
-            return targetName + phase;
+            return AppendAutoProcessCorrectionTargetTag(targetName + phase);
         }
 
         private async Task<int> MoveSideXAndVision0PositionAsync(

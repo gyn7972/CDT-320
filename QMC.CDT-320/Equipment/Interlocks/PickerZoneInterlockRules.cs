@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -101,6 +102,8 @@ namespace QMC.CDT320.Interlocks
         private const double DefaultTolerance = 0.05;
         private const double DefaultPickerYFacingXClearance = 150.0;
         private const double DefaultPickerYOutDistance = 1.0;
+        private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
+        private const double DefaultAutoProcessZoneEntryYTolerance = 2.0;
         private static readonly object activeZoneLock = new object();
         private static PickerWorkZone frontPickerYActiveTargetZone = PickerWorkZone.Unknown;
         private static PickerWorkZone rearPickerYActiveTargetZone = PickerWorkZone.Unknown;
@@ -686,8 +689,28 @@ namespace QMC.CDT320.Interlocks
                     return true;
                 }
 
-                if (!IsInspectionContinuousProcessMove(request, currentZone, targetZone) &&
-                    !IsPickerYAtAvoid(request.Machine, isFront))
+                bool pickerYAtAvoid = IsPickerYAtAvoid(request.Machine, isFront);
+                bool inspectionContinuousProcessMove = IsInspectionContinuousProcessMove(request, currentZone, targetZone);
+                bool autoProcessCorrectionXMove = false;
+                string autoProcessCorrectionReason;
+                if (!pickerYAtAvoid &&
+                    !inspectionContinuousProcessMove &&
+                    IsAutoProcessCorrectionXMove(request))
+                {
+                    if (!CanMoveAutoProcessCorrectionX(request, isFront, ownX, ownY, currentZone, targetZone, out autoProcessCorrectionReason))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            BuildXBlockedMessage(movingName, "오토 공정 보정 X 이동 불가: " + autoProcessCorrectionReason, ownX, ownY, currentZone, targetZone),
+                            out reason);
+                    }
+
+                    autoProcessCorrectionXMove = true;
+                }
+
+                if (!autoProcessCorrectionXMove &&
+                    !inspectionContinuousProcessMove &&
+                    !pickerYAtAvoid)
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -696,8 +719,9 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 if (currentZone != targetZone &&
-                    !IsPickerYAtAvoid(request.Machine, isFront) &&
-                    !IsInspectionContinuousProcessMove(request, currentZone, targetZone))
+                    !pickerYAtAvoid &&
+                    !autoProcessCorrectionXMove &&
+                    !inspectionContinuousProcessMove)
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -729,6 +753,156 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 존 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
+        }
+
+        private static bool IsAutoProcessCorrectionXMove(MotionGuardRuleContext request)
+        {
+            return request != null &&
+                   !string.IsNullOrWhiteSpace(request.TargetName) &&
+                   request.TargetName.IndexOf("AutoProcessCorrection", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool CanMoveAutoProcessCorrectionX(
+            MotionGuardRuleContext request,
+            bool isFront,
+            BaseAxis ownX,
+            BaseAxis ownY,
+            PickerWorkZone currentZone,
+            PickerWorkZone targetZone,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (!IsRealEquipmentOrDryRunAutoProcess())
+            {
+                reason = "실장비 또는 드라이런 오토 시퀀스에서만 허용됩니다.";
+                return false;
+            }
+
+            if (request == null || ownX == null)
+            {
+                reason = "축 상태를 확인할 수 없습니다.";
+                return false;
+            }
+
+            if (targetZone == PickerWorkZone.Unknown || IsAvoidZone(targetZone))
+            {
+                reason = "목표 존이 공정 존이 아닙니다. targetZone=" + targetZone;
+                return false;
+            }
+
+            if (currentZone != targetZone && !IsAvoidZone(currentZone))
+            {
+                reason = "현재 존과 목표 존이 다릅니다. currentZone=" + currentZone + ", targetZone=" + targetZone;
+                return false;
+            }
+
+            if (IsAutoProcessZoneEntryWithPickerYReady(request.Machine, isFront, ownY, targetZone))
+                return true;
+
+            double maxDistance = ResolveAutoProcessCorrectionMaxDistance(request.TargetName);
+            double delta = Math.Abs(request.TargetValue - ownX.ActualPosition);
+            if (delta > maxDistance)
+            {
+                reason = "보정 이동량이 허용치를 초과했습니다. delta=" + delta.ToString("0.###") +
+                         "mm, max=" + maxDistance.ToString("0.###") + "mm";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsAutoProcessZoneEntryWithPickerYReady(
+            CDT320_Machine machine,
+            bool isFront,
+            BaseAxis ownY,
+            PickerWorkZone targetZone)
+        {
+            if (machine == null || ownY == null)
+                return false;
+
+            string yPositionName = ResolvePickerYProcessPositionName(targetZone);
+            if (string.IsNullOrWhiteSpace(yPositionName))
+                return false;
+
+            return IsAtPickerZonePosition(
+                machine,
+                isFront,
+                PickerAxis.PickerY,
+                yPositionName,
+                ownY.ActualPosition,
+                DefaultAutoProcessZoneEntryYTolerance);
+        }
+
+        private static string ResolvePickerYProcessPositionName(PickerWorkZone targetZone)
+        {
+            switch (targetZone)
+            {
+                case PickerWorkZone.Input:
+                    return "PickPosition";
+                case PickerWorkZone.Bottom:
+                    return "BottomPosition";
+                case PickerWorkZone.Side:
+                    return "SidePosition";
+                case PickerWorkZone.Output:
+                    return "PlacePosition";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static bool IsRealEquipmentOrDryRunAutoProcess()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.UseAjin && (settings.DryRunMode || !settings.SimulationMode);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static double ResolveAutoProcessCorrectionMaxDistance(string targetName)
+        {
+            double configured;
+            if (TryReadTargetNameDouble(targetName, "AutoProcessCorrectionMax", out configured) && configured > 0.0)
+                return configured;
+
+            return DefaultAutoProcessCorrectionMaxDistance;
+        }
+
+        private static bool TryReadTargetNameDouble(string targetName, string key, out double value)
+        {
+            value = 0.0;
+            if (string.IsNullOrWhiteSpace(targetName) || string.IsNullOrWhiteSpace(key))
+                return false;
+
+            string[] tokens = targetName.Split(';');
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                string token = tokens[i] != null ? tokens[i].Trim() : string.Empty;
+                if (token.Length == 0)
+                    continue;
+
+                int equal = token.IndexOf('=');
+                if (equal <= 0)
+                    continue;
+
+                string tokenKey = token.Substring(0, equal).Trim();
+                if (!string.Equals(tokenKey, key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string tokenValue = token.Substring(equal + 1).Trim();
+                return double.TryParse(tokenValue, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                       double.TryParse(tokenValue, out value);
+            }
+
+            return false;
         }
 
         private static bool IsInspectionContinuousProcessMove(
@@ -1734,12 +1908,23 @@ namespace QMC.CDT320.Interlocks
             string positionName,
             double position)
         {
-            if (IsAtPickerPosition(machine, isFront, axis, positionName, position))
-                return true;
-
             BaseAxis baseAxis = axis == PickerAxis.PickerX ? GetPickerX(machine, isFront) : GetPickerY(machine, isFront);
             double tolerance = ResolveTolerance(baseAxis);
+            return IsAtPickerZonePosition(machine, isFront, axis, positionName, position, tolerance);
+        }
+
+        private static bool IsAtPickerZonePosition(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerAxis axis,
+            string positionName,
+            double position,
+            double tolerance)
+        {
             double basePosition = GetPickerTeachingPosition(machine, isFront, axis, positionName);
+            if (Math.Abs(position - basePosition) <= tolerance)
+                return true;
+
             for (int i = 0; i < 4; i++)
             {
                 double offset = GetRuntimePickerZoneOffset(machine, isFront, axis, i);

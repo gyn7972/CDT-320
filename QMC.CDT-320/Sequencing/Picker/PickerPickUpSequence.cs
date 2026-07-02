@@ -1287,9 +1287,9 @@ namespace QMC.CDT320.Sequencing
         {
             string targetName = "DiePickPosition[" + _currentPickerIndex + "]";
             if (Options != null && Options.RunMode == SequenceRunMode.Auto && _pickCursor > 0)
-                return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input";
+                return AppendAutoProcessCorrectionTargetTag(targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input");
 
-            return targetName;
+            return AppendAutoProcessCorrectionTargetTag(targetName);
         }
 
         private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)
@@ -3262,6 +3262,9 @@ namespace QMC.CDT320.Sequencing
 
         private VisionAlignResult SimulateInputVisionOffset()
         {
+            if (IsDryRunWithVisionDisabled())
+                return CreateZeroInputVisionOffset();
+
             lock (SimVisionRandomLock)
             {
                 return new VisionAlignResult
