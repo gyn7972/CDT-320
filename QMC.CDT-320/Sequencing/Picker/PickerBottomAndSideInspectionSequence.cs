@@ -81,6 +81,8 @@ namespace QMC.CDT320.Sequencing
             get { return CurrentStep == PickerBottomAndSideInspectionStep.Complete; }
         }
 
+        public bool ForceBottomInspectionBeforeSideResume { get; set; }
+
         public void Abort()
         {
             try
@@ -92,6 +94,7 @@ namespace QMC.CDT320.Sequencing
                 _pendingT0Returns.Clear();
                 _pendingZAvoids.Clear();
                 _pendingBottomZDowns.Clear();
+                ForceBottomInspectionBeforeSideResume = false;
                 CurrentStep = PickerBottomAndSideInspectionStep.Complete;
             }
             catch
@@ -130,6 +133,13 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
+
+                if (ForceBottomInspectionBeforeSideResume)
+                {
+                    result = await MoveOwnPickerYToAvoidBeforeForcedBottomResumeAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
 
                 CurrentStep = PickerBottomAndSideInspectionStep.RunBottomPipeline;
                 result = await RunBottomPipelineAsync(ct).ConfigureAwait(false);
@@ -282,7 +292,7 @@ namespace QMC.CDT320.Sequencing
                 if (target == null || target.Die == null)
                     continue;
 
-                if (HasInspectionResult(target.Die, "Bottom"))
+                if (HasInspectionResult(target.Die, "Bottom") && !ForceBottomInspectionBeforeSideResume)
                 {
                     if (!_sideReadyPickerIndexes.Contains(target.PickerIndex))
                         _sideReadyPickerIndexes.Add(target.PickerIndex);
@@ -292,6 +302,14 @@ namespace QMC.CDT320.Sequencing
                         "die=" + target.Die.DieId +
                         ", pickerNo=" + target.PickerNo + " - Check");
                     continue;
+                }
+
+                if (HasInspectionResult(target.Die, "Bottom") && ForceBottomInspectionBeforeSideResume)
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side 단독 재개 방지 모드라 기존 Bottom 결과가 있어도 Bottom shot을 다시 진행합니다. " +
+                        "die=" + target.Die.DieId +
+                        ", pickerNo=" + target.PickerNo + " - Check");
                 }
 
                 int result = await CompletePendingBottomZDownForPickerAsync(target.PickerIndex, ct).ConfigureAwait(false);
@@ -410,6 +428,49 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             return 0;
+        }
+
+        private async Task<int> MoveOwnPickerYToAvoidBeforeForcedBottomResumeAsync(CancellationToken ct)
+        {
+            try
+            {
+                double yAvoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                if (IsPickerAxisInPosition(PickerAxis.PickerY, yAvoid))
+                    return 0;
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    yAvoid,
+                    "Bottom/Side 재시작 전 PickerY Avoid",
+                    ct,
+                    "AvoidPosition;PickerProcess=BottomSide;PickerPhase=ForcedBottomResumeSafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                _bottomInspectionYReady = false;
+                _sideInspectionYReady = false;
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom/Side 재시작 안전 진입: Bottom X 이동 전에 PickerY를 Avoid로 정리했습니다. " +
+                    "side=" + Side + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BOTTOM-SIDE-RESUME-Y-AVOID-EX", Name,
+                    "Bottom/Side 재시작 전 PickerY Avoid 이동 중 예외가 발생했습니다. side=" + Side +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private string BuildBottomTargetName(InspectionTarget target)

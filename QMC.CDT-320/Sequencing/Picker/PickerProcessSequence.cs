@@ -17,6 +17,8 @@ namespace QMC.CDT320.Sequencing
         private PickerPlaceSequence _placeSequence;
         private PickerPhaseLease _phaseLease;
         private bool _bottomInspectionCompletedInCurrentRun;
+        private bool _forceBottomInspectionBeforeSideResume;
+        private bool _forceSafeYBeforePlaceResume;
 
         public PickerProcessSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Process, side == PickerSequenceSide.Front ? "FrontPickerSequence" : "RearPickerSequence")
@@ -54,6 +56,8 @@ namespace QMC.CDT320.Sequencing
                 _bottomAndSideInspectionSequence = null;
                 _placeSequence = null;
                 _bottomInspectionCompletedInCurrentRun = false;
+                _forceBottomInspectionBeforeSideResume = false;
+                _forceSafeYBeforePlaceResume = false;
                 CurrentStep = PickerProcessStep.Complete;
             }
             catch (Exception ex)
@@ -268,20 +272,42 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
+                _forceBottomInspectionBeforeSideResume = false;
+                bool forceBottomAndSideFromFirst =
+                    (Options == null || Options.RunMode == SequenceRunMode.Auto) &&
+                    IsBottomAndSidePipelineModeEnabled() &&
+                    (bottomRequiredCount > 0 || sideRequiredCount > 0);
+
                 if (bottomRequiredCount > 0)
                 {
+                    _forceBottomInspectionBeforeSideResume = forceBottomAndSideFromFirst;
                     CurrentStep = PickerProcessStep.RunBottomInspection;
                     WriteLog("PickerProcessSequence",
-                        Name + " Picker가 Die를 가지고 있어 PickUp을 건너뛰고 Bottom 검사부터 재개합니다. side=" + Side +
+                        Name + " Picker가 Die를 가지고 있어 PickUp을 건너뛰고 Bottom 검사부터 재개합니다. " +
+                        "Bottom/Side 파이프라인 모드에서는 중간 정지 후 안전을 위해 1번부터 Bottom/Side를 다시 진행합니다. side=" + Side +
                         ", occupiedPickerCount=" + occupiedCount +
                         ", bottomRequiredCount=" + bottomRequiredCount +
                         ", sideRequiredCount=" + sideRequiredCount +
-                        ", placeReadyCount=" + placeReadyCount + " - Check");
+                        ", placeReadyCount=" + placeReadyCount +
+                        ", forceBottomAndSideFromFirst=" + forceBottomAndSideFromFirst + " - Check");
                     return 0;
                 }
 
                 if (sideRequiredCount > 0)
                 {
+                    if (forceBottomAndSideFromFirst)
+                    {
+                        _forceBottomInspectionBeforeSideResume = true;
+                        CurrentStep = PickerProcessStep.RunBottomInspection;
+                        WriteLog("PickerProcessSequence",
+                            Name + " Side 검사만 남은 재시작 상태라 Bottom/Side 통합 검사를 Bottom부터 다시 시작합니다. " +
+                            "상대 Picker Place 진입과 Side 진입이 겹치지 않도록 Side 단독 재개를 사용하지 않습니다. side=" + Side +
+                            ", occupiedPickerCount=" + occupiedCount +
+                            ", sideRequiredCount=" + sideRequiredCount +
+                            ", placeReadyCount=" + placeReadyCount + " - Check");
+                        return 0;
+                    }
+
                     CurrentStep = PickerProcessStep.RunSideInspection;
                     WriteLog("PickerProcessSequence",
                         Name + " Bottom 검사가 완료된 Die가 있어 Side 검사부터 재개합니다. side=" + Side +
@@ -292,10 +318,13 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 CurrentStep = PickerProcessStep.RunPlace;
+                _forceSafeYBeforePlaceResume = true;
                 WriteLog("PickerProcessSequence",
-                    Name + " Picker Die 검사 상태가 Place 가능 상태라 Place부터 재개합니다. side=" + Side +
+                    Name + " Picker Die 검사 상태가 Place 가능 상태라 Place부터 재개합니다. " +
+                    "Place 재개 시에는 모드와 관계없이 PickerY를 Avoid로 정리한 뒤 X/T Place 위치 이동 후 Y를 전진합니다. side=" + Side +
                     ", occupiedPickerCount=" + occupiedCount +
-                    ", placeReadyCount=" + placeReadyCount + " - Check");
+                    ", placeReadyCount=" + placeReadyCount +
+                    ", forceSafeYBeforePlaceResume=" + _forceSafeYBeforePlaceResume + " - Check");
                 return 0;
             }
             catch (Exception ex)
@@ -652,6 +681,14 @@ namespace QMC.CDT320.Sequencing
                 if (_bottomAndSideInspectionSequence == null || _bottomAndSideInspectionSequence.IsComplete)
                     _bottomAndSideInspectionSequence = new PickerBottomAndSideInspectionSequence(Context, Side);
 
+                _bottomAndSideInspectionSequence.ForceBottomInspectionBeforeSideResume = _forceBottomInspectionBeforeSideResume;
+                if (_forceBottomInspectionBeforeSideResume)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " Bottom/Side 통합 검사에 Side 단독 재개 금지 옵션을 전달했습니다. " +
+                        "기존 Bottom 결과가 있어도 Bottom shot부터 다시 진행합니다. side=" + Side + " - Check");
+                }
+
                 int result = await SequenceTrace.ChildAsync("PickerBottomAndSideInspectionSequence", "BottomAndSideInspection",
                     () => _bottomAndSideInspectionSequence.RunAsync(ct, BuildChildSequenceOptions(
                         true,
@@ -677,6 +714,7 @@ namespace QMC.CDT320.Sequencing
                     SetPickerPhaseSignal(GetOwnSideInspectionCompleteSignal(), "SideComplete");
                     _bottomAndSideInspectionSequence = null;
                     _bottomInspectionCompletedInCurrentRun = false;
+                    _forceBottomInspectionBeforeSideResume = false;
 
                     int nextPhaseResult = await EnterOrTransitionPickerPhaseAsync(PickerProcessPhase.Place, "BottomAndSideInspectionToPlace", ct).ConfigureAwait(false);
                     if (nextPhaseResult != 0)
@@ -1092,6 +1130,13 @@ namespace QMC.CDT320.Sequencing
                         return readyResult;
 
                     _placeSequence = new PickerPlaceSequence(Context, Side);
+                    _placeSequence.ForceSafeYBeforeFirstPlaceMove = _forceSafeYBeforePlaceResume;
+                    if (_forceSafeYBeforePlaceResume)
+                    {
+                        WriteLog("PickerProcessSequence",
+                            Name + " Place 재시작 안전 진입 옵션을 전달했습니다. " +
+                            "Place 가능 전에는 PickerY Avoid에서 대기하고, X/T 위치 이동 후 Y를 전진합니다. side=" + Side + " - Check");
+                    }
                 }
 
                 int result = await SequenceTrace.ChildAsync("PickerPlaceSequence", "Place",
@@ -1109,6 +1154,7 @@ namespace QMC.CDT320.Sequencing
                     ResetPickerPhaseSignals();
                     ReleasePickerProcessPhase("PlaceComplete");
                     _placeSequence = null;
+                    _forceSafeYBeforePlaceResume = false;
                     StartInputCameraPreInspectionForSideIfNeeded(Side, ct, "PlaceComplete");
                     CurrentStep = PickerProcessStep.Complete;
                 }

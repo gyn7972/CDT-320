@@ -1132,8 +1132,9 @@ namespace QMC.CDT320.Interlocks
                 if (clearance <= 0.0)
                     return true;
 
-                double ownXTarget = pairedXTarget.HasValue ? pairedXTarget.Value : ownX.ActualPosition;
-                if (!DoesXMovePathEnterFacingClearance(ownX.ActualPosition, ownXTarget, otherX.ActualPosition, clearance))
+                double ownXTarget = pairedXTarget.HasValue ? pairedXTarget.Value : ResolveAxisPathTarget(ownX);
+                double otherXTarget = ResolveAxisPathTarget(otherX);
+                if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, ownXTarget, otherX.ActualPosition, otherXTarget, clearance))
                     return true;
 
                 detail = BuildFacingYBlockedDetail(
@@ -1146,6 +1147,7 @@ namespace QMC.CDT320.Interlocks
                     otherY,
                     ownXTarget,
                     targetY,
+                    otherXTarget,
                     clearance);
                 return false;
             }
@@ -1194,7 +1196,8 @@ namespace QMC.CDT320.Interlocks
                 if (clearance <= 0.0)
                     return true;
 
-                if (!DoesXMovePathEnterFacingClearance(ownX.ActualPosition, targetX, otherX.ActualPosition, clearance))
+                double otherXTarget = ResolveAxisPathTarget(otherX);
+                if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, targetX, otherX.ActualPosition, otherXTarget, clearance))
                     return true;
 
                 detail = BuildFacingYBlockedDetail(
@@ -1207,6 +1210,7 @@ namespace QMC.CDT320.Interlocks
                     otherY,
                     targetX,
                     pairedYTarget.HasValue ? pairedYTarget.Value : (ownY != null ? ownY.ActualPosition : 0.0),
+                    otherXTarget,
                     clearance);
                 return false;
             }
@@ -1302,11 +1306,36 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool DoesXMovePathEnterFacingClearance(double startX, double targetX, double otherX, double clearance)
+        private static double ResolveAxisPathTarget(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return 0.0;
+
+                return axis.IsMoving ? axis.CommandPosition : axis.ActualPosition;
+            }
+            catch
+            {
+                return axis != null ? axis.ActualPosition : 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool DoXMovePathsEnterFacingClearance(
+            double startX,
+            double targetX,
+            double otherStartX,
+            double otherTargetX,
+            double clearance)
         {
             double min = Math.Min(startX, targetX) - clearance;
             double max = Math.Max(startX, targetX) + clearance;
-            return otherX >= min && otherX <= max;
+            double otherMin = Math.Min(otherStartX, otherTargetX);
+            double otherMax = Math.Max(otherStartX, otherTargetX);
+            return otherMax >= min && otherMin <= max;
         }
 
         private static string BuildFacingYBlockedDetail(
@@ -1319,6 +1348,7 @@ namespace QMC.CDT320.Interlocks
             BaseAxis otherY,
             double ownTargetX,
             double ownTargetY,
+            double otherTargetX,
             double clearance)
         {
             string otherName = isFront ? "RearPicker" : "FrontPicker";
@@ -1336,6 +1366,7 @@ namespace QMC.CDT320.Interlocks
                    ", otherX=" + FormatAxis(otherX) +
                    ", otherY=" + FormatAxis(otherY) +
                    ", targetX=" + ownTargetX.ToString("0.###") +
+                   ", otherTargetX=" + otherTargetX.ToString("0.###") +
                    ", targetY=" + ownTargetY.ToString("0.###") +
                    ", targetName=" + (string.IsNullOrWhiteSpace(targetName) ? "-" : targetName);
         }

@@ -159,16 +159,13 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 case PickerProcessPhase.BottomInspection:
-                    if (opposite == PickerProcessPhase.Place)
-                        return true;
-                    reason = "BottomInspection은 상대 Picker가 PickUp/BottomInspection/SideInspection 중이면 진입할 수 없습니다.";
+                    reason = "BottomInspection은 상대 Picker가 다른 공정 phase 중이면 진입할 수 없습니다.";
                     return false;
 
                 case PickerProcessPhase.SideInspection:
-                    if (opposite == PickerProcessPhase.PickUp ||
-                        opposite == PickerProcessPhase.Place)
+                    if (opposite == PickerProcessPhase.PickUp)
                         return true;
-                    reason = "SideInspection은 상대 Picker가 BottomInspection/SideInspection 중이면 진입할 수 없습니다.";
+                    reason = "SideInspection은 상대 Picker가 BottomInspection/SideInspection/Place 중이면 진입할 수 없습니다.";
                     return false;
 
                 case PickerProcessPhase.Place:

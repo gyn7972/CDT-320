@@ -1320,6 +1320,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp 안전 진입: Picker X/T 이동 전에 PickerY를 Avoid로 정리했습니다. " +
+                    "pickIndex=" + (_pickCursor + 1) +
+                    "/" + _pickBatchItems.Count +
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)
