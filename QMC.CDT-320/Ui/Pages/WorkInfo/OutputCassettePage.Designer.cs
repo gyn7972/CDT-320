@@ -826,6 +826,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Top;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.Name = "actionBar";
             this.actionBar.RowCount = 2;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));

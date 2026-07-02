@@ -423,7 +423,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
             this.actionBar.Name = "actionBar";
-            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 0, 3, 0);
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.RowCount = 4;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
@@ -440,7 +440,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoadFromCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadFromCassette.ForeColor = System.Drawing.Color.White;
             this.btnLoadFromCassette.Location = new System.Drawing.Point(6, 1);
-            this.btnLoadFromCassette.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnLoadFromCassette.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnLoadFromCassette.Name = "btnLoadFromCassette";
             this.btnLoadFromCassette.Size = new System.Drawing.Size(406, 44);
             this.btnLoadFromCassette.TabIndex = 0;
@@ -454,7 +454,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnLoadToStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadToStage.ForeColor = System.Drawing.Color.White;
             this.btnLoadToStage.Location = new System.Drawing.Point(418, 1);
-            this.btnLoadToStage.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnLoadToStage.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnLoadToStage.Name = "btnLoadToStage";
             this.btnLoadToStage.Size = new System.Drawing.Size(406, 44);
             this.btnLoadToStage.TabIndex = 1;
@@ -468,7 +468,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnloadFromStage.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnloadFromStage.ForeColor = System.Drawing.Color.White;
             this.btnUnloadFromStage.Location = new System.Drawing.Point(6, 47);
-            this.btnUnloadFromStage.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnUnloadFromStage.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnUnloadFromStage.Name = "btnUnloadFromStage";
             this.btnUnloadFromStage.Size = new System.Drawing.Size(406, 44);
             this.btnUnloadFromStage.TabIndex = 2;
@@ -482,7 +482,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnloadToCassette.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnUnloadToCassette.ForeColor = System.Drawing.Color.White;
             this.btnUnloadToCassette.Location = new System.Drawing.Point(418, 47);
-            this.btnUnloadToCassette.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnUnloadToCassette.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnUnloadToCassette.Name = "btnUnloadToCassette";
             this.btnUnloadToCassette.Size = new System.Drawing.Size(406, 44);
             this.btnUnloadToCassette.TabIndex = 3;
@@ -496,7 +496,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnRecover.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnRecover.ForeColor = System.Drawing.Color.White;
             this.btnRecover.Location = new System.Drawing.Point(6, 93);
-            this.btnRecover.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnRecover.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnRecover.Name = "btnRecover";
             this.btnRecover.Size = new System.Drawing.Size(406, 44);
             this.btnRecover.TabIndex = 4;
@@ -510,7 +510,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
             this.btnStop.Location = new System.Drawing.Point(418, 93);
-            this.btnStop.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
+            this.btnStop.Margin = new System.Windows.Forms.Padding(3, 3, 3, 3);
             this.btnStop.Name = "btnStop";
             this.btnStop.Size = new System.Drawing.Size(406, 44);
             this.btnStop.TabIndex = 5;

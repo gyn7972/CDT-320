@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label[] _blowLabels;
         private readonly Label[] _axisValueLabels;
         private readonly MaterialDetailView _headDieDetailView;
-        private readonly Button[] _headSelectButtons;
+        private readonly RadioButton[] _headSelectButtons;
         private int _selectedHeadNo = 1;
         private readonly Button _btnCountClear;
         private readonly ActionButton _btnInput;
@@ -94,7 +94,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Label[] blowLabels,
             Label[] axisValueLabels,
             MaterialDetailView headDieDetailView,
-            Button[] headSelectButtons,
+            RadioButton[] headSelectButtons,
             Button btnCountClear,
             ActionButton btnInput,
             ActionButton btnInspect,
@@ -128,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _blowLabels = blowLabels ?? new Label[0];
             _axisValueLabels = axisValueLabels ?? new Label[0];
             _headDieDetailView = headDieDetailView;
-            _headSelectButtons = headSelectButtons ?? new Button[0];
+            _headSelectButtons = headSelectButtons ?? new RadioButton[0];
             _btnCountClear = btnCountClear;
             _btnInput = btnInput;
             _btnInspect = btnInspect;
@@ -195,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             for (int i = 0; i < _headSelectButtons.Length; i++)
             {
-                Button button = _headSelectButtons[i];
+                RadioButton button = _headSelectButtons[i];
                 if (button == null)
                     continue;
 
@@ -215,13 +215,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             for (int i = 0; i < _headSelectButtons.Length; i++)
             {
-                Button button = _headSelectButtons[i];
+                RadioButton button = _headSelectButtons[i];
                 if (button == null)
                     continue;
 
                 bool selected = (i + 1) == _selectedHeadNo;
-                button.BackColor = selected ? Color.FromArgb(0x00, 0xB0, 0x50) : Color.FromArgb(0x80, 0x80, 0x80);
-                button.ForeColor = Color.White;
+                button.Checked = selected;
             }
         }
 
