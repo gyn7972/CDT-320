@@ -14,6 +14,8 @@ namespace QMC.Common.Logging
         private static readonly Queue<EventRow> PendingRows = new Queue<EventRow>();
         private const int FlushSleepMs = 20;
         private const int DefaultSafeReadLimit = 10000;
+        private const long MaxEventCsvBytes = 100L * 1024L * 1024L;
+        private const string CsvHeader = "When,Kind,User,Code,Source,Description";
         private static string _currentDate;
         private static string _currentPath;
         private static string _logRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
@@ -148,8 +150,27 @@ namespace QMC.Common.Logging
 
         public static List<EventRow> Read(DateTime date)
         {
-            string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
-            return ReadFile(path);
+            try
+            {
+                List<EventRow> list = new List<EventRow>();
+                foreach (string path in GetLogFilesForDate(date))
+                {
+                    foreach (EventRow row in EnumerateFile(path))
+                    {
+                        if (row != null)
+                            list.Add(row);
+                    }
+                }
+
+                return list;
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
+            }
         }
 
         // 임의 경로의 이벤트 로그 CSV 파일을 읽어 행 목록으로 반환한다(헤더/빈 줄 건너뜀).
@@ -233,8 +254,36 @@ namespace QMC.Common.Logging
 
         public static List<EventRow> ReadRecent(DateTime date, int maxRows, Predicate<EventRow> filter = null)
         {
-            string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
-            return ReadRecentFile(path, maxRows, filter);
+            try
+            {
+                int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
+                Queue<EventRow> rows = new Queue<EventRow>(Math.Min(limit, 1024));
+
+                string path = GetActiveLogFileForDate(date);
+                if (!string.IsNullOrWhiteSpace(path))
+                {
+                    foreach (EventRow row in EnumerateFile(path))
+                    {
+                        if (row == null)
+                            continue;
+                        if (filter != null && !filter(row))
+                            continue;
+
+                        rows.Enqueue(row);
+                        while (rows.Count > limit)
+                            rows.Dequeue();
+                    }
+                }
+
+                return new List<EventRow>(rows);
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
+            }
         }
 
         private static EventRow TryParseLogLine(string line)
@@ -388,7 +437,9 @@ namespace QMC.Common.Logging
                 if (buffer == null || buffer.Length == 0 || string.IsNullOrWhiteSpace(_currentPath))
                     return;
 
-                File.AppendAllText(_currentPath, buffer.ToString(), Encoding.UTF8);
+                string text = buffer.ToString();
+                RotateBySizeIfNeeded(Encoding.UTF8.GetByteCount(text));
+                File.AppendAllText(_currentPath, text, Encoding.UTF8);
             }
             catch
             {
@@ -410,11 +461,162 @@ namespace QMC.Common.Logging
                 _currentDate = today;
                 _currentPath = Path.Combine(LogDir, today + ".csv");
                 if (!File.Exists(_currentPath))
-                    File.WriteAllText(_currentPath, "When,Kind,User,Code,Source,Description" + Environment.NewLine, Encoding.UTF8);
+                    WriteEventCsvHeader(_currentPath);
             }
             catch
             {
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RotateBySizeIfNeeded(long pendingBytes)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_currentPath))
+                    return;
+
+                long currentBytes = 0;
+                if (File.Exists(_currentPath))
+                    currentBytes = new FileInfo(_currentPath).Length;
+
+                if (currentBytes <= 0 || currentBytes + Math.Max(0, pendingBytes) <= MaxEventCsvBytes)
+                    return;
+
+                string archivePath = ResolveNextArchivePath(_currentPath);
+                try
+                {
+                    File.Move(_currentPath, archivePath);
+                }
+                catch
+                {
+                    archivePath = ResolveFallbackArchivePath(_currentPath);
+                    File.Move(_currentPath, archivePath);
+                }
+
+                WriteEventCsvHeader(_currentPath);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveNextArchivePath(string activePath)
+        {
+            string directory = Path.GetDirectoryName(activePath);
+            string name = Path.GetFileNameWithoutExtension(activePath);
+            string extension = Path.GetExtension(activePath);
+            if (string.IsNullOrEmpty(extension))
+                extension = ".csv";
+
+            for (int i = 1; i < 10000; i++)
+            {
+                string candidate = Path.Combine(directory, name + "_" + i.ToString("D3") + extension);
+                if (!File.Exists(candidate))
+                    return candidate;
+            }
+
+            return ResolveFallbackArchivePath(activePath);
+        }
+
+        private static string ResolveFallbackArchivePath(string activePath)
+        {
+            string directory = Path.GetDirectoryName(activePath);
+            string name = Path.GetFileNameWithoutExtension(activePath);
+            string extension = Path.GetExtension(activePath);
+            if (string.IsNullOrEmpty(extension))
+                extension = ".csv";
+
+            return Path.Combine(directory, name + "_" + DateTime.Now.ToString("HHmmss_fff") + extension);
+        }
+
+        private static void WriteEventCsvHeader(string path)
+        {
+            File.WriteAllText(path, CsvHeader + Environment.NewLine, Encoding.UTF8);
+        }
+
+        private static IEnumerable<string> GetLogFilesForDate(DateTime date)
+        {
+            var result = new List<string>();
+            try
+            {
+                string dir = LogDir;
+                string dateName = date.ToString("yyyy-MM-dd");
+                string activePath = Path.Combine(dir, dateName + ".csv");
+
+                if (Directory.Exists(dir))
+                {
+                    string[] archived = Directory.GetFiles(dir, dateName + "_*.csv");
+                    Array.Sort(archived, StringComparer.OrdinalIgnoreCase);
+                    foreach (string path in archived)
+                    {
+                        if (IsNumberedArchivePath(path, dateName))
+                            result.Add(path);
+                    }
+                }
+
+                if (File.Exists(activePath))
+                    result.Add(activePath);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return result;
+        }
+
+        private static string GetActiveLogFileForDate(DateTime date)
+        {
+            try
+            {
+                string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
+                return File.Exists(path) ? path : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsNumberedArchivePath(string path, string dateName)
+        {
+            try
+            {
+                string name = Path.GetFileNameWithoutExtension(path);
+                string prefix = dateName + "_";
+                if (string.IsNullOrWhiteSpace(name) ||
+                    !name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                string suffix = name.Substring(prefix.Length);
+                if (suffix.Length == 0)
+                    return false;
+
+                for (int i = 0; i < suffix.Length; i++)
+                {
+                    if (!char.IsDigit(suffix[i]))
+                        return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

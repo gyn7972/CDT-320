@@ -321,7 +321,7 @@ namespace QMC.Common.Logging
                 if (Directory.Exists(logDir))
                 {
                     // 파일명(날짜) 순으로 과거 → 최신 순으로 수집. 중복 종류는 EnsureRegistered 가 알아서 스킵.
-                    var files = Directory.GetFiles(logDir, "*.csv");
+                    var files = ResolveLatestSeedLogPaths(logDir);
                     Array.Sort(files, StringComparer.OrdinalIgnoreCase);
 
                     foreach (var path in files)
@@ -355,6 +355,43 @@ namespace QMC.Common.Logging
         }
 
         // --- Private Methods ---
+
+        private static string[] ResolveLatestSeedLogPaths(string logDir)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(logDir) || !Directory.Exists(logDir))
+                    return new string[0];
+
+                FileInfo latest = null;
+                foreach (string path in Directory.GetFiles(logDir, "*.csv"))
+                {
+                    if (string.IsNullOrWhiteSpace(path))
+                        continue;
+
+                    FileInfo info = new FileInfo(path);
+                    if (!info.Exists)
+                        continue;
+
+                    if (latest == null ||
+                        info.LastWriteTimeUtc > latest.LastWriteTimeUtc ||
+                        (info.LastWriteTimeUtc == latest.LastWriteTimeUtc &&
+                         string.Compare(info.Name, latest.Name, StringComparison.OrdinalIgnoreCase) > 0))
+                    {
+                        latest = info;
+                    }
+                }
+
+                return latest != null ? new[] { latest.FullName } : new string[0];
+            }
+            catch
+            {
+                return new string[0];
+            }
+            finally
+            {
+            }
+        }
 
         private static bool ShouldSkipSeedLog(string path)
         {

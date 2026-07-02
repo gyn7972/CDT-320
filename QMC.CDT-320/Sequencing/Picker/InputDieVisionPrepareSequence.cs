@@ -1361,6 +1361,18 @@ namespace QMC.CDT320.Sequencing
                     return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
                 }
 
+                int entryResult = await MoveInputStageVisionPointViaWorkCenterAsync(
+                    stage,
+                    targetX,
+                    targetY,
+                    targetNeedleX,
+                    description,
+                    xFirstReason,
+                    yFirstReason,
+                    ct).ConfigureAwait(false);
+                if (entryResult != int.MinValue)
+                    return entryResult;
+
                 return Fail("INPUT-DIE-VISION-PREPARE-STAGE-PATH", stage.Name,
                     description + " 위치로 이동할 안전한 X/Y 순서를 찾지 못했습니다. " +
                     "currentX=" + currentX.ToString("F6") +
@@ -1378,6 +1390,89 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-STAGE-PATH-EX", stage != null ? stage.Name : "InputStageUnit",
                     description + " X/Y 이동 순서 처리 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputStageVisionPointViaWorkCenterAsync(
+            InputStageUnit stage,
+            double targetX,
+            double targetY,
+            double targetNeedleX,
+            string description,
+            string xFirstReason,
+            string yFirstReason,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (stage == null)
+                    return int.MinValue;
+
+                double entryX = stage.ResolveWorkAreaCenterX();
+                double entryY = stage.ResolveWorkAreaCenterY();
+
+                string entryReason;
+                if (!stage.IsInputStageWorkPointInArea(entryX, entryY, out entryReason))
+                {
+                    WriteLog("InputDieVisionPrepareSequence",
+                        description + " work area center entry is not available. entryX=" + entryX.ToString("F6") +
+                        ", entryY=" + entryY.ToString("F6") +
+                        ", reason=" + entryReason +
+                        ", xFirst=" + xFirstReason +
+                        ", yFirst=" + yFirstReason + " - Skip");
+                    return int.MinValue;
+                }
+
+                WriteLog("InputDieVisionPrepareSequence",
+                    description + " has no direct L-path. Enter work center first. entryX=" + entryX.ToString("F6") +
+                    ", entryY=" + entryY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") +
+                    ", xFirst=" + xFirstReason +
+                    ", yFirst=" + yFirstReason + " - Start");
+
+                int result = await MoveInputStageYAndVerifyAsync(
+                    stage,
+                    entryX,
+                    entryY,
+                    description + " Entry StageY",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputVisionXAndVerifyAsync(
+                    stage,
+                    targetX,
+                    description + " Entry VisionX",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveNeedleXAndStageYForVisionPrepareAsync(
+                    stage,
+                    targetNeedleX,
+                    targetY,
+                    targetX,
+                    description + " Entry NeedleX/StageY",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-STAGE-ENTRY-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " 작업영역 진입 경유 이동 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {

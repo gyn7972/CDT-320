@@ -16,6 +16,7 @@ namespace QMC.CDT320.Sequencing
         Idle,
         CheckUnit,
         MoveNeedleZSafeBeforeMapping,
+        MoveVisionProcessBeforeMapping,
         MoveTopPoint,
         FindTopPoint,
         MoveBottomPoint,
@@ -67,6 +68,9 @@ namespace QMC.CDT320.Sequencing
                     // 다이 맵핑 전 NeedleZ 안전 위치 복귀
                     case InputStageDieMappingStep.MoveNeedleZSafeBeforeMapping:
                         return MoveNeedleZSafeBeforeMappingAsync(ct);
+                    // 다이 맵핑 시작 전 Vision/Stage 작업 기준 위치 진입
+                    case InputStageDieMappingStep.MoveVisionProcessBeforeMapping:
+                        return MoveVisionProcessBeforeMappingAsync(ct);
                     // 상단 포인트 이동
                     case InputStageDieMappingStep.MoveTopPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Top, InputStageDieMappingStep.FindTopPoint, ct);
@@ -200,7 +204,7 @@ namespace QMC.CDT320.Sequencing
 
                 if (!Options.EnableMotion || Stage == null || Stage.Recipe == null || Stage.Recipe.NeedleZ == null)
                 {
-                    CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                    CurrentStep = InputStageDieMappingStep.MoveVisionProcessBeforeMapping;
                     return 0;
                 }
 
@@ -220,7 +224,7 @@ namespace QMC.CDT320.Sequencing
                         target.ToString("F3") + " - Ok");
                 }
 
-                CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                CurrentStep = InputStageDieMappingStep.MoveVisionProcessBeforeMapping;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -343,6 +347,71 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> MoveVisionProcessBeforeMappingAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Options == null || !Options.EnableMotion || Stage == null || Stage.Recipe == null)
+                {
+                    CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                    return 0;
+                }
+
+                Stage.Recipe.EnsurePositionObjects();
+
+                int result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferY,
+                    Stage.Recipe.WaferY.ProcessPosition,
+                    "Die Mapping 시작 전 StageY Process",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.VisionX,
+                    Stage.Recipe.VisionX.ProcessPosition,
+                    "Die Mapping 시작 전 VisionX Process",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (Stage.Recipe.WaferZ != null)
+                {
+                    result = await MoveAxisAndWaitAsync(
+                        WaferStageAxis.WaferExpandingZ,
+                        Stage.Recipe.WaferZ.ProcessPosition,
+                        "Die Mapping 시작 전 StageZ Process",
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 시작 전 InputStage를 Process 기준 위치로 이동했습니다. visionX=" +
+                    Stage.Recipe.VisionX.ProcessPosition.ToString("F3") +
+                    ", stageY=" + Stage.Recipe.WaferY.ProcessPosition.ToString("F3") + " - Ok");
+
+                CurrentStep = InputStageDieMappingStep.MoveTopPoint;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "IN-STAGE-DIEMAP-PROCESS-POS-EX",
+                    Stage != null ? Stage.Name : "InputStageUnit",
+                    "Die Mapping 시작 전 Process 위치 이동 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MoveMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)
         {
             try
@@ -404,6 +473,16 @@ namespace QMC.CDT320.Sequencing
                 return await MoveAxisAndWaitAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
             }
 
+            int entryResult = await MoveVisionXYPointViaWorkCenterAsync(
+                targetX,
+                targetY,
+                description,
+                xFirstReason,
+                yFirstReason,
+                ct).ConfigureAwait(false);
+            if (entryResult != int.MinValue)
+                return entryResult;
+
             return Fail("IN-STAGE-DIEMAP-WORK-AREA-PATH", Stage.Name,
                 description + " mark has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F3") +
                 ", currentY=" + currentY.ToString("F3") +
@@ -411,6 +490,64 @@ namespace QMC.CDT320.Sequencing
                 ", targetY=" + targetY.ToString("F3") +
                 ", xFirst=" + xFirstReason +
                 ", yFirst=" + yFirstReason);
+        }
+
+        private async Task<int> MoveVisionXYPointViaWorkCenterAsync(
+            double targetX,
+            double targetY,
+            string description,
+            string xFirstReason,
+            string yFirstReason,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double entryX = Stage.ResolveWorkAreaCenterX();
+                double entryY = Stage.ResolveWorkAreaCenterY();
+
+                string entryReason;
+                if (!Stage.IsInputStageWorkPointInArea(entryX, entryY, out entryReason))
+                {
+                    WriteLog("InputStageDieMappingSequence",
+                        description + " work area center entry is not available. entryX=" + entryX.ToString("F6") +
+                        ", entryY=" + entryY.ToString("F6") +
+                        ", reason=" + entryReason +
+                        ", xFirst=" + xFirstReason +
+                        ", yFirst=" + yFirstReason + " - Skip");
+                    return int.MinValue;
+                }
+
+                WriteLog("InputStageDieMappingSequence",
+                    description + " mark has no direct L-path. Enter work center first. entryX=" +
+                    entryX.ToString("F6") +
+                    ", entryY=" + entryY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") + " - Start");
+
+                int result = await MoveAxisAndWaitAsync(WaferStageAxis.WaferY, entryY, description + " Entry StageY", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAxisAndWaitAsync(WaferStageAxis.VisionX, targetX, description + " Entry VisionX", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await MoveAxisAndWaitAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-WORK-AREA-ENTRY-EX", Stage != null ? Stage.Name : "InputStageUnit",
+                    description + " 작업영역 진입 경유 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveAxisAndWaitAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
