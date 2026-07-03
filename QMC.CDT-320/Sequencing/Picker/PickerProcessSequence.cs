@@ -21,6 +21,7 @@ namespace QMC.CDT320.Sequencing
         private bool _bottomInspectionCompletedInCurrentRun;
         private bool _forceBottomInspectionBeforeSideResume;
         private bool _forceSafeYBeforePlaceResume;
+        private bool _firstForwardTurnHandled;
 
         public PickerProcessSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Process, side == PickerSequenceSide.Front ? "FrontPickerSequence" : "RearPickerSequence")
@@ -127,12 +128,79 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                // §4: run의 첫 전진 스텝만 크로스-픽커 우선순위 게이트를 통과한다(완료 가까운 쪽 먼저, 한 번에 한 픽커).
+                // 이후 스텝/다음 die는 게이트를 통과하지 않으며 기존 상대 PickerY Avoid 대기 + supervisor가 담당한다.
+                bool gateThisStep = !_firstForwardTurnHandled &&
+                                    (Options == null || Options.RunMode == SequenceRunMode.Auto) &&
+                                    IsFirstForwardGatedStep(CurrentStep);
+                if (gateThisStep)
+                {
+                    await PickerFirstForwardSequencer.AcquireAsync(
+                        Side,
+                        MapStepToFirstForwardRank(CurrentStep),
+                        IsOppositePickerActive(),
+                        Context,
+                        msg => WriteLog("PickerFirstForwardSequencer", Name + " " + msg + " - Wait"),
+                        ct).ConfigureAwait(false);
+                }
+
+                int result;
+                try
+                {
+                    result = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (gateThisStep)
+                    {
+                        _firstForwardTurnHandled = true;
+                        PickerFirstForwardSequencer.Complete(Side);
+                    }
+                }
+
                 if (result != 0)
                     return result;
             }
 
             return 0;
+        }
+
+        private static bool IsFirstForwardGatedStep(PickerProcessStep step)
+        {
+            return step == PickerProcessStep.RunPickUp ||
+                   step == PickerProcessStep.RunBottomInspection ||
+                   step == PickerProcessStep.RunSideInspection ||
+                   step == PickerProcessStep.RunPlace;
+        }
+
+        // 완료 가까운 쪽 우선. Bottom/Side는 하나로 취급한다(사용자 정책).
+        private static int MapStepToFirstForwardRank(PickerProcessStep step)
+        {
+            switch (step)
+            {
+                case PickerProcessStep.RunPlace:
+                    return PickerFirstForwardSequencer.RankPlace;
+                case PickerProcessStep.RunBottomInspection:
+                case PickerProcessStep.RunSideInspection:
+                    return PickerFirstForwardSequencer.RankBottomSide;
+                default:
+                    return PickerFirstForwardSequencer.RankPickUp;
+            }
+        }
+
+        private bool IsOppositePickerActive()
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                    return RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
+
+                return FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private Task<int> ExecuteStepAsync(CancellationToken ct)

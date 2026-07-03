@@ -76,6 +76,9 @@ namespace QMC.CDT320.Sequencing
                 return;
             }
 
+            // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
+            PickerFirstForwardSequencer.BeginRun();
+
             CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _childrenCts = childrenCts;
             CancellationToken childrenToken = childrenCts.Token;
