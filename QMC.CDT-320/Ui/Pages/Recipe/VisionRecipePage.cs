@@ -35,6 +35,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ApplyTitle();
                 ApplyRuntimeLayout();
                 ConfigureRuntimeBehavior();
+                ConfigureManualActions();
             }
             catch (Exception ex)
             {
@@ -126,8 +127,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogSpeedControl.BringToFront();
 
                 BackColor = Color.FromArgb(207, 210, 214);
-                rootLayout.BackColor = BackColor;
-                contentLayout.BackColor = BackColor;
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
                 lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
@@ -299,6 +298,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionParameterGrid.SetItems(items);
 
                 // WAIT TIME — VisionRecipe 타임아웃 값
+                waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.MoveTimeoutMs, v => unit.Recipe.MoveTimeoutMs = v),
@@ -351,6 +351,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         // ===================== 매뉴얼 액션 (Front/Rear 통합 단일 버튼) =====================
+        private void ConfigureManualActions()
+        {
+            try
+            {
+                // 공용 MANUAL ACTION 판넬에 비전 이동 버튼 등록 (2열, 행 수 자동)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("AVOID POSITION", () => ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
+                    ManualActionItem.Create("PROCESS POSITION (0°)", () => ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY)),
+                    ManualActionItem.Create("PROCESS POSITION (90°)", () => ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async, _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-STAGE", "ConfigureManualActions failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
         private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
             await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition(), _visionUnit.FrontSideVisionY, _visionUnit.RearSideVisionY);
@@ -467,7 +488,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 var unit = _visionUnit;
-                ioCylinderPanel.SetItems(new[]
+                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
+            ioCylinderPanel.SetItems(new[]
                 {
                     // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
                     IoCylinderItem.Input("WAFER STAGE TOUCH", () => IsOn(unit.WaferStageTouchSensor)),

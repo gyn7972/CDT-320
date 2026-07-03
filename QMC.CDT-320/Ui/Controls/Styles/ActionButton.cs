@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Drawing2D;
 using System;
 using System.Windows.Forms;
@@ -22,6 +22,10 @@ namespace QMC.CDT_320.Ui.Controls
             ForeColor = Color.White;
             BackColor = Color.FromArgb(0x80, 0x80, 0x80);
         }
+
+        // Control 상속이라 Text/Enabled 변경만으로는 다시 그리지 않음 -> 명시적 Invalidate 필요
+        protected override void OnTextChanged(System.EventArgs e) { Invalidate(); base.OnTextChanged(e); }
+        protected override void OnEnabledChanged(System.EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
 
         protected override void OnMouseEnter(System.EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(System.EventArgs e) { _hover = false; _down = false; Invalidate(); base.OnMouseLeave(e); }

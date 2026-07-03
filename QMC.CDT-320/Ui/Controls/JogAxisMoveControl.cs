@@ -581,10 +581,13 @@ namespace QMC.CDT_320.Ui.Controls
                 int width = Math.Min(maxWidth, availableWidth);
                 width = Math.Max(Math.Min(Math.Max(_buttonAreaMinWidth, requiredStageWidth), availableWidth), width);
 
-                rootLayout.RowStyles[1].SizeType = SizeType.Absolute;
-                rootLayout.RowStyles[1].Height = height + axisHost.Padding.Top + axisHost.Padding.Bottom;
-                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
-                rootLayout.RowStyles[2].Height = 100F;
+                // 패드 영역(axisHost)이 그룹 하단까지 채우도록 row1을 Percent로 확장.
+                // 버튼 묶음은 axisHost의 50/H/50 행 구조로 세로 중앙 정렬됨.
+                // (PickerTabbed/InputStagePad는 height≈available이라 기존과 동일하게 동작)
+                rootLayout.RowStyles[1].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[1].Height = 100F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[2].Height = 0F;
 
                 axisHost.ColumnStyles[0].SizeType = SizeType.Percent;
                 axisHost.ColumnStyles[0].Width = 50F;
@@ -1028,11 +1031,19 @@ namespace QMC.CDT_320.Ui.Controls
                 container.Padding = new Padding(0);
                 container.BackColor = Color.Transparent;
                 container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                // Front Head(PickerTabbed) 패드와 라벨 라인을 맞추기 위한 고정 오프셋 배치
+                // (상단 라벨 = pad top + 44, 하단 섹션 시작 = pad top + 309)
+                container.RowStyles.Add(new RowStyle(SizeType.Absolute, 309F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-                container.Controls.Add(CreateStageTopSection(cameraX, expanderZ, stageY, stageT), 0, 0);
-                container.Controls.Add(CreateStageBottomSection(needleX, needleZ, ejectPinZ), 0, 1);
+                Control topSection = CreateStageTopSection(cameraX, expanderZ, stageY, stageT);
+                topSection.Anchor = AnchorStyles.Top;
+                topSection.Margin = new Padding(0, 44, 0, 0);
+                Control bottomSection = CreateStageBottomSection(needleX, needleZ, ejectPinZ);
+                bottomSection.Anchor = AnchorStyles.Top;
+                bottomSection.Margin = new Padding(0);
+                container.Controls.Add(topSection, 0, 0);
+                container.Controls.Add(bottomSection, 0, 1);
 
                 axisButtonLayout.ColumnCount = 1;
                 axisButtonLayout.RowCount = 1;
@@ -1049,7 +1060,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private const int InputPadBtnW = 60;
+        private const int InputPadBtnW = 54;
         private const int InputPadBtnH = 48;
         private const int InputVPadW = 80;
 

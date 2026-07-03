@@ -160,34 +160,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void ConfigureActionButtons()
         {
-            _actionButtons.Clear();
+            try
+            {
+                // 공용 MANUAL ACTION 판넬에 티칭 위치별 버튼 등록 (2열, 행 수 자동)
+                var actions = new List<ManualActionItem>();
+                foreach (OutputFeederTeachingPosition position in TeachingPositions)
+                {
+                    OutputFeederTeachingPosition captured = position;
+                    actions.Add(ManualActionItem.Create(captured.DisplayName, () => ConfirmTeachingMoveAsync(captured)));
+                }
 
-            RegisterActionMoveButton(btnReadyMove, TeachingPositions[0]);
-            RegisterActionMoveButton(btnGoodLoadingMove, TeachingPositions[1]);
-            RegisterActionMoveButton(btnGoodUnloadingMove, TeachingPositions[2]);
-            RegisterActionMoveButton(btnGoodCassetteExchangeMove, TeachingPositions[3]);
-            RegisterActionMoveButton(btnGoodWaferLoadAvoidMove, TeachingPositions[4]);
-            RegisterActionMoveButton(btnGoodSlotStartMove, TeachingPositions[5]);
-            RegisterActionMoveButton(btnGoodWaferUnloadAvoidMove, TeachingPositions[6]);
-            RegisterActionMoveButton(btnGoodSlotEndMove, TeachingPositions[7]);
-            RegisterActionMoveButton(btnGoodWaferBarcodeMove, TeachingPositions[8]);
-            RegisterActionMoveButton(btnNgLoadingMove, TeachingPositions[9]);
-            RegisterActionMoveButton(btnNgUnloadingMove, TeachingPositions[10]);
-            RegisterActionMoveButton(btnNgCassetteExchangeMove, TeachingPositions[11]);
-            RegisterActionMoveButton(btnNgWaferLoadAvoidMove, TeachingPositions[12]);
-            RegisterActionMoveButton(btnNgSlotStartMove, TeachingPositions[13]);
-            RegisterActionMoveButton(btnNgWaferUnloadAvoidMove, TeachingPositions[14]);
-            RegisterActionMoveButton(btnNgSlotEndMove, TeachingPositions[15]);
-            RegisterActionMoveButton(btnNgWaferBarcodeMove, TeachingPositions[16]);
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(actions);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-FEEDER", "ConfigureActionButtons failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
-        private IEnumerable<ActionButton> GetActionButtons()
-        {
-            if (_actionButtons.Count > 0)
-                return _actionButtons;
-
-            return new[] { btnGoodLoadingMove, btnGoodUnloadingMove, btnGoodSlotStartMove, btnGoodSlotEndMove, btnNgLoadingMove, btnNgUnloadingMove, btnNgSlotStartMove, btnNgSlotEndMove, btnReadyMove };
-        }
 
         private void RegisterActionMoveButton(ActionButton button, OutputFeederTeachingPosition position)
         {
@@ -310,8 +304,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                foreach (var button in GetActionButtons())
-                    button.Enabled = enabled;
+                manualActionPanel.SetButtonsEnabled(enabled);
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -600,6 +593,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 optionParameterGrid.SetItems(items);
 
+                waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.FeederY.Setup.MoveTimeoutMs, v => unit.FeederY.Setup.MoveTimeoutMs = Math.Max(0, v))
@@ -624,21 +618,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var unit = _outputFeederUnit;
 
+                // 2열 열우선 배치 (접두사/CHECK 생략): [1열] RING CHECK + LIFT 세트, [2열] OVERLOAD + CLAMP 세트
+                ioCylinderPanel.ColumnCount = 2;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
-                    IoCylinderItem.Input("FEEDER RING CHECK", () => unit.IsBinFeederRingCheck()),
-                    IoCylinderItem.Input("FEEDER OVERLOAD CHECK", () => unit.IsFeederOverload()),
+                    IoCylinderItem.Input("RING CHECK", () => unit.IsBinFeederRingCheck()),
+                    IoCylinderItem.Input("UP", () => unit.IsFeederUp()),
+                    IoCylinderItem.Input("DOWN", () => unit.IsFeederDown()),
+                    IoCylinderItem.Cylinder("LIFT", unit.FeederUpDownCyl, "UP", "DOWN"),
 
-                    // ===== SET: BIN FEEDER LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
-                    IoCylinderItem.Input("FEEDER UP CHECK", () => unit.IsFeederUp()),
-                    IoCylinderItem.Input("FEEDER DOWN CHECK", () => unit.IsFeederDown()),
-                    IoCylinderItem.Cylinder("BIN FEEDER LIFT", unit.FeederUpDownCyl, "UP", "DOWN"),
-
-                    // ===== SET: BIN FEEDER CLAMP (Clamp/Unclamp 체크 센서 + Clamp/Unclamp 출력 통합 실린더) =====
-                    IoCylinderItem.Input("FEEDER CLAMP CHECK", () => unit.IsBinFeederClamp()),
-                    IoCylinderItem.Input("FEEDER UNCLAMP CHECK", () => unit.IsFeederUnclamped()),
-                    IoCylinderItem.Cylinder("BIN FEEDER CLAMP", unit.FeederClampCyl, "CLAMP", "UNCLAMP")
+                    IoCylinderItem.Input("OVERLOAD", () => unit.IsFeederOverload()),
+                    IoCylinderItem.Input("CLAMP", () => unit.IsBinFeederClamp()),
+                    IoCylinderItem.Input("UNCLAMP", () => unit.IsFeederUnclamped()),
+                    IoCylinderItem.Cylinder("CLAMP", unit.FeederClampCyl, "CLAMP", "UNCLAMP")
                 });
             }
             catch (Exception ex)
@@ -795,11 +787,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 Color bg = Color.FromArgb(207, 210, 214);
                 BackColor = bg;
-                rootLayout.BackColor = bg;
-                contentLayout.BackColor = bg;
-                leftLayout.BackColor = bg;
-                centerLayout.BackColor = bg;
-                rightLayout.BackColor = bg;
 
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
@@ -811,23 +798,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     g.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
                 }
 
-                Color actionColor = Color.FromArgb(88, 94, 103);
-                foreach (var b in new[] { btnGoodLoadingMove, btnGoodUnloadingMove, btnGoodSlotStartMove, btnGoodSlotEndMove, btnNgLoadingMove, btnNgUnloadingMove, btnNgSlotStartMove, btnNgSlotEndMove, btnReadyMove })
-                {
-                    b.BackColor = actionColor;
-                    b.ForeColor = Color.White;
-                    b.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
-                }
-
-                Color groupHeaderBg = Color.FromArgb(245, 245, 245);
-                Color groupHeaderFg = Color.FromArgb(64, 64, 64);
-                Font groupFont = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
-                foreach (var lbl in new[] { lblGoodGroup, lblNgGroup, lblCommonGroup })
-                {
-                    lbl.BackColor = groupHeaderBg;
-                    lbl.ForeColor = groupHeaderFg;
-                    lbl.Font = groupFont;
-                }
             }
             catch (Exception ex)
             {

@@ -26,7 +26,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerFrontUnit unit;
-        private ActionButton btnFrontPickerZ1CycleTest;
 
         public FrontPickerRecipePage()
         {
@@ -51,7 +50,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
             BindParameterGridMenus();
-            AddFrontPickerZ1CycleTestButton();
+            ConfigureManualActions();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -107,7 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             jogPositionListControl.Enabled = enabled;
             jogAxisMoveControl.Enabled = enabled;
             jogSpeedControl.Enabled = enabled;
-            manualPanel.Enabled = enabled;
+            manualActionPanel.SetButtonsEnabled(enabled);
         }
 
         private void EnsureData()
@@ -166,35 +165,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"));
         }
 
-        private void AddFrontPickerZ1CycleTestButton()
+        private void ConfigureManualActions()
         {
-            if (manualLayout == null || btnFrontPickerZ1CycleTest != null)
-                return;
-
-            btnFrontPickerZ1CycleTest = CreateManualActionButton("Z1 0-2mm x50 TEST", 9);
-            btnFrontPickerZ1CycleTest.Click += async delegate
+            try
             {
-                await ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync);
-            };
+                // 공용 MANUAL ACTION 판넬에 위치 이동 버튼 등록 (2열, 행 수 자동)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("AVOID POSITION", () => ConfirmMoveAsync("AVOID POSITION", MoveAvoidSequenceAsync)),
+                    ManualActionItem.Create("PICK POSITION", () => ConfirmMoveAsync("PICK POSITION", () => MoveHeadKindSequenceAsync("PICK"))),
+                    ManualActionItem.Create("BOTTOM POSITION", () => ConfirmMoveAsync("BOTTOM POSITION", () => MoveHeadKindSequenceAsync("BOTTOM"))),
+                    ManualActionItem.Create("SIDE POSITION", () => ConfirmMoveAsync("SIDE POSITION", () => MoveHeadKindSequenceAsync("SIDE"))),
+                    ManualActionItem.Create("PLACE POSITION", () => ConfirmMoveAsync("PLACE POSITION", () => MoveHeadKindSequenceAsync("PLACE"))),
+                    ManualActionItem.Create("DIE PICK POSITION", () => ConfirmMoveAsync("DIE PICK POSITION", () => MoveDieKindSequenceAsync("DIE PICK", "DiePickPosition"))),
+                    ManualActionItem.Create("DIE BOTTOM POSITION", () => ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"))),
+                    ManualActionItem.Create("DIE SIDE POSITION", () => ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"))),
+                    ManualActionItem.Create("DIE PLACE POSITION", () => ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"))),
 
-            if (manualLayout.RowCount < 5)
-                manualLayout.RowCount = 5;
-
-            manualLayout.Controls.Add(btnFrontPickerZ1CycleTest, 1, 4);
-        }
-
-        private static ActionButton CreateManualActionButton(string text, int tabIndex)
-        {
-            ActionButton button = new ActionButton();
-            button.BackColor = Color.FromArgb(128, 128, 128);
-            button.Cursor = Cursors.Hand;
-            button.Dock = DockStyle.Fill;
-            button.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
-            button.ForeColor = Color.White;
-            button.Margin = new Padding(4);
-            button.TabIndex = tabIndex;
-            button.Text = text;
-            return button;
+                    ManualActionItem.Create("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "ConfigureManualActions failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void BindParameterGrids()
@@ -276,7 +274,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             optionParameterGrid.SetItems(optionItems);
 
-            waitParameterGrid.SetItems(new[]
+            waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
+                waitParameterGrid.SetItems(new[]
             {
                 ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
@@ -490,19 +489,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             List<IoCylinderItem> items = new List<IoCylinderItem>();
 
-            // 공용 압력 체크
-            items.Add(IoCylinderItem.Input("FRONT PICKER CDA TANK PRESSURE CHECK", () => unit.IsPickerCdaPressureOk()));
-            items.Add(IoCylinderItem.Input("FRONT PICKER VACUUM TANK PRESSURE CHECK", () => unit.IsPickerVacuumPressureOk()));
-
-            // 피커 1~4: FLOW / VACUUM / BLOW 를 한 세트로 묶어 정렬 (5~8 미사용)
+            // 2열 열우선 배치 ("FRONT PICKER" 접두사 생략): [1열] CDA TANK + P1·P2, [2열] VACUUM TANK + P3·P4
+            items.Add(IoCylinderItem.Input("CDA TANK", () => unit.IsPickerCdaPressureOk()));
             for (int i = 1; i <= 4; i++)
             {
+                if (i == 3)  // 2열(P3부터) 시작 전에 VACUUM TANK 삽입
+                    items.Add(IoCylinderItem.Input("VACUUM TANK", () => unit.IsPickerVacuumPressureOk()));
+
                 int pickerNo = i;
-                items.Add(IoCylinderItem.Input("FRONT PICKER " + pickerNo + " FLOW CHECK", () => unit.IsPickerFlowDetected(pickerNo)));
-                items.Add(IoCylinderItem.Output("FRONT PICKER " + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
-                items.Add(IoCylinderItem.Output("FRONT PICKER " + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Input("P" + pickerNo + " FLOW", () => unit.IsPickerFlowDetected(pickerNo)));
+                items.Add(IoCylinderItem.Output("P" + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Output("P" + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
             }
 
+            // 14개 항목을 2열(열당 7개)로 → 스크롤 없이 한눈에
+            ioCylinderPanel.ColumnCount = 2;
             ioCylinderPanel.SetItems(items);
         }
 
@@ -528,7 +529,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             jogAxisMoveControl.ButtonAreaMinHeight = 360;
             jogAxisMoveControl.ButtonAreaMaxHeight = 700;
             jogAxisMoveControl.SetItems(items);
-            jogPositionListControl.SetItems(items);
+
+            // 위치 리스트만 열 우선 순서로 재배열: [1열] X,T1,Z1,T2,Z2  [2열] Y,T3,Z3,T4,Z4
+            // (조그 패드는 원래 순서 유지 → PickerTabbed 그룹핑에 영향 없음)
+            List<JogAxisItem> listItems = items;
+            if (items.Count == 10)
+            {
+                listItems = new List<JogAxisItem>
+                {
+                    items[0], items[2], items[3], items[4], items[5],
+                    items[1], items[6], items[7], items[8], items[9]
+                };
+            }
+            jogPositionListControl.SetItems(listItems);
         }
 
         private void AddJogItem(List<JogAxisItem> items, string name, PickerAxis axisKey, string plus, string minus, JogAxisControlKind kind)
@@ -797,9 +810,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (unit == null)
                 return -1;
 
-            ActionButton button = btnFrontPickerZ1CycleTest;
-            if (button != null)
-                button.Enabled = false;
+            manualActionPanel.SetButtonsEnabled(false);   // 테스트 중 수동 이동 잠금
 
             System.Diagnostics.Stopwatch totalWatch = System.Diagnostics.Stopwatch.StartNew();
             EventLogger.Write(
@@ -835,8 +846,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             finally
             {
-                if (button != null && !button.IsDisposed)
-                    button.Enabled = true;
+                if (!manualActionPanel.IsDisposed)
+                    manualActionPanel.SetButtonsEnabled(true);
             }
         }
 
