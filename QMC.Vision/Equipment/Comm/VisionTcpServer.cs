@@ -51,7 +51,6 @@ namespace QMC.Vision.Comm
         private readonly List<TcpClient> _clients = new List<TcpClient>();
         private readonly Dictionary<string, IVisionModule> _modules = new Dictionary<string, IVisionModule>(StringComparer.OrdinalIgnoreCase);
         private VisionSettings _cfg;
-        private readonly object _grabGate = new object();   // 백그라운드 그랩 직렬화 — 실기 카메라 동시 그랩 방지 + 픽커 순서 보존
 
         public int  Port      { get; }
         public bool IsRunning { get; private set; }
@@ -330,167 +329,29 @@ namespace QMC.Vision.Comm
             return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
         }
 
-        /// <summary>비동기 검사 시작(방식 B) — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환.
-        /// 백그라운드에서 '그랩만' 해 <see cref="PendingGrabStore"/> 에 보관(검사 X). 보관 개수가 예상 픽커 수에
-        /// 도달하는 순간 그 자리에서 일괄 병렬 검사를 자동 시작한다. 검사 사용 OFF면 그랩 없이 즉시 완료(PASS).</summary>
+        /// <summary>비동기 검사 시작 — 즉시 STARTED(그랩 전 1차 ACK). 실행은 <see cref="AsyncInspectCore"/>(공용 엔진,
+        /// 일반 시퀀서 DirectVisionCommandDispatcher 와 공유 — TCP/직접 경로 동작 동일).
+        /// 형식: MODULE|INSPECTASYNC|inspector|picker_id|chip_uid[|die_index[|channel]]
+        ///  • die_index = 픽업 순서 1-base(레시피 칩위치 → 맵 셀 매칭). 생략 시 chip_uid 가 숫자면 그 값.
+        ///  • channel   = 측면 0°/90° 채널(Side 전용, 생략 시 -1). 같은 chip_uid 의 채널들은 합산 판정 1회 응답.</summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)
         {
             string insp = parts.Length > 2 ? parts[2] : "";
-            // 형식: MODULE|INSPECTASYNC|inspector|picker_id|chip_uid[|die_index]  (선택 die_index=픽업 순서 1-base)
-            // 핸들러는 실제 칩 위치 대신 '인덱스 번호'만 보내고, Vision 이 활성 레시피의 칩위치(픽업 순서)로
-            // 인덱스→셀(IndexX/IndexY)을 매칭해 Bottom 모니터링 맵에 그린다. 구형 호환: inspector|chip_uid.
-            int picker = 0, dieIndex = 0; string chipUid = "";
+            int picker = 0, dieIndex = 0, channel = -1; string chipUid = "";
             if (parts.Length >= 5) { int.TryParse(parts[3], out picker); chipUid = parts[4]; }   // picker_id | chip_uid
             else if (parts.Length == 4) { chipUid = parts[3]; }                                   // 구형: chip_uid 만
             if (parts.Length >= 6) int.TryParse(parts[5], out dieIndex);
-            // die_index 필드가 없고 chip_uid 가 숫자면 그것이 곧 die_index (Sim/단순 핸들러: inspector|picker|die_index 3필드).
-            if (dieIndex <= 0) int.TryParse(chipUid, out dieIndex);
-            int ix = 0, iy = 0;
-            if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
-            { ix = 0; iy = 0; }   // 레시피 순서를 못 구하면 (0,0) — 맵 표시만 생략되고 검사는 정상 진행
-            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
-            if (!m.Inspectors.TryGetValue(insp, out var ins)) return "fail:inspector not found";
-
-            // 검사 사용 게이트 OFF → 그랩 없이 즉시 완료(스킵).
-            if (VisionCommandCore.IsInspectionSkipped(m, insp))
-            {
-                ModuleResultStore.Record(m.Name, insp, true, "inspection=skip");
-                AsyncMatchStore.Complete(m.Name, insp, chipUid, "PASS;inspection=skip");
-                return "STARTED";
-            }
-
-            AsyncMatchStore.Start(m.Name, insp, chipUid);
-            PendingGrabStore.NoteGrabStarted(m.Name);   // 안전망 게이트 — 그랩 완료/실패 시 finally 에서 해제
-            System.Threading.Tasks.Task.Run(() =>
-            {
-                try
-                {
-                    // ── 방식 B: '그랩만' 하고 보관(검사 X). 데이터 처리는 4개가 다 모이면 일괄 병렬. ──
-                    // 그랩 게이트: 연속 INSPECTASYNC 의 백그라운드 그랩이 겹치면 실기 카메라는 실패/순서 꼬임
-                    // → 직렬화(요청 순서 = 그랩 순서). ACK 는 이미 나갔고, 핸들러 모션은 EPD 푸시 기준.
-                    GrabResult g;
-                    lock (_grabGate) { g = m.GrabForTool(insp); }
-                    if (g == null || !g.IsSuccess)
-                    {
-                        try { g?.Dispose(); } catch { }
-                        AsyncMatchStore.Fail(m.Name, insp, chipUid, g?.ErrorMessage ?? "grab");
-                        return;
-                    }
-                    // 사본 대신 소유권 이전 — 고해상도(수백 MB) 복제 제거(Sim/실기 공통 이득).
-                    System.Drawing.Bitmap keep = g.DetachImage();
-                    g.Dispose();
-                    int n = PendingGrabStore.Add(m.Name, insp, chipUid, picker, ix, iy, keep);
-
-                    // 보관 개수가 예상 픽커 수에 도달 → 그 자리에서 일괄 병렬 처리 자동 시작(멱등).
-                    if (n >= ExpectedPickerCount(m) && PendingGrabStore.TryBeginProcessing(m.Name))
-                        ProcessPendingBatchParallel(m, insp);
-                }
-                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, insp, chipUid, ex.Message); }
-                finally { PendingGrabStore.NoteGrabEnded(m.Name); }
-            });
-            return "STARTED";
+            if (parts.Length >= 7 && !int.TryParse(parts[6], out channel)) channel = -1;
+            if (dieIndex <= 0) int.TryParse(chipUid, out dieIndex);   // uid 가 숫자면 곧 die_index
+            return AsyncInspectCore.Start(m, _cfg, insp, picker, chipUid, dieIndex, channel);
         }
 
-        /// <summary>비동기 검사 결과 — 대기형 응답(요청 1회 = 데이터 응답 1회).
-        /// <para>핸들러 흐름 6단계: 결과 요청이 오면 완료까지 서버가 대기했다가 "1;PASS|FAIL;.." 로 응답한다.
-        /// 핸들러는 반복 폴링 없이 요청 1회로 데이터를 받고 다음 사이클(1번 그랩요청)로 진행.</para>
-        /// <para>대기 상한은 루프백/핸들러 IO 타임아웃(8s)보다 짧게 6s — 만료 시 "0"(구형 폴링 호환, 재요청하면 됨).
-        /// 미시작(None)은 즉시 "0". 실패는 "ERR;사유".</para>
-        /// <para>안전망(부분 배치 구제)은 2s 유예 후에만 발화 — 그랩이 백그라운드로 아직 쌓이는 중에
-        /// 조기 발화하면 배치가 1+3 등으로 쪼개져 진짜 병렬이 깨지므로(기존 버그), 정상 흐름(4번째 그랩
-        /// 자동 트리거)이 일어날 시간을 준 뒤에만 남은 보관분을 처리한다.</para></summary>
+        /// <summary>비동기 검사 결과 — 대기형 응답(요청 1회 = 데이터 응답 1회). <see cref="AsyncInspectCore.WaitResult"/> 위임.</summary>
         private string DoInspectResult(IVisionModule m, string[] parts)
         {
             string insp    = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
-
-            const int WaitMs = 6000;    // 응답 대기 상한(클라이언트 IO 타임아웃 8s 미만)
-            const int StepMs = 30;      // 완료 확인 주기
-            const int SafetyMs = 2000;  // 부분 배치 안전망 발화 유예
-            bool safetyTried = false;
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            for (;;)
-            {
-                var st = AsyncMatchStore.TryGet(m.Name, insp, chipUid, out string payload);
-                switch (st)
-                {
-                    case AsyncMatchStore.State.Done:  return "1;" + payload;
-                    case AsyncMatchStore.State.Error: return "ERR;" + payload;
-                    case AsyncMatchStore.State.None:  return "0";   // 미시작(INSPECTASYNC 전) — 즉시 반환
-                }
-                // 안전망: 진행 중 그랩이 하나라도 있으면 발화 금지(부분 배치 쪼개짐 방지).
-                // 그랩이 모두 끝났는데(4번째 자동 트리거 미발생 = 부분 배치) 유예도 지났을 때만 잔여분 처리.
-                if (!safetyTried && sw.ElapsedMilliseconds >= SafetyMs && !PendingGrabStore.HasInFlight(m.Name))
-                {
-                    safetyTried = true;
-                    if (PendingGrabStore.TryBeginProcessing(m.Name))
-                        ProcessPendingBatchParallel(m, insp);
-                }
-                if (sw.ElapsedMilliseconds >= WaitMs) return "0";
-                System.Threading.Thread.Sleep(StepMs);
-            }
-        }
-
-        /// <summary>예상 픽커 수 — 한 번의 Bottom 검사 배치에서 그랩되는 픽커 개수.
-        /// 기존 관례(자동시퀀스 picker %4)에 맞춰 기본 4. TODO: 머신/설정 상수로 승격.</summary>
-        private static int ExpectedPickerCount(IVisionModule m) => 4;
-
-        /// <summary>보관된 그랩 전체를 '픽커별 독립 인스펙터 인스턴스'로 병렬 검사(진짜 병렬 — 공유 인스펙터 락 회피).
-        /// CDT-310 코어(CDTInspector.BottomInspect)는 그대로 호출하며, 결과는 chip_uid별로 <see cref="AsyncMatchStore"/> 에 저장.
-        /// 각 픽커는 DomainInspectorFactory 로 새 인스턴스를 만들고 모듈 인스펙터의 레시피 파라미터를 복제해 사용한다.</summary>
-        private void ProcessPendingBatchParallel(IVisionModule m, string insp)
-        {
-            var items = PendingGrabStore.Take(m.Name);
-            if (items.Count == 0) return;
-            var cfg = _cfg;
-            var template = m.Inspectors.TryGetValue(insp, out var t) ? t : null;
-
-            System.Threading.Tasks.Task.Run(() =>
-            {
-                try
-                {
-                    long curGen = QMC.Vision.Core.InspectionResultStore.GenerationOf(m.Name);
-                    System.Threading.Tasks.Parallel.For(0, items.Count, i =>
-                    {
-                        var it = items[i];
-                        // 웨이퍼 경계(Clear) 이전에 그랩된 잔여 항목 — 검사/기록하면 새 맵에 유령 셀이 생기므로 폐기.
-                        if (it.Gen != curGen)
-                        { AsyncMatchStore.Fail(m.Name, it.Insp, it.ChipUid, "stale wafer batch(폐기 — 새 웨이퍼 초기화 이후 도착)"); return; }
-                        int picker = it.Picker > 0 ? it.Picker : (i + 1);   // 명령에 실린 picker 우선, 없으면 도착 순서
-                        var sw = System.Diagnostics.Stopwatch.StartNew();
-                        try
-                        {
-                            // 픽커마다 새 인스펙터 인스턴스 → 각자 내부 상태(_libInspector/Last*)를 보유해 레이스 없음.
-                            if (!QMC.Vision.Core.DomainInspectorFactory.TryCreate(it.Insp, out var ins))
-                            { AsyncMatchStore.Fail(m.Name, it.Insp, it.ChipUid, "inspector create fail"); return; }
-
-                            QMC.Vision.Core.UnitContext.ApplyScale(ins, m.ScaleX, m.ScaleY);
-                            if (template != null) VisionCommandCore.CopyInspectorConfig(template, ins);   // 레시피 파라미터 복제
-
-                            string res = VisionCommandCore.InspectOnImageExplicit(
-                                m, cfg, it.Insp, ins, it.Image, it.ChipUid, picker, -1, it.IndexX, it.IndexY);
-                            sw.Stop();
-
-                            if (res != null && (res.StartsWith("PASS") || res.StartsWith("FAIL")))
-                            {
-                                // 규약 완료 포맷: PASS|FAIL;x=..;y=..;t=..;score=..  (Bottom 표면은 x/y/score 미산출 → 빈 값)
-                                string verdict = res.StartsWith("PASS") ? "PASS" : "FAIL";
-                                string payload = verdict + ";x=;y=;t=" + sw.ElapsedMilliseconds + ";score=";
-                                AsyncMatchStore.Complete(m.Name, it.Insp, it.ChipUid, payload);
-                            }
-                            else
-                                AsyncMatchStore.Fail(m.Name, it.Insp, it.ChipUid, res ?? "no result");
-                        }
-                        catch (Exception ex) { AsyncMatchStore.Fail(m.Name, it.Insp, it.ChipUid, ex.Message); }
-                        finally { try { it.Image?.Dispose(); } catch { } }
-                    });
-                }
-                catch (Exception ex)
-                {
-                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "InspectBatch", m.Name + " 병렬 처리 실패: " + ex.Message);
-                }
-            });
+            return AsyncInspectCore.WaitResult(m, _cfg, insp, chipUid);
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)

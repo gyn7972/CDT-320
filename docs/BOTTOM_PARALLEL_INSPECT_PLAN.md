@@ -248,4 +248,11 @@ public static string InspectOnImageExplicit(IVisionModule m, VisionSettings cfg,
 **그랩 직렬화**: 서버(`VisionTcpServer._grabGate`)가 백그라운드 그랩을 요청 순서대로 직렬화 — 실기 카메라 동시 그랩 방지 + 픽커 순서 보존.
 
 **이미지 소유권**: 그랩 이미지는 사본 없이 `GrabResult.DetachImage()` 로 이전(고해상도 복제 제거). 뷰어 프레임은 TapFrame 이 자체 클론.
+## 8. 전 모듈 확장 (2026-07-02)
+
+- 엔진을 `AsyncInspectCore`(QMC.Vision.Core)로 분리 — TCP 서버와 일반 시퀀서(Direct 디스패처)가 공유. TCP시뮬/일반 시퀀서 동작 동일.
+- 적용 범위: Bottom(픽커 4장) + **Bin(픽커 4장, x/y 오프셋 보존)** + **Side 앞/뒤(채널 0°/90° 2장, die 당 결과 1회 합산 판정)**.
+- 와이어 확장: `MODULE|INSPECTASYNC|inspector|picker|chip_uid[|die_index[|channel]]` — channel 은 Side 전용(생략 시 -1).
+- 같은 chip_uid 그룹은 전 항목 완료 후 1회 Complete(모두 PASS 여야 PASS, t=최대). 실행 오류는 ERR.
+- 모니터링: InspectOnImageExplicit 의 모드별 Record 로 작업화면(Side/Die gap 뷰어, Bottom 창) 자동 연동.
 

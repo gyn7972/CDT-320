@@ -126,6 +126,10 @@ namespace QMC.Vision.Config
         {
             if (LegacyFrontSideInspectionPort != 0)  { FrontSidePort    = LegacyFrontSideInspectionPort;  LegacyFrontSideInspectionPort  = 0; }
             if (LegacyRearSideInspectionPort != 0)   { RearSidePort = LegacyRearSideInspectionPort;   LegacyRearSideInspectionPort   = 0; }
+            // 포트 0/음수 가드 — 구버전 json 에 0 으로 저장된 측면 포트는 TcpListener 가 임의 포트로 열려
+            // TCP시뮬 루프백이 접속하지 못한다("[FrontSideVision:0] listening") → 매뉴얼 기본값으로 복원.
+            if (FrontSidePort <= 0) FrontSidePort = 5105;
+            if (RearSidePort  <= 0) RearSidePort  = 5106;
 
             // 뷰어 블록이 통째로 비어있는(=내 interim 빌드가 0 으로 저장했거나 구버전) 경우 자가 치유.
             bool viewerUnconfigured = string.IsNullOrEmpty(RemoteViewerSource)

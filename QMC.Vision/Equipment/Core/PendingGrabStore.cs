@@ -22,6 +22,7 @@ namespace QMC.Vision.Core
             public int    Picker;   // 픽커 번호(1~4). 0 이면 미지정(도착 순서로 대체).
             public int    IndexX;   // 다이 격자 좌표(Bottom 위치맵용). 미지정이면 0.
             public int    IndexY;
+            public int    Channel;  // 측면 채널(0°/90° 등). 해당 없으면 -1.
             public Bitmap Image;
             public long   Gen;      // 그랩 시점의 결과 스토어 세대 — 웨이퍼 경계(Clear) 넘긴 잔여 배치 판별
         }
@@ -36,14 +37,15 @@ namespace QMC.Vision.Core
             new Dictionary<string, Batch>(StringComparer.OrdinalIgnoreCase);
         private static readonly object _lock = new object();
 
-        /// <summary>그랩 이미지 보관 후, 현재 보관 개수를 반환. picker=0 이면 미지정(도착 순서로 대체). ix/iy=다이 격자(맵용).</summary>
-        public static int Add(string module, string insp, string chipUid, int picker, int ix, int iy, Bitmap image)
+        /// <summary>그랩 이미지 보관 후, 현재 보관 개수를 반환. picker=0 이면 미지정(도착 순서로 대체).
+        /// ix/iy=다이 격자(맵용), channel=측면 채널(해당 없으면 -1).</summary>
+        public static int Add(string module, string insp, string chipUid, int picker, int ix, int iy, int channel, Bitmap image)
         {
             if (string.IsNullOrEmpty(module)) return 0;
             lock (_lock)
             {
                 if (!_byModule.TryGetValue(module, out var b)) { b = new Batch(); _byModule[module] = b; }
-                b.Items.Add(new Item { Insp = insp, ChipUid = chipUid, Picker = picker, IndexX = ix, IndexY = iy, Image = image,
+                b.Items.Add(new Item { Insp = insp, ChipUid = chipUid, Picker = picker, IndexX = ix, IndexY = iy, Channel = channel, Image = image,
                                        Gen = InspectionResultStore.GenerationOf(module) });
                 return b.Items.Count;
             }

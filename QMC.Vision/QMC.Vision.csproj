@@ -66,6 +66,7 @@
     <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
     <Compile Include="Equipment\Core\AlignAngleEstimator.cs" />
     <Compile Include="Equipment\Core\PendingGrabStore.cs" />
+    <Compile Include="Equipment\Core\AsyncInspectCore.cs" />
     <Compile Include="Sequencing\Common\SequenceToolCatalog.cs" />
     <Compile Include="Sequencing\Common\ToolSequence.cs" />
     <Compile Include="Sequencing\Common\ModuleSequenceBase.cs" />

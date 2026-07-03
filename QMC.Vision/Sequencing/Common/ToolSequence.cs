@@ -49,6 +49,10 @@ namespace QMC.Vision.Sequencing
         private bool IsBinInspect()
             => !IsFinder && Kind == SequenceModuleKind.BinVision;
 
+        /// <summary>비동기 배치 검사 대상(Bottom/Bin=픽커 4장, Side=채널 2장) — INSPECTASYNC 가 자체 그랩.</summary>
+        private bool IsAsyncBatchInspect()
+            => IsBottomInspect() || IsBinInspect() || IsSideInspect();
+
         public SequenceRunMode Mode { get; private set; } = SequenceRunMode.Auto;
         public int CycleIntervalMs { get; set; } = 500;
 
@@ -102,7 +106,7 @@ namespace QMC.Vision.Sequencing
 
                 string chipUid = ResolveChipUid();
 
-                if (grab && !IsBottomInspect())   // Bottom 은 INSPECTASYNC 가 픽커별로 그랩하므로 선행 GRAB 스킵(중복 방지)
+                if (grab && !IsAsyncBatchInspect())   // 비동기 배치 검사(Bottom/Bin/Side)는 INSPECTASYNC 가 자체 그랩 — 선행 GRAB 스킵(중복 방지)
                 {
                     string g = Context.Dispatch(Module, "GRAB", null);
                     if (IsExecFail(g))
@@ -119,32 +123,17 @@ namespace QMC.Vision.Sequencing
                 string[] args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
 
                 string result;
-                if (IsSideInspect())
+                if (IsAsyncBatchInspect())
                 {
-                    // 실제 동작: 픽업 4열이 X로 지나가며 한 스텝에 픽업 1개를 찍는다(다음 스텝 = 다음 픽업).
-                    // 그 픽업을 Front/Back 카메라가 "동시" 촬영하고 각 카메라가 채널 0°/90° 2장 → 이 모듈은 ch1(0°)+ch2(90°).
-                    int baseCh = (Kind == SequenceModuleKind.RearSideVision) ? 2 : 0;  // 앞=Front(0/1), 뒤=Back(2/3)
-                    int seq = ++_dieSeq;                        // 이번 스텝 = 픽업 순서 상의 다이 1개
-                    MaybeClearForNewWafer(seq);                 // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
-                    int picker = ((seq - 1) % 4) + 1;           // 픽업 1→2→3→4 순환(4 픽커 갱)
-                    int ix, iy; NextPickupCell(seq, out ix, out iy);
-                    _curPicker = picker; _curDie = seq;         // 로그 표시용
-                    chipUid = ResolveChipUid(ix, iy);           // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
-                    args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
-                    string last = null;
-                    for (int chOff = 0; chOff <= 1 && !ct.IsCancellationRequested; chOff++)   // ch1(0°)→ch2(90°)
-                    {
-                        QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, picker, baseCh + chOff, ix, iy);
-                        last = Context.Dispatch(Module, Cmd, args);   // INSPECT=GrabForTool(채널별 시뮬 이미지)+검사
-                    }
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, 0, -1, 0, 0);   // 컨텍스트 리셋
-                    result = last;
-                }
-                else if (IsBottomInspect())
-                {
-                    // ── Sim==Real 병렬 경로 ── 실제 핸들러 플로우와 동일하게:
-                    //  픽커 1~N 을 INSPECTASYNC(그랩만, picker 번호 포함)로 연속 전송 → N번째 그랩에서
-                    //  백엔드가 자동 병렬 검사 시작 → INSPECTRESULT 로 픽커별 결과 폴링.
+                    // ── Sim==Real 병렬 경로(Bottom/Bin/Side 공용) ── 실제 핸들러 플로우와 동일하게:
+                    //  픽커 1~N(=4)의 그랩 요청을 INSPECTASYNC(그랩만)로 연속 전송 → 마지막 그랩에서
+                    //  백엔드가 자동 병렬 검사 시작 → 다이별 INSPECTRESULT(대기형) 1회로 결과 회수.
+                    //  Side 촬영 순서(실기): 트리거1(0°)=Front/Back 동시 → 트리거2(90°)=Front/Back 동시.
+                    //  모듈(앞/뒤) 기준 다이당 요청 2회(채널 명시: 앞=0/1, 뒤=2/3) → 4픽커=8장 배치,
+                    //  Front↔Back 동시성은 두 모듈 시퀀스 병렬 구동으로 표현. 결과는 다이당 1회(채널 합산).
+                    //  Bin(Die gap)은 완료 payload 의 x=/y= 에 배치 오프셋이 실린다.
+                    int baseCh = (Kind == SequenceModuleKind.RearSideVision) ? 2 : 0;
+                    int[] chs = IsSideInspect() ? new[] { baseCh, baseCh + 1 } : new[] { -1 };   // -1 = 채널 없음
                     int n = BatchPickerCount();
                     var pk = new int[n]; var cu = new string[n]; var dq = new int[n];
                     for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
@@ -158,37 +147,27 @@ namespace QMC.Vision.Sequencing
                         if (string.IsNullOrEmpty(uid))
                             uid = seq.ToString();   // die_index 를 그대로 키로 사용(요청마다 유니크·짧음). 실기는 핸들러 자재 ID 자리.
                         cu[i] = uid;
-                        // INSPECTASYNC = 그랩만 보관(검사 X). 형식: inspector|picker_id|chip_uid[|die_index].
-                        // uid 가 숫자(=die_index)면 서버가 그대로 인덱스로 해석하므로 4번째 필드 생략.
-                        // uid 가 다이 문자열(SIM-W..)이면 die_index 를 별도로 실어 맵 매칭을 보장한다.
-                        var aa = uid == seq.ToString()
-                            ? new[] { ToolId, picker.ToString(), uid }
-                            : new[] { ToolId, picker.ToString(), uid, seq.ToString() };
-                        Context.Dispatch(Module, "INSPECTASYNC", aa);
+                        // 형식: inspector|picker|chip_uid[|die_index[|channel]].
+                        // uid 가 숫자(=die_index)면 4번째 필드 생략 — 채널이 있으면 자리 유지를 위해 전체 전송.
+                        foreach (int ch in chs)
+                        {
+                            string[] aa = ch >= 0
+                                ? new[] { ToolId, picker.ToString(), uid, seq.ToString(), ch.ToString() }
+                                : (uid == seq.ToString()
+                                    ? new[] { ToolId, picker.ToString(), uid }
+                                    : new[] { ToolId, picker.ToString(), uid, seq.ToString() });
+                            Context.Dispatch(Module, "INSPECTASYNC", aa);
+                        }
                     }
-                    // N개 그랩 완료 → 백엔드 자동 병렬 처리. 픽커별 결과 폴링 + 판정 로그.
+                    // 전체 그랩 완료 → 백엔드 자동 병렬 처리. 다이별 결과 회수 + 판정 로그.
                     string last = null;
                     for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
                     {
                         last = await PollInspectResult(cu[i], ct).ConfigureAwait(false);
-                        if (i < n - 1) { _curPicker = pk[i]; _curDie = dq[i]; Judge(last); }   // 픽커 1..N-1 로그
+                        if (i < n - 1) { _curPicker = pk[i]; _curDie = dq[i]; Judge(last); }   // 다이 1..N-1 로그
                     }
-                    _curPicker = pk[n - 1]; _curDie = dq[n - 1];   // 마지막 픽커 → 아래 공통 Judge 가 로그
+                    _curPicker = pk[n - 1]; _curDie = dq[n - 1];   // 마지막 다이 → 아래 공통 Judge 가 로그
                     result = last;
-                }
-                else if (IsBinInspect())
-                {
-                    // Bin(Die gap)은 픽업 1→2→3→4 순환(스텝당 다이 1개) — 동기 경로 유지.
-                    int seq = ++_dieSeq;
-                    MaybeClearForNewWafer(seq);   // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
-                    int picker = ((seq - 1) % 4) + 1;
-                    int ix, iy; NextPickupCell(seq, out ix, out iy);
-                    _curPicker = picker; _curDie = seq;
-                    chipUid = ResolveChipUid(ix, iy);           // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
-                    args = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, picker, -1, ix, iy);
-                    result = Context.Dispatch(Module, Cmd, args);
-                    QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, 0, -1, 0, 0);   // 컨텍스트 리셋
                 }
                 else
                 {

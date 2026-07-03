@@ -569,6 +569,14 @@ namespace QMC.Vision.Inspector
                     result.DefectCode =10;
                     return null;
                 }
+
+                //
+                // EventSearchDieEnd
+                // 결과로 . X,Y,T
+                // 어씽크로 이벤트 호출
+
+
+
                 // 유효(각도 non-NaN) 결과가 없으면 폴백 목록(비-null 태스크 결과)에서 취한다.
                 // 기존 버그: results.Count==0 이면 nTake=0 → Take(0) → 아래 Average 가 빈 시퀀스 예외
                 // → BottomInspect null → 레거시 폴백 재검사(픽커당 검사 2회)로 전체 사이클이 느려졌다.
