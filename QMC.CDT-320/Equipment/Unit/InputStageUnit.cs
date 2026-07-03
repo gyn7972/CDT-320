@@ -41,7 +41,9 @@ namespace QMC.CDT320
 
         [DataMember] public double NeedleWorkAreaCenterY { get; set; } = 0.0;
 
-        [DataMember] public double NeedleXToVisionXOffset { get; set; } = 0.0;
+        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = "NeedlePinCal";
+
+        [DataMember] public int NeedlePinCalVisionTimeoutMs { get; set; } = 5000;
 
         [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
 
@@ -54,6 +56,10 @@ namespace QMC.CDT320
                 WorkAreaRadius = 150.0;
             if (NeedleWorkAreaRadius <= 0.0)
                 NeedleWorkAreaRadius = 125.0;
+            if (string.IsNullOrWhiteSpace(NeedlePinCalVisionTargetId))
+                NeedlePinCalVisionTargetId = "NeedlePinCal";
+            if (NeedlePinCalVisionTimeoutMs <= 0)
+                NeedlePinCalVisionTimeoutMs = 5000;
         }
     }
 
@@ -140,6 +146,7 @@ namespace QMC.CDT320
         [DataMember] public double UnloadPosition { get; set; }
         [DataMember] public double ReadyPosition { get; set; }
         [DataMember] public double ReticlePosition { get; set; }
+        [DataMember] public double NeedlePinCalPosition { get; set; }
         [DataMember] public double[] DiePosition { get; set; } = new double[0];
     }
 
@@ -568,7 +575,7 @@ namespace QMC.CDT320
             if (Setup != null && Math.Abs(Setup.NeedleWorkAreaCenterX) > 1e-9)
                 return Setup.NeedleWorkAreaCenterX;
 
-            return ResolveWorkAreaCenterX() - (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+            return ResolveWorkAreaCenterX();
         }
 
         public double ResolveNeedleWorkAreaCenterY()
@@ -581,7 +588,7 @@ namespace QMC.CDT320
 
         public double ConvertNeedleXToVisionX(double needleX)
         {
-            return needleX + (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+            return needleX;
         }
 
         public bool IsInputStageWorkPointInArea(double visionX, double stageY, out string reason)
@@ -592,6 +599,167 @@ namespace QMC.CDT320
         public bool IsNeedleWorkPointInArea(double needleX, double stageY, out string reason)
         {
             return IsNeedlePointInArea(needleX, stageY, ResolveNeedleWorkAreaRadius(), "Needle work area", out reason);
+        }
+
+        public bool TryResolveNeedleWorkPointMoveOrder(
+            double targetNeedleX,
+            double targetStageY,
+            out bool moveNeedleXFirst,
+            out string reason)
+        {
+            moveNeedleXFirst = true;
+            reason = string.Empty;
+
+            double currentNeedleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : targetNeedleX;
+            double currentStageY = StageY != null ? StageY.ActualPosition : targetStageY;
+            bool needleZSafe = IsNeedleZInHomeOrSafePosition();
+
+            string currentReason;
+            bool currentInArea = IsNeedleWorkPointInArea(currentNeedleX, currentStageY, out currentReason);
+            string finalReason;
+            bool finalInArea = IsNeedleWorkPointInArea(targetNeedleX, targetStageY, out finalReason);
+
+            if (needleZSafe)
+            {
+                string safeXFirstReason;
+                if (IsNeedleWorkPointInArea(targetNeedleX, currentStageY, out safeXFirstReason))
+                {
+                    moveNeedleXFirst = true;
+                    return true;
+                }
+
+                string safeYFirstReason;
+                if (IsNeedleWorkPointInArea(currentNeedleX, targetStageY, out safeYFirstReason))
+                {
+                    moveNeedleXFirst = false;
+                    return true;
+                }
+
+                // NeedleZ가 안전 위치면 원 밖으로 빠지는 이동은 허용한다.
+                moveNeedleXFirst = true;
+                return true;
+            }
+
+            if (!currentInArea)
+            {
+                reason = "NeedleZ가 작업 높이에 있을 때 현재 NeedleX/StageY 위치가 니들 작업 원 밖입니다. " +
+                    "currentNeedleX=" + currentNeedleX.ToString("F6") +
+                    ", currentStageY=" + currentStageY.ToString("F6") +
+                    ", targetNeedleX=" + targetNeedleX.ToString("F6") +
+                    ", targetStageY=" + targetStageY.ToString("F6") +
+                    ", currentReason=" + currentReason;
+                return false;
+            }
+
+            if (!finalInArea)
+            {
+                reason = "NeedleZ가 작업 높이에 있을 때 목표 NeedleX/StageY 위치가 니들 작업 원 밖입니다. " +
+                    "currentNeedleX=" + currentNeedleX.ToString("F6") +
+                    ", currentStageY=" + currentStageY.ToString("F6") +
+                    ", targetNeedleX=" + targetNeedleX.ToString("F6") +
+                    ", targetStageY=" + targetStageY.ToString("F6") +
+                    ", targetReason=" + finalReason;
+                return false;
+            }
+
+            string xFirstReason;
+            if (IsNeedleWorkPointInArea(targetNeedleX, currentStageY, out xFirstReason))
+            {
+                moveNeedleXFirst = true;
+                return true;
+            }
+
+            string yFirstReason;
+            if (IsNeedleWorkPointInArea(currentNeedleX, targetStageY, out yFirstReason))
+            {
+                moveNeedleXFirst = false;
+                return true;
+            }
+
+            reason = "NeedleZ가 작업 높이에 있을 때 NeedleX/StageY 이동 가능한 안전 순서를 찾지 못했습니다. " +
+                "currentNeedleX=" + currentNeedleX.ToString("F6") +
+                ", currentStageY=" + currentStageY.ToString("F6") +
+                ", targetNeedleX=" + targetNeedleX.ToString("F6") +
+                ", targetStageY=" + targetStageY.ToString("F6") +
+                ", needleXFirst=" + xFirstReason +
+                ", stageYFirst=" + yFirstReason;
+            return false;
+        }
+
+        public Task<int> MoveNeedleWorkPointSafelyAsync(
+            double targetNeedleX,
+            double targetStageY,
+            bool bFine,
+            string source = null)
+        {
+            return MoveNeedleWorkPointSafelyAsync(
+                targetNeedleX,
+                targetStageY,
+                (axis, target) => MoveInputStageAxis(axis, target, bFine),
+                source);
+        }
+
+        public Task<int> MoveNeedleWorkPointSafelyAsync(
+            double targetNeedleX,
+            double targetStageY,
+            JogSpeedType speedType,
+            double customSpeed,
+            string source = null)
+        {
+            return MoveNeedleWorkPointSafelyAsync(
+                targetNeedleX,
+                targetStageY,
+                (axis, target) => MoveInputStageAxis(axis, target, speedType, customSpeed),
+                source);
+        }
+
+        private async Task<int> MoveNeedleWorkPointSafelyAsync(
+            double targetNeedleX,
+            double targetStageY,
+            Func<WaferStageAxis, double, Task<int>> moveAxisAsync,
+            string source)
+        {
+            string moveSource = string.IsNullOrWhiteSpace(source)
+                ? "InputStageUnit.MoveNeedleWorkPointSafelyAsync"
+                : source;
+
+            try
+            {
+                bool moveNeedleXFirst;
+                string orderReason;
+                if (!TryResolveNeedleWorkPointMoveOrder(targetNeedleX, targetStageY, out moveNeedleXFirst, out orderReason))
+                {
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-NEEDLE-XY-PATH", moveSource,
+                        "NeedleX/StageY 이동 안전 순서를 찾지 못했습니다. " + orderReason);
+                }
+
+                if (moveNeedleXFirst)
+                {
+                    int result = await moveAxisAsync(WaferStageAxis.NeedleX, targetNeedleX).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return await moveAxisAsync(WaferStageAxis.WaferY, targetStageY).ConfigureAwait(false);
+                }
+                else
+                {
+                    int result = await moveAxisAsync(WaferStageAxis.WaferY, targetStageY).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return await moveAxisAsync(WaferStageAxis.NeedleX, targetNeedleX).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-NEEDLE-XY-PATH-EX", moveSource,
+                    "NeedleX/StageY 안전 순서 이동 중 예외가 발생했습니다. error=" + ex.Message +
+                    ", targetNeedleX=" + targetNeedleX.ToString("F6") +
+                    ", targetStageY=" + targetStageY.ToString("F6"));
+            }
+            finally
+            {
+            }
         }
 
         public bool IsInputStageAxisTargetAllowedInWorkArea(WaferStageAxis axis, double target, out string reason)
@@ -646,12 +814,8 @@ namespace QMC.CDT320
                     return false;
                 }
 
-                if (!IsNeedleZInSafePosition())
-                {
-                    double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : Recipe.NeedleX.ProcessPosition;
-                    return IsNeedleWorkPointInArea(needleX, target, out reason);
-                }
-
+                // 원형 작업영역 안에서의 StageY 조그/스텝 이동은 NeedleZ/EjectPinZ가 공정 높이에 있어도 허용한다.
+                // 원 밖으로 나가는 이동만 위 분기에서 NeedleZ Home/Avoid 조건으로 방어한다.
                 return true;
             }
 
@@ -729,11 +893,11 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.VisionX)
             {
-                // VisionX 조그는 wafer 작업 원 경계가 아니라 축 soft limit까지 허용한다.
-                // 실제 상부 간섭은 StartBoundedJogMoveAsync의 MotionGuard/SharedRailX에서 최종 방어한다.
-                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
-                    ? motionAxis.Setup.SoftLimitPlus
-                    : motionAxis.Setup.SoftLimitMinus);
+                // VisionX continuous jog has no fixed ABS target. Use a short probe target
+                // only to verify direction/limit; SharedRailX monitors current clearance while moving.
+                double sign = direction == Direction.Plus ? 1.0 : -1.0;
+                double probeDistance = Math.Max(1.0, ResolveAxisPositionTolerance(motionAxis) * 10.0);
+                target = ClampToSoftLimit(motionAxis, motionAxis.ActualPosition + (sign * probeDistance));
                 return VerifyJogDirectionTarget(axis, direction, target, out reason);
             }
 
@@ -741,25 +905,22 @@ namespace QMC.CDT320
             {
                 double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
                 double stageYActual = motionAxis.ActualPosition;
-                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
-                    ? motionAxis.Setup.SoftLimitPlus
-                    : motionAxis.Setup.SoftLimitMinus);
-                if (!VerifyJogDirectionTarget(axis, direction, target, out reason))
-                    return false;
-
                 string currentAreaReason;
-                string targetAreaReason;
                 bool currentPointInArea = IsInputStageWorkPointInArea(visionX, stageYActual, out currentAreaReason);
-                bool targetPointInArea = IsInputStageWorkPointInArea(visionX, target, out targetAreaReason);
-                if ((!currentPointInArea || !targetPointInArea) &&
-                    !IsNeedleZInHomeOrSafePosition())
+
+                if (IsNeedleZInHomeOrSafePosition())
+                {
+                    target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                        ? motionAxis.Setup.SoftLimitPlus
+                        : motionAxis.Setup.SoftLimitMinus);
+                    return VerifyJogDirectionTarget(axis, direction, target, out reason);
+                }
+
+                if (!currentPointInArea)
                 {
                     reason = "InputStageY 원형 작업영역 밖 조그 전 NeedleZ가 반드시 Home 또는 Avoid 위치에 있어야 합니다. " +
-                        "currentInArea=" + (currentPointInArea ? "Y" : "N") +
-                        ", targetInArea=" + (targetPointInArea ? "Y" : "N") +
+                        "currentInArea=N" +
                         ", currentReason=" + currentAreaReason +
-                        ", targetReason=" + targetAreaReason +
-                        ", targetY=" + target.ToString("F3") +
                         ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
                         ", needleZHome=0.000" +
                         ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
@@ -767,10 +928,21 @@ namespace QMC.CDT320
                     return false;
                 }
 
-                if (!targetPointInArea)
-                    return true;
+                bool visionXOutsideBand;
+                if (!TryResolveWaferYContinuousJogTarget(
+                    stageYActual,
+                    visionX,
+                    ResolveWorkAreaCenterY(),
+                    ResolveWorkAreaCenterX(),
+                    ResolveWorkAreaRadius(),
+                    direction,
+                    out target,
+                    out visionXOutsideBand,
+                    out reason))
+                    return false;
 
-                return IsInputStageAxisTargetAllowedInWorkArea(axis, target, out reason);
+                target = ClampToSoftLimit(motionAxis, target);
+                return VerifyJogDirectionTarget(axis, direction, target, out reason);
             }
 
             if (axis == WaferStageAxis.NeedleX)
@@ -1616,6 +1788,12 @@ namespace QMC.CDT320
             string interlockReason;
             if (!TryResolveInputStageContinuousJogTarget(axis, dir, out target, out interlockReason))
             {
+                if (IsJogBoundaryNoMoveReason(interlockReason))
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
+                }
+
                 string message = axis + " jog blocked by work area interlock. direction=" + dir + ". " + interlockReason;
                 LastStageMoveFailureMessage = message;
                 AlarmManager.Raise(AlarmSeverity.Error, "IN-STAGE-JOG-INTERLOCK", Name, message);
@@ -1654,6 +1832,15 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static bool IsJogBoundaryNoMoveReason(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                return false;
+
+            return reason.IndexOf("Jog plus direction is blocked at work area boundary", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   reason.IndexOf("Jog minus direction is blocked at work area boundary", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private void StartBoundedJogMoveAsync(BaseAxis axis, double target, double speed)

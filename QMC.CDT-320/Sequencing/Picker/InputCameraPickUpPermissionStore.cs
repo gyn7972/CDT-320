@@ -93,6 +93,34 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public static bool HasAnyPermission(out string detail)
+        {
+            lock (Sync)
+            {
+                detail = string.Empty;
+                if (Permissions.Count == 0)
+                    return false;
+
+                var parts = new List<string>();
+                foreach (KeyValuePair<PickerSequenceSide, Permission> pair in Permissions)
+                {
+                    Permission permission = pair.Value;
+                    int count = permission != null && permission.Items != null ? permission.Items.Count : 0;
+                    if (count <= 0)
+                        continue;
+
+                    parts.Add(pair.Key + ":count=" + count +
+                              ",grantedAt=" + permission.GrantedAt.ToString("HH:mm:ss.fff"));
+                }
+
+                if (parts.Count == 0)
+                    return false;
+
+                detail = string.Join(";", parts.ToArray());
+                return true;
+            }
+        }
+
         public static void Clear(PickerSequenceSide side)
         {
             lock (Sync)

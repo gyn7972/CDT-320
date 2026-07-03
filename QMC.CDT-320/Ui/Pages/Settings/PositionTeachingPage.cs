@@ -9,6 +9,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.CDT_320.Ui.Localization;
 using QMC.Common.Data.Store;
 using QMC.Common.Motion;
@@ -253,7 +254,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (!_jogCurrentAxis.IsServoOn) _jogCurrentAxis.ServoOn();
                 double nativeStep = AxisUnitConverter.FromDisplay(step, _jogCurrentAxis);
                 double nativeSpeed = AxisUnitConverter.FromDisplay(speed, _jogCurrentAxis);
-                await _jogCurrentAxis.MoveRelativeAsync(sign * nativeStep, nativeSpeed);
+                await _jogCurrentAxis.MoveJogStepAsync(sign, JogSpeedType.Custom, nativeStep, nativeSpeed);
             }
             catch (Exception ex)
             {
@@ -575,7 +576,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (!ax.IsServoOn) ax.ServoOn();
-                await ax.MoveAbsoluteAsync(it.Value, 50.0);
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("PositionTeachingPage.MoveToTaught:" + it.Group + "." + it.Key))
+                    await ax.MoveAbsoluteAsync(it.Value, 50.0);
             }
             catch (Exception ex) { QMC.Common.MessageDialog.Show("이동 실패: " + ex.Message); }
         }

@@ -455,12 +455,12 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await MoveStageAxisAndVerifyAsync(
-                    stage,
-                    WaferStageAxis.WaferY,
+                ct.ThrowIfCancellationRequested();
+                result = await stage.MoveNeedleWorkPointSafelyAsync(
+                    stage.Recipe.NeedleX.ProcessPosition,
                     stage.Recipe.WaferY.ProcessPosition,
-                    "StageY process",
-                    ct).ConfigureAwait(false);
+                    Options != null && Options.FineMove,
+                    "InputFeederLoadToStageSequence.MoveInputStageProcessPositionAsync").ConfigureAwait(false);
                 if (result != 0) return result;
 
                 result = await MoveStageAxisAndVerifyAsync(
@@ -468,14 +468,6 @@ namespace QMC.CDT320.Sequencing
                     WaferStageAxis.WaferT,
                     stage.Recipe.WaferT.ProcessPosition,
                     "StageT process",
-                    ct).ConfigureAwait(false);
-                if (result != 0) return result;
-
-                result = await MoveStageAxisAndVerifyAsync(
-                    stage,
-                    WaferStageAxis.NeedleX,
-                    stage.Recipe.NeedleX.ProcessPosition,
-                    "NeedleX process",
                     ct).ConfigureAwait(false);
                 if (result != 0) return result;
 

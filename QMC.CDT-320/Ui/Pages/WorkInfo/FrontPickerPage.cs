@@ -36,7 +36,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 new Label[] { lblHeadBlow1, lblHeadBlow2, lblHeadBlow3, lblHeadBlow4 },
                 new Label[] { lblAxis1Value, lblAxis2Value, lblAxis3Value, lblAxis4Value, lblAxis5Value, lblAxis6Value, lblAxis7Value, lblAxis8Value, lblAxis9Value, lblAxis10Value },
                 headDieDetailView,
-                new Button[] { btnHead1Select, btnHead2Select, btnHead3Select, btnHead4Select },
+                new RadioButton[] { btnHead1Select, btnHead2Select, btnHead3Select, btnHead4Select },
                 btnCountClear,
                 btnInput,
                 btnInspect,

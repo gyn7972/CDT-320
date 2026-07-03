@@ -357,46 +357,44 @@ namespace QMC.CDT320.Motion.SharedRailX
             SharedRailXMovePlan plan,
             IReadOnlyList<SharedRailXAxisSetting> settings)
         {
+            if (IsInputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
+                return IsInputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true);
+
+            if (IsInputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
+                return IsInputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false);
+
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
-                return IsOutputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true, plan, settings);
+                return true;
 
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
-                return IsOutputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false, plan, settings);
+                return true;
 
             return true;
         }
 
-        private static bool IsOutputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
+        private static bool IsInputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
         {
-            return pair.Matches(SharedRailXAxis.OutputVisionX, pickerAxis);
+            return pair.Matches(SharedRailXAxis.InputVisionX, pickerAxis);
         }
 
-        private bool IsOutputVisionPickerPairRequired(
-            SharedRailXAxis pickerAxis,
-            bool isFront,
-            SharedRailXMovePlan plan,
-            IReadOnlyList<SharedRailXAxisSetting> settings)
+        private bool IsInputVisionPickerPairRequired(SharedRailXAxis pickerAxis, bool isFront)
         {
             try
             {
-                SharedRailXAxisSetting picker = settings != null
-                    ? settings.FirstOrDefault(x => x != null && x.RailAxis == pickerAxis && x.Axis != null)
-                    : null;
-                if (picker == null || picker.Axis == null)
-                    return true;
+                PickerWorkZone workZone;
+                string owner;
+                bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
+                if (workAreaActive && workZone == PickerWorkZone.Bottom)
+                {
+                    QMC.Common.Log.Write("SharedRailX",
+                        "InputVisionX/" + pickerAxis +
+                        " pair clearance bypassed because picker is in Bottom inspection work area. side=" +
+                        (isFront ? "Front" : "Rear") +
+                        ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner));
+                    return false;
+                }
 
-                double target;
-                if (plan == null || !plan.TryGetTarget(pickerAxis, out target))
-                    target = picker.Axis.ActualPosition;
-
-                string detail;
-                return PickerZoneInterlockRules.IsPickerBlockingZoneTransport(
-                    _machine,
-                    isFront,
-                    PickerWorkZone.Output,
-                    target,
-                    "SharedRailXTarget",
-                    out detail);
+                return true;
             }
             catch
             {
@@ -405,6 +403,11 @@ namespace QMC.CDT320.Motion.SharedRailX
             finally
             {
             }
+        }
+
+        private static bool IsOutputVisionPickerPair(SharedRailXAxisPair pair, SharedRailXAxis pickerAxis)
+        {
+            return pair.Matches(SharedRailXAxis.OutputVisionX, pickerAxis);
         }
 
         private SharedRailXValidationResult ValidateJogCurrentDistance(

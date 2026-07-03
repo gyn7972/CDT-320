@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using QMC.CDT320.DieMaps;
-using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Ui.Controls;
@@ -42,6 +41,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private ContextMenuStrip _mapMenu;
         private string _currentMapPath;
         private string _currentFrameSpecName;
+        private string _currentLibraryKey;
         private readonly Dictionary<string, string> _mapLibraryPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DieMap> _mapLibraryMemoryMaps = new Dictionary<string, DieMap>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TapeFrameSpec> _mapLibraryFrameSpecs = new Dictionary<string, TapeFrameSpec>(StringComparer.OrdinalIgnoreCase);
@@ -82,17 +82,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void InitializeMapEditor()
         {
             _mapView.Caption = "Recipe Die Map";
-            _mapView.CellClicked += OnMapCellClicked;
-            _mapMenu = BuildMapContextMenu();
-            _mapView.ContextMenuStrip = _mapMenu;
+            _mapMenu = null;
+            _mapView.ContextMenuStrip = null;
 
-            btnCreate.Text = "CREATE DIE MAP";
-            btnSave.Text = "SAVE DIE MAP";
-            btnFirstDieMoveComplete.Text = "LOAD RECIPE MAP";
-            btnAutoMatch.Text = "IMPORT DIE MAP";
-            btnThetaMatchMove.Text = "EXPORT DIE MAP";
-            btnXyMatchMove.Text = "INVERT TARGET";
-            _btnMapNew.Text = "SAVE AS";
+            lblHeader.Text = _isOutputMap ? "BIN MAP GENERATOR" : "INPUT MAP GENERATOR";
+            lblSettingTitle.Text = "SPEC PREVIEW";
+            lblActionTitle.Text = "APPLY";
+            _btnMapLoad.Text = "LOAD SPEC";
+            btnSave.Text = "APPLY TO RECIPE";
             rbStandard.Text = "CLICK TOGGLE";
             rbManualSelectPick.Text = "CLICK TARGET";
             rbAlignCheckIndex.Text = "CLICK SKIP";
@@ -104,21 +101,71 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             rbStartIndex.Enabled = false;
             rbReference1.Enabled = false;
             rbReference2.Enabled = false;
-            HookClickModeEvents();
             ClearMapClickModes();
-            UpdateMapInteractionMode();
+            ConfigureRecipeMapGeneratorUi();
             ConfigureBinSideToggle();
 
             _btnMapLoad.Click += (s, e) => LoadSelectedLibraryMap();
-            _btnMapNew.Click += (s, e) => SaveMapAsLibraryMap();
-            _btnMapRename.Click += (s, e) => RenameSelectedLibraryMap();
-            _btnMapDelete.Click += (s, e) => DeleteSelectedLibraryMap();
-            btnCreate.Click += (s, e) => CreateMapFromRecipeSpec(true);
             btnSave.Click += (s, e) => SaveMapToRecipe();
-            btnFirstDieMoveComplete.Click += (s, e) => LoadSavedRecipeMap(true);
-            btnAutoMatch.Click += (s, e) => ImportMapFile();
-            btnThetaMatchMove.Click += (s, e) => ExportMapCsv();
-            btnXyMatchMove.Click += (s, e) => InvertMapTargets();
+        }
+
+        private void ConfigureRecipeMapGeneratorUi()
+        {
+            try
+            {
+                _btnMapNew.Visible = false;
+                _btnMapRename.Visible = false;
+                _btnMapDelete.Visible = false;
+
+                chkCircularMap.Visible = false;
+                rbStandard.Visible = false;
+                rbStartIndex.Visible = false;
+                rbReference1.Visible = false;
+                rbReference2.Visible = false;
+                rbManualSelectPick.Visible = false;
+                rbAlignCheckIndex.Visible = false;
+                rbDragSelectPick.Visible = false;
+
+                for (int i = 1; i <= 8 && i < modeSection.RowStyles.Count; i++)
+                {
+                    modeSection.RowStyles[i].SizeType = SizeType.Absolute;
+                    modeSection.RowStyles[i].Height = 0F;
+                }
+                if (modeSection.RowStyles.Count > 9)
+                {
+                    modeSection.RowStyles[9].SizeType = SizeType.Percent;
+                    modeSection.RowStyles[9].Height = 100F;
+                }
+
+                btnCreate.Visible = false;
+                btnFirstDieMoveComplete.Visible = false;
+                btnAutoMatch.Visible = false;
+                btnThetaMatchMove.Visible = false;
+                btnXyMatchMove.Visible = false;
+
+                actionSection.SetCellPosition(btnSave, new TableLayoutPanelCellPosition(0, 1));
+                actionSection.SetColumnSpan(btnSave, 2);
+                btnSave.Dock = DockStyle.Fill;
+                actionSection.RowStyles[1].SizeType = SizeType.Percent;
+                actionSection.RowStyles[1].Height = 100F;
+                actionSection.RowStyles[2].SizeType = SizeType.Absolute;
+                actionSection.RowStyles[2].Height = 0F;
+                actionSection.RowStyles[3].SizeType = SizeType.Absolute;
+                actionSection.RowStyles[3].Height = 0F;
+
+                rightLayout.RowStyles[1].SizeType = SizeType.Absolute;
+                rightLayout.RowStyles[1].Height = _isOutputMap ? 70F : 0F;
+                rightLayout.RowStyles[2].SizeType = SizeType.Absolute;
+                rightLayout.RowStyles[2].Height = 90F;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Recipe map generator UI 구성 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>빈 맵 모드에서만 GOOD/NG 토글을 노출하고 형상 파라미터 편집을 허용한다.</summary>
@@ -135,11 +182,55 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             rbBinNg.Text = "NG BIN MAP";
             rbBinGood.Checked = _mode != MapEditorMode.OutputNg;
             rbBinNg.Checked = _mode == MapEditorMode.OutputNg;
+            ConfigureBinSideButton(rbBinGood);
+            ConfigureBinSideButton(rbBinNg);
+            UpdateBinSideButtonStyle();
             rbBinGood.CheckedChanged += OnBinSideChanged;
             rbBinNg.CheckedChanged += OnBinSideChanged;
+        }
 
-            // 빈 맵은 별도 SPEC 페이지가 없으므로 형상 파라미터를 이 화면에서 편집한다.
-            EnableBinAuthoringControls();
+        private static void ConfigureBinSideButton(RadioButton button)
+        {
+            if (button == null)
+                return;
+
+            button.Appearance = Appearance.Button;
+            button.FlatStyle = FlatStyle.Flat;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Cursor = Cursors.Hand;
+            button.Margin = new Padding(4, 2, 4, 2);
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(0xF0, 0xD0, 0xA0);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(0xD9, 0x77, 0x06);
+        }
+
+        private void UpdateBinSideButtonStyle()
+        {
+            try
+            {
+                ApplyBinSideButtonStyle(rbBinGood, rbBinGood != null && rbBinGood.Checked);
+                ApplyBinSideButtonStyle(rbBinNg, rbBinNg != null && rbBinNg.Checked);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ApplyBinSideButtonStyle(RadioButton button, bool selected)
+        {
+            if (button == null)
+                return;
+
+            button.BackColor = selected
+                ? Color.FromArgb(0xD9, 0x77, 0x06)
+                : Color.FromArgb(0xE6, 0xE6, 0xE6);
+            button.ForeColor = selected ? Color.White : Color.Black;
+            button.FlatAppearance.BorderColor = selected
+                ? Color.FromArgb(0x88, 0x45, 0x00)
+                : Color.FromArgb(0x88, 0x88, 0x88);
         }
 
         private void OnBinSideChanged(object sender, EventArgs e)
@@ -148,11 +239,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 RadioButton rb = sender as RadioButton;
                 if (rb == null || !rb.Checked)
+                {
+                    UpdateBinSideButtonStyle();
                     return;
+                }
 
                 MapEditorMode next = rbBinNg.Checked ? MapEditorMode.OutputNg : MapEditorMode.OutputGood;
                 if (next == _mode)
+                {
+                    UpdateBinSideButtonStyle();
                     return;
+                }
 
                 _mode = next;
                 chkCircularMap.Text = "BIN CIRCLE DIE MAP";
@@ -161,6 +258,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!LoadSavedRecipeMap(false))
                     CreateMapFromRecipeSpec(false);
                 RefreshMapLibraryList();
+                UpdateBinSideButtonStyle();
             }
             catch (Exception ex)
             {
@@ -328,6 +426,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 LoadEdgeSkipFromRecipe();
                 RefreshMapLibraryList();
+                SelectFrameSpecName(_currentFrameSpecName);
 
                 string mapPath = ResolveRecipeMapPath(_project, _isOutputMap);
                 if (LoadSavedRecipeMap(false))
@@ -748,10 +847,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                string selectedPath = _currentMapPath;
-                if (string.IsNullOrWhiteSpace(selectedPath) && _project != null)
-                    selectedPath = ResolveRecipeMapPath(_project, _isOutputMap);
-
+                string selectedKey = !string.IsNullOrWhiteSpace(_currentLibraryKey)
+                    ? _currentLibraryKey
+                    : (_cbMapLibrary.SelectedItem != null ? _cbMapLibrary.SelectedItem.ToString() : "");
+                if (string.IsNullOrWhiteSpace(selectedKey) && !string.IsNullOrWhiteSpace(_currentFrameSpecName))
+                    selectedKey = "[SPEC] " + _currentFrameSpecName.Trim();
                 _mapLibraryPaths.Clear();
                 _mapLibraryMemoryMaps.Clear();
                 _mapLibraryFrameSpecs.Clear();
@@ -764,20 +864,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         AddFrameSpecToLibrary(spec);
                 }
 
-                if (_map != null)
-                    AddMemoryMapToLibrary("[CURRENT] Editing Die Map", _map);
+                SelectLibraryKey(selectedKey);
 
-                if (!_isOutputMap && LotStorage.ActiveInputDieMap != null)
-                    AddMemoryMapToLibrary("[CURRENT] Active Input Die Map", LotStorage.ActiveInputDieMap);
-
-                string dir = GetDieMapDirectory();
-                Directory.CreateDirectory(dir);
-                foreach (string path in EnumerateMapFiles(dir))
-                    AddMapFileToLibrary(path);
-
-                SelectLibraryPath(selectedPath);
                 if (_cbMapLibrary.SelectedIndex < 0 && _cbMapLibrary.Items.Count > 0)
                     _cbMapLibrary.SelectedIndex = 0;
+
+                _currentLibraryKey = _cbMapLibrary.SelectedItem != null ? _cbMapLibrary.SelectedItem.ToString() : "";
             }
             catch
             {
@@ -880,12 +972,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return candidate;
         }
 
-        private void SelectLibraryPath(string path)
+        private bool SelectLibraryKey(string key)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(key) || !_cbMapLibrary.Items.Contains(key))
+                    return false;
+
+                _cbMapLibrary.SelectedItem = key;
+                _currentLibraryKey = key;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool SelectLibraryPath(string path)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(path))
-                    return;
+                    return false;
 
                 string fullPath = Path.GetFullPath(path);
                 foreach (var pair in _mapLibraryPaths)
@@ -893,12 +1005,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (string.Equals(Path.GetFullPath(pair.Value), fullPath, StringComparison.OrdinalIgnoreCase))
                     {
                         _cbMapLibrary.SelectedItem = pair.Key;
-                        return;
+                        _currentLibraryKey = pair.Key;
+                        return true;
                     }
                 }
+
+                return false;
             }
             catch
             {
+                return false;
             }
             finally
             {
@@ -920,44 +1036,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 TapeFrameSpec frameSpec;
                 if (!string.IsNullOrWhiteSpace(key) && _mapLibraryFrameSpecs.TryGetValue(key, out frameSpec))
                 {
+                    _currentLibraryKey = key;
                     ApplyFrameSpecToControls(frameSpec);
-                    _currentMapPath = ResolveCurrentRecipeMapPathOrEmpty();
+                    _currentMapPath = "";
                     _currentFrameSpecName = frameSpec.Name ?? "";
                     CreateMapFromRecipeSpec(false);
                     SelectFrameSpecName(frameSpec.Name);
                     return;
                 }
 
-                DieMap memoryMap;
-                if (!string.IsNullOrWhiteSpace(key) && _mapLibraryMemoryMaps.TryGetValue(key, out memoryMap))
-                {
-                    ApplyMap(memoryMap, "Current Die Map: " + key);
-                    _currentMapPath = "";
-                    _currentFrameSpecName = "";
-                    return;
-                }
-
-                string path = GetSelectedLibraryPath();
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                {
-                    QMC.Common.MessageDialog.Show(this, "선택된 Die Map 파일이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                DieMap loaded = DieMapGenerator.Load(path);
-                if (loaded == null)
-                {
-                    QMC.Common.MessageDialog.Show(this, "Die Map 파일을 읽을 수 없습니다.\r\n" + path, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                ApplyMap(loaded, "Library Die Map: " + Path.GetFileName(path));
-                _currentMapPath = path;
-                _currentFrameSpecName = "";
+                QMC.Common.MessageDialog.Show(this, "맵 생성을 위한 Frame Spec을 선택하세요.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Die map load failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Frame Spec load failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -989,6 +1081,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (item != null && string.Equals(item.ToString(), expected, StringComparison.OrdinalIgnoreCase))
                 {
                     _cbMapLibrary.SelectedItem = item;
+                    _currentLibraryKey = item.ToString();
                     return;
                 }
             }
@@ -1134,6 +1227,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     string.Equals(Path.GetFullPath(_currentMapPath), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase))
                 {
                     _currentMapPath = "";
+                    _currentLibraryKey = "";
                 }
 
                 RefreshMapLibraryList();
@@ -1170,6 +1264,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ApplyMap(loaded, "Imported Die Map: " + Path.GetFileName(dlg.FileName));
                     _currentMapPath = "";
                     _currentFrameSpecName = "";
+                    _currentLibraryKey = "";
                     _cbMapLibrary.SelectedIndex = -1;
                     RefreshMapLibraryList();
                 }
@@ -1249,16 +1344,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 RefreshMapLibraryList();
                 SelectLibraryPath(path);
 
-                if (!_isOutputMap)
-                {
-                    LotStorage.ActiveInputDieMap = _map;
-                    var host = FindForm() as Form1;
-                    if (host != null && host.Controller != null)
-                        host.Controller.ApplyInputDieMap(_map, "MapCreatePage.Save");
-                }
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Die Map Recipe 연결 저장 완료. 현재 진행 중인 웨이퍼 맵에는 즉시 적용하지 않고 다음 웨이퍼부터 적용합니다. path=" + path + " - Ok");
 
                 QMC.Common.MessageDialog.Show(this,
-                    "Die Map 저장 및 Recipe 연결 완료.\r\n" + path,
+                    "Die Map 저장 및 Recipe 연결 완료.\r\n현재 진행 중인 웨이퍼에는 적용하지 않습니다.\r\n다음 웨이퍼부터 적용됩니다.\r\n" + path,
                     "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)

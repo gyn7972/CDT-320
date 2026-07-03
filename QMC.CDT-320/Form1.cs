@@ -36,6 +36,7 @@ namespace QMC.CDT_320
         internal SimulatorBridge   Bridge         { get; private set; }
         internal MachineController Controller     { get; private set; }
         internal MotionMonitorService MotionMonitor { get; private set; }
+        internal QMC.CDT320.Interlocks.RealtimeCollisionSupervisor CollisionSupervisor { get; private set; }
         internal AjinIoScanService IoScan { get; private set; }
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal QMC.CDT320.Alarms.AlarmResponseService AlarmResponse { get; private set; }
@@ -239,12 +240,12 @@ namespace QMC.CDT_320
             return 0;
         }
 
-        internal void SaveMachineRecipe(string recipeName)
+        internal bool SaveMachineRecipe(string recipeName)
         {
             try
             {
                 if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
-                    return;
+                    return false;
 
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
                 if (!Machine.SaveRecipe(recipeName))
@@ -254,7 +255,15 @@ namespace QMC.CDT_320
                         UserSession.Name,
                         "DATA-SAVE",
                         "Machine recipe save returned false: " + recipeName);
+                    return false;
                 }
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "DATA-SAVE",
+                    "Machine recipe saved: " + CurrentRecipeName);
+                return true;
             }
             catch (Exception ex)
             {
@@ -263,6 +272,7 @@ namespace QMC.CDT_320
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine recipe save failed: " + recipeName + " / " + ex.Message);
+                return false;
             }
             finally
             {
@@ -568,6 +578,14 @@ namespace QMC.CDT_320
             };
             MotionMonitor = new MotionMonitorService();
             MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 250);
+            CollisionSupervisor = new QMC.CDT320.Interlocks.RealtimeCollisionSupervisor(
+                Machine,
+                Controller != null && Controller.SharedRailX != null
+                    ? Controller.SharedRailX.Config
+                    : QMC.CDT320.Motion.SharedRailX.SharedRailXConfigStore.LoadOrCreateDefault());
+            // 사용자 정책: 실시간 충돌 감지 시 전축 하드정지.
+            CollisionSupervisor.SetStopAllAxesHandler(StopAllAxesForCollisionSupervisor);
+            CollisionSupervisor.Start(10);
             IoScan = new AjinIoScanService();
             IoScan.Start(EnumerateInputs(Machine), EnumerateOutputs(Machine), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 10 : 100, () => !AppSettingsStore.Current.BypassHardware && AjinSystem.IsOpen);
             OpPanelMonitor = new OperationPanelMonitorService(Machine, Controller);
@@ -598,7 +616,12 @@ namespace QMC.CDT_320
                 var seq = QMC.CDT320.Sequencing.SequenceLog.Current;
                 if (seq != null)
                 {
-                    QMC.Common.Logging.EventLogger.Write(seq.Kind, UserSession.Name, seq.Step, seq.Unit, s);
+                    QMC.Common.Logging.EventLogger.Write(
+                        seq.Kind,
+                        UserSession.Name,
+                        seq.Step,
+                        seq.Unit,
+                        QMC.CDT320.Sequencing.SequenceLog.FormatWithCurrentContext("PublicLog", seq.Unit, s));
                     return;
                 }
                 // 2순위(폴백): 스코프 없는 직접 호출 경로는 메시지 접두어로 시퀀스 종류 추정(아니면 Event).
@@ -845,7 +868,8 @@ namespace QMC.CDT_320
 
                 if (result == DialogResult.Yes)
                 {
-                    _materialSnapshotRestored = MaterialStorage.RestoreLastSnapshot();
+                    MaterialStorage.ReplaceState(snapshot);
+                    _materialSnapshotRestored = true;
                     if (!_materialSnapshotRestored)
                     {
                         Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restore failed. New empty Material state will be created. - Failed");
@@ -1060,10 +1084,18 @@ namespace QMC.CDT_320
             }
             if (active != null)
             {
+                EnsureDefaultPageShown(active);
                 Lang.Apply(active);
                 AccessControl.Apply(active);
             }
             _mainTabShown = true;
+        }
+
+        private static void EnsureDefaultPageShown(Control active)
+        {
+            var tab = active as TabBase;
+            if (tab != null)
+                tab.EnsureDefaultPageShown();
         }
 
         private static void SetVisibleIfChanged(Control control, bool visible)
@@ -1348,6 +1380,36 @@ namespace QMC.CDT_320
             }
             finally
             {
+            }
+        }
+
+        // RealtimeCollisionSupervisor가 실시간 충돌 위험 감지 시 호출하는 전축 하드정지 동작(사용자 정책: 전축 하드정지).
+        // 10ms 감시 루프에서 동기 호출되므로 빠르게 모든 축을 EStop 한다. 알람은 supervisor가 별도로 발생시킨다.
+        private void StopAllAxesForCollisionSupervisor()
+        {
+            List<BaseAxis> axes;
+            try
+            {
+                axes = CurrentAxes();
+            }
+            catch
+            {
+                axes = null;
+            }
+
+            if (axes == null)
+                return;
+
+            foreach (BaseAxis axis in axes)
+            {
+                try
+                {
+                    if (axis != null)
+                        axis.EStop();
+                }
+                catch
+                {
+                }
             }
         }
 
@@ -1815,6 +1877,7 @@ namespace QMC.CDT_320
             try { Controller?.SaveMachineRuntimeStateForApplicationClosing(); } catch { }
             try { AlarmResponse?.Dispose(); } catch { }
             try { OpPanelMonitor?.Dispose(); } catch { }
+            try { CollisionSupervisor?.Dispose(); } catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
             try { if (_jogPopup != null && !_jogPopup.IsDisposed) _jogPopup.Dispose(); } catch { }

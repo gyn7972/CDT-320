@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 using QMC.CDT_320.Ui.Localization;
@@ -8,11 +7,12 @@ using QMC.CDT_320.Ui.Localization;
 namespace QMC.CDT_320.Ui.Pages.History
 {
     /// <summary>
-    /// 메시지 번역 페이지. 코드/KIND 는 로그에서 수집되는 고정 항목이고(읽기 전용),
+    /// 메시지 번역 페이지. 코드/KIND 는 자동 수집되는 고정 항목이고(읽기 전용),
     /// 사용자는 DESCRIPTION 의 한글(KO)/영문(EN) 번역만 그리드에서 직접 편집한다.
     /// <para>
-    /// 행 목록은 <b>D:\CDT-320\Log\Event 폴더의 모든 CSV</b> 를 훑어 디스크립션 중복을 제외해 만든다.
-    /// 이미 저장된 번역(message_catalog.csv)은 디스크립션으로 매칭해 보존하고, SAVE 시 카탈로그로 기록한다.
+    /// 행 목록은 <b>번역 카탈로그(message_catalog.csv)</b> 를 그대로 읽어 만든다. 실시간으로 발생하는
+    /// 메시지 종류는 EventLogger 가 카탈로그에 자동 등록하므로, 더 이상 로그 폴더 전체를 훑지 않는다
+    /// (로그가 커져도 화면이 즉시 열린다). SAVE 시 편집 결과를 카탈로그로 기록한다.
     /// </para>
     /// </summary>
     public partial class MessageEditPage : QMC.CDT_320.Ui.Pages.PageBase
@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             InitializeComponent();
             ApplyRuntimeUi();
             WireEvents();
-            if (!IsDesignerMode()) LoadFromLogs(false);
+            if (!IsDesignerMode()) LoadFromCatalog(false);
         }
 
         private void ApplyRuntimeUi()
@@ -37,62 +37,72 @@ namespace QMC.CDT_320.Ui.Pages.History
         private void WireEvents()
         {
             btnSave.Click += (s, e) => SaveCatalog();
-            btnImport.Click += (s, e) => LoadFromLogs(true);   // REFRESH
+            btnImport.Click += (s, e) => LoadFromCatalog(true);   // REFRESH
             // KO/EN 셀 인라인 편집 결과를 편집 모델에 반영한다.
             grid.CellEndEdit += Grid_CellEndEdit;
+            // KO/EN 셀을 더블클릭하면 긴 번역문을 큰 창에서 보고 편집한다(인라인 편집 대체).
+            grid.CellDoubleClick += Grid_CellDoubleClick;
         }
 
-        // D:\CDT-320\Log\Event 폴더의 모든 CSV 를 훑어 디스크립션 중복을 제외하고 행을 구성한다.
-        // 한글이면 KO, 아니면 EN 에 원문을 넣고, 저장된 카탈로그 번역이 있으면 반대 언어를 채워 보존한다.
-        private void LoadFromLogs(bool announce)
+        // KO/EN 셀 더블클릭 시 큰 창에서 전체 번역문을 보고 편집한다. 확인하면 셀과 편집 모델에 반영한다.
+        private void Grid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             try
             {
-                // 저장된 번역을 디스크립션(KO/EN) → 항목으로 색인해 둔다.
-                var savedByDesc = new Dictionary<string, MessageDefinition>(StringComparer.Ordinal);
+                if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+
+                string colName = grid.Columns[e.ColumnIndex].Name;
+                if (colName != "KO" && colName != "EN") return;   // 편집 대상(번역) 컬럼만
+
+                var def = grid.Rows[e.RowIndex].Tag as MessageDefinition;
+                if (def == null) return;
+
+                // 더블클릭으로 시작된 인라인 편집을 취소하고 큰 창으로 대체한다.
+                grid.CancelEdit();
+
+                var cell = grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                string current = (cell.Value as string) ?? string.Empty;
+                string title = colName == "KO" ? "DESCRIPTION (KO)" : "DESCRIPTION (EN)";
+
+                using (var dlg = new QMC.CDT_320.Ui.Dialogs.TextViewerDialog(title, current, true))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+                    string edited = dlg.TextValue ?? string.Empty;
+                    if (colName == "EN") edited = edited.ToUpperInvariant();   // 영문은 항상 대문자
+                    cell.Value = edited;
+                    if (colName == "KO") def.Ko = edited; else def.En = edited;
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // 번역 카탈로그(message_catalog.csv)를 화면 편집 모델로 복제한다. 실시간 발생 메시지는
+        // EventLogger 가 카탈로그에 자동 등록하므로 여기서 로그 폴더를 훑지 않는다(즉시 로드).
+        // 원본 객체를 직접 편집하지 않도록 새 인스턴스로 복사한다.
+        private void LoadFromCatalog(bool announce)
+        {
+            try
+            {
+                _working.Clear();
                 foreach (var s in MessageCatalog.Items)
                 {
-                    if (!string.IsNullOrWhiteSpace(s.Ko)) savedByDesc[s.Ko.Trim()] = s;
-                    if (!string.IsNullOrWhiteSpace(s.En)) savedByDesc[s.En.Trim()] = s;
-                }
-
-                _working.Clear();
-                var seen = new HashSet<string>(StringComparer.Ordinal);
-
-                string dir = EventLogger.LogDir;
-                if (Directory.Exists(dir))
-                {
-                    // 파일명(날짜) 순으로 정렬해 과거 → 최신 순으로 수집한다.
-                    var files = Directory.GetFiles(dir, "*.csv");
-                    Array.Sort(files, StringComparer.OrdinalIgnoreCase);
-
-                    foreach (var path in files)
+                    _working.Add(new MessageDefinition
                     {
-                        foreach (var r in EventLogger.ReadFile(path))
-                        {
-                            string desc = (r.Description ?? string.Empty).Trim();
-                            if (desc.Length == 0) continue;
-                            if (!seen.Add(desc)) continue;   // 디스크립션 중복 제외
-
-                            var def = new MessageDefinition { Code = r.Code ?? string.Empty, Kind = r.Kind };
-                            if (HasKorean(desc)) def.Ko = desc; else def.En = desc;
-
-                            // 저장된 번역이 있으면 비어 있는 언어를 채운다(번역 보존).
-                            MessageDefinition saved;
-                            if (savedByDesc.TryGetValue(desc, out saved))
-                            {
-                                if (string.IsNullOrEmpty(def.Ko)) def.Ko = saved.Ko;
-                                if (string.IsNullOrEmpty(def.En)) def.En = saved.En;
-                            }
-                            _working.Add(def);
-                        }
-                    }
+                        Code = s.Code,
+                        Kind = s.Kind,
+                        Ko   = s.Ko,
+                        En   = s.En
+                    });
                 }
 
                 RefreshGrid();
 
                 if (announce)
-                    QMC.Common.MessageDialog.Show(_working.Count + "건을 불러왔습니다. (디스크립션 중복 제외)" + Environment.NewLine + "번역(KO/EN)을 입력한 뒤 SAVE 를 누르세요.",
+                    QMC.Common.MessageDialog.Show(_working.Count + "건을 불러왔습니다." + Environment.NewLine + "번역(KO/EN)을 입력한 뒤 SAVE 를 누르세요.",
                         "MESSAGE", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -157,18 +167,6 @@ namespace QMC.CDT_320.Ui.Pages.History
                 cell.Value = value;                 // 그리드 표시도 대문자로 정리
                 def.En = value;
             }
-        }
-
-        // 문자열에 한글(완성형/자모)이 포함되어 있는지.
-        private static bool HasKorean(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return false;
-            foreach (char c in s)
-            {
-                if ((c >= '가' && c <= '힣') || (c >= 'ᄀ' && c <= 'ᇿ') || (c >= '㄰' && c <= '㆏'))
-                    return true;
-            }
-            return false;
         }
 
         private void SaveCatalog()

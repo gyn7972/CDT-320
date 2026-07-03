@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private readonly List<MotionAxisRow> _rows = new List<MotionAxisRow>();
         private Timer _refresh;
+        private Dialogs.MotionTestDialog _motionTestDialog;
 
         public MotionPage()
         {
@@ -47,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 _refresh?.Stop();
                 DetachAxes();
+                try { if (_motionTestDialog != null && !_motionTestDialog.IsDisposed) _motionTestDialog.Dispose(); } catch { }
             };
         }
 
@@ -115,6 +117,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             btnParaLoad.Click += (s, e) => DoLoadPara();
             btnParaSave.Click += (s, e) => DoSavePara();
             btnBoardScan.Click += (s, e) => ShowBoardScan();
+            btnMotionTest.Click += (s, e) => ShowOrRestoreMotionTestDialog();
         }
 
         private void LoadAxisRows()
@@ -616,6 +619,62 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             using (var dlg = new Dialogs.BoardScanDialog(_rows.Select(x => x.Axis).Where(x => x != null).ToList()))
                 dlg.ShowDialog(FindForm());
+        }
+
+        private void ShowOrRestoreMotionTestDialog()
+        {
+            try
+            {
+                if (_motionTestDialog == null || _motionTestDialog.IsDisposed)
+                {
+                    _motionTestDialog = new Dialogs.MotionTestDialog(CurrentMotionTestAxes())
+                    {
+                        StartPosition = FormStartPosition.CenterParent,
+                        ShowInTaskbar = false
+                    };
+                    _motionTestDialog.FormClosed += (s, e) => { _motionTestDialog = null; };
+                    _motionTestDialog.FormClosing += (s, e) =>
+                    {
+                        if (e.CloseReason == CloseReason.UserClosing)
+                        {
+                            e.Cancel = true;
+                            _motionTestDialog.Hide();
+                        }
+                    };
+                }
+
+                Form owner = FindForm();
+                if (!_motionTestDialog.Visible)
+                {
+                    if (owner != null)
+                        _motionTestDialog.Show(owner);
+                    else
+                        _motionTestDialog.Show();
+                }
+
+                if (_motionTestDialog.WindowState == FormWindowState.Minimized)
+                    _motionTestDialog.WindowState = FormWindowState.Normal;
+
+                _motionTestDialog.BringToFront();
+                _motionTestDialog.Activate();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "UI", "MOTION-TEST", "Open motion test failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "Motion Test 창을 열 수 없습니다:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private IEnumerable<BaseAxis> CurrentMotionTestAxes()
+        {
+            List<BaseAxis> axes = _rows.Select(x => x.Axis).Where(x => x != null).ToList();
+            if (axes.Count > 0)
+                return axes;
+
+            return AjinAxisRegistry.GetOrderedAxes(Host?.Machine).Where(x => x != null).ToList();
         }
 
         private void DoLoadPara()

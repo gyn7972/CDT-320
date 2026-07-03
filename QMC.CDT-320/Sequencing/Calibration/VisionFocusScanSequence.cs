@@ -87,6 +87,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.RunAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -130,10 +132,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ReleaseFocusWorkArea();
             }
+            }
         }
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.MoveDefaultOnlyAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -167,6 +172,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
                 ReleaseFocusWorkArea();
+            }
             }
         }
 
@@ -1079,10 +1085,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ReleaseFocusWorkArea();
+                string owner = ResolveFocusWorkAreaOwner();
                 _focusWorkAreaScope = PickerZoneInterlockRules.BeginPickerWorkAreaUse(
                     IsSelectedFront(),
                     PickerWorkZone.Bottom,
-                    "VisionFocusScanSequence");
+                    owner);
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-WORK-AREA",
+                    "Vision Focus Bottom 작업 영역을 점유했습니다. 대상=" + BuildTargetLabel() +
+                    ", owner=" + owner);
                 return 0;
             }
             catch (Exception ex)
@@ -1092,6 +1102,16 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private string ResolveFocusWorkAreaOwner()
+        {
+            string updatedBy = _request != null ? _request.UpdatedBy : null;
+            if (!string.IsNullOrWhiteSpace(updatedBy) &&
+                updatedBy.IndexOf("ColletCalibration", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "ColletCalibration";
+
+            return "VisionFocusScanSequence";
         }
 
         private void ReleaseFocusWorkArea()

@@ -52,11 +52,15 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct, OutputStageSequenceOptions options)
         {
-            using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString()))
+            Options = options ?? OutputStageSequenceOptions.Default();
+            using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
-                Options = options ?? OutputStageSequenceOptions.Default();
                 CurrentStep = ResolveStartStep(InitialStep);
+                SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind, "side=" + Options.Side);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
@@ -64,27 +68,37 @@ namespace QMC.CDT320.Sequencing
                     ct.ThrowIfCancellationRequested();
                     Context.LogPublic("[OUTPUT-STAGE] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
                     TStep executingStep = CurrentStep;
+                    SequenceTrace.StepStart(Name, executingStep.ToString(), "kind=" + Kind, "side=" + Options.Side);
                     int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
                     if (result != 0)
+                    {
+                        SequenceTrace.StepFail(Name, executingStep.ToString(), result, "kind=" + Kind, "side=" + Options.Side, "next=" + CurrentStep);
+                        SequenceTrace.RunEnd(Name, "Failed", result, "kind=" + Kind, "side=" + Options.Side, "step=" + executingStep);
                         return result;
+                    }
 
                     if (!IsStep(CurrentStep, ErrorStep))
                         SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
+                    SequenceTrace.StepEnd(Name, executingStep.ToString(), result, "kind=" + Kind, "side=" + Options.Side, "next=" + CurrentStep);
                 }
 
                 SequenceResumeStore.MarkCompleted(SequenceStateName);
                 WriteLog("RunAsync", "Output stage " + Kind + " sequence completed. - Ok");
+                SequenceTrace.RunEnd(Name, "Completed", 0, "kind=" + Kind, "side=" + Options.Side);
                 return 0;
             }
             catch (OperationCanceledException)
             {
                 WriteLog("RunAsync", "Output stage " + Kind + " sequence canceled at step=" + CurrentStep + ". - Failed");
+                SequenceTrace.RunEnd(Name, "Canceled", -1, "kind=" + Kind, "step=" + CurrentStep);
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("OUT-STAGE-EX", Name, "Output stage " + Kind + " exception at step=" + CurrentStep + ": " + ex.Message);
+                int failResult = Fail("OUT-STAGE-EX", Name, "Output stage " + Kind + " exception at step=" + CurrentStep + ": " + ex.Message);
+                SequenceTrace.RunEnd(Name, "Failed", failResult, "kind=" + Kind, "step=" + CurrentStep, "error=" + ex.Message);
+                return failResult;
             }
             finally
             {
@@ -412,6 +426,11 @@ namespace QMC.CDT320.Sequencing
                         return clearResult;
                 }
 
+                SequenceTrace.MotionStart("OutputStageMove",
+                    "axis=" + axis,
+                    "target=" + target,
+                    "side=" + Options.Side,
+                    "description=" + description);
                 int result = await AwaitStepWithCancellationAsync(
                     Stage.MoveStageAxis(
                         axis,
@@ -420,10 +439,17 @@ namespace QMC.CDT320.Sequencing
                         "OutputStageSequence;" + Name + ";" + description),
                     ct).ConfigureAwait(false);
                 if (result != 0)
+                {
+                    SequenceTrace.MotionEnd("OutputStageMove", result,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "side=" + Options.Side,
+                        "status=CommandFailed");
                     return Fail("OUT-STAGE-MOVE", Stage.Name,
                         description + " 이동 명령 실패. axis=" + axis + ", target=" + target +
                         ", result=" + result + ". " + BuildAxisState(axis, target) + ". " +
                         Stage.DescribeOutputStageInterlockState(Options.Side));
+                }
 
                 AxisMoveWaitResult waitResult = await Stage.WaitStageAxisMoveDoneInPosition(
                     axis,
@@ -431,11 +457,25 @@ namespace QMC.CDT320.Sequencing
                     ResolveTimeout(),
                     ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
+                {
+                    SequenceTrace.MotionEnd("OutputStageMove", -1,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "side=" + Options.Side,
+                        "timeoutMs=" + ResolveTimeout(),
+                        "status=WaitFailed",
+                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
                     return Fail(ResolveAxisMoveWaitAlarmCode("OUT-STAGE-MOVE", waitResult), Stage.Name,
                         description + " 이동 완료/위치 확인 실패. axis=" + axis + ", target=" + target +
                         ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
+                }
 
                 ct.ThrowIfCancellationRequested();
+                SequenceTrace.MotionEnd("OutputStageMove", 0,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "side=" + Options.Side,
+                    "status=Ok");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -444,6 +484,11 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                SequenceTrace.MotionEnd("OutputStageMove", -1,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "status=Exception",
+                    "error=" + ex.Message);
                 return Fail("OUT-STAGE-MOVE-EX", Stage != null ? Stage.Name : "OutputStage",
                     description + " 이동 처리 중 예외가 발생했습니다. axis=" + axis +
                     ", target=" + target +

@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.VisionComm;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -35,6 +36,10 @@ namespace QMC.CDT320.Sequencing.Calibration
         private const int CalibrationMotionTimeoutMs = 10000;
         private const int ReticleMatchPollIntervalMs = 100;
         private const double CalibrationAxisTolerance = 0.01;
+        private const double SimReticleMaxPixelOffset = 25.0;
+        private const double SimReticleMaxAngleDeg = 0.08;
+        private static readonly object SimReticleRandomLock = new object();
+        private static readonly Random SimReticleRandom = new Random();
         private readonly CDT320_Machine _machine;
         private readonly Func<string> _userNameProvider;
 
@@ -57,12 +62,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return null;
 
                 unit.Config.EnsureCalibrationObjects();
-                return unit.Config.CameraCalibration;
+                return unit.Config.CalibrationData.Camera;
             }
         }
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RunAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -101,6 +108,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 
@@ -335,6 +343,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindInputReticleAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindInputReticleAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -376,6 +386,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+            }
         }
 
         public async Task<int> FindOutputReticleAsync(CancellationToken ct)
@@ -416,6 +427,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindOutputReticleAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindOutputReticleAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -457,6 +470,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+            }
         }
 
         public int CalculateCalibration()
@@ -470,6 +484,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (!CalibrationData.Calculate(GetUserName()))
                     return Fail("VISION-CAMERA-CAL-CALC", "VisionUnit", "Vision Camera Calibration 계산 실패. Bottom/Input/Output Reticle Mark 측정값이 모두 필요합니다.");
 
+                TouchCalibrationData();
+                LogCalibrationFormulaData(CalibrationData);
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-CALC",
                     "Vision Camera Calibration 계산 완료. Bottom-InputOffset=(" +
                     CalibrationData.InputToBottomOffsetX.ToString("F6") + "," +
@@ -916,6 +932,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RetractReticleFromBottomCameraAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -951,6 +969,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 
@@ -1129,23 +1148,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return await WaitReticleMatchResultAsync(cameraName, channel, timeoutMs, ct).ConfigureAwait(false);
             }
 
-            if (IsSimulationMode())
-            {
-                VisionCameraCalibrationData data = CalibrationData;
-                VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, channel);
-                return new MatchResultDto
-                {
-                    Success = true,
-                    X = camera.ImageCenterPixelX,
-                    Y = camera.ImageCenterPixelY,
-                    AngleDeg = 0,
-                    Score = 1.0,
-                    HasImageSize = true,
-                    ImageWidthPixel = camera.ImageWidthPixel,
-                    ImageHeightPixel = camera.ImageHeightPixel,
-                    RawError = "SIM:ReticleFinder"
-                };
-            }
+            if (IsVisionResultSimulationAllowed())
+                return BuildSimulatedReticleMatch(target, channel, "MATCHASYNC 시작 실패 후 시뮬레이션 결과를 사용합니다.");
 
             if (VisionCommandService.IsConnected(channel))
             {
@@ -1298,6 +1302,99 @@ namespace QMC.CDT320.Sequencing.Calibration
                    (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode);
         }
 
+        private bool IsVisionResultSimulationAllowed()
+        {
+            if (IsSimulationMode())
+                return true;
+
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && !settings.UseVision;
+        }
+
+        private MatchResultDto BuildSimulatedReticleMatch(
+            VisionCameraCalibrationTarget target,
+            AutoVisionChannel channel,
+            string reason)
+        {
+            VisionCameraCalibrationData data = CalibrationData;
+            VisionCameraPixelCalibration camera = VisionCameraCalibrationTransform.ResolveCamera(data, channel);
+            if (camera == null)
+                camera = new VisionCameraPixelCalibration();
+
+            camera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
+
+            if (IsDryRunWithVisionDisabled())
+            {
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SIM-RETICLE-ZERO",
+                    ResolveCameraName(target) + " Vision ReticleFinder 결과를 0 보정으로 처리합니다. " + reason +
+                    " centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + ", " + camera.ImageCenterPixelY.ToString("F3") + ")" +
+                    ", scale=(" + camera.PixelToMmX.ToString("F9") + ", " + camera.PixelToMmY.ToString("F9") + ") mm/px" +
+                    ", image=(" + camera.ImageWidthPixel.ToString("F0") + "x" + camera.ImageHeightPixel.ToString("F0") + ")");
+
+                return new MatchResultDto
+                {
+                    Success = true,
+                    X = camera.ImageCenterPixelX,
+                    Y = camera.ImageCenterPixelY,
+                    AngleDeg = 0.0,
+                    Score = 1.0,
+                    HasImageSize = true,
+                    ImageWidthPixel = camera.ImageWidthPixel,
+                    ImageHeightPixel = camera.ImageHeightPixel,
+                    RawError = "SIM:ReticleFinderPixelOffset:ZeroOffset"
+                };
+            }
+
+            double pixelX = NextSimulatedReticlePixel(camera.ImageCenterPixelX, SimReticleMaxPixelOffset);
+            double pixelY = NextSimulatedReticlePixel(camera.ImageCenterPixelY, SimReticleMaxPixelOffset);
+            double angle = NextSimulatedReticlePixel(0.0, SimReticleMaxAngleDeg);
+            double score = NextSimulatedReticleScore();
+
+            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-SIM-RETICLE",
+                ResolveCameraName(target) + " Vision ReticleFinder 결과를 시뮬레이션합니다. " + reason +
+                " centerPixel=(" + camera.ImageCenterPixelX.ToString("F3") + ", " + camera.ImageCenterPixelY.ToString("F3") + ")" +
+                ", simulatedPixel=(" + pixelX.ToString("F3") + ", " + pixelY.ToString("F3") + ")" +
+                ", scale=(" + camera.PixelToMmX.ToString("F9") + ", " + camera.PixelToMmY.ToString("F9") + ") mm/px" +
+                ", image=(" + camera.ImageWidthPixel.ToString("F0") + "x" + camera.ImageHeightPixel.ToString("F0") + ")" +
+                ", score=" + score.ToString("F6") +
+                ", angle=" + angle.ToString("F6"));
+
+            return new MatchResultDto
+            {
+                Success = true,
+                X = pixelX,
+                Y = pixelY,
+                AngleDeg = angle,
+                Score = score,
+                HasImageSize = true,
+                ImageWidthPixel = camera.ImageWidthPixel,
+                ImageHeightPixel = camera.ImageHeightPixel,
+                RawError = "SIM:ReticleFinderPixelOffset"
+            };
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
+        }
+
+        private static double NextSimulatedReticlePixel(double center, double maxAbsOffset)
+        {
+            lock (SimReticleRandomLock)
+            {
+                return center + ((SimReticleRandom.NextDouble() * 2.0) - 1.0) * maxAbsOffset;
+            }
+        }
+
+        private static double NextSimulatedReticleScore()
+        {
+            lock (SimReticleRandomLock)
+            {
+                return 0.985 + (SimReticleRandom.NextDouble() * 0.014);
+            }
+        }
+
         private void FillAxisPositions(VisionCameraCalibrationTarget target, VisionReticleMeasurement measurement)
         {
             try
@@ -1322,6 +1419,81 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        private void LogCalibrationFormulaData(VisionCameraCalibrationData data)
+        {
+            try
+            {
+                if (data == null)
+                    return;
+
+                data.EnsureObjects();
+
+                VisionCameraPixelCalibration bottomCamera = VisionCameraCalibrationTransform.ResolveCamera(data, AutoVisionChannel.BottomInspection);
+                VisionCameraPixelCalibration inputCamera = VisionCameraCalibrationTransform.ResolveCamera(data, AutoVisionChannel.Wafer);
+                VisionCameraPixelCalibration outputCamera = VisionCameraCalibrationTransform.ResolveCamera(data, AutoVisionChannel.Bin);
+
+                QMC.Common.Log.Write("Calibration", GetUserName(), "VisionCameraCalFormulaPixel",
+                    "Vision Camera Calibration 계산 원본. " +
+                    BuildMeasurementLog("Bottom", data.BottomReticle, bottomCamera) + " / " +
+                    BuildMeasurementLog("Input", data.InputReticle, inputCamera) + " / " +
+                    BuildMeasurementLog("Output", data.OutputReticle, outputCamera));
+
+                QMC.Common.Log.Write("Calibration", GetUserName(), "VisionCameraCalFormulaMm",
+                    "Vision Camera Calibration Pixel->mm 수식. " +
+                    BuildPixelToMmFormulaLog("Bottom", data.BottomReticle, bottomCamera) + " / " +
+                    BuildPixelToMmFormulaLog("Input", data.InputReticle, inputCamera) + " / " +
+                    BuildPixelToMmFormulaLog("Output", data.OutputReticle, outputCamera));
+
+                QMC.Common.Log.Write("Calibration", GetUserName(), "VisionCameraCalFormulaOffset",
+                    "Vision Camera Calibration Offset 수식. " +
+                    "Bottom-Input X = BottomMmX - InputMmX = " + data.BottomReticle.MmX.ToString("F6") + " - " + data.InputReticle.MmX.ToString("F6") + " = " + data.InputToBottomOffsetX.ToString("F6") + " mm, " +
+                    "Bottom-Input Y = BottomMmY - InputMmY = " + data.BottomReticle.MmY.ToString("F6") + " - " + data.InputReticle.MmY.ToString("F6") + " = " + data.InputToBottomOffsetY.ToString("F6") + " mm, " +
+                    "Bottom-Output X = BottomMmX - OutputMmX = " + data.BottomReticle.MmX.ToString("F6") + " - " + data.OutputReticle.MmX.ToString("F6") + " = " + data.OutputToBottomOffsetX.ToString("F6") + " mm, " +
+                    "Bottom-Output Y = BottomMmY - OutputMmY = " + data.BottomReticle.MmY.ToString("F6") + " - " + data.OutputReticle.MmY.ToString("F6") + " = " + data.OutputToBottomOffsetY.ToString("F6") + " mm");
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "CAL", "VISION-CAMERA-CAL-CALC-FORMULA-LOG-FAIL",
+                    "Vision Camera Calibration 계산 수식 로그 저장 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildMeasurementLog(string name, VisionReticleMeasurement measurement, VisionCameraPixelCalibration camera)
+        {
+            if (measurement == null || camera == null)
+                return name + "=null";
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.Append(name);
+            sb.Append("[pixel=(").Append(measurement.PixelX.ToString("F3")).Append(", ").Append(measurement.PixelY.ToString("F3")).Append(")");
+            sb.Append(", mm=(").Append(measurement.MmX.ToString("F6")).Append(", ").Append(measurement.MmY.ToString("F6")).Append(")");
+            sb.Append(", angle=").Append(measurement.AngleDeg.ToString("F6"));
+            sb.Append(", score=").Append(measurement.Score.ToString("F6"));
+            sb.Append(", center=(").Append(camera.ImageCenterPixelX.ToString("F3")).Append(", ").Append(camera.ImageCenterPixelY.ToString("F3")).Append(")");
+            sb.Append(", scale=(").Append(camera.PixelToMmX.ToString("F9")).Append(", ").Append(camera.PixelToMmY.ToString("F9")).Append(") mm/px");
+            sb.Append(", image=(").Append(camera.ImageWidthPixel.ToString("F0")).Append("x").Append(camera.ImageHeightPixel.ToString("F0")).Append(")");
+            if (measurement.HasVisionXPosition)
+                sb.Append(", visionX=").Append(measurement.VisionXPosition.ToString("F6"));
+            if (measurement.HasStageYPosition)
+                sb.Append(", stageY=").Append(measurement.StageYPosition.ToString("F6"));
+            sb.Append("]");
+            return sb.ToString();
+        }
+
+        private static string BuildPixelToMmFormulaLog(string name, VisionReticleMeasurement measurement, VisionCameraPixelCalibration camera)
+        {
+            if (measurement == null || camera == null)
+                return name + "=null";
+
+            return name +
+                   " MmX = (PixelX - CenterX) * ScaleX = (" + measurement.PixelX.ToString("F3") + " - " + camera.ImageCenterPixelX.ToString("F3") + ") * " + camera.PixelToMmX.ToString("F9") + " = " + measurement.MmX.ToString("F6") + " mm, " +
+                   name +
+                   " MmY = (PixelY - CenterY) * ScaleY = (" + measurement.PixelY.ToString("F3") + " - " + camera.ImageCenterPixelY.ToString("F3") + ") * " + camera.PixelToMmY.ToString("F9") + " = " + measurement.MmY.ToString("F6") + " mm";
+        }
+
         private static void FillAxis(VisionReticleMeasurement measurement, BaseAxis visionX, BaseAxis stageY)
         {
             if (measurement == null)
@@ -1344,6 +1516,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
+                TouchCalibrationData();
                 if (SaveMachineSettings())
                     EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MEASURE-SAVE", label + "을 VisionUnit Config에 저장했습니다.");
                 else
@@ -1370,6 +1543,26 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch
             {
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void TouchCalibrationData()
+        {
+            try
+            {
+                if (_machine == null ||
+                    _machine.VisionUnit == null ||
+                    _machine.VisionUnit.Config == null ||
+                    _machine.VisionUnit.Config.CalibrationData == null)
+                    return;
+
+                _machine.VisionUnit.Config.CalibrationData.Touch(GetUserName());
+            }
+            catch
+            {
             }
             finally
             {

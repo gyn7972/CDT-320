@@ -10,7 +10,8 @@ namespace QMC.Common.Motion
     {
         Absolute,
         Home,
-        JogContinuous
+        JogContinuous,
+        JogStep
     }
 
     public delegate bool AxisMotionGuardHandler(
@@ -573,7 +574,8 @@ namespace QMC.Common.Motion
             }
 
             double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
-            if (!VerifyMotionGuard(jogTarget, AxisMotionGuardKind.JogContinuous))
+            double guardTarget = ResolveJogGuardTarget(direction);
+            if (!VerifyMotionGuard(guardTarget, AxisMotionGuardKind.JogContinuous))
                 return;
 
             ClearMotionFailure();
@@ -587,6 +589,28 @@ namespace QMC.Common.Motion
             // CommandPosition은 소프트 리미트 끝으로 설정 - 시뮬레이터가 매 틱 갱신
             CommandPosition    = jogTarget;
             _simTargetPosition = CommandPosition;
+        }
+
+        private double ResolveJogGuardTarget(int direction)
+        {
+            if (Setup == null)
+                return ActualPosition;
+
+            double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                ? Config.InPositionTolerance
+                : 0.01;
+            double sign = direction > 0 ? 1.0 : -1.0;
+            double target = ActualPosition + (sign * Math.Max(1.0, tolerance * 10.0));
+
+            if (Setup.SoftLimitEnabled)
+            {
+                if (target > Setup.SoftLimitPlus)
+                    target = Setup.SoftLimitPlus;
+                if (target < Setup.SoftLimitMinus)
+                    target = Setup.SoftLimitMinus;
+            }
+
+            return target;
         }
 
         private bool VerifyMotionGuard(double targetPosition, AxisMotionGuardKind moveKind)
@@ -633,7 +657,13 @@ namespace QMC.Common.Motion
             try
             {
                 double vel = GetJogVelocity(speedType, customVel);
-                return await MoveRelativeAsync(direction * Math.Abs(stepDistance), vel);
+                double distance = direction * Math.Abs(stepDistance);
+                double target = ActualPosition + distance;
+                if (!VerifyMotionGuard(target, AxisMotionGuardKind.JogStep))
+                    return -1;
+
+                using (BeginMotionGuardBypass())
+                    return await MoveRelativeAsync(distance, vel);
             }
             catch (Exception)
             {
@@ -652,6 +682,10 @@ namespace QMC.Common.Motion
         public virtual void StopJog()
         {
             Stop();
+            CommandPosition = ActualPosition;
+            _simTargetPosition = ActualPosition;
+            if (IsServoOn && !IsAlarm)
+                IsInPosition = true;
         }
 
         /// <summary>

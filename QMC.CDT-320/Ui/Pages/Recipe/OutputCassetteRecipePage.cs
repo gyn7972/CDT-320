@@ -31,6 +31,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ApplyRecipeTheme();
                 ConfigureRuntimeBehavior();
+                ConfigureManualActions();
             }
             catch (Exception ex)
             {
@@ -201,15 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                btnGoodLoadingMove.Enabled = enabled;
-                btnGoodUnloadingMove.Enabled = enabled;
-                btnGoodSlotStartMove.Enabled = enabled;
-                btnGoodSlotEndMove.Enabled = enabled;
-                btnNgLoadingMove.Enabled = enabled;
-                btnNgUnloadingMove.Enabled = enabled;
-                btnNgSlotStartMove.Enabled = enabled;
-                btnNgSlotEndMove.Enabled = enabled;
-                btnReadyMove.Enabled = enabled;
+                manualActionPanel.SetButtonsEnabled(enabled);
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -224,6 +217,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void ConfigureManualActions()
+        {
+            try
+            {
+                // 공용 MANUAL ACTION 판넬에 GOOD/NG 리프터 이동 버튼 등록 (2열: GOOD | NG, READY는 마지막)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("GOOD LOADING MOVE", () => MoveToTarget("GOOD LOADING Z", _OutCassetteUnit.Recipe.GoodLoaingPosition)),
+                    ManualActionItem.Create("NG LOADING MOVE", () => MoveToTarget("NG LOADING Z", _OutCassetteUnit.Recipe.NGLoaingPosition)),
+                    ManualActionItem.Create("GOOD UNLOADING MOVE", () => MoveToTarget("GOOD UNLOADING Z", _OutCassetteUnit.Recipe.GoodUnloadingPosition)),
+                    ManualActionItem.Create("NG UNLOADING MOVE", () => MoveToTarget("NG UNLOADING Z", _OutCassetteUnit.Recipe.NGUnloadingPosition)),
+                    ManualActionItem.Create("GOOD SLOT START", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette good slot start move")),
+                    ManualActionItem.Create("NG SLOT START", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.LoadingPositionOffset : 0.0, "Output cassette ng slot start move")),
+                    ManualActionItem.Create("GOOD SLOT END", () => MoveCassetteSlot(TargetCassette.Good1, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette good slot end move")),
+                    ManualActionItem.Create("NG SLOT END", () => MoveCassetteSlot(TargetCassette.Ng, _OutCassetteUnit != null ? _OutCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Output cassette ng slot end move")),
+                    ManualActionItem.Create("READY MOVE", () => MoveToTarget("READY POSITION", _OutCassetteUnit.Recipe.AvoidPosition))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "ConfigureManualActions failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
         private async void btnGoodLoadingMove_Click(object sender, EventArgs e)
         {
             try
@@ -576,7 +596,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 Cursor = Cursors.WaitCursor;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("OutputCassetteRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 if (result != 0)
                 {
                     string msg = _OutCassetteUnit != null ? _OutCassetteUnit.LastBinLifterMoveFailureMessage : null;
@@ -826,6 +850,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v)
                 });
 
+                waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanSettleTimeMs, v => _OutCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v)),
@@ -849,6 +874,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_OutCassetteUnit == null)
                     return;
 
+                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Input Feeder 기준)
                 ioCylinderPanel.SetItems(new[]
                 {
                     // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
@@ -1412,18 +1438,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Color value = Color.White;
 
                 BackColor = bg;
-                rootLayout.BackColor = bg;
-                contentLayout.BackColor = bg;
-                leftLayout.BackColor = bg;
-                centerLayout.BackColor = bg;
-                rightLayout.BackColor = bg;
                 grpActions.BackColor = Color.FromArgb(245, 245, 245);
                 grpIo.BackColor = Color.FromArgb(245, 245, 245);
                 grpOptions.BackColor = Color.FromArgb(245, 245, 245);
                 grpWait.BackColor = Color.FromArgb(245, 245, 245);
                 grpJog.BackColor = Color.FromArgb(245, 245, 245);
                 grpSpeed.BackColor = Color.FromArgb(245, 245, 245);
-                actionLayout.BackColor = Color.FromArgb(245, 245, 245);
                 ioLayout.BackColor = Color.FromArgb(245, 245, 245);
                 optionRows.BackColor = bg;
                 waitRows.BackColor = bg;
@@ -1438,23 +1458,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Color groupHeaderFg = Color.FromArgb(64, 64, 64);
                 Font actionFont = new Font("Malgun Gothic", 8F, FontStyle.Bold);
                 Font groupFont = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
-
-                foreach (var buttonControl in new[] { btnGoodLoadingMove, btnGoodUnloadingMove, btnGoodSlotStartMove, btnGoodSlotEndMove, btnNgLoadingMove, btnNgUnloadingMove, btnNgSlotStartMove, btnNgSlotEndMove, btnReadyMove })
-                {
-                    buttonControl.BackColor = actionButtonColor;
-                    buttonControl.ForeColor = Color.White;
-                    buttonControl.Font = actionFont;
-                }
-
-                lblGoodGroup.BackColor = groupHeaderBg;
-                lblGoodGroup.ForeColor = groupHeaderFg;
-                lblGoodGroup.Font = groupFont;
-                lblNgGroup.BackColor = groupHeaderBg;
-                lblNgGroup.ForeColor = groupHeaderFg;
-                lblNgGroup.Font = groupFont;
-                lblCommonGroup.BackColor = groupHeaderBg;
-                lblCommonGroup.ForeColor = groupHeaderFg;
-                lblCommonGroup.Font = groupFont;
 
                 foreach (var label in new[]
                 {

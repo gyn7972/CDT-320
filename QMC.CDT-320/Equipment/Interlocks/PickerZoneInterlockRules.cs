@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -53,7 +54,8 @@ namespace QMC.CDT320.Interlocks
         {
             get
             {
-                return YAvoid &&
+                bool yClearForRequestedTransport = RequestedZone == PickerWorkZone.Input || YAvoid;
+                return yClearForRequestedTransport &&
                        CurrentZone != RequestedZone &&
                        TargetZone != RequestedZone &&
                        !IsAxisMoving(PickerX) &&
@@ -100,6 +102,8 @@ namespace QMC.CDT320.Interlocks
         private const double DefaultTolerance = 0.05;
         private const double DefaultPickerYFacingXClearance = 150.0;
         private const double DefaultPickerYOutDistance = 1.0;
+        private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
+        private const double DefaultAutoProcessZoneEntryYTolerance = 2.0;
         private static readonly object activeZoneLock = new object();
         private static PickerWorkZone frontPickerYActiveTargetZone = PickerWorkZone.Unknown;
         private static PickerWorkZone rearPickerYActiveTargetZone = PickerWorkZone.Unknown;
@@ -458,6 +462,118 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        public static bool VerifyFacingYDistanceFirst(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                    return true;
+
+                if (!IsAxisMotionRequest(request.MoveKind))
+                    return true;
+
+                bool isFront;
+                PickerAxis axis;
+                string movingName;
+                if (!TryResolvePickerXYRequest(request, out isFront, out axis, out movingName))
+                    return true;
+
+                string detail;
+                bool allowed = CanMovePickerAxisByFacingYInterlock(
+                    request.Machine,
+                    isFront,
+                    axis,
+                    request.TargetValue,
+                    request.TargetName,
+                    null,
+                    null,
+                    out detail);
+                if (allowed)
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 1차 거리 인터락 차단: Front/Rear PickerX 거리와 PickerY 돌출 상태가 안전하지 않습니다. " +
+                    "moveKind=" + request.MoveKind +
+                    ", originalMoveKind=" + request.OriginalMoveKind +
+                    ", executionMode=" + request.ExecutionMode +
+                    ", target=" + request.TargetValue.ToString("0.###") +
+                    ", targetName=" + (string.IsNullOrWhiteSpace(request.TargetName) ? "-" : request.TargetName) +
+                    ", detail=" + detail,
+                    out reason);
+            }
+            catch (Exception ex)
+            {
+                string movingName = request != null ? request.MovingName : "Picker";
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Front/Rear PickerY 돌출 X거리 1차 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisMotionRequest(MotionGuardMoveKind moveKind)
+        {
+            return moveKind == MotionGuardMoveKind.AxisMove ||
+                   moveKind == MotionGuardMoveKind.AxisHome ||
+                   moveKind == MotionGuardMoveKind.AxisTeachingMove ||
+                   moveKind == MotionGuardMoveKind.AxisContinuousJog ||
+                   moveKind == MotionGuardMoveKind.AxisStepJog;
+        }
+
+        private static bool TryResolvePickerXYRequest(
+            MotionGuardRuleContext request,
+            out bool isFront,
+            out PickerAxis axis,
+            out string movingName)
+        {
+            isFront = false;
+            axis = PickerAxis.PickerX;
+            movingName = request != null ? request.MovingName : string.Empty;
+
+            if (request == null)
+                return false;
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "FrontPickerX"))
+            {
+                isFront = true;
+                axis = PickerAxis.PickerX;
+                movingName = "FrontPickerX";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "FrontPickerY"))
+            {
+                isFront = true;
+                axis = PickerAxis.PickerY;
+                movingName = "FrontPickerY";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "RearPickerX"))
+            {
+                isFront = false;
+                axis = PickerAxis.PickerX;
+                movingName = "RearPickerX";
+                return true;
+            }
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "RearPickerY"))
+            {
+                isFront = false;
+                axis = PickerAxis.PickerY;
+                movingName = "RearPickerY";
+                return true;
+            }
+
+            return false;
+        }
+
         private static bool VerifyPickerXMove(
             MotionGuardRuleContext request,
             bool isFront,
@@ -552,8 +668,49 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                if (!IsInspectionContinuousProcessMove(request, currentZone, targetZone) &&
-                    !IsPickerYAtAvoid(request.Machine, isFront))
+                string fineAlignDetail;
+                if (MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, isFront, out fineAlignDetail))
+                {
+                    string fineFacingDetail;
+                    if (!CanMovePickerXByFacingYInterlock(
+                        request.Machine,
+                        isFront,
+                        request.TargetValue,
+                        null,
+                        request.TargetName,
+                        out fineFacingDetail))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            movingName + " ColletCalibrationFineAlign 이동 불가: " + fineFacingDetail,
+                            out reason);
+                    }
+
+                    return true;
+                }
+
+                bool pickerYAtAvoid = IsPickerYAtAvoid(request.Machine, isFront);
+                bool inspectionContinuousProcessMove = IsInspectionContinuousProcessMove(request, currentZone, targetZone);
+                bool autoProcessCorrectionXMove = false;
+                string autoProcessCorrectionReason;
+                if (!pickerYAtAvoid &&
+                    !inspectionContinuousProcessMove &&
+                    IsAutoProcessCorrectionXMove(request))
+                {
+                    if (!CanMoveAutoProcessCorrectionX(request, isFront, ownX, ownY, currentZone, targetZone, out autoProcessCorrectionReason))
+                    {
+                        return MotionGuardRuleHelpers.Block(
+                            movingName,
+                            BuildXBlockedMessage(movingName, "오토 공정 보정 X 이동 불가: " + autoProcessCorrectionReason, ownX, ownY, currentZone, targetZone),
+                            out reason);
+                    }
+
+                    autoProcessCorrectionXMove = true;
+                }
+
+                if (!autoProcessCorrectionXMove &&
+                    !inspectionContinuousProcessMove &&
+                    !pickerYAtAvoid)
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -562,8 +719,9 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 if (currentZone != targetZone &&
-                    !IsPickerYAtAvoid(request.Machine, isFront) &&
-                    !IsInspectionContinuousProcessMove(request, currentZone, targetZone))
+                    !pickerYAtAvoid &&
+                    !autoProcessCorrectionXMove &&
+                    !inspectionContinuousProcessMove)
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
@@ -597,16 +755,143 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool IsAutoProcessCorrectionXMove(MotionGuardRuleContext request)
+        {
+            return request != null &&
+                   request.Intent != null &&
+                   request.Intent.AutoProcessCorrection;
+        }
+
+        private static bool CanMoveAutoProcessCorrectionX(
+            MotionGuardRuleContext request,
+            bool isFront,
+            BaseAxis ownX,
+            BaseAxis ownY,
+            PickerWorkZone currentZone,
+            PickerWorkZone targetZone,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (!IsRealEquipmentOrDryRunAutoProcess())
+            {
+                reason = "실장비 또는 드라이런 오토 시퀀스에서만 허용됩니다.";
+                return false;
+            }
+
+            if (request == null || ownX == null)
+            {
+                reason = "축 상태를 확인할 수 없습니다.";
+                return false;
+            }
+
+            if (targetZone == PickerWorkZone.Unknown || IsAvoidZone(targetZone))
+            {
+                reason = "목표 존이 공정 존이 아닙니다. targetZone=" + targetZone;
+                return false;
+            }
+
+            if (currentZone != targetZone && !IsAvoidZone(currentZone))
+            {
+                reason = "현재 존과 목표 존이 다릅니다. currentZone=" + currentZone + ", targetZone=" + targetZone;
+                return false;
+            }
+
+            if (IsAutoProcessZoneEntryWithPickerYReady(request.Machine, isFront, ownY, targetZone))
+                return true;
+
+            double maxDistance = ResolveAutoProcessCorrectionMaxDistance(request);
+            double delta = Math.Abs(request.TargetValue - ownX.ActualPosition);
+            if (delta > maxDistance)
+            {
+                reason = "보정 이동량이 허용치를 초과했습니다. delta=" + delta.ToString("0.###") +
+                         "mm, max=" + maxDistance.ToString("0.###") + "mm";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsAutoProcessZoneEntryWithPickerYReady(
+            CDT320_Machine machine,
+            bool isFront,
+            BaseAxis ownY,
+            PickerWorkZone targetZone)
+        {
+            if (machine == null || ownY == null)
+                return false;
+
+            string yPositionName = ResolvePickerYProcessPositionName(targetZone);
+            if (string.IsNullOrWhiteSpace(yPositionName))
+                return false;
+
+            return IsAtPickerZonePosition(
+                machine,
+                isFront,
+                PickerAxis.PickerY,
+                yPositionName,
+                ownY.ActualPosition,
+                DefaultAutoProcessZoneEntryYTolerance);
+        }
+
+        private static string ResolvePickerYProcessPositionName(PickerWorkZone targetZone)
+        {
+            switch (targetZone)
+            {
+                case PickerWorkZone.Input:
+                    return "PickPosition";
+                case PickerWorkZone.Bottom:
+                    return "BottomPosition";
+                case PickerWorkZone.Side:
+                    return "SidePosition";
+                case PickerWorkZone.Output:
+                    return "PlacePosition";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static bool IsRealEquipmentOrDryRunAutoProcess()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.UseAjin && (settings.DryRunMode || !settings.SimulationMode);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static double ResolveAutoProcessCorrectionMaxDistance(MotionGuardRuleContext request)
+        {
+            if (request != null &&
+                request.Intent != null &&
+                request.Intent.AutoProcessCorrectionMax.HasValue &&
+                request.Intent.AutoProcessCorrectionMax.Value > 0.0)
+                return request.Intent.AutoProcessCorrectionMax.Value;
+
+            return DefaultAutoProcessCorrectionMaxDistance;
+        }
+
         private static bool IsInspectionContinuousProcessMove(
             MotionGuardRuleContext request,
             PickerWorkZone currentZone,
             PickerWorkZone targetZone)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+            if (request == null || request.Intent == null || !request.Intent.InspectionContinuous)
                 return false;
 
-            if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
-                return false;
+            PickerWorkZone declaredFrom;
+            PickerWorkZone declaredTo;
+            if (TryResolveInspectionContinuousTransition(request, out declaredFrom, out declaredTo) &&
+                declaredTo == targetZone &&
+                IsAllowedInspectionContinuousTransition(declaredFrom, declaredTo))
+                return true;
 
             // Auto 검사/Place 연속 동작에서는 같은 존 안에서 다음 다이로 X축만 이동할 수 있다.
             // 메뉴얼/단독 이동은 InspectionContinuous 태그가 없으므로 기존 Y Avoid 조건을 그대로 탄다.
@@ -618,12 +903,91 @@ namespace QMC.CDT320.Interlocks
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
                 (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output) ||
+                (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Side) ||
                 (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Output);
 
             if (!allowedTransition)
                 return false;
 
             return true;
+        }
+
+        private static bool TryResolveInspectionContinuousTransition(
+            MotionGuardRuleContext request,
+            out PickerWorkZone from,
+            out PickerWorkZone to)
+        {
+            from = PickerWorkZone.Unknown;
+            to = PickerWorkZone.Unknown;
+
+            if (request == null || request.Intent == null)
+                return false;
+
+            from = request.Intent.InspectionFromZone;
+            to = request.Intent.InspectionToZone;
+            return from != PickerWorkZone.Unknown && to != PickerWorkZone.Unknown;
+        }
+
+        private static bool IsAllowedInspectionContinuousTransition(PickerWorkZone from, PickerWorkZone to)
+        {
+            return (from == PickerWorkZone.Input && to == PickerWorkZone.Input) ||
+                   (from == PickerWorkZone.Input && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Output) ||
+                   (from == PickerWorkZone.Output && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Output && to == PickerWorkZone.Output);
+        }
+
+        private static bool TryReadTargetNameString(string targetName, string key, out string value)
+        {
+            value = string.Empty;
+            if (string.IsNullOrWhiteSpace(targetName) || string.IsNullOrWhiteSpace(key))
+                return false;
+
+            string[] tokens = targetName.Split(';');
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                string token = tokens[i] != null ? tokens[i].Trim() : string.Empty;
+                if (token.Length == 0)
+                    continue;
+
+                int equal = token.IndexOf('=');
+                if (equal <= 0)
+                    continue;
+
+                string tokenKey = token.Substring(0, equal).Trim();
+                if (!string.Equals(tokenKey, key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                value = token.Substring(equal + 1).Trim();
+                return value.Length > 0;
+            }
+
+            return false;
+        }
+
+        private static PickerWorkZone ParseWorkZoneToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return PickerWorkZone.Unknown;
+
+            string normalized = value.Trim();
+            if (string.Equals(normalized, "Input", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Input;
+            if (string.Equals(normalized, "Bottom", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Bottom;
+            if (string.Equals(normalized, "Side", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Side;
+            if (string.Equals(normalized, "Place", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "Output", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Output;
+            if (string.Equals(normalized, "Avoid", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Avoid;
+
+            return PickerWorkZone.Unknown;
         }
 
         private static bool VerifyPickerYMove(
@@ -823,8 +1187,9 @@ namespace QMC.CDT320.Interlocks
                 if (clearance <= 0.0)
                     return true;
 
-                double ownXTarget = pairedXTarget.HasValue ? pairedXTarget.Value : ownX.ActualPosition;
-                if (!DoesXMovePathEnterFacingClearance(ownX.ActualPosition, ownXTarget, otherX.ActualPosition, clearance))
+                double ownXTarget = pairedXTarget.HasValue ? pairedXTarget.Value : ResolveAxisPathTarget(ownX);
+                double otherXTarget = ResolveAxisPathTarget(otherX);
+                if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, ownXTarget, otherX.ActualPosition, otherXTarget, clearance))
                     return true;
 
                 detail = BuildFacingYBlockedDetail(
@@ -837,6 +1202,7 @@ namespace QMC.CDT320.Interlocks
                     otherY,
                     ownXTarget,
                     targetY,
+                    otherXTarget,
                     clearance);
                 return false;
             }
@@ -885,7 +1251,8 @@ namespace QMC.CDT320.Interlocks
                 if (clearance <= 0.0)
                     return true;
 
-                if (!DoesXMovePathEnterFacingClearance(ownX.ActualPosition, targetX, otherX.ActualPosition, clearance))
+                double otherXTarget = ResolveAxisPathTarget(otherX);
+                if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, targetX, otherX.ActualPosition, otherXTarget, clearance))
                     return true;
 
                 detail = BuildFacingYBlockedDetail(
@@ -898,6 +1265,7 @@ namespace QMC.CDT320.Interlocks
                     otherY,
                     targetX,
                     pairedYTarget.HasValue ? pairedYTarget.Value : (ownY != null ? ownY.ActualPosition : 0.0),
+                    otherXTarget,
                     clearance);
                 return false;
             }
@@ -993,11 +1361,36 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool DoesXMovePathEnterFacingClearance(double startX, double targetX, double otherX, double clearance)
+        private static double ResolveAxisPathTarget(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return 0.0;
+
+                return axis.IsMoving ? axis.CommandPosition : axis.ActualPosition;
+            }
+            catch
+            {
+                return axis != null ? axis.ActualPosition : 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool DoXMovePathsEnterFacingClearance(
+            double startX,
+            double targetX,
+            double otherStartX,
+            double otherTargetX,
+            double clearance)
         {
             double min = Math.Min(startX, targetX) - clearance;
             double max = Math.Max(startX, targetX) + clearance;
-            return otherX >= min && otherX <= max;
+            double otherMin = Math.Min(otherStartX, otherTargetX);
+            double otherMax = Math.Max(otherStartX, otherTargetX);
+            return otherMax >= min && otherMin <= max;
         }
 
         private static string BuildFacingYBlockedDetail(
@@ -1010,6 +1403,7 @@ namespace QMC.CDT320.Interlocks
             BaseAxis otherY,
             double ownTargetX,
             double ownTargetY,
+            double otherTargetX,
             double clearance)
         {
             string otherName = isFront ? "RearPicker" : "FrontPicker";
@@ -1027,6 +1421,7 @@ namespace QMC.CDT320.Interlocks
                    ", otherX=" + FormatAxis(otherX) +
                    ", otherY=" + FormatAxis(otherY) +
                    ", targetX=" + ownTargetX.ToString("0.###") +
+                   ", otherTargetX=" + otherTargetX.ToString("0.###") +
                    ", targetY=" + ownTargetY.ToString("0.###") +
                    ", targetName=" + (string.IsNullOrWhiteSpace(targetName) ? "-" : targetName);
         }
@@ -1212,6 +1607,14 @@ namespace QMC.CDT320.Interlocks
         {
             try
             {
+                BaseAxis x = GetPickerX(machine, isFront);
+                if (x == null)
+                    return PickerWorkZone.Unknown;
+
+                PickerWorkZone xZone = ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
+                if (xZone != PickerWorkZone.Unknown)
+                    return xZone;
+
                 PickerWorkZone resourceZone;
                 string owner;
                 if (TryGetPickerWorkArea(isFront, out resourceZone, out owner) &&
@@ -1228,10 +1631,6 @@ namespace QMC.CDT320.Interlocks
                 PickerWorkZone yZone = ResolveCurrentYZone(machine, isFront);
                 if (yZone != PickerWorkZone.Unknown && yZone != PickerWorkZone.Avoid)
                     return yZone;
-
-                BaseAxis x = GetPickerX(machine, isFront);
-                if (x == null)
-                    return PickerWorkZone.Unknown;
 
                 return ResolveXZoneByPositionWithContext(machine, isFront, x.ActualPosition);
             }
@@ -1595,12 +1994,23 @@ namespace QMC.CDT320.Interlocks
             string positionName,
             double position)
         {
-            if (IsAtPickerPosition(machine, isFront, axis, positionName, position))
-                return true;
-
             BaseAxis baseAxis = axis == PickerAxis.PickerX ? GetPickerX(machine, isFront) : GetPickerY(machine, isFront);
             double tolerance = ResolveTolerance(baseAxis);
+            return IsAtPickerZonePosition(machine, isFront, axis, positionName, position, tolerance);
+        }
+
+        private static bool IsAtPickerZonePosition(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerAxis axis,
+            string positionName,
+            double position,
+            double tolerance)
+        {
             double basePosition = GetPickerTeachingPosition(machine, isFront, axis, positionName);
+            if (Math.Abs(position - basePosition) <= tolerance)
+                return true;
+
             for (int i = 0; i < 4; i++)
             {
                 double offset = GetRuntimePickerZoneOffset(machine, isFront, axis, i);

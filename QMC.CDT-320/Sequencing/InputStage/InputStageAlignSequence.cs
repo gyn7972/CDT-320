@@ -850,6 +850,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (IsDryRunWithVisionDisabled())
+                {
+                    return new VisionAlignResult
+                    {
+                        DeltaX = 0.0,
+                        DeltaY = 0.0,
+                        DeltaTheta = 0.0,
+                        PitchX = ResolveAlignPitchX(null, null),
+                        PitchY = ResolveAlignPitchY(null, null)
+                    };
+                }
+
                 await Task.Delay(120, ct).ConfigureAwait(false);
 
                 double dx;
@@ -886,6 +898,12 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
         }
 
         private double ResolveSimThetaOffset(string stepName)
@@ -1171,6 +1189,16 @@ namespace QMC.CDT320.Sequencing
                 return await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
             }
 
+            int entryResult = await MoveVisionXYPointViaWorkCenterAsync(
+                targetX,
+                targetY,
+                description,
+                xFirstReason,
+                yFirstReason,
+                ct).ConfigureAwait(false);
+            if (entryResult != int.MinValue)
+                return entryResult;
+
             return Fail("IN-STAGE-ALIGN-WORK-AREA-PATH", Stage.Name,
                 description + " has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F3") +
                 ", currentY=" + currentY.ToString("F3") +
@@ -1178,6 +1206,64 @@ namespace QMC.CDT320.Sequencing
                 ", targetY=" + targetY.ToString("F3") +
                 ", xFirst=" + xFirstReason +
                 ", yFirst=" + yFirstReason);
+        }
+
+        private async Task<int> MoveVisionXYPointViaWorkCenterAsync(
+            double targetX,
+            double targetY,
+            string description,
+            string xFirstReason,
+            string yFirstReason,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                double entryX = Stage.ResolveWorkAreaCenterX();
+                double entryY = Stage.ResolveWorkAreaCenterY();
+
+                string entryReason;
+                if (!Stage.IsInputStageWorkPointInArea(entryX, entryY, out entryReason))
+                {
+                    WriteLog("InputStageAlignSequence",
+                        description + " work area center entry is not available. entryX=" + entryX.ToString("F6") +
+                        ", entryY=" + entryY.ToString("F6") +
+                        ", reason=" + entryReason +
+                        ", xFirst=" + xFirstReason +
+                        ", yFirst=" + yFirstReason + " - Skip");
+                    return int.MinValue;
+                }
+
+                WriteLog("InputStageAlignSequence",
+                    description + " has no direct L-path. Enter work center first. entryX=" +
+                    entryX.ToString("F6") +
+                    ", entryY=" + entryY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") + " - Start");
+
+                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, entryY, description + " Entry StageY", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, targetX, description + " Entry VisionX", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-WORK-AREA-ENTRY-EX", Stage != null ? Stage.Name : "InputStageUnit",
+                    description + " 작업영역 진입 경유 이동 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private WaferMapData ResolveWaferMapForAlign(string waferId)

@@ -36,7 +36,8 @@ namespace QMC.CDT320
     public enum PickerPlaceMotionMode
     {
         Default = 0,
-        SynchronizedArrival = 1
+        SynchronizedArrival = 1,
+        ContiSegmentedPlace = 2
     }
 
     [DataContract]
@@ -171,6 +172,28 @@ namespace QMC.CDT320
         [DataMember] public double SynchronizedDeceleration { get; set; } = 10.0;
         [DataMember] public int SynchronizedTimeoutMs { get; set; } = 5000;
         [DataMember] public double MaxSynchronizedTravelDistance { get; set; } = 37.0;
+        [DataMember] public double ContiZ1Step1Clearance { get; set; } = 0.15;
+        [DataMember] public double ContiZ1Step2Clearance { get; set; } = 0.15;
+        [DataMember] public double ContiNearAvoidDistance { get; set; } = 1.0;
+        [DataMember] public double ContiXYMidRatio { get; set; } = 0.5;
+        [DataMember] public double ContiOverDrive { get; set; } = 0.05;
+        [DataMember] public double ContiTapeThicknessFallback { get; set; } = 0.10;
+        [DataMember] public double ContiDieThicknessFallback { get; set; } = 0.15;
+        [DataMember] public double ContiNode0Velocity { get; set; } = 2.0;
+        [DataMember] public double ContiNode0Acceleration { get; set; } = 20.0;
+        [DataMember] public double ContiNode0Deceleration { get; set; } = 20.0;
+        [DataMember] public double ContiNode1Velocity { get; set; } = 5.0;
+        [DataMember] public double ContiNode1Acceleration { get; set; } = 50.0;
+        [DataMember] public double ContiNode1Deceleration { get; set; } = 50.0;
+        [DataMember] public double ContiNode2Velocity { get; set; } = 5.0;
+        [DataMember] public double ContiNode2Acceleration { get; set; } = 50.0;
+        [DataMember] public double ContiNode2Deceleration { get; set; } = 50.0;
+        [DataMember] public double ContiNode3Velocity { get; set; } = 2.0;
+        [DataMember] public double ContiNode3Acceleration { get; set; } = 20.0;
+        [DataMember] public double ContiNode3Deceleration { get; set; } = 20.0;
+        [DataMember] public double ContiNode4Velocity { get; set; } = 0.5;
+        [DataMember] public double ContiNode4Acceleration { get; set; } = 10.0;
+        [DataMember] public double ContiNode4Deceleration { get; set; } = 10.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -188,6 +211,85 @@ namespace QMC.CDT320
             if (SynchronizedTimeoutMs <= 0)
                 SynchronizedTimeoutMs = 5000;
             MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(MaxSynchronizedTravelDistance, 37.0);
+            ContiZ1Step1Clearance = NormalizeNonNegative(ContiZ1Step1Clearance);
+            ContiZ1Step2Clearance = NormalizeNonNegative(ContiZ1Step2Clearance);
+            ContiNearAvoidDistance = NormalizeNonNegative(ContiNearAvoidDistance);
+            ContiXYMidRatio = NormalizeRatio(ContiXYMidRatio, 0.5);
+            ContiOverDrive = NormalizeNonNegative(ContiOverDrive);
+            ContiTapeThicknessFallback = NormalizeNonNegative(ContiTapeThicknessFallback);
+            ContiDieThicknessFallback = NormalizeNonNegative(ContiDieThicknessFallback);
+            ContiNode0Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Velocity, 2.0);
+            ContiNode0Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Acceleration, 20.0);
+            ContiNode0Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode0Deceleration, 20.0);
+            ContiNode1Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Velocity, 5.0);
+            ContiNode1Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Acceleration, 50.0);
+            ContiNode1Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode1Deceleration, 50.0);
+            ContiNode2Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Velocity, 5.0);
+            ContiNode2Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Acceleration, 50.0);
+            ContiNode2Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode2Deceleration, 50.0);
+            ContiNode3Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Velocity, 2.0);
+            ContiNode3Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Acceleration, 20.0);
+            ContiNode3Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode3Deceleration, 20.0);
+            ContiNode4Velocity = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Velocity, 0.5);
+            ContiNode4Acceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Acceleration, 10.0);
+            ContiNode4Deceleration = PickerPickUpMotionConfig.NormalizePositive(ContiNode4Deceleration, 10.0);
+        }
+
+        public double GetContiNodeVelocity(int nodeIndex)
+        {
+            switch (nodeIndex)
+            {
+                case 0: return ContiNode0Velocity;
+                case 1: return ContiNode1Velocity;
+                case 2: return ContiNode2Velocity;
+                case 3: return ContiNode3Velocity;
+                case 4: return ContiNode4Velocity;
+                default: return ContiNode4Velocity;
+            }
+        }
+
+        public double GetContiNodeAcceleration(int nodeIndex)
+        {
+            switch (nodeIndex)
+            {
+                case 0: return ContiNode0Acceleration;
+                case 1: return ContiNode1Acceleration;
+                case 2: return ContiNode2Acceleration;
+                case 3: return ContiNode3Acceleration;
+                case 4: return ContiNode4Acceleration;
+                default: return ContiNode4Acceleration;
+            }
+        }
+
+        public double GetContiNodeDeceleration(int nodeIndex)
+        {
+            switch (nodeIndex)
+            {
+                case 0: return ContiNode0Deceleration;
+                case 1: return ContiNode1Deceleration;
+                case 2: return ContiNode2Deceleration;
+                case 3: return ContiNode3Deceleration;
+                case 4: return ContiNode4Deceleration;
+                default: return ContiNode4Deceleration;
+            }
+        }
+
+        private static double NormalizeNonNegative(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0.0)
+                return 0.0;
+            return value;
+        }
+
+        private static double NormalizeRatio(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value))
+                value = fallback;
+            if (value < 0.0)
+                return 0.0;
+            if (value > 1.0)
+                return 1.0;
+            return value;
         }
     }
 

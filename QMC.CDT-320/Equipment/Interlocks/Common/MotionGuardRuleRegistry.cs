@@ -62,6 +62,7 @@ namespace QMC.CDT320.Interlocks
             MoveKind = moveKind;
             OriginalMoveKind = originalMoveKind;
             TargetName = targetName ?? string.Empty;
+            Intent = MotionGuardMoveIntent.Parse(TargetName);
             RequiredChecks = requiredChecks ?? new List<InterlockCheckPair>();
             Context = context;
             SkipSharedRailXRule = skipSharedRailXRule;
@@ -75,6 +76,7 @@ namespace QMC.CDT320.Interlocks
         public MotionGuardMoveKind OriginalMoveKind { get; private set; }
         public MotionGuardExecutionMode ExecutionMode { get; private set; }
         public string TargetName { get; private set; }
+        public MotionGuardMoveIntent Intent { get; private set; }
         public IReadOnlyList<InterlockCheckPair> RequiredChecks { get; private set; }
         public MotionGuardContext Context { get; private set; }
         public bool SkipSharedRailXRule { get; private set; }
@@ -82,6 +84,15 @@ namespace QMC.CDT320.Interlocks
         public bool IsManualSequenceProcess
         {
             get { return ExecutionMode == MotionGuardExecutionMode.ManualSequenceProcess; }
+        }
+
+        public bool IsSequenceProcess
+        {
+            get
+            {
+                return ExecutionMode == MotionGuardExecutionMode.AutoSequenceProcess ||
+                       ExecutionMode == MotionGuardExecutionMode.ManualSequenceProcess;
+            }
         }
 
         public CDT320_Machine Machine
@@ -115,6 +126,7 @@ namespace QMC.CDT320.Interlocks
 
         static MotionGuardRuleRegistry()
         {
+            Register(PickerZoneInterlockRules.VerifyFacingYDistanceFirst);
             Register(SharedRailXInterlockRules.Verify);
             Register(InputCassetteInterlockRules.Verify);
             Register(InputFeederInterlockRules.Verify);

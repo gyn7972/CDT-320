@@ -504,10 +504,10 @@ namespace QMC.CDT320.Ajin
                     return;
                 }
 
-                double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+                double jogTarget = ResolveJogGuardTarget(direction);
                 string interlockReason;
                 if (!SharedRailXMotionRuntime.IsInternalDispatch &&
-                    !MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
+                    !MotionGuardRuntime.VerifyAxisContinuousJog(this, jogTarget, "ContinuousJog", out interlockReason))
                 {
                     RecordMotionFailure(-11, "JOG", interlockReason, jogTarget, true);
                     return;
@@ -566,6 +566,28 @@ namespace QMC.CDT320.Ajin
         private double ResolveJogSpeed(JogSpeedType speedType, double customVel)
         {
             return GetJogVelocity(speedType, customVel);
+        }
+
+        private double ResolveJogGuardTarget(int direction)
+        {
+            if (Setup == null)
+                return ActualPosition;
+
+            double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                ? Config.InPositionTolerance
+                : 0.01;
+            double sign = direction > 0 ? 1.0 : -1.0;
+            double target = ActualPosition + (sign * Math.Max(1.0, tolerance * 10.0));
+
+            if (Setup.SoftLimitEnabled)
+            {
+                if (target > Setup.SoftLimitPlus)
+                    target = Setup.SoftLimitPlus;
+                if (target < Setup.SoftLimitMinus)
+                    target = Setup.SoftLimitMinus;
+            }
+
+            return target;
         }
 
         /// <summary>Jog 구동 가속도. JogAcceleration 미설정(0 이하) 시 일반 Acceleration 으로 폴백한다.</summary>
@@ -627,12 +649,17 @@ namespace QMC.CDT320.Ajin
                 double distance = jogDirection * Math.Abs(stepDistance);
                 if (distance == 0)
                     return 0;
+                double target = ActualPosition + distance;
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisStepJog(this, target, "StepJog", out interlockReason))
+                    return FailMotion(-11, "JOG STEP", interlockReason);
 
                 UpdateStatus();
                 if (IsMoving)
                     return FailMotion(-2, "JOG STEP", "Axis is already moving.");
 
-                return await MoveRelativeAsync(distance, vel);
+                using (BaseAxis.BeginMotionGuardBypass())
+                    return await MoveRelativeAsync(distance, vel);
             }
             catch (Exception ex)
             {

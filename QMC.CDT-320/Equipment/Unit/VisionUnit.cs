@@ -45,9 +45,8 @@ namespace QMC.CDT320
     {
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; }
-        [DataMember] public VisionCameraCalibrationData CameraCalibration { get; set; } = new VisionCameraCalibrationData();
         [DataMember] public VisionFocusCalibrationData FocusCalibration { get; set; } = new VisionFocusCalibrationData();
-        [DataMember] public ColletCalibrationData ColletCalibration { get; set; } = new ColletCalibrationData();
+        public CalibrationData CalibrationData { get; set; } = new CalibrationData();
 
         public bool IsSimulationMode
         {
@@ -63,16 +62,13 @@ namespace QMC.CDT320
 
         public void EnsureCalibrationObjects()
         {
-            if (CameraCalibration == null)
-                CameraCalibration = new VisionCameraCalibrationData();
             if (FocusCalibration == null)
                 FocusCalibration = new VisionFocusCalibrationData();
-            if (ColletCalibration == null)
-                ColletCalibration = new ColletCalibrationData();
+            if (CalibrationData == null)
+                CalibrationData = new CalibrationData();
 
-            CameraCalibration.EnsureObjects();
             FocusCalibration.EnsureObjects();
-            ColletCalibration.EnsureObjects();
+            CalibrationData.EnsureObjects();
         }
     }
 
@@ -182,8 +178,8 @@ namespace QMC.CDT320
                     Config.EnsureCalibrationObjects();
 
                 bool ok = base.SaveSettings();
-                if (Config != null && Config.CameraCalibration != null)
-                    ok &= VisionCameraScaleStore.Save(Config.CameraCalibration);
+                if (Config != null && Config.CalibrationData != null)
+                    ok &= CalibrationDataStore.Save(Config.CalibrationData);
 
                 return ok;
             }
@@ -204,9 +200,7 @@ namespace QMC.CDT320
                 if (Config != null)
                 {
                     Config.EnsureCalibrationObjects();
-                    VisionCameraCalibrationData saved;
-                    if (VisionCameraScaleStore.TryLoad(out saved))
-                        Config.CameraCalibration = saved;
+                    Config.CalibrationData = CalibrationDataStore.LoadOrCreate();
                     Config.EnsureCalibrationObjects();
                 }
             }

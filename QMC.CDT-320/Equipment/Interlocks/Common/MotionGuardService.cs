@@ -11,6 +11,8 @@ namespace QMC.CDT320.Interlocks
         AxisMove,
         AxisHome,
         AxisTeachingMove,
+        AxisContinuousJog,
+        AxisStepJog,
         CylinderMove,
         CylinderInitialize
     }
@@ -18,6 +20,7 @@ namespace QMC.CDT320.Interlocks
     public enum MotionGuardExecutionMode
     {
         Default,
+        AutoSequenceProcess,
         ManualSequenceProcess
     }
 
@@ -148,6 +151,44 @@ namespace QMC.CDT320.Interlocks
             return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisTeachingMove, targetName, context, false, executionMode);
         }
 
+        public MotionGuardResult VerifyAxisContinuousJog(
+            BaseAxis axis,
+            double probeTargetPosition,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
+            string movingName = axis != null ? axis.Name : string.Empty;
+            return VerifyMove(
+                movingName,
+                probeTargetPosition,
+                MotionGuardMoveKind.AxisContinuousJog,
+                targetName,
+                context,
+                skipSharedRailXRule,
+                executionMode);
+        }
+
+        public MotionGuardResult VerifyAxisStepJog(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule,
+            MotionGuardExecutionMode executionMode)
+        {
+            string movingName = axis != null ? axis.Name : string.Empty;
+            return VerifyMove(
+                movingName,
+                targetPosition,
+                MotionGuardMoveKind.AxisStepJog,
+                targetName,
+                context,
+                skipSharedRailXRule,
+                executionMode);
+        }
+
         public MotionGuardResult VerifyCylinderMove(BaseCylinder cylinder, bool moveFwd, MotionGuardContext context)
         {
             string movingName = cylinder != null ? cylinder.Name : string.Empty;
@@ -242,7 +283,15 @@ namespace QMC.CDT320.Interlocks
                 return result;
             }
 
-            result.Message = BuildMessage(movingKey, targetValue, targetName, checks, context);
+            result.Message = BuildMessage(
+                movingKey,
+                targetValue,
+                targetName,
+                checks,
+                context,
+                moveKind,
+                effectiveMoveKind,
+                executionMode);
             return result;
         }
 
@@ -250,9 +299,14 @@ namespace QMC.CDT320.Interlocks
             MotionGuardMoveKind moveKind,
             MotionGuardExecutionMode executionMode)
         {
-            if (executionMode == MotionGuardExecutionMode.ManualSequenceProcess &&
+            if ((executionMode == MotionGuardExecutionMode.AutoSequenceProcess ||
+                 executionMode == MotionGuardExecutionMode.ManualSequenceProcess) &&
                 moveKind == MotionGuardMoveKind.AxisMove)
                 return MotionGuardMoveKind.AxisTeachingMove;
+
+            if (moveKind == MotionGuardMoveKind.AxisContinuousJog ||
+                moveKind == MotionGuardMoveKind.AxisStepJog)
+                return MotionGuardMoveKind.AxisMove;
 
             return moveKind;
         }
@@ -262,7 +316,10 @@ namespace QMC.CDT320.Interlocks
             double targetValue,
             string targetName,
             IReadOnlyList<InterlockCheckPair> checks,
-            MotionGuardContext context)
+            MotionGuardContext context,
+            MotionGuardMoveKind originalMoveKind,
+            MotionGuardMoveKind effectiveMoveKind,
+            MotionGuardExecutionMode executionMode)
         {
             string targets = string.Join(", ", checks.Select(x =>
                 x.CheckKey + "@" + x.SourceCell).ToArray());
@@ -274,8 +331,35 @@ namespace QMC.CDT320.Interlocks
 
             return "Matrix check required. moving=" + movingKey +
                    ", target=" + targetValue.ToString("F3") +
+                   ", moveKind=" + effectiveMoveKind +
+                   ", originalMoveKind=" + originalMoveKind +
+                   ", executionMode=" + executionMode +
                    (string.IsNullOrWhiteSpace(targetName) ? "" : ", targetName=" + targetName) +
+                   BuildIntentMessage(targetName) +
                    ", checks=[" + targets + "]." + suffix;
+        }
+
+        private static string BuildIntentMessage(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                return string.Empty;
+
+            MotionGuardMoveIntent intent = MotionGuardMoveIntent.Parse(targetName);
+            string message = ", intentZone=" + intent.PickerZone +
+                             ", inspectionContinuous=" + intent.InspectionContinuous +
+                             ", autoProcessCorrection=" + intent.AutoProcessCorrection +
+                             ", inspectionZHold=" + intent.InspectionZHold;
+
+            if (intent.InputStageWorkAreaX.HasValue)
+                message += ", inputStageWorkAreaX=" + intent.InputStageWorkAreaX.Value.ToString("F3");
+
+            if (intent.AutoProcessCorrectionMax.HasValue)
+                message += ", autoProcessCorrectionMax=" + intent.AutoProcessCorrectionMax.Value.ToString("F3");
+
+            if (intent.InspectionFromZone != PickerWorkZone.Unknown || intent.InspectionToZone != PickerWorkZone.Unknown)
+                message += ", inspectionTransition=" + intent.InspectionFromZone + "->" + intent.InspectionToZone;
+
+            return message;
         }
 
         private static int CountMissingTargets(IReadOnlyList<InterlockCheckPair> checks, MotionGuardContext context)

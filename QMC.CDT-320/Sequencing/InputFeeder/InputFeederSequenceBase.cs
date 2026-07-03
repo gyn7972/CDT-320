@@ -40,11 +40,15 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct, InputFeederSequenceOptions options)
         {
-            using (SequenceLog.Push(QMC.Common.Logging.EventKind.InputSeq, Name, () => CurrentStep.ToString()))
+            Options = options ?? InputFeederSequenceOptions.Default();
+            using (SequenceLog.Push(QMC.Common.Logging.EventKind.InputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
-                Options = options ?? InputFeederSequenceOptions.Default();
                 CurrentStep = ResolveStartStep(InitialStep);
+                SequenceTrace.RunStart(Name, Options.RunMode.ToString(), "kind=" + Kind);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
                 while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
@@ -53,28 +57,38 @@ namespace QMC.CDT320.Sequencing
                     Context.LogPublic("[INPUT-FEEDER] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
 
                     TStep executingStep = CurrentStep;
+                    SequenceTrace.StepStart(Name, executingStep.ToString(), "kind=" + Kind);
                     int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
                     if (result != 0)
+                    {
+                        SequenceTrace.StepFail(Name, executingStep.ToString(), result, "kind=" + Kind, "next=" + CurrentStep);
+                        SequenceTrace.RunEnd(Name, "Failed", result, "kind=" + Kind, "step=" + executingStep);
                         return result;
+                    }
 
                     if (!IsStep(CurrentStep, ErrorStep))
                         SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
+                    SequenceTrace.StepEnd(Name, executingStep.ToString(), result, "kind=" + Kind, "next=" + CurrentStep);
                 }
 
                 Context.LogPublic("[INPUT-FEEDER] " + Options.RunMode + " " + Kind + " complete");
                 SequenceResumeStore.MarkCompleted(SequenceStateName);
                 WriteLog("RunAsync", "Input feeder " + Kind + " sequence completed. - Ok");
+                SequenceTrace.RunEnd(Name, "Completed", 0, "kind=" + Kind);
                 return 0;
             }
             catch (OperationCanceledException)
             {
                 WriteLog("RunAsync", "Input feeder " + Kind + " sequence canceled at step=" + CurrentStep + ". - Failed");
+                SequenceTrace.RunEnd(Name, "Canceled", -1, "kind=" + Kind, "step=" + CurrentStep);
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("IN-FEEDER-EX", Name, "Input feeder " + Kind + " exception at step=" + CurrentStep + ": " + ex.Message);
+                int failResult = Fail("IN-FEEDER-EX", Name, "Input feeder " + Kind + " exception at step=" + CurrentStep + ": " + ex.Message);
+                SequenceTrace.RunEnd(Name, "Failed", failResult, "kind=" + Kind, "step=" + CurrentStep, "error=" + ex.Message);
+                return failResult;
             }
             finally
             {

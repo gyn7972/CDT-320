@@ -144,7 +144,7 @@ namespace QMC.CDT320.Sequencing
                 action);
         }
 
-        private static Task<int> MeasureIntAsync(
+        private static async Task<int> MeasureIntAsync(
             TactTimeRecorder recorder,
             TactTimeCategory category,
             SequenceTactInfo info,
@@ -152,14 +152,62 @@ namespace QMC.CDT320.Sequencing
             Func<Task<int>> action)
         {
             recorder = recorder ?? NullTactTimeRecorder.Instance;
-            return recorder.MeasureAsync(
+            string stepOrProcess = !string.IsNullOrWhiteSpace(info.StepName) ? info.StepName : info.ProcessName;
+            SequenceTrace.TactStart(
                 category,
-                info.UnitName,
                 info.SequenceName,
-                info.ProcessName,
-                info.StepName,
-                ct,
-                action);
+                stepOrProcess,
+                "unit=" + info.UnitName,
+                "process=" + info.ProcessName,
+                "detail=" + info.Detail);
+
+            try
+            {
+                int result = await recorder.MeasureAsync(
+                    category,
+                    info.UnitName,
+                    info.SequenceName,
+                    info.ProcessName,
+                    info.StepName,
+                    ct,
+                    action).ConfigureAwait(false);
+
+                SequenceTrace.TactEnd(
+                    category,
+                    info.SequenceName,
+                    stepOrProcess,
+                    result,
+                    "unit=" + info.UnitName,
+                    "process=" + info.ProcessName,
+                    "detail=" + info.Detail);
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                SequenceTrace.TactEnd(
+                    category,
+                    info.SequenceName,
+                    stepOrProcess,
+                    -1,
+                    "unit=" + info.UnitName,
+                    "process=" + info.ProcessName,
+                    "status=Canceled",
+                    "detail=" + info.Detail);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                SequenceTrace.TactEnd(
+                    category,
+                    info.SequenceName,
+                    stepOrProcess,
+                    -1,
+                    "unit=" + info.UnitName,
+                    "process=" + info.ProcessName,
+                    "error=" + ex.Message,
+                    "detail=" + info.Detail);
+                throw;
+            }
         }
 
         private sealed class SequenceTactInfo

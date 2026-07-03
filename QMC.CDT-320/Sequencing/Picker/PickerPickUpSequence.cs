@@ -530,8 +530,12 @@ namespace QMC.CDT320.Sequencing
                         "InputCamera Mark 검사 허가를 받았지만 InputStageUnit이 없습니다.");
 
                 if (!stage.IsVisionXInAvoidPosition())
+                {
+                    InputCameraPickUpPermissionStore.Grant(Side, permittedItems);
                     return Fail("PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID", stage.Name,
-                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. side=" + Side);
+                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. " +
+                        "허가는 복구했으며, 다른 InputCamera 선행검사가 PickUp 허가 이후 InputVisionX를 이동했는지 확인해야 합니다. side=" + Side);
+                }
 
                 if (permittedItems == null || permittedItems.Count == 0)
                 {
@@ -1010,21 +1014,36 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + offsetReason);
                 }
 
-                _targetStageY = _pickTarget.TargetY +
-                    inputVisionToPickerY +
-                    _visionOffset.DeltaY;
-                _targetPickerX = _pickTarget.TargetX +
-                    inputVisionToPickerX +
-                    ResolvePickerAlignOffsetX(_currentPickerIndex) +
-                    _visionOffset.DeltaX;
-                _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
-                _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition") +
-                    ResolvePickerAlignOffsetT(_currentPickerIndex) +
-                    _visionOffset.DeltaTheta;
-                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition");
-                _targetNeedleX = ResolveNeedleXForVisionX(_pickTarget.TargetX, _visionOffset.DeltaX);
-                _targetNeedleZ = ResolveNeedleZPickTarget();
-                _targetEjectPinZ = ResolveEjectPinZPickTarget();
+                PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(
+                    Name,
+                    Side,
+                    _currentPickerIndex,
+                    _currentDieId,
+                    _pickTarget.TargetX,
+                    _pickTarget.TargetY,
+                    inputVisionToPickerX,
+                    inputVisionToPickerY,
+                    ResolvePickerAlignOffsetX(_currentPickerIndex),
+                    ResolvePickerAlignOffsetT(_currentPickerIndex),
+                    _visionOffset.DeltaX,
+                    _visionOffset.DeltaY,
+                    _visionOffset.DeltaTheta,
+                    ResolveNeedleCalibrationOffsetX(),
+                    ResolveNeedleCalibrationOffsetY(),
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition"),
+                    GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition"),
+                    GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition"),
+                    ResolveNeedleZPickTarget(),
+                    ResolveEjectPinZPickTarget());
+
+                _targetStageY = coordinate.StageY;
+                _targetPickerX = coordinate.PickerX;
+                _targetPickerY = coordinate.PickerY;
+                _targetPickerT = coordinate.PickerT;
+                _targetPickerZ = coordinate.PickerZ;
+                _targetNeedleX = coordinate.NeedleX;
+                _targetNeedleZ = coordinate.NeedleZ;
+                _targetEjectPinZ = coordinate.EjectPinZ;
 
                 WriteLog("PickerPickUpSequence",
                     Name + " calculated pick target. die=" + _currentDieId +
@@ -1041,8 +1060,10 @@ namespace QMC.CDT320.Sequencing
                     ", inputStageY=" + _pickTarget.TargetY +
                     ", inputVisionToPickerOffsetX=" + inputVisionToPickerX +
                     ", inputVisionToPickerOffsetY=" + inputVisionToPickerY +
+                    ", formula=" + coordinate.Formula +
                     ", visionOffsetX=" + _visionOffset.DeltaX +
                     ", visionOffsetY=" + _visionOffset.DeltaY +
+                    ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", visionOffsetT=" + _visionOffset.DeltaTheta + " - Ok");
 
                 return 0;
@@ -1270,9 +1291,9 @@ namespace QMC.CDT320.Sequencing
         {
             string targetName = "DiePickPosition[" + _currentPickerIndex + "]";
             if (Options != null && Options.RunMode == SequenceRunMode.Auto && _pickCursor > 0)
-                return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input";
+                return AppendAutoProcessCorrectionTargetTag(targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Input");
 
-            return targetName;
+            return AppendAutoProcessCorrectionTargetTag(targetName);
         }
 
         private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)
@@ -1303,6 +1324,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                WriteLog("PickerPickUpSequence",
+                    Name + " PickUp 안전 진입: Picker X/T 이동 전에 PickerY를 Avoid로 정리했습니다. " +
+                    "pickIndex=" + (_pickCursor + 1) +
+                    "/" + _pickBatchItems.Count +
+                    ", pickerNo=" + _currentPickerNo + " - Ok");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -3149,11 +3175,41 @@ namespace QMC.CDT320.Sequencing
 
         private double ResolveNeedleXForVisionX(double visionX, double visionOffsetX = 0.0)
         {
-            InputStageUnit stage = ResolveInputStage();
-            double offset = stage != null && stage.Setup != null
-                ? stage.Setup.NeedleXToVisionXOffset
-                : 0.0;
+            double offset = ResolveNeedleCalibrationOffsetX();
             return visionX + visionOffsetX - offset;
+        }
+
+        private double ResolveNeedleYForVisionYOffset()
+        {
+            return ResolveNeedleCalibrationOffsetY();
+        }
+
+        private double ResolveNeedleCalibrationOffsetX()
+        {
+            if (Context == null ||
+                Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                !Context.Machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                return 0.0;
+
+            return Context.Machine.VisionUnit.Config.CalibrationData.Needle.NeedleXToVisionXOffset;
+        }
+
+        private double ResolveNeedleCalibrationOffsetY()
+        {
+            if (Context == null ||
+                Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                Context.Machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                !Context.Machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                return 0.0;
+
+            return Context.Machine.VisionUnit.Config.CalibrationData.Needle.NeedleYToVisionYOffset;
         }
 
         private double ResolveNeedleZPickTarget()
@@ -3215,6 +3271,9 @@ namespace QMC.CDT320.Sequencing
 
         private VisionAlignResult SimulateInputVisionOffset()
         {
+            if (IsDryRunWithVisionDisabled())
+                return CreateZeroInputVisionOffset();
+
             lock (SimVisionRandomLock)
             {
                 return new VisionAlignResult
@@ -4032,9 +4091,11 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 int result;
+                BaseAxis item = ResolveInputStageAxis(stage, axis);
+                string guardTargetName = "PickerPickUp;Side=" + Side + ";" + axis + ";" + description;
                 if (axis == WaferStageAxis.VisionX)
                 {
-                    using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "PickerPickUp;Side=" + Side + ";InputVisionX;" + description))
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
                     {
                         result = await AwaitStepWithCancellationAsync(
                             stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
@@ -4043,9 +4104,12 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    result = await AwaitStepWithCancellationAsync(
-                        stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
-                        ct).ConfigureAwait(false);
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
+                    {
+                        result = await AwaitStepWithCancellationAsync(
+                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                            ct).ConfigureAwait(false);
+                    }
                 }
 
                 if (result != 0)

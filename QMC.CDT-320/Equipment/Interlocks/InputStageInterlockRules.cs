@@ -607,10 +607,12 @@ namespace QMC.CDT320.Interlocks
 
             bool xMoving = state != null && state.PickerX != null && state.PickerX.IsMoving;
             bool yMoving = state != null && state.PickerY != null && state.PickerY.IsMoving;
-            bool blocking = state != null && (state.BlocksTransport || xMoving || yMoving);
+            bool movingIntoOrInsideInput = IsPickerInputZoneMotionRisk(state, xMoving, yMoving);
+            bool blocking = state != null && (state.BlocksTransport || movingIntoOrInsideInput);
             string detail =
                 "movingX=" + xMoving +
                 ", movingY=" + yMoving +
+                ", movingInputRisk=" + movingIntoOrInsideInput +
                 ", " + (state != null ? state.Describe() : "state=null");
 
             if (!blocking)
@@ -620,6 +622,21 @@ namespace QMC.CDT320.Interlocks
                 "InputVisionX",
                 "InputVisionX 이동 불가: " + prefix + "Picker가 Input 영역을 점유하거나 간섭 중입니다. " + detail,
                 out reason);
+        }
+
+        private static bool IsPickerInputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
+        {
+            if (!xMoving && !yMoving)
+                return false;
+
+            if (state == null)
+                return true;
+
+            return state.CurrentZone == PickerWorkZone.Input ||
+                   state.TargetZone == PickerWorkZone.Input ||
+                   state.CurrentZone == PickerWorkZone.Unknown ||
+                   state.TargetZone == PickerWorkZone.Unknown ||
+                   state.UnknownUnsafe;
         }
 
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
@@ -914,7 +931,7 @@ namespace QMC.CDT320.Interlocks
                 if (stage != null && !stage.IsNeedleZInSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "NeedleX",
-                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        "NeedleX manual move blocked. NeedleZ must be at Avoid position.",
                         out reason);
 
                 return true;
@@ -923,7 +940,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "NeedleX",
-                    "Exception occurred while verifying NeedleX home rules: " + ex.Message,
+                    "Exception occurred while verifying NeedleX manual move rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -1060,8 +1077,7 @@ namespace QMC.CDT320.Interlocks
             if (request == null)
                 return false;
 
-            string targetName = MotionGuardRuleHelpers.NormalizeTargetName(request.TargetName);
-            return string.Equals(targetName, "ContinuousJog", System.StringComparison.OrdinalIgnoreCase);
+            return request.Intent != null && request.Intent.ContinuousJog;
         }
 
         private static bool VerifyInputStageWorkArea(MotionGuardRuleContext request, WaferStageAxis axis, string movingName, out string reason)
@@ -1119,25 +1135,11 @@ namespace QMC.CDT320.Interlocks
             workAreaX = 0.0;
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                if (request == null || request.Intent == null || !request.Intent.InputStageWorkAreaX.HasValue)
                     return false;
 
-                const string key = "InputStageWorkAreaX=";
-                int index = request.TargetName.IndexOf(key, System.StringComparison.OrdinalIgnoreCase);
-                if (index < 0)
-                    return false;
-
-                int valueStart = index + key.Length;
-                int valueEnd = request.TargetName.IndexOf(';', valueStart);
-                string value = valueEnd >= valueStart
-                    ? request.TargetName.Substring(valueStart, valueEnd - valueStart)
-                    : request.TargetName.Substring(valueStart);
-
-                return double.TryParse(
-                    value,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out workAreaX);
+                workAreaX = request.Intent.InputStageWorkAreaX.Value;
+                return true;
             }
             catch
             {

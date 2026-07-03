@@ -42,10 +42,14 @@ namespace QMC.CDT320.Sequencing
         public async Task RunAsync(CancellationToken ct)
         {
             // 이 유닛(및 하위 시퀀스)의 모든 공개 로그를 유닛 종류에 맞는 EventKind 로 분류한다.
-            using (SequenceLog.Push(SequenceLog.FromUnitKind(Kind), Name, null))
+            using (SequenceLog.Push(SequenceLog.FromUnitKind(Kind), Name, null, GetType().Name, Mode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Mode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Mode))
             {
                 SequenceActivityMonitor activity = Context.Activity;
                 string baseAction = Mode == SequenceRunMode.Auto ? "자동 시퀀스 실행" : "수동/스텝 시퀀스 실행";
+                SequenceTrace.RunStart(GetType().Name, Mode.ToString(), "unit=" + Name, "kind=" + Kind);
 
                 // 상태 표시는 기존 throw 흐름을 그대로 유지하고, 상태 객체만 갱신한다. (예외 삼키지 않음)
                 if (activity != null)
@@ -59,23 +63,29 @@ namespace QMC.CDT320.Sequencing
                         {
                             try
                             {
+                                SequenceTrace.StepStart(GetType().Name, "ExecuteAutoAsync", "unit=" + Name, "kind=" + Kind);
                                 await ExecuteAutoAsync(ct).ConfigureAwait(false);
+                                SequenceTrace.StepEnd(GetType().Name, "ExecuteAutoAsync", 0, "unit=" + Name, "kind=" + Kind);
                                 if (activity != null)
                                     activity.SetState(Kind, SequenceActivityState.Completed, "시퀀스가 정상 완료되었습니다.");
+                                SequenceTrace.RunEnd(GetType().Name, "Completed", 0, "unit=" + Name, "kind=" + Kind);
                                 tactScope.Complete();
                             }
                             catch (OperationCanceledException)
                             {
+                                SequenceTrace.StepFail(GetType().Name, "ExecuteAutoAsync", -1, "status=Canceled");
                                 tactScope.Cancel("시퀀스가 취소되었습니다.");
                                 throw;
                             }
                             catch (SequenceStopException ex)
                             {
+                                SequenceTrace.StepFail(GetType().Name, "ExecuteAutoAsync", -1, "status=Stopped", "reason=" + ex.Message);
                                 tactScope.Stop("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
                                 throw;
                             }
                             catch (Exception ex)
                             {
+                                SequenceTrace.StepFail(GetType().Name, "ExecuteAutoAsync", -1, "status=Failed", "error=" + ex.Message);
                                 tactScope.Fail("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
                                 throw;
                             }
@@ -98,21 +108,26 @@ namespace QMC.CDT320.Sequencing
                             {
                                 try
                                 {
+                                    SequenceTrace.StepStart(GetType().Name, "ExecuteStepAsync", "unit=" + Name, "kind=" + Kind);
                                     await ExecuteStepAsync(ct).ConfigureAwait(false);
+                                    SequenceTrace.StepEnd(GetType().Name, "ExecuteStepAsync", 0, "unit=" + Name, "kind=" + Kind);
                                     tactScope.Complete();
                                 }
                                 catch (OperationCanceledException)
                                 {
+                                    SequenceTrace.StepFail(GetType().Name, "ExecuteStepAsync", -1, "status=Canceled");
                                     tactScope.Cancel("시퀀스가 취소되었습니다.");
                                     throw;
                                 }
                                 catch (SequenceStopException ex)
                                 {
+                                    SequenceTrace.StepFail(GetType().Name, "ExecuteStepAsync", -1, "status=Stopped", "reason=" + ex.Message);
                                     tactScope.Stop("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
                                     throw;
                                 }
                                 catch (Exception ex)
                                 {
+                                    SequenceTrace.StepFail(GetType().Name, "ExecuteStepAsync", -1, "status=Failed", "error=" + ex.Message);
                                     tactScope.Fail("", string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
                                     throw;
                                 }
@@ -131,6 +146,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     if (activity != null)
                         activity.SetState(Kind, SequenceActivityState.Canceled, "시퀀스가 취소되었습니다.");
+                    SequenceTrace.RunEnd(GetType().Name, "Canceled", -1, "unit=" + Name, "kind=" + Kind);
                     throw;
                 }
                 catch (SequenceStopException ex)
@@ -138,6 +154,7 @@ namespace QMC.CDT320.Sequencing
                     if (activity != null)
                         activity.SetState(Kind, SequenceActivityState.Stopped,
                             string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스가 정지되었습니다." : ex.Message);
+                    SequenceTrace.RunEnd(GetType().Name, "Stopped", -1, "unit=" + Name, "kind=" + Kind, "reason=" + ex.Message);
                     throw;
                 }
                 catch (Exception ex)
@@ -145,6 +162,7 @@ namespace QMC.CDT320.Sequencing
                     if (activity != null)
                         activity.SetState(Kind, SequenceActivityState.Alarm,
                             string.IsNullOrWhiteSpace(ex.Message) ? "시퀀스 실행 중 오류가 발생했습니다." : ex.Message);
+                    SequenceTrace.RunEnd(GetType().Name, "Failed", -1, "unit=" + Name, "kind=" + Kind, "error=" + ex.Message);
                     throw;
                 }
             }

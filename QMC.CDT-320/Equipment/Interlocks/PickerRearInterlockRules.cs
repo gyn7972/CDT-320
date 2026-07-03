@@ -58,6 +58,9 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyRearPickerZAxesAvoidForMove(rear, "RearPickerX", request, out reason))
                     return false;
 
+                if (!VerifyVisionXAvoidForColletCalibrationBottomMove(machine, "RearPickerX", request, out reason))
+                    return false;
+
                 if (!PickerZoneInterlockRules.VerifyRearPickerXMove(request, out reason))
                     return false;
 
@@ -167,6 +170,57 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool VerifyVisionXAvoidForColletCalibrationBottomMove(CDT320_Machine machine, string movingName, MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            if (!IsColletCalibrationBottomMove(request))
+                return true;
+
+            if (!VerifyInputVisionXAvoidForPickerX(machine, movingName, out reason))
+                return false;
+
+            try
+            {
+                OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+                if (stage == null || stage.OutputCameraX == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAxisMoving(stage.OutputCameraX))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: Collet Calibration Bottom 진입 전 OutputVisionX가 이동 중입니다.",
+                        out reason);
+                }
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return true;
+
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Collet Calibration Bottom 진입 전 OutputVisionX가 Avoid 위치에 있어야 합니다. actual=" +
+                    stage.OutputCameraX.ActualPosition.ToString("F3") +
+                    ", avoid=" + avoid.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " Collet Calibration Bottom 진입 전 OutputVisionX Avoid 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        private static bool IsColletCalibrationBottomMove(MotionGuardRuleContext request)
+        {
+            return request != null &&
+                   request.Intent != null &&
+                   request.Intent.ColletCalibration &&
+                   request.Intent.PickerZone == PickerWorkZone.Bottom;
+        }
+
         private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -174,6 +228,10 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (IsInspectionZHoldMove(request))
+                return true;
+
+            string fineAlignDetail;
+            if (MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail))
                 return true;
 
             PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -192,15 +250,12 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsInspectionZHoldMove(MotionGuardRuleContext request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+            if (request == null || request.Intent == null || !request.Intent.InspectionZHold)
                 return false;
 
-            if (request.TargetName.IndexOf("PickerPhase=InspectionZHold", System.StringComparison.OrdinalIgnoreCase) < 0)
-                return false;
-
-            return request.TargetName.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   request.TargetName.IndexOf("DiePlacePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            return request.Intent.PickerZone == PickerWorkZone.Bottom ||
+                   request.Intent.PickerZone == PickerWorkZone.Side ||
+                   request.Intent.PickerZone == PickerWorkZone.Output;
         }
 
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
@@ -226,7 +281,9 @@ namespace QMC.CDT320.Interlocks
         private static bool CanAutoRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
+            string fineAlignDetail;
             if (!IsInspectionZHoldMove(request) &&
+                !MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail) &&
                 !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                 return false;
 
@@ -610,17 +667,8 @@ namespace QMC.CDT320.Interlocks
 
         private static PickerWorkZone ResolvePickerZTargetZone(MotionGuardRuleContext request)
         {
-            string name = request != null ? request.TargetName ?? string.Empty : string.Empty;
-            if (Contains(name, "PickerZone=Input") || Contains(name, "DiePick") || Contains(name, "PickPosition"))
-                return PickerWorkZone.Input;
-            if (Contains(name, "PickerZone=Output") || Contains(name, "DiePlace") || Contains(name, "PlacePosition"))
-                return PickerWorkZone.Output;
-            if (Contains(name, "PickerZone=Bottom") || Contains(name, "DieBottom") || Contains(name, "BottomPosition"))
-                return PickerWorkZone.Bottom;
-            if (Contains(name, "PickerZone=Side") || Contains(name, "DieSide") || Contains(name, "SidePosition"))
-                return PickerWorkZone.Side;
-            if (Contains(name, "PickerZone=Avoid") || Contains(name, "AvoidPosition") || Contains(name, "SafeRetreat"))
-                return PickerWorkZone.Avoid;
+            if (request != null && request.Intent != null)
+                return request.Intent.PickerZone;
 
             return PickerWorkZone.Unknown;
         }

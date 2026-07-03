@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
@@ -13,6 +14,8 @@ namespace QMC.CDT320.Sequencing
 {
     internal abstract class PickerSequenceBase<TStep> where TStep : struct
     {
+        private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
+
         protected PickerSequenceBase(
             MachineSequenceContext context,
             PickerSequenceSide side,
@@ -49,6 +52,11 @@ namespace QMC.CDT320.Sequencing
             get { return Side == PickerSequenceSide.Front ? MaterialLocationKind.PickerFront : MaterialLocationKind.PickerRear; }
         }
 
+        protected SequenceResourceKind PickerResourceKind
+        {
+            get { return Side == PickerSequenceSide.Front ? SequenceResourceKind.FrontPicker : SequenceResourceKind.RearPicker; }
+        }
+
         public async Task<int> RunAsync(CancellationToken ct, PickerSequenceOptions options)
         {
             Options = options ?? PickerSequenceOptions.Default();
@@ -56,29 +64,44 @@ namespace QMC.CDT320.Sequencing
 
             using (SequenceLog.Push(
                 Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq,
-                Name, () => CurrentStep.ToString()))
+                Name, () => CurrentStep.ToString(), GetType().Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
                 ct.ThrowIfCancellationRequested();
+                SequenceTrace.RunStart(GetType().Name, Options.RunMode.ToString(), "name=" + Name, "side=" + Side, "kind=" + Kind);
                 WriteLog("RunAsync", Name + " sequence start. kind=" + Kind + " - Start");
                 int result = await ExecuteAsync(ct).ConfigureAwait(false);
                 if (result == 0)
+                {
                     WriteLog("RunAsync", Name + " sequence complete. kind=" + Kind + " - Ok");
+                    SequenceTrace.RunEnd(GetType().Name, "Completed", result, "name=" + Name, "side=" + Side, "kind=" + Kind);
+                }
+                else
+                {
+                    SequenceTrace.RunEnd(GetType().Name, "Failed", result, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep);
+                }
                 return result;
             }
             catch (OperationCanceledException)
             {
                 WriteLog("RunAsync", Name + " sequence canceled. kind=" + Kind + " - Failed");
+                SequenceTrace.RunEnd(GetType().Name, "Canceled", -1, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep);
                 throw;
             }
             catch (SequenceStopException ex)
             {
                 WriteLog("RunAsync", Name + " sequence stopped. kind=" + Kind + ", reason=" + ex.Message + " - Stopped");
+                SequenceTrace.RunEnd(GetType().Name, "Stopped", -1, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep, "reason=" + ex.Message);
                 throw;
             }
             catch (Exception ex)
             {
-                return Fail("PICKER-SEQ-EX", Name, Name + " sequence exception: " + ex.Message);
+                int failResult = Fail("PICKER-SEQ-EX", Name, Name + " sequence exception: " + ex.Message);
+                SequenceTrace.RunEnd(GetType().Name, "Failed", failResult, "name=" + Name, "side=" + Side, "kind=" + Kind, "step=" + CurrentStep, "error=" + ex.Message);
+                return failResult;
             }
             finally
             {
@@ -153,6 +176,41 @@ namespace QMC.CDT320.Sequencing
                 return IsRearPickerSimulationOrDryRun();
 
             return false;
+        }
+
+        protected string AppendAutoProcessCorrectionTargetTag(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                targetName = string.Empty;
+
+            if (!IsRealEquipmentOrDryRunAutoSequence())
+                return targetName;
+
+            if (targetName.IndexOf("AutoProcessCorrection", StringComparison.OrdinalIgnoreCase) >= 0)
+                return targetName;
+
+            return targetName +
+                   ";AutoSequence;AutoProcessCorrection;AutoProcessCorrectionMax=" +
+                   DefaultAutoProcessCorrectionMaxDistance.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        protected bool IsRealEquipmentOrDryRunAutoSequence()
+        {
+            if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                return false;
+
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.UseAjin && (settings.DryRunMode || !settings.SimulationMode);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         protected bool IsPickerMotionOnlyTestMode()
@@ -319,13 +377,26 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("PickerMove",
                         Name + " " + description + " move skipped. Axis already in position. " +
                         BuildPickerAxisState(axis, target) + " - Ok");
+                    SequenceTrace.MotionEnd("PickerMove", 0,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=AlreadyInPosition");
                     return 0;
                 }
 
                 PickerMoveAxisLogDetail axisDetail = BuildPickerMoveAxisLogDetail(axis, target);
+                SequenceTrace.MotionStart("PickerMove",
+                    "axis=" + axis,
+                    "target=" + target,
+                    "actual=" + axisDetail.Start,
+                    "description=" + description,
+                    "targetName=" + targetName);
 
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     axis,
+                    target,
+                    null,
                     targetName,
                     description,
                     ct).ConfigureAwait(false);
@@ -346,11 +417,19 @@ namespace QMC.CDT320.Sequencing
                     return StopPickerMoveBecauseAlarmActive(description);
 
                 Stopwatch commandWatch = Stopwatch.StartNew();
-                int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
+                int result = await SequenceAwaiter.AwaitAsync(
+                    MovePickerAxisCommandAsync(axis, target, targetName),
+                    -1,
+                    ct).ConfigureAwait(false);
                 commandMs = commandWatch.ElapsedMilliseconds;
                 if (result != 0)
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, null);
+                    SequenceTrace.MotionEnd("PickerMove", result,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=CommandFailed");
                     return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
                 }
 
@@ -360,6 +439,13 @@ namespace QMC.CDT320.Sequencing
                 if (waitResult == null || !waitResult.Success)
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    SequenceTrace.MotionEnd("PickerMove", -1,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=WaitFailed",
+                        "timeoutMs=" + ResolveTimeout(),
+                        "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
@@ -368,12 +454,25 @@ namespace QMC.CDT320.Sequencing
                 if (!IsPickerAxisInPosition(axis, target))
                 {
                     //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                    SequenceTrace.MotionEnd("PickerMove", -1,
+                        "axis=" + axis,
+                        "target=" + target,
+                        "description=" + description,
+                        "status=FinalPositionFailed");
                     return Fail("PICKER-MOVE-FINAL-POS", Name,
                         description + " final position check failed after move. " +
                         BuildPickerAxisState(axis, target));
                 }
 
                 //WritePickerSequenceMoveElapsed(axisDetail, targetName, description, result, commandMs, waitMs, totalWatch.ElapsedMilliseconds, waitResult);
+                SequenceTrace.MotionEnd("PickerMove", 0,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "actual=" + (GetPickerAxis(axis) != null ? GetPickerAxis(axis).ActualPosition.ToString() : ""),
+                    "description=" + description,
+                    "commandMs=" + commandMs,
+                    "waitMs=" + waitMs,
+                    "elapsedMs=" + totalWatch.ElapsedMilliseconds);
                 ct.ThrowIfCancellationRequested();
                 return 0;
             }
@@ -383,6 +482,12 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                SequenceTrace.MotionEnd("PickerMove", -1,
+                    "axis=" + axis,
+                    "target=" + target,
+                    "description=" + description,
+                    "status=Exception",
+                    "error=" + ex.Message);
                 return Fail("PICKER-MOVE-EX", Name, description + " move exception: " + ex.Message);
             }
             finally
@@ -463,7 +568,10 @@ namespace QMC.CDT320.Sequencing
                 if (commandTasks.Count > 0)
                 {
                     Stopwatch commandWatch = Stopwatch.StartNew();
-                    int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
+                    int[] commandResults = await SequenceAwaiter.AwaitAsync(
+                        Task.WhenAll(commandTasks),
+                        new int[0],
+                        ct).ConfigureAwait(false);
                     commandMs = commandWatch.ElapsedMilliseconds;
                     for (int commandIndex = 0; commandIndex < commandTargets.Count; commandIndex++)
                     {
@@ -480,7 +588,10 @@ namespace QMC.CDT320.Sequencing
                         waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
 
                     Stopwatch waitWatch = Stopwatch.StartNew();
-                    AxisMoveWaitResult[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
+                    AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
+                        Task.WhenAll(waitTasks),
+                        new AxisMoveWaitResult[0],
+                        ct).ConfigureAwait(false);
                     waitMs = waitWatch.ElapsedMilliseconds;
                     for (int waitIndex = 0; waitIndex < commandTargets.Count; waitIndex++)
                     {
@@ -654,6 +765,12 @@ namespace QMC.CDT320.Sequencing
             if (!hasPickerY || IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget))
                 return 0;
 
+            WriteLog("PickerMove",
+                Name + " " + description + " X/T 이동 완료 후 PickerY 전진을 시작합니다. " +
+                "targetY=" + pickerYTarget +
+                ", targetName=" + (targetName ?? "-") +
+                " - Check");
+
             return await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,
                 pickerYTarget,
@@ -675,8 +792,11 @@ namespace QMC.CDT320.Sequencing
             if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
                 return 0;
 
+            double pairedXTarget;
             return await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                 PickerAxis.PickerY,
+                target,
+                targets.TryGetValue(PickerAxis.PickerX, out pairedXTarget) ? (double?)pairedXTarget : null,
                 targetName,
                 description,
                 ct).ConfigureAwait(false);
@@ -684,6 +804,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
             PickerAxis axis,
+            double target,
+            double? pairedXTarget,
             string targetName,
             string description,
             CancellationToken ct)
@@ -701,7 +823,8 @@ namespace QMC.CDT320.Sequencing
 
                 bool waitLogged = false;
                 PickerWorkZone targetZone = ResolvePickerYForwardTargetZone(targetName);
-                while (!IsOppositePickerYReadyForForwardMove(targetZone))
+                string gateDetail;
+                while (!IsOppositePickerYReadyForForwardMove(targetZone, target, pairedXTarget, targetName, out gateDetail))
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
@@ -714,12 +837,18 @@ namespace QMC.CDT320.Sequencing
                             "side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
                             ", targetZone=" + targetZone +
+                            ", targetY=" + target.ToString("0.###") +
+                            ", pairedXTarget=" + (pairedXTarget.HasValue ? pairedXTarget.Value.ToString("0.###") : "-") +
                             ", description=" + description +
+                            ", gate=" + gateDetail +
                             ", opposite=" + BuildOppositePickerYState() + " - Wait");
                         WriteSharedRailXLog(
                             Name + " PickerYMoveGate wait. side=" + Side +
                             ", targetName=" + (targetName ?? "-") +
                             ", targetZone=" + targetZone +
+                            ", targetY=" + target.ToString("0.###") +
+                            ", pairedXTarget=" + (pairedXTarget.HasValue ? pairedXTarget.Value.ToString("0.###") : "-") +
+                            ", gate=" + gateDetail +
                             ", description=" + description +
                             ", oppositeState=" + BuildOppositePickerSharedRailXState(null));
                         waitLogged = true;
@@ -783,14 +912,66 @@ namespace QMC.CDT320.Sequencing
             return true;
         }
 
-        private bool IsOppositePickerYReadyForForwardMove(PickerWorkZone targetZone)
+        private bool IsOppositePickerYReadyForForwardMove(
+            PickerWorkZone targetZone,
+            double targetY,
+            double? pairedXTarget,
+            string targetName,
+            out string detail)
         {
+            detail = string.Empty;
+
             try
             {
                 bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+
+                string facingDetail;
+                bool facingClear = PickerZoneInterlockRules.CanMovePickerAxisByFacingYInterlock(
+                    Context != null ? Context.Machine : null,
+                    Side == PickerSequenceSide.Front,
+                    PickerAxis.PickerY,
+                    targetY,
+                    targetName,
+                    pairedXTarget,
+                    null,
+                    out facingDetail);
+                if (!facingClear)
+                {
+                    detail = "FacingYDistanceBlocked: " + facingDetail;
+                    return false;
+                }
+
+                if (targetZone == PickerWorkZone.Bottom &&
+                    IsOppositePickerInPlacePhase() &&
+                    !IsOppositePickerYAtAvoidPosition())
+                {
+                    detail = "OppositePlacePhaseYOut";
+                    return false;
+                }
+
+                PickerWorkZone workAreaZone;
+                string workAreaOwner;
+                bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                    oppositeIsFront,
+                    out workAreaZone,
+                    out workAreaOwner);
+                if (targetZone == PickerWorkZone.Bottom &&
+                    oppositeWorkActive &&
+                    workAreaZone == PickerWorkZone.Output &&
+                    !IsOppositePickerYAtAvoidPosition())
+                {
+                    detail = "OppositeOutputWorkAreaYOut owner=" + workAreaOwner;
+                    return false;
+                }
+
                 PickerWorkZone activeTargetZone = PickerZoneInterlockRules.GetPickerYActiveTargetZone(oppositeIsFront);
                 if (activeTargetZone != PickerWorkZone.Unknown)
-                    return PickerZoneInterlockRules.CanShareForwardY(targetZone, activeTargetZone);
+                {
+                    bool canShare = PickerZoneInterlockRules.CanShareForwardY(targetZone, activeTargetZone);
+                    if (!canShare)
+                        detail = "OppositeActiveYTargetZone=" + activeTargetZone;
+                    return canShare;
+                }
 
                 if (IsOppositePickerYAtAvoidPosition())
                     return true;
@@ -798,11 +979,35 @@ namespace QMC.CDT320.Sequencing
                 PickerWorkZone oppositeZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
                     Context != null ? Context.Machine : null,
                     oppositeIsFront);
-                return PickerZoneInterlockRules.CanShareForwardY(targetZone, oppositeZone);
+                bool shareByZone = PickerZoneInterlockRules.CanShareForwardY(targetZone, oppositeZone);
+                if (!shareByZone)
+                    detail = "OppositeCurrentZone=" + oppositeZone;
+                return shareByZone;
             }
             catch
             {
+                detail = "OppositePickerYReadyCheckException";
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerInPlacePhase()
+        {
+            try
+            {
+                if (Context == null || Context.PickerPhases == null)
+                    return false;
+
+                PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                PickerPhaseState opposite = Side == PickerSequenceSide.Front ? snapshot.Rear : snapshot.Front;
+                return opposite.Phase == PickerProcessPhase.Place;
+            }
+            catch
+            {
+                return true;
             }
             finally
             {
@@ -1009,7 +1214,7 @@ namespace QMC.CDT320.Sequencing
             var xyTargets = new Dictionary<PickerAxis, double>();
             xyTargets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
             xyTargets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
-            xyTargets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName) + ResolvePickerAlignOffsetT(index);
+            xyTargets[GetPickerTAxis(index)] = ResolvePickerZoneT(positionArrayName, index);
 
             result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct, targetName).ConfigureAwait(false);
             if (result != 0)
@@ -1129,6 +1334,91 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-AVOID-EX", Name,
                     description + " Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // INV-6: 인터락/리스 해제·정지·Abort 전에 자기 픽커를 물리적으로 안전(Z=Avoid → Y=Avoid)하게 후퇴시키고 검증한다.
+        // 순서(Z 상승 후 Y 후퇴)가 안전의 핵심이다. 공용 레일 X는 여기서 움직이지 않는다(마주보기 위험 회피).
+        protected async Task<int> EnsureSelfSafeAsync(string reason, CancellationToken ct)
+        {
+            string label = string.IsNullOrWhiteSpace(reason) ? "EnsureSelfSafe" : reason;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    label + " Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    label + " Y축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-ENSURE-SELF-SAFE-EX", Name,
+                    label + " 자기 픽커 안전 후퇴 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // INV-7: 시작/재개 첫 이동 전, "자기(현재 side)" 픽커가 물리적으로 안전 배치(Avoid = Y·Z·X·T Avoid)인지 이동 없이 확인만 한다.
+        // 자기 픽커만 확인하는 이유: Front/Rear 공정은 병렬로 시작되므로 "양쪽"을 확인하면 상대가 정상적으로 첫 전진을 시작한 순간
+        // 오탐(false fail)이 난다. 각 픽커가 자기 CheckUnit(첫 이동 전)에서 자기 Avoid를 확인하면 전체적으로 양쪽 Avoid가 보장된다.
+        // Start 흐름은 항상 Ready 시퀀스로 상부축을 Avoid로 정렬한 뒤 공정을 시작하므로 정상 시작에서는 통과한다.
+        protected bool VerifySafeStartConfig(out string detail)
+        {
+            detail = string.Empty;
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    bool frontEnabled = FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
+                    if (frontEnabled && !FrontPicker.IsFrontPickerInAvoidPosition())
+                    {
+                        detail = "FrontPicker가 Avoid 위치가 아닙니다.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    bool rearEnabled = RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
+                    if (rearEnabled && !RearPicker.IsRearPickerInAvoidPosition())
+                    {
+                        detail = "RearPicker가 Avoid 위치가 아닙니다.";
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "안전 시작 배치 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
             finally
             {
@@ -1673,6 +1963,12 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
+        protected bool IsDryRunWithVisionDisabled()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return settings != null && settings.DryRunMode && !settings.UseVision;
+        }
+
         private int ResolveVisionInspectionSettleMs()
         {
             int value = 0;
@@ -1919,15 +2215,34 @@ namespace QMC.CDT320.Sequencing
 
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
-            return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(positionArrayName, pickerIndex) +
-                   ResolvePickerAlignOffsetX(pickerIndex);
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).X;
         }
 
         protected double ResolvePickerZoneY(string positionArrayName, int pickerIndex)
         {
-            return GetPickerTeachingPosition(PickerAxis.PickerY, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerAlignOffsetY(pickerIndex);
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).Y;
+        }
+
+        protected double ResolvePickerZoneT(string positionArrayName, int pickerIndex)
+        {
+            return ResolvePickerZoneTarget(positionArrayName, pickerIndex).T;
+        }
+
+        protected PickerZoneCoordinateResult ResolvePickerZoneTarget(string positionArrayName, int pickerIndex)
+        {
+            string zonePositionName = ResolveZonePositionName(positionArrayName);
+            return DieCoordinateTransformService.CalculatePickerZoneTarget(
+                Name,
+                Side,
+                positionArrayName,
+                pickerIndex,
+                GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName),
+                GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName),
+                ResolveTPosition(positionArrayName),
+                ResolvePickerPitchXOffset(positionArrayName, pickerIndex),
+                ResolvePickerAlignOffsetX(pickerIndex),
+                ResolvePickerAlignOffsetY(pickerIndex),
+                ResolvePickerAlignOffsetT(pickerIndex));
         }
 
         protected string ResolveZonePositionName(string positionArrayName)
@@ -1982,7 +2297,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerAlignOffsetX(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetX : 0.0;
+            return (offset != null ? offset.AlignOffsetX : 0.0) + ResolveColletCalibrationOffsetX(index);
         }
 
         protected double ResolvePickerPitchXOffset(string positionArrayName, int index)
@@ -2015,13 +2330,42 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerAlignOffsetY(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetY : 0.0;
+            return (offset != null ? offset.AlignOffsetY : 0.0) + ResolveColletCalibrationOffsetY(index);
         }
 
         protected double ResolvePickerAlignOffsetT(int index)
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.AlignOffsetT : 0.0;
+            return (offset != null ? offset.AlignOffsetT : 0.0) + ResolveColletCalibrationOffsetT(index);
+        }
+
+        private double ResolveColletCalibrationOffsetX(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.OffsetX : 0.0;
+        }
+
+        private double ResolveColletCalibrationOffsetY(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.OffsetY : 0.0;
+        }
+
+        private double ResolveColletCalibrationOffsetT(int index)
+        {
+            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
+            return record != null ? record.ThetaOffset : 0.0;
+        }
+
+        private ColletCalibrationRecord ResolveColletCalibrationRecord(int index)
+        {
+            if (Context == null || Context.Machine == null || index < 0)
+                return null;
+
+            VisionFocusPickerSide side = Side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
+            return CalibrationCoordinateService.ResolveCollet(Context.Machine, side, index);
         }
 
         protected double ResolveInputVisionToPickerXOffset(int index)

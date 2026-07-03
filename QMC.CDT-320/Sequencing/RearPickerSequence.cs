@@ -27,9 +27,10 @@ namespace QMC.CDT320.Sequencing
                         continue;
 
                     PickerSequenceOptions options = BuildSequenceOptions();
-                    int result = await new PickerProcessSequence(Context, PickerSequenceSide.Rear)
-                        .RunAsync(ct, options)
-                        .ConfigureAwait(false);
+                    PickerProcessSequence processSequence = new PickerProcessSequence(Context, PickerSequenceSide.Rear);
+                    int result = await SequenceTrace.ChildAsync("PickerProcessSequence", "Process",
+                        () => processSequence.RunAsync(ct, options),
+                        "side=Rear").ConfigureAwait(false);
                     if (result != 0)
                         throw new InvalidOperationException(
                             SequenceFailureStore.AppendRecentDetail(
@@ -150,7 +151,9 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
+                int result = await SequenceTrace.ChildAsync("PickerProcessSequence", "StepProcess",
+                    () => _stepSequence.RunAsync(ct, options),
+                    "side=Rear").ConfigureAwait(false);
                 if (result != 0)
                     throw new InvalidOperationException(
                         SequenceFailureStore.AppendRecentDetail(
@@ -221,12 +224,23 @@ namespace QMC.CDT320.Sequencing
                 if (rear == null || rear.IsRearPickerInAvoidPosition())
                     return;
 
-                WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
-                int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
-                if (result != 0 || !rear.IsRearPickerInAvoidPosition())
-                    throw new InvalidOperationException(
-                        "RearPicker 작업 대기 중 Avoid 이동 실패. result=" + result +
-                        ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
+                using (SequenceResourceLease pickerLease = await Context.Resources
+                    .AcquireAsync(SequenceResourceKind.RearPicker, "RearPicker:IdleAvoid", 200, ct, false)
+                    .ConfigureAwait(false))
+                {
+                    if (pickerLease == null)
+                        return;
+
+                    if (rear.IsRearPickerInAvoidPosition())
+                        return;
+
+                    WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
+                    int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
+                    if (result != 0 || !rear.IsRearPickerInAvoidPosition())
+                        throw new InvalidOperationException(
+                            "RearPicker 작업 대기 중 Avoid 이동 실패. result=" + result +
+                            ", finalAvoid=" + rear.IsRearPickerInAvoidPosition());
+                }
 
                 WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 위치 이동 완료. - Ok");
             }

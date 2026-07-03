@@ -21,17 +21,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private System.Windows.Forms.Label lblVisionInfo2;
         private System.Windows.Forms.Label lblVisionInfo3;
         private System.Windows.Forms.GroupBox grpManual;
-        private System.Windows.Forms.Panel manualPanel;
-        private System.Windows.Forms.TableLayoutPanel manualLayout;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnAvoidPosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnPickPosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnBottomPosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnSidePosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnPlacePosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnDiePickPosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnDieBottomPosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnDieSidePosition;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnDiePlacePosition;
+        private QMC.CDT_320.Ui.Controls.ManualActionPanelControl manualActionPanel;
         private System.Windows.Forms.GroupBox grpOptions;
         private ParameterGridControl optionParameterGrid;
         private System.Windows.Forms.GroupBox grpWait;
@@ -68,17 +58,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo2 = new System.Windows.Forms.Label();
             this.lblVisionInfo3 = new System.Windows.Forms.Label();
             this.grpManual = new System.Windows.Forms.GroupBox();
-            this.manualPanel = new System.Windows.Forms.Panel();
-            this.manualLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnAvoidPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnPickPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnBottomPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnSidePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnPlacePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnDiePickPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnDieBottomPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnDieSidePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnDiePlacePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.manualActionPanel = new QMC.CDT_320.Ui.Controls.ManualActionPanelControl();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpOptions = new System.Windows.Forms.GroupBox();
             this.optionParameterGrid = new QMC.CDT_320.Ui.Controls.ParameterGridControl();
@@ -103,8 +83,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tabSide.SuspendLayout();
             this.sideLayout.SuspendLayout();
             this.grpManual.SuspendLayout();
-            this.manualPanel.SuspendLayout();
-            this.manualLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
             this.grpOptions.SuspendLayout();
             this.grpWait.SuspendLayout();
@@ -147,10 +125,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // contentLayout
             // 
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.contentLayout.ColumnCount = 3;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 93F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 387F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
             this.contentLayout.Controls.Add(this.centerLayout, 0, 0);
             this.contentLayout.Controls.Add(this.grpJog, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
@@ -158,7 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.contentLayout.Padding = new System.Windows.Forms.Padding(1);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 870);
@@ -166,16 +145,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // centerLayout
             // 
+            this.centerLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.centerLayout.ColumnCount = 2;
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 60F));
-            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 46.4F));
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 53.6F));
             this.centerLayout.Controls.Add(this.grpVision, 0, 0);
             this.centerLayout.Controls.Add(this.grpManual, 0, 1);
             this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
             this.centerLayout.SetRowSpan(this.leftLayout, 2);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.centerLayout.Location = new System.Drawing.Point(8, 8);
-            this.centerLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.RowCount = 2;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
@@ -190,7 +170,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpVision.Location = new System.Drawing.Point(4, 4);
-            this.grpVision.Margin = new System.Windows.Forms.Padding(4);
+            this.grpVision.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this.grpVision.Name = "grpVision";
             this.grpVision.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpVision.Size = new System.Drawing.Size(675, 470);
@@ -301,177 +281,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpManual
             // 
             this.grpManual.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
-            this.grpManual.Controls.Add(this.manualPanel);
-            this.grpManual.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpManual.Controls.Add(this.manualActionPanel);
+            this.grpManual.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpManual.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpManual.Location = new System.Drawing.Point(4, 482);
-            this.grpManual.Margin = new System.Windows.Forms.Padding(4);
+            this.grpManual.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpManual.Name = "grpManual";
             this.grpManual.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpManual.Size = new System.Drawing.Size(675, 368);
+            this.grpManual.Size = new System.Drawing.Size(675, 260);
             this.grpManual.TabIndex = 1;
             this.grpManual.TabStop = false;
             this.grpManual.Text = "MANUAL ACTION";
             // 
-            // manualPanel
+            // manualActionPanel
             // 
-            this.manualPanel.AutoScroll = true;
-            this.manualPanel.Controls.Add(this.manualLayout);
-            this.manualPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.manualPanel.Location = new System.Drawing.Point(3, 20);
-            this.manualPanel.Name = "manualPanel";
-            this.manualPanel.Size = new System.Drawing.Size(669, 345);
-            this.manualPanel.TabIndex = 0;
-            // 
-            // manualLayout
-            // 
-            this.manualLayout.AutoSize = true;
-            this.manualLayout.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.manualLayout.AutoScroll = true;
-            this.manualLayout.ColumnCount = 2;
-            this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.manualLayout.Controls.Add(this.btnAvoidPosition, 0, 0);
-            this.manualLayout.Controls.Add(this.btnPickPosition, 1, 0);
-            this.manualLayout.Controls.Add(this.btnBottomPosition, 0, 1);
-            this.manualLayout.Controls.Add(this.btnSidePosition, 1, 1);
-            this.manualLayout.Controls.Add(this.btnPlacePosition, 0, 2);
-            this.manualLayout.Controls.Add(this.btnDiePickPosition, 1, 2);
-            this.manualLayout.Controls.Add(this.btnDieBottomPosition, 0, 3);
-            this.manualLayout.Controls.Add(this.btnDieSidePosition, 1, 3);
-            this.manualLayout.Controls.Add(this.btnDiePlacePosition, 0, 4);
-            this.manualLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.manualLayout.Location = new System.Drawing.Point(0, 0);
-            this.manualLayout.Name = "manualLayout";
-            this.manualLayout.Padding = new System.Windows.Forms.Padding(3);
-            this.manualLayout.RowCount = 5;
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.Size = new System.Drawing.Size(669, 231);
-            this.manualLayout.TabIndex = 0;
-            //
-            // btnAvoidPosition
-            //
-            this.btnAvoidPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnAvoidPosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAvoidPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAvoidPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnAvoidPosition.ForeColor = System.Drawing.Color.White;
-            this.btnAvoidPosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnAvoidPosition.Name = "btnAvoidPosition";
-            this.btnAvoidPosition.TabIndex = 0;
-            this.btnAvoidPosition.Text = "AVOID POSITION";
-            this.btnAvoidPosition.Click += new System.EventHandler(this.btnAvoidPosition_Click);
-            //
-            // btnPickPosition
-            //
-            this.btnPickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnPickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPickPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnPickPosition.ForeColor = System.Drawing.Color.White;
-            this.btnPickPosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnPickPosition.Name = "btnPickPosition";
-            this.btnPickPosition.TabIndex = 1;
-            this.btnPickPosition.Text = "PICK POSITION";
-            this.btnPickPosition.Click += new System.EventHandler(this.btnPickPosition_Click);
-            //
-            // btnBottomPosition
-            //
-            this.btnBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnBottomPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnBottomPosition.ForeColor = System.Drawing.Color.White;
-            this.btnBottomPosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnBottomPosition.Name = "btnBottomPosition";
-            this.btnBottomPosition.TabIndex = 2;
-            this.btnBottomPosition.Text = "BOTTOM POSITION";
-            this.btnBottomPosition.Click += new System.EventHandler(this.btnBottomPosition_Click);
-            //
-            // btnSidePosition
-            //
-            this.btnSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSidePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnSidePosition.ForeColor = System.Drawing.Color.White;
-            this.btnSidePosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnSidePosition.Name = "btnSidePosition";
-            this.btnSidePosition.TabIndex = 3;
-            this.btnSidePosition.Text = "SIDE POSITION";
-            this.btnSidePosition.Click += new System.EventHandler(this.btnSidePosition_Click);
-            //
-            // btnPlacePosition
-            //
-            this.btnPlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnPlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPlacePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnPlacePosition.ForeColor = System.Drawing.Color.White;
-            this.btnPlacePosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnPlacePosition.Name = "btnPlacePosition";
-            this.btnPlacePosition.TabIndex = 4;
-            this.btnPlacePosition.Text = "PLACE POSITION";
-            this.btnPlacePosition.Click += new System.EventHandler(this.btnPlacePosition_Click);
-            //
-            // btnDiePickPosition
-            //
-            this.btnDiePickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnDiePickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDiePickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDiePickPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnDiePickPosition.ForeColor = System.Drawing.Color.White;
-            this.btnDiePickPosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnDiePickPosition.Name = "btnDiePickPosition";
-            this.btnDiePickPosition.TabIndex = 5;
-            this.btnDiePickPosition.Text = "DIE PICK POSITION";
-            this.btnDiePickPosition.Click += new System.EventHandler(this.btnDiePickPosition_Click);
-            //
-            // btnDieBottomPosition
-            //
-            this.btnDieBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnDieBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDieBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDieBottomPosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnDieBottomPosition.ForeColor = System.Drawing.Color.White;
-            this.btnDieBottomPosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnDieBottomPosition.Name = "btnDieBottomPosition";
-            this.btnDieBottomPosition.TabIndex = 6;
-            this.btnDieBottomPosition.Text = "DIE BOTTOM POSITION";
-            this.btnDieBottomPosition.Click += new System.EventHandler(this.btnDieBottomPosition_Click);
-            //
-            // btnDieSidePosition
-            //
-            this.btnDieSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnDieSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDieSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDieSidePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnDieSidePosition.ForeColor = System.Drawing.Color.White;
-            this.btnDieSidePosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnDieSidePosition.Name = "btnDieSidePosition";
-            this.btnDieSidePosition.TabIndex = 7;
-            this.btnDieSidePosition.Text = "DIE SIDE POSITION";
-            this.btnDieSidePosition.Click += new System.EventHandler(this.btnDieSidePosition_Click);
-            //
-            // btnDiePlacePosition
-            //
-            this.btnDiePlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnDiePlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDiePlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDiePlacePosition.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnDiePlacePosition.ForeColor = System.Drawing.Color.White;
-            this.btnDiePlacePosition.Margin = new System.Windows.Forms.Padding(4);
-            this.btnDiePlacePosition.Name = "btnDiePlacePosition";
-            this.btnDiePlacePosition.TabIndex = 8;
-            this.btnDiePlacePosition.Text = "DIE PLACE POSITION";
-            this.btnDiePlacePosition.Click += new System.EventHandler(this.btnDiePlacePosition_Click);
+            this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 21);
+            this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.manualActionPanel.Name = "manualActionPanel";
+            this.manualActionPanel.Size = new System.Drawing.Size(549, 236);
+            this.manualActionPanel.TabIndex = 0;
             // 
             // leftLayout
             // 
+            this.leftLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Controls.Add(this.grpOptions, 0, 0);
@@ -495,7 +328,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpOptions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpOptions.Location = new System.Drawing.Point(4, 4);
-            this.grpOptions.Margin = new System.Windows.Forms.Padding(4);
+            this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpOptions.Name = "grpOptions";
             this.grpOptions.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpOptions.Size = new System.Drawing.Size(449, 470);
@@ -520,7 +353,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpWait.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpWait.Location = new System.Drawing.Point(4, 482);
-            this.grpWait.Margin = new System.Windows.Forms.Padding(4);
+            this.grpWait.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpWait.Name = "grpWait";
             this.grpWait.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpWait.Size = new System.Drawing.Size(449, 145);
@@ -542,13 +375,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpIo.Controls.Add(this.ioCylinderPanel);
-            this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpIo.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpIo.Location = new System.Drawing.Point(4, 635);
-            this.grpIo.Margin = new System.Windows.Forms.Padding(4);
+            this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
             this.grpIo.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpIo.Size = new System.Drawing.Size(449, 215);
+            this.grpIo.Size = new System.Drawing.Size(449, 308);
             this.grpIo.TabIndex = 2;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
@@ -584,7 +417,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpJog.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpJog.Location = new System.Drawing.Point(4, 4);
-            this.grpJog.Margin = new System.Windows.Forms.Padding(4);
+            this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpJog.Name = "grpJog";
             this.grpJog.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpJog.Size = new System.Drawing.Size(420, 846);
@@ -639,7 +472,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpSpeed.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpSpeed.Location = new System.Drawing.Point(1580, 12);
-            this.grpSpeed.Margin = new System.Windows.Forms.Padding(4);
+            this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
             this.grpSpeed.Name = "grpSpeed";
             this.grpSpeed.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpSpeed.Size = new System.Drawing.Size(86, 846);
@@ -674,9 +507,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tabSide.ResumeLayout(false);
             this.sideLayout.ResumeLayout(false);
             this.grpManual.ResumeLayout(false);
-            this.manualPanel.ResumeLayout(false);
-            this.manualPanel.PerformLayout();
-            this.manualLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
             this.grpOptions.ResumeLayout(false);
             this.grpWait.ResumeLayout(false);

@@ -56,7 +56,9 @@
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System" />
+    <Reference Include="System">
+      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\System.dll</HintPath>
+    </Reference>
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -64,6 +66,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Deployment" />
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Windows.Forms" />
@@ -72,12 +75,15 @@
   <ItemGroup>
     <!-- Equipment / Core -->
     <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\LogRetentionService.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
     <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
     <Compile Include="Equipment\Alarms\AlarmStopScope.cs" />
     <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationData.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationDataStore.cs" />
+    <Compile Include="Equipment\Calibration\CalibrationCoordinateService.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
-    <Compile Include="Equipment\Calibration\VisionCameraScaleStore.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionFocusCalibrationData.cs" />
@@ -127,7 +133,11 @@
     <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputFeederInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\CollisionDistanceCalculator.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\CollisionSafetyTypes.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\RealtimeCollisionSupervisor.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleHelpers.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardMoveIntent.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleRegistry.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
@@ -201,6 +211,12 @@
       <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\Common\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\ManualActionPanelControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ManualActionPanelControl.Designer.cs">
+      <DependentUpon>ManualActionPanelControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\IoCylinderPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -212,6 +228,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\NumericKeypadDialog.Designer.cs">
       <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\TextViewerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\TextViewerDialog.Designer.cs">
+      <DependentUpon>TextViewerDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\Common\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
@@ -336,10 +358,12 @@
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\SequenceLog.cs" />
+    <Compile Include="Sequencing\Common\SequenceTrace.cs" />
     <Compile Include="Sequencing\Common\SequenceTactTimeExtensions.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\NeedlePinCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
@@ -632,6 +656,9 @@
     <Compile Include="Ui\Controls\Styles\IndicatorDot.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\Styles\ToggleSwitch.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Ui\Controls\SessionControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -656,6 +683,15 @@
     </Compile>
     <Compile Include="Ui\Dialogs\CalibrationSetupDialog.Designer.cs">
       <DependentUpon>CalibrationSetupDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\HelpTextDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\HelpTextDialog.Designer.cs">
+      <DependentUpon>HelpTextDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\Common\CalibrationDialogButtonStyle.cs">
+      <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\VisionCameraCalibrationDialog.cs">
       <SubType>Form</SubType>
@@ -685,6 +721,12 @@
     <Compile Include="Ui\Dialogs\ColletCalibrationDialog.Designer.cs">
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.Designer.cs">
+      <DependentUpon>NeedlePinCalibrationDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
     </Compile>
@@ -693,6 +735,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\AxisJogPopup.Designer.cs">
       <DependentUpon>AxisJogPopup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MotionTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MotionTestDialog.Designer.cs">
+      <DependentUpon>MotionTestDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\AxisPositionPopup.cs">
       <SubType>Form</SubType>
@@ -843,7 +891,9 @@
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
+    <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
+    <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />
@@ -856,6 +906,7 @@
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomAndSideInspectionSequence.cs" />
+    <Compile Include="Sequencing\Picker\PickerPlaceContiSegmentedMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSynchronizedArrivalMotion.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
@@ -1130,11 +1181,17 @@
     <EmbeddedResource Include="Ui\Dialogs\AxisPositionPopup.resx">
       <DependentUpon>AxisPositionPopup.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\ColletCalibrationDialog.resx">
+      <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\ManualSequenceDialog.resx">
       <DependentUpon>ManualSequenceDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\MotionTestDialog.resx">
+      <DependentUpon>MotionTestDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\NumericKeypadDialog.resx">
       <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
@@ -1238,6 +1295,11 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.resx">
       <DependentUpon>MotionPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\MotionPage.Speed.resx">
+      <DependentUpon>MotionPage.Speed.cs</DependentUpon>
+      <ManifestResourceName>QMC.CDT_320.Ui.Pages.Settings.MotionPage.Speed</ManifestResourceName>
+      <LogicalName>QMC.CDT_320.Ui.Pages.Settings.MotionPage.Speed.resources</LogicalName>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>

@@ -42,6 +42,8 @@ namespace QMC.CDT320.Ui.Controls
 
         public Func<DieMapEntry, string> CellStatusResolver { get; set; }
 
+        public Func<Tuple<string, Color>[]> LegendItemsResolver { get; set; }
+
         public bool ShowWaferOutline { get; set; }
 
         public DieMapEntry SelectedEntry
@@ -78,7 +80,8 @@ namespace QMC.CDT320.Ui.Controls
             using (var pen = new Pen(Color.DimGray, 1f))
                 g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
 
-            using (var br = new SolidBrush(Color.WhiteSmoke))
+            Color textColor = ResolveOverlayTextColor();
+            using (var br = new SolidBrush(textColor))
             using (var f  = new Font("Consolas", 10F, FontStyle.Bold))
                 g.DrawString(Caption, f, br, 8, 6);
 
@@ -124,7 +127,7 @@ namespace QMC.CDT320.Ui.Controls
                     : (entry.SequenceNo > 0 ? entry.SequenceNo.ToString() : "");
                 if (entry.IsTarget && !string.IsNullOrWhiteSpace(cellText) && cellSize >= 12)
                 {
-                    using (var br = new SolidBrush(Color.WhiteSmoke))
+                    using (var br = new SolidBrush(textColor))
                     using (var f = new Font("Consolas", Math.Max(6F, cellSize * 0.32F), FontStyle.Regular))
                     {
                         SizeF size = g.MeasureString(cellText, f);
@@ -151,7 +154,7 @@ namespace QMC.CDT320.Ui.Controls
             }
 
             // 좌상단 정보
-            using (var br = new SolidBrush(Color.WhiteSmoke))
+            using (var br = new SolidBrush(textColor))
             using (var f  = new Font("Consolas", 9F))
             {
                 string info = $"{_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
@@ -164,7 +167,6 @@ namespace QMC.CDT320.Ui.Controls
                 }
             }
 
-            // 범례 (간이): Good / NG / Unknown
             DrawLegend(g, (int)mapRect.Width, (int)mapRect.Left, (int)(mapRect.Bottom + 6.0F));
         }
 
@@ -178,26 +180,30 @@ namespace QMC.CDT320.Ui.Controls
 
         private void DrawLegend(Graphics g, int totalW, int x0, int y)
         {
+            Color textColor = ResolveOverlayTextColor();
             using (var f = new Font("Consolas", 8F))
             {
                 int sx = x0;
                 int sw = 14;
                 int gap = 80;
-                var items = new (string label, Color color)[]
-                {
-                    ("Good",     BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
-                    ("Pre-NG",   BinCodeMap.ConvertToBinCodeColor(110)),
-                    ("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
-                    ("Unknown",  Color.FromArgb(80, 80, 100)),
-                    ("Skip",     Color.FromArgb(60, 60, 60)),
-                };
+                Tuple<string, Color>[] items = LegendItemsResolver != null
+                    ? LegendItemsResolver()
+                    : new[]
+                    {
+                        Tuple.Create("Good", BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin)),
+                        Tuple.Create("Pre-NG", BinCodeMap.ConvertToBinCodeColor(110)),
+                        Tuple.Create("Critical", BinCodeMap.ConvertToBinCodeColor(200)),
+                        Tuple.Create("Unknown", Color.FromArgb(80, 80, 100)),
+                        Tuple.Create("Skip", Color.FromArgb(60, 60, 60)),
+                    };
                 foreach (var it in items)
                 {
-                    using (var br = new SolidBrush(it.color))
+                    using (var br = new SolidBrush(it.Item2))
                         g.FillRectangle(br, sx, y, sw, 12);
-                    using (var br = new SolidBrush(Color.WhiteSmoke))
-                        g.DrawString(it.label, f, br, sx + sw + 3, y - 1);
-                    sx += gap;
+                    using (var br = new SolidBrush(textColor))
+                        g.DrawString(it.Item1, f, br, sx + sw + 3, y - 1);
+                    SizeF labelSize = g.MeasureString(it.Item1, f);
+                    sx += Math.Max(gap, sw + 3 + (int)Math.Ceiling(labelSize.Width) + 16);
                 }
             }
         }
@@ -320,6 +326,12 @@ namespace QMC.CDT320.Ui.Controls
                 : (entry.BinCode > 0
                     ? BinCodeMap.ConvertToBinCodeColor(entry.BinCode)
                     : Color.FromArgb(80, 80, 100));
+        }
+
+        private Color ResolveOverlayTextColor()
+        {
+            int brightness = BackColor.R + BackColor.G + BackColor.B;
+            return brightness > 420 ? Color.FromArgb(0x33, 0x33, 0x33) : Color.WhiteSmoke;
         }
     }
 }

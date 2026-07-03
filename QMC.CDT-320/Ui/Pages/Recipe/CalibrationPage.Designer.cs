@@ -157,7 +157,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnNeedleCal.Name = "btnNeedleCal";
             this.btnNeedleCal.Size = new System.Drawing.Size(534, 92);
             this.btnNeedleCal.TabIndex = 2;
-            this.btnNeedleCal.Text = "NEEDLE CAL";
+            this.btnNeedleCal.Text = "NEEDLE PIN CAL";
             this.btnNeedleCal.UseVisualStyleBackColor = false;
             // 
             // btnColletZHeightCal

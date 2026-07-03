@@ -1057,7 +1057,7 @@ namespace QMC.CDT320
             string reason;
             using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
             {
-                if (!MotionGuardRuntime.VerifyAxisTeachingMove(item, guardTarget, guardTargetName, out reason))
+                if (!MotionGuardRuntime.VerifyAxisContinuousJog(item, guardTarget, guardTargetName, out reason))
                     return false;
             }
 
@@ -1072,9 +1072,21 @@ namespace QMC.CDT320
             if (axis.Setup == null)
                 return axis.ActualPosition;
 
-            return direction == Direction.Plus
-                ? axis.Setup.SoftLimitPlus
-                : axis.Setup.SoftLimitMinus;
+            double sign = direction == Direction.Plus ? 1.0 : -1.0;
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            double target = axis.ActualPosition + (sign * Math.Max(1.0, tolerance * 10.0));
+
+            if (axis.Setup.SoftLimitEnabled)
+            {
+                if (target > axis.Setup.SoftLimitPlus)
+                    target = axis.Setup.SoftLimitPlus;
+                if (target < axis.Setup.SoftLimitMinus)
+                    target = axis.Setup.SoftLimitMinus;
+            }
+
+            return target;
         }
 
         private string ResolveCurrentPickerXWorkZoneName()

@@ -27,6 +27,26 @@ namespace QMC.CDT320.Interlocks
             return VerifyAxisMove(axis, targetPosition, true, out reason);
         }
 
+        public static bool VerifyAxisContinuousJog(BaseAxis axis, double probeTargetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, probeTargetPosition, targetName, MotionGuardMoveKind.AxisContinuousJog, false, out reason);
+        }
+
+        public static bool VerifyAxisContinuousJogWithoutSharedRailX(BaseAxis axis, double probeTargetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, probeTargetPosition, targetName, MotionGuardMoveKind.AxisContinuousJog, true, out reason);
+        }
+
+        public static bool VerifyAxisStepJog(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, targetPosition, targetName, MotionGuardMoveKind.AxisStepJog, false, out reason);
+        }
+
+        public static bool VerifyAxisStepJogWithoutSharedRailX(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            return VerifyAxisJog(axis, targetPosition, targetName, MotionGuardMoveKind.AxisStepJog, true, out reason);
+        }
+
         private static bool VerifyAxisMove(
             BaseAxis axis,
             double targetPosition,
@@ -68,6 +88,49 @@ namespace QMC.CDT320.Interlocks
                 reason = "Motion guard exception. axis=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
                 AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK-GUARD", axis != null ? axis.Name : "Axis", reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - Failed");
+                return false;
+            }
+        }
+
+        private static bool VerifyAxisJog(
+            BaseAxis axis,
+            double targetPosition,
+            string targetName,
+            MotionGuardMoveKind moveKind,
+            bool skipSharedRailXRule,
+            out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!Enabled || axis == null)
+                    return true;
+
+                MotionGuardService service = GetService();
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                MotionGuardExecutionMode executionMode = ResolveExecutionMode();
+                MotionGuardResult result = moveKind == MotionGuardMoveKind.AxisStepJog
+                    ? service.VerifyAxisStepJog(axis, targetPosition, targetName, context, skipSharedRailXRule, executionMode)
+                    : service.VerifyAxisContinuousJog(axis, targetPosition, targetName, context, skipSharedRailXRule, executionMode);
+                if (result == null)
+                    return true;
+
+                reason = result.Message ?? "";
+                if (result.RequiresDetailedCheck)
+                    Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogCheck");
+
+                if (result.Allowed)
+                    return true;
+
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK", axis.Name, reason);
+                Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogBlocked");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "Motion guard exception. axis jog=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK-GUARD", axis != null ? axis.Name : "Axis", reason);
+                Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - JogFailed");
                 return false;
             }
         }
@@ -115,6 +178,46 @@ namespace QMC.CDT320.Interlocks
                 AlarmManager.Raise(AlarmSeverity.Error, "INTERLOCK-GUARD", axis != null ? axis.Name : "Axis", reason);
                 Log.Write("Main", "INTERLOCK", "MotionGuard", reason + " - TeachingFailed");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 실제 이동을 발행하지 않고(부작용 없음) 지정한 Teaching 이동이 지금 MotionGuard 전체 판정을 통과하는지 확인한다.
+        /// 대기 폴링과 실제 이동이 동일한 인터락 규칙(PickerZone·SharedRailX 포함)을 공유하도록 하기 위한 dry-run 판정이다.
+        /// 실제 이동 경로와 달리 알람을 발생시키지 않고 Blocked 로그도 남기지 않는다.
+        /// </summary>
+        public static bool CanAxisTeachingMove(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!Enabled || axis == null)
+                    return true;
+
+                if (IsAxisAlreadyAtTarget(axis, targetPosition))
+                    return true;
+
+                MotionGuardService service = GetService();
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                MotionGuardResult result = service.VerifyAxisTeachingMove(
+                    axis,
+                    targetPosition,
+                    targetName,
+                    context,
+                    ResolveExecutionMode());
+                if (result == null)
+                    return true;
+
+                reason = result.Message ?? "";
+                return result.Allowed;
+            }
+            catch (Exception ex)
+            {
+                reason = "Motion guard dry-run 예외. axis=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
             }
         }
 
@@ -205,6 +308,23 @@ namespace QMC.CDT320.Interlocks
                 reason,
                 previous);
             return new ExecutionModeScopeToken(previous);
+        }
+
+        public static IDisposable BeginAutoSequenceProcessMove(string reason)
+        {
+            ExecutionModeScope previous = CurrentExecutionModeScope.Value;
+            CurrentExecutionModeScope.Value = new ExecutionModeScope(
+                MotionGuardExecutionMode.AutoSequenceProcess,
+                reason,
+                previous);
+            return new ExecutionModeScopeToken(previous);
+        }
+
+        public static IDisposable BeginSequenceProcessMove(bool autoMode, string reason)
+        {
+            return autoMode
+                ? BeginAutoSequenceProcessMove(reason)
+                : BeginManualSequenceProcessMove(reason);
         }
 
         public static void Reload()

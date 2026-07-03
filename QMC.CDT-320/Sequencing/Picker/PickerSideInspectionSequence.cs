@@ -388,15 +388,15 @@ namespace QMC.CDT320.Sequencing
             _targetPickerX = ResolvePickerZoneX("DieSidePosition", _currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DieSidePosition", _currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "SidePosition");
-            _targetPickerT0 = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "SidePosition") +
-                ResolvePickerAlignOffsetT(_currentPickerIndex);
+            _targetPickerT0 = ResolvePickerZoneT("DieSidePosition", _currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
 
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
 
+            bool continuousSideEntry = IsContinuousSideInspectionEntry();
             if (!IsCurrentPickerXInSideZone() &&
                 !IsPickerYAtXZoneMoveSafePosition() &&
-                !IsEnterSideFromBottomInspection())
+                !continuousSideEntry)
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
                 return 0;
@@ -426,11 +426,11 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveSideXToInspectionAsync(CancellationToken ct)
         {
             bool currentXInSideZone = IsCurrentPickerXInSideZone();
-            bool enterFromBottom = IsEnterSideFromBottomInspection();
+            bool continuousSideEntry = IsContinuousSideInspectionEntry();
             if (!currentXInSideZone &&
                 !IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX) &&
                 !IsPickerYAtXZoneMoveSafePosition() &&
-                !enterFromBottom)
+                !continuousSideEntry)
             {
                 return await MoveSideEntryYToAvoidAsync(ct).ConfigureAwait(false);
             }
@@ -456,12 +456,19 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.EnterSideFromBottomInspection;
         }
 
+        private bool IsContinuousSideInspectionEntry()
+        {
+            return Options != null &&
+                   (Options.EnterSideFromBottomInspection ||
+                    Options.KeepZUntilSideInspectionComplete);
+        }
+
         private string BuildSideMoveTargetName()
         {
             string targetName = "DieSidePosition[" + _currentPickerIndex + "]";
             if (!IsEnterSideFromBottomInspection() &&
                 (Options == null || !Options.KeepZUntilSideInspectionComplete))
-                return targetName;
+                return AppendAutoProcessCorrectionTargetTag(targetName);
 
             string phase = ";PickerPhase=InspectionZHold";
             if (IsEnterSideFromBottomInspection())
@@ -469,7 +476,7 @@ namespace QMC.CDT320.Sequencing
             else if (Options != null && Options.KeepZUntilSideInspectionComplete)
                 phase += ";InspectionContinuous;From=Side;To=Side";
 
-            return targetName + phase;
+            return AppendAutoProcessCorrectionTargetTag(targetName + phase);
         }
 
         private async Task<int> MoveSideXAndVision0PositionAsync(
@@ -602,7 +609,9 @@ namespace QMC.CDT320.Sequencing
             }
 
             _inspectionYPositionReady = false;
-            CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
+            CurrentStep = IsContinuousSideInspectionEntry()
+                ? PickerSideInspectionStep.MoveSideXToInspection
+                : PickerSideInspectionStep.MoveSideEntryYToAvoid;
             return 0;
         }
 

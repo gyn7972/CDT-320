@@ -368,8 +368,7 @@ namespace QMC.CDT320.Sequencing
             _targetPickerX = ResolvePickerZoneX("DieBottomPosition", _currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DieBottomPosition", _currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
-            _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
-                ResolvePickerAlignOffsetT(_currentPickerIndex);
+            _targetPickerT = ResolvePickerZoneT("DieBottomPosition", _currentPickerIndex);
             _bottomFlyingZDownActive = false;
             bool wasInInspectionZone = _inspectionYPositionReady;
             _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
@@ -711,9 +710,9 @@ namespace QMC.CDT320.Sequencing
         {
             string targetName = "DieBottomPosition[" + _currentPickerIndex + "]";
             if (Options == null || !Options.KeepZAfterBottomInspection)
-                return targetName;
+                return AppendAutoProcessCorrectionTargetTag(targetName);
 
-            return targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom";
+            return AppendAutoProcessCorrectionTargetTag(targetName + ";PickerPhase=InspectionZHold;InspectionContinuous;From=Input;To=Bottom");
         }
 
         private async Task<int> RequestBottomInspectionAsync(CancellationToken ct)
@@ -864,7 +863,7 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MoveBottomTToSafeAsync(CancellationToken ct)
         {
             PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
-            double target = GetPickerTeachingPosition(tAxis, "PickPosition") + ResolvePickerAlignOffsetT(_currentPickerIndex);
+            double target = ResolvePickerZoneT("DiePickPosition", _currentPickerIndex);
             int result = await MovePickerAxisAndVerifyAsync(tAxis, target, "bottom inspection T safe", ct, "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -967,6 +966,18 @@ namespace QMC.CDT320.Sequencing
 
         private BottomVisionOffset SimulateBottomResult()
         {
+            if (IsDryRunWithVisionDisabled())
+            {
+                return new BottomVisionOffset
+                {
+                    PickerNo = _currentPickerNo,
+                    OffsetX = 0.0,
+                    OffsetY = 0.0,
+                    OffsetT = 0.0,
+                    IsOk = true
+                };
+            }
+
             lock (SimVisionRandomLock)
             {
                 return new BottomVisionOffset

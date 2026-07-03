@@ -23,6 +23,16 @@ namespace QMC.CDT320.Sequencing
         /// <summary>로그 CODE 로 쓸 현재 스텝 제공자(호출 시점의 현재 스텝을 반환).</summary>
         public Func<string> StepProvider;
 
+        public string RunId;
+
+        public string Parent;
+
+        public int Depth;
+
+        public string Mode;
+
+        public string SequenceName;
+
         /// <summary>현재 스텝 문자열(없으면 빈 문자열).</summary>
         public string Step
         {
@@ -48,8 +58,35 @@ namespace QMC.CDT320.Sequencing
         /// <summary>현재 흐름에 스코프를 설정하고, Dispose 시 이전 스코프로 복원하는 핸들을 반환한다.</summary>
         public static IDisposable Push(EventKind kind, string unit, Func<string> stepProvider)
         {
+            return Push(kind, unit, stepProvider, unit, null, null);
+        }
+
+        public static IDisposable Push(EventKind kind, string unit, Func<string> stepProvider, string sequenceName, string mode)
+        {
+            return Push(kind, unit, stepProvider, sequenceName, mode, null);
+        }
+
+        public static IDisposable Push(EventKind kind, string unit, Func<string> stepProvider, string sequenceName, string mode, string parent)
+        {
             SequenceLogScope prev = _current.Value;
-            _current.Value = new SequenceLogScope { Kind = kind, Unit = unit ?? string.Empty, StepProvider = stepProvider };
+            string safeUnit = unit ?? string.Empty;
+            string safeSequenceName = string.IsNullOrWhiteSpace(sequenceName) ? safeUnit : sequenceName;
+            string inheritedRunId = prev != null ? prev.RunId : string.Empty;
+            _current.Value = new SequenceLogScope
+            {
+                Kind = kind,
+                Unit = safeUnit,
+                StepProvider = stepProvider,
+                RunId = string.IsNullOrWhiteSpace(inheritedRunId)
+                    ? SequenceTrace.CreateRunId(kind, safeSequenceName)
+                    : inheritedRunId,
+                Parent = !string.IsNullOrWhiteSpace(parent)
+                    ? parent
+                    : prev != null ? (!string.IsNullOrWhiteSpace(prev.SequenceName) ? prev.SequenceName : prev.Unit) : string.Empty,
+                Depth = prev != null ? prev.Depth + 1 : 0,
+                Mode = mode ?? (prev != null ? prev.Mode : string.Empty),
+                SequenceName = safeSequenceName
+            };
             return new Pop(prev);
         }
 
@@ -95,6 +132,59 @@ namespace QMC.CDT320.Sequencing
 
         private static bool Has(string s, string sub) => s.IndexOf(sub, StringComparison.OrdinalIgnoreCase) >= 0;
 
+        public static string FormatWithCurrentContext(string phase, string source, string message)
+        {
+            try
+            {
+                SequenceLogScope seq = _current.Value;
+                if (seq == null)
+                    return message ?? string.Empty;
+
+                var parts = new System.Collections.Generic.List<string>();
+                Add(parts, "trace", SequenceTrace.NextTraceId());
+                Add(parts, "run", seq.RunId);
+                Add(parts, "parent", seq.Parent);
+                Add(parts, "seq", seq.SequenceName);
+                Add(parts, "step", seq.Step);
+                Add(parts, "phase", string.IsNullOrWhiteSpace(phase) ? "Log" : phase);
+                Add(parts, "mode", seq.Mode);
+                Add(parts, "depth", seq.Depth.ToString());
+                Add(parts, "source", source);
+                Add(parts, "msg", message);
+                return string.Join(" ", parts.ToArray());
+            }
+            catch
+            {
+                return message ?? string.Empty;
+            }
+        }
+
+        private static void Add(System.Collections.Generic.List<string> parts, string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            parts.Add(key + "=" + Quote(value));
+        }
+
+        private static string Quote(string value)
+        {
+            if (value == null)
+                return "";
+
+            bool quote = value.Length == 0;
+            for (int i = 0; i < value.Length && !quote; i++)
+            {
+                char c = value[i];
+                quote = char.IsWhiteSpace(c) || c == ',' || c == '"' || c == '=';
+            }
+
+            if (!quote)
+                return value;
+
+            return "\"" + value.Replace("\"", "'") + "\"";
+        }
+
         /// <summary>
         /// 시퀀스 베이스의 <c>WriteLog</c> 헬퍼가 호출하는 이력 라우팅 진입점.
         /// <para>
@@ -111,7 +201,7 @@ namespace QMC.CDT320.Sequencing
                 SequenceLogScope seq = _current.Value;
                 EventKind kind = seq != null ? seq.Kind : fallbackKind;
                 string code = seq != null ? seq.Step : "SEQ";
-                EventLogger.Write(kind, "SYSTEM", code, source ?? string.Empty, message ?? string.Empty);
+                EventLogger.Write(kind, "SYSTEM", code, source ?? string.Empty, FormatWithCurrentContext("Log", source, message));
             }
             catch
             {

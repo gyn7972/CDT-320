@@ -32,6 +32,16 @@ namespace QMC.CDT320.Sequencing
             if (InputCameraPickUpPermissionStore.HasPermission(side))
                 return false;
 
+            string pendingPermissionDetail;
+            if (InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail))
+            {
+                WriteLog("InputCameraPreInspectionCoordinator",
+                    side + " InputCamera 선행검사를 시작하지 않습니다. 이미 PickUp 허가가 발급되어 InputVisionX Avoid 상태를 유지해야 합니다. " +
+                    "pendingPermission=" + pendingPermissionDetail +
+                    ", reason=" + (reason ?? "-") + " - Wait");
+                return false;
+            }
+
             lock (Sync)
             {
                 RunningInspection current;
@@ -95,7 +105,25 @@ namespace QMC.CDT320.Sequencing
 
                 Task<int> runningTask = GetRunningTask(side);
                 if (runningTask == null)
+                {
+                    string pendingPermissionDetail;
+                    if (InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail))
+                    {
+                        if (!waitLogged)
+                        {
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 시작을 보류합니다. 다른 Picker의 PickUp 허가가 살아 있어 InputVisionX를 Avoid로 유지합니다. " +
+                                "pendingPermission=" + pendingPermissionDetail +
+                                ", reason=" + (reason ?? "-") + " - Wait");
+                            waitLogged = true;
+                        }
+
+                        await Task.Delay(1, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
                     return InputCameraPreInspectionWaitResult.NoTarget();
+                }
 
                 if (runningTask.IsCompleted)
                 {

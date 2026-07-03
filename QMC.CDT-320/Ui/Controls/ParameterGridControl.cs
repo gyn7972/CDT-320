@@ -38,6 +38,56 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        /// <summary>그리드 스크롤바 표시 방식. 항목 수가 고정인 그리드(WAIT TIME 등)는 None으로 두면
+        /// 경계 픽셀 차이로 인한 불필요한 스크롤바를 막을 수 있다.</summary>
+        public ScrollBars GridScrollBars
+        {
+            get { return grid.ScrollBars; }
+            set { grid.ScrollBars = value; }
+        }
+
+        private bool _autoFitParentGroupHeight;
+
+        /// <summary>true면 SetItems 후 부모 GroupBox 높이를 그리드 내용(표시 행 전체)에 맞춰 자동 조정하고
+        /// 그리드 스크롤바를 끈다. 높이가 항상 내용에 맞춰지므로 스크롤 없이 전 항목이 보인다.
+        /// 항목 수가 고정인 그룹(WAIT TIME 등) 전용.</summary>
+        public bool AutoFitParentGroupHeight
+        {
+            get { return _autoFitParentGroupHeight; }
+            set
+            {
+                _autoFitParentGroupHeight = value;
+                if (value)
+                    grid.ScrollBars = ScrollBars.None;   // 높이 자동맞춤이 보장되므로 경계 픽셀로 인한 스크롤바 잔상 제거
+            }
+        }
+
+        private void FitParentGroupHeight()
+        {
+            try
+            {
+                if (!AutoFitParentGroupHeight)
+                    return;
+
+                GroupBox group = Parent as GroupBox;
+                if (group == null || !IsHandleCreated)
+                    return;
+
+                int contentHeight = grid.ColumnHeadersHeight + grid.Rows.GetRowsHeight(DataGridViewElementStates.Visible) + 6;
+                int chrome = group.Height - Height;   // 그룹 헤더 + 패딩 (현재 레이아웃 기준 실측)
+                if (chrome < 0)
+                    chrome = 24;
+                group.Height = contentHeight + chrome;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "PARAM-GRID", "FitParentGroupHeight failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public ParameterGridControl()
         {
             try
@@ -71,6 +121,7 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 RebuildRows();
+                FitParentGroupHeight();
             }
             catch (Exception ex)
             {

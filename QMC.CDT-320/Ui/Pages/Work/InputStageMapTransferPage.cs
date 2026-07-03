@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using System.Linq;
+using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
@@ -17,12 +18,48 @@ namespace QMC.CDT_320.Ui.Pages.Work
 {
     public partial class InputStageMapTransferPage : PageBase
     {
+        private enum InputDieManualState
+        {
+            InspectionWait,
+            InspectionGood,
+            InspectionNg,
+            PickSkip
+        }
+
+        private enum InputDieMapCellState
+        {
+            None = 0,
+            InspectionWait = 1,
+            InspectionDone = 2,
+            PickComplete = 3
+        }
+
+        private struct InputDieMapStats
+        {
+            public int Target;
+            public int Done;
+            public int InspectionWait;
+            public int InspectionDone;
+            public int PickComplete;
+            public int Good;
+            public int Ng;
+        }
+
+        private static readonly System.Drawing.Color InspectionWaitColor = System.Drawing.Color.FromArgb(0xCC, 0xDD, 0xEE);
+        private static readonly System.Drawing.Color InspectionDoneColor = System.Drawing.Color.FromArgb(0xF2, 0xC1, 0x4E);
+        private static readonly System.Drawing.Color PickCompleteColor = System.Drawing.Color.FromArgb(0x24, 0xB8, 0x6A);
+        private static readonly System.Drawing.Color SkipColor = System.Drawing.Color.FromArgb(0x66, 0x66, 0x66);
+
         private Timer _refresh;
         private string _i18nTitle;
         private string _lastMapFrameObjId = "";
         private string _lastMapSignature = "";
         private DieMapEntry _selectedEntry;
         private bool _pickStatusDirty;
+        private bool _suppressLotProgressOverlay;
+        private Dictionary<string, InputDieMapCellState> _inputDieMapCellStates =
+            new Dictionary<string, InputDieMapCellState>(StringComparer.Ordinal);
+        private InputDieMapStats _inputDieMapStats;
         private ContextMenuStrip _gridMenu;
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
@@ -38,6 +75,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _i18nTitle = titleI18n;
             InitializeComponent();
             ApplyTitle();
+            InitializeMapDisplayStyle();
             WireEvents();
 
             if (!IsDesignerMode())
@@ -88,6 +126,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblProjectValue.Text = GetCurrentProjectName();
         }
 
+        private void InitializeMapDisplayStyle()
+        {
+            try
+            {
+                mapView.BackColor = System.Drawing.Color.FromArgb(0xDD, 0xDD, 0xDD);
+                mapView.ShowWaferOutline = true;
+                mapView.CellColorResolver = ResolveInputDieMapCellColor;
+                mapView.CellStatusResolver = ResolveInputDieMapCellStatusText;
+                mapView.LegendItemsResolver = BuildInputDieMapLegendItems;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private void WireEvents()
         {
             BuildGridContextMenu();
@@ -117,6 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             gridDieList.CellMouseDown += OnGridDieListCellMouseDown;
             btnReloadActiveMap.Click += (s, e) => ReloadMapFromActiveOrRecipe();
             btnPickStatusSave.Click += (s, e) => SavePickStatus();
+            btnApplyDieState.Click += (s, e) => ApplySelectedDieState();
             btnManualAlignComplete.Click += (s, e) => MarkManualAlignComplete();
             btnNeedleBlockDown.Click += (s, e) => ShowNotReadyAction("NEEDLE BLOCK DOWN", "Needle Block Down 단위동작 함수가 아직 연결되어 있지 않습니다.");
             btnThetaMatchMove.Click += async (s, e) => await RunInputStageSequenceActionAsync(
@@ -562,6 +619,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _lastMapFrameObjId = map != null ? map.FrameObjId ?? "" : "";
                 _lastMapSignature = signature;
                 _pickStatusDirty = false;
+                _suppressLotProgressOverlay = false;
                 _selectedEntry = FindEquivalentEntry(map, previousSelection);
 
                 lblMapTitle.Text = title;
@@ -744,7 +802,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private void ApplyLotProgress()
         {
-            if (_pickStatusDirty)
+            if (_pickStatusDirty || _suppressLotProgressOverlay)
                 return;
             var map = mapView?.Map;
             if (map == null) return;
@@ -1929,6 +1987,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 btnXyMatchMove.Enabled = enabled;
                 btnPickStatusSave.Enabled = enabled;
                 btnReloadActiveMap.Enabled = enabled;
+                btnApplyDieState.Enabled = enabled;
+                rdoDieStateWait.Enabled = enabled;
+                rdoDieStateGood.Enabled = enabled;
+                rdoDieStateNg.Enabled = enabled;
+                rdoDieStateSkip.Enabled = enabled;
                 gridDieList.Enabled = enabled;
             }
             catch
@@ -2019,6 +2082,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblBinRank.Text = entry.BinCode.ToString();
                 lblDieNum.Text = string.Format("[{0},{1}] / {2}", entry.DieMapX, entry.DieMapY,
                     mapView.Map != null ? mapView.Map.TotalCells : 0);
+                SetDieStateRadioFromEntry(entry);
                 SelectGridRow(entry);
             }
             catch
@@ -2072,6 +2136,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 _pickStatusDirty = true;
                 RefreshDieGrid();
+                SetDieStateRadioFromEntry(_selectedEntry);
                 SelectGridRow(_selectedEntry);
                 mapView.Invalidate();
             }
@@ -2083,11 +2148,627 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private void ApplySelectedDieState()
+        {
+            try
+            {
+                DieMap map = mapView != null ? mapView.Map : null;
+                if (map == null || map.Entries == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Active Input Die Map 데이터가 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "상태를 변경할 Die를 먼저 선택하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string reason;
+                if (!CanEditSelectedDieState(entry, out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, reason,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                InputDieManualState state = ResolveSelectedDieManualState();
+                string stateText = ResolveManualStateDisplayName(state);
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "선택 Die 상태를 [" + stateText + "]로 변경하시겠습니까?\r\n" +
+                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
+                    "UID=" + (entry.DieUid ?? ""),
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                ApplyManualStateToEntry(entry, state);
+                PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubsetFromRecipe());
+
+                LotStorage.ActiveInputDieMap = map;
+                PersistPickStatusToMaterialState(map);
+                SyncManualInputPickVisionInspection(entry, state);
+
+                var host = FindForm() as Form1;
+                if (host != null && host.Controller != null)
+                    host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.ApplySelectedDieState");
+
+                MaterialStateService.TryFlushPendingSave("InputMapManualDieState");
+
+                _selectedEntry = entry;
+                _pickStatusDirty = false;
+                _suppressLotProgressOverlay = true;
+                _lastMapSignature = BuildMapSignature(map);
+                _lastMapFrameObjId = map.FrameObjId ?? "";
+                RefreshDieGrid();
+                SelectEntry(entry);
+                mapView.Invalidate();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die 상태 변경 완료. die=" + (entry.DieUid ?? "") +
+                    ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")" +
+                    ", state=" + stateText + " - Ok");
+                QMC.Common.MessageDialog.Show(this, "선택 Die 상태 변경 완료.",
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die 상태 변경 실패: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Input Die 상태 변경 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CanEditSelectedDieState(DieMapEntry entry, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (_manualMoveBusy)
+                {
+                    reason = "좌표 이동 동작 중에는 Die 상태를 변경할 수 없습니다.";
+                    return false;
+                }
+
+                var host = FindForm() as Form1;
+                var controller = host != null ? host.Controller : null;
+                if (controller != null)
+                {
+                    if (controller.Status == EquipmentStatus.AutoRunning ||
+                        controller.Status == EquipmentStatus.Initializing ||
+                        controller.IsSequenceRunning ||
+                        controller.IsManualBusy)
+                    {
+                        reason = "장비 동작 중에는 Active Die 상태를 변경할 수 없습니다.\r\n" +
+                                 "Auto/Manual 동작을 정지한 뒤 다시 시도하세요.";
+                        return false;
+                    }
+                }
+
+                DieMaterial die = MaterialStateService.GetDieMaterial(entry != null ? entry.DieUid : "");
+                if (die == null)
+                    return true;
+
+                if ((die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                     die.ReservedPickerLocation == MaterialLocationKind.PickerRear) &&
+                    die.ReservedPickerNo > 0)
+                {
+                    reason = "선택 Die는 Picker 예약 상태라 변경할 수 없습니다.\r\n" +
+                             "예약 해제 또는 시퀀스 정지 상태를 확인하세요.";
+                    return false;
+                }
+
+                MaterialLocation location = die.CurrentLocation;
+                MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
+                if (kind != MaterialLocationKind.InputStage && kind != MaterialLocationKind.Unknown)
+                {
+                    reason = "선택 Die는 이미 InputStage를 벗어나 상태 변경이 차단되었습니다.\r\n" +
+                             "현재 위치=" + kind;
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Die 상태 변경 가능 여부 확인 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private InputDieManualState ResolveSelectedDieManualState()
+        {
+            try
+            {
+                if (rdoDieStateGood.Checked)
+                    return InputDieManualState.InspectionGood;
+                if (rdoDieStateNg.Checked)
+                    return InputDieManualState.InspectionNg;
+                if (rdoDieStateSkip.Checked)
+                    return InputDieManualState.PickSkip;
+
+                return InputDieManualState.InspectionWait;
+            }
+            catch
+            {
+                return InputDieManualState.InspectionWait;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ApplyManualStateToEntry(DieMapEntry entry, InputDieManualState state)
+        {
+            if (entry == null)
+                return;
+
+            switch (state)
+            {
+                case InputDieManualState.InspectionGood:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Good;
+                    entry.BinCode = BinCodeMap.GoodBin;
+                    return;
+                case InputDieManualState.InspectionNg:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.NG;
+                    entry.BinCode = BinCodeMap.MaxBin;
+                    return;
+                case InputDieManualState.PickSkip:
+                    entry.IsTarget = false;
+                    entry.Result = DieResult.NG;
+                    entry.BinCode = BinCodeMap.MaxBin;
+                    entry.SequenceNo = 0;
+                    return;
+                case InputDieManualState.InspectionWait:
+                default:
+                    entry.IsTarget = true;
+                    entry.Result = DieResult.Unknown;
+                    entry.BinCode = 0;
+                    return;
+            }
+        }
+
+        private void SetDieStateRadioFromEntry(DieMapEntry entry)
+        {
+            try
+            {
+                switch (ResolveEntryManualState(entry))
+                {
+                    case InputDieManualState.InspectionGood:
+                        rdoDieStateGood.Checked = true;
+                        break;
+                    case InputDieManualState.InspectionNg:
+                        rdoDieStateNg.Checked = true;
+                        break;
+                    case InputDieManualState.PickSkip:
+                        rdoDieStateSkip.Checked = true;
+                        break;
+                    case InputDieManualState.InspectionWait:
+                    default:
+                        rdoDieStateWait.Checked = true;
+                        break;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static InputDieManualState ResolveEntryManualState(DieMapEntry entry)
+        {
+            if (entry == null)
+                return InputDieManualState.InspectionWait;
+
+            if (!entry.IsTarget)
+                return InputDieManualState.PickSkip;
+            if (entry.Result == DieResult.Good)
+                return InputDieManualState.InspectionGood;
+            if (entry.Result == DieResult.NG)
+                return InputDieManualState.InspectionNg;
+
+            return InputDieManualState.InspectionWait;
+        }
+
+        private static string ResolveManualStateDisplayName(InputDieManualState state)
+        {
+            switch (state)
+            {
+                case InputDieManualState.InspectionGood:
+                    return "검사 완료(Good)";
+                case InputDieManualState.InspectionNg:
+                    return "검사 NG";
+                case InputDieManualState.PickSkip:
+                    return "픽업 제외";
+                case InputDieManualState.InspectionWait:
+                default:
+                    return "검사 대기";
+            }
+        }
+
+        private void SyncManualInputPickVisionInspection(DieMapEntry entry, InputDieManualState state)
+        {
+            try
+            {
+                if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                    return;
+
+                if (state == InputDieManualState.InspectionWait ||
+                    state == InputDieManualState.PickSkip)
+                {
+                    MaterialStateService.RemoveInspection(entry.DieUid, "InputPickVision");
+                    return;
+                }
+
+                var record = new DieInspectionRecord
+                {
+                    InspectionType = "InputPickVision",
+                    Result = state == InputDieManualState.InspectionNg
+                        ? MaterialInspectionResult.Ng
+                        : MaterialInspectionResult.Ok,
+                    Offset = new VisionOffset
+                    {
+                        X = entry.PosX,
+                        Y = entry.PosY,
+                        R = 0.0,
+                        IsValid = true
+                    },
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                if (state == InputDieManualState.InspectionNg)
+                    record.NgCodes.Add("ManualInputMapEdit");
+
+                MaterialStateService.UpsertInspection(entry.DieUid, record);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "수동 InputPickVision 검사 상태 동기화 실패: die=" +
+                    (entry != null ? entry.DieUid ?? "" : "") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private System.Drawing.Color ResolveInputDieMapCellColor(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null || !entry.IsTarget)
+                    return SkipColor;
+
+                InputDieMapCellState state = ResolveInputDieMapCellState(entry);
+                if (state == InputDieMapCellState.PickComplete)
+                    return PickCompleteColor;
+
+                if (entry.Result == DieResult.NG)
+                {
+                    int binCode = entry.BinCode > 0 ? entry.BinCode : BinCodeMap.MaxBin;
+                    System.Drawing.Color color = BinCodeMap.ConvertToBinCodeColor(binCode);
+                    return color.ToArgb() == System.Drawing.Color.Black.ToArgb()
+                        ? System.Drawing.Color.IndianRed
+                        : color;
+                }
+
+                if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
+                    return InspectionDoneColor;
+
+                if (state == InputDieMapCellState.InspectionWait)
+                    return InspectionWaitColor;
+
+                if (entry.BinCode > 0)
+                    return BinCodeMap.ConvertToBinCodeColor(entry.BinCode);
+
+                return InspectionWaitColor;
+            }
+            catch
+            {
+                return InspectionWaitColor;
+            }
+            finally
+            {
+            }
+        }
+
+        private string ResolveInputDieMapCellStatusText(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null)
+                    return "";
+                if (!entry.IsTarget)
+                    return "픽업 제외";
+
+                InputDieMapCellState state = ResolveInputDieMapCellState(entry);
+                if (state == InputDieMapCellState.PickComplete)
+                    return "픽업완료";
+                if (entry.Result == DieResult.NG)
+                    return "검사NG";
+                if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
+                    return "검사완료";
+
+                return "검사대기";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        private InputDieMapCellState ResolveInputDieMapCellState(DieMapEntry entry)
+        {
+            if (entry == null)
+                return InputDieMapCellState.None;
+
+            InputDieMapCellState state;
+            if (_inputDieMapCellStates != null &&
+                _inputDieMapCellStates.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out state))
+                return state;
+
+            return InputDieMapCellState.InspectionWait;
+        }
+
+        private Tuple<string, System.Drawing.Color>[] BuildInputDieMapLegendItems()
+        {
+            return new[]
+            {
+                Tuple.Create("검사대기", InspectionWaitColor),
+                Tuple.Create("검사완료", InspectionDoneColor),
+                Tuple.Create("픽업완료", PickCompleteColor),
+                Tuple.Create("NG", System.Drawing.Color.IndianRed),
+                Tuple.Create("제외", SkipColor),
+            };
+        }
+
+        private void RefreshInputDieMapDisplayState(DieMap map)
+        {
+            try
+            {
+                Dictionary<string, InputDieMapCellState> states;
+                _inputDieMapStats = BuildInputDieMapStats(map, out states);
+                _inputDieMapCellStates = states;
+                mapView.Caption = BuildInputDieMapCaption(map, _inputDieMapStats);
+            }
+            catch (Exception ex)
+            {
+                _inputDieMapCellStates = new Dictionary<string, InputDieMapCellState>(StringComparer.Ordinal);
+                _inputDieMapStats = new InputDieMapStats();
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die Map 표시 상태 갱신 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private InputDieMapStats BuildInputDieMapStats(
+            DieMap map,
+            out Dictionary<string, InputDieMapCellState> states)
+        {
+            states = new Dictionary<string, InputDieMapCellState>(StringComparer.Ordinal);
+            var stats = new InputDieMapStats();
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return stats;
+
+                Dictionary<string, DieMaterial> dieById;
+                Dictionary<string, DieMaterial> dieByGrid;
+                BuildInputDieMaterialLookup(out dieById, out dieByGrid);
+
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    DieMaterial die = ResolveEntryDieMaterial(entry, dieById, dieByGrid);
+                    InputDieMapCellState state = ResolveInputDieMapCellState(die, entry);
+                    states[BuildGridKey(entry.DieMapX, entry.DieMapY)] = state;
+
+                    if (!entry.IsTarget)
+                        continue;
+
+                    stats.Target++;
+                    if (state == InputDieMapCellState.PickComplete)
+                        stats.PickComplete++;
+                    else if (state == InputDieMapCellState.InspectionDone || entry.Result == DieResult.Good)
+                        stats.InspectionDone++;
+                    else
+                        stats.InspectionWait++;
+
+                    if (entry.Result == DieResult.Good)
+                    {
+                        stats.Good++;
+                        stats.Done++;
+                    }
+                    else if (entry.Result == DieResult.NG)
+                    {
+                        stats.Ng++;
+                        stats.Done++;
+                    }
+                }
+
+                return stats;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input Die Map 표시 통계 계산 실패: " + ex.Message + " - Failed");
+                return stats;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void BuildInputDieMaterialLookup(
+            out Dictionary<string, DieMaterial> dieById,
+            out Dictionary<string, DieMaterial> dieByGrid)
+        {
+            dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+            dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
+
+            MaterialSnapshot state = MaterialStorage.State;
+            if (state == null || state.Dies == null)
+                return;
+
+            foreach (DieMaterial die in state.Dies)
+            {
+                if (die == null)
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
+                    dieById.Add(die.DieId, die);
+
+                if (die.Wafer_IndexX >= 0 && die.Wafer_IndexY >= 0)
+                {
+                    string key = BuildGridKey(die.Wafer_IndexX, die.Wafer_IndexY);
+                    if (!dieByGrid.ContainsKey(key))
+                        dieByGrid.Add(key, die);
+                }
+            }
+        }
+
+        private static DieMaterial ResolveEntryDieMaterial(
+            DieMapEntry entry,
+            Dictionary<string, DieMaterial> dieById,
+            Dictionary<string, DieMaterial> dieByGrid)
+        {
+            if (entry == null)
+                return null;
+
+            DieMaterial die = null;
+            if (!string.IsNullOrWhiteSpace(entry.DieUid) && dieById != null)
+                dieById.TryGetValue(entry.DieUid, out die);
+            if (die == null && dieByGrid != null)
+                dieByGrid.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out die);
+
+            return die;
+        }
+
+        private static InputDieMapCellState ResolveInputDieMapCellState(DieMaterial die, DieMapEntry entry)
+        {
+            if (die == null)
+                return entry != null && entry.Result == DieResult.Good
+                    ? InputDieMapCellState.InspectionDone
+                    : InputDieMapCellState.InspectionWait;
+
+            if (IsInputDiePicked(die))
+                return InputDieMapCellState.PickComplete;
+
+            if (HasInputPickVisionInspection(die) ||
+                (entry != null && entry.Result == DieResult.Good))
+                return InputDieMapCellState.InspectionDone;
+
+            return InputDieMapCellState.InspectionWait;
+        }
+
+        private static bool IsInputDiePicked(DieMaterial die)
+        {
+            if (die == null)
+                return false;
+
+            if (HasValidPickedAt(die.PickedAt) ||
+                die.PickedPickerLocation == MaterialLocationKind.PickerFront ||
+                die.PickedPickerLocation == MaterialLocationKind.PickerRear ||
+                die.PickedPickerNo >= 0)
+                return true;
+
+            return die.CurrentLocation != null &&
+                   (die.CurrentLocation.Kind == MaterialLocationKind.PickerFront ||
+                    die.CurrentLocation.Kind == MaterialLocationKind.PickerRear ||
+                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageGood ||
+                    die.CurrentLocation.Kind == MaterialLocationKind.OutputStageNg ||
+                    die.CurrentLocation.Kind == MaterialLocationKind.OutputFeeder ||
+                    die.CurrentLocation.Kind == MaterialLocationKind.OutputCassette);
+        }
+
+        private static bool HasValidPickedAt(DateTime pickedAt)
+        {
+            return pickedAt > new DateTime(2000, 1, 1);
+        }
+
+        private static bool HasInputPickVisionInspection(DieMaterial die)
+        {
+            if (die == null || die.Inspections == null)
+                return false;
+
+            foreach (DieInspectionRecord record in die.Inspections)
+            {
+                if (record == null)
+                    continue;
+
+                if (string.Equals(record.InspectionType, "InputPickVision", StringComparison.OrdinalIgnoreCase) &&
+                    record.Result != MaterialInspectionResult.Unknown)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string BuildGridKey(int x, int y)
+        {
+            return x.ToString() + ":" + y.ToString();
+        }
+
+        private string BuildInputDieMapCaption(DieMap map, InputDieMapStats stats)
+        {
+            try
+            {
+                Lot lot = LotStorage.ActiveLot;
+                string lotText = lot != null ? lot.LotID : "(no active lot)";
+                if (map == null)
+                    return "INPUT WAFER MAP   LOT " + lotText + "  (no input die map)";
+
+                return string.Format(
+                    "INPUT WAFER MAP   LOT {0}  target={1}  wait={2}  vision={3}  pick={4}  good={5}  ng={6}",
+                    lotText,
+                    stats.Target,
+                    stats.InspectionWait,
+                    stats.InspectionDone,
+                    stats.PickComplete,
+                    stats.Good,
+                    stats.Ng);
+            }
+            catch
+            {
+                return "INPUT WAFER MAP";
+            }
+            finally
+            {
+            }
+        }
+
         private void RefreshDieGrid()
         {
             try
             {
                 DieMap map = mapView != null ? mapView.Map : null;
+                RefreshInputDieMapDisplayState(map);
                 if (map == null || map.Entries == null)
                 {
                     gridDieList.Rows.Clear();
@@ -2177,8 +2858,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return new System.Collections.Generic.List<DieMapEntry>();
 
                 return map.Entries
-                    .Where(entry => entry != null && entry.IsTarget)
-                    .OrderBy(entry => entry.SequenceNo <= 0 ? int.MaxValue : entry.SequenceNo)
+                    .Where(entry => entry != null)
+                    .OrderBy(entry => entry.IsTarget ? 0 : 1)
+                    .ThenBy(entry => entry.SequenceNo <= 0 ? int.MaxValue : entry.SequenceNo)
                     .ThenBy(entry => entry.DieMapY)
                     .ThenBy(entry => entry.DieMapX)
                     .ToList();
@@ -2186,7 +2868,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             catch
             {
                 return map != null && map.Entries != null
-                    ? map.Entries.Where(entry => entry != null && entry.IsTarget).ToList()
+                    ? map.Entries.Where(entry => entry != null).ToList()
                     : new System.Collections.Generic.List<DieMapEntry>();
             }
             finally

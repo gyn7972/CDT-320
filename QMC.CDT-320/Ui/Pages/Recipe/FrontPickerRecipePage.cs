@@ -1,6 +1,7 @@
 ﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -26,7 +27,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerFrontUnit unit;
-        private ActionButton btnFrontPickerZ1CycleTest;
 
         public FrontPickerRecipePage()
         {
@@ -51,7 +51,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
             optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
             BindParameterGridMenus();
-            AddFrontPickerZ1CycleTestButton();
+            ConfigureManualActions();
         }
 
         protected override void OnLoad(EventArgs e)
@@ -107,7 +107,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             jogPositionListControl.Enabled = enabled;
             jogAxisMoveControl.Enabled = enabled;
             jogSpeedControl.Enabled = enabled;
-            manualPanel.Enabled = enabled;
+            manualActionPanel.SetButtonsEnabled(enabled);
         }
 
         private void EnsureData()
@@ -166,35 +166,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"));
         }
 
-        private void AddFrontPickerZ1CycleTestButton()
+        private void ConfigureManualActions()
         {
-            if (manualLayout == null || btnFrontPickerZ1CycleTest != null)
-                return;
-
-            btnFrontPickerZ1CycleTest = CreateManualActionButton("Z1 0-2mm x50 TEST", 9);
-            btnFrontPickerZ1CycleTest.Click += async delegate
+            try
             {
-                await ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync);
-            };
+                // 공용 MANUAL ACTION 판넬에 위치 이동 버튼 등록 (2열, 행 수 자동)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("AVOID POSITION", () => ConfirmMoveAsync("AVOID POSITION", MoveAvoidSequenceAsync)),
+                    ManualActionItem.Create("PICK POSITION", () => ConfirmMoveAsync("PICK POSITION", () => MoveHeadKindSequenceAsync("PICK"))),
+                    ManualActionItem.Create("BOTTOM POSITION", () => ConfirmMoveAsync("BOTTOM POSITION", () => MoveHeadKindSequenceAsync("BOTTOM"))),
+                    ManualActionItem.Create("SIDE POSITION", () => ConfirmMoveAsync("SIDE POSITION", () => MoveHeadKindSequenceAsync("SIDE"))),
+                    ManualActionItem.Create("PLACE POSITION", () => ConfirmMoveAsync("PLACE POSITION", () => MoveHeadKindSequenceAsync("PLACE"))),
+                    ManualActionItem.Create("DIE PICK POSITION", () => ConfirmMoveAsync("DIE PICK POSITION", () => MoveDieKindSequenceAsync("DIE PICK", "DiePickPosition"))),
+                    ManualActionItem.Create("DIE BOTTOM POSITION", () => ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"))),
+                    ManualActionItem.Create("DIE SIDE POSITION", () => ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"))),
+                    ManualActionItem.Create("DIE PLACE POSITION", () => ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"))),
 
-            if (manualLayout.RowCount < 5)
-                manualLayout.RowCount = 5;
-
-            manualLayout.Controls.Add(btnFrontPickerZ1CycleTest, 1, 4);
-        }
-
-        private static ActionButton CreateManualActionButton(string text, int tabIndex)
-        {
-            ActionButton button = new ActionButton();
-            button.BackColor = Color.FromArgb(128, 128, 128);
-            button.Cursor = Cursors.Hand;
-            button.Dock = DockStyle.Fill;
-            button.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
-            button.ForeColor = Color.White;
-            button.Margin = new Padding(4);
-            button.TabIndex = tabIndex;
-            button.Text = text;
-            return button;
+                    ManualActionItem.Create("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "ConfigureManualActions failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void BindParameterGrids()
@@ -276,7 +275,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             optionParameterGrid.SetItems(optionItems);
 
-            waitParameterGrid.SetItems(new[]
+            waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
+                waitParameterGrid.SetItems(new[]
             {
                 ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
@@ -342,7 +342,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             place.Ensure();
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPlaceMotionMode>("PLACE MOTION MODE", "mode", ParameterGridScope.Config, () => place.MotionMode, v => place.MotionMode = v),
-                "Default는 기존 Place 이동 순서를 사용합니다.\r\nSynchronizedArrival은 Ajin 보간으로 OutputStageY/PickerX/PickerZ가 같은 타이밍에 도착하도록 시도하고, 실패하면 기존 이동으로 되돌아갑니다."), groupKey));
+                "Default는 기존 Place 이동 순서를 사용합니다.\r\nSynchronizedArrival은 OutputStageY/PickerX/PickerZ 동시 도착 보간을 사용합니다.\r\nContiSegmentedPlace는 이전 Z1 상승과 현재 Z2 접근을 5개 ContiNode로 나누어 연속 구동합니다."), groupKey));
             items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC COORDINATE", "coord", ParameterGridScope.Config, () => place.InterpolationCoordinate, v => place.InterpolationCoordinate = Math.Max(0, v)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC VELOCITY", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.SynchronizedVelocity, v => place.SynchronizedVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 1.0)), groupKey));
             items.Add(InGroup(ParameterGridItem.Double("PLACE SYNC ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.SynchronizedAcceleration, v => place.SynchronizedAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)), groupKey));
@@ -350,6 +350,55 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(ParameterGridItem.Int("PLACE SYNC TIMEOUT", "ms", ParameterGridScope.Config, () => place.SynchronizedTimeoutMs, v => place.SynchronizedTimeoutMs = Math.Max(1, v)), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE SYNC MAX TRAVEL", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.MaxSynchronizedTravelDistance, v => place.MaxSynchronizedTravelDistance = PickerPickUpMotionConfig.NormalizePositive(v, 37.0)),
                 "현재 위치에서 Place 목표 위치까지 한 축이라도 이 거리보다 많이 움직이면 보간을 사용하지 않고 기존 이동 방식으로 접근합니다.\r\n알람/정지 후 Avoid 위치에서 재시작할 때 긴 거리를 보간으로 이동하지 않게 막는 값입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP1 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step1Clearance, v => place.ContiZ1Step1Clearance = Math.Max(0.0, v)),
+                "ContiSegmentedPlace node0에서 이전 PickerZ(Z1)를 티칭 Place 기준 + Tape + Die 위치보다 위로 올리는 1단 회피량입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI Z1 STEP2 CLEAR", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiZ1Step2Clearance, v => place.ContiZ1Step2Clearance = Math.Max(0.0, v)),
+                "ContiSegmentedPlace node1에서 이전 PickerZ(Z1)를 추가로 올리는 2단 회피량입니다. node0보다 빠른 속도 설정을 사용할 수 있습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NEAR AVOID", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiNearAvoidDistance, v => place.ContiNearAvoidDistance = Math.Max(0.0, v)),
+                "node2/node3에서 Z1과 Z2가 Avoid 바로 전까지 접근할 거리입니다. 1 mm이면 Avoid 위치에서 Place 방향으로 1 mm 내려온 위치를 사용합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI XY MID RATIO", "ratio", ParameterGridScope.Config, () => place.ContiXYMidRatio, v => place.ContiXYMidRatio = Math.Max(0.0, Math.Min(1.0, v))),
+                "node2의 X/Y 중간 위치 비율입니다. 0.5면 현재 위치와 Target Pos의 중간까지 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI OVERDRIVE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiOverDrive, v => place.ContiOverDrive = Math.Max(0.0, v)),
+                "node4에서 현재 PickerZ(Z2)가 최종 Place 위치에 더 들어가는 OverDrive 값입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI TAPE FALLBACK", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiTapeThicknessFallback, v => place.ContiTapeThicknessFallback = Math.Max(0.0, v)),
+                "프로젝트/웨이퍼 정보에서 Tape 두께를 읽지 못했을 때 사용할 예비 Tape 두께입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI DIE FALLBACK", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => place.ContiDieThicknessFallback, v => place.ContiDieThicknessFallback = Math.Max(0.0, v)),
+                "Die 정보/프로젝트 Die 두께를 읽지 못했을 때 사용할 예비 Die 두께입니다."), groupKey));
+            AddPlaceContiNodeMotionItems(items, groupKey, place);
+        }
+
+        private void AddPlaceContiNodeMotionItems(List<ParameterGridItem> items, string groupKey, PickerPlaceMotionConfig place)
+        {
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode0Velocity, v => place.ContiNode0Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 2.0)),
+                "node0 속도입니다. X/Y는 유지하고 이전 PickerZ(Z1)를 1단 회피 위치까지 천천히 상승시킵니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode0Acceleration, v => place.ContiNode0Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
+                "node0 가속도입니다. Z1 초기 상승 충격을 줄이기 위해 보수적으로 설정합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE0 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode0Deceleration, v => place.ContiNode0Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
+                "node0 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode1Velocity, v => place.ContiNode1Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)),
+                "node1 속도입니다. Z1을 2단 회피 위치까지 올리는 구간으로 node0보다 빠르게 설정할 수 있습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode1Acceleration, v => place.ContiNode1Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
+                "node1 가속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE1 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode1Deceleration, v => place.ContiNode1Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
+                "node1 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode2Velocity, v => place.ContiNode2Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)),
+                "node2 속도입니다. X/Y를 중간 위치로 보내면서 Z1/Z2를 Avoid 근처 위치로 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode2Acceleration, v => place.ContiNode2Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
+                "node2 가속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE2 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode2Deceleration, v => place.ContiNode2Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 50.0)),
+                "node2 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode3Velocity, v => place.ContiNode3Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 2.0)),
+                "node3 속도입니다. X/Y를 Target Pos로 맞추고 Z2를 Place 직전 위치까지 접근시킵니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode3Acceleration, v => place.ContiNode3Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
+                "node3 가속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE3 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode3Deceleration, v => place.ContiNode3Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 20.0)),
+                "node3 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 VEL", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => place.ContiNode4Velocity, v => place.ContiNode4Velocity = PickerPickUpMotionConfig.NormalizePositive(v, 0.5)),
+                "node4 속도입니다. X/Y Target 상태에서 Z1은 Avoid로, Z2는 최종 Place/OverDrive 위치로 이동합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode4Acceleration, v => place.ContiNode4Acceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)),
+                "node4 가속도입니다. 제품 접촉 구간이므로 낮게 시작하는 것을 권장합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PLACE CONTI NODE4 DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => place.ContiNode4Deceleration, v => place.ContiNode4Deceleration = PickerPickUpMotionConfig.NormalizePositive(v, 10.0)),
+                "node4 감속도입니다."), groupKey));
         }
 
         private void AddVisionPickerOffsetItems(
@@ -441,19 +490,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             List<IoCylinderItem> items = new List<IoCylinderItem>();
 
-            // 공용 압력 체크
-            items.Add(IoCylinderItem.Input("FRONT PICKER CDA TANK PRESSURE CHECK", () => unit.IsPickerCdaPressureOk()));
-            items.Add(IoCylinderItem.Input("FRONT PICKER VACUUM TANK PRESSURE CHECK", () => unit.IsPickerVacuumPressureOk()));
-
-            // 피커 1~4: FLOW / VACUUM / BLOW 를 한 세트로 묶어 정렬 (5~8 미사용)
+            // 2열 열우선 배치 ("FRONT PICKER" 접두사 생략): [1열] CDA TANK + P1·P2, [2열] VACUUM TANK + P3·P4
+            items.Add(IoCylinderItem.Input("CDA TANK", () => unit.IsPickerCdaPressureOk()));
             for (int i = 1; i <= 4; i++)
             {
+                if (i == 3)  // 2열(P3부터) 시작 전에 VACUUM TANK 삽입
+                    items.Add(IoCylinderItem.Input("VACUUM TANK", () => unit.IsPickerVacuumPressureOk()));
+
                 int pickerNo = i;
-                items.Add(IoCylinderItem.Input("FRONT PICKER " + pickerNo + " FLOW CHECK", () => unit.IsPickerFlowDetected(pickerNo)));
-                items.Add(IoCylinderItem.Output("FRONT PICKER " + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
-                items.Add(IoCylinderItem.Output("FRONT PICKER " + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Input("P" + pickerNo + " FLOW", () => unit.IsPickerFlowDetected(pickerNo)));
+                items.Add(IoCylinderItem.Output("P" + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Output("P" + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
             }
 
+            // 14개 항목을 2열(열당 7개)로 → 스크롤 없이 한눈에
+            ioCylinderPanel.ColumnCount = 2;
             ioCylinderPanel.SetItems(items);
         }
 
@@ -479,7 +530,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             jogAxisMoveControl.ButtonAreaMinHeight = 360;
             jogAxisMoveControl.ButtonAreaMaxHeight = 700;
             jogAxisMoveControl.SetItems(items);
-            jogPositionListControl.SetItems(items);
+
+            // 위치 리스트만 열 우선 순서로 재배열: [1열] X,T1,Z1,T2,Z2  [2열] Y,T3,Z3,T4,Z4
+            // (조그 패드는 원래 순서 유지 → PickerTabbed 그룹핑에 영향 없음)
+            List<JogAxisItem> listItems = items;
+            if (items.Count == 10)
+            {
+                listItems = new List<JogAxisItem>
+                {
+                    items[0], items[2], items[3], items[4], items[5],
+                    items[1], items[6], items[7], items[8], items[9]
+                };
+            }
+            jogPositionListControl.SetItems(listItems);
         }
 
         private void AddJogItem(List<JogAxisItem> items, string name, PickerAxis axisKey, string plus, string minus, JogAxisControlKind kind)
@@ -597,8 +660,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private int AbortSeq(string title, string message)
         {
-            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
-            EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", title + " 시퀀스 중단: " + message);
+            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error, "FRONT-PICKER", "UI", title + " 시퀀스 중단: " + message);
             lastAbortReason = message;
             return -1;
         }
@@ -749,9 +811,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (unit == null)
                 return -1;
 
-            ActionButton button = btnFrontPickerZ1CycleTest;
-            if (button != null)
-                button.Enabled = false;
+            manualActionPanel.SetButtonsEnabled(false);   // 테스트 중 수동 이동 잠금
 
             System.Diagnostics.Stopwatch totalWatch = System.Diagnostics.Stopwatch.StartNew();
             EventLogger.Write(
@@ -787,8 +847,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             finally
             {
-                if (button != null && !button.IsDisposed)
-                    button.Enabled = true;
+                if (!manualActionPanel.IsDisposed)
+                    manualActionPanel.SetButtonsEnabled(true);
             }
         }
 
@@ -898,7 +958,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 Cursor = Cursors.WaitCursor;
                 lastAbortReason = null;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("FrontPickerRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER", actionName + " result=" + result);
                 if (result != 0)
                 {

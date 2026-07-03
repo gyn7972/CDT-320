@@ -109,10 +109,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel materialPanel;
         private TableLayoutPanel materialHeaderLayout;
         private Label lblHeadDieTitle;
-        private Button btnHead1Select;
-        private Button btnHead2Select;
-        private Button btnHead3Select;
-        private Button btnHead4Select;
+        private System.Windows.Forms.RadioButton btnHead1Select;
+        private System.Windows.Forms.RadioButton btnHead2Select;
+        private System.Windows.Forms.RadioButton btnHead3Select;
+        private System.Windows.Forms.RadioButton btnHead4Select;
         private QMC.CDT_320.Ui.Controls.MaterialDetailView headDieDetailView;
         private ActionButton btnInput;
         private ActionButton btnInspect;
@@ -231,10 +231,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.materialPanel = new System.Windows.Forms.TableLayoutPanel();
             this.materialHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeadDieTitle = new System.Windows.Forms.Label();
-            this.btnHead1Select = new System.Windows.Forms.Button();
-            this.btnHead2Select = new System.Windows.Forms.Button();
-            this.btnHead3Select = new System.Windows.Forms.Button();
-            this.btnHead4Select = new System.Windows.Forms.Button();
+            this.btnHead1Select = new System.Windows.Forms.RadioButton();
+            this.btnHead2Select = new System.Windows.Forms.RadioButton();
+            this.btnHead3Select = new System.Windows.Forms.RadioButton();
+            this.btnHead4Select = new System.Windows.Forms.RadioButton();
             this.headDieDetailView = new QMC.CDT_320.Ui.Controls.MaterialDetailView();
             this.grpAction = new System.Windows.Forms.GroupBox();
             this.actionBar = new System.Windows.Forms.TableLayoutPanel();
@@ -320,6 +320,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1786,10 +1787,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.materialHeaderLayout.ColumnCount = 5;
             this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.materialHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
             this.materialHeaderLayout.Controls.Add(this.lblHeadDieTitle, 0, 0);
             this.materialHeaderLayout.Controls.Add(this.btnHead1Select, 1, 0);
             this.materialHeaderLayout.Controls.Add(this.btnHead2Select, 2, 0);
@@ -1816,63 +1817,48 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // btnHead1Select
             // 
-            this.btnHead1Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnHead1Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead1Select.Appearance = System.Windows.Forms.Appearance.Button;
+            this.btnHead1Select.Checked = true;
             this.btnHead1Select.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnHead1Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHead1Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnHead1Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead1Select.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnHead1Select.Location = new System.Drawing.Point(553, 3);
             this.btnHead1Select.Name = "btnHead1Select";
             this.btnHead1Select.Size = new System.Drawing.Size(64, 40);
             this.btnHead1Select.TabIndex = 1;
             this.btnHead1Select.Text = "HEAD 1";
-            this.btnHead1Select.UseVisualStyleBackColor = false;
             // 
             // btnHead2Select
             // 
-            this.btnHead2Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnHead2Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead2Select.Appearance = System.Windows.Forms.Appearance.Button;
             this.btnHead2Select.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnHead2Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHead2Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnHead2Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead2Select.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnHead2Select.Location = new System.Drawing.Point(623, 3);
             this.btnHead2Select.Name = "btnHead2Select";
             this.btnHead2Select.Size = new System.Drawing.Size(64, 40);
             this.btnHead2Select.TabIndex = 2;
             this.btnHead2Select.Text = "HEAD 2";
-            this.btnHead2Select.UseVisualStyleBackColor = false;
             // 
             // btnHead3Select
             // 
-            this.btnHead3Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnHead3Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead3Select.Appearance = System.Windows.Forms.Appearance.Button;
             this.btnHead3Select.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnHead3Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHead3Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnHead3Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead3Select.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnHead3Select.Location = new System.Drawing.Point(693, 3);
             this.btnHead3Select.Name = "btnHead3Select";
             this.btnHead3Select.Size = new System.Drawing.Size(64, 40);
             this.btnHead3Select.TabIndex = 3;
             this.btnHead3Select.Text = "HEAD 3";
-            this.btnHead3Select.UseVisualStyleBackColor = false;
             // 
             // btnHead4Select
             // 
-            this.btnHead4Select.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnHead4Select.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnHead4Select.Appearance = System.Windows.Forms.Appearance.Button;
             this.btnHead4Select.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnHead4Select.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHead4Select.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnHead4Select.ForeColor = System.Drawing.Color.White;
+            this.btnHead4Select.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.btnHead4Select.Location = new System.Drawing.Point(763, 3);
             this.btnHead4Select.Name = "btnHead4Select";
             this.btnHead4Select.Size = new System.Drawing.Size(64, 40);
             this.btnHead4Select.TabIndex = 4;
             this.btnHead4Select.Text = "HEAD 4";
-            this.btnHead4Select.UseVisualStyleBackColor = false;
             // 
             // headDieDetailView
             // 
@@ -1889,12 +1875,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpAction.Controls.Add(this.actionBar);
-            this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpAction.Location = new System.Drawing.Point(0, 383);
             this.grpAction.Margin = new System.Windows.Forms.Padding(0, 3, 3, 0);
             this.grpAction.Name = "grpAction";
-            this.grpAction.Size = new System.Drawing.Size(836, 387);
+            this.grpAction.Size = new System.Drawing.Size(836, 352);
             this.grpAction.TabIndex = 2;
             this.grpAction.TabStop = false;
             this.grpAction.Text = "ACTION";
@@ -1908,6 +1894,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionBar.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionBar.Location = new System.Drawing.Point(3, 23);
             this.actionBar.Margin = new System.Windows.Forms.Padding(0);
+            this.actionBar.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
             this.actionBar.Name = "actionBar";
             this.actionBar.RowCount = 2;
             this.actionBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 184F));
@@ -2058,8 +2045,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionRightPanel.Location = new System.Drawing.Point(0, 184);
             this.actionRightPanel.Margin = new System.Windows.Forms.Padding(0);
             this.actionRightPanel.Name = "actionRightPanel";
-            this.actionRightPanel.RowCount = 5;
-            this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionRightPanel.RowCount = 4;
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.actionRightPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
