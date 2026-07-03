@@ -367,7 +367,7 @@
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 3;
             this.centerLayout.SetRowSpan(this.leftLayout, 2);
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 560F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 275F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(457, 854);
@@ -434,7 +434,7 @@
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
             this.grpIo.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpIo.Size = new System.Drawing.Size(449, 300);
+            this.grpIo.Size = new System.Drawing.Size(449, 310);
             this.grpIo.TabIndex = 3;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";

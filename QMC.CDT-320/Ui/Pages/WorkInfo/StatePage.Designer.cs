@@ -793,13 +793,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotStart
             // 
             this._dotStart.BackColor = System.Drawing.Color.Transparent;
-            this._dotStart.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotStart.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotStart.Location = new System.Drawing.Point(13, 9);
             this._dotStart.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotStart.Name = "_dotStart";
             this._dotStart.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotStart.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotStart.Size = new System.Drawing.Size(22, 18);
+            this._dotStart.Size = new System.Drawing.Size(26, 26);
             this._dotStart.TabIndex = 0;
             // 
             // lblStart
@@ -816,13 +816,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotStop
             // 
             this._dotStop.BackColor = System.Drawing.Color.Transparent;
-            this._dotStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotStop.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotStop.Location = new System.Drawing.Point(13, 37);
             this._dotStop.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotStop.Name = "_dotStop";
             this._dotStop.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotStop.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotStop.Size = new System.Drawing.Size(22, 18);
+            this._dotStop.Size = new System.Drawing.Size(26, 26);
             this._dotStop.TabIndex = 2;
             // 
             // lblStop
@@ -839,13 +839,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotReset
             // 
             this._dotReset.BackColor = System.Drawing.Color.Transparent;
-            this._dotReset.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotReset.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotReset.Location = new System.Drawing.Point(13, 65);
             this._dotReset.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotReset.Name = "_dotReset";
             this._dotReset.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotReset.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotReset.Size = new System.Drawing.Size(22, 18);
+            this._dotReset.Size = new System.Drawing.Size(26, 26);
             this._dotReset.TabIndex = 4;
             // 
             // lblReset
@@ -862,13 +862,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotEmgF
             // 
             this._dotEmgF.BackColor = System.Drawing.Color.Transparent;
-            this._dotEmgF.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotEmgF.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotEmgF.Location = new System.Drawing.Point(13, 93);
             this._dotEmgF.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotEmgF.Name = "_dotEmgF";
             this._dotEmgF.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotEmgF.OnColor = System.Drawing.Color.Red;
-            this._dotEmgF.Size = new System.Drawing.Size(22, 18);
+            this._dotEmgF.Size = new System.Drawing.Size(26, 26);
             this._dotEmgF.TabIndex = 6;
             // 
             // lblEmgF
@@ -885,13 +885,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotEmgL
             // 
             this._dotEmgL.BackColor = System.Drawing.Color.Transparent;
-            this._dotEmgL.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotEmgL.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotEmgL.Location = new System.Drawing.Point(13, 121);
             this._dotEmgL.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotEmgL.Name = "_dotEmgL";
             this._dotEmgL.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotEmgL.OnColor = System.Drawing.Color.Red;
-            this._dotEmgL.Size = new System.Drawing.Size(22, 18);
+            this._dotEmgL.Size = new System.Drawing.Size(26, 26);
             this._dotEmgL.TabIndex = 8;
             // 
             // lblEmgL
@@ -908,13 +908,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotEmgR
             // 
             this._dotEmgR.BackColor = System.Drawing.Color.Transparent;
-            this._dotEmgR.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotEmgR.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotEmgR.Location = new System.Drawing.Point(13, 149);
             this._dotEmgR.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotEmgR.Name = "_dotEmgR";
             this._dotEmgR.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotEmgR.OnColor = System.Drawing.Color.Red;
-            this._dotEmgR.Size = new System.Drawing.Size(22, 20);
+            this._dotEmgR.Size = new System.Drawing.Size(26, 26);
             this._dotEmgR.TabIndex = 10;
             // 
             // lblEmgR
@@ -976,13 +976,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotCda1
             // 
             this._dotCda1.BackColor = System.Drawing.Color.Transparent;
-            this._dotCda1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotCda1.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotCda1.Location = new System.Drawing.Point(13, 9);
             this._dotCda1.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotCda1.Name = "_dotCda1";
             this._dotCda1.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotCda1.OnColor = System.Drawing.Color.Cyan;
-            this._dotCda1.Size = new System.Drawing.Size(22, 18);
+            this._dotCda1.Size = new System.Drawing.Size(26, 26);
             this._dotCda1.TabIndex = 0;
             // 
             // lblCda1
@@ -999,13 +999,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotCda2
             // 
             this._dotCda2.BackColor = System.Drawing.Color.Transparent;
-            this._dotCda2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotCda2.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotCda2.Location = new System.Drawing.Point(13, 37);
             this._dotCda2.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotCda2.Name = "_dotCda2";
             this._dotCda2.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotCda2.OnColor = System.Drawing.Color.Cyan;
-            this._dotCda2.Size = new System.Drawing.Size(22, 18);
+            this._dotCda2.Size = new System.Drawing.Size(26, 26);
             this._dotCda2.TabIndex = 2;
             // 
             // lblCda2
@@ -1022,13 +1022,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotVac1
             // 
             this._dotVac1.BackColor = System.Drawing.Color.Transparent;
-            this._dotVac1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotVac1.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotVac1.Location = new System.Drawing.Point(13, 65);
             this._dotVac1.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotVac1.Name = "_dotVac1";
             this._dotVac1.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotVac1.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotVac1.Size = new System.Drawing.Size(22, 18);
+            this._dotVac1.Size = new System.Drawing.Size(26, 26);
             this._dotVac1.TabIndex = 4;
             // 
             // lblVac1
@@ -1045,13 +1045,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotVac2
             // 
             this._dotVac2.BackColor = System.Drawing.Color.Transparent;
-            this._dotVac2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotVac2.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotVac2.Location = new System.Drawing.Point(13, 93);
             this._dotVac2.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotVac2.Name = "_dotVac2";
             this._dotVac2.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotVac2.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotVac2.Size = new System.Drawing.Size(22, 18);
+            this._dotVac2.Size = new System.Drawing.Size(26, 26);
             this._dotVac2.TabIndex = 6;
             // 
             // lblVac2
@@ -1068,13 +1068,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotVac3
             // 
             this._dotVac3.BackColor = System.Drawing.Color.Transparent;
-            this._dotVac3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotVac3.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotVac3.Location = new System.Drawing.Point(13, 121);
             this._dotVac3.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotVac3.Name = "_dotVac3";
             this._dotVac3.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotVac3.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotVac3.Size = new System.Drawing.Size(22, 18);
+            this._dotVac3.Size = new System.Drawing.Size(26, 26);
             this._dotVac3.TabIndex = 8;
             // 
             // lblVac3
@@ -1091,13 +1091,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotVac4
             // 
             this._dotVac4.BackColor = System.Drawing.Color.Transparent;
-            this._dotVac4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotVac4.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotVac4.Location = new System.Drawing.Point(13, 149);
             this._dotVac4.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._dotVac4.Name = "_dotVac4";
             this._dotVac4.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotVac4.OnColor = System.Drawing.Color.LimeGreen;
-            this._dotVac4.Size = new System.Drawing.Size(22, 21);
+            this._dotVac4.Size = new System.Drawing.Size(26, 26);
             this._dotVac4.TabIndex = 10;
             // 
             // lblVac4
@@ -1168,13 +1168,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _ledStartLamp
             // 
             this._ledStartLamp.BackColor = System.Drawing.Color.Transparent;
-            this._ledStartLamp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._ledStartLamp.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._ledStartLamp.Location = new System.Drawing.Point(13, 9);
             this._ledStartLamp.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._ledStartLamp.Name = "_ledStartLamp";
             this._ledStartLamp.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._ledStartLamp.OnColor = System.Drawing.Color.LimeGreen;
-            this._ledStartLamp.Size = new System.Drawing.Size(22, 26);
+            this._ledStartLamp.Size = new System.Drawing.Size(26, 26);
             this._ledStartLamp.TabIndex = 0;
             // 
             // lblStartLamp
@@ -1191,13 +1191,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _ledStopLamp
             // 
             this._ledStopLamp.BackColor = System.Drawing.Color.Transparent;
-            this._ledStopLamp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._ledStopLamp.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._ledStopLamp.Location = new System.Drawing.Point(13, 45);
             this._ledStopLamp.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._ledStopLamp.Name = "_ledStopLamp";
             this._ledStopLamp.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._ledStopLamp.OnColor = System.Drawing.Color.LimeGreen;
-            this._ledStopLamp.Size = new System.Drawing.Size(22, 26);
+            this._ledStopLamp.Size = new System.Drawing.Size(26, 26);
             this._ledStopLamp.TabIndex = 2;
             // 
             // lblStopLamp
@@ -1214,13 +1214,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _ledResetLamp
             // 
             this._ledResetLamp.BackColor = System.Drawing.Color.Transparent;
-            this._ledResetLamp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._ledResetLamp.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._ledResetLamp.Location = new System.Drawing.Point(13, 81);
             this._ledResetLamp.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._ledResetLamp.Name = "_ledResetLamp";
             this._ledResetLamp.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._ledResetLamp.OnColor = System.Drawing.Color.LimeGreen;
-            this._ledResetLamp.Size = new System.Drawing.Size(22, 26);
+            this._ledResetLamp.Size = new System.Drawing.Size(26, 26);
             this._ledResetLamp.TabIndex = 4;
             // 
             // lblResetLamp
@@ -1276,13 +1276,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _tlRed
             // 
             this._tlRed.BackColor = System.Drawing.Color.Transparent;
-            this._tlRed.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tlRed.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._tlRed.Location = new System.Drawing.Point(13, 9);
             this._tlRed.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._tlRed.Name = "_tlRed";
             this._tlRed.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._tlRed.OnColor = System.Drawing.Color.Red;
-            this._tlRed.Size = new System.Drawing.Size(22, 27);
+            this._tlRed.Size = new System.Drawing.Size(26, 26);
             this._tlRed.TabIndex = 0;
             // 
             // lblTlRed
@@ -1299,13 +1299,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _tlYellow
             // 
             this._tlYellow.BackColor = System.Drawing.Color.Transparent;
-            this._tlYellow.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tlYellow.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._tlYellow.Location = new System.Drawing.Point(13, 46);
             this._tlYellow.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._tlYellow.Name = "_tlYellow";
             this._tlYellow.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._tlYellow.OnColor = System.Drawing.Color.Goldenrod;
-            this._tlYellow.Size = new System.Drawing.Size(22, 27);
+            this._tlYellow.Size = new System.Drawing.Size(26, 26);
             this._tlYellow.TabIndex = 2;
             // 
             // lblTlYellow
@@ -1322,13 +1322,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _tlGreen
             // 
             this._tlGreen.BackColor = System.Drawing.Color.Transparent;
-            this._tlGreen.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._tlGreen.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._tlGreen.Location = new System.Drawing.Point(13, 83);
             this._tlGreen.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._tlGreen.Name = "_tlGreen";
             this._tlGreen.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._tlGreen.OnColor = System.Drawing.Color.LimeGreen;
-            this._tlGreen.Size = new System.Drawing.Size(22, 27);
+            this._tlGreen.Size = new System.Drawing.Size(26, 26);
             this._tlGreen.TabIndex = 4;
             // 
             // lblTlGreen
@@ -1345,13 +1345,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _ledBuzzer
             // 
             this._ledBuzzer.BackColor = System.Drawing.Color.Transparent;
-            this._ledBuzzer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._ledBuzzer.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._ledBuzzer.Location = new System.Drawing.Point(13, 120);
             this._ledBuzzer.Margin = new System.Windows.Forms.Padding(3, 1, 3, 1);
             this._ledBuzzer.Name = "_ledBuzzer";
             this._ledBuzzer.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._ledBuzzer.OnColor = System.Drawing.Color.Magenta;
-            this._ledBuzzer.Size = new System.Drawing.Size(22, 27);
+            this._ledBuzzer.Size = new System.Drawing.Size(26, 26);
             this._ledBuzzer.TabIndex = 6;
             // 
             // lblBuzzer
@@ -1398,13 +1398,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // _dotIonizer
             // 
             this._dotIonizer.BackColor = System.Drawing.Color.Transparent;
-            this._dotIonizer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._dotIonizer.Anchor = System.Windows.Forms.AnchorStyles.None;
             this._dotIonizer.Location = new System.Drawing.Point(13, 9);
             this._dotIonizer.Margin = new System.Windows.Forms.Padding(4, 6, 4, 6);
             this._dotIonizer.Name = "_dotIonizer";
             this._dotIonizer.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
             this._dotIonizer.OnColor = System.Drawing.Color.Cyan;
-            this._dotIonizer.Size = new System.Drawing.Size(22, 35);
+            this._dotIonizer.Size = new System.Drawing.Size(26, 26);
             this._dotIonizer.TabIndex = 0;
             // 
             // lblIonizer

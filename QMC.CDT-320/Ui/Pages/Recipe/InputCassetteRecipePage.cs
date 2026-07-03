@@ -221,11 +221,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 // 공용 MANUAL ACTION 판넬에 리프터 이동 버튼 등록 (2열, 행 수 자동)
                 manualActionPanel.ColumnCount = 2;
+                // [LOADING | UNLOADING] / [READY | 빈칸] / [MAPPING START | MAPPING END]
                 manualActionPanel.SetItems(new[]
                 {
                     ManualActionItem.Create("LOADING MOVE", () => MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition)),
                     ManualActionItem.Create("UNLOADING MOVE", () => MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition)),
                     ManualActionItem.Create("READY MOVE", () => MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition)),
+                    null,
                     ManualActionItem.Create("MAPPING START", () => MoveToTarget("MAPPING START Z", _InputCassetteUnit.Recipe.MappingStartPosition)),
                     ManualActionItem.Create("MAPPING END", () => MoveToTarget("MAPPING END Z", _InputCassetteUnit.Recipe.MappingEndPosition))
                 });

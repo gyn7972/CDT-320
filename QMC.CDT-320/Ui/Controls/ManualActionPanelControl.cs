@@ -127,20 +127,15 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>버튼 정의 목록으로 판넬을 다시 만든다. 행 수는 열 수에 따라 자동 계산된다.</summary>
+        /// <summary>버튼 정의 목록으로 판넬을 다시 만든다. 행 수는 열 수에 따라 자동 계산된다.
+        /// null 항목은 빈 칸(자리만 차지)으로 처리된다.</summary>
         public void SetItems(IEnumerable<ManualActionItem> items)
         {
             try
             {
                 _items.Clear();
                 if (items != null)
-                {
-                    foreach (ManualActionItem item in items)
-                    {
-                        if (item != null)
-                            _items.Add(item);
-                    }
-                }
+                    _items.AddRange(items);   // null = 빈 칸
 
                 RebuildButtons();
                 FitParentGroupHeight();
@@ -200,6 +195,9 @@ namespace QMC.CDT_320.Ui.Controls
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ManualActionItem item = _items[i];
+                    if (item == null)
+                        continue;   // 빈 칸 - 자리만 차지
+
                     ActionButton button = CreateButton(item);
                     _buttons.Add(button);
                     buttonsHost.Controls.Add(button, i % columns, i / columns);

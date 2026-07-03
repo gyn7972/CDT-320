@@ -13,11 +13,6 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnOutputFeeder;
         internal SidebarButton BtnOutputCassette;
         internal SidebarButton BtnOutputStage;
-        internal SidebarButton BtnInputVision;
-        internal SidebarButton BtnOutputVision;
-        internal SidebarButton BtnLowerVision;
-        internal SidebarButton BtnBottomVision;
-        internal SidebarButton BtnSideVision;
         internal SidebarButton BtnVisionStage;
         internal SidebarButton BtnInputMapCreate;
         internal SidebarButton BtnOutputMapCreate;
@@ -32,7 +27,6 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnPickupSubset;
         internal SidebarButton BtnForceControl;
         internal SidebarButton BtnCalibration;
-        internal System.Windows.Forms.Panel PnlVisionSeparator;
         internal System.Windows.Forms.Panel PnlMapSeparator;
         internal System.Windows.Forms.Panel PnlSubsetSeparator;
         internal System.Windows.Forms.Panel PnlForceSeparator;
@@ -48,11 +42,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputFeeder = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputCassette = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputStage = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnInputVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnOutputVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnLowerVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnBottomVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnSideVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnVisionStage = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnInputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
@@ -67,7 +56,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnPickupSubset = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnForceControl = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnCalibration = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.PnlVisionSeparator = new System.Windows.Forms.Panel();
             this.PnlMapSeparator = new System.Windows.Forms.Panel();
             this.PnlSubsetSeparator = new System.Windows.Forms.Panel();
             this.PnlForceSeparator = new System.Windows.Forms.Panel();
@@ -194,66 +182,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputStage.Size = new System.Drawing.Size(184, 46);
             this.BtnOutputStage.TabIndex = 8;
             this.BtnOutputStage.Text = "OUTPUT STAGE";
-            //
-            // BtnInputVision
-            //
-            this.BtnInputVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnInputVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnInputVision.Location = new System.Drawing.Point(4, 452);
-            this.BtnInputVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnInputVision.Name = "BtnInputVision";
-            this.BtnInputVision.Selected = false;
-            this.BtnInputVision.Size = new System.Drawing.Size(184, 46);
-            this.BtnInputVision.TabIndex = 10;
-            this.BtnInputVision.Text = "INPUT VISION";
-            //
-            // BtnOutputVision
-            //
-            this.BtnOutputVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnOutputVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnOutputVision.Location = new System.Drawing.Point(4, 644);
-            this.BtnOutputVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnOutputVision.Name = "BtnOutputVision";
-            this.BtnOutputVision.Selected = false;
-            this.BtnOutputVision.Size = new System.Drawing.Size(184, 46);
-            this.BtnOutputVision.TabIndex = 11;
-            this.BtnOutputVision.Text = "OUTPUT VISION";
-            //
-            // BtnLowerVision
-            //
-            this.BtnLowerVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnLowerVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnLowerVision.Location = new System.Drawing.Point(4, 548);
-            this.BtnLowerVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnLowerVision.Name = "BtnLowerVision";
-            this.BtnLowerVision.Selected = false;
-            this.BtnLowerVision.Size = new System.Drawing.Size(184, 46);
-            this.BtnLowerVision.TabIndex = 12;
-            this.BtnLowerVision.Text = "LOWER VISION";
-            //
-            // BtnBottomVision
-            //
-            this.BtnBottomVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnBottomVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnBottomVision.Location = new System.Drawing.Point(4, 500);
-            this.BtnBottomVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnBottomVision.Name = "BtnBottomVision";
-            this.BtnBottomVision.Selected = false;
-            this.BtnBottomVision.Size = new System.Drawing.Size(184, 46);
-            this.BtnBottomVision.TabIndex = 13;
-            this.BtnBottomVision.Text = "BOTTOM VISION";
-            //
-            // BtnSideVision
-            //
-            this.BtnSideVision.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnSideVision.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnSideVision.Location = new System.Drawing.Point(4, 596);
-            this.BtnSideVision.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnSideVision.Name = "BtnSideVision";
-            this.BtnSideVision.Selected = false;
-            this.BtnSideVision.Size = new System.Drawing.Size(184, 46);
-            this.BtnSideVision.TabIndex = 14;
-            this.BtnSideVision.Text = "SIDE VISION";
             //
             // BtnVisionStage
             //
@@ -423,15 +351,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnCalibration.TabIndex = 30;
             this.BtnCalibration.Text = "CALIBRATION";
             //
-            // PnlVisionSeparator
-            //
-            this.PnlVisionSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            this.PnlVisionSeparator.Location = new System.Drawing.Point(4, 444);
-            this.PnlVisionSeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
-            this.PnlVisionSeparator.Name = "PnlVisionSeparator";
-            this.PnlVisionSeparator.Size = new System.Drawing.Size(202, 2);
-            this.PnlVisionSeparator.TabIndex = 9;
-            //
             // PnlMapSeparator
             //
             this.PnlMapSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
@@ -471,12 +390,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputStage);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputFeeder);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputCassette);
-            this.PnlSidebarButtons.Controls.Add(this.PnlVisionSeparator);
-            this.PnlSidebarButtons.Controls.Add(this.BtnInputVision);
-            this.PnlSidebarButtons.Controls.Add(this.BtnBottomVision);
-            this.PnlSidebarButtons.Controls.Add(this.BtnLowerVision);
-            this.PnlSidebarButtons.Controls.Add(this.BtnSideVision);
-            this.PnlSidebarButtons.Controls.Add(this.BtnOutputVision);
             this.PnlSidebarButtons.Controls.Add(this.PnlMapSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnInputMapCreate);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputMapCreate);

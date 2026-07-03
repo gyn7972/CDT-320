@@ -37,6 +37,57 @@ namespace QMC.CDT_320.Ui.Controls
             set { _columnCount = Math.Max(1, value); }
         }
 
+        private bool _autoFitParentGroupHeight;
+
+        /// <summary>true면 SetItems 후 부모 GroupBox 높이를 행 수에 맞춰 자동 조정하고 스크롤을 끈다.
+        /// 높이가 항상 내용에 맞춰지므로 스크롤 없이 전 항목이 보인다.</summary>
+        public bool AutoFitParentGroupHeight
+        {
+            get { return _autoFitParentGroupHeight; }
+            set
+            {
+                _autoFitParentGroupHeight = value;
+                if (value)
+                    rowsHost.AutoScroll = false;   // 높이 자동맞춤이 보장되므로 스크롤바 잔상 제거
+            }
+        }
+
+        private void FitParentGroupHeight()
+        {
+            try
+            {
+                if (!_autoFitParentGroupHeight)
+                    return;
+
+                GroupBox group = Parent as GroupBox;
+                if (group == null || !IsHandleCreated)
+                    return;
+
+                // 배치 완료된 실제 마지막 행의 바닥(Bottom)을 실측 → 간격/wrap 오차와 무관하게 정확
+                int maxBottom = 0;
+                foreach (Control child in rowsHost.Controls)
+                {
+                    if (child.Bottom > maxBottom)
+                        maxBottom = child.Bottom;
+                }
+                if (maxBottom <= 0)
+                    return;
+
+                int contentHeight = maxBottom + rowsHost.Padding.Bottom + 6;
+                int chrome = group.Height - rowsHost.Height;   // 그룹 헤더 + 패딩 (현재 레이아웃 기준 실측)
+                if (chrome < 0)
+                    chrome = 24;
+                group.Height = contentHeight + chrome;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "IO-PANEL", "FitParentGroupHeight failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private int ComputeRowWidth()
         {
             return Math.Max(1, (rowsHost.ClientSize.Width / _columnCount) - 3);
@@ -79,6 +130,12 @@ namespace QMC.CDT_320.Ui.Controls
                     AddRow(item);
 
                 RefreshStates();
+
+                // 레이아웃 확정 후 실측해야 그룹 크롬/행 높이가 정확하다
+                if (_autoFitParentGroupHeight && IsHandleCreated)
+                    BeginInvoke((Action)FitParentGroupHeight);
+                else
+                    FitParentGroupHeight();
             }
             catch (Exception ex)
             {

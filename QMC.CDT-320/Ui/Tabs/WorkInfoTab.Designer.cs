@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Tabs
 {
@@ -13,11 +13,9 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnOutputFeeder;
         internal SidebarButton BtnOutputCassette;
         internal SidebarButton BtnState;
-        internal SidebarButton BtnVisionTest;
         internal SidebarButton BtnLogic;
         internal System.Windows.Forms.Panel PnlInfoSeparator;
         internal System.Windows.Forms.Panel PnlStatusSeparator;
-        internal System.Windows.Forms.Panel PnlLogicSeparator;
 
         private void InitializeComponent()
         {
@@ -30,11 +28,9 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputFeeder = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputCassette = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnState = new QMC.CDT_320.Ui.Controls.SidebarButton();
-            this.BtnVisionTest = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnLogic = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.PnlInfoSeparator = new System.Windows.Forms.Panel();
             this.PnlStatusSeparator = new System.Windows.Forms.Panel();
-            this.PnlLogicSeparator = new System.Windows.Forms.Panel();
             this.PnlSidebar.SuspendLayout();
             this.PnlSidebarButtons.SuspendLayout();
             this.SuspendLayout();
@@ -170,25 +166,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlStatusSeparator.Size = new System.Drawing.Size(202, 2);
             this.PnlStatusSeparator.TabIndex = 10;
             //
-            // BtnVisionTest
-            //
-            this.BtnVisionTest.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnVisionTest.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.BtnVisionTest.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnVisionTest.Name = "BtnVisionTest";
-            this.BtnVisionTest.Selected = false;
-            this.BtnVisionTest.Size = new System.Drawing.Size(184, 46);
-            this.BtnVisionTest.TabIndex = 11;
-            this.BtnVisionTest.Text = "VISION TEST";
-            //
-            // PnlLogicSeparator
-            //
-            this.PnlLogicSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            this.PnlLogicSeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
-            this.PnlLogicSeparator.Name = "PnlLogicSeparator";
-            this.PnlLogicSeparator.Size = new System.Drawing.Size(202, 2);
-            this.PnlLogicSeparator.TabIndex = 13;
-            //
             // BtnLogic
             //
             this.BtnLogic.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -214,8 +191,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.PnlInfoSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnState);
             this.PnlSidebarButtons.Controls.Add(this.PnlStatusSeparator);
-            this.PnlSidebarButtons.Controls.Add(this.BtnVisionTest);
-            this.PnlSidebarButtons.Controls.Add(this.PnlLogicSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnLogic);
             this.PnlSidebarButtons.ResumeLayout(false);
             this.PnlSidebar.ResumeLayout(false);

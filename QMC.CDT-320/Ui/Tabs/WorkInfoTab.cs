@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using QMC.CDT_320.Ui.Pages.WorkInfo;
 using QMC.CDT_320.Ui.Security;
 
@@ -24,7 +24,6 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnOutputFeeder,         "wi.outputFeeder",      op, () => new OutputFeederPage());
             RegisterSidebarButton(BtnOutputCassette,       "wi.outputCassette",    op, () => new OutputCassettePage());
             RegisterSidebarButton(BtnState,                "wi.state",             op, () => new StatePage());
-            RegisterSidebarButton(BtnVisionTest,           "wi.visionTest",        op, () => new VisionTestPage());
             RegisterSidebarButton(BtnLogic,                "wi.logic", UserLevel.Engineer, () => new LogicDetailPage());
         }
     }

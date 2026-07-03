@@ -188,6 +188,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
             this._grid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             this._grid.ColumnHeadersHeight = 29;
+            this._grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this._grid.AllowUserToResizeRows = false;
             this._grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.dataGridViewTextBoxColumn1,
             this.dataGridViewTextBoxColumn2,
