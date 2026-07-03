@@ -1,5 +1,8 @@
 ﻿using System.Windows.Forms;
 
+using QMC.Common.Motion;
+using System.Drawing;
+
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     /// <summary>
@@ -23,6 +26,48 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             QMC.Common.MessageDialog.Show(owner, "인터락이 정의되지 않아 동작이 차단되었습니다.", title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return true;
+        }
+
+        public static bool ConfirmMoveSpeed(IWin32Window owner, string title, string actionName, out JogSpeedType speedType)
+        {
+            speedType = JogSpeedType.Fine;
+
+            string name = string.IsNullOrWhiteSpace(actionName) ? "Move Position" : actionName;
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "MOVE";
+                DialogResult result = dialog.ShowDialog(
+                    title,
+                    name + " 이동하시겠습니까?",
+                    owner,
+                    new[] { "Coarse", "Fine", "No" });
+
+                if (result == DialogResult.Yes)
+                {
+                    speedType = JogSpeedType.Coarse;
+                    return true;
+                }
+
+                if (result == DialogResult.No)
+                {
+                    speedType = JogSpeedType.Fine;
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        public static void ConfigureTeachingPositionContextMenu(ContextMenuStrip menu)
+        {
+            if (menu == null)
+                return;
+
+            menu.Font = new Font("Malgun Gothic", 10.5F, FontStyle.Bold);
+            menu.ShowImageMargin = false;
+
+            foreach (ToolStripItem item in menu.Items)
+                item.Padding = new Padding(8, 4, 8, 4);
         }
     }
 }

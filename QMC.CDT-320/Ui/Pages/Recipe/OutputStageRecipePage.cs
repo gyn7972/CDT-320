@@ -678,7 +678,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return;
                         }
-                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => MoveStageTeachingPositionWithSelectedSpeedAsync(axis, positionName));
+                        await ConfirmAndRunMoveToPositionAsync(optionParameterGrid.SelectedItem.Key, () => MoveStageTeachingPositionWithSelectedSpeedAsync(axis, positionName));
                     }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
@@ -693,6 +693,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     RefreshView();
                 });
 
+                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
+                menu.Opening += (s, e) =>
+                {
+                    BinStageAxis axis;
+                    string positionName;
+                    e.Cancel = !TryGetSelectedTeachingPosition(out axis, out positionName);
+                };
                 optionParameterGrid.ContextMenuStrip = menu;
             }
             catch (Exception ex)
@@ -973,6 +980,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action)
         {
+            await ConfirmAndRunInternalAsync(actionName, action, false);
+        }
+
+        private async Task ConfirmAndRunMoveToPositionAsync(string actionName, Func<Task<int>> action)
+        {
+            await ConfirmAndRunInternalAsync(actionName, action, true);
+        }
+
+        private async Task ConfirmAndRunInternalAsync(string actionName, Func<Task<int>> action, bool selectMoveSpeed)
+        {
             try
             {
                 if (_outputStageUnit == null || action == null)
@@ -981,9 +998,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (ManualMoveGuard.BlockIfNotReady(this, "Output Stage"))
                     return;
 
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Output Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
-                    return;
+                if (selectMoveSpeed)
+                {
+                    JogSpeedType speedType;
+                    if (!ManualMoveGuard.ConfirmMoveSpeed(this, "Output Stage", actionName, out speedType))
+                        return;
+
+                    jogAxisMoveControl.SetSelectedSpeedType(speedType);
+                }
+                else
+                {
+                    DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Output Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (confirm != DialogResult.Yes)
+                        return;
+                }
 
                 Cursor = Cursors.WaitCursor;
                 _lastAbortReason = null;

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Diagnostics.TactTime;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -47,6 +48,7 @@ namespace QMC.CDT320.Sequencing
         {
             public InspectionTarget Target;
             public bool Applied;
+            public DateTime InspectStartedAt;
         }
 
         private sealed class PendingT0Return
@@ -325,15 +327,27 @@ namespace QMC.CDT320.Sequencing
 
                 bool isLastBottomShot = i >= _pickedPickerIndexes.Count - 1;
                 Task<int> sideFirstTask = null;
+                DateTime bottomInspectStartedAt = DateTime.Now;
                 Task<int> bottomTriggerTask = TriggerBottomInspectionAsync(target, ct);
                 if (isLastBottomShot)
                     sideFirstTask = StartFirstReadySideInspectionDuringLastBottomAsync(ct);
 
                 result = await bottomTriggerTask.ConfigureAwait(false);
                 if (result != 0)
+                {
+                    RecordDetailedTactRecord(
+                        TactTimeCategory.Vision,
+                        "Bottom Camera Inspect",
+                        "Bottom",
+                        target,
+                        bottomInspectStartedAt,
+                        TactTimeResult.Failed,
+                        "PICKER-BOTTOM-SIDE-BOTTOM-TRIGGER",
+                        "Bottom inspection trigger failed. result=" + result);
                     return result;
+                }
 
-                _pendingBottomShots.Add(new BottomShot { Target = target });
+                _pendingBottomShots.Add(new BottomShot { Target = target, InspectStartedAt = bottomInspectStartedAt });
 
                 if (sideFirstTask != null)
                 {
@@ -378,79 +392,223 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveBottomTargetAsync(InspectionTarget target, CancellationToken ct)
         {
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = target.X;
-            bool pickerXAlreadyInBottomPosition = IsPickerAxisInPosition(PickerAxis.PickerX, target.X);
-            if (pickerXAlreadyInBottomPosition)
+            using (TactTimeScope tactScope = BeginDetailedTactScope(
+                TactTimeCategory.Motion,
+                "Bottom Vision To Pitch Move",
+                "Vision->Pitch",
+                target,
+                "Bottom pitch move start."))
             {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Bottom X 이동 전에 PickerX가 이미 Bottom 목표 위치입니다. " +
-                    "이 상태에서만 PickerY 전진을 허용합니다. " +
-                    "die=" + (target.Die != null ? target.Die.DieId : "-") +
-                    ", pickerNo=" + target.PickerNo +
-                    ", targetX=" + target.X +
-                    ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
-                    " - Check");
+                try
+                {
+                    var targets = new Dictionary<PickerAxis, double>();
+                    targets[PickerAxis.PickerX] = target.X;
+                    bool pickerXAlreadyInBottomPosition = IsPickerAxisInPosition(PickerAxis.PickerX, target.X);
+                    if (pickerXAlreadyInBottomPosition)
+                    {
+                        WriteLog("PickerBottomAndSideInspectionSequence",
+                            Name + " Bottom X 이동 전에 PickerX가 이미 Bottom 목표 위치입니다. " +
+                            "이 상태에서만 PickerY 전진을 허용합니다. " +
+                            "die=" + (target.Die != null ? target.Die.DieId : "-") +
+                            ", pickerNo=" + target.PickerNo +
+                            ", targetX=" + target.X +
+                            ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
+                            " - Check");
+                    }
+                    else
+                    {
+                        WriteLog("PickerBottomAndSideInspectionSequence",
+                            Name + " Bottom X 이동 후 PickerY 전진 순서로 진행합니다. " +
+                            "die=" + (target.Die != null ? target.Die.DieId : "-") +
+                            ", pickerNo=" + target.PickerNo +
+                            ", targetX=" + target.X +
+                            ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
+                            " - Check");
+                    }
+
+                    if (!_bottomInspectionYReady || !IsPickerAxisInPosition(PickerAxis.PickerY, target.Y))
+                        targets[PickerAxis.PickerY] = target.Y;
+
+                    int result = await MovePickerXTThenYAndVerifyAsync(
+                        targets,
+                        "Bottom/Side 통합 Bottom X/Y",
+                        ct,
+                        BuildBottomTargetName(target)).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-XY", BuildTactDetail(target, "Bottom pitch X/Y move failed. result=" + result));
+                        return result;
+                    }
+
+                    _bottomInspectionYReady = IsPickerAxisInPosition(PickerAxis.PickerY, target.Y);
+                    if (!_bottomInspectionYReady)
+                    {
+                        result = await MovePickerAxisAndVerifyAsync(
+                            PickerAxis.PickerY,
+                            target.Y,
+                            "Bottom/Side 통합 Bottom Y",
+                            ct,
+                            BuildBottomTargetName(target)).ConfigureAwait(false);
+                        if (result != 0)
+                        {
+                            tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-Y", BuildTactDetail(target, "Bottom pitch Y move failed. result=" + result));
+                            return result;
+                        }
+                        _bottomInspectionYReady = true;
+                    }
+
+                    PickerAxis zAxis = GetPickerZAxis(target.PickerIndex);
+                    if (!IsPickerAxisInPosition(zAxis, target.Z))
+                    {
+                        result = await MovePickerAxisAndVerifyAsync(
+                            zAxis,
+                            target.Z,
+                            "Bottom/Side 통합 Bottom Z",
+                            ct,
+                            BuildBottomTargetName(target)).ConfigureAwait(false);
+                        if (result != 0)
+                        {
+                            tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-Z", BuildTactDetail(target, "Bottom pitch Z move failed. result=" + result));
+                            return result;
+                        }
+                    }
+
+                    result = await MovePickerAxisAndVerifyAsync(
+                        GetPickerTAxis(target.PickerIndex),
+                        target.T0,
+                        "Bottom/Side 통합 Bottom T",
+                        ct,
+                        BuildBottomTargetName(target)).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-T", BuildTactDetail(target, "Bottom pitch T move failed. result=" + result));
+                        return result;
+                    }
+
+                    tactScope.Complete(BuildTactDetail(target, "Bottom pitch move completed."));
+                    return 0;
+                }
+                catch (OperationCanceledException)
+                {
+                    tactScope.Cancel(BuildTactDetail(target, "Bottom pitch move canceled."));
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    tactScope.Stop("SEQUENCE-STOP", BuildTactDetail(target, "Bottom pitch move stopped."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    tactScope.Fail("PICKER-BOTTOM-SIDE-BOTTOM-MOVE-EX", BuildTactDetail(target, "Bottom pitch move exception. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
             }
-            else
+        }
+
+        private TactTimeScope BeginDetailedTactScope(
+            TactTimeCategory category,
+            string processName,
+            string stepName,
+            InspectionTarget target,
+            string detail)
+        {
+            TactTimeRecorder recorder = Context != null && Context.Tact != null
+                ? Context.Tact
+                : NullTactTimeRecorder.Instance;
+
+            return recorder.BeginScope(
+                category,
+                Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker",
+                Name,
+                processName,
+                stepName,
+                null,
+                BuildTactDetail(target, detail));
+        }
+
+        private string BuildTactDetail(InspectionTarget target, string detail)
+        {
+            return "side=" + Side +
+                   ", die=" + (target != null && target.Die != null ? target.Die.DieId : "-") +
+                   ", pickerNo=" + (target != null ? target.PickerNo.ToString() : "-") +
+                   ", pickerIndex=" + (target != null ? target.PickerIndex.ToString() : "-") +
+                   ", " + (detail ?? "");
+        }
+
+        private void RecordDetailedTactRecord(
+            TactTimeCategory category,
+            string processName,
+            string stepName,
+            InspectionTarget target,
+            DateTime startedAt,
+            TactTimeResult result,
+            string alarmCode,
+            string detail)
+        {
+            try
             {
-                WriteLog("PickerBottomAndSideInspectionSequence",
-                    Name + " Bottom X 이동 후 PickerY 전진 순서로 진행합니다. " +
-                    "die=" + (target.Die != null ? target.Die.DieId : "-") +
-                    ", pickerNo=" + target.PickerNo +
-                    ", targetX=" + target.X +
-                    ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
-                    " - Check");
+                TactTimeRecorder recorder = Context != null && Context.Tact != null
+                    ? Context.Tact
+                    : NullTactTimeRecorder.Instance;
+
+                DateTime endAt = DateTime.Now;
+                if (startedAt == DateTime.MinValue)
+                    startedAt = endAt;
+
+                recorder.Record(new TactTimeRecord
+                {
+                    UnitName = Side == PickerSequenceSide.Front ? "FrontPicker" : "RearPicker",
+                    SequenceName = Name,
+                    ProcessName = processName ?? "",
+                    StepName = stepName ?? "",
+                    Category = category,
+                    StartedAt = startedAt,
+                    EndedAt = endAt,
+                    ElapsedMs = Math.Max(0, (long)(endAt - startedAt).TotalMilliseconds),
+                    Result = result,
+                    AlarmCode = alarmCode ?? "",
+                    Detail = BuildTactDetail(target, detail)
+                });
             }
-
-            if (!_bottomInspectionYReady || !IsPickerAxisInPosition(PickerAxis.PickerY, target.Y))
-                targets[PickerAxis.PickerY] = target.Y;
-
-            int result = await MovePickerXTThenYAndVerifyAsync(
-                targets,
-                "Bottom/Side 통합 Bottom X/Y",
-                ct,
-                BuildBottomTargetName(target)).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            _bottomInspectionYReady = IsPickerAxisInPosition(PickerAxis.PickerY, target.Y);
-            if (!_bottomInspectionYReady)
+            catch
             {
-                result = await MovePickerAxisAndVerifyAsync(
-                    PickerAxis.PickerY,
-                    target.Y,
-                    "Bottom/Side 통합 Bottom Y",
-                    ct,
-                    BuildBottomTargetName(target)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-                _bottomInspectionYReady = true;
             }
-
-            PickerAxis zAxis = GetPickerZAxis(target.PickerIndex);
-            if (!IsPickerAxisInPosition(zAxis, target.Z))
+            finally
             {
-                result = await MovePickerAxisAndVerifyAsync(
-                    zAxis,
-                    target.Z,
-                    "Bottom/Side 통합 Bottom Z",
-                    ct,
-                    BuildBottomTargetName(target)).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
             }
+        }
 
-            result = await MovePickerAxisAndVerifyAsync(
-                GetPickerTAxis(target.PickerIndex),
-                target.T0,
-                "Bottom/Side 통합 Bottom T",
-                ct,
-                BuildBottomTargetName(target)).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+        private void RecordInspectionCheckpointForTact(
+            string key,
+            string processName,
+            string stepName,
+            InspectionTarget target,
+            string detail)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
 
-            return 0;
+                Context.Controller.RecordInspectionCheckpointForTact(
+                    key,
+                    processName,
+                    stepName,
+                    Side.ToString(),
+                    target != null && target.Die != null ? target.Die.DieId : "",
+                    target != null ? target.PickerNo : 0,
+                    detail);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveOwnPickerYToAvoidBeforeForcedBottomResumeAsync(CancellationToken ct)
@@ -562,6 +720,16 @@ namespace QMC.CDT320.Sequencing
 
             if (result == null)
             {
+                RecordDetailedTactRecord(
+                    TactTimeCategory.Vision,
+                    "Bottom Camera Inspect",
+                    "Bottom",
+                    shot.Target,
+                    shot.InspectStartedAt,
+                    TactTimeResult.Failed,
+                    "PICKER-BOTTOM-SIDE-BOTTOM-RESULT",
+                    "Bottom inspection result receive failed. timeoutMs=" + timeoutMs);
+
                 return Fail("PICKER-BOTTOM-SIDE-BOTTOM-RESULT", "Vision",
                     "Bottom 검사 결과 수신 실패. die=" + shot.Target.Die.DieId +
                     ", pickerNo=" + shot.Target.PickerNo +
@@ -573,6 +741,22 @@ namespace QMC.CDT320.Sequencing
 
             if (!_sideReadyPickerIndexes.Contains(shot.Target.PickerIndex))
                 _sideReadyPickerIndexes.Add(shot.Target.PickerIndex);
+
+            RecordDetailedTactRecord(
+                TactTimeCategory.Vision,
+                "Bottom Camera Inspect",
+                "Bottom",
+                shot.Target,
+                shot.InspectStartedAt,
+                TactTimeResult.Ok,
+                "",
+                "Bottom inspection completed. ok=" + result.IsOk);
+            RecordInspectionCheckpointForTact(
+                "BottomCameraInspection",
+                "Bottom Camera Inspect Interval",
+                "Bottom",
+                shot.Target,
+                "ok=" + result.IsOk);
 
             WriteLog("PickerBottomAndSideInspectionSequence",
                 Name + " Bottom 결과 적용 및 SideReady 등록 완료. die=" + shot.Target.Die.DieId +
@@ -768,19 +952,135 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            SideVisionResult side0Result = await TriggerAndGetSideResultAsync(target, 0, ct).ConfigureAwait(false);
-            if (side0Result == null)
-                return Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", "Vision", "Side 0도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+            SideVisionResult side0Result;
+            using (TactTimeScope side0TactScope = BeginDetailedTactScope(
+                TactTimeCategory.Vision,
+                "Side 0deg Inspect",
+                "0deg",
+                target,
+                "Side 0deg inspect start."))
+            {
+                try
+                {
+                    side0Result = await TriggerAndGetSideResultAsync(target, 0, ct).ConfigureAwait(false);
+                    if (side0Result == null)
+                    {
+                        side0TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", BuildTactDetail(target, "Side 0deg inspection result receive failed."));
+                        return Fail("PICKER-BOTTOM-SIDE-SIDE0-RESULT", "Vision", "Side 0도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+                    }
+
+                    side0TactScope.Complete(BuildTactDetail(target, "Side 0deg inspection completed. ok=" + side0Result.IsAllOk));
+                    RecordInspectionCheckpointForTact(
+                        "Side0Inspection",
+                        "Side 0deg Inspect Interval",
+                        "0deg",
+                        target,
+                        "ok=" + side0Result.IsAllOk);
+                }
+                catch (OperationCanceledException)
+                {
+                    side0TactScope.Cancel(BuildTactDetail(target, "Side 0deg inspection canceled."));
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    side0TactScope.Stop("SEQUENCE-STOP", BuildTactDetail(target, "Side 0deg inspection stopped."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    side0TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE0-EX", BuildTactDetail(target, "Side 0deg inspection exception. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
+            }
 
             await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
 
-            result = await MoveSideT90AndVision90PositionAsync(target, ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            using (TactTimeScope side90MoveTactScope = BeginDetailedTactScope(
+                TactTimeCategory.Motion,
+                "Side 0deg To 90deg Motion",
+                "0deg->90deg",
+                target,
+                "Side 0deg to 90deg motion start."))
+            {
+                try
+                {
+                    result = await MoveSideT90AndVision90PositionAsync(target, ct).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        side90MoveTactScope.Fail("PICKER-BOTTOM-SIDE-SIDE-T90-VISION90", BuildTactDetail(target, "Side 0deg to 90deg motion failed. result=" + result));
+                        return result;
+                    }
 
-            SideVisionResult side90Result = await TriggerAndGetSideResultAsync(target, 90, ct).ConfigureAwait(false);
-            if (side90Result == null)
-                return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+                    side90MoveTactScope.Complete(BuildTactDetail(target, "Side 0deg to 90deg motion completed."));
+                }
+                catch (OperationCanceledException)
+                {
+                    side90MoveTactScope.Cancel(BuildTactDetail(target, "Side 0deg to 90deg motion canceled."));
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    side90MoveTactScope.Stop("SEQUENCE-STOP", BuildTactDetail(target, "Side 0deg to 90deg motion stopped."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    side90MoveTactScope.Fail("PICKER-BOTTOM-SIDE-SIDE-T90-EX", BuildTactDetail(target, "Side 0deg to 90deg motion exception. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
+            }
+
+            SideVisionResult side90Result;
+            using (TactTimeScope side90TactScope = BeginDetailedTactScope(
+                TactTimeCategory.Vision,
+                "Side 90deg Inspect",
+                "90deg",
+                target,
+                "Side 90deg inspect start."))
+            {
+                try
+                {
+                    side90Result = await TriggerAndGetSideResultAsync(target, 90, ct).ConfigureAwait(false);
+                    if (side90Result == null)
+                    {
+                        side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", BuildTactDetail(target, "Side 90deg inspection result receive failed."));
+                        return Fail("PICKER-BOTTOM-SIDE-SIDE90-RESULT", "Vision", "Side 90도 검사 결과 수신 실패. die=" + target.Die.DieId + ", pickerNo=" + target.PickerNo);
+                    }
+
+                    side90TactScope.Complete(BuildTactDetail(target, "Side 90deg inspection completed. ok=" + side90Result.IsAllOk));
+                    RecordInspectionCheckpointForTact(
+                        "Side90Inspection",
+                        "Side 90deg Inspect Interval",
+                        "90deg",
+                        target,
+                        "ok=" + side90Result.IsAllOk);
+                }
+                catch (OperationCanceledException)
+                {
+                    side90TactScope.Cancel(BuildTactDetail(target, "Side 90deg inspection canceled."));
+                    throw;
+                }
+                catch (SequenceStopException)
+                {
+                    side90TactScope.Stop("SEQUENCE-STOP", BuildTactDetail(target, "Side 90deg inspection stopped."));
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    side90TactScope.Fail("PICKER-BOTTOM-SIDE-SIDE90-EX", BuildTactDetail(target, "Side 90deg inspection exception. error=" + ex.Message));
+                    throw;
+                }
+                finally
+                {
+                }
+            }
 
             await DelaySideInspectionTurnSettleAsync(ct).ConfigureAwait(false);
 

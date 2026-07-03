@@ -16,6 +16,8 @@ namespace QMC.Common
     public partial class MessageBoxYesNo : Form
     {
         private string[] m_ButtonText;
+        private Label _buttonGroupLabel;
+        private string _buttonGroupLabelText = string.Empty;
 
         /// <summary>
         /// 제목
@@ -32,6 +34,16 @@ namespace QMC.Common
         {
             get { return this.lblMessage.Text; }
             set { this.lblMessage.Text = value; }
+        }
+
+        public string ButtonGroupLabel
+        {
+            get { return _buttonGroupLabelText; }
+            set
+            {
+                _buttonGroupLabelText = value ?? string.Empty;
+                ConfigureButtonGroupLabel();
+            }
         }
 
         /// <summary>
@@ -108,6 +120,58 @@ namespace QMC.Common
                 this.tableLayoutPanel3.SetColumn(this.button1, 3);
                 this.tableLayoutPanel3.SetColumn(this.button2, 4);
                 this.CancelButton = this.button2;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_buttonGroupLabelText))
+            {
+                this.tableLayoutPanel3.SetRow(this.button1, 1);
+                this.tableLayoutPanel3.SetRow(this.button2, 1);
+                this.tableLayoutPanel3.SetRow(this.button3, 1);
+            }
+        }
+
+        private void ConfigureButtonGroupLabel()
+        {
+            if (string.IsNullOrWhiteSpace(_buttonGroupLabelText))
+                return;
+
+            if (_buttonGroupLabel == null)
+            {
+                _buttonGroupLabel = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Tahoma", 10.2F, FontStyle.Bold),
+                    Margin = new Padding(0),
+                    TextAlign = ContentAlignment.MiddleCenter
+                };
+            }
+
+            _buttonGroupLabel.Text = _buttonGroupLabelText;
+
+            tableLayoutPanel1.RowStyles[1].Height = 52F;
+            tableLayoutPanel1.RowStyles[2].Height = 33F;
+
+            tableLayoutPanel3.SuspendLayout();
+            try
+            {
+                tableLayoutPanel3.RowStyles.Clear();
+                tableLayoutPanel3.RowCount = 2;
+                tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Percent, 42F));
+                tableLayoutPanel3.RowStyles.Add(new RowStyle(SizeType.Percent, 58F));
+
+                tableLayoutPanel3.SetRow(button1, 1);
+                tableLayoutPanel3.SetRow(button2, 1);
+                tableLayoutPanel3.SetRow(button3, 1);
+
+                if (!tableLayoutPanel3.Controls.Contains(_buttonGroupLabel))
+                    tableLayoutPanel3.Controls.Add(_buttonGroupLabel, 2, 0);
+
+                tableLayoutPanel3.SetColumn(_buttonGroupLabel, 2);
+                tableLayoutPanel3.SetColumnSpan(_buttonGroupLabel, 3);
+            }
+            finally
+            {
+                tableLayoutPanel3.ResumeLayout(true);
             }
         }
 

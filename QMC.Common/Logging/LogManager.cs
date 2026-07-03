@@ -42,6 +42,8 @@ namespace QMC.Common
 
 	public class LogManager
     {
+        private const int RepeatLogSummaryIntervalMs = 1000;
+        private const int MaxRepeatStateCount = 4096;
 		private string m_strTemp;
 
         #region Singleton 
@@ -63,6 +65,9 @@ namespace QMC.Common
 		private Task m_LogWritor;
 		private CancellationTokenSource m_tokenSourceCancel;
 		private CancellationToken m_tokenCancel;
+        private AutoResetEvent m_logQueued;
+        private readonly object m_repeatSync = new object();
+        private readonly Dictionary<string, RepeatLogState> m_repeatStates = new Dictionary<string, RepeatLogState>(StringComparer.Ordinal);
 		private readonly string m_strLogPath;
 		#endregion
 
@@ -74,8 +79,12 @@ namespace QMC.Common
 			m_queLogs = new Queue();
 			m_tokenSourceCancel = new CancellationTokenSource();
 			m_tokenCancel = m_tokenSourceCancel.Token;
-			m_LogWritor = new Task(() => WriteLogProcedure() );
-			m_LogWritor.Start();
+            m_logQueued = new AutoResetEvent(false);
+            m_LogWritor = Task.Factory.StartNew(
+                () => WriteLogProcedure(),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
 		}
 
 
@@ -108,10 +117,15 @@ namespace QMC.Common
 		{
 			if (CheckLogLevel(level))
 			{
+                string filteredMessage;
+                if (!TryFilterRepeatedLog(level, strClassification, source, message, out filteredMessage))
+                    return;
+
 				lock (m_queLogs.SyncRoot)
 				{
-					m_queLogs.Enqueue(new LogInfo(level, source, message, strClassification));
+					m_queLogs.Enqueue(new LogInfo(level, source, filteredMessage, strClassification));
 				}
+                SignalLogQueued();
 			}
 		}
 
@@ -119,12 +133,112 @@ namespace QMC.Common
         {
             if (CheckLogLevel(level))
             {
+                string logSource = string.Format(" [사용자 : {0}]  {1} ", Op_User, source);
+                string filteredMessage;
+                if (!TryFilterRepeatedLog(level, strClassification, logSource, message, out filteredMessage))
+                    return;
+
                 lock (m_queLogs.SyncRoot)
                 {
-                    m_strTemp = string.Format(" [사용자 : {0}]  {1} ", Op_User, source);
+                    m_strTemp = logSource;
 
-                    m_queLogs.Enqueue(new LogInfo(level, m_strTemp, message, strClassification));
+                    m_queLogs.Enqueue(new LogInfo(level, m_strTemp, filteredMessage, strClassification));
                 }
+                SignalLogQueued();
+            }
+        }
+
+        private bool TryFilterRepeatedLog(LogLevel level, string classification, string source, string message, out string filteredMessage)
+        {
+            filteredMessage = message ?? string.Empty;
+
+            try
+            {
+                if (level >= LogLevel.AboveNormal || !IsRepeatThrottleCandidate(filteredMessage))
+                    return true;
+
+                string key = (classification ?? string.Empty) + "\n" + (source ?? string.Empty) + "\n" + filteredMessage;
+                int now = Environment.TickCount;
+
+                lock (m_repeatSync)
+                {
+                    if (m_repeatStates.Count > MaxRepeatStateCount)
+                        m_repeatStates.Clear();
+
+                    RepeatLogState state;
+                    if (!m_repeatStates.TryGetValue(key, out state))
+                    {
+                        m_repeatStates[key] = new RepeatLogState { LastEmitTick = now };
+                        return true;
+                    }
+
+                    int elapsedMs = unchecked(now - state.LastEmitTick);
+                    if (elapsedMs < RepeatLogSummaryIntervalMs)
+                    {
+                        state.SuppressedCount++;
+                        return false;
+                    }
+
+                    int suppressed = state.SuppressedCount;
+                    state.LastEmitTick = now;
+                    state.SuppressedCount = 0;
+
+                    if (suppressed > 0)
+                        filteredMessage = filteredMessage + " [repeat suppressed: " + suppressed + ", intervalMs=" + elapsedMs + "]";
+
+                    return true;
+                }
+            }
+            catch
+            {
+                filteredMessage = message ?? string.Empty;
+                return true;
+            }
+        }
+
+        private static bool IsRepeatThrottleCandidate(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            if (IndexOf(message, "- Failed") >= 0 ||
+                IndexOf(message, "- Stopped") >= 0 ||
+                IndexOf(message, "- Alarm") >= 0 ||
+                IndexOf(message, "- Start") >= 0 ||
+                IndexOf(message, "- Ok") >= 0)
+            {
+                return false;
+            }
+
+            return IndexOf(message, "- Wait") >= 0 ||
+                   IndexOf(message, " - Wait") >= 0 ||
+                   IndexOf(message, "- Check") >= 0 ||
+                   IndexOf(message, " - Check") >= 0 ||
+                   IndexOf(message, "Gate") >= 0 ||
+                   IndexOf(message, "Pending") >= 0;
+        }
+
+        private static int IndexOf(string text, string value)
+        {
+            return text.IndexOf(value, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class RepeatLogState
+        {
+            public int LastEmitTick;
+            public int SuppressedCount;
+        }
+
+        private void SignalLogQueued()
+        {
+            try
+            {
+                AutoResetEvent signal = m_logQueued;
+                if (signal != null)
+                    signal.Set();
+            }
+            catch
+            {
             }
         }
 
@@ -136,29 +250,26 @@ namespace QMC.Common
 			m_tokenCancel.Register(() =>
 			{
 				bExit = true;
+                SignalLogQueued();
 			});
 			
 			while(true)
             {
 				try
 				{
+                    AutoResetEvent signal = m_logQueued;
+                    if (signal != null)
+                        signal.WaitOne(100);
+
+                    DrainQueuedLogs(listLog);
+					WriteLog(listLog);
 
 					if (bExit)
+                    {
+                        DrainQueuedLogs(listLog);
+                        WriteLog(listLog);
 						break;
-
-					lock (m_queLogs.SyncRoot)
-					{
-						listLog.Clear();
-						while (m_queLogs.Count > 0)
-						{
-							LogInfo log = m_queLogs.Dequeue() as LogInfo;
-							if (log != null)
-								listLog.Add(log);
-						}
-					}
-
-					WriteLog(listLog);
-					Thread.Sleep(1);
+                    }
 				}
 				catch (Exception ex)
 				{
@@ -167,20 +278,85 @@ namespace QMC.Common
 			}
 
 			m_tokenSourceCancel.Dispose();
+            try { if (m_logQueued != null) m_logQueued.Dispose(); } catch { }
 
 		}
 
+        private void DrainQueuedLogs(List<LogInfo> listLog)
+        {
+            if (listLog == null)
+                return;
+
+            lock (m_queLogs.SyncRoot)
+            {
+                listLog.Clear();
+                while (m_queLogs.Count > 0)
+                {
+                    LogInfo log = m_queLogs.Dequeue() as LogInfo;
+                    if (log != null)
+                        listLog.Add(log);
+                }
+            }
+        }
+
 		protected void WriteLog(List<LogInfo> listLog)
         {
+            if (listLog == null || listLog.Count == 0)
+                return;
+
 			if(!Directory.Exists(m_strLogPath))
             {
 				Directory.CreateDirectory(m_strLogPath);
 			}
 
+            Dictionary<string, StringBuilder> buffers = new Dictionary<string, StringBuilder>(StringComparer.OrdinalIgnoreCase);
 			foreach (LogInfo log in listLog)
             {
-				WriteLog(log);
+				BufferLogLine(log, buffers);
             }
+
+            foreach (KeyValuePair<string, StringBuilder> item in buffers)
+                WriteLog(item.Value, item.Key);
+        }
+
+        private void BufferLogLine(LogInfo log, Dictionary<string, StringBuilder> buffers)
+        {
+            if (log == null || buffers == null)
+                return;
+
+            string strFileName = string.Format("{0}\\{1}_{2}.log", m_strLogPath, log.Classification, log.CreationDate);
+            string strAllLog = string.Format("{0}\\LCP_280_{1}.log", m_strLogPath, log.CreationDate);
+
+            if (GetFileSize(strAllLog) > 4000000)
+            {
+                string strAllLog_Target = string.Format("{0}\\LCP_280_{1}_{2}.log", m_strLogPath, log.CreationDate, Environment.TickCount);
+                System.IO.File.Move(strAllLog, strAllLog_Target);
+            }
+
+            if (GetFileSize(strFileName) > 4000000)
+            {
+                string strFileName_Target = string.Format("{0}\\{1}_{2}_{3}.log", m_strLogPath, log.Classification, log.CreationDate, Environment.TickCount);
+                System.IO.File.Move(strFileName, strFileName_Target);
+            }
+
+            AppendBufferedLine(buffers, strFileName, log.ToString());
+            if (log.Level >= LogLevel.Normal)
+                AppendBufferedLine(buffers, strAllLog, log.ToString());
+        }
+
+        private static void AppendBufferedLine(Dictionary<string, StringBuilder> buffers, string path, string line)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            StringBuilder buffer;
+            if (!buffers.TryGetValue(path, out buffer))
+            {
+                buffer = new StringBuilder();
+                buffers[path] = buffer;
+            }
+
+            buffer.AppendLine(line ?? string.Empty);
         }
 
 		protected void WriteLog(LogInfo log)
@@ -226,6 +402,18 @@ namespace QMC.Common
             using (StreamWriter writer = new StreamWriter(strFileName, true))
             {
                 writer.WriteLine(log.ToString());
+                writer.Close();
+            }
+        }
+
+        private static void WriteLog(StringBuilder buffer, string strFileName)
+        {
+            if (buffer == null || buffer.Length == 0)
+                return;
+
+            using (StreamWriter writer = new StreamWriter(strFileName, true))
+            {
+                writer.Write(buffer.ToString());
                 writer.Close();
             }
         }
@@ -289,6 +477,7 @@ namespace QMC.Common
         public void Close()
         {
 			m_tokenSourceCancel.Cancel();
+            SignalLogQueued();
 		}
 
 		public string GetLogPath()

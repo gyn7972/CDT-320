@@ -648,7 +648,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     string positionName = GetSelectedTeachingPositionName();
                     if (!string.IsNullOrWhiteSpace(positionName))
-                        await MoveByPositionName(positionName);
+                    {
+                        string actionName = optionParameterGrid.SelectedItem != null ? optionParameterGrid.SelectedItem.Key : positionName;
+                        if (ConfirmMoveToPositionSpeed("Output Cassette Move", actionName))
+                            await MoveByPositionName(positionName);
+                    }
                 });
                 menu.Items.Add("Teach Current Position", null, (s, e) =>
                 {
@@ -661,6 +665,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     RefreshView();
                 });
 
+                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
+                menu.Opening += (s, e) => e.Cancel = string.IsNullOrWhiteSpace(GetSelectedTeachingPositionName());
                 optionParameterGrid.ContextMenuStrip = menu;
             }
             catch (Exception ex)
@@ -671,6 +677,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private bool ConfirmMoveToPositionSpeed(string title, string actionName)
+        {
+            JogSpeedType speedType;
+            if (!ManualMoveGuard.ConfirmMoveSpeed(this, title, actionName, out speedType))
+            {
+                EventLogger.Write(EventKind.Event, "UI", "OUTPUT-CASSETTE", actionName + " canceled.");
+                return false;
+            }
+
+            jogAxisMoveControl.SetSelectedSpeedType(speedType);
+            return true;
         }
 
         private string GetSelectedTeachingPositionName()

@@ -1825,7 +1825,7 @@ namespace QMC.CDT320.Interlocks
             {
                 DateTime now = DateTime.UtcNow;
                 DateTime last = isFront ? lastFrontEncoderOverlapLogUtc : lastRearEncoderOverlapLogUtc;
-                if ((now - last).TotalMilliseconds < 100.0)
+                if (last != DateTime.MinValue)
                     return false;
 
                 if (isFront)

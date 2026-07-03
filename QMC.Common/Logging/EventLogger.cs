@@ -13,6 +13,7 @@ namespace QMC.Common.Logging
         private static readonly object QueueSyncRoot = new object();
         private static readonly Queue<EventRow> PendingRows = new Queue<EventRow>();
         private const int FlushSleepMs = 20;
+        private const int MaxWriterBatchRows = 2000;
         private const int DefaultSafeReadLimit = 10000;
         private const long MaxEventCsvBytes = 100L * 1024L * 1024L;
         private const string CsvHeader = "When,Kind,User,Code,Source,Description";
@@ -115,14 +116,6 @@ namespace QMC.Common.Logging
             }
             finally
             {
-                AddRecentRow(row);
-                try
-                {
-                    EventLogged?.Invoke(row);
-                }
-                catch
-                {
-                }
             }
         }
 
@@ -622,7 +615,7 @@ namespace QMC.Common.Logging
                     List<EventRow> rows = new List<EventRow>();
                     lock (QueueSyncRoot)
                     {
-                        while (PendingRows.Count > 0)
+                        while (PendingRows.Count > 0 && rows.Count < MaxWriterBatchRows)
                             rows.Add(PendingRows.Dequeue());
 
                         if (rows.Count == 0)
@@ -654,6 +647,8 @@ namespace QMC.Common.Logging
                 if (rows == null || rows.Count == 0)
                     return;
 
+                PublishRows(rows);
+
                 lock (SyncRoot)
                 {
                     WriteEventCsvRows(rows);
@@ -668,6 +663,30 @@ namespace QMC.Common.Logging
                 foreach (EventRow row in rows)
                     MessageCatalog.EnsureRegistered(row.Kind, row.Code, row.Description);
                 MessageCatalog.FlushIfDirty();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void PublishRows(List<EventRow> rows)
+        {
+            try
+            {
+                foreach (EventRow row in rows)
+                    AddRecentRow(row);
+
+                Action<EventRow> handler = EventLogged;
+                if (handler == null)
+                    return;
+
+                foreach (EventRow row in rows)
+                {
+                    try { handler(row); } catch { }
+                }
             }
             catch
             {

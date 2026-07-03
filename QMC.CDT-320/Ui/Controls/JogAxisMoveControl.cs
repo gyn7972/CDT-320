@@ -125,6 +125,26 @@ namespace QMC.CDT_320.Ui.Controls
             get { return GetJogSpeedType(); }
         }
 
+        public void SetSelectedSpeedType(JogSpeedType speedType)
+        {
+            try
+            {
+                if (speedType == JogSpeedType.Coarse)
+                    rdoCoarse.Checked = true;
+                else
+                    rdoFine.Checked = true;
+
+                ApplyModeButtonStyles();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "Speed type select failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public double GetSelectedSpeed(BaseAxis axis)
         {
             return CurrentJogSpeed(axis);

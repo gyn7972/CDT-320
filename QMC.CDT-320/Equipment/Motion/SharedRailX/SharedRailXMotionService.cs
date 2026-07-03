@@ -11,6 +11,9 @@ namespace QMC.CDT320.Motion.SharedRailX
 {
     public sealed class SharedRailXMotionService
     {
+        private static readonly object _bottomBypassLogLock = new object();
+        private static readonly Dictionary<string, DateTime> _bottomBypassLogUtc = new Dictionary<string, DateTime>();
+
         private readonly CDT320_Machine _machine;
         private readonly SharedRailXConfig _config;
         private readonly SharedRailXCollisionValidator _validator;
@@ -386,11 +389,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                 bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
                 if (workAreaActive && workZone == PickerWorkZone.Bottom)
                 {
-                    QMC.Common.Log.Write("SharedRailX",
-                        "InputVisionX/" + pickerAxis +
-                        " pair clearance bypassed because picker is in Bottom inspection work area. side=" +
-                        (isFront ? "Front" : "Rear") +
-                        ", owner=" + (string.IsNullOrWhiteSpace(owner) ? "-" : owner));
+                    WriteBottomBypassLogThrottled(pickerAxis, isFront, owner);
                     return false;
                 }
 
@@ -402,6 +401,57 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
             finally
             {
+            }
+        }
+
+        private static void WriteBottomBypassLogThrottled(SharedRailXAxis pickerAxis, bool isFront, string owner)
+        {
+            string side = isFront ? "Front" : "Rear";
+            string safeOwner = string.IsNullOrWhiteSpace(owner) ? "-" : owner;
+
+            if (!IsSimulationModeConfigured())
+            {
+                WriteBottomBypassLog(pickerAxis, side, safeOwner);
+                return;
+            }
+
+            string key = pickerAxis + "|" + side + "|" + safeOwner;
+            DateTime now = DateTime.UtcNow;
+
+            lock (_bottomBypassLogLock)
+            {
+                DateTime last;
+                if (_bottomBypassLogUtc.TryGetValue(key, out last) &&
+                    (now - last).TotalSeconds < 1.0)
+                {
+                    return;
+                }
+
+                _bottomBypassLogUtc[key] = now;
+            }
+
+            WriteBottomBypassLog(pickerAxis, side, safeOwner);
+        }
+
+        private static void WriteBottomBypassLog(SharedRailXAxis pickerAxis, string side, string owner)
+        {
+            QMC.Common.Log.Write("SharedRailX",
+                "InputVisionX/" + pickerAxis +
+                " pair clearance bypassed because picker is in Bottom inspection work area. side=" +
+                side +
+                ", owner=" + owner);
+        }
+
+        private static bool IsSimulationModeConfigured()
+        {
+            try
+            {
+                AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                return settings != null && settings.SimulationMode;
+            }
+            catch
+            {
+                return false;
             }
         }
 
