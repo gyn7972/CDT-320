@@ -46,7 +46,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         };
 
         private InputFeederUnit _inputFeederUnit;
-        private readonly List<ActionButton> _teachingMoveButtons = new List<ActionButton>();
         private readonly Timer _refreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip();
         private string _titleI18n = "recipe.inputFeeder";
@@ -232,13 +231,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                btnLoadingMove.Enabled = enabled;
-                btnUnloadingMove.Enabled = enabled;
-                btnReadyMove.Enabled = enabled;
-                btnSlotLoadingMove.Enabled = enabled;
-                btnSlotUnloadingMove.Enabled = enabled;
-                foreach (var button in _teachingMoveButtons)
-                    button.Enabled = enabled;
+                manualActionPanel.SetButtonsEnabled(enabled);
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -257,65 +250,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                _teachingMoveButtons.Clear();
+                // 공용 MANUAL ACTION 판넬에 티칭 위치별 버튼 등록 (2열, 행 수 자동)
+                var actions = new List<ManualActionItem>();
+                foreach (FeederTeachingPosition position in TeachingPositions)
+                {
+                    FeederTeachingPosition captured = position;
+                    actions.Add(ManualActionItem.Create(captured.DisplayName, () => ConfirmTeachingMoveAsync(captured)));
+                }
 
-                RegisterActionMoveButton(btnReadyMove, TeachingPositions[0]);
-                RegisterActionMoveButton(btnLoadingMove, TeachingPositions[1]);
-                RegisterActionMoveButton(btnUnloadingMove, TeachingPositions[2]);
-                RegisterActionMoveButton(btnSlotLoadingMove, TeachingPositions[3]);
-                RegisterActionMoveButton(btnSlotUnloadingMove, TeachingPositions[4]);
-                RegisterActionMoveButton(btnWaferLoadPositionMove, TeachingPositions[5]);
-                RegisterActionMoveButton(btnWaferUnloadAvoidPositionMove, TeachingPositions[6]);
-                RegisterActionMoveButton(btnWaferUnloadPositionMove, TeachingPositions[7]);
-                RegisterActionMoveButton(btnWaferBarcodePositionMove, TeachingPositions[8]);
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(actions);
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "ConfigureActionMoveButtons failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void RegisterActionMoveButton(ActionButton button, FeederTeachingPosition position)
-        {
-            try
-            {
-                if (button == null || position == null)
-                    return;
-
-                button.Text = position.DisplayName;
-                button.Tag = position;
-                button.Cursor = Cursors.Hand;
-                ApplyActionButtonStyle(button);
-                if (!_teachingMoveButtons.Contains(button))
-                    _teachingMoveButtons.Add(button);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
-        }
-
-        private async void TeachingMoveButton_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                var button = sender as Control;
-                var position = button != null ? button.Tag as FeederTeachingPosition : null;
-                if (position == null)
-                    return;
-
-                await ConfirmTeachingMoveAsync(position);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -543,6 +492,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _inputFeederUnit.Config.bDryRun, v => _inputFeederUnit.Config.bDryRun = v));
                 optionParameterGrid.SetItems(items);
 
+                waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs, v => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs = Math.Max(0, v))
@@ -565,21 +515,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_inputFeederUnit == null)
                     return;
 
+                // 2열 열우선 배치 ("WAFER FEEDER" 접두사 생략):
+                // [1열] RING CHECK + LIFT 세트(UP/DOWN/LIFT), [2열] OVERLOAD + CLAMP 세트(CLAMP/UNCLAMP/CLAMP)
+                ioCylinderPanel.ColumnCount = 2;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== 단독 체크 센서 (세트 구성 아님) — 최상단 =====
-                    IoCylinderItem.Input("WAFER FEEDER RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
-                    IoCylinderItem.Input("WAFER FEEDER OVERLOAD", () => _inputFeederUnit.IsWaferFeederOverload()),
+                    IoCylinderItem.Input("RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
+                    IoCylinderItem.Input("UP", () => _inputFeederUnit.IsWaferFeederUp()),
+                    IoCylinderItem.Input("DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
+                    IoCylinderItem.Cylinder("LIFT", _inputFeederUnit.InputFeederLift, "UP", "DOWN"),
 
-                    // ===== SET 1: WAFER FEEDER LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
-                    IoCylinderItem.Input("WAFER FEEDER UP", () => _inputFeederUnit.IsWaferFeederUp()),
-                    IoCylinderItem.Input("WAFER FEEDER DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
-                    IoCylinderItem.Cylinder("WAFER FEEDER LIFT", _inputFeederUnit.InputFeederLift, "UP", "DOWN"),
-
-                    // ===== SET 2: WAFER FEEDER CLAMP (Clamp/Unclamp 체크 센서 + Clamp/Unclamp 출력 통합 실린더) =====
-                    IoCylinderItem.Input("WAFER FEEDER CLAMP", () => _inputFeederUnit.IsWaferFeederClamp()),
-                    IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
-                    IoCylinderItem.Cylinder("WAFER FEEDER CLAMP", _inputFeederUnit.InputFeederClamp, "CLAMP", "UNCLAMP")
+                    IoCylinderItem.Input("OVERLOAD", () => _inputFeederUnit.IsWaferFeederOverload()),
+                    IoCylinderItem.Input("CLAMP", () => _inputFeederUnit.IsWaferFeederClamp()),
+                    IoCylinderItem.Input("UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
+                    IoCylinderItem.Cylinder("CLAMP", _inputFeederUnit.InputFeederClamp, "CLAMP", "UNCLAMP")
                 });
             }
             catch (Exception ex)
@@ -804,18 +753,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Color value = Color.White;
 
                 BackColor = bg;
-                rootLayout.BackColor = bg;
-                contentLayout.BackColor = bg;
-                leftLayout.BackColor = bg;
-                centerLayout.BackColor = bg;
-                rightLayout.BackColor = bg;
                 grpActions.BackColor = Color.FromArgb(245, 245, 245);
                 grpIo.BackColor = Color.FromArgb(245, 245, 245);
                 grpOptions.BackColor = Color.FromArgb(245, 245, 245);
                 grpWait.BackColor = Color.FromArgb(245, 245, 245);
                 grpJog.BackColor = Color.FromArgb(245, 245, 245);
                 grpSpeed.BackColor = Color.FromArgb(245, 245, 245);
-                actionLayout.BackColor = Color.FromArgb(245, 245, 245);
                 ioLayout.BackColor = Color.FromArgb(245, 245, 245);
                 optionRows.BackColor = bg;
                 waitRows.BackColor = bg;
@@ -826,14 +769,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 foreach (var group in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
                     group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
 
-                foreach (var buttonControl in new[]
-                {
-                    btnReadyMove, btnLoadingMove, btnUnloadingMove, btnSlotLoadingMove, btnSlotUnloadingMove,
-                    btnWaferLoadPositionMove, btnWaferUnloadAvoidPositionMove, btnWaferUnloadPositionMove, btnWaferBarcodePositionMove
-                })
-                {
-                    ApplyActionButtonStyle(buttonControl);
-                }
 
                 foreach (var label in new[]
                 {
@@ -892,24 +827,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static void ApplyActionButtonStyle(ActionButton button)
-        {
-            try
-            {
-                if (button == null)
-                    return;
-
-                button.BackColor = Color.FromArgb(88, 94, 103);
-                button.ForeColor = Color.White;
-                button.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-        }
 
        
     }

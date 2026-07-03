@@ -150,9 +150,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
             this._dp.Value = new System.DateTime(2026, 5, 28, 0, 0, 0, 0);
-            //
+            // 
             // lblRunId
-            //
+            // 
             this.lblRunId.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRunId.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.lblRunId.Location = new System.Drawing.Point(239, 6);
@@ -161,18 +161,18 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblRunId.TabIndex = 4;
             this.lblRunId.Text = "RunId";
             this.lblRunId.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // txtRunId
-            //
+            // 
             this.txtRunId.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtRunId.Font = new System.Drawing.Font("Consolas", 10F);
             this.txtRunId.Location = new System.Drawing.Point(301, 10);
             this.txtRunId.Name = "txtRunId";
             this.txtRunId.Size = new System.Drawing.Size(214, 23);
             this.txtRunId.TabIndex = 5;
-            //
+            // 
             // lblSource
-            //
+            // 
             this.lblSource.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSource.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.lblSource.Location = new System.Drawing.Point(521, 6);
@@ -181,18 +181,18 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblSource.TabIndex = 6;
             this.lblSource.Text = "Source";
             this.lblSource.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // txtSource
-            //
+            // 
             this.txtSource.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtSource.Font = new System.Drawing.Font("Consolas", 10F);
             this.txtSource.Location = new System.Drawing.Point(591, 10);
             this.txtSource.Name = "txtSource";
             this.txtSource.Size = new System.Drawing.Size(144, 23);
             this.txtSource.TabIndex = 7;
-            //
+            // 
             // lblSearch
-            //
+            // 
             this.lblSearch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSearch.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this.lblSearch.Location = new System.Drawing.Point(741, 6);
@@ -201,37 +201,37 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblSearch.TabIndex = 8;
             this.lblSearch.Text = "Search";
             this.lblSearch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // txtSearch
-            //
+            // 
             this.txtSearch.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtSearch.Font = new System.Drawing.Font("Consolas", 10F);
             this.txtSearch.Location = new System.Drawing.Point(813, 10);
             this.txtSearch.Name = "txtSearch";
-            this.txtSearch.Size = new System.Drawing.Size(378, 23);
+            this.txtSearch.Size = new System.Drawing.Size(302, 23);
             this.txtSearch.TabIndex = 9;
-            //
+            // 
             // chkRecentHour
-            //
+            // 
             this.chkRecentHour.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.chkRecentHour.AutoSize = true;
             this.chkRecentHour.Checked = true;
             this.chkRecentHour.CheckState = System.Windows.Forms.CheckState.Checked;
             this.chkRecentHour.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.chkRecentHour.Location = new System.Drawing.Point(1197, 12);
+            this.chkRecentHour.Location = new System.Drawing.Point(1121, 12);
             this.chkRecentHour.Name = "chkRecentHour";
-            this.chkRecentHour.Size = new System.Drawing.Size(91, 19);
+            this.chkRecentHour.Size = new System.Drawing.Size(87, 19);
             this.chkRecentHour.TabIndex = 10;
             this.chkRecentHour.Text = "Last 1 hour";
             this.chkRecentHour.UseVisualStyleBackColor = true;
-            //
+            // 
             // cmbLimit
-            //
+            // 
             this.cmbLimit.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.cmbLimit.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbLimit.Font = new System.Drawing.Font("Consolas", 10F);
             this.cmbLimit.FormattingEnabled = true;
-            this.cmbLimit.Location = new System.Drawing.Point(1301, 9);
+            this.cmbLimit.Location = new System.Drawing.Point(1225, 9);
             this.cmbLimit.Name = "cmbLimit";
             this.cmbLimit.Size = new System.Drawing.Size(70, 23);
             this.cmbLimit.TabIndex = 11;
@@ -247,7 +247,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnRefresh.ForeColor = System.Drawing.Color.White;
-            this.btnRefresh.Location = new System.Drawing.Point(1377, 9);
+            this.btnRefresh.Location = new System.Drawing.Point(1301, 9);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(104, 26);
             this.btnRefresh.TabIndex = 12;
@@ -265,9 +265,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.btnOpenFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOpenFile.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOpenFile.ForeColor = System.Drawing.Color.White;
-            this.btnOpenFile.Location = new System.Drawing.Point(1487, 9);
+            this.btnOpenFile.Location = new System.Drawing.Point(1411, 9);
             this.btnOpenFile.Name = "btnOpenFile";
-            this.btnOpenFile.Size = new System.Drawing.Size(130, 26);
+            this.btnOpenFile.Size = new System.Drawing.Size(114, 26);
             this.btnOpenFile.TabIndex = 13;
             this.btnOpenFile.Text = "OPEN FILE";
             this.btnOpenFile.UseVisualStyleBackColor = false;
@@ -297,13 +297,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("Consolas", 10F);
             this._grid.Location = new System.Drawing.Point(3, 83);
-            this._grid.MultiSelect = true;
             this._grid.Name = "_grid";
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
             this._grid.RowTemplate.Height = 26;
-            this._grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.RowHeaderSelect;
             this._grid.Size = new System.Drawing.Size(1672, 814);
             this._grid.TabIndex = 2;
             // 
@@ -378,6 +376,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.filterLayout.ResumeLayout(false);
+            this.filterLayout.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this._grid)).EndInit();
             this.ResumeLayout(false);
 

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using QMC.Common.Logging;
 using QMC.CDT_320.Ui.Pages.History;
 using QMC.CDT_320.Ui.Security;
@@ -15,16 +15,16 @@ namespace QMC.CDT_320.Ui.Tabs
             SetSidebarHeader("tab.history");
             const UserLevel op = UserLevel.Operator;
 
-            HideFileLogHistoryButton(BtnEvent);
-            HideFileLogHistoryButton(BtnWarning);
-            RegisterSidebarButton(BtnAlarm,        "hist.alarm",        op, () => new AlarmHistoryPage());
-            HideFileLogHistoryButton(BtnData);
-            HideFileLogHistoryButton(BtnWork);
-            HideFileLogHistoryButton(BtnInputSeq);
-            HideFileLogHistoryButton(BtnFrontHeadSeq);
-            HideFileLogHistoryButton(BtnRearHeadSeq);
-            HideFileLogHistoryButton(BtnOutputSeq);
-            HideFileLogHistoryButton(BtnMessageEdit);
+            RegisterSidebarButton(BtnEvent, "hist.event", op, () => new EventLogPage(EventKind.Event));
+            RegisterSidebarButton(BtnWarning, "hist.warning", op, () => new EventLogPage(EventKind.Warning));
+            RegisterSidebarButton(BtnAlarm, "hist.alarm", op, () => new AlarmHistoryPage());
+            RegisterSidebarButton(BtnData, "hist.data", op, () => new EventLogPage(EventKind.Data));
+            RegisterSidebarButton(BtnWork, "hist.work", op, () => new EventLogPage(EventKind.Work));
+            RegisterSidebarButton(BtnInputSeq, "hist.inputSeq", op, () => new EventLogPage(EventKind.InputSeq));
+            RegisterSidebarButton(BtnFrontHeadSeq, "hist.frontHeadSeq", op, () => new EventLogPage(EventKind.FrontHeadSeq));
+            RegisterSidebarButton(BtnRearHeadSeq, "hist.rearHeadSeq", op, () => new EventLogPage(EventKind.RearHeadSeq));
+            RegisterSidebarButton(BtnOutputSeq, "hist.outputSeq", op, () => new EventLogPage(EventKind.OutputSeq));
+            RegisterSidebarButton(BtnMessageEdit, "hist.msgEdit", UserLevel.Maintenance, () => new MessageEditPage());
         }
 
         private static void HideFileLogHistoryButton(System.Windows.Forms.Control button)

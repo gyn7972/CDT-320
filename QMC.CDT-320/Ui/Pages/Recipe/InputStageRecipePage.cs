@@ -334,8 +334,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogSpeedControl.BringToFront();
 
                 BackColor = Color.FromArgb(207, 210, 214);
-                rootLayout.BackColor = BackColor;
-                contentLayout.BackColor = BackColor;
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
                 lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
@@ -391,11 +389,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void ConfigureActionButtons()
         {
-            manualScrollPanel.AutoScroll = true;
-            manualScrollPanel.HorizontalScroll.Enabled = false;
-            manualScrollPanel.HorizontalScroll.Visible = false;
-
-            manualLayout.Dock = DockStyle.Top;
+            try
+            {
+                // 공용 MANUAL ACTION 판넬에 위치 이동/테스트 버튼 등록 (2열, 행 수 자동)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("AVOID POSITION", () => ConfirmAndRunAsync("AVOID POSITION", MoveAvoidSequenceAsync)),
+                    ManualActionItem.Create("LOAD POSITION", () => ConfirmAndRunAsync("LOAD POSITION", () => MoveLoadUnloadSequenceAsync(StagePositionKind.Load))),
+                    ManualActionItem.Create("UNLOAD POSITION", () => ConfirmAndRunAsync("UNLOAD POSITION", () => MoveLoadUnloadSequenceAsync(StagePositionKind.Unload))),
+                    ManualActionItem.Create("READY POSITION", () => ConfirmAndRunAsync("READY POSITION", MoveReadySequenceAsync)),
+                    ManualActionItem.Create("PROCESS POSITION", () => ConfirmAndRunAsync("PROCESS POSITION", MoveProcessSequenceAsync)),
+                    ManualActionItem.Create("RETICLE POSITION", () => ConfirmAndRunAsync("RETICLE POSITION", MoveReticleSequenceAsync)),
+                    ManualActionItem.Create("PICK TEST", () => ConfirmAndRunAsync("PICK TEST", PickTestAsync))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "ConfigureActionButtons failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 각 위치 종류의 시퀀스로 이동
@@ -1265,7 +1280,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var items = new List<ParameterGridItem>();
                 AddStagePositions(items, unit);
-                
+                AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
+
                 items.Add(AxisDouble("WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaRadius, v => unit.Setup.WorkAreaRadius = Math.Max(0.0, v)));
                 items.Add(AxisDouble("NEEDLE WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaRadius, v => unit.Setup.NeedleWorkAreaRadius = Math.Max(0.0, v)));
                 items.Add(AxisDouble("VISION WORK AREA CENTER X", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.WorkAreaCenterX, v => unit.Setup.WorkAreaCenterX = v));
@@ -1275,7 +1291,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
-                AddNeedlePickUpSettingItems(items, unit);
                 items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 return items;
@@ -1374,12 +1389,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return;
 
-                ioCylinderPanel.SetItems(new[]
+                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
+            ioCylinderPanel.SetItems(new[]
                 {
                     // ===== INPUT (DI) — 3개 =====
-                    IoCylinderItem.Input("WAFER STAGE 8\" RING CHECK", () => _InputStageUnit.WaferStage8RingCheckSensor != null && _InputStageUnit.WaferStage8RingCheckSensor.IsOn),
-                    IoCylinderItem.Input("WAFER STAGE 12\" RING CHECK", () => _InputStageUnit.WaferStage12RingCheckSensor != null && _InputStageUnit.WaferStage12RingCheckSensor.IsOn),
-                    IoCylinderItem.Input("WAFER STAGE TOUCH SENSOR", () => _InputStageUnit.WaferStageTouchSensor != null && _InputStageUnit.WaferStageTouchSensor.IsOn),
+                    IoCylinderItem.Input("8\" RING CHECK", () => _InputStageUnit.WaferStage8RingCheckSensor != null && _InputStageUnit.WaferStage8RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("12\" RING CHECK", () => _InputStageUnit.WaferStage12RingCheckSensor != null && _InputStageUnit.WaferStage12RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("TOUCH SENSOR", () => _InputStageUnit.WaferStageTouchSensor != null && _InputStageUnit.WaferStageTouchSensor.IsOn),
 
                     // ===== OUTPUT (DO) — 3개 =====
                     IoCylinderItem.Output("IONIZER ON", () => _InputStageUnit.Ionizer != null && _InputStageUnit.Ionizer.IsOn, WriteIonizerAsync),

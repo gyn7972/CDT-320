@@ -13,6 +13,7 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly Dictionary<IoCylinderItem, IoCylinderRow> _rows = new Dictionary<IoCylinderItem, IoCylinderRow>();
         private bool _isRefreshing;
         private bool _isCommandRunning;
+        private int _columnCount = 1;
 
         public IoCylinderPanelControl()
         {
@@ -29,6 +30,40 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        /// <summary>행을 몇 개 열로 배치할지. 1=단열(기본), 2=2열. FlowLayoutPanel wrap 이용.</summary>
+        public int ColumnCount
+        {
+            get { return _columnCount; }
+            set { _columnCount = Math.Max(1, value); }
+        }
+
+        private int ComputeRowWidth()
+        {
+            return Math.Max(1, (rowsHost.ClientSize.Width / _columnCount) - 3);
+        }
+
+        // 호출부는 "읽는 순서(1열 항목 전부 → 2열 항목 전부)"로 항목을 준다.
+        // LeftToRight wrap 컨테이너에서 열 우선(column-major)으로 보이도록 flow 순서를 재배열한다.
+        private List<IoCylinderItem> OrderForDisplay()
+        {
+            if (_columnCount <= 1 || _items.Count == 0)
+                return _items;
+
+            int n = _items.Count;
+            int rowsPerCol = (n + _columnCount - 1) / _columnCount;
+            var ordered = new List<IoCylinderItem>(n);
+            for (int r = 0; r < rowsPerCol; r++)
+            {
+                for (int c = 0; c < _columnCount; c++)
+                {
+                    int idx = c * rowsPerCol + r;
+                    if (idx < n)
+                        ordered.Add(_items[idx]);
+                }
+            }
+            return ordered;
+        }
+
         public void SetItems(IEnumerable<IoCylinderItem> items)
         {
             try
@@ -40,7 +75,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (items != null)
                     _items.AddRange(items);
 
-                foreach (var item in _items)
+                foreach (var item in OrderForDisplay())
                     AddRow(item);
 
                 RefreshStates();
@@ -84,24 +119,47 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
 
                 var rowPanel = new Panel();
-                var dot = new IndicatorDot();
                 var label = new Label();
 
+                // 출력/실린더는 사용자가 클릭해 조작 가능 → 토글 스위치 + Hand 커서로 읽기전용 입력과 구분한다.
+                bool controllable = item.ItemType == IoCylinderItemType.Output ||
+                                    item.ItemType == IoCylinderItemType.Cylinder;
+
                 rowPanel.Height = 30;
-                rowPanel.Width = Math.Max(1, rowsHost.ClientSize.Width - 2);
+                rowPanel.Width = ComputeRowWidth();
                 rowPanel.Margin = new Padding(0);
-                rowPanel.BackColor = Color.FromArgb(205, 205, 205);
+                rowPanel.BackColor = Color.FromArgb(207, 211, 216);
                 rowPanel.Tag = item;
 
-                dot.Location = new Point(6, 7);
-                dot.Size = new Size(16, 16);
-                dot.OnColor = Color.LimeGreen;
-                dot.OffColor = Color.FromArgb(85, 85, 85);
-                dot.BackColor = Color.Transparent;
-                dot.Tag = item;
+                IndicatorDot dot = null;
+                ToggleSwitch toggle = null;
+                Control indicator;
+                if (controllable)
+                {
+                    toggle = new ToggleSwitch();
+                    toggle.Location = new Point(2, 7);
+                    toggle.Size = new Size(28, 16);
+                    toggle.OnColor = Color.LimeGreen;
+                    toggle.OffColor = Color.FromArgb(85, 85, 85);
+                    toggle.BackColor = Color.Transparent;
+                    toggle.Cursor = Cursors.Hand;
+                    toggle.Tag = item;
+                    indicator = toggle;
+                }
+                else
+                {
+                    dot = new IndicatorDot();
+                    dot.Location = new Point(6, 7);
+                    dot.Size = new Size(16, 16);
+                    dot.OnColor = Color.LimeGreen;
+                    dot.OffColor = Color.FromArgb(85, 85, 85);
+                    dot.BackColor = Color.Transparent;
+                    dot.Tag = item;
+                    indicator = dot;
+                }
 
                 label.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-                label.BackColor = Color.FromArgb(205, 205, 205);
+                label.BackColor = Color.FromArgb(207, 211, 216);
                 label.BorderStyle = BorderStyle.FixedSingle;
                 label.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
                 label.ForeColor = Color.FromArgb(20, 24, 28);
@@ -112,17 +170,23 @@ namespace QMC.CDT_320.Ui.Controls
                 label.Text = item.DisplayName ?? string.Empty;
                 label.Tag = item;
 
-                rowPanel.Controls.Add(dot);
+                if (controllable)
+                {
+                    rowPanel.Cursor = Cursors.Hand;
+                    label.Cursor = Cursors.Hand;
+                }
+
+                rowPanel.Controls.Add(indicator);
                 rowPanel.Controls.Add(label);
                 rowPanel.Click += Row_Click;
-                dot.Click += Row_Click;
+                indicator.Click += Row_Click;
                 label.Click += Row_Click;
                 rowPanel.ContextMenuStrip = BuildContextMenu(item);
                 label.ContextMenuStrip = rowPanel.ContextMenuStrip;
-                dot.ContextMenuStrip = rowPanel.ContextMenuStrip;
+                indicator.ContextMenuStrip = rowPanel.ContextMenuStrip;
 
                 rowsHost.Controls.Add(rowPanel);
-                _rows[item] = new IoCylinderRow(rowPanel, dot, label);
+                _rows[item] = new IoCylinderRow(rowPanel, dot, toggle, label);
             }
             catch (Exception ex)
             {
@@ -162,9 +226,12 @@ namespace QMC.CDT_320.Ui.Controls
 
                 bool on = item.StateGetter != null && item.StateGetter();
                 IoCylinderRow row = _rows[item];
-                row.Dot.IsOn = on;
+                if (row.Dot != null)
+                    row.Dot.IsOn = on;
+                if (row.Toggle != null)
+                    row.Toggle.IsOn = on;
                 row.Label.Text = GetDisplayText(item, on);
-                row.Label.BackColor = on ? Color.FromArgb(219, 246, 226) : Color.FromArgb(205, 205, 205);
+                row.Label.BackColor = on ? Color.FromArgb(219, 246, 226) : Color.FromArgb(207, 211, 216);
                 row.Label.ForeColor = on ? Color.FromArgb(20, 115, 55) : Color.FromArgb(20, 24, 28);
             }
             catch (Exception ex)
@@ -312,7 +379,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 foreach (Control control in rowsHost.Controls)
                 {
-                    control.Width = Math.Max(1, rowsHost.ClientSize.Width - 2);
+                    control.Width = ComputeRowWidth();
                     foreach (Control child in control.Controls)
                     {
                         Label label = child as Label;
@@ -334,14 +401,16 @@ namespace QMC.CDT_320.Ui.Controls
         {
             public Panel Panel { get; private set; }
             public IndicatorDot Dot { get; private set; }
+            public ToggleSwitch Toggle { get; private set; }
             public Label Label { get; private set; }
 
-            public IoCylinderRow(Panel panel, IndicatorDot dot, Label label)
+            public IoCylinderRow(Panel panel, IndicatorDot dot, ToggleSwitch toggle, Label label)
             {
                 try
                 {
                     Panel = panel;
                     Dot = dot;
+                    Toggle = toggle;
                     Label = label;
                 }
                 catch

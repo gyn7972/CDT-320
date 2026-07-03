@@ -10,6 +10,7 @@
         private System.Windows.Forms.TableLayoutPanel centerLayout;
         private System.Windows.Forms.TableLayoutPanel rightLayout;
         private System.Windows.Forms.GroupBox grpActions;
+        private QMC.CDT_320.Ui.Controls.ManualActionPanelControl manualActionPanel;
         private System.Windows.Forms.GroupBox grpIo;
         private System.Windows.Forms.GroupBox grpOptions;
         private System.Windows.Forms.GroupBox grpWait;
@@ -19,31 +20,6 @@
         private QMC.CDT_320.Ui.Controls.JogPositionListControl jogPositionListControl;
         private QMC.CDT_320.Ui.Controls.JogAxisMoveControl jogAxisMoveControl;
         private QMC.CDT_320.Ui.Controls.JogSpeedControl jogSpeedControl;
-        private System.Windows.Forms.Panel actionScrollPanel;
-        private System.Windows.Forms.TableLayoutPanel actionLayout;
-        private System.Windows.Forms.TableLayoutPanel goodLayout;
-        private System.Windows.Forms.TableLayoutPanel ngLayout;
-        private System.Windows.Forms.TableLayoutPanel commonLayout;
-        private System.Windows.Forms.Label lblGoodGroup;
-        private System.Windows.Forms.Label lblNgGroup;
-        private System.Windows.Forms.Label lblCommonGroup;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodLoadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodUnloadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodCassetteExchangeMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodWaferLoadAvoidMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodSlotStartMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodWaferUnloadAvoidMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodSlotEndMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodWaferBarcodeMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgLoadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgUnloadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgCassetteExchangeMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgWaferLoadAvoidMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgSlotStartMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgWaferUnloadAvoidMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgSlotEndMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgWaferBarcodeMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnReadyMove;
         private QMC.CDT_320.Ui.Controls.IoCylinderPanelControl ioCylinderPanel;
         private System.Windows.Forms.TableLayoutPanel ioLayout;
         private QMC.CDT_320.Ui.Controls.IndicatorDot dot8Inch;
@@ -110,31 +86,7 @@
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpActions = new System.Windows.Forms.GroupBox();
-            this.actionScrollPanel = new System.Windows.Forms.Panel();
-            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblGoodGroup = new System.Windows.Forms.Label();
-            this.goodLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnGoodLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodCassetteExchangeMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodWaferLoadAvoidMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodSlotStartMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodWaferUnloadAvoidMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodSlotEndMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGoodWaferBarcodeMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.lblNgGroup = new System.Windows.Forms.Label();
-            this.ngLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnNgLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgCassetteExchangeMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgWaferLoadAvoidMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgSlotStartMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgWaferUnloadAvoidMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgSlotEndMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgWaferBarcodeMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.lblCommonGroup = new System.Windows.Forms.Label();
-            this.commonLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnReadyMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.manualActionPanel = new QMC.CDT_320.Ui.Controls.ManualActionPanelControl();
             this.grpIo = new System.Windows.Forms.GroupBox();
             this.ioCylinderPanel = new QMC.CDT_320.Ui.Controls.IoCylinderPanelControl();
             this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -201,11 +153,6 @@
             this.contentLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
             this.grpActions.SuspendLayout();
-            this.actionScrollPanel.SuspendLayout();
-            this.actionLayout.SuspendLayout();
-            this.goodLayout.SuspendLayout();
-            this.ngLayout.SuspendLayout();
-            this.commonLayout.SuspendLayout();
             this.grpIo.SuspendLayout();
             this.centerLayout.SuspendLayout();
             this.grpWait.SuspendLayout();
@@ -253,11 +200,11 @@
             // 
             // contentLayout
             // 
-            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(216)))), ((int)(((byte)(219)))), ((int)(((byte)(222)))));
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.contentLayout.ColumnCount = 3;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 296F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 559F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 521F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 467F));
             this.contentLayout.Controls.Add(this.leftLayout, 0, 0);
             this.contentLayout.Controls.Add(this.centerLayout, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
@@ -279,10 +226,11 @@
             this.leftLayout.Controls.Add(this.grpIo, 0, 1);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.leftLayout.Location = new System.Drawing.Point(1, 1);
-            this.leftLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.leftLayout.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.leftLayout.Name = "leftLayout";
+            this.leftLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 627F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 450F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(290, 868);
             this.leftLayout.TabIndex = 0;
@@ -290,429 +238,38 @@
             // grpActions
             // 
             this.grpActions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
-            this.grpActions.Controls.Add(this.actionScrollPanel);
+            this.grpActions.Controls.Add(this.manualActionPanel);
             this.grpActions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpActions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpActions.Location = new System.Drawing.Point(0, 0);
-            this.grpActions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.grpActions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpActions.Name = "grpActions";
+            this.grpActions.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpActions.Size = new System.Drawing.Size(290, 621);
             this.grpActions.TabIndex = 0;
             this.grpActions.TabStop = false;
             this.grpActions.Text = "MANUAL ACTION";
             // 
-            // actionScrollPanel
+            // manualActionPanel
             // 
-            this.actionScrollPanel.AutoScroll = true;
-            this.actionScrollPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
-            this.actionScrollPanel.Controls.Add(this.actionLayout);
-            this.actionScrollPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionScrollPanel.Location = new System.Drawing.Point(3, 21);
-            this.actionScrollPanel.Margin = new System.Windows.Forms.Padding(0);
-            this.actionScrollPanel.Name = "actionScrollPanel";
-            this.actionScrollPanel.Size = new System.Drawing.Size(284, 597);
-            this.actionScrollPanel.TabIndex = 0;
-            // 
-            // actionLayout
-            // 
-            this.actionLayout.ColumnCount = 1;
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionLayout.Controls.Add(this.lblGoodGroup, 0, 0);
-            this.actionLayout.Controls.Add(this.goodLayout, 0, 1);
-            this.actionLayout.Controls.Add(this.lblNgGroup, 0, 2);
-            this.actionLayout.Controls.Add(this.ngLayout, 0, 3);
-            this.actionLayout.Controls.Add(this.lblCommonGroup, 0, 4);
-            this.actionLayout.Controls.Add(this.commonLayout, 0, 5);
-            this.actionLayout.AutoSize = true;
-            this.actionLayout.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.actionLayout.Location = new System.Drawing.Point(0, 0);
-            this.actionLayout.Name = "actionLayout";
-            this.actionLayout.Padding = new System.Windows.Forms.Padding(10, 12, 10, 6);
-            this.actionLayout.RowCount = 6;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 376F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 376F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.actionLayout.Size = new System.Drawing.Size(264, 865);
-            this.actionLayout.TabIndex = 0;
-            // 
-            // lblGoodGroup
-            // 
-            this.lblGoodGroup.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblGoodGroup.Location = new System.Drawing.Point(10, 12);
-            this.lblGoodGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.lblGoodGroup.Name = "lblGoodGroup";
-            this.lblGoodGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblGoodGroup.Size = new System.Drawing.Size(264, 22);
-            this.lblGoodGroup.TabIndex = 0;
-            this.lblGoodGroup.Text = "GOOD";
-            this.lblGoodGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // goodLayout
-            // 
-            this.goodLayout.ColumnCount = 1;
-            this.goodLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.goodLayout.Controls.Add(this.btnGoodLoadingMove, 0, 0);
-            this.goodLayout.Controls.Add(this.btnGoodUnloadingMove, 0, 1);
-            this.goodLayout.Controls.Add(this.btnGoodCassetteExchangeMove, 0, 2);
-            this.goodLayout.Controls.Add(this.btnGoodWaferLoadAvoidMove, 0, 3);
-            this.goodLayout.Controls.Add(this.btnGoodSlotStartMove, 0, 4);
-            this.goodLayout.Controls.Add(this.btnGoodWaferUnloadAvoidMove, 0, 5);
-            this.goodLayout.Controls.Add(this.btnGoodSlotEndMove, 0, 6);
-            this.goodLayout.Controls.Add(this.btnGoodWaferBarcodeMove, 0, 7);
-            this.goodLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.goodLayout.Location = new System.Drawing.Point(10, 36);
-            this.goodLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
-            this.goodLayout.Name = "goodLayout";
-            this.goodLayout.RowCount = 8;
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.goodLayout.Size = new System.Drawing.Size(244, 376);
-            this.goodLayout.TabIndex = 1;
-            // 
-            // btnGoodLoadingMove
-            // 
-            this.btnGoodLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodLoadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodLoadingMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodLoadingMove.Location = new System.Drawing.Point(0, 0);
-            this.btnGoodLoadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodLoadingMove.Name = "btnGoodLoadingMove";
-            this.btnGoodLoadingMove.Size = new System.Drawing.Size(264, 41);
-            this.btnGoodLoadingMove.TabIndex = 0;
-            this.btnGoodLoadingMove.Text = "GOOD LOADING MOVE";
-            this.btnGoodLoadingMove.Click += new System.EventHandler(this.btnGoodLoadingMove_Click);
-            // 
-            // btnGoodUnloadingMove
-            // 
-            this.btnGoodUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodUnloadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodUnloadingMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodUnloadingMove.Location = new System.Drawing.Point(0, 49);
-            this.btnGoodUnloadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodUnloadingMove.Name = "btnGoodUnloadingMove";
-            this.btnGoodUnloadingMove.Size = new System.Drawing.Size(264, 41);
-            this.btnGoodUnloadingMove.TabIndex = 1;
-            this.btnGoodUnloadingMove.Text = "GOOD UNLOADING MOVE";
-            this.btnGoodUnloadingMove.Click += new System.EventHandler(this.btnGoodUnloadingMove_Click);
-            // 
-            // btnGoodCassetteExchangeMove
-            // 
-            this.btnGoodCassetteExchangeMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodCassetteExchangeMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodCassetteExchangeMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodCassetteExchangeMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodCassetteExchangeMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodCassetteExchangeMove.Location = new System.Drawing.Point(0, 94);
-            this.btnGoodCassetteExchangeMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodCassetteExchangeMove.Name = "btnGoodCassetteExchangeMove";
-            this.btnGoodCassetteExchangeMove.Size = new System.Drawing.Size(244, 39);
-            this.btnGoodCassetteExchangeMove.TabIndex = 2;
-            this.btnGoodCassetteExchangeMove.Text = "GOOD CASSETTE EXCHANGE POSITION";
-            this.btnGoodCassetteExchangeMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnGoodWaferLoadAvoidMove
-            // 
-            this.btnGoodWaferLoadAvoidMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodWaferLoadAvoidMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodWaferLoadAvoidMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodWaferLoadAvoidMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodWaferLoadAvoidMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodWaferLoadAvoidMove.Location = new System.Drawing.Point(0, 141);
-            this.btnGoodWaferLoadAvoidMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodWaferLoadAvoidMove.Name = "btnGoodWaferLoadAvoidMove";
-            this.btnGoodWaferLoadAvoidMove.Size = new System.Drawing.Size(244, 39);
-            this.btnGoodWaferLoadAvoidMove.TabIndex = 3;
-            this.btnGoodWaferLoadAvoidMove.Text = "GOOD WAFER LOAD AVOID POSITION";
-            this.btnGoodWaferLoadAvoidMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnGoodSlotStartMove
-            // 
-            this.btnGoodSlotStartMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodSlotStartMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodSlotStartMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodSlotStartMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodSlotStartMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodSlotStartMove.Location = new System.Drawing.Point(0, 188);
-            this.btnGoodSlotStartMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodSlotStartMove.Name = "btnGoodSlotStartMove";
-            this.btnGoodSlotStartMove.Size = new System.Drawing.Size(264, 41);
-            this.btnGoodSlotStartMove.TabIndex = 4;
-            this.btnGoodSlotStartMove.Text = "GOOD SLOT START";
-            this.btnGoodSlotStartMove.Click += new System.EventHandler(this.btnGoodSlotStartMove_Click);
-            // 
-            // btnGoodWaferUnloadAvoidMove
-            // 
-            this.btnGoodWaferUnloadAvoidMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodWaferUnloadAvoidMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodWaferUnloadAvoidMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodWaferUnloadAvoidMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodWaferUnloadAvoidMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodWaferUnloadAvoidMove.Location = new System.Drawing.Point(0, 235);
-            this.btnGoodWaferUnloadAvoidMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodWaferUnloadAvoidMove.Name = "btnGoodWaferUnloadAvoidMove";
-            this.btnGoodWaferUnloadAvoidMove.Size = new System.Drawing.Size(244, 39);
-            this.btnGoodWaferUnloadAvoidMove.TabIndex = 5;
-            this.btnGoodWaferUnloadAvoidMove.Text = "GOOD WAFER UNLOAD AVOID POSITION";
-            this.btnGoodWaferUnloadAvoidMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnGoodSlotEndMove
-            // 
-            this.btnGoodSlotEndMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodSlotEndMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodSlotEndMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodSlotEndMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodSlotEndMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodSlotEndMove.Location = new System.Drawing.Point(0, 282);
-            this.btnGoodSlotEndMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodSlotEndMove.Name = "btnGoodSlotEndMove";
-            this.btnGoodSlotEndMove.Size = new System.Drawing.Size(264, 41);
-            this.btnGoodSlotEndMove.TabIndex = 6;
-            this.btnGoodSlotEndMove.Text = "GOOD SLOT END";
-            this.btnGoodSlotEndMove.Click += new System.EventHandler(this.btnGoodSlotEndMove_Click);
-            // 
-            // btnGoodWaferBarcodeMove
-            // 
-            this.btnGoodWaferBarcodeMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGoodWaferBarcodeMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGoodWaferBarcodeMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoodWaferBarcodeMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGoodWaferBarcodeMove.ForeColor = System.Drawing.Color.White;
-            this.btnGoodWaferBarcodeMove.Location = new System.Drawing.Point(0, 329);
-            this.btnGoodWaferBarcodeMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnGoodWaferBarcodeMove.Name = "btnGoodWaferBarcodeMove";
-            this.btnGoodWaferBarcodeMove.Size = new System.Drawing.Size(244, 39);
-            this.btnGoodWaferBarcodeMove.TabIndex = 7;
-            this.btnGoodWaferBarcodeMove.Text = "GOOD WAFER BARCODE POSITION";
-            this.btnGoodWaferBarcodeMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // lblNgGroup
-            // 
-            this.lblNgGroup.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblNgGroup.Location = new System.Drawing.Point(10, 412);
-            this.lblNgGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.lblNgGroup.Name = "lblNgGroup";
-            this.lblNgGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNgGroup.Size = new System.Drawing.Size(264, 22);
-            this.lblNgGroup.TabIndex = 2;
-            this.lblNgGroup.Text = "NG";
-            this.lblNgGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // ngLayout
-            // 
-            this.ngLayout.ColumnCount = 1;
-            this.ngLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.ngLayout.Controls.Add(this.btnNgLoadingMove, 0, 0);
-            this.ngLayout.Controls.Add(this.btnNgUnloadingMove, 0, 1);
-            this.ngLayout.Controls.Add(this.btnNgCassetteExchangeMove, 0, 2);
-            this.ngLayout.Controls.Add(this.btnNgWaferLoadAvoidMove, 0, 3);
-            this.ngLayout.Controls.Add(this.btnNgSlotStartMove, 0, 4);
-            this.ngLayout.Controls.Add(this.btnNgWaferUnloadAvoidMove, 0, 5);
-            this.ngLayout.Controls.Add(this.btnNgSlotEndMove, 0, 6);
-            this.ngLayout.Controls.Add(this.btnNgWaferBarcodeMove, 0, 7);
-            this.ngLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ngLayout.Location = new System.Drawing.Point(10, 436);
-            this.ngLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
-            this.ngLayout.Name = "ngLayout";
-            this.ngLayout.RowCount = 8;
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 47F));
-            this.ngLayout.Size = new System.Drawing.Size(244, 376);
-            this.ngLayout.TabIndex = 3;
-            // 
-            // btnNgLoadingMove
-            // 
-            this.btnNgLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgLoadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgLoadingMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgLoadingMove.Location = new System.Drawing.Point(0, 0);
-            this.btnNgLoadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgLoadingMove.Name = "btnNgLoadingMove";
-            this.btnNgLoadingMove.Size = new System.Drawing.Size(264, 41);
-            this.btnNgLoadingMove.TabIndex = 4;
-            this.btnNgLoadingMove.Text = "NG LOADING MOVE";
-            this.btnNgLoadingMove.Click += new System.EventHandler(this.btnNgLoadingMove_Click);
-            // 
-            // btnNgUnloadingMove
-            // 
-            this.btnNgUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgUnloadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgUnloadingMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgUnloadingMove.Location = new System.Drawing.Point(0, 49);
-            this.btnNgUnloadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgUnloadingMove.Name = "btnNgUnloadingMove";
-            this.btnNgUnloadingMove.Size = new System.Drawing.Size(264, 41);
-            this.btnNgUnloadingMove.TabIndex = 5;
-            this.btnNgUnloadingMove.Text = "NG UNLOADING MOVE";
-            this.btnNgUnloadingMove.Click += new System.EventHandler(this.btnNgUnloadingMove_Click);
-            // 
-            // btnNgCassetteExchangeMove
-            // 
-            this.btnNgCassetteExchangeMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgCassetteExchangeMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgCassetteExchangeMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgCassetteExchangeMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgCassetteExchangeMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgCassetteExchangeMove.Location = new System.Drawing.Point(0, 94);
-            this.btnNgCassetteExchangeMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgCassetteExchangeMove.Name = "btnNgCassetteExchangeMove";
-            this.btnNgCassetteExchangeMove.Size = new System.Drawing.Size(244, 39);
-            this.btnNgCassetteExchangeMove.TabIndex = 10;
-            this.btnNgCassetteExchangeMove.Text = "NG CASSETTE EXCHANGE POSITION";
-            this.btnNgCassetteExchangeMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnNgWaferLoadAvoidMove
-            // 
-            this.btnNgWaferLoadAvoidMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgWaferLoadAvoidMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgWaferLoadAvoidMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgWaferLoadAvoidMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgWaferLoadAvoidMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgWaferLoadAvoidMove.Location = new System.Drawing.Point(0, 141);
-            this.btnNgWaferLoadAvoidMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgWaferLoadAvoidMove.Name = "btnNgWaferLoadAvoidMove";
-            this.btnNgWaferLoadAvoidMove.Size = new System.Drawing.Size(244, 39);
-            this.btnNgWaferLoadAvoidMove.TabIndex = 11;
-            this.btnNgWaferLoadAvoidMove.Text = "NG WAFER LOAD AVOID POSITION";
-            this.btnNgWaferLoadAvoidMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnNgSlotStartMove
-            // 
-            this.btnNgSlotStartMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgSlotStartMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgSlotStartMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgSlotStartMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgSlotStartMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgSlotStartMove.Location = new System.Drawing.Point(0, 188);
-            this.btnNgSlotStartMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgSlotStartMove.Name = "btnNgSlotStartMove";
-            this.btnNgSlotStartMove.Size = new System.Drawing.Size(264, 41);
-            this.btnNgSlotStartMove.TabIndex = 12;
-            this.btnNgSlotStartMove.Text = "NG SLOT START";
-            this.btnNgSlotStartMove.Click += new System.EventHandler(this.btnNgSlotStartMove_Click);
-            // 
-            // btnNgWaferUnloadAvoidMove
-            // 
-            this.btnNgWaferUnloadAvoidMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgWaferUnloadAvoidMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgWaferUnloadAvoidMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgWaferUnloadAvoidMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgWaferUnloadAvoidMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgWaferUnloadAvoidMove.Location = new System.Drawing.Point(0, 235);
-            this.btnNgWaferUnloadAvoidMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgWaferUnloadAvoidMove.Name = "btnNgWaferUnloadAvoidMove";
-            this.btnNgWaferUnloadAvoidMove.Size = new System.Drawing.Size(244, 39);
-            this.btnNgWaferUnloadAvoidMove.TabIndex = 13;
-            this.btnNgWaferUnloadAvoidMove.Text = "NG WAFER UNLOAD AVOID POSITION";
-            this.btnNgWaferUnloadAvoidMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // btnNgSlotEndMove
-            // 
-            this.btnNgSlotEndMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgSlotEndMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgSlotEndMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgSlotEndMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgSlotEndMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgSlotEndMove.Location = new System.Drawing.Point(0, 282);
-            this.btnNgSlotEndMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgSlotEndMove.Name = "btnNgSlotEndMove";
-            this.btnNgSlotEndMove.Size = new System.Drawing.Size(264, 41);
-            this.btnNgSlotEndMove.TabIndex = 14;
-            this.btnNgSlotEndMove.Text = "NG SLOT END";
-            this.btnNgSlotEndMove.Click += new System.EventHandler(this.btnNgSlotEndMove_Click);
-            // 
-            // btnNgWaferBarcodeMove
-            // 
-            this.btnNgWaferBarcodeMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgWaferBarcodeMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgWaferBarcodeMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgWaferBarcodeMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnNgWaferBarcodeMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgWaferBarcodeMove.Location = new System.Drawing.Point(0, 329);
-            this.btnNgWaferBarcodeMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnNgWaferBarcodeMove.Name = "btnNgWaferBarcodeMove";
-            this.btnNgWaferBarcodeMove.Size = new System.Drawing.Size(244, 39);
-            this.btnNgWaferBarcodeMove.TabIndex = 15;
-            this.btnNgWaferBarcodeMove.Text = "NG WAFER BARCODE POSITION";
-            this.btnNgWaferBarcodeMove.Click += new System.EventHandler(this.TeachingMoveButton_Click);
-            // 
-            // lblCommonGroup
-            // 
-            this.lblCommonGroup.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCommonGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblCommonGroup.Location = new System.Drawing.Point(10, 812);
-            this.lblCommonGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.lblCommonGroup.Name = "lblCommonGroup";
-            this.lblCommonGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblCommonGroup.Size = new System.Drawing.Size(264, 22);
-            this.lblCommonGroup.TabIndex = 4;
-            this.lblCommonGroup.Text = "COMMON";
-            this.lblCommonGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // commonLayout
-            // 
-            this.commonLayout.ColumnCount = 1;
-            this.commonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.commonLayout.Controls.Add(this.btnReadyMove, 0, 0);
-            this.commonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.commonLayout.Location = new System.Drawing.Point(10, 836);
-            this.commonLayout.Margin = new System.Windows.Forms.Padding(0);
-            this.commonLayout.Name = "commonLayout";
-            this.commonLayout.RowCount = 1;
-            this.commonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.commonLayout.Size = new System.Drawing.Size(244, 47);
-            this.commonLayout.TabIndex = 5;
-            // 
-            // btnReadyMove
-            // 
-            this.btnReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReadyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnReadyMove.ForeColor = System.Drawing.Color.White;
-            this.btnReadyMove.Location = new System.Drawing.Point(0, 0);
-            this.btnReadyMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.btnReadyMove.Name = "btnReadyMove";
-            this.btnReadyMove.Size = new System.Drawing.Size(244, 39);
-            this.btnReadyMove.TabIndex = 8;
-            this.btnReadyMove.Text = "READY MOVE";
-            this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);
+            this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 21);
+            this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.manualActionPanel.Name = "manualActionPanel";
+            this.manualActionPanel.Size = new System.Drawing.Size(549, 236);
+            this.manualActionPanel.TabIndex = 0;
             // 
             // grpIo
             // 
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpIo.Controls.Add(this.ioCylinderPanel);
-            this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpIo.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpIo.Location = new System.Drawing.Point(0, 627);
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
-            this.grpIo.Size = new System.Drawing.Size(290, 241);
+            this.grpIo.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
+            this.grpIo.Size = new System.Drawing.Size(290, 146);
             this.grpIo.TabIndex = 1;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
@@ -735,10 +292,11 @@
             this.centerLayout.Controls.Add(this.grpOptions, 0, 0);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.centerLayout.Location = new System.Drawing.Point(297, 1);
-            this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.centerLayout.Name = "centerLayout";
+            this.centerLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.centerLayout.RowCount = 2;
-            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 703F));
+            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 628F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.centerLayout.Size = new System.Drawing.Size(694, 868);
             this.centerLayout.TabIndex = 1;
@@ -747,12 +305,13 @@
             // 
             this.grpWait.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpWait.Controls.Add(this.waitParameterGrid);
-            this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpWait.Dock = System.Windows.Forms.DockStyle.Top;
             this.grpWait.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpWait.Location = new System.Drawing.Point(0, 703);
             this.grpWait.Margin = new System.Windows.Forms.Padding(0);
             this.grpWait.Name = "grpWait";
-            this.grpWait.Size = new System.Drawing.Size(694, 165);
+            this.grpWait.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
+            this.grpWait.Size = new System.Drawing.Size(694, 88);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
@@ -774,8 +333,9 @@
             this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpOptions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpOptions.Location = new System.Drawing.Point(0, 0);
-            this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.grpOptions.Name = "grpOptions";
+            this.grpOptions.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpOptions.Size = new System.Drawing.Size(694, 697);
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
@@ -794,14 +354,15 @@
             // rightLayout
             // 
             this.rightLayout.ColumnCount = 2;
-            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
-            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 93F));
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 387F));
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
             this.rightLayout.Controls.Add(this.grpJog, 0, 0);
             this.rightLayout.Controls.Add(this.grpSpeed, 1, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(997, 1);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rightLayout.Name = "rightLayout";
+            this.rightLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.rightLayout.RowCount = 1;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Size = new System.Drawing.Size(680, 868);
@@ -814,8 +375,9 @@
             this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpJog.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpJog.Location = new System.Drawing.Point(0, 0);
-            this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpJog.Name = "grpJog";
+            this.grpJog.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
             this.grpJog.Size = new System.Drawing.Size(554, 868);
             this.grpJog.TabIndex = 0;
             this.grpJog.TabStop = false;
@@ -832,7 +394,7 @@
             this.jogCompositeLayout.Margin = new System.Windows.Forms.Padding(0);
             this.jogCompositeLayout.Name = "jogCompositeLayout";
             this.jogCompositeLayout.RowCount = 2;
-            this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
+            this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 136F));
             this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogCompositeLayout.Size = new System.Drawing.Size(548, 844);
             this.jogCompositeLayout.TabIndex = 0;
@@ -841,7 +403,7 @@
             // 
             this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogPositionListControl.Location = new System.Drawing.Point(0, 0);
-            this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(3);
             this.jogPositionListControl.Name = "jogPositionListControl";
             this.jogPositionListControl.Size = new System.Drawing.Size(548, 56);
             this.jogPositionListControl.TabIndex = 0;
@@ -857,7 +419,7 @@
             this.jogAxisMoveControl.ButtonAreaMinWidth = 222;
             this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 62);
-            this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(3);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
             this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
             this.jogAxisMoveControl.Size = new System.Drawing.Size(548, 782);
@@ -1463,12 +1025,6 @@
             this.contentLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
             this.grpActions.ResumeLayout(false);
-            this.actionScrollPanel.ResumeLayout(false);
-            this.actionScrollPanel.PerformLayout();
-            this.actionLayout.ResumeLayout(false);
-            this.goodLayout.ResumeLayout(false);
-            this.ngLayout.ResumeLayout(false);
-            this.commonLayout.ResumeLayout(false);
             this.grpIo.ResumeLayout(false);
             this.centerLayout.ResumeLayout(false);
             this.grpWait.ResumeLayout(false);

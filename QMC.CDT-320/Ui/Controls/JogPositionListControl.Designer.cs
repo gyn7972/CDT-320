@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Controls
+﻿namespace QMC.CDT_320.Ui.Controls
 {
     partial class JogPositionListControl
     {
@@ -38,7 +38,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AllowUserToResizeColumns = false;
             this.grid.AllowUserToResizeRows = false;
-            this.grid.BackgroundColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(211)))), ((int)(((byte)(216)))));
+            this.grid.BackgroundColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.grid.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.grid.ColumnHeadersHeight = 29;
             this.grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
@@ -57,7 +57,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.ReadOnly = true;
             this.grid.RowHeadersVisible = false;
             this.grid.RowHeadersWidth = 51;
-            this.grid.RowTemplate.Height = 28;
+            this.grid.RowTemplate.Height = 24;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(343, 40);
             this.grid.TabIndex = 0;

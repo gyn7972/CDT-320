@@ -151,9 +151,9 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                grid.DefaultCellStyle.BackColor = Color.FromArgb(132, 136, 140);
+                grid.DefaultCellStyle.BackColor = Color.FromArgb(207, 211, 216);
                 grid.DefaultCellStyle.ForeColor = Color.FromArgb(30, 35, 40);
-                grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(132, 136, 140);
+                grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(207, 211, 216);
                 grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(30, 35, 40);
                 grid.DefaultCellStyle.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
                 grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;

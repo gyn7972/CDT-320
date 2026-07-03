@@ -38,6 +38,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ApplyTitle();
                 ApplyRuntimeLayout();
                 ConfigureRuntimeBehavior();
+                ConfigureManualActions();
             }
             catch (Exception ex)
             {
@@ -129,8 +130,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogSpeedControl.BringToFront();
 
                 BackColor = Color.FromArgb(207, 210, 214);
-                rootLayout.BackColor = BackColor;
-                contentLayout.BackColor = BackColor;
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
                 lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
@@ -351,6 +350,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 좌측 GOOD / 우측 NG, 인터락 시퀀스로 이동
+        private void ConfigureManualActions()
+        {
+            try
+            {
+                // 공용 MANUAL ACTION 판넬에 GOOD/NG/VISION 이동 버튼 등록 (2열, 행 수 자동)
+                manualActionPanel.ColumnCount = 2;
+                manualActionPanel.SetItems(new[]
+                {
+                    ManualActionItem.Create("GOOD AVOID POSITION", () => ConfirmAndRunAsync("GOOD AVOID POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Avoid"))),
+                    ManualActionItem.Create("NG AVOID POSITION", () => ConfirmAndRunAsync("NG AVOID POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Avoid"))),
+                    ManualActionItem.Create("GOOD LOAD POSITION", () => ConfirmAndRunAsync("GOOD LOAD POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Load"))),
+                    ManualActionItem.Create("NG LOAD POSITION", () => ConfirmAndRunAsync("NG LOAD POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Load"))),
+                    ManualActionItem.Create("GOOD PROCESS POSITION", () => ConfirmAndRunAsync("GOOD PROCESS POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Process"))),
+                    ManualActionItem.Create("NG PROCESS POSITION", () => ConfirmAndRunAsync("NG PROCESS POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Process"))),
+                    ManualActionItem.Create("GOOD UNLOAD POSITION", () => ConfirmAndRunAsync("GOOD UNLOAD POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Unload"))),
+                    ManualActionItem.Create("NG UNLOAD POSITION", () => ConfirmAndRunAsync("NG UNLOAD POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Unload"))),
+                    ManualActionItem.Create("VISION AVOID POSITION", () => ConfirmAndRunAsync("VISION AVOID POSITION", () => MoveVisionSequenceAsync("Avoid"))),
+                    ManualActionItem.Create("VISION PROCESS POSITION", () => ConfirmAndRunAsync("VISION PROCESS POSITION", () => MoveVisionSequenceAsync("Process"))),
+                    ManualActionItem.Create("VISION RETICLE POSITION", () => ConfirmAndRunAsync("VISION RETICLE POSITION", () => MoveVisionSequenceAsync("Reticle")))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", "ConfigureManualActions failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
         private async void btnGoodAvoidPosition_Click(object sender, EventArgs e)
         {
             await ConfirmAndRunAsync("GOOD AVOID POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Avoid"));
@@ -724,7 +752,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 var unit = _outputStageUnit;
-                ioCylinderPanel.SetItems(new[]
+                ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
+            ioCylinderPanel.SetItems(new[]
                 {
                     // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => IsOn(unit.GoodBinRingSensor)),
@@ -737,8 +766,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         on => SetBinGuideAsync(BinSide.Good, on), "UP", "DOWN"),
 
                     // ===== GOOD BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
-                    IoCylinderItem.Input("GOOD BIN CLAMP LIFT UP", () => IsOn(unit.GoodBinClampUpSensor)),
-                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good),
+                    IoCylinderItem.Input("GOOD CLAMP LIFT UP", () => IsOn(unit.GoodBinClampUpSensor)),
+                    IoCylinderItem.Output("GOOD CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good),
                         on => SetBinClampLiftAsync(BinSide.Good, on), "UP", "DOWN"),
 
                     // ===== GOOD BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
@@ -753,8 +782,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         on => SetBinGuideAsync(BinSide.Ng, on), "UP", "DOWN"),
 
                     // ===== NG BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
-                    IoCylinderItem.Input("NG BIN CLAMP LIFT UP", () => IsOn(unit.NgBinClampUpSensor)),
-                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng),
+                    IoCylinderItem.Input("NG CLAMP LIFT UP", () => IsOn(unit.NgBinClampUpSensor)),
+                    IoCylinderItem.Output("NG CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng),
                         on => SetBinClampLiftAsync(BinSide.Ng, on), "UP", "DOWN"),
 
                     // ===== NG BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
@@ -763,7 +792,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         on => SetBinClampAsync(BinSide.Ng, on), "CLAMP", "UNCLAMP"),
 
                     // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
-                    IoCylinderItem.Output("BOTTOM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
+                    IoCylinderItem.Output("BTM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
                         on => GuardedPairOut("BottomVisionBlow", null, unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }

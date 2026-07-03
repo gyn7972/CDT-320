@@ -90,6 +90,10 @@ namespace QMC.CDT_320
             // 메시지편집 페이지가 과거 메시지까지 바로 보이도록 하되, UI 시작은 막지 않는다(마커로 1회만 실행).
             QMC.Common.Logging.MessageCatalog.SeedFromLogsInBackground();
 
+            // 로그 보존기간 관리 시작 — 보존일수(설정)가 지난 로그를 Log\Archive 에 압축 보관한다.
+            // (시작 30초 후 1회 + 24시간마다, 백그라운드. 보존일수 0 이면 아무것도 하지 않음)
+            QMC.CDT320.LogRetentionService.Start();
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Form1());
