@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
@@ -56,6 +57,48 @@ namespace QMC.Common.Motion
 
         /// <summary>Override된 속도. NaN이면 없음.</summary>
         private double _overrideVelocity = double.NaN;
+
+        /// <summary>시뮬레이션 모션 프로파일의 목표 최고속도.</summary>
+        private double _simCommandVelocity;
+
+        /// <summary>시뮬레이션 모션 프로파일의 가속도.</summary>
+        private double _simAcceleration;
+
+        /// <summary>시뮬레이션 모션 프로파일의 감속도.</summary>
+        private double _simDeceleration;
+
+        /// <summary>시뮬레이션 모션 시작 위치.</summary>
+        private double _simMotionStartPosition;
+
+        /// <summary>시뮬레이션 모션 이동 방향.</summary>
+        private double _simMotionDirection;
+
+        /// <summary>시뮬레이션 모션 총 이동 거리.</summary>
+        private double _simMotionDistance;
+
+        /// <summary>시뮬레이션 모션 시작 시각.</summary>
+        private long _simMotionStartTimestamp;
+
+        /// <summary>시뮬레이션 모션의 실제 최고 도달 속도.</summary>
+        private double _simMotionPeakVelocity;
+
+        /// <summary>시뮬레이션 모션 가속 시간.</summary>
+        private double _simMotionAccelerationTime;
+
+        /// <summary>시뮬레이션 모션 등속 시간.</summary>
+        private double _simMotionCruiseTime;
+
+        /// <summary>시뮬레이션 모션 감속 시간.</summary>
+        private double _simMotionDecelerationTime;
+
+        /// <summary>시뮬레이션 모션 가속 구간 거리.</summary>
+        private double _simMotionAccelerationDistance;
+
+        /// <summary>시뮬레이션 모션 등속 구간 거리.</summary>
+        private double _simMotionCruiseDistance;
+
+        /// <summary>시뮬레이션 모션 총 소요 시간.</summary>
+        private double _simMotionTotalTime;
 
         // ─────────────────────────────────────────────
         //  상태 프로퍼티 (protected set - 파생 클래스에서만 변경 가능)
@@ -185,8 +228,10 @@ namespace QMC.Common.Motion
             IsMoving        = false;
             IsInPosition    = false;
             CurrentVelocity = 0.0;
+            _simCommandVelocity = 0.0;
             _currentMode    = MotionMode.None;
             _jogDirection   = 0;
+            ResetSimulationClock();
         }
 
         /// <summary>
@@ -217,6 +262,9 @@ namespace QMC.Common.Motion
             ActualPosition  = newPosition;
             CommandPosition = newPosition;
             _simTargetPosition = newPosition;
+            CurrentVelocity = 0.0;
+            _simCommandVelocity = 0.0;
+            ResetSimulationClock();
         }
 
         public virtual void RestoreRuntimeState(
@@ -234,6 +282,7 @@ namespace QMC.Common.Motion
                 CommandPosition = commandPosition;
                 _simTargetPosition = commandPosition;
                 CurrentVelocity = 0.0;
+                _simCommandVelocity = 0.0;
                 IsMoving = false;
                 IsInPosition = isInPosition;
                 IsServoOn = isServoOn;
@@ -243,6 +292,7 @@ namespace QMC.Common.Motion
                 Sensor_ORG = isHomeDone;
                 _currentMode = MotionMode.None;
                 _jogDirection = 0;
+                ResetSimulationClock();
                 RaisePositionChanged();
             }
             catch
@@ -351,6 +401,7 @@ namespace QMC.Common.Motion
                     ClearMotionFailure();
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
+                    _simCommandVelocity = 0.0;
                     IsMoving = false;
                     IsInPosition = true;
                     _currentMode = MotionMode.None;
@@ -362,14 +413,24 @@ namespace QMC.Common.Motion
 
                 ClearMotionFailure();
 
-                // 명시 velocity 가 있으면 그대로 사용하고, 없으면 DefaultVelocity 에 전체 퍼센트 스케일을 적용한다.
+                // 명시 velocity 가 없거나 스케일된 DefaultVelocity 로 전달된 경우에는
+                // 실장비와 동일하게 가속/감속도도 같은 전체 퍼센트 스케일을 적용한다.
+                bool useDefaultMotionScale = velocity <= 0.0 ||
+                    MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.DefaultVelocity);
                 double vel = ApplySimulationSpeedScale(velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity));
+                double acceleration = useDefaultMotionScale
+                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration)
+                    : Config.Acceleration;
+                double deceleration = useDefaultMotionScale
+                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration)
+                    : Config.Deceleration;
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
-                CurrentVelocity = vel;
+                ConfigureSimulationMotionProfile(vel, acceleration, deceleration, true);
                 IsMoving = true;
                 IsInPosition = false;
                 _currentMode = MotionMode.Absolute;
+                ResetSimulationClock();
 
                 RaiseMoveStarted();
                 await WaitUntilMoveDone(_cts.Token);
@@ -465,9 +526,14 @@ namespace QMC.Common.Motion
                 double homeTarget = Setup.SoftLimitMinus + 1.0;
                 CommandPosition = homeTarget;
                 _simTargetPosition = homeTarget;
-                CurrentVelocity = ApplySimulationSpeedScale(Config.HomeVelocity);
+                ConfigureSimulationMotionProfile(
+                    ApplySimulationSpeedScale(Config.HomeVelocity),
+                    ResolveSimulationHomeAcceleration(),
+                    ResolveSimulationHomeDeceleration(),
+                    true);
                 IsMoving = true;
                 IsInPosition = false;
+                ResetSimulationClock();
 
                 await WaitUntilMoveDone(_cts.Token);
 
@@ -501,7 +567,7 @@ namespace QMC.Common.Motion
             bool detectedMotion = false;
             while (!ct.IsCancellationRequested)
             {
-                if (Config != null && Config.IsSimulationMode && !UseInternalStatusUpdate)
+                if (Config != null && Config.IsSimulationMode)
                     UpdateStatus();
 
                 if (IsAlarm)               
@@ -530,6 +596,123 @@ namespace QMC.Common.Motion
                 scale = 1.0;
 
             return velocity * scale;
+        }
+
+        private void ConfigureSimulationMotionProfile(
+            double commandVelocity,
+            double acceleration,
+            double deceleration,
+            bool resetCurrentVelocity)
+        {
+            _simCommandVelocity = NormalizePositive(commandVelocity, Config != null ? Config.DefaultVelocity : 1.0);
+            _simAcceleration = NormalizePositive(acceleration, Config != null ? Config.Acceleration : 1.0);
+            _simDeceleration = NormalizePositive(deceleration, Config != null ? Config.Deceleration : 1.0);
+
+            if (resetCurrentVelocity)
+                CurrentVelocity = 0.0;
+
+            ResetSimulationMotionReference();
+        }
+
+        private double ResolveSimulationHomeAcceleration()
+        {
+            if (Config == null)
+                return 1.0;
+            if (Config.HomeFirstAcceleration > 0.0)
+                return Config.HomeFirstAcceleration;
+            return Config.Acceleration;
+        }
+
+        private double ResolveSimulationHomeDeceleration()
+        {
+            if (Config == null)
+                return 1.0;
+            if (Config.HomeFirstDeceleration > 0.0)
+                return Config.HomeFirstDeceleration;
+            return Config.Deceleration;
+        }
+
+        private double ResolveSimulationJogAcceleration()
+        {
+            if (Config == null)
+                return 1.0;
+            if (Config.JogAcceleration > 0.0)
+                return Config.JogAcceleration;
+            return Config.Acceleration;
+        }
+
+        private double ResolveSimulationJogDeceleration()
+        {
+            if (Config == null)
+                return 1.0;
+            if (Config.JogDeceleration > 0.0)
+                return Config.JogDeceleration;
+            return Config.Deceleration;
+        }
+
+        private static double NormalizePositive(double value, double fallback)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
+                value = fallback;
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
+                value = 1.0;
+            return value;
+        }
+
+        private void ResetSimulationClock()
+        {
+            ResetSimulationMotionReference();
+        }
+
+        private void ResetSimulationMotionReference()
+        {
+            long now = Stopwatch.GetTimestamp();
+            _simMotionStartTimestamp = now;
+            _simMotionStartPosition = ActualPosition;
+            _simMotionDirection = _simTargetPosition > ActualPosition ? 1.0 : _simTargetPosition < ActualPosition ? -1.0 : 0.0;
+            _simMotionDistance = Math.Abs(_simTargetPosition - ActualPosition);
+            BuildSimulationMotionSegments();
+        }
+
+        private void BuildSimulationMotionSegments()
+        {
+            double distance = Math.Max(0.0, _simMotionDistance);
+            double velocity = NormalizePositive(_simCommandVelocity, Math.Abs(CurrentVelocity));
+            double acceleration = NormalizePositive(_simAcceleration, velocity);
+            double deceleration = NormalizePositive(_simDeceleration, acceleration);
+
+            _simMotionPeakVelocity = 0.0;
+            _simMotionAccelerationTime = 0.0;
+            _simMotionCruiseTime = 0.0;
+            _simMotionDecelerationTime = 0.0;
+            _simMotionAccelerationDistance = 0.0;
+            _simMotionCruiseDistance = 0.0;
+            _simMotionTotalTime = 0.0;
+
+            if (distance <= 0.0)
+                return;
+
+            double fullAccelerationDistance = velocity * velocity / (2.0 * acceleration);
+            double fullDecelerationDistance = velocity * velocity / (2.0 * deceleration);
+            if (distance >= fullAccelerationDistance + fullDecelerationDistance)
+            {
+                _simMotionPeakVelocity = velocity;
+                _simMotionAccelerationTime = velocity / acceleration;
+                _simMotionDecelerationTime = velocity / deceleration;
+                _simMotionAccelerationDistance = fullAccelerationDistance;
+                _simMotionCruiseDistance = distance - fullAccelerationDistance - fullDecelerationDistance;
+                _simMotionCruiseTime = _simMotionCruiseDistance / velocity;
+                _simMotionTotalTime = _simMotionAccelerationTime + _simMotionCruiseTime + _simMotionDecelerationTime;
+                return;
+            }
+
+            _simMotionPeakVelocity = Math.Sqrt((2.0 * distance * acceleration * deceleration) / (acceleration + deceleration));
+            _simMotionAccelerationTime = _simMotionPeakVelocity / acceleration;
+            _simMotionDecelerationTime = _simMotionPeakVelocity / deceleration;
+            _simMotionAccelerationDistance = _simMotionPeakVelocity * _simMotionPeakVelocity / (2.0 * acceleration);
+            _simMotionCruiseDistance = 0.0;
+            _simMotionCruiseTime = 0.0;
+            _simMotionTotalTime = _simMotionAccelerationTime + _simMotionDecelerationTime;
         }
 
         // ─────────────────────────────────────────────
@@ -581,10 +764,15 @@ namespace QMC.Common.Motion
             ClearMotionFailure();
 
             _jogDirection   = direction;
-            CurrentVelocity = GetJogVelocity(speedType, customVel);
+            ConfigureSimulationMotionProfile(
+                Math.Abs(GetJogVelocity(speedType, customVel)),
+                ResolveSimulationJogAcceleration(),
+                ResolveSimulationJogDeceleration(),
+                true);
             IsMoving        = true;
             IsInPosition    = false;
             _currentMode    = MotionMode.Jog;
+            ResetSimulationClock();
 
             // CommandPosition은 소프트 리미트 끝으로 설정 - 시뮬레이터가 매 틱 갱신
             CommandPosition    = jogTarget;
@@ -696,7 +884,8 @@ namespace QMC.Common.Motion
         {
             if (newVelocity <= 0) return;
             _overrideVelocity = newVelocity;
-            CurrentVelocity   = newVelocity;
+            if (Config == null || !Config.IsSimulationMode)
+                CurrentVelocity = newVelocity;
         }
 
         /// <summary>
@@ -766,9 +955,10 @@ namespace QMC.Common.Motion
         // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 10ms 단위로 호출되는 시뮬레이션 로직.<br/>
+        /// 실제 경과시간 기준으로 호출되는 시뮬레이션 로직.<br/>
         /// <list type="bullet">
-        ///   <item><description>CurrentVelocity 기반으로 매 틱 이동 거리를 갱신합니다.</description></item>
+        ///   <item><description>명령 최고속도, 가속도, 감속도와 실제 경과시간으로 이동 거리를 갱신합니다.</description></item>
+        ///   <item><description>남은 거리의 제동거리를 기준으로 가속/등속/감속 구간을 자동 계산합니다.</description></item>
         ///   <item><description>목표 위치 도달 시 이동 완료 처리를 합니다.</description></item>
         ///   <item><description>소프트 리미트 도달 시 알람을 발생시키고 정지합니다.</description></item>
         /// </list>
@@ -780,46 +970,46 @@ namespace QMC.Common.Motion
             // Override 값 반영
             if (!double.IsNaN(_overrideVelocity))
             {
-                CurrentVelocity     = _overrideVelocity;
+                _simCommandVelocity = NormalizePositive(_overrideVelocity, _simCommandVelocity);
                 _overrideVelocity   = double.NaN;
+                ResetSimulationMotionReference();
             }
 
             if (!double.IsNaN(_overrideTargetPosition))
             {
                 _simTargetPosition        = _overrideTargetPosition;
                 _overrideTargetPosition   = double.NaN;
+                ResetSimulationMotionReference();
             }
 
-            // 10ms 동안 이동 거리 계산 (단위: [단위/s] * 0.01s)
-            const double tickSeconds = 0.01;
-            double step = CurrentVelocity * tickSeconds;
-
-            double remaining = _simTargetPosition - ActualPosition;
+            double elapsedSeconds = GetSimulationProfileElapsedSeconds();
+            if (elapsedSeconds < 0.0)
+                return;
 
             if (_currentMode == MotionMode.Jog)
             {
-                // Jog: 방향에 따라 step씩 이동, 목표 도달 개념 없음
-                ActualPosition += _jogDirection * step;
+                double jogDistance = CalculateSimulationJogDistance(elapsedSeconds);
+                CurrentVelocity = CalculateSimulationJogVelocity(elapsedSeconds);
+                ActualPosition = _simMotionStartPosition + _jogDirection * jogDistance;
                 RaisePositionChanged();
             }
             else
             {
-                // 절대/상대 이동: 목표를 향해 step만큼 접근
-                if (Math.Abs(remaining) <= step)
+                if (_simMotionTotalTime <= 0.0 || elapsedSeconds >= _simMotionTotalTime)
                 {
-                    // 목표 도달
-                    ActualPosition  = _simTargetPosition;
-                    CommandPosition = _simTargetPosition;
-                    IsMoving        = false;
-                    IsInPosition    = true;
-                    CurrentVelocity = 0.0;
-                    _currentMode    = MotionMode.None;
-                    RaisePositionChanged();
-                    RaiseMoveCompleted();
+                    CompleteSimulationMove();
                     return;
                 }
 
-                ActualPosition += Math.Sign(remaining) * step;
+                double traveled = CalculateSimulationProfileDistance(elapsedSeconds);
+                if (traveled >= _simMotionDistance - ResolveSimulationInPositionTolerance())
+                {
+                    CompleteSimulationMove();
+                    return;
+                }
+
+                CurrentVelocity = CalculateSimulationProfileVelocity(elapsedSeconds);
+                ActualPosition = _simMotionStartPosition + _simMotionDirection * traveled;
                 RaisePositionChanged();
             }
 
@@ -839,6 +1029,107 @@ namespace QMC.Common.Motion
             }
         }
 
+        private double GetSimulationProfileElapsedSeconds()
+        {
+            long now = Stopwatch.GetTimestamp();
+            long startedAt = _simMotionStartTimestamp;
+            if (startedAt <= 0 || now < startedAt)
+                return 0.0;
+
+            double elapsedSeconds = (now - startedAt) / (double)Stopwatch.Frequency;
+            if (double.IsNaN(elapsedSeconds) || double.IsInfinity(elapsedSeconds))
+                return 0.0;
+
+            return elapsedSeconds;
+        }
+
+        private double CalculateSimulationProfileDistance(double elapsedSeconds)
+        {
+            if (elapsedSeconds <= 0.0 || _simMotionDistance <= 0.0)
+                return 0.0;
+
+            if (elapsedSeconds <= _simMotionAccelerationTime)
+                return 0.5 * _simAcceleration * elapsedSeconds * elapsedSeconds;
+
+            double cruiseStartTime = _simMotionAccelerationTime;
+            double decelerationStartTime = cruiseStartTime + _simMotionCruiseTime;
+            if (elapsedSeconds <= decelerationStartTime)
+                return _simMotionAccelerationDistance +
+                       _simMotionPeakVelocity * (elapsedSeconds - cruiseStartTime);
+
+            double decelerationElapsed = elapsedSeconds - decelerationStartTime;
+            if (decelerationElapsed <= _simMotionDecelerationTime)
+            {
+                return _simMotionAccelerationDistance +
+                       _simMotionCruiseDistance +
+                       _simMotionPeakVelocity * decelerationElapsed -
+                       0.5 * _simDeceleration * decelerationElapsed * decelerationElapsed;
+            }
+
+            return _simMotionDistance;
+        }
+
+        private double CalculateSimulationProfileVelocity(double elapsedSeconds)
+        {
+            if (elapsedSeconds <= 0.0 || _simMotionDistance <= 0.0)
+                return 0.0;
+
+            if (elapsedSeconds <= _simMotionAccelerationTime)
+                return Math.Min(_simMotionPeakVelocity, _simAcceleration * elapsedSeconds);
+
+            double decelerationStartTime = _simMotionAccelerationTime + _simMotionCruiseTime;
+            if (elapsedSeconds <= decelerationStartTime)
+                return _simMotionPeakVelocity;
+
+            double decelerationElapsed = elapsedSeconds - decelerationStartTime;
+            return Math.Max(0.0, _simMotionPeakVelocity - _simDeceleration * decelerationElapsed);
+        }
+
+        private double CalculateSimulationJogVelocity(double elapsedSeconds)
+        {
+            if (elapsedSeconds <= 0.0)
+                return 0.0;
+
+            double velocity = NormalizePositive(_simCommandVelocity, Math.Abs(CurrentVelocity));
+            double acceleration = NormalizePositive(_simAcceleration, velocity);
+            return Math.Min(velocity, acceleration * elapsedSeconds);
+        }
+
+        private double CalculateSimulationJogDistance(double elapsedSeconds)
+        {
+            if (elapsedSeconds <= 0.0)
+                return 0.0;
+
+            double velocity = NormalizePositive(_simCommandVelocity, Math.Abs(CurrentVelocity));
+            double acceleration = NormalizePositive(_simAcceleration, velocity);
+            double accelerationTime = velocity / acceleration;
+            if (elapsedSeconds <= accelerationTime)
+                return 0.5 * acceleration * elapsedSeconds * elapsedSeconds;
+
+            double accelerationDistance = 0.5 * acceleration * accelerationTime * accelerationTime;
+            return accelerationDistance + velocity * (elapsedSeconds - accelerationTime);
+        }
+
+        private double ResolveSimulationInPositionTolerance()
+        {
+            if (Config != null && Config.InPositionTolerance > 0.0)
+                return Config.InPositionTolerance;
+            return 0.01;
+        }
+
+        private void CompleteSimulationMove()
+        {
+            ActualPosition  = _simTargetPosition;
+            CommandPosition = _simTargetPosition;
+            IsMoving        = false;
+            IsInPosition    = true;
+            CurrentVelocity = 0.0;
+            _simCommandVelocity = 0.0;
+            _currentMode    = MotionMode.None;
+            RaisePositionChanged();
+            RaiseMoveCompleted();
+        }
+
         /// <summary>
         /// 소프트 리미트 도달 시 알람을 발생시키고 모션을 정지합니다.
         /// </summary>
@@ -852,6 +1143,7 @@ namespace QMC.Common.Motion
             IsMoving        = false;
             IsInPosition    = false;
             CurrentVelocity = 0.0;
+            _simCommandVelocity = 0.0;
             IsAlarm         = true;
             AlarmCode       = alarmCode;
             _currentMode    = MotionMode.None;

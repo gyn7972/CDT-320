@@ -150,6 +150,10 @@ namespace QMC.CDT320.Sequencing
             string targetId,
             string formula)
         {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null && (settings.SimulationMode || settings.DryRunMode))
+                return;
+
             EventLogger.Write(
                 EventKind.Event,
                 "COORD",

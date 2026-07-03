@@ -47,7 +47,12 @@ namespace QMC.CDT320.Sequencing
     /// <summary>시퀀스 로그 분류 스코프의 AsyncLocal 컨테이너.</summary>
     public static class SequenceLog
     {
+        private const int RepeatLogSummaryIntervalMs = 1000;
+        private const int MaxRepeatStateCount = 4096;
         private static readonly AsyncLocal<SequenceLogScope> _current = new AsyncLocal<SequenceLogScope>();
+        private static readonly object _repeatSync = new object();
+        private static readonly System.Collections.Generic.Dictionary<string, RepeatLogState> _repeatStates =
+            new System.Collections.Generic.Dictionary<string, RepeatLogState>(System.StringComparer.Ordinal);
 
         /// <summary>현재 실행 흐름의 시퀀스 로그 스코프(없으면 null).</summary>
         public static SequenceLogScope Current
@@ -201,11 +206,91 @@ namespace QMC.CDT320.Sequencing
                 SequenceLogScope seq = _current.Value;
                 EventKind kind = seq != null ? seq.Kind : fallbackKind;
                 string code = seq != null ? seq.Step : "SEQ";
-                EventLogger.Write(kind, "SYSTEM", code, source ?? string.Empty, FormatWithCurrentContext("Log", source, message));
+                string filteredMessage;
+                if (!TryFilterRepeatedLog(kind, code, source, message, out filteredMessage))
+                    return;
+
+                EventLogger.Write(kind, "SYSTEM", code, source ?? string.Empty, FormatWithCurrentContext("Log", source, filteredMessage));
             }
             catch
             {
             }
+        }
+
+        private static bool TryFilterRepeatedLog(EventKind kind, string code, string source, string message, out string filteredMessage)
+        {
+            filteredMessage = message ?? string.Empty;
+
+            try
+            {
+                if (!IsRepeatThrottleCandidate(filteredMessage))
+                    return true;
+
+                string key = kind.ToString() + "\n" + (code ?? string.Empty) + "\n" + (source ?? string.Empty) + "\n" + filteredMessage;
+                int now = Environment.TickCount;
+
+                lock (_repeatSync)
+                {
+                    if (_repeatStates.Count > MaxRepeatStateCount)
+                        _repeatStates.Clear();
+
+                    RepeatLogState state;
+                    if (!_repeatStates.TryGetValue(key, out state))
+                    {
+                        _repeatStates[key] = new RepeatLogState { LastEmitTick = now };
+                        return true;
+                    }
+
+                    int elapsedMs = unchecked(now - state.LastEmitTick);
+                    if (elapsedMs < RepeatLogSummaryIntervalMs)
+                    {
+                        state.SuppressedCount++;
+                        return false;
+                    }
+
+                    int suppressed = state.SuppressedCount;
+                    state.LastEmitTick = now;
+                    state.SuppressedCount = 0;
+
+                    if (suppressed > 0)
+                        filteredMessage = filteredMessage + " [repeat suppressed: " + suppressed + ", intervalMs=" + elapsedMs + "]";
+
+                    return true;
+                }
+            }
+            catch
+            {
+                filteredMessage = message ?? string.Empty;
+                return true;
+            }
+        }
+
+        private static bool IsRepeatThrottleCandidate(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+                return false;
+
+            if (Has(message, "- Failed") ||
+                Has(message, "- Stopped") ||
+                Has(message, "- Alarm") ||
+                Has(message, "- Start") ||
+                Has(message, "- Ok"))
+            {
+                return false;
+            }
+
+            return Has(message, "- Wait") ||
+                   Has(message, " - Wait") ||
+                   Has(message, "- Check") ||
+                   Has(message, " - Check") ||
+                   Has(message, "Gate") ||
+                   Has(message, "Pending");
+        }
+
+        private sealed class RepeatLogState
+        {
+            public int LastEmitTick;
+            public int SuppressedCount;
         }
 
         private sealed class Pop : IDisposable

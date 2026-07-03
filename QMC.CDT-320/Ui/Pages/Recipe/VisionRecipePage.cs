@@ -418,7 +418,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (TryGetSelectedTeachingPosition(out axis, out positionName))
                     {
                         BaseAxis motionAxis = _visionUnit.ResolveVisionAxis(axis);
-                        await ConfirmAndRunAsync(
+                        await ConfirmAndRunMoveToPositionAsync(
                             optionParameterGrid.SelectedItem.Key,
                             () => _visionUnit.MoveVisionAxisToTeachingPosition(
                                 axis,
@@ -440,6 +440,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     RefreshView();
                 });
 
+                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
+                menu.Opening += (s, e) =>
+                {
+                    VisionAxis axis;
+                    string positionName;
+                    e.Cancel = !TryGetSelectedTeachingPosition(out axis, out positionName);
+                };
                 optionParameterGrid.ContextMenuStrip = menu;
             }
             catch (Exception ex)
@@ -619,6 +626,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action, params BaseAxis[] targetAxes)
         {
+            await ConfirmAndRunInternalAsync(actionName, action, false, targetAxes);
+        }
+
+        private async Task ConfirmAndRunMoveToPositionAsync(string actionName, Func<Task<int>> action, params BaseAxis[] targetAxes)
+        {
+            await ConfirmAndRunInternalAsync(actionName, action, true, targetAxes);
+        }
+
+        private async Task ConfirmAndRunInternalAsync(string actionName, Func<Task<int>> action, bool selectMoveSpeed, params BaseAxis[] targetAxes)
+        {
             try
             {
                 if (_visionUnit == null || action == null)
@@ -631,9 +648,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!EnsureVisionAxesHomeDone(actionName, targetAxes))
                     return;
 
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Vision", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
-                    return;
+                if (selectMoveSpeed)
+                {
+                    JogSpeedType speedType;
+                    if (!ManualMoveGuard.ConfirmMoveSpeed(this, "Vision", actionName, out speedType))
+                        return;
+
+                    jogAxisMoveControl.SetSelectedSpeedType(speedType);
+                }
+                else
+                {
+                    DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Vision", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (confirm != DialogResult.Yes)
+                        return;
+                }
 
                 Cursor = Cursors.WaitCursor;
                 int result;

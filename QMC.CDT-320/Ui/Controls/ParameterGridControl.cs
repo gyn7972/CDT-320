@@ -925,6 +925,13 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (e.Button == MouseButtons.Right && (e.RowIndex < 0 || e.ColumnIndex < 0))
+                {
+                    grid.ClearSelection();
+                    grid.CurrentCell = null;
+                    return;
+                }
+
                 if (e.RowIndex < 0 || e.ColumnIndex < 0)
                     return;
 

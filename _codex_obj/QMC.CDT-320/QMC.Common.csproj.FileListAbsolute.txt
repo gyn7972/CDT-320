@@ -1,0 +1,11 @@
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_build\QMC.Common.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_build\QMC.Common.pdb
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.csproj.AssemblyReference.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.MessageBoxOk.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.MessageBoxRetrySkip.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.MessageBoxYesNo.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.MessageBoxYesNoRetry.resources
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.csproj.GenerateResource.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.csproj.CoreCompileInputs.cache
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.dll
+D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_obj\QMC.CDT-320\QMC.Common.pdb

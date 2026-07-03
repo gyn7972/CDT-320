@@ -575,6 +575,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ParameterGridItem selected = optionParameterGrid.SelectedItem;
                 TeachSelectedPosition(selected != null ? selected.Key : string.Empty);
             });
+            ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
+            menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
+            {
+                ParameterGridItem selected = optionParameterGrid.SelectedItem;
+                e.Cancel = selected == null || !positionItems.ContainsKey(selected.Key);
+            };
             optionParameterGrid.ContextMenuStrip = menu;
         }
 
@@ -584,7 +590,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             PositionItem item = positionItems[key];
-            await ConfirmMoveAsync(item.DisplayName, delegate { return MovePickerTeachingPositionAsync(item.Axis, item.PositionName); }, item.Axis);
+            await ConfirmMoveToPositionAsync(item.DisplayName, delegate { return MovePickerTeachingPositionAsync(item.Axis, item.PositionName); }, item.Axis);
         }
 
         private Task<int> MovePickerTeachingPositionAsync(PickerAxis axis, string positionName)
@@ -817,6 +823,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async Task ConfirmMoveAsync(string actionName, Func<Task<int>> move, params PickerAxis[] targetAxes)
         {
+            await ConfirmMoveInternalAsync(actionName, move, false, targetAxes);
+        }
+
+        private async Task ConfirmMoveToPositionAsync(string actionName, Func<Task<int>> move, params PickerAxis[] targetAxes)
+        {
+            await ConfirmMoveInternalAsync(actionName, move, true, targetAxes);
+        }
+
+        private async Task ConfirmMoveInternalAsync(string actionName, Func<Task<int>> move, bool selectMoveSpeed, params PickerAxis[] targetAxes)
+        {
             if (unit == null || move == null)
                 return;
 
@@ -827,9 +843,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!EnsureTargetAxesHomeDone(actionName, targetAxes))
                 return;
 
-            DialogResult result = QMC.Common.MessageDialog.Show(this, actionName + " move?", "Rear Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            if (result != DialogResult.Yes)
-                return;
+            if (selectMoveSpeed)
+            {
+                JogSpeedType speedType;
+                if (!ManualMoveGuard.ConfirmMoveSpeed(this, "Rear Picker", actionName, out speedType))
+                    return;
+
+                jogAxisMoveControl.SetSelectedSpeedType(speedType);
+            }
+            else
+            {
+                DialogResult result = QMC.Common.MessageDialog.Show(this, actionName + " move?", "Rear Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                    return;
+            }
 
             await RunSafeAsync(move, actionName);
         }

@@ -291,7 +291,10 @@ namespace QMC.CDT320.Stats
                 : _lastContUp.TotalSeconds;
 
             double cycleMsPerDieRolling = _ringCount > 0 ? (double)_ringSum / _ringCount : 0;
-            cycleMsPerDieRolling *= 0.75;
+
+            //TEST GYN
+            //cycleMsPerDieRolling *= 0.75;
+
             double uphInstant = cycleMsPerDieRolling > 0 ? 3600000.0 / cycleMsPerDieRolling : 0;
             double uphEffective = up > 0 ? _goodCount * 3600.0 / up : 0;
             double uptimeRate = load > 0 ? up / load * 100.0 : 0;
