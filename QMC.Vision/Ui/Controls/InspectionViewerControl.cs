@@ -637,17 +637,40 @@ namespace QMC.Vision.Ui.Controls
         {
             try
             {
+                // Bottom: 위치 셀 스토어에서 다이 순번(Seq)·값 조회 — 표(이력 300 롤링)에서 밀려난 다이도
+                // 맵 셀 데이터가 그대로 보이도록(맵과 툴팁의 데이터 소스 일치).
+                InspectionResultStore.BottomCell cell = null;
+                if (Mode == InspectionMode.Bottom)
+                    cell = InspectionResultStore.BottomCellAt(InspectionResultStore.Bottom, indexX, indexY);
+
                 var row = FindDieRow(indexX, indexY);
-                if (row == null) return null;
+                if (row == null && cell == null) return null;
+
                 var sb = new System.Text.StringBuilder();
-                sb.Append("Die  X=").Append(indexX).Append(", Y=").Append(indexY);
-                for (int c = 0; c < _grid.Columns.Count; c++)
+                sb.Append("Die");
+                if (cell != null && cell.Seq > 0) sb.Append(" #").Append(cell.Seq);
+                sb.Append("  X=").Append(indexX).Append(", Y=").Append(indexY);
+
+                if (row != null)
                 {
-                    string h = _grid.Columns[c].HeaderText;
-                    if (h == "Index X" || h == "Index Y") continue;
-                    string val = row.Cells[c].Value == null ? null : row.Cells[c].Value.ToString();
-                    if (string.IsNullOrEmpty(val)) continue;
-                    sb.Append('\n').Append(h).Append(": ").Append(val);
+                    for (int c = 0; c < _grid.Columns.Count; c++)
+                    {
+                        string h = _grid.Columns[c].HeaderText;
+                        if (h == "Index X" || h == "Index Y") continue;
+                        string val = row.Cells[c].Value == null ? null : row.Cells[c].Value.ToString();
+                        if (string.IsNullOrEmpty(val)) continue;
+                        sb.Append('\n').Append(h).Append(": ").Append(val);
+                    }
+                }
+                else if (cell != null)
+                {
+                    // 표에는 없지만(이력 한도) 위치 셀에는 남은 다이 — 셀 값으로 표시.
+                    sb.Append('\n').Append("Picker: ").Append(cell.Picker);
+                    sb.Append('\n').Append("Width: ").Append(cell.Width.ToString("F4"));
+                    sb.Append('\n').Append("Height: ").Append(cell.Height.ToString("F4"));
+                    sb.Append('\n').Append("Chipping 1ch: ").Append(cell.Chip1.ToString("F4"));
+                    sb.Append('\n').Append("Chipping 2ch: ").Append(cell.Chip2.ToString("F4"));
+                    sb.Append('\n').Append("(이력 표에서는 밀려난 다이)");
                 }
                 return sb.ToString();
             }

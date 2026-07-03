@@ -64,21 +64,25 @@ namespace QMC.Vision.Inspector
                     return result;
                 }
 
-                // 2. 치핑 마진 계산
-                int chippingMargin = CalculateChippingMargin(parameter.ChippingDepth);
-                chippingMargin = 0;
-                // 3. 상단 치핑 검사
+                // 2. 치핑 마진 계산 — 스펙(ChippingDepth)이 아닌 칩 두께 기반.
+                //    (스펙 유도 마진이면 스펙보다 깊은 칩핑이 '밝음 복귀'를 못 찾아 미검출되는 역설 발생)
+                double pxHmm = _visionConfig.SideVisionFront.PixelSizeHeightMm;
+                if (pxHmm <= 0) pxHmm = 0.003125;
+                int chippingMargin = (int)Math.Max(8, parameter.ChipThickness / pxHmm);
+                // 3. 상단 치핑 검사 (+스펙 초과 영역 수집 — 다중 칩핑 검출/실측 마커용)
+                var chipRegions = new List<ChippingRegion>();
                 double topChippingSize = InspectTopChipping(image, imageWidth, imageHeight, 
-                    rotatedTopLine, bottomLine, 150, chippingMargin);
+                    rotatedTopLine, bottomLine, parameter.Threshold, chippingMargin, chipRegions, parameter.ChippingDepth);
 
                 // 4. 하단 치핑 검사
                 ChippingInfo info = InspectBottomChipping(image, imageWidth, imageHeight, 
-                    rotatedTopLine, bottomLine, 150, chippingMargin);
+                    rotatedTopLine, bottomLine, parameter.Threshold, chippingMargin, chipRegions, parameter.ChippingDepth);
                 double bottomChippingSize = info.Depth;
                 // 5. 결과 설정
                 result.TopChippingSize = topChippingSize;
                 result.BottomChippingSize = bottomChippingSize;
                 result.MaxChippingSize = Math.Max(topChippingSize, bottomChippingSize);
+                result.ChippingRegions = chipRegions;
                 result.IsSuccess = true;
 
                 // 6. 스펙 판정
@@ -277,10 +281,12 @@ namespace QMC.Vision.Inspector
         /// 상단 치핑 검사
         /// </summary>
         private double InspectTopChipping(byte[,] image, int imageWidth, int imageHeight, 
-            Line topLine, Line bottomLine, int threshold, int chippingMargin)
+            Line topLine, Line bottomLine, int threshold, int chippingMargin,
+            List<ChippingRegion> regions = null, double specMM = 0)
         {
             double maxChippingSize = 0;
             List<double> listValue = new List<double>();
+            List<int> listX = new List<int>(), listY0 = new List<int>(), listY1 = new List<int>();
             for (int x = 0; x < imageWidth; x++)
             {
                 double startY = topLine.GetY(x);
@@ -314,6 +320,7 @@ namespace QMC.Vision.Inspector
                         {
                             double chippingSizeMM = ConvertPixelToMM(chippingDepth);
                             listValue.Add(chippingSizeMM);
+                            listX.Add(x); listY0.Add(darkStartY); listY1.Add(y);
                             if (chippingSizeMM > maxChippingSize)
                                 maxChippingSize = chippingSizeMM;
                         }
@@ -332,18 +339,52 @@ namespace QMC.Vision.Inspector
                 if (listValue[iter] > maxChippingSize)
                     maxChippingSize = listValue[iter];
             }
+            CollectChippingRegions(listValue, listX, listY0, listY1, specMM, true, regions);
             return maxChippingSize;
+        }
+
+        /// <summary>스펙(specMM) 초과 컬럼을 x-연속(간격≤5px) 그룹으로 묶어 칩핑 영역 목록에 추가 — 다중 칩핑 검출/실측 마커용.</summary>
+        private void CollectChippingRegions(List<double> vals, List<int> xs, List<int> y0s, List<int> y1s,
+            double specMM, bool isTop, List<ChippingRegion> regions)
+        {
+            if (regions == null || specMM <= 0 || vals.Count < 15) return;
+            ChippingRegion cur = null; int lastX = int.MinValue; double curMax = 0;
+            for (int i = 15; i < vals.Count - 15; i++)
+            {
+                if (vals[i] <= specMM) continue;
+                int x = xs[i];
+                int ya = Math.Min(y0s[i], y1s[i]), yb = Math.Max(y0s[i], y1s[i]);
+                if (cur == null || x - lastX > 5)
+                {
+                    curMax = vals[i];
+                    cur = new ChippingRegion { XStart = x, XEnd = x, X = x, StartY = ya, EndY = yb,
+                                               SizeMM = curMax, IsFrontSide = isTop };
+                    regions.Add(cur);
+                }
+                else
+                {
+                    cur.XEnd = x;
+                    if (ya < cur.StartY) cur.StartY = ya;
+                    if (yb > cur.EndY)   cur.EndY   = yb;
+                    if (vals[i] > curMax) { curMax = vals[i]; cur.SizeMM = curMax; }
+                    cur.X = (cur.XStart + cur.XEnd) / 2;
+                }
+                cur.DepthPixels = cur.EndY - cur.StartY;
+                lastX = x;
+            }
         }
 
         /// <summary>
         /// 하단 치핑 검사
         /// </summary>
         private ChippingInfo InspectBottomChipping(byte[,] image, int imageWidth, int imageHeight, 
-            Line topLine, Line bottomLine, int threshold, int chippingMargin)
+            Line topLine, Line bottomLine, int threshold, int chippingMargin,
+            List<ChippingRegion> regions = null, double specMM = 0)
         {
             double maxChippingSize = 0;
 
             List<ChippingInfo> listValue = new List<ChippingInfo>();
+            List<double> bVals = new List<double>(); List<int> bXs = new List<int>(), bY0 = new List<int>(), bY1 = new List<int>();
             for (int x = 0; x < imageWidth; x++)
             {
                 double startY = topLine.GetY(x);
@@ -382,6 +423,7 @@ namespace QMC.Vision.Inspector
                             chippingInfo.Contour.Add(new PointF(x, y));
                             chippingInfo.Contour.Add(new PointF(x, bottomY));
                             listValue.Add(chippingInfo);
+                            bVals.Add(chippingSizeMM); bXs.Add(x); bY0.Add(y); bY1.Add(darkStartY);
                         }
                         darkFound = false;
                         break;
@@ -396,6 +438,7 @@ namespace QMC.Vision.Inspector
                     }
                 }
             }
+            CollectChippingRegions(bVals, bXs, bY0, bY1, specMM, false, regions);
             ChippingInfo chippingInfoMax = new ChippingInfo();
             if (listValue.Count < 15)
             {
@@ -591,9 +634,13 @@ namespace QMC.Vision.Inspector
     public class ChippingRegion
     {
         /// <summary>
-        /// X 좌표
+        /// X 좌표(영역 중심)
         /// </summary>
         public int X { get; set; }
+
+        /// <summary>영역 가로 시작/끝(px) — 실측 폭 마커용</summary>
+        public int XStart { get; set; }
+        public int XEnd { get; set; }
 
         /// <summary>
         /// 시작 Y 좌표

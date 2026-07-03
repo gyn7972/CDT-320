@@ -70,6 +70,11 @@ namespace QMC.Vision.Core
         // 원본 라이브러리 검사기(생성자에서 12000² 버퍼 초기화 → 1회만 생성/재사용).
         private VI.CDTInspector _libInspector;
 
+        // lib(BottomInspect)가 연속 null 이면 이후 lib 시도(그레이 변환+파라미터 구성 ~1초/회)를 생략하고 바로 레거시로.
+        // 성공이 한 번이라도 나오면 리셋. 결과/판정에는 영향 없음(어차피 레거시 폴백이던 경로의 낭비 제거).
+        private int _libNullStreak;
+        private const int LibNullSkipThreshold = 2;
+
         public BottomInspector(string id)
         {
             Id = id;
@@ -85,6 +90,8 @@ namespace QMC.Vision.Core
         {
             if (!UseInspectorLib)
                 return InspectLegacy(image);
+            if (_libNullStreak >= LibNullSkipThreshold)
+                return InspectLegacy(image);   // lib 연속 실패 래치 — 불필요한 이중 그레이변환/lib 호출 생략
 
             var r = new InspectionResult { RoiName = Id, IsPass = true };
             LastValid = false;
@@ -146,10 +153,13 @@ namespace QMC.Vision.Core
                 if (br == null)
                 {
                     // BottomInspect 가 null(칩 미검출/스펙 미설정 등) → 레거시로 폴백해 결과+오버레이(다이박스/이물·칩핑 마커/라벨)를 그대로 표시(원래 동작 유지).
-                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " BottomInspect null → 레거시 폴백(오버레이/결과 유지)");
+                    _libNullStreak++;
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "BottomInspector", Id + " BottomInspect null → 레거시 폴백(오버레이/결과 유지)"
+                        + (_libNullStreak == LibNullSkipThreshold ? " — 연속 " + LibNullSkipThreshold + "회, 이후 lib 시도 생략(성공 시 자동 복귀)" : ""));
                     return InspectLegacy(image);
                 }
 
+                _libNullStreak = 0;   // lib 성공 → 래치 해제
                 MapLibResult(br, r, libRoi);
                 LastValid = true;
                 return r;
@@ -302,10 +312,12 @@ namespace QMC.Vision.Core
 
             // ── 2) 칩핑 — 4변 에지 라인(중앙값) 대비 안쪽 결손 최대. 검사영역은 ChipEdgeMargin 만큼 코너에서 줄임. ──
             int cm = Math.Max(0, ChipEdgeMargin);
-            double cT = MaxInwardDev(topE,   lx + cm, rx - cm, ty, +1, false, r.Defects) * PixelSizeHeightMm;
-            double cB = MaxInwardDev(botE,   lx + cm, rx - cm, by, -1, false, r.Defects) * PixelSizeHeightMm;
-            double cL = MaxInwardDev(leftE,  ty + cm, by - cm, lx, +1, true,  r.Defects) * PixelSizeWidthMm;
-            double cR = MaxInwardDev(rightE, ty + cm, by - cm, rx, -1, true,  r.Defects) * PixelSizeWidthMm;
+            int specHpx = (int)Math.Ceiling(ChippingDepth / Math.Max(1e-9, PixelSizeHeightMm));   // 스펙[mm]→[px]
+            int specWpx = (int)Math.Ceiling(ChippingDepth / Math.Max(1e-9, PixelSizeWidthMm));
+            double cT = MaxInwardDev(topE,   lx + cm, rx - cm, ty, +1, false, r.Defects, specHpx) * PixelSizeHeightMm;
+            double cB = MaxInwardDev(botE,   lx + cm, rx - cm, by, -1, false, r.Defects, specHpx) * PixelSizeHeightMm;
+            double cL = MaxInwardDev(leftE,  ty + cm, by - cm, lx, +1, true,  r.Defects, specWpx) * PixelSizeWidthMm;
+            double cR = MaxInwardDev(rightE, ty + cm, by - cm, rx, -1, true,  r.Defects, specWpx) * PixelSizeWidthMm;
             double maxChip = Math.Max(Math.Max(cT, cB), Math.Max(cL, cR));
             bool chipPass = maxChip <= ChippingDepth;
             AddItem(r, "Chipping Top",    cT.ToString("F4"), cT <= ChippingDepth);
@@ -432,22 +444,37 @@ namespace QMC.Vision.Core
             return ty >= 0 && by > ty && lx >= 0 && rx > lx;
         }
 
-        /// <summary>에지 라인(중앙값) 대비 안쪽 결손 최대[px]. a~b 범위, sign+1=상/좌, -1=하/우. vertical=true 면 인덱스=y.</summary>
-        private static double MaxInwardDev(int[] edge, int a, int b, int baseline, int sign, bool vertical, List<DefectMark> defects)
+        /// <summary>에지 라인(중앙값) 대비 안쪽 결손 최대[px]. a~b 범위, sign+1=상/좌, -1=하/우. vertical=true 면 인덱스=y.
+        /// 스펙(specPx) 초과 '연속 구간'(간격≤5px)을 실측 bbox 마커로 수집 — 다중 칩핑, 실제 결손 폭/깊이 그대로 표시.</summary>
+        private static double MaxInwardDev(int[] edge, int a, int b, int baseline, int sign, bool vertical, List<DefectMark> defects, int specPx = 2)
         {
-            int maxDev = 0, maxIdx = -1;
+            int maxDev = 0;
+            int thr = Math.Max(2, specPx);
+            int rs = -1, re = -1, rMax = 0;   // 현재 구간 시작/끝/최대 깊이
+            Action flush = () =>
+            {
+                if (rs < 0 || defects == null) return;
+                double p1 = baseline, p2 = baseline + sign * rMax;
+                double lo = Math.Min(p1, p2), hi = Math.Max(p1, p2);
+                defects.Add(vertical
+                    ? new DefectMark { X = (lo + hi) / 2.0, Y = (rs + re) / 2.0, Width = Math.Max(4, hi - lo), Height = Math.Max(4, re - rs + 1), Area = rMax, Type = "Chipping" }
+                    : new DefectMark { X = (rs + re) / 2.0, Y = (lo + hi) / 2.0, Width = Math.Max(4, re - rs + 1), Height = Math.Max(4, hi - lo), Area = rMax, Type = "Chipping" });
+                rs = -1; re = -1; rMax = 0;
+            };
             for (int i = a; i <= b; i++)
             {
                 if (i < 0 || i >= edge.Length || edge[i] < 0) continue;
                 int dev = sign * (edge[i] - baseline);   // 안쪽으로 들어오면 양수
-                if (dev > maxDev) { maxDev = dev; maxIdx = i; }
+                if (dev > maxDev) maxDev = dev;
+                if (dev > thr)
+                {
+                    if (rs >= 0 && i - re > 5) flush();               // 간격>5px → 구간 분리
+                    if (rs < 0) { rs = i; rMax = dev; }
+                    else if (dev > rMax) rMax = dev;
+                    re = i;
+                }
             }
-            if (maxDev > 2 && maxIdx >= 0)
-            {
-                double dx = vertical ? edge[maxIdx] : maxIdx;   // vertical(좌/우): 인덱스=y, edge=x
-                double dy = vertical ? maxIdx : edge[maxIdx];
-                defects.Add(new DefectMark { X = dx, Y = dy, Width = 10, Height = 10, Area = maxDev, Type = "Chipping" });
-            }
+            flush();
             return maxDev;
         }
 

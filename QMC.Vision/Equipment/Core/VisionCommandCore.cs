@@ -210,10 +210,21 @@ namespace QMC.Vision.Core
         public static bool IsInspectionSkipped(IVisionModule m, string inspId)
             => m?.GetAlgorithm(inspId)?.Recipe is InspectorAlgoRecipe ir && !ir.UseInspection;
 
-        /// <summary>이미 그랩된 이미지로 검사 실행 — 동기 <see cref="Inspect"/> 와 비동기 INSPECTASYNC
-        /// (그랩 후 백그라운드)가 공유. 결과 저장 + (chipUid 있으면) 자재추적/이미지·데이터 로그까지 동일 처리.</summary>
+        /// <summary>이미 그랩된 이미지로 검사 실행 — 동기 <see cref="Inspect"/> 와 비동기 INSPECTASYNC 가 공유.
+        /// 픽커/채널/인덱스는 모듈 공유 컨텍스트(<see cref="GetInspectCtx"/>)에서 읽는다(단일 경로).</summary>
         public static string InspectOnImage(IVisionModule m, VisionSettings cfg, string inspId,
                                             IInspector ins, System.Drawing.Bitmap image, string chipUid)
+        {
+            var c = GetInspectCtx(m?.Name);
+            return InspectOnImageExplicit(m, cfg, inspId, ins, image, chipUid, c.Picker, c.Channel, c.IndexX, c.IndexY);
+        }
+
+        /// <summary>이미 그랩된 이미지로 검사 실행 — 픽커/채널/인덱스 컨텍스트를 '인자로' 받는 버전(병렬 배치용).
+        /// 병렬 처리 시 픽커별로 컨텍스트가 달라야 하므로 모듈 공유 컨텍스트 대신 인자를 사용한다(각 픽커는 독립 인스펙터 인스턴스).
+        /// 결과 저장 + (chipUid 있으면) 자재추적/이미지·데이터 로그까지 동일 처리.</summary>
+        public static string InspectOnImageExplicit(IVisionModule m, VisionSettings cfg, string inspId,
+                                            IInspector ins, System.Drawing.Bitmap image, string chipUid,
+                                            int ctxPicker, int ctxChannel, int ctxIndexX, int ctxIndexY)
         {
             if (m == null) return "fail:no module";
             if (ins == null) return "fail:inspector not found";
@@ -258,8 +269,11 @@ namespace QMC.Vision.Core
                     System.Drawing.PointF[] box = (ins as PlacementGapInspector)?.LastCorners
                                               ?? (ins as BottomInspector)?.LastCorners
                                               ?? (ins as SideAppearanceInspector)?.LastCorners;
-                    var ctx = GetInspectCtx(m.Name);
-                    InspectionResultStore.Record(InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom));
+                    var ctx = new InspectCtx { Picker = ctxPicker, Channel = ctxChannel, IndexX = ctxIndexX, IndexY = ctxIndexY };
+                    var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom);
+                    InspectionResultStore.Record(storeItem);
+                    // 레시피 웨이퍼 사양의 마지막 다이 도달 시 날짜별 스냅샷 저장 — 실시간 데이터를 자체 누적(뷰어 이력 상한과 무관).
+                    WaferDataSaver.Accumulate(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, storeItem.Pass, storeItem.Values);
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionCommandCore] InspectionResultStore.Record 실패: " + ex.Message); }
@@ -321,6 +335,20 @@ namespace QMC.Vision.Core
                 return $"{verdict};x={oxPx:F3};y={oyPx:F3};width={image.Width};height={image.Height}";
             }
             return verdict;
+        }
+
+        /// <summary>인스펙터 설정(레시피 파라미터) 복제 — 병렬 배치용 신규 인스턴스에 모듈의 설정된 인스펙터 값을 반사 복사.
+        /// 공개 read/write 프로퍼티만 복사한다(계산/출력 프로퍼티는 대개 private set 이라 자동 제외).
+        /// InspectionRoi 는 참조 복사(검사 중 읽기전용이라 안전). CDT-310 코어 로직은 건드리지 않는다.</summary>
+        public static void CopyInspectorConfig(IInspector src, IInspector dst)
+        {
+            if (src == null || dst == null || src.GetType() != dst.GetType()) return;
+            foreach (var p in src.GetType().GetProperties(
+                         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            {
+                if (!p.CanRead || !p.CanWrite) continue;
+                try { p.SetValue(dst, p.GetValue(src)); } catch { }
+            }
         }
 
         /// <summary>패턴 학습.</summary>

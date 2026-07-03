@@ -49,11 +49,19 @@ namespace QMC.Vision.Core
         public sealed class BottomCell
         {
             public int IndexX, IndexY, Picker;
+            public int Seq;                     // 랏 내 검사 순번(1-base) — 툴팁 Die 번호 표시용(Clear 시 리셋)
             public double Width, Height, Chip1, Chip2;
         }
 
         private const int MaxHistory = 300;
         private static readonly object _lock = new object();
+        // 모드 → 세대 번호: Clear(새 웨이퍼) 마다 +1. 비동기 배치의 '이전 웨이퍼 잔여 그랩'이
+        // 초기화 이후 기록되어 유령 셀을 만드는 것을 차단하는 데 쓴다(PendingGrabStore.Gen 대조).
+        private static readonly Dictionary<string, long> _generation =
+            new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        // 모드 → 바텀 셀 순번 카운터(랏 내 검사 순번, Clear 시 리셋)
+        private static readonly Dictionary<string, int> _bottomSeq =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         // 모드 → (위치키 → 바텀 셀) : 위치 고정 맵(Index X/Y). 이력과 별개로 누적.
         private static readonly Dictionary<string, Dictionary<long, BottomCell>> _bottomMap =
             new Dictionary<string, Dictionary<long, BottomCell>>(StringComparer.OrdinalIgnoreCase);
@@ -158,7 +166,12 @@ namespace QMC.Vision.Core
                     { bmap = new Dictionary<long, BottomCell>(); _bottomMap[it.Mode] = bmap; }
                     long bkey = DieKey(it.IndexX, it.IndexY);
                     if (!bmap.TryGetValue(bkey, out var cell))
-                    { cell = new BottomCell { IndexX = it.IndexX, IndexY = it.IndexY }; bmap[bkey] = cell; }
+                    {
+                        _bottomSeq.TryGetValue(it.Mode, out int seq);
+                        _bottomSeq[it.Mode] = ++seq;
+                        cell = new BottomCell { IndexX = it.IndexX, IndexY = it.IndexY, Seq = seq };
+                        bmap[bkey] = cell;
+                    }
                     double V(string k) => it.Values.TryGetValue(k, out var v) ? v : 0;
                     cell.Picker = it.Picker;
                     cell.Width  = V("Width");  cell.Height = V("Height");
@@ -243,8 +256,28 @@ namespace QMC.Vision.Core
                 if (_dieMap.TryGetValue(mode, out var dm)) dm.Clear();
                 if (_dieOrder.TryGetValue(mode, out var dord)) dord.Clear();
                 if (_bottomMap.TryGetValue(mode, out var bm)) bm.Clear();
+                _bottomSeq[mode] = 0;
+                _generation.TryGetValue(mode, out long g);
+                _generation[mode] = g + 1;
             }
             try { Changed?.Invoke(mode); } catch { }
+        }
+
+        /// <summary>모드(또는 모듈명)의 현재 세대 번호 — Clear 시마다 +1. 비동기 배치 유효성 대조용.</summary>
+        public static long GenerationOf(string modeOrModule)
+        {
+            string mode = ModeOf(modeOrModule) ?? modeOrModule;
+            if (string.IsNullOrEmpty(mode)) return 0;
+            lock (_lock) { return _generation.TryGetValue(mode, out long g) ? g : 0; }
+        }
+
+        /// <summary>바텀 위치 셀 1개 조회(없으면 null) — 맵 툴팁용.</summary>
+        public static BottomCell BottomCellAt(string mode, int ix, int iy)
+        {
+            lock (_lock)
+            {
+                return (_bottomMap.TryGetValue(mode, out var m) && m.TryGetValue(DieKey(ix, iy), out var c)) ? c : null;
+            }
         }
 
         /// <summary>모듈/검사기 id → 모드 키(Bottom/Side/Bin). 매칭 없으면 null.</summary>
@@ -328,7 +361,10 @@ namespace QMC.Vision.Core
             return f;
         }
 
-        /// <summary>정수배 축소 썸네일(24bpp). f<=1 이면 단순 클론.</summary>
+        /// <summary>정수배 축소 썸네일(24bpp). f<=1 이면 단순 클론.
+        /// 고속 모드(NearestNeighbor+HighSpeed) — 144MP(12000²) 원본을 고품질 모드로 축소하면 장당 1~3s 가 걸려
+        /// 4픽커 병렬 배치의 검사 후처리(t)와 UI(CPU 포화)를 함께 잡아먹던 병목. 정수배 축소 썸네일(뷰어 픽커
+        /// 패널용)이라 최근접 샘플링으로 충분하고 수백 ms 로 줄어든다. 결함 마크는 오버레이로 따로 그린다.</summary>
         private static Bitmap MakeThumb(Bitmap src, int f)
         {
             if (f <= 1) return (Bitmap)src.Clone();
@@ -336,8 +372,11 @@ namespace QMC.Vision.Core
             var bmp = new Bitmap(tw, th, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
             using (var g = Graphics.FromImage(bmp))
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
-                g.PixelOffsetMode   = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.CompositingMode   = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                g.CompositingQuality= System.Drawing.Drawing2D.CompositingQuality.HighSpeed;
+                g.SmoothingMode     = System.Drawing.Drawing2D.SmoothingMode.None;
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                g.PixelOffsetMode   = System.Drawing.Drawing2D.PixelOffsetMode.None;
                 g.DrawImage(src, new Rectangle(0, 0, tw, th), new Rectangle(0, 0, src.Width, src.Height), GraphicsUnit.Pixel);
             }
             return bmp;

@@ -347,8 +347,17 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => si.ChipThreshold, v => { si.ChipThreshold = v; }));
                 if (si.IsChippingRole)
                 {
-                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; PushChartLimits(); }));
-                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; PushChartLimits(); }));
+                    // 판정식: Lower ≤ 측정값 ≤ Upper (Lower 는 보통 음수=노이즈 허용). Upper<Lower 모순 입력 차단.
+                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v =>
+                    {
+                        if (v < si.ChippingLowerLimit) { MessageBox.Show($"Upper Limit({v} mm)은 Lower Limit({si.ChippingLowerLimit} mm) 이상이어야 합니다.\n판정: Lower ≤ 측정값 ≤ Upper", "입력 확인"); return; }
+                        si.ChippingUpperLimit = v; PushChartLimits();
+                    }));
+                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v =>
+                    {
+                        if (v > si.ChippingUpperLimit) { MessageBox.Show($"Lower Limit({v} mm)은 Upper Limit({si.ChippingUpperLimit} mm) 이하여야 합니다.\n(측정 0도 NG가 됩니다. 보통 0 또는 음수 권장)", "입력 확인"); return; }
+                        si.ChippingLowerLimit = v; PushChartLimits();
+                    }));
                     items.Add(ParameterGridItem.Double("Chip Thickness", "mm", ParameterGridScope.Recipe, () => si.ChipThickness, v => { si.ChipThickness = v; }));
                     // CDT-310 FindLine 라인검출 조정값
                     items.Add(ParameterGridItem.Double("Scan Rate", "", ParameterGridScope.Recipe, () => si.ScanRate, v => { si.ScanRate = v; }));

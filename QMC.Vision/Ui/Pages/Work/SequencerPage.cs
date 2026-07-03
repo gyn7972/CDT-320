@@ -34,6 +34,10 @@ namespace QMC.Vision.Ui.Pages
         private readonly Dictionary<SequenceModuleKind, DateTime> _fpsTime = new Dictionary<SequenceModuleKind, DateTime>();
         private Timer _metricTimer;
 
+        // 통신 로그 폴링(VisionCommLog — CommLink 페이지와 동일 소스). Revision 변화시에만 갱신.
+        private Timer _commTimer;
+        private long _commRev = -1;
+
         // CPU/GPU/메모리 부하 체크(누적) — [경과초, CPU%, MEM MB, GPU%]
         private readonly ResourceMonitor _res = new ResourceMonitor();
         private bool _profiling;
@@ -67,9 +71,17 @@ namespace QMC.Vision.Ui.Pages
             _cbMode.Items.AddRange(new object[] { "Auto (연속)", "Step (수동)" });
             _cbMode.SelectedIndex = 0;
 
-            // METRICS 그리드를 도구 다중선택으로 — 행(도구) 여러 개 선택 → 동시 실행(Ctrl/Shift). 체크박스 불필요.
+            // METRICS 그리드 도구 다중선택 — ① '선택' 체크박스(다른 곳을 클릭해도 유지, 권장)
+            // ② 행 다중선택(Ctrl/Shift, 기존 방식) 둘 다 지원. 체크가 하나라도 있으면 체크가 우선.
             _metrics.MultiSelect = true;
             _metrics.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            // 체크 토글 — 그리드가 ReadOnly 라 사용자 편집 대신 클릭 시 코드로 값을 뒤집는다(프로그램 쓰기는 ReadOnly 무관).
+            _metrics.CellClick += (s2, e2) =>
+            {
+                if (e2.RowIndex < 0 || e2.ColumnIndex != 0) return;
+                var c = _metrics.Rows[e2.RowIndex].Cells[0];
+                c.Value = !(c.Value is bool b && b);
+            };
 
             // 도구 드롭다운으로 특정 도구를 고르면 그리드 기본선택을 해제 → 드롭다운 선택이 시작에 반영되게(그리드 우선 충돌 방지).
             _cbTool.SelectedIndexChanged += (s, e) =>
@@ -81,17 +93,42 @@ namespace QMC.Vision.Ui.Pages
             PopulateTools();
             BuildMetricsGrid();
             _btnLoadStop.Enabled = false;   // 부하 체크 시작 전엔 완료 비활성
+
+            // 통신 로그(핸들러↔비전 TCP RX/TX) 폴링 — 변경(Revision)시에만 텍스트 교체.
+            _commTimer = new Timer { Interval = 500 };
+            _commTimer.Tick += (s, e) => RefreshCommLog();
+            _commTimer.Start();
+        }
+
+        /// <summary>통신 로그 갱신 — VisionCommLog.Revision 변화시에만(불필요한 리페인트 방지), 끝으로 자동 스크롤.</summary>
+        private void RefreshCommLog()
+        {
+            try
+            {
+                long rev = QMC.Vision.Comm.VisionCommLog.Revision;
+                if (rev == _commRev || _commLog == null || _commLog.IsDisposed) return;
+                _commRev = rev;
+                _commLog.Lines = QMC.Vision.Comm.VisionCommLog.Snapshot();
+                _commLog.SelectionStart = _commLog.TextLength;
+                _commLog.ScrollToCaret();
+            }
+            catch { }
         }
 
         private const string AllToolsLabel = "(전체 도구)";
 
-        /// <summary>METRICS 그리드에서 선택된 도구들(모듈+id). 미선택이면 빈 목록.</summary>
+        /// <summary>METRICS 그리드에서 실행할 도구들(모듈+id). '선택' 체크가 1순위, 행 다중선택이 2순위. 없으면 빈 목록.</summary>
         private System.Collections.Generic.List<ToolKey> SelectedTools()
         {
             var list = new System.Collections.Generic.List<ToolKey>();
             if (_metrics == null) return list;
+            // 1순위: '선택' 체크된 행 — 화면 순서 그대로, 다른 곳을 클릭해도 유지.
+            foreach (DataGridViewRow row in _metrics.Rows)
+                if (row?.Tag is ToolKey tk && row.Cells[0].Value is bool b && b) list.Add(tk);
+            if (list.Count > 0) return list;
+            // 2순위(기존 동작): 행 다중선택(Ctrl/Shift).
             foreach (DataGridViewRow row in _metrics.SelectedRows)
-                if (row?.Tag is ToolKey tk) list.Add(tk);
+                if (row?.Tag is ToolKey tk2) list.Add(tk2);
             list.Reverse();   // SelectedRows 는 역순 → 화면 순서대로
             return list;
         }
@@ -127,6 +164,8 @@ namespace QMC.Vision.Ui.Pages
         {
             _metrics.Columns.Clear();
             _metrics.Rows.Clear();
+            var chk = new DataGridViewCheckBoxColumn { Name = "sel", HeaderText = "선택", FillWeight = 30 };
+            _metrics.Columns.Add(chk);   // 체크 = 동시 실행 대상(모듈 상관없이 조합 가능)
             _metrics.Columns.Add("mod",   "모듈");
             _metrics.Columns.Add("tool",  "도구");
             _metrics.Columns.Add("kind",  "종류");
@@ -143,7 +182,7 @@ namespace QMC.Vision.Ui.Pages
                 if (!SequenceToolCatalog.Has(kind)) continue;
                 foreach (var t in SequenceToolCatalog.Tools(kind))
                 {
-                    int r = _metrics.Rows.Add(_metricNames[i], t.Value,
+                    int r = _metrics.Rows.Add(false, _metricNames[i], t.Value,
                                               t.Key == "MATCH" ? "Finder" : "Inspector", "-", "-", "0");
                     _metrics.Rows[r].Tag = new ToolKey { Kind = kind, Id = t.Value };
                 }
@@ -210,11 +249,11 @@ namespace QMC.Vision.Ui.Pages
                 foreach (var m in snap)
                     if (m.Kind == key.Kind && m.ToolId == key.Id)
                     { cycleMs = m.CycleMs; cycles = m.Cycles; status = m.Status; break; }
-                row.Cells[3].Value = status;
-                row.Cells[4].Value = cycleMs > 0 ? cycleMs.ToString("F0") : "-";
-                row.Cells[5].Value = cycles.ToString();
+                row.Cells[4].Value = status;
+                row.Cells[5].Value = cycleMs > 0 ? cycleMs.ToString("F0") : "-";
+                row.Cells[6].Value = cycles.ToString();
                 // 판정 색
-                row.Cells[3].Style.ForeColor =
+                row.Cells[4].Style.ForeColor =
                     status == "OK"  ? System.Drawing.Color.SeaGreen :
                     status == "NG"  ? System.Drawing.Color.Firebrick :
                                       System.Drawing.Color.DimGray;

@@ -23,10 +23,19 @@ namespace QMC.Vision.Core
             public double GetAngle() => Math.Atan(mA) * 180.0 / Math.PI;
         }
 
+        /// <summary>스펙 초과 칩핑 영역(다중 검출/실측 마커용, 회전 후 ROI 로컬 좌표).</summary>
+        internal sealed class RegionMark
+        {
+            public int XStart, XEnd, YStart, YEnd;
+            public double MaxMm;
+            public bool Top;
+        }
+
         public sealed class Result
         {
             public bool   Valid;
             public double TopMm, BottomMm, MaxMm;     // 상/하/최대 칩핑[mm]
+            internal List<RegionMark> Regions = new List<RegionMark>();   // 스펙 초과 영역(다중)
             public int    TopBaseY, BottomBaseY;       // (회전 후 좌표계의) 상/하 기준 라인 y
             public int    XStart, XEnd;                // 칩 가로 유효 범위
             public int    MaxX, MaxY;                  // 최대 칩핑 위치(오버레이용, ROI 로컬)
@@ -47,6 +56,7 @@ namespace QMC.Vision.Core
             public int    EnvelopeBinSize = 6;         // 310 FindLine.EnvelopeBinSize
             public double KeepQuantile    = 0.35;      // 310 FindLine.TopKeepQuantile
             public int    EdgeGap         = 6;         // 칩핑 에지결합 허용[px]
+            public double SpecMm          = 0;         // 스펙 초과 영역 수집 임계(0=미수집)
         }
 
         public static Result Inspect(byte[] gray, int w, int h, Params p)
@@ -78,8 +88,9 @@ namespace QMC.Vision.Core
 
             // 6) 상/하 칩핑 — CDT-310 SideChippingInspector dark-scan (라인 기준 어두운 결손, 양끝 15개 제외 max)
             int topMaxX, topMaxY;
-            double topMm = InspectTopChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap, out topMaxX, out topMaxY);
-            var info = InspectBottomChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap);
+            var regions = new List<RegionMark>();
+            double topMm = InspectTopChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap, out topMaxX, out topMaxY, regions, p.SpecMm);
+            var info = InspectBottomChipping(rot, w, h, rTop, botLine, threshold, margin, pxH, p.EdgeGap, regions, p.SpecMm);
             double botMm = info.Depth;
 
             // 칩 가로 유효 범위(밝은 띠가 존재하는 x)
@@ -91,6 +102,7 @@ namespace QMC.Vision.Core
             }
 
             res.Valid     = true;
+            res.Regions   = regions;
             res.TopMm     = topMm;
             res.BottomMm  = botMm;
             res.MaxMm     = Math.Max(topMm, botMm);
@@ -108,10 +120,12 @@ namespace QMC.Vision.Core
 
         // ── CDT-310 SideChippingInspector.InspectTopChipping (dark-scan, 양끝 15 제외 max, 최대위치 회수) ──
         private static double InspectTopChipping(byte[] image, int w, int h, Line topLine, Line bottomLine,
-                                                 int threshold, int chippingMargin, double pxH, int edgeGap, out int maxX, out int maxY)
+                                                 int threshold, int chippingMargin, double pxH, int edgeGap, out int maxX, out int maxY,
+                                                 List<RegionMark> regions = null, double specMm = 0)
         {
             maxX = -1; maxY = -1;
             var vals = new List<double>(); var pxs = new List<int>(); var pys = new List<int>();
+            var py0 = new List<int>(); var py1 = new List<int>();
             for (int x = 0; x < w; x++)
             {
                 double startY = topLine.GetY(x), endY = bottomLine.GetY(x);
@@ -126,7 +140,7 @@ namespace QMC.Vision.Core
                     else if (v >= threshold && dark)
                     {
                         int depth = y - darkStart;
-                        if (depth > 0) { vals.Add(depth * pxH); pxs.Add(x); pys.Add((darkStart + y) / 2); }
+                        if (depth > 0) { vals.Add(depth * pxH); pxs.Add(x); pys.Add((darkStart + y) / 2); py0.Add(darkStart); py1.Add(y); }
                         dark = false; break;
                     }
                 }
@@ -134,16 +148,46 @@ namespace QMC.Vision.Core
             if (vals.Count < 15) return 0;
             double max = 0;
             for (int i = 15; i < vals.Count - 15; i++) if (vals[i] > max) { max = vals[i]; maxX = pxs[i]; maxY = pys[i]; }
+            CollectRegions(vals, pxs, py0, py1, specMm, true, regions);
             return max;
+        }
+
+        /// <summary>스펙 초과 컬럼을 x-연속(간격≤5px) 그룹으로 묶어 영역 목록에 추가 — 다중 칩핑 검출/실측 마커용.</summary>
+        private static void CollectRegions(List<double> vals, List<int> xs, List<int> y0s, List<int> y1s,
+                                           double specMm, bool top, List<RegionMark> regions)
+        {
+            if (regions == null || specMm <= 0 || vals.Count < 15) return;
+            RegionMark cur = null; int lastX = int.MinValue;
+            for (int i = 15; i < vals.Count - 15; i++)
+            {
+                if (vals[i] <= specMm) continue;
+                int x = xs[i];
+                int ya = Math.Min(y0s[i], y1s[i]), yb = Math.Max(y0s[i], y1s[i]);
+                if (cur == null || x - lastX > 5)
+                {
+                    cur = new RegionMark { XStart = x, XEnd = x, YStart = ya, YEnd = yb, MaxMm = vals[i], Top = top };
+                    regions.Add(cur);
+                }
+                else
+                {
+                    cur.XEnd = x;
+                    if (ya < cur.YStart) cur.YStart = ya;
+                    if (yb > cur.YEnd)   cur.YEnd   = yb;
+                    if (vals[i] > cur.MaxMm) cur.MaxMm = vals[i];
+                }
+                lastX = x;
+            }
         }
 
         private sealed class ChipInfo { public double Depth; public List<PointF> Contour = new List<PointF>(); }
 
         // ── CDT-310 SideChippingInspector.InspectBottomChipping (dark-scan + 최대영역 Contour) ──
         private static ChipInfo InspectBottomChipping(byte[] image, int w, int h, Line topLine, Line bottomLine,
-                                                      int threshold, int chippingMargin, double pxH, int edgeGap)
+                                                      int threshold, int chippingMargin, double pxH, int edgeGap,
+                                                      List<RegionMark> regions = null, double specMm = 0)
         {
             var list = new List<ChipInfo>();
+            var bVals = new List<double>(); var bXs = new List<int>(); var bY0 = new List<int>(); var bY1 = new List<int>();
             for (int x = 0; x < w; x++)
             {
                 double startY = topLine.GetY(x), endY = bottomLine.GetY(x);
@@ -158,12 +202,14 @@ namespace QMC.Vision.Core
                     else if (v >= threshold && dark)
                     {
                         int depth = darkStart - y;
-                        if (depth > 0) { var ci = new ChipInfo { Depth = depth * pxH }; ci.Contour.Add(new PointF(x, y)); ci.Contour.Add(new PointF(x, bottomY)); list.Add(ci); }
+                        if (depth > 0) { var ci = new ChipInfo { Depth = depth * pxH }; ci.Contour.Add(new PointF(x, y)); ci.Contour.Add(new PointF(x, bottomY)); list.Add(ci);
+                                         bVals.Add(depth * pxH); bXs.Add(x); bY0.Add(y); bY1.Add(darkStart); }
                         dark = false; break;
                     }
                     else { scan++; if (scan > 10) break; }
                 }
             }
+            CollectRegions(bVals, bXs, bY0, bY1, specMm, false, regions);
             var maxInfo = new ChipInfo();
             if (list.Count < 15) return maxInfo;
             double max = 0; int maxIdx = 0;

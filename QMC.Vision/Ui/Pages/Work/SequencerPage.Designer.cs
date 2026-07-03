@@ -16,7 +16,10 @@ namespace QMC.Vision.Ui.Pages
         private Button   _btnStart, _btnStop, _btnStep, _btnClear;
         private Button   _btnLoadStart, _btnLoadStop;   // CPU/메모리 부하 체크
         private DataGridView _metrics;
+        private TableLayoutPanel _logSplit;   // 시퀀서로그 | 통신로그 반반
+        private Label    _lblSeqLog, _lblCommLog;
         private TextBox  _log;
+        private TextBox  _commLog;
 
         protected override void Dispose(bool disposing)
         {
@@ -35,7 +38,11 @@ namespace QMC.Vision.Ui.Pages
             this._btnStart = new Button(); this._btnStop = new Button(); this._btnStep = new Button(); this._btnClear = new Button();
             this._btnLoadStart = new Button(); this._btnLoadStop = new Button();
             this._metrics = new DataGridView();
+            this._logSplit  = new TableLayoutPanel();
+            this._lblSeqLog = new Label();
+            this._lblCommLog = new Label();
             this._log     = new TextBox();
+            this._commLog = new TextBox();
             this._root.SuspendLayout();
             this._bar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._metrics)).BeginInit();
@@ -48,7 +55,7 @@ namespace QMC.Vision.Ui.Pages
             this._root.Controls.Add(this._hdr,     0, 0);
             this._root.Controls.Add(this._bar,     0, 1);
             this._root.Controls.Add(this._metrics, 0, 2);
-            this._root.Controls.Add(this._log,     0, 3);
+            this._root.Controls.Add(this._logSplit, 0, 3);
             this._root.Dock = DockStyle.Fill;
             this._root.Name = "_root";
             this._root.RowCount = 4;
@@ -179,6 +186,38 @@ namespace QMC.Vision.Ui.Pages
             this._metrics.Font = new Font("맑은 고딕", 9.5F);
             this._metrics.Margin = new Padding(6, 2, 6, 6);
             //
+            // _logSplit — 시퀀서 로그 | 통신 로그 (반반)
+            //
+            this._logSplit.Dock = DockStyle.Fill;
+            this._logSplit.Name = "_logSplit";
+            this._logSplit.ColumnCount = 2;
+            this._logSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            this._logSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            this._logSplit.RowCount = 2;
+            this._logSplit.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+            this._logSplit.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this._logSplit.Controls.Add(this._lblSeqLog,  0, 0);
+            this._logSplit.Controls.Add(this._lblCommLog, 1, 0);
+            this._logSplit.Controls.Add(this._log,     0, 1);
+            this._logSplit.Controls.Add(this._commLog, 1, 1);
+            //
+            // _lblSeqLog / _lblCommLog
+            //
+            this._lblSeqLog.Text = "시퀀서 로그";
+            this._lblSeqLog.Dock = DockStyle.Fill;
+            this._lblSeqLog.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblSeqLog.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this._lblSeqLog.ForeColor = Color.FromArgb(180, 255, 180);
+            this._lblSeqLog.BackColor = Color.FromArgb(24, 24, 24);
+            this._lblSeqLog.Padding = new Padding(6, 0, 0, 0);
+            this._lblCommLog.Text = "통신 로그";
+            this._lblCommLog.Dock = DockStyle.Fill;
+            this._lblCommLog.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblCommLog.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this._lblCommLog.ForeColor = Color.FromArgb(170, 210, 255);
+            this._lblCommLog.BackColor = Color.FromArgb(24, 24, 24);
+            this._lblCommLog.Padding = new Padding(6, 0, 0, 0);
+            //
             // _log
             //
             this._log.Dock = DockStyle.Fill;
@@ -189,6 +228,19 @@ namespace QMC.Vision.Ui.Pages
             this._log.ForeColor = Color.FromArgb(180, 255, 180);
             this._log.Font = new Font("Consolas", 9.5F);
             this._log.Name = "_log";
+            this._log.Margin = new Padding(0, 0, 3, 0);
+            //
+            // _commLog — 핸들러↔비전 TCP RX/TX (VisionCommLog 폴링, CommLink 페이지와 동일 소스)
+            //
+            this._commLog.Dock = DockStyle.Fill;
+            this._commLog.Multiline = true;
+            this._commLog.ReadOnly = true;
+            this._commLog.ScrollBars = ScrollBars.Vertical;
+            this._commLog.BackColor = Color.FromArgb(24, 24, 24);
+            this._commLog.ForeColor = Color.FromArgb(170, 210, 255);
+            this._commLog.Font = new Font("Consolas", 9.5F);
+            this._commLog.Name = "_commLog";
+            this._commLog.Margin = new Padding(3, 0, 0, 0);
             //
             // SequencerPage
             //

@@ -116,6 +116,9 @@ namespace QMC.Vision.Config
             // 신규 키 — 구 json 에 없으면 빈 리스트(DataContractJsonSerializer 는 이니셜라이저 미실행).
             AutoFocusRois        = new List<AutoFocusRoiSet>();
             AutoFocusUseCuda     = true;   // 구 json 에 없으면 기본 CUDA 선호(가용 시)
+            // 구 json 에 키가 아예 없으면 새 고정 기본 경로 사용(이니셜라이저 미실행 보완).
+            ImageLogPath         = DefaultImageLogPath;
+            DataLogPath          = DefaultDataLogPath;
         }
 
         [OnDeserialized]
@@ -138,10 +141,27 @@ namespace QMC.Vision.Config
             if (BinViewerPort        <= 0) BinViewerPort        = 5203;
             if (FrontSideViewerPort  <= 0) FrontSideViewerPort  = 5205;
             if (RearSideViewerPort   <= 0) RearSideViewerPort   = 5206;
+
+            // 구 기본값(.\Log\Image / .\Log\Data 상대경로)은 사용자 지정이 아니므로 새 고정 기본 경로로 이전.
+            if (string.IsNullOrWhiteSpace(ImageLogPath) || string.Equals(ImageLogPath, @".\Log\Image", StringComparison.OrdinalIgnoreCase))
+                ImageLogPath = DefaultImageLogPath;
+            if (string.IsNullOrWhiteSpace(DataLogPath) || string.Equals(DataLogPath, @".\Log\Data", StringComparison.OrdinalIgnoreCase))
+                DataLogPath = DefaultDataLogPath;
         }
 
-        [DataMember] public string ImageLogPath             { get; set; } = @".\Log\Image";
+        /// <summary>검사 이미지 저장 루트. 비우면 기본 <see cref="DefaultImageLogPath"/>.
+        /// 하위에 날짜(yyyy-MM-dd)\chipUid 폴더로 저장(<see cref="Core.ImageLogSaver"/>). 폴더 없으면 자동 생성.</summary>
+        [DataMember] public string ImageLogPath             { get; set; } = DefaultImageLogPath;
         [DataMember] public bool   ImageLogEnable           { get; set; } = false;
+
+        /// <summary>ImageLogPath 미지정 시 사용할 고정 기본 이미지 저장 루트.</summary>
+        public const string DefaultImageLogPath = @"D:\CDT-320\Image";
+
+        /// <summary>실제 적용할 이미지 저장 루트(설정값 우선, 비우면 기본 고정 경로).</summary>
+        public string EffectiveImageLogPath
+        {
+            get { return string.IsNullOrWhiteSpace(ImageLogPath) ? DefaultImageLogPath : ImageLogPath; }
+        }
 
         /// <summary>측정 표시 단위 — true=mm(카메라 ScaleX/Y로 환산), false=px. 전역(GENERAL) 설정, 모든 레시피/검사/차트 공통.</summary>
         [DataMember] public bool   DisplayMm                { get; set; } = true;
@@ -209,7 +229,19 @@ namespace QMC.Vision.Config
 
         // ── 데이터 로그 ──
         [DataMember] public bool   DataLogEnable            { get; set; } = true;
-        [DataMember] public string DataLogPath              { get; set; } = @".\Log\Data";
+        /// <summary>검사 데이터 저장 루트. 비우면 기본 <see cref="DefaultDataLogPath"/>.
+        /// 다이별 일자 CSV(vision_yyyyMMdd.csv, <see cref="Core.DataLogSaver"/>)와 웨이퍼 완료 스냅샷
+        /// (yyyy-MM-dd\모드_레시피_HHmmss.csv, <see cref="Core.WaferDataSaver"/>)을 이 아래에 저장. 폴더 없으면 자동 생성.</summary>
+        [DataMember] public string DataLogPath              { get; set; } = DefaultDataLogPath;
+
+        /// <summary>DataLogPath 미지정 시 사용할 고정 기본 데이터 저장 루트.</summary>
+        public const string DefaultDataLogPath = @"D:\CDT-320\Data";
+
+        /// <summary>실제 적용할 데이터 저장 루트(설정값 우선, 비우면 기본 고정 경로).</summary>
+        public string EffectiveDataLogPath
+        {
+            get { return string.IsNullOrWhiteSpace(DataLogPath) ? DefaultDataLogPath : DataLogPath; }
+        }
 
         // ── 리소스(CPU/메모리) 모니터 로그 — PC 사양 산정용. 켜면 1초 간격 CSV 기록.
         [DataMember] public bool   ResourceLogEnable        { get; set; } = false;
@@ -226,7 +258,7 @@ namespace QMC.Vision.Config
 
         public static VisionSettings Load()
         {
-            if (!File.Exists(Path_)) { Current = new VisionSettings(); Save(); return Current; }
+            if (!File.Exists(Path_)) { Current = new VisionSettings(); Save(); TryEnsureStorageFolders(Current); return Current; }
             try
             {
                 using (var fs = File.OpenRead(Path_))
@@ -238,7 +270,19 @@ namespace QMC.Vision.Config
             catch { Current = new VisionSettings(); }
             // Stage 63 — OnDeserialized 가 구 포트 키를 새 프로퍼티로 옮겼을 수 있음 → 정규화 재저장.
             Save();
+            TryEnsureStorageFolders(Current);
             return Current;
+        }
+
+        /// <summary>이미지/데이터 저장 루트 폴더가 없으면 생성. 실패(드라이브 미존재 등)는 로그만 남기고
+        /// 각 저장기(ImageLogSaver/DataLogSaver/WaferDataSaver)가 저장 시점에 다시 생성 시도한다.</summary>
+        private static void TryEnsureStorageFolders(VisionSettings s)
+        {
+            if (s == null) return;
+            try { Directory.CreateDirectory(s.EffectiveImageLogPath); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionConfig] 이미지 저장 폴더 생성 실패: " + s.EffectiveImageLogPath + " — " + ex.Message); }
+            try { Directory.CreateDirectory(s.EffectiveDataLogPath); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionConfig] 데이터 저장 폴더 생성 실패: " + s.EffectiveDataLogPath + " — " + ex.Message); }
         }
 
         public static void Save()

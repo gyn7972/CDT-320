@@ -65,6 +65,7 @@
     <Compile Include="Sequencing\Common\VisionSelfRunTcpState.cs" />
     <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
     <Compile Include="Equipment\Core\AlignAngleEstimator.cs" />
+    <Compile Include="Equipment\Core\PendingGrabStore.cs" />
     <Compile Include="Sequencing\Common\SequenceToolCatalog.cs" />
     <Compile Include="Sequencing\Common\ToolSequence.cs" />
     <Compile Include="Sequencing\Common\ModuleSequenceBase.cs" />
@@ -130,6 +131,8 @@
     <Compile Include="Equipment\Core\ActiveRecipeContext.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
     <Compile Include="Equipment\Core\DataLogSaver.cs" />
+    <Compile Include="Equipment\Core\DataSaveQueue.cs" />
+    <Compile Include="Equipment\Core\WaferDataSaver.cs" />
     <Compile Include="Equipment\Cameras\Sim\SimCamera.cs" />
     <Compile Include="Equipment\Cameras\Hik\HikMvsDll.cs" />
     <Compile Include="Equipment\Cameras\Hik\HikGigECamera.cs" />
@@ -345,6 +348,7 @@
     <Compile Include="Equipment\DieMaps\PickupSubset.cs" />
     <Compile Include="Equipment\DieMaps\PickupSequenceGenerator.cs" />
     <Compile Include="Equipment\DieMaps\DieMapBuilder.cs" />
+    <Compile Include="Equipment\DieMaps\PickupOrderResolver.cs" />
     <Compile Include="Equipment\DieMaps\TapeFrameSpec.cs" />
     <Compile Include="Ui\Controls\DieMapView.cs">
       <SubType>Component</SubType>

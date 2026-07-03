@@ -57,8 +57,6 @@ namespace QMC.Vision.Sequencing
         private const int DieIndexX = 27;
         private int _dieSeq;
         private int _curPicker, _curDie;   // 직전 스텝의 픽업/다이(로그 표시용)
-        private List<int[]> _pickupOrder;  // 픽업 순서대로의 다이 좌표 {DieMapX, DieMapY}
-        private string _pickupOrderKey;    // 캐시 무효화 키(레시피 사양/픽업 옵션 변경 감지)
         private int _lastWaferPass = -1;   // 직전 웨이퍼 패스 번호((seq-1)/순서수). 바뀌면 새 웨이퍼.
 
         /// <summary>직전 사이클 소요(ms).</summary>
@@ -104,7 +102,7 @@ namespace QMC.Vision.Sequencing
 
                 string chipUid = ResolveChipUid();
 
-                if (grab)
+                if (grab && !IsBottomInspect())   // Bottom 은 INSPECTASYNC 가 픽커별로 그랩하므로 선행 GRAB 스킵(중복 방지)
                 {
                     string g = Context.Dispatch(Module, "GRAB", null);
                     if (IsExecFail(g))
@@ -142,9 +140,45 @@ namespace QMC.Vision.Sequencing
                     QMC.Vision.Core.VisionCommandCore.SetInspectContext(Module.Name, 0, -1, 0, 0);   // 컨텍스트 리셋
                     result = last;
                 }
-                else if (IsBottomInspect() || IsBinInspect())
+                else if (IsBottomInspect())
                 {
-                    // 바텀/Die gap(Bin)도 픽업 1→2→3→4 순환(스텝당 다이 1개) — 레시피 픽업 순서의 다이 좌표를 컨텍스트로 부여.
+                    // ── Sim==Real 병렬 경로 ── 실제 핸들러 플로우와 동일하게:
+                    //  픽커 1~N 을 INSPECTASYNC(그랩만, picker 번호 포함)로 연속 전송 → N번째 그랩에서
+                    //  백엔드가 자동 병렬 검사 시작 → INSPECTRESULT 로 픽커별 결과 폴링.
+                    int n = BatchPickerCount();
+                    var pk = new int[n]; var cu = new string[n]; var dq = new int[n];
+                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
+                    {
+                        int seq = ++_dieSeq;
+                        MaybeClearForNewWafer(seq);
+                        int picker = ((seq - 1) % 4) + 1;
+                        int ix, iy; NextPickupCell(seq, out ix, out iy);
+                        pk[i] = picker; dq[i] = seq;
+                        string uid = ResolveChipUid(ix, iy);    // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
+                        if (string.IsNullOrEmpty(uid))
+                            uid = seq.ToString();   // die_index 를 그대로 키로 사용(요청마다 유니크·짧음). 실기는 핸들러 자재 ID 자리.
+                        cu[i] = uid;
+                        // INSPECTASYNC = 그랩만 보관(검사 X). 형식: inspector|picker_id|chip_uid[|die_index].
+                        // uid 가 숫자(=die_index)면 서버가 그대로 인덱스로 해석하므로 4번째 필드 생략.
+                        // uid 가 다이 문자열(SIM-W..)이면 die_index 를 별도로 실어 맵 매칭을 보장한다.
+                        var aa = uid == seq.ToString()
+                            ? new[] { ToolId, picker.ToString(), uid }
+                            : new[] { ToolId, picker.ToString(), uid, seq.ToString() };
+                        Context.Dispatch(Module, "INSPECTASYNC", aa);
+                    }
+                    // N개 그랩 완료 → 백엔드 자동 병렬 처리. 픽커별 결과 폴링 + 판정 로그.
+                    string last = null;
+                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
+                    {
+                        last = await PollInspectResult(cu[i], ct).ConfigureAwait(false);
+                        if (i < n - 1) { _curPicker = pk[i]; _curDie = dq[i]; Judge(last); }   // 픽커 1..N-1 로그
+                    }
+                    _curPicker = pk[n - 1]; _curDie = dq[n - 1];   // 마지막 픽커 → 아래 공통 Judge 가 로그
+                    result = last;
+                }
+                else if (IsBinInspect())
+                {
+                    // Bin(Die gap)은 픽업 1→2→3→4 순환(스텝당 다이 1개) — 동기 경로 유지.
                     int seq = ++_dieSeq;
                     MaybeClearForNewWafer(seq);   // 픽업 한 바퀴 완료 → 다음 웨이퍼면 맵/차트 초기화
                     int picker = ((seq - 1) % 4) + 1;
@@ -175,6 +209,37 @@ namespace QMC.Vision.Sequencing
                 return -1;
             }
             finally { sw.Stop(); LastCycleMs = sw.Elapsed.TotalMilliseconds; CycleCount++; }
+        }
+
+        /// <summary>한 배치에서 그랩할 픽커 수(실제 관례 = 4). TODO: 머신/설정 상수로 승격(백엔드 ExpectedPickerCount 와 일치 유지).</summary>
+        private static int BatchPickerCount() => 4;
+
+        /// <summary>INSPECTRESULT 를 완료/실패까지 폴링. 완료 "1;PASS|FAIL;.." → "PASS|FAIL;.." 로, "0"=진행중, "ERR/fail:"=실패.</summary>
+        private async Task<string> PollInspectResult(string chipUid, CancellationToken ct)
+        {
+            string[] a = string.IsNullOrEmpty(chipUid) ? new[] { ToolId } : new[] { ToolId, chipUid };
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            const int TimeoutMs = 15000;
+            // 서버가 '대기형 응답'(요청 1회=데이터 1회, 완료까지 최대 6s 서버측 대기)이므로 정상 흐름에서는
+            // 첫 요청이 곧바로 데이터("1;..")를 받는다. 아래 루프는 서버 대기 상한 만료("0") 시의 폴백
+            // 재요청 — 250ms 시작 1.5배 백오프 최대 1초(로그 홍수 방지).
+            int delayMs = 250;
+            while (!ct.IsCancellationRequested)
+            {
+                string r = Context.Dispatch(Module, "INSPECTRESULT", a);
+                if (!string.IsNullOrEmpty(r))
+                {
+                    if (r.StartsWith("fail:", StringComparison.Ordinal) || r.StartsWith("ERR", StringComparison.Ordinal))
+                        return r;                                   // 실패
+                    if (r.StartsWith("1;", StringComparison.Ordinal))
+                        return r.Substring(2);                      // 완료 → "PASS;.." / "FAIL;.."
+                    // "0" = 진행중 → 계속 폴링
+                }
+                if (sw.ElapsedMilliseconds > TimeoutMs) return "fail:inspect timeout";
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+                delayMs = Math.Min(delayMs * 3 / 2, 1000);
+            }
+            return "fail:canceled";
         }
 
         // ── 판정 ────────────────────────────────────────────────
@@ -252,65 +317,14 @@ namespace QMC.Vision.Sequencing
 
         /// <summary>
         /// 픽업 순서 상 seq(1-base) 번째 다이의 격자 좌표(IndexX/IndexY)를 돌려준다.
-        /// 활성 레시피의 InputDieMap(없으면 웨이퍼 사양으로 생성) + Pickup 옵션으로 순서를 만들고,
-        /// 순서를 넘어가면 처음부터 순환한다. 순서를 못 구하면 X 고정 + Y 증가 폴백.
+        /// 인덱스→셀 매칭은 <see cref="PickupOrderResolver"/>(활성 레시피 칩위치 기준, 서버와 공유)로 일원화.
+        /// 순서를 못 구하면 X 고정 + Y 증가 폴백.
         /// </summary>
         private void NextPickupCell(int seq, out int ix, out int iy)
         {
-            var order = EnsurePickupOrder();
-            if (order != null && order.Count > 0)
-            {
-                int idx = (seq - 1) % order.Count;
-                if (idx < 0) idx += order.Count;
-                ix = order[idx][0];
-                iy = order[idx][1];
-                return;
-            }
+            if (PickupOrderResolver.TryGetCell(seq, out ix, out iy)) return;
             ix = DieIndexX;   // 폴백(구 동작)
             iy = seq;
-        }
-
-        /// <summary>활성 레시피 기준 픽업 순서 좌표 목록(캐시). 사양/픽업 옵션 변경 시 재생성.</summary>
-        private List<int[]> EnsurePickupOrder()
-        {
-            try
-            {
-                var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
-                string key = BuildPickupKey(recipe);
-                if (_pickupOrder != null && key == _pickupOrderKey) return _pickupOrder;
-                _pickupOrderKey = key;
-                _pickupOrder = BuildPickupOrder(recipe);
-                return _pickupOrder;
-            }
-            catch
-            {
-                return _pickupOrder;
-            }
-        }
-
-        private static string BuildPickupKey(VisionMachineRecipe r)
-        {
-            if (r == null) return "";
-            string map = r.InputDieMap != null && r.InputDieMap.Entries != null
-                ? "M" + r.InputDieMap.Entries.Count + "_" + r.InputDieMap.CreatedAt.Ticks
-                : "G" + r.WaferGridX + "x" + r.WaferGridY + "_" + r.WaferPitchX + "_" + r.WaferPitchY
-                  + "_" + r.WaferOuterDiameterMm + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip;
-            var p = r.Pickup ?? new PickupSubset();
-            return map + "|" + (int)p.StartCorner + (int)p.Direction + (int)p.Pattern;
-        }
-
-        private static List<int[]> BuildPickupOrder(VisionMachineRecipe r)
-        {
-            var list = new List<int[]>();
-            if (r == null) return list;
-            DieMap map = (r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0)
-                ? r.InputDieMap
-                : DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                    r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip, "WAFER");
-            var ordered = PickupSequenceGenerator.Build(map, r.Pickup);
-            foreach (var e in ordered)
-                if (e != null) list.Add(new[] { e.DieMapX, e.DieMapY });
-            return list;
         }
 
         /// <summary>
@@ -321,8 +335,7 @@ namespace QMC.Vision.Sequencing
         {
             try
             {
-                var order = EnsurePickupOrder();
-                int count = order != null ? order.Count : 0;
+                int count = PickupOrderResolver.Count;
                 if (count <= 0) return;
                 int pass = (seq - 1) / count;
                 if (pass == _lastWaferPass) return;
