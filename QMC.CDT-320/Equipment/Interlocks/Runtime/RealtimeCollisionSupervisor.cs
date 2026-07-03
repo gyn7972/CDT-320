@@ -451,8 +451,18 @@ namespace QMC.CDT320.Interlocks
         {
             try
             {
-                if (axis != null)
-                    axis.UpdateStatus();
+                if (axis == null)
+                    return;
+
+                // 시뮬 모드에서는 UpdateStatus가 SimulateMotion으로 ActualPosition을 전진시키는 부작용이 있다.
+                // 감시 루프(10ms)가 이를 호출하면 각 축의 이동 루프와 ActualPosition을 두고 read-modify-write 레이스가 나서
+                // 이동 진행분이 덮여 오토 모션이 느려지고 끊긴다. 시뮬에서는 이동 루프가 이미 위치를 갱신하므로
+                // 감시자는 값을 읽기만 하고 UpdateStatus는 호출하지 않는다.
+                // 실장비에서는 최신 엔코더 위치가 필요하므로 UpdateStatus를 호출한다.
+                if (axis.Config != null && axis.Config.IsSimulationMode)
+                    return;
+
+                axis.UpdateStatus();
             }
             catch
             {
