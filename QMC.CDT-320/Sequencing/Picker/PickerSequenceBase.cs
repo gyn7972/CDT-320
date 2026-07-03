@@ -1385,28 +1385,35 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        // INV-7: 시작/재개 첫 이동 전, 양 픽커가 물리적으로 안전 배치(양쪽 Avoid = Y·Z Avoid, X 비대면)인지 이동 없이 확인만 한다.
-        // 사용 설정이 꺼진 픽커는 판정에서 제외한다. 미충족 시 상위(시작/재개 게이트)가 순차 Safe 정규화를 수행한다.
+        // INV-7: 시작/재개 첫 이동 전, "자기(현재 side)" 픽커가 물리적으로 안전 배치(Avoid = Y·Z·X·T Avoid)인지 이동 없이 확인만 한다.
+        // 자기 픽커만 확인하는 이유: Front/Rear 공정은 병렬로 시작되므로 "양쪽"을 확인하면 상대가 정상적으로 첫 전진을 시작한 순간
+        // 오탐(false fail)이 난다. 각 픽커가 자기 CheckUnit(첫 이동 전)에서 자기 Avoid를 확인하면 전체적으로 양쪽 Avoid가 보장된다.
+        // Start 흐름은 항상 Ready 시퀀스로 상부축을 Avoid로 정렬한 뒤 공정을 시작하므로 정상 시작에서는 통과한다.
         protected bool VerifySafeStartConfig(out string detail)
         {
             detail = string.Empty;
             try
             {
-                var problems = new System.Collections.Generic.List<string>();
+                if (Side == PickerSequenceSide.Front)
+                {
+                    bool frontEnabled = FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
+                    if (frontEnabled && !FrontPicker.IsFrontPickerInAvoidPosition())
+                    {
+                        detail = "FrontPicker가 Avoid 위치가 아닙니다.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    bool rearEnabled = RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
+                    if (rearEnabled && !RearPicker.IsRearPickerInAvoidPosition())
+                    {
+                        detail = "RearPicker가 Avoid 위치가 아닙니다.";
+                        return false;
+                    }
+                }
 
-                bool frontEnabled = FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
-                if (frontEnabled && !FrontPicker.IsFrontPickerInAvoidPosition())
-                    problems.Add("FrontPicker가 Avoid 위치가 아닙니다.");
-
-                bool rearEnabled = RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
-                if (rearEnabled && !RearPicker.IsRearPickerInAvoidPosition())
-                    problems.Add("RearPicker가 Avoid 위치가 아닙니다.");
-
-                if (problems.Count == 0)
-                    return true;
-
-                detail = string.Join("; ", problems.ToArray());
-                return false;
+                return true;
             }
             catch (Exception ex)
             {

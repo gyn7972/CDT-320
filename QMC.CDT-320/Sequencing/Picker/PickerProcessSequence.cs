@@ -259,20 +259,21 @@ namespace QMC.CDT320.Sequencing
             if (!string.IsNullOrWhiteSpace(axisReason))
                 return Fail("PICKER-AXIS-NOT-READY", Name, "Picker 축 준비 상태가 아닙니다. side=" + Side + ", reason=" + axisReason);
 
-            // INV-7: 시작/재개 첫 이동 전, 양 픽커가 안전 배치(양쪽 Avoid = Y·Z Avoid, X 비대면)인지 확인만 한다(이동 없음).
-            // 정상 시작에서는 상부축이 항상 Avoid이므로 Ok가 기대된다. 어긋나면 재개 첫 이동 전 정규화가 필요함을 로그로 남긴다.
+            // INV-7: 시작/재개 첫 이동 전, 자기 픽커가 Avoid 안전 배치인지 확인한다(이동 없음).
+            // 정책: 어긋나면 자동 후퇴하지 않고 현재 상태에서 정지(알람)한다. 작업자가 START를 다시 누르면
+            //       StartAsync가 Ready 시퀀스로 상부축(픽커/카메라)을 전부 Avoid로 정렬한 뒤 공정을 다시 시작한다.
+            //       Start 전 Ready가 항상 선행되므로 정상 시작/재개에서는 이 검사가 통과한다.
             string startSafeDetail;
-            if (VerifySafeStartConfig(out startSafeDetail))
+            if (!VerifySafeStartConfig(out startSafeDetail))
             {
-                WriteLog("PickerProcessSequence",
-                    Name + " 시작/재개 안전 배치 확인 완료. 양 픽커가 Avoid 위치입니다. side=" + Side + " - Ok");
+                return Fail("PICKER-START-NOT-SAFE", Name,
+                    "시작/재개 전 안전 배치 확인 실패. 상부 Picker가 Avoid 위치가 아닙니다. " +
+                    "정지 후 START를 다시 누르면 Ready 시퀀스가 상부축을 Avoid로 정렬한 뒤 진행합니다. " +
+                    "side=" + Side + ", detail=" + startSafeDetail);
             }
-            else
-            {
-                WriteLog("PickerProcessSequence",
-                    Name + " 시작/재개 안전 배치 확인: 양 픽커가 Avoid 위치가 아닙니다. 재개 첫 전진 전 Avoid 정규화가 필요합니다. " +
-                    "side=" + Side + ", detail=" + startSafeDetail + " - Check");
-            }
+
+            WriteLog("PickerProcessSequence",
+                Name + " 시작/재개 안전 배치 확인 완료. 자기 Picker가 Avoid 위치입니다. side=" + Side + " - Ok");
 
             return ResolveNextProcessStepFromMaterial();
         }
