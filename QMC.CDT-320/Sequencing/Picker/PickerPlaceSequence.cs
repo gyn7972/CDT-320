@@ -58,7 +58,7 @@ namespace QMC.CDT320.Sequencing
                 ReleaseOutputPlaceArea();
                 ReleaseOutputStageArea();
                 ReleaseOutputFeederArea();
-                EndOutputPostPlaceInspectionBatch();
+                CancelOutputPostPlaceInspectionBatch("Place 시퀀스 Abort");
                 CurrentStep = PickerPlaceStep.Complete;
             }
             catch
@@ -123,7 +123,10 @@ namespace QMC.CDT320.Sequencing
                     ReleaseOutputPlaceArea();
                     ReleaseOutputStageArea();
                     ReleaseOutputFeederArea();
-                    EndOutputPostPlaceInspectionBatch();
+                    if (CurrentStep == PickerPlaceStep.Complete)
+                        EndOutputPostPlaceInspectionBatch();
+                    else
+                        CancelOutputPostPlaceInspectionBatch("Place 시퀀스가 완료되기 전에 종료됨. step=" + CurrentStep);
                 }
             }
         }
@@ -253,7 +256,9 @@ namespace QMC.CDT320.Sequencing
             }
 
             if (OutputStage == null)
+            {
                 return Fail("PICKER-PLACE-OUTPUT-STAGE-MISSING", "OutputStage", "OutputStageUnit is null.");
+            }
 
             string axisReason = BuildRequiredPickerAxesReason();
             if (!string.IsNullOrWhiteSpace(axisReason))
@@ -2546,6 +2551,31 @@ namespace QMC.CDT320.Sequencing
                 WriteLog("PickerPlaceSequence",
                     Name + " Output camera 후검사 묶음 종료 처리 중 예외가 발생했습니다. error=" +
                     ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void CancelOutputPostPlaceInspectionBatch(string reason)
+        {
+            try
+            {
+                if (!_outputInspectBatchOpen)
+                    return;
+
+                _outputInspectBatchOpen = false;
+
+                if (Context == null || Context.OutputPostPlaceInspections == null)
+                    return;
+
+                Context.OutputPostPlaceInspections.CancelBatch(Name, reason);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " Output camera 후검사 묶음 취소 처리 중 예외가 발생했습니다. reason=" +
+                    reason + ", error=" + ex.Message + " - Failed");
             }
             finally
             {

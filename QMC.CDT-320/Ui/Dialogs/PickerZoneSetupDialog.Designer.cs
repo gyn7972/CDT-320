@@ -183,7 +183,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.lblXClearance.Name = "lblXClearance";
             this.lblXClearance.Size = new System.Drawing.Size(96, 22);
             this.lblXClearance.TabIndex = 5;
-            this.lblXClearance.Text = "X Clearance";
+            this.lblXClearance.Text = "Facing X";
             this.lblXClearance.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // txtXClearance

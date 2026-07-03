@@ -662,7 +662,8 @@ namespace QMC.Common.Motion
                 if (!VerifyMotionGuard(target, AxisMotionGuardKind.JogStep))
                     return -1;
 
-                return await MoveRelativeAsync(distance, vel);
+                using (BeginMotionGuardBypass())
+                    return await MoveRelativeAsync(distance, vel);
             }
             catch (Exception)
             {

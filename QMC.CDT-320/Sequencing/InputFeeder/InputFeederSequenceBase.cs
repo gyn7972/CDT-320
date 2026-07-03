@@ -42,6 +42,9 @@ namespace QMC.CDT320.Sequencing
         {
             Options = options ?? InputFeederSequenceOptions.Default();
             using (SequenceLog.Push(QMC.Common.Logging.EventKind.InputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
                 CurrentStep = ResolveStartStep(InitialStep);

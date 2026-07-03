@@ -215,16 +215,10 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsColletCalibrationBottomMove(MotionGuardRuleContext request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
-                return false;
-
-            string name = request.TargetName;
-            if (name.IndexOf("ColletCalibration", System.StringComparison.OrdinalIgnoreCase) < 0)
-                return false;
-
-            return name.IndexOf("PickerZone=Bottom", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   name.IndexOf("BottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   name.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            return request != null &&
+                   request.Intent != null &&
+                   request.Intent.ColletCalibration &&
+                   request.Intent.PickerZone == PickerWorkZone.Bottom;
         }
 
         private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, MotionGuardRuleContext request, out string reason)
@@ -256,15 +250,12 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsInspectionZHoldMove(MotionGuardRuleContext request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+            if (request == null || request.Intent == null || !request.Intent.InspectionZHold)
                 return false;
 
-            if (request.TargetName.IndexOf("PickerPhase=InspectionZHold", System.StringComparison.OrdinalIgnoreCase) < 0)
-                return false;
-
-            return request.TargetName.IndexOf("DieBottomPosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   request.TargetName.IndexOf("DieSidePosition", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   request.TargetName.IndexOf("DiePlacePosition", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            return request.Intent.PickerZone == PickerWorkZone.Bottom ||
+                   request.Intent.PickerZone == PickerWorkZone.Side ||
+                   request.Intent.PickerZone == PickerWorkZone.Output;
         }
 
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
@@ -676,17 +667,8 @@ namespace QMC.CDT320.Interlocks
 
         private static PickerWorkZone ResolvePickerZTargetZone(MotionGuardRuleContext request)
         {
-            string name = request != null ? request.TargetName ?? string.Empty : string.Empty;
-            if (Contains(name, "PickerZone=Input") || Contains(name, "DiePick") || Contains(name, "PickPosition"))
-                return PickerWorkZone.Input;
-            if (Contains(name, "PickerZone=Output") || Contains(name, "DiePlace") || Contains(name, "PlacePosition"))
-                return PickerWorkZone.Output;
-            if (Contains(name, "PickerZone=Bottom") || Contains(name, "DieBottom") || Contains(name, "BottomPosition"))
-                return PickerWorkZone.Bottom;
-            if (Contains(name, "PickerZone=Side") || Contains(name, "DieSide") || Contains(name, "SidePosition"))
-                return PickerWorkZone.Side;
-            if (Contains(name, "PickerZone=Avoid") || Contains(name, "AvoidPosition") || Contains(name, "SafeRetreat"))
-                return PickerWorkZone.Avoid;
+            if (request != null && request.Intent != null)
+                return request.Intent.PickerZone;
 
             return PickerWorkZone.Unknown;
         }

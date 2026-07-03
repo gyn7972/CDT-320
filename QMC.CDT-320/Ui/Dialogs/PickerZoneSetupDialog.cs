@@ -90,11 +90,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
-                EditPositiveDistance(txtXClearance, "Picker X Clearance", "Picker X 안전거리 값이 올바르지 않습니다.");
+                EditPositiveDistance(
+                    txtXClearance,
+                    "Front/Rear Picker Facing X",
+                    "Front/Rear PickerY 동시 전진 금지 X거리 값이 올바르지 않습니다.");
             }
             catch (Exception ex)
             {
-                MessageDialog.Show("Picker X 안전거리 수정 실패: " + ex.Message, "Picker Zone",
+                MessageDialog.Show("Front/Rear PickerY 동시 전진 금지 X거리 수정 실패: " + ex.Message, "Picker Zone",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally

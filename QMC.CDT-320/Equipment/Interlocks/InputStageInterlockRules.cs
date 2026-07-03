@@ -931,7 +931,7 @@ namespace QMC.CDT320.Interlocks
                 if (stage != null && !stage.IsNeedleZInSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "NeedleX",
-                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        "NeedleX manual move blocked. NeedleZ must be at Avoid position.",
                         out reason);
 
                 return true;
@@ -940,7 +940,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "NeedleX",
-                    "Exception occurred while verifying NeedleX home rules: " + ex.Message,
+                    "Exception occurred while verifying NeedleX manual move rules: " + ex.Message,
                     out reason);
             }
             finally
@@ -1077,8 +1077,7 @@ namespace QMC.CDT320.Interlocks
             if (request == null)
                 return false;
 
-            string targetName = MotionGuardRuleHelpers.NormalizeTargetName(request.TargetName);
-            return string.Equals(targetName, "ContinuousJog", System.StringComparison.OrdinalIgnoreCase);
+            return request.Intent != null && request.Intent.ContinuousJog;
         }
 
         private static bool VerifyInputStageWorkArea(MotionGuardRuleContext request, WaferStageAxis axis, string movingName, out string reason)
@@ -1136,25 +1135,11 @@ namespace QMC.CDT320.Interlocks
             workAreaX = 0.0;
             try
             {
-                if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                if (request == null || request.Intent == null || !request.Intent.InputStageWorkAreaX.HasValue)
                     return false;
 
-                const string key = "InputStageWorkAreaX=";
-                int index = request.TargetName.IndexOf(key, System.StringComparison.OrdinalIgnoreCase);
-                if (index < 0)
-                    return false;
-
-                int valueStart = index + key.Length;
-                int valueEnd = request.TargetName.IndexOf(';', valueStart);
-                string value = valueEnd >= valueStart
-                    ? request.TargetName.Substring(valueStart, valueEnd - valueStart)
-                    : request.TargetName.Substring(valueStart);
-
-                return double.TryParse(
-                    value,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out workAreaX);
+                workAreaX = request.Intent.InputStageWorkAreaX.Value;
+                return true;
             }
             catch
             {

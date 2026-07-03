@@ -43,6 +43,9 @@ namespace QMC.CDT320.Sequencing
         {
             // 이 유닛(및 하위 시퀀스)의 모든 공개 로그를 유닛 종류에 맞는 EventKind 로 분류한다.
             using (SequenceLog.Push(SequenceLog.FromUnitKind(Kind), Name, null, GetType().Name, Mode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Mode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Mode))
             {
                 SequenceActivityMonitor activity = Context.Activity;
                 string baseAction = Mode == SequenceRunMode.Auto ? "자동 시퀀스 실행" : "수동/스텝 시퀀스 실행";

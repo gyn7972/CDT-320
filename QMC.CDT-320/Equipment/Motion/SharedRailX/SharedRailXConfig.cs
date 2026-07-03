@@ -43,6 +43,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return this;
             if (IsInputOutputVisionPair(axisA, axisB))
                 return this;
+            if (IsFrontRearPickerPair(axisA, axisB))
+                return this;
             if (IsCollisionPairEnabled(axisA, axisB))
                 return this;
 
@@ -55,6 +57,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (axisA == axisB)
                 return false;
             if (IsInputOutputVisionPair(axisA, axisB))
+                return false;
+            if (IsFrontRearPickerPair(axisA, axisB))
                 return false;
             if (CollisionPairs == null || CollisionPairs.Count == 0)
                 return false;
@@ -72,6 +76,7 @@ namespace QMC.CDT320.Motion.SharedRailX
         {
             matchedPair = default(SharedRailXAxisPair);
             if (axisA == axisB || IsInputOutputVisionPair(axisA, axisB) ||
+                IsFrontRearPickerPair(axisA, axisB) ||
                 CollisionPairs == null || CollisionPairs.Count == 0)
             {
                 return false;
@@ -93,6 +98,12 @@ namespace QMC.CDT320.Motion.SharedRailX
         {
             return (axisA == SharedRailXAxis.InputVisionX && axisB == SharedRailXAxis.OutputVisionX) ||
                    (axisA == SharedRailXAxis.OutputVisionX && axisB == SharedRailXAxis.InputVisionX);
+        }
+
+        private static bool IsFrontRearPickerPair(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            return (axisA == SharedRailXAxis.FrontPickerX && axisB == SharedRailXAxis.RearPickerX) ||
+                   (axisA == SharedRailXAxis.RearPickerX && axisB == SharedRailXAxis.FrontPickerX);
         }
 
         public static SharedRailXConfig CreateDefault()

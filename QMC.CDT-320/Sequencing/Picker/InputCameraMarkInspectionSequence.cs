@@ -173,9 +173,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int acquireResult = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
-                if (acquireResult != 0)
-                    return acquireResult;
+                if (!IsInputCameraPreInspectionMode())
+                {
+                    int acquireResult = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
+                    if (acquireResult != 0)
+                        return acquireResult;
+                }
+                else
+                {
+                    WriteLog("InputCameraMarkInspectionSequence",
+                        Name + " InputCamera 선행검사 모드: Picker/Input 영역 대기 중에는 InputStageArea를 점유하지 않고 실제 Stage/Vision 이동 시점에만 점유합니다. side=" +
+                        Side + " - Check");
+                }
 
                 InputDieVisionPrepareSequence prepareSequence = new InputDieVisionPrepareSequence(
                     Context,
@@ -283,6 +292,13 @@ namespace QMC.CDT320.Sequencing
                     return Fail("INPUT-CAMERA-MARK-INSPECTION-STAGE-RECIPE", stage.Name,
                         "InputStage recipe is missing. InputVisionX avoid cannot run.");
 
+                if (IsInputCameraPreInspectionMode())
+                {
+                    int acquireResult = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
+                    if (acquireResult != 0)
+                        return acquireResult;
+                }
+
                 stage.Recipe.EnsurePositionObjects();
                 double avoid = stage.Recipe.VisionX.AvoidPosition;
                 if (!stage.IsVisionXInAvoidPosition())
@@ -358,6 +374,13 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool IsInputCameraPreInspectionMode()
+        {
+            return Options != null &&
+                   Options.RunMode == SequenceRunMode.Auto &&
+                   Options.InputCameraPreInspectionMode;
         }
     }
 }

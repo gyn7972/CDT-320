@@ -181,6 +181,46 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        /// <summary>
+        /// 실제 이동을 발행하지 않고(부작용 없음) 지정한 Teaching 이동이 지금 MotionGuard 전체 판정을 통과하는지 확인한다.
+        /// 대기 폴링과 실제 이동이 동일한 인터락 규칙(PickerZone·SharedRailX 포함)을 공유하도록 하기 위한 dry-run 판정이다.
+        /// 실제 이동 경로와 달리 알람을 발생시키지 않고 Blocked 로그도 남기지 않는다.
+        /// </summary>
+        public static bool CanAxisTeachingMove(BaseAxis axis, double targetPosition, string targetName, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (!Enabled || axis == null)
+                    return true;
+
+                if (IsAxisAlreadyAtTarget(axis, targetPosition))
+                    return true;
+
+                MotionGuardService service = GetService();
+                MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
+                MotionGuardResult result = service.VerifyAxisTeachingMove(
+                    axis,
+                    targetPosition,
+                    targetName,
+                    context,
+                    ResolveExecutionMode());
+                if (result == null)
+                    return true;
+
+                reason = result.Message ?? "";
+                return result.Allowed;
+            }
+            catch (Exception ex)
+            {
+                reason = "Motion guard dry-run 예외. axis=" + (axis != null ? axis.Name : "") + ", error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool VerifyAxisHome(BaseAxis axis, out string reason)
         {
             reason = "";
@@ -268,6 +308,23 @@ namespace QMC.CDT320.Interlocks
                 reason,
                 previous);
             return new ExecutionModeScopeToken(previous);
+        }
+
+        public static IDisposable BeginAutoSequenceProcessMove(string reason)
+        {
+            ExecutionModeScope previous = CurrentExecutionModeScope.Value;
+            CurrentExecutionModeScope.Value = new ExecutionModeScope(
+                MotionGuardExecutionMode.AutoSequenceProcess,
+                reason,
+                previous);
+            return new ExecutionModeScopeToken(previous);
+        }
+
+        public static IDisposable BeginSequenceProcessMove(bool autoMode, string reason)
+        {
+            return autoMode
+                ? BeginAutoSequenceProcessMove(reason)
+                : BeginManualSequenceProcessMove(reason);
         }
 
         public static void Reload()

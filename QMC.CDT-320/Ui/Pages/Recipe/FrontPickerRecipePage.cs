@@ -1,6 +1,7 @@
 ﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
@@ -946,7 +947,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 Cursor = Cursors.WaitCursor;
                 lastAbortReason = null;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("FrontPickerRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER", actionName + " result=" + result);
                 if (result != 0)
                 {

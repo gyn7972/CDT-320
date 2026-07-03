@@ -958,7 +958,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 Cursor = Cursors.WaitCursor;
                 _lastAbortReason = null;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("OutputStageRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 EventLogger.Write(EventKind.Event, "UI", "OUTPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
                 {

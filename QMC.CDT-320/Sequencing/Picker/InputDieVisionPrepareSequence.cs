@@ -24,6 +24,7 @@ namespace QMC.CDT320.Sequencing
         private VisionAlignResult _visionOffset;
         private InputDieVisionPreparedItem _currentItem;
         private bool _completedSuccessfully;
+        private SequenceResourceLease _preInspectionInputStageLease;
 
         public InputDieVisionPrepareSequence(
             MachineSequenceContext context,
@@ -78,6 +79,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ReleasePreInspectionInputStageArea();
                 if (!_completedSuccessfully)
                     ReleasePreparedReservationsIfNeeded();
             }
@@ -329,30 +331,17 @@ namespace QMC.CDT320.Sequencing
 
                 if (IsInputCameraPreInspectionMode())
                 {
-                    if (_preInspectionOccupiedPickerNos.Contains(_currentPickerNo))
-                    {
-                        int waitResult = await WaitPickerInputZonesClearForPreInspectionAsync(ct).ConfigureAwait(false);
-                        if (waitResult != 0)
-                            return waitResult;
+                    int waitResult = await WaitPickerInputZonesClearForPreInspectionAsync(ct).ConfigureAwait(false);
+                    if (waitResult != 0)
+                        return waitResult;
 
-                        WriteLog("InputDieVisionPrepareSequence",
-                            Name + " InputCamera 선행검사 모드: Die를 들고 있는 picker는 이동하지 않고 InputVision 검사만 진행합니다. " +
-                            "pickerNo=" + _currentPickerNo + ", die=" + _currentDieId + " - Check");
-                    }
-                    else
-                    {
-                        int avoidResult = await MoveCurrentPickerToAvoidAndVerifyAsync(
-                            "InputCamera 선행검사 전 빈 Picker Avoid",
-                            ct).ConfigureAwait(false);
-                        if (avoidResult != 0)
-                            return avoidResult;
-
-                        avoidResult = await WaitOppositePickerInputZoneClearAsync(
-                            "InputCamera 선행검사 전 상대 Picker Input 영역 확인",
-                            ct).ConfigureAwait(false);
-                        if (avoidResult != 0)
-                            return avoidResult;
-                    }
+                    WriteLog("InputDieVisionPrepareSequence",
+                        Name + " InputCamera 선행검사 모드: Picker X/Y를 직접 Avoid 이동하지 않고 Input 영역 이탈만 확인합니다. " +
+                        "Place/Bottom/Side 진행 중인 같은 PickerX 명령을 덮어쓰지 않기 위한 안전 동작입니다. " +
+                        "pickerNo=" + _currentPickerNo +
+                        ", die=" + _currentDieId +
+                        ", occupiedAtBatch=" + _preInspectionOccupiedPickerNos.Contains(_currentPickerNo) +
+                        ", side=" + Side + " - Check");
 
                     CurrentStep = InputDieVisionPrepareStep.MoveInputStageAndVisionToDie;
                     return 0;
@@ -398,6 +387,18 @@ namespace QMC.CDT320.Sequencing
                 int pickerClearResult = await WaitFrontRearPickerInputZonesClearBeforeVisionAsync(ct).ConfigureAwait(false);
                 if (pickerClearResult != 0)
                     return pickerClearResult;
+
+                int permissionClearResult = await WaitInputCameraPickUpPermissionsClearForPreInspectionAsync(ct).ConfigureAwait(false);
+                if (permissionClearResult != 0)
+                    return permissionClearResult;
+
+                int acquireResult = await AcquirePreInspectionInputStageAreaIfNeededAsync(ct).ConfigureAwait(false);
+                if (acquireResult != 0)
+                    return acquireResult;
+
+                permissionClearResult = await WaitInputCameraPickUpPermissionsClearForPreInspectionAsync(ct).ConfigureAwait(false);
+                if (permissionClearResult != 0)
+                    return permissionClearResult;
 
                 if (_pickTarget == null)
                     return Fail("INPUT-DIE-VISION-PREPARE-DIE-TARGET", "Material",
@@ -565,6 +566,7 @@ namespace QMC.CDT320.Sequencing
 
                 SaveCurrentStateToItem();
                 _inspectionCursor++;
+                ReleasePreInspectionInputStageArea();
                 CurrentStep = InputDieVisionPrepareStep.SelectNextInspectionTarget;
                 return 0;
             }
@@ -788,6 +790,67 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("INPUT-DIE-VISION-PREPARE-PRE-INSPECTION-WAIT-EX", Name,
                     "InputCamera 선행검사 Input 영역 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+        }
+
+        private async Task<int> WaitInputCameraPickUpPermissionsClearForPreInspectionAsync(CancellationToken ct)
+        {
+            if (!IsInputCameraPreInspectionMode())
+                return 0;
+
+            try
+            {
+                bool waitLogged = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".InputCameraPickUpPermissionClear");
+
+                    string pendingPermissionDetail;
+                    if (!InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 이동 대기 종료. PickUp 허가가 모두 소비되어 InputVisionX 이동이 가능합니다. " +
+                                "die=" + _currentDieId +
+                                ", pickerNo=" + _currentPickerNo +
+                                ", side=" + Side + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputCamera 선행검사 이동을 보류합니다. 이미 PickUp 허가가 발급되어 InputVisionX는 Avoid 위치를 유지해야 합니다. " +
+                            "pendingPermission=" + pendingPermissionDetail +
+                            ", die=" + _currentDieId +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", side=" + Side + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-PERMISSION-CLEAR-EX", Name,
+                    "InputCamera 선행검사 이동 전 PickUp 허가 상태 확인 중 예외가 발생했습니다. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
             }
         }
 
@@ -1235,6 +1298,65 @@ namespace QMC.CDT320.Sequencing
             return Options != null &&
                    Options.RunMode == SequenceRunMode.Auto &&
                    Options.InputCameraPreInspectionMode;
+        }
+
+        private async Task<int> AcquirePreInspectionInputStageAreaIfNeededAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (!IsInputCameraPreInspectionMode())
+                    return 0;
+
+                if (_preInspectionInputStageLease != null)
+                    return 0;
+
+                _preInspectionInputStageLease = await AcquireResourceAsync(
+                    SequenceResourceKind.InputStageArea,
+                    Name + ":InputCameraPreInspection:" + _currentDieId,
+                    ct).ConfigureAwait(false);
+
+                if (_preInspectionInputStageLease == null)
+                    return -1;
+
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " InputCamera 선행검사 실제 Stage/Vision 이동을 위해 InputStageArea를 점유했습니다. " +
+                    "die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", side=" + Side + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-PRE-INSPECTION-RESOURCE-EX", Name,
+                    "InputCamera 선행검사 InputStageArea 점유 중 예외가 발생했습니다. die=" + _currentDieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", error=" + ex.Message);
+            }
+        }
+
+        private void ReleasePreInspectionInputStageArea()
+        {
+            try
+            {
+                if (_preInspectionInputStageLease == null)
+                    return;
+
+                _preInspectionInputStageLease.Dispose();
+                _preInspectionInputStageLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputDieVisionPrepareSequence",
+                    Name + " InputCamera 선행검사 InputStageArea 해제 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+            }
         }
 
         private async Task<int> MoveInputStageVisionPointForPickerAsync(
@@ -1902,28 +2024,66 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 int result;
+                BaseAxis item = ResolveInputStageAxis(stage, axis);
+                string guardTargetName = "AutoInputDieVisionPrepare;Side=" + Side + ";" + axis + ";" + description;
                 if (axis == WaferStageAxis.VisionX)
                 {
-                    int sharedRailWait = await WaitInputVisionXSharedRailClearAsync(
-                        stage,
-                        target,
-                        description,
-                        ct).ConfigureAwait(false);
-                    if (sharedRailWait != 0)
-                        return sharedRailWait;
+                    bool preInspection = IsInputCameraPreInspectionMode();
+                    int interlockRetryTimeoutMs = ResolveTimeout();
+                    DateTime interlockRetryStart = DateTime.UtcNow;
 
-                    using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "AutoInputDieVisionPrepare;Side=" + Side + ";InputVisionX;" + description))
+                    while (true)
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        // FIX-A: 대기 조건 = 실제 이동에 적용될 MotionGuard 전체 판정(SharedRailX + PickerZone Input 점유)과 동일 소스.
+                        int sharedRailWait = await WaitInputVisionXSharedRailClearAsync(
+                            stage,
+                            item,
+                            target,
+                            guardTargetName,
+                            description,
+                            ct).ConfigureAwait(false);
+                        if (sharedRailWait != 0)
+                            return sharedRailWait;
+
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
+                        {
+                            result = await AwaitStepWithCancellationAsync(
+                                stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                                ct).ConfigureAwait(false);
+                        }
+
+                        // FIX-C: 대기 통과와 이동 발행 사이의 레이스로 인터락(-11)에 막히면 곧바로 Fail하지 않고
+                        //        대기 조건으로 되돌아가 재확인 후 재시도한다. 그 외 결과는 그대로 아래에서 처리.
+                        if (result != -11)
+                            break;
+
+                        // FIX-B: 선행검사(비침습 부가작업)의 협조적 인터락 차단은 본 공정을 죽이지 않는다.
+                        //        선행검사 모드는 인터락이 풀릴 때까지 계속 양보/재시도(취소로만 종료),
+                        //        일반검사 모드는 재시도 시간 초과 시 기존 Fail 처리로 진행한다.
+                        double interlockElapsedMs = (DateTime.UtcNow - interlockRetryStart).TotalMilliseconds;
+                        if (!preInspection && interlockElapsedMs >= interlockRetryTimeoutMs)
+                            break;
+
+                        WriteLog("InputDieVisionPrepareSequence",
+                            Name + " InputVisionX 이동이 인터락(-11)에 막혀 대기 후 재시도합니다. " +
+                            "target=" + target.ToString("F6") +
+                            ", description=" + description +
+                            ", preInspection=" + preInspection +
+                            ", elapsedMs=" + interlockElapsedMs.ToString("0") + " - Wait");
+
+                        await Task.Delay(20, ct).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
                     {
                         result = await AwaitStepWithCancellationAsync(
                             stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
                             ct).ConfigureAwait(false);
                     }
-                }
-                else
-                {
-                    result = await AwaitStepWithCancellationAsync(
-                        stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
-                        ct).ConfigureAwait(false);
                 }
 
                 if (result != 0)
@@ -1951,7 +2111,9 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> WaitInputVisionXSharedRailClearAsync(
             InputStageUnit stage,
+            BaseAxis visionAxis,
             double target,
+            string guardTargetName,
             string description,
             CancellationToken ct)
         {
@@ -1961,27 +2123,61 @@ namespace QMC.CDT320.Sequencing
                     return 0;
 
                 SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context != null ? Context.Machine : null);
-                if (service == null || !service.IsSharedRailAxis(stage.CameraX))
-                    return 0;
+                bool sharedRailApplicable = service != null && service.IsSharedRailAxis(stage.CameraX);
+                BaseAxis guardAxis = visionAxis ?? stage.CameraX;
+                bool preInspection = IsInputCameraPreInspectionMode();
 
                 int timeoutMs = ResolveTimeout();
                 DateTime start = DateTime.UtcNow;
                 bool waitLogged = false;
-                string reason;
+                string reason = "";
                 SequenceTrace.WaitStart("InputVisionXSharedRailClear",
                     "target=" + target.ToString("F3"),
                     "description=" + description,
                     BuildInputStageAxisState(stage, WaferStageAxis.VisionX, target));
 
-                while (!service.VerifySingleAxisMove(stage.CameraX, target, out reason))
+                while (true)
                 {
                     ct.ThrowIfCancellationRequested();
                     if (Context != null)
                         Context.StopIfCycleStopRequested(Name + ".InputVisionXSharedRailClear");
 
+                    // FIX-A: 대기 조건을 실제 이동 인터락 전체와 동일 소스로 통일한다.
+                    // 1) SharedRailX 거리 clearance, 2) MotionGuard 전체 dry-run(PickerZone Input 점유 포함).
+                    string sharedRailReason = "";
+                    bool sharedRailClear = !sharedRailApplicable ||
+                        service.VerifySingleAxisMove(stage.CameraX, target, out sharedRailReason);
+
+                    string guardReason = "";
+                    bool guardClear = MotionGuardRuntime.CanAxisTeachingMove(guardAxis, target, guardTargetName, out guardReason);
+
+                    if (sharedRailClear && guardClear)
+                        break;
+
+                    reason = !sharedRailClear
+                        ? "SharedRailX: " + sharedRailReason
+                        : "MotionGuard: " + guardReason;
+
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     if (elapsedMs >= timeoutMs)
                     {
+                        // FIX-B: 선행검사(비침습 부가작업)는 본 공정을 죽이지 않는다.
+                        // 상대 Picker가 공용 레일을 점유하는 협조적 경합이므로 인터락이 풀릴 때까지 계속 양보/대기한다(취소로만 종료).
+                        if (preInspection)
+                        {
+                            WriteLog("InputDieVisionPrepareSequence",
+                                Name + " InputCamera 선행검사 모드: InputVisionX 이동을 본 공정에 양보하고 인터락이 풀릴 때까지 계속 대기합니다. " +
+                                "target=" + target.ToString("F6") +
+                                ", description=" + description +
+                                ", elapsedMs=" + elapsedMs.ToString("0") +
+                                ", timeoutMs=" + timeoutMs +
+                                ", reason=" + reason + " - Wait");
+                            start = DateTime.UtcNow;
+                            waitLogged = true;
+                            await Task.Delay(20, ct).ConfigureAwait(false);
+                            continue;
+                        }
+
                         SequenceTrace.WaitEnd("InputVisionXSharedRailClear",
                             -1,
                             "status=Timeout",
@@ -1989,7 +2185,7 @@ namespace QMC.CDT320.Sequencing
                             "timeoutMs=" + timeoutMs,
                             "reason=" + reason);
                         return Fail("INPUT-DIE-VISION-PREPARE-SHARED-RAIL-X-TIMEOUT", stage.Name,
-                            description + " SharedRailX clearance 대기 시간 초과. " +
+                            description + " InputVisionX 이동 인터락 clearance 대기 시간 초과. " +
                             "target=" + target.ToString("F6") +
                             ", elapsedMs=" + elapsedMs.ToString("0") +
                             ", timeoutMs=" + timeoutMs +
@@ -1999,7 +2195,7 @@ namespace QMC.CDT320.Sequencing
                     if (!waitLogged)
                     {
                         WriteLog("InputDieVisionPrepareSequence",
-                            Name + " InputVisionX SharedRailX clearance 대기. " +
+                            Name + " InputVisionX 이동 인터락 clearance 대기. " +
                             "target=" + target.ToString("F6") +
                             ", description=" + description +
                             ", reason=" + reason + " - Wait");
@@ -2013,7 +2209,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     WriteLog("InputDieVisionPrepareSequence",
-                        Name + " InputVisionX SharedRailX clearance 대기 완료. " +
+                        Name + " InputVisionX 이동 인터락 clearance 대기 완료. " +
                         "target=" + target.ToString("F6") +
                         ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
                 }

@@ -1,6 +1,7 @@
 ﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -613,7 +614,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 Cursor = Cursors.WaitCursor;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 EventLogger.Write(EventKind.Event, "UI", "VISION", actionName + " result=" + result);
                 if (result != 0)
                 {

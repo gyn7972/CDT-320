@@ -2,6 +2,7 @@
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
@@ -1539,7 +1540,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 Cursor = Cursors.WaitCursor;
                 _lastAbortReason = null;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("InputStageRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
                 {

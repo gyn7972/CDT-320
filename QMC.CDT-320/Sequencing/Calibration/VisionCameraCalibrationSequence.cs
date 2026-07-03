@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.VisionComm;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -67,6 +68,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RunAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -105,6 +108,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 
@@ -339,6 +343,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindInputReticleAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindInputReticleAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -380,6 +386,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+            }
         }
 
         public async Task<int> FindOutputReticleAsync(CancellationToken ct)
@@ -420,6 +427,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindOutputReticleAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindOutputReticleAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -460,6 +469,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 
@@ -922,6 +932,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RetractReticleFromBottomCameraAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -957,6 +969,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 

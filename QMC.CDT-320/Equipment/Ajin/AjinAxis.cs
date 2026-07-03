@@ -658,7 +658,8 @@ namespace QMC.CDT320.Ajin
                 if (IsMoving)
                     return FailMotion(-2, "JOG STEP", "Axis is already moving.");
 
-                return await MoveRelativeAsync(distance, vel);
+                using (BaseAxis.BeginMotionGuardBypass())
+                    return await MoveRelativeAsync(distance, vel);
             }
             catch (Exception ex)
             {

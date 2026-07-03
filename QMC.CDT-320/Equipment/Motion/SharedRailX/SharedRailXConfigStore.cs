@@ -123,13 +123,17 @@ namespace QMC.CDT320.Motion.SharedRailX
                     !Enum.TryParse(row.AxisB, true, out axisB))
                     continue;
 
-                pairs.Add(new SharedRailXAxisPair(
+                var pair = new SharedRailXAxisPair(
                     axisA,
                     axisB,
                     row.HomeClearance,
                     NormalizeSign(row.AxisATowardSign),
                     NormalizeSign(row.AxisBTowardSign),
-                    row.SafetyDistance));
+                    row.SafetyDistance);
+                if (!pair.HasClearanceRule)
+                    continue;
+
+                pairs.Add(pair);
             }
 
             config.SetCollisionPairs(pairs);
@@ -275,6 +279,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             EnsureRow(document, SharedRailXAxis.OutputVisionX);
             EnsureDefaultCollisionPairs(document);
             RemoveInputOutputVisionCollisionPairs(document);
+            RemoveFrontRearPickerCollisionPairs(document);
 
             foreach (SharedRailXAxisTestRow row in document.Axes)
             {
@@ -344,6 +349,14 @@ namespace QMC.CDT320.Motion.SharedRailX
             document.CollisionPairs.RemoveAll(IsInputOutputVisionPair);
         }
 
+        private static void RemoveFrontRearPickerCollisionPairs(SharedRailXConfigDocument document)
+        {
+            if (document == null || document.CollisionPairs == null)
+                return;
+
+            document.CollisionPairs.RemoveAll(IsFrontRearPickerPair);
+        }
+
         private static bool IsInputOutputVisionPair(SharedRailXCollisionPairRow row)
         {
             if (row == null)
@@ -357,6 +370,21 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             return (axisA == SharedRailXAxis.InputVisionX && axisB == SharedRailXAxis.OutputVisionX) ||
                    (axisA == SharedRailXAxis.OutputVisionX && axisB == SharedRailXAxis.InputVisionX);
+        }
+
+        private static bool IsFrontRearPickerPair(SharedRailXCollisionPairRow row)
+        {
+            if (row == null)
+                return false;
+
+            SharedRailXAxis axisA;
+            SharedRailXAxis axisB;
+            if (!Enum.TryParse(row.AxisA, true, out axisA) ||
+                !Enum.TryParse(row.AxisB, true, out axisB))
+                return false;
+
+            return (axisA == SharedRailXAxis.FrontPickerX && axisB == SharedRailXAxis.RearPickerX) ||
+                   (axisA == SharedRailXAxis.RearPickerX && axisB == SharedRailXAxis.FrontPickerX);
         }
 
         private static void EnsureRow(SharedRailXConfigDocument document, SharedRailXAxis axis)

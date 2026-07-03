@@ -60,6 +60,9 @@ namespace QMC.CDT320.Sequencing
         {
             Options = options ?? OutputFeederSequenceOptions.Default();
             using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString(), Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             using (SequenceResourceLease feederLease = await Context.Resources.AcquireAsync(
                 SequenceResourceKind.OutputFeederArea,
                 Name + ":" + Kind,

@@ -576,7 +576,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 Cursor = Cursors.WaitCursor;
-                int result = await action();
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("OutputCassetteRecipePage." + actionName))
+                {
+                    result = await action();
+                }
                 if (result != 0)
                 {
                     string msg = _OutCassetteUnit != null ? _OutCassetteUnit.LastBinLifterMoveFailureMessage : null;

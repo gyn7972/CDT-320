@@ -87,6 +87,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.RunAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -130,10 +132,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 ReleaseFocusWorkArea();
             }
+            }
         }
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.MoveDefaultOnlyAsync"))
+            {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -167,6 +172,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
                 ReleaseFocusWorkArea();
+            }
             }
         }
 

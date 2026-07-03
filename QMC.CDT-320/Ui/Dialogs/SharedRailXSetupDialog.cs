@@ -530,7 +530,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "- 이 화면의 충돌 인터락 기준입니다.\r\n" +
                 "- Home Gap은 두 축이 홈 위치일 때 기준 간격입니다.\r\n" +
                 "- A/B Sign은 각 축이 상대 축 쪽으로 가까워지는 엔코더 방향입니다. +방향 접근은 1, -방향 접근은 -1입니다.\r\n" +
-                "- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.";
+                "- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.\r\n\r\n" +
+                "FrontPickerX <-> RearPickerX는 이 화면에서 설정하지 않습니다.\r\n" +
+                "- 두 Picker는 병렬 X축에서 서로 마주보는 구조라 Home Gap/sign 방식이 아닙니다.\r\n" +
+                "- Picker Y 동시 전진 방지는 PICKER ZONE의 X Clearance 값으로 판단합니다.";
 
             QMC.Common.MessageDialog.Show(this, message, "SharedRailX 설정값 설명",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);

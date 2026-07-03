@@ -129,7 +129,11 @@
     <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputFeederInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\CollisionDistanceCalculator.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\CollisionSafetyTypes.cs" />
+    <Compile Include="Equipment\Interlocks\Runtime\RealtimeCollisionSupervisor.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleHelpers.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardMoveIntent.cs" />
     <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleRegistry.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />

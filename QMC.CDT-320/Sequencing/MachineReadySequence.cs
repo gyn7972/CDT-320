@@ -71,6 +71,8 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("MachineReadySequence.RunAsync"))
+            {
             try
             {
                 LastErrorMessage = string.Empty;
@@ -104,6 +106,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
             }
         }
 

@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 
@@ -42,6 +43,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveReadyPositionOnlyAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.MoveReadyPositionOnlyAsync"))
+            {
             try
             {
                 int result = CheckUnit();
@@ -68,10 +71,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+            }
         }
 
         public async Task<int> MoveTeachingPositionOnlyAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.MoveTeachingPositionOnlyAsync"))
+            {
             try
             {
                 int result = await MoveReadyPositionOnlyAsync(ct).ConfigureAwait(false);
@@ -95,10 +101,13 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+            }
         }
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.RunAsync"))
+            {
             try
             {
                 int result = await MoveTeachingPositionOnlyAsync(ct).ConfigureAwait(false);
@@ -129,6 +138,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
             finally
             {
+            }
             }
         }
 

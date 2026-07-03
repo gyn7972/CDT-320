@@ -65,6 +65,9 @@ namespace QMC.CDT320.Sequencing
             using (SequenceLog.Push(
                 Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq,
                 Name, () => CurrentStep.ToString(), GetType().Name, Options.RunMode.ToString()))
+            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginSequenceProcessMove(
+                Options.RunMode == SequenceRunMode.Auto,
+                GetType().Name + ":" + Name + ":" + Options.RunMode))
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -1331,6 +1334,84 @@ namespace QMC.CDT320.Sequencing
             {
                 return Fail("PICKER-AVOID-EX", Name,
                     description + " Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // INV-6: 인터락/리스 해제·정지·Abort 전에 자기 픽커를 물리적으로 안전(Z=Avoid → Y=Avoid)하게 후퇴시키고 검증한다.
+        // 순서(Z 상승 후 Y 후퇴)가 안전의 핵심이다. 공용 레일 X는 여기서 움직이지 않는다(마주보기 위험 회피).
+        protected async Task<int> EnsureSelfSafeAsync(string reason, CancellationToken ct)
+        {
+            string label = string.IsNullOrWhiteSpace(reason) ? "EnsureSelfSafe" : reason;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    label + " Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    label + " Y축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-ENSURE-SELF-SAFE-EX", Name,
+                    label + " 자기 픽커 안전 후퇴 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        // INV-7: 시작/재개 첫 이동 전, 양 픽커가 물리적으로 안전 배치(양쪽 Avoid = Y·Z Avoid, X 비대면)인지 이동 없이 확인만 한다.
+        // 사용 설정이 꺼진 픽커는 판정에서 제외한다. 미충족 시 상위(시작/재개 게이트)가 순차 Safe 정규화를 수행한다.
+        protected bool VerifySafeStartConfig(out string detail)
+        {
+            detail = string.Empty;
+            try
+            {
+                var problems = new System.Collections.Generic.List<string>();
+
+                bool frontEnabled = FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.UseUnit;
+                if (frontEnabled && !FrontPicker.IsFrontPickerInAvoidPosition())
+                    problems.Add("FrontPicker가 Avoid 위치가 아닙니다.");
+
+                bool rearEnabled = RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
+                if (rearEnabled && !RearPicker.IsRearPickerInAvoidPosition())
+                    problems.Add("RearPicker가 Avoid 위치가 아닙니다.");
+
+                if (problems.Count == 0)
+                    return true;
+
+                detail = string.Join("; ", problems.ToArray());
+                return false;
+            }
+            catch (Exception ex)
+            {
+                detail = "안전 시작 배치 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
             finally
             {

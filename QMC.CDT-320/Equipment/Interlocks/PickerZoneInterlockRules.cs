@@ -758,8 +758,8 @@ namespace QMC.CDT320.Interlocks
         private static bool IsAutoProcessCorrectionXMove(MotionGuardRuleContext request)
         {
             return request != null &&
-                   !string.IsNullOrWhiteSpace(request.TargetName) &&
-                   request.TargetName.IndexOf("AutoProcessCorrection", StringComparison.OrdinalIgnoreCase) >= 0;
+                   request.Intent != null &&
+                   request.Intent.AutoProcessCorrection;
         }
 
         private static bool CanMoveAutoProcessCorrectionX(
@@ -800,7 +800,7 @@ namespace QMC.CDT320.Interlocks
             if (IsAutoProcessZoneEntryWithPickerYReady(request.Machine, isFront, ownY, targetZone))
                 return true;
 
-            double maxDistance = ResolveAutoProcessCorrectionMaxDistance(request.TargetName);
+            double maxDistance = ResolveAutoProcessCorrectionMaxDistance(request);
             double delta = Math.Abs(request.TargetValue - ownX.ActualPosition);
             if (delta > maxDistance)
             {
@@ -867,42 +867,15 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static double ResolveAutoProcessCorrectionMaxDistance(string targetName)
+        private static double ResolveAutoProcessCorrectionMaxDistance(MotionGuardRuleContext request)
         {
-            double configured;
-            if (TryReadTargetNameDouble(targetName, "AutoProcessCorrectionMax", out configured) && configured > 0.0)
-                return configured;
+            if (request != null &&
+                request.Intent != null &&
+                request.Intent.AutoProcessCorrectionMax.HasValue &&
+                request.Intent.AutoProcessCorrectionMax.Value > 0.0)
+                return request.Intent.AutoProcessCorrectionMax.Value;
 
             return DefaultAutoProcessCorrectionMaxDistance;
-        }
-
-        private static bool TryReadTargetNameDouble(string targetName, string key, out double value)
-        {
-            value = 0.0;
-            if (string.IsNullOrWhiteSpace(targetName) || string.IsNullOrWhiteSpace(key))
-                return false;
-
-            string[] tokens = targetName.Split(';');
-            for (int i = 0; i < tokens.Length; i++)
-            {
-                string token = tokens[i] != null ? tokens[i].Trim() : string.Empty;
-                if (token.Length == 0)
-                    continue;
-
-                int equal = token.IndexOf('=');
-                if (equal <= 0)
-                    continue;
-
-                string tokenKey = token.Substring(0, equal).Trim();
-                if (!string.Equals(tokenKey, key, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                string tokenValue = token.Substring(equal + 1).Trim();
-                return double.TryParse(tokenValue, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
-                       double.TryParse(tokenValue, out value);
-            }
-
-            return false;
         }
 
         private static bool IsInspectionContinuousProcessMove(
@@ -910,15 +883,12 @@ namespace QMC.CDT320.Interlocks
             PickerWorkZone currentZone,
             PickerWorkZone targetZone)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
-                return false;
-
-            if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
+            if (request == null || request.Intent == null || !request.Intent.InspectionContinuous)
                 return false;
 
             PickerWorkZone declaredFrom;
             PickerWorkZone declaredTo;
-            if (TryResolveInspectionContinuousTransition(request.TargetName, out declaredFrom, out declaredTo) &&
+            if (TryResolveInspectionContinuousTransition(request, out declaredFrom, out declaredTo) &&
                 declaredTo == targetZone &&
                 IsAllowedInspectionContinuousTransition(declaredFrom, declaredTo))
                 return true;
@@ -943,24 +913,18 @@ namespace QMC.CDT320.Interlocks
         }
 
         private static bool TryResolveInspectionContinuousTransition(
-            string targetName,
+            MotionGuardRuleContext request,
             out PickerWorkZone from,
             out PickerWorkZone to)
         {
             from = PickerWorkZone.Unknown;
             to = PickerWorkZone.Unknown;
 
-            if (string.IsNullOrWhiteSpace(targetName))
+            if (request == null || request.Intent == null)
                 return false;
 
-            string fromValue;
-            string toValue;
-            if (!TryReadTargetNameString(targetName, "From", out fromValue) ||
-                !TryReadTargetNameString(targetName, "To", out toValue))
-                return false;
-
-            from = ParseWorkZoneToken(fromValue);
-            to = ParseWorkZoneToken(toValue);
+            from = request.Intent.InspectionFromZone;
+            to = request.Intent.InspectionToZone;
             return from != PickerWorkZone.Unknown && to != PickerWorkZone.Unknown;
         }
 

@@ -228,7 +228,7 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 string targetName = request.TargetName ?? string.Empty;
-                if (targetName.IndexOf("ColletCalibrationFineAlign", StringComparison.OrdinalIgnoreCase) < 0)
+                if (request.Intent == null || !request.Intent.Contains("ColletCalibrationFineAlign"))
                 {
                     detail = "ColletCalibrationFineAlign targetName이 아닙니다.";
                     return false;
@@ -241,7 +241,7 @@ namespace QMC.CDT320.Interlocks
                     return false;
                 }
 
-                if (targetName.IndexOf("PickerZone=Bottom", StringComparison.OrdinalIgnoreCase) < 0)
+                if (request.Intent.PickerZone != PickerWorkZone.Bottom)
                 {
                     detail = "Bottom zone 미세 정렬 이동이 아닙니다. targetName=" + targetName;
                     WriteColletFineAlignDecision(request, isFront, false, detail);

@@ -530,8 +530,12 @@ namespace QMC.CDT320.Sequencing
                         "InputCamera Mark 검사 허가를 받았지만 InputStageUnit이 없습니다.");
 
                 if (!stage.IsVisionXInAvoidPosition())
+                {
+                    InputCameraPickUpPermissionStore.Grant(Side, permittedItems);
                     return Fail("PICKER-PICKUP-PERMISSION-VISIONX-NOT-AVOID", stage.Name,
-                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. side=" + Side);
+                        "InputCamera Mark 검사 허가를 받았지만 InputVisionX가 Avoid 위치가 아닙니다. " +
+                        "허가는 복구했으며, 다른 InputCamera 선행검사가 PickUp 허가 이후 InputVisionX를 이동했는지 확인해야 합니다. side=" + Side);
+                }
 
                 if (permittedItems == null || permittedItems.Count == 0)
                 {
@@ -4087,9 +4091,11 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 int result;
+                BaseAxis item = ResolveInputStageAxis(stage, axis);
+                string guardTargetName = "PickerPickUp;Side=" + Side + ";" + axis + ";" + description;
                 if (axis == WaferStageAxis.VisionX)
                 {
-                    using (MotionGuardRuntime.BeginAxisTeachingMove(stage.CameraX, target, "PickerPickUp;Side=" + Side + ";InputVisionX;" + description))
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
                     {
                         result = await AwaitStepWithCancellationAsync(
                             stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
@@ -4098,9 +4104,12 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    result = await AwaitStepWithCancellationAsync(
-                        stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
-                        ct).ConfigureAwait(false);
+                    using (MotionGuardRuntime.BeginAxisTeachingMove(item, target, guardTargetName))
+                    {
+                        result = await AwaitStepWithCancellationAsync(
+                            stage.MoveInputStageAxis(axis, target, Options != null && Options.FineMove),
+                            ct).ConfigureAwait(false);
+                    }
                 }
 
                 if (result != 0)

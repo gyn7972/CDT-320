@@ -36,6 +36,7 @@ namespace QMC.CDT_320
         internal SimulatorBridge   Bridge         { get; private set; }
         internal MachineController Controller     { get; private set; }
         internal MotionMonitorService MotionMonitor { get; private set; }
+        internal QMC.CDT320.Interlocks.RealtimeCollisionSupervisor CollisionSupervisor { get; private set; }
         internal AjinIoScanService IoScan { get; private set; }
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal QMC.CDT320.Alarms.AlarmResponseService AlarmResponse { get; private set; }
@@ -577,6 +578,14 @@ namespace QMC.CDT_320
             };
             MotionMonitor = new MotionMonitorService();
             MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 250);
+            CollisionSupervisor = new QMC.CDT320.Interlocks.RealtimeCollisionSupervisor(
+                Machine,
+                Controller != null && Controller.SharedRailX != null
+                    ? Controller.SharedRailX.Config
+                    : QMC.CDT320.Motion.SharedRailX.SharedRailXConfigStore.LoadOrCreateDefault());
+            // 사용자 정책: 실시간 충돌 감지 시 전축 하드정지.
+            CollisionSupervisor.SetStopAllAxesHandler(StopAllAxesForCollisionSupervisor);
+            CollisionSupervisor.Start(10);
             IoScan = new AjinIoScanService();
             IoScan.Start(EnumerateInputs(Machine), EnumerateOutputs(Machine), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 10 : 100, () => !AppSettingsStore.Current.BypassHardware && AjinSystem.IsOpen);
             OpPanelMonitor = new OperationPanelMonitorService(Machine, Controller);
@@ -1374,6 +1383,36 @@ namespace QMC.CDT_320
             }
         }
 
+        // RealtimeCollisionSupervisor가 실시간 충돌 위험 감지 시 호출하는 전축 하드정지 동작(사용자 정책: 전축 하드정지).
+        // 10ms 감시 루프에서 동기 호출되므로 빠르게 모든 축을 EStop 한다. 알람은 supervisor가 별도로 발생시킨다.
+        private void StopAllAxesForCollisionSupervisor()
+        {
+            List<BaseAxis> axes;
+            try
+            {
+                axes = CurrentAxes();
+            }
+            catch
+            {
+                axes = null;
+            }
+
+            if (axes == null)
+                return;
+
+            foreach (BaseAxis axis in axes)
+            {
+                try
+                {
+                    if (axis != null)
+                        axis.EStop();
+                }
+                catch
+                {
+                }
+            }
+        }
+
         private void ApplyMotionAxisDataToMachine()
         {
             try
@@ -1838,6 +1877,7 @@ namespace QMC.CDT_320
             try { Controller?.SaveMachineRuntimeStateForApplicationClosing(); } catch { }
             try { AlarmResponse?.Dispose(); } catch { }
             try { OpPanelMonitor?.Dispose(); } catch { }
+            try { CollisionSupervisor?.Dispose(); } catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
             try { if (_jogPopup != null && !_jogPopup.IsDisposed) _jogPopup.Dispose(); } catch { }

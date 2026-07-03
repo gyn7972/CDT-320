@@ -87,6 +87,30 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public void CancelBatch(string owner, string reason)
+        {
+            int depth = Interlocked.Decrement(ref _batchDepth);
+            if (depth < 0)
+            {
+                Interlocked.Exchange(ref _batchDepth, 0);
+                depth = 0;
+            }
+
+            if (depth == 0)
+                _batchOwner = "";
+
+            Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                "Output camera 후검사 묶음을 취소합니다. owner=" +
+                (string.IsNullOrWhiteSpace(owner) ? "-" : owner) +
+                ", reason=" + (string.IsNullOrWhiteSpace(reason) ? "-" : reason) +
+                ", depth=" + depth +
+                ", pendingOrRunning=" + Volatile.Read(ref _pendingOrRunning) + " - Cancel");
+
+            if (depth == 0)
+                DrainQueuedRequests("Output camera 후검사 묶음 취소로 대기 요청을 정리합니다. owner=" +
+                    (string.IsNullOrWhiteSpace(owner) ? "-" : owner));
+        }
+
         public int Enqueue(OutputPostPlaceInspectionRequest request, CancellationToken ct)
         {
             if (IsStopOrAlarmActive())
