@@ -115,6 +115,13 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.FolderPath(Lang.T("set.gen.dataRoot"), sc,
                     () => VisionConfigStore.Current.DataRootPath,
                     v => VisionConfigStore.Current.DataRootPath = v),
+                // 검사 데이터(다이별 일자 CSV + 웨이퍼 완료 스냅샷) 저장 루트 — 비우면 기본 D:\CDT-320\Data, 폴더 없으면 자동 생성.
+                ParameterGridItem.FolderPath("검사 데이터 저장 경로 (비우면 D:\\CDT-320\\Data)", sc,
+                    () => VisionConfigStore.Current.DataLogPath,
+                    v => VisionConfigStore.Current.DataLogPath = v),
+                ParameterGridItem.Bool("검사 데이터 저장 사용", sc,
+                    () => VisionConfigStore.Current.DataLogEnable,
+                    v => VisionConfigStore.Current.DataLogEnable = v),
             });
 
             SizeGrids();

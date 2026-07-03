@@ -193,13 +193,17 @@ namespace QMC.Vision.Core
                             r.Items.Add(new InspectionItem { Name = "Max Chipping Depth", Value = maxMm.ToString("F4"), IsPass = chipPass });
                             r.Items.Add(new InspectionItem { Name = "Chipping Top",       Value = topMm.ToString("F4"), IsPass = topMm <= upper });
                             r.Items.Add(new InspectionItem { Name = "Chipping Bottom",    Value = botMm.ToString("F4"), IsPass = botMm <= upper });
-                            // NG일 때 검출 칩핑 영역(상/하)에 마커 — 오버레이 표시.
+                            // 검출 칩핑 영역 개수 + NG일 때 실측 bbox 마커(다중) — 오버레이 표시.
+                            int regionCount = cr.ChippingRegions != null ? cr.ChippingRegions.Count : 0;
+                            r.Items.Add(new InspectionItem { Name = "Chipping Count", Value = regionCount.ToString(), IsPass = chipPass });
                             if (!chipPass && cr.ChippingRegions != null)
                             {
                                 foreach (var cgn in cr.ChippingRegions)
                                 {
-                                    int cy = (cgn.StartY + cgn.EndY) / 2;
-                                    r.Defects.Add(new DefectMark { X = roi.X + cgn.X, Y = roi.Y + cy, Width = 48, Height = 48, Area = cgn.SizeMM, Type = "Chipping" });
+                                    double cw = Math.Max(12, cgn.XEnd - cgn.XStart + 1);
+                                    double ch = Math.Max(12, cgn.EndY - cgn.StartY + 1);
+                                    r.Defects.Add(new DefectMark { X = roi.X + (cgn.XStart + cgn.XEnd) / 2.0, Y = roi.Y + (cgn.StartY + cgn.EndY) / 2.0,
+                                                                   Width = cw, Height = ch, Area = cgn.SizeMM, Type = "Chipping" });
                                 }
                             }
                             libDone = true;
@@ -218,7 +222,8 @@ namespace QMC.Vision.Core
                         Threshold = ChipThreshold, ChipThicknessMm = ChipThickness,
                         PxW = PixelSizeWidthMm, PxH = PixelSizeHeightMm,
                         ScanRate = ScanRate, EnvelopeBinSize = EnvelopeBinSize,
-                        KeepQuantile = KeepQuantile, EdgeGap = EdgeGap
+                        KeepQuantile = KeepQuantile, EdgeGap = EdgeGap,
+                        SpecMm = upper
                     });
                     if (cc.Valid)
                     {
@@ -230,9 +235,17 @@ namespace QMC.Vision.Core
                     r.Items.Add(new InspectionItem { Name = "Max Chipping Depth", Value = maxMm.ToString("F4"), IsPass = chipPass });
                     r.Items.Add(new InspectionItem { Name = "Chipping Top",       Value = topMm.ToString("F4"), IsPass = topMm <= upper });
                     r.Items.Add(new InspectionItem { Name = "Chipping Bottom",    Value = botMm.ToString("F4"), IsPass = botMm <= upper });
-                    // NG(스펙 초과)일 때만 최대 칩핑 위치에 마커 — PASS면 박스 안 그림(저배율에서도 보이게 크게)
-                    if (!chipPass && cc.Valid && cc.MaxMm > 0 && cc.MaxX >= 0)
-                        r.Defects.Add(new DefectMark { X = roi.X + cc.MaxX, Y = roi.Y + cc.MaxY, Width = 48, Height = 48, Area = cc.MaxMm });
+                    // 검출 칩핑 영역 개수 + NG일 때 실측 bbox 마커(다중). 영역이 없으면 기존 최대 위치 폴백.
+                    r.Items.Add(new InspectionItem { Name = "Chipping Count", Value = (cc.Regions != null ? cc.Regions.Count : 0).ToString(), IsPass = chipPass });
+                    if (!chipPass && cc.Valid && cc.Regions != null && cc.Regions.Count > 0)
+                    {
+                        foreach (var rg in cc.Regions)
+                            r.Defects.Add(new DefectMark { X = roi.X + (rg.XStart + rg.XEnd) / 2.0, Y = roi.Y + (rg.YStart + rg.YEnd) / 2.0,
+                                                           Width = Math.Max(12, rg.XEnd - rg.XStart + 1), Height = Math.Max(12, rg.YEnd - rg.YStart + 1),
+                                                           Area = rg.MaxMm, Type = "Chipping" });
+                    }
+                    else if (!chipPass && cc.Valid && cc.MaxMm > 0 && cc.MaxX >= 0)
+                        r.Defects.Add(new DefectMark { X = roi.X + cc.MaxX, Y = roi.Y + cc.MaxY, Width = 48, Height = 48, Area = cc.MaxMm, Type = "Chipping" });
                 }
             }
 
@@ -244,6 +257,23 @@ namespace QMC.Vision.Core
                 int effRadius = Math.Max(2, Math.Min(TopHatRadius, bandH / 3));
                 var blobs = ContaminationDetector.Detect(g, w, h, effRadius, TopHatThreshold,
                                                          MinForeignAreaFilterSize, MaxForeignAreaFilterSize, LinkDistance);
+                // 이물 = 띠 내부만(310 InspectForeign 의 MaskImage 등가) — 에지 칩핑/배경이 Black-Hat 에
+                // 어두운 구멍으로 잡혀 이물로 오검되는 것을 방지. 컬럼별 실제 에지(topY/botY)에서
+                // EdgeGap px 안쪽에 완전히 포함된 블롭만 이물로 인정한다.
+                var interior = new List<ContaminationDetector.Blob>();
+                foreach (var fb in blobs)
+                {
+                    bool inside = true;
+                    int fxs = Math.Max(0, fb.MinX), fxe = Math.Min(w - 1, fb.MaxX);
+                    for (int fx = fxs; fx <= fxe; fx++)
+                    {
+                        if (topY[fx] < 0 || botY[fx] < 0 ||
+                            fb.MinY <= topY[fx] + EdgeGap || fb.MaxY >= botY[fx] - EdgeGap)
+                        { inside = false; break; }
+                    }
+                    if (inside) interior.Add(fb);
+                }
+                blobs = interior;
                 LastForeignCount = blobs.Count;
                 double maxPx = 0;
                 foreach (var b in blobs)

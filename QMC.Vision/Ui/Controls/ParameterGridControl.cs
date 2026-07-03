@@ -177,7 +177,7 @@ namespace QMC.Vision.Ui.Controls
                     if (item == null) continue;
 
                     SetValueCellText(row, item, FormatValue(item));
-                    row.Cells[colUnit.Index].Value = item.Unit ?? string.Empty;
+                    row.Cells[colUnit.Index].Value = EffectiveUnit(item);
                     row.Cells[colScope.Index].Value = item.Scope.ToString();
                 }
             }
@@ -229,7 +229,7 @@ namespace QMC.Vision.Ui.Controls
                 row.Cells[colScope.Index].ReadOnly = true;
                 row.Cells[colUnit.Index].ReadOnly = true;
                 row.Cells[colName.Index].Value = item.DisplayName;
-                row.Cells[colUnit.Index].Value = item.Unit ?? string.Empty;
+                row.Cells[colUnit.Index].Value = EffectiveUnit(item);
                 row.Cells[colScope.Index].Value = item.Scope.ToString();
                 SetValueCellText(row, item, FormatValue(item));
             }
@@ -417,6 +417,20 @@ namespace QMC.Vision.Ui.Controls
             }
         }
 
+        /// <summary>표시 시점 단위 라벨 — UnitGetter(동적, 전역 mm/px 토글 연동) 우선, 없으면 고정 Unit.</summary>
+        private static string EffectiveUnit(ParameterGridItem item)
+        {
+            try { return item == null ? string.Empty : (item.UnitGetter != null ? (item.UnitGetter() ?? string.Empty) : (item.Unit ?? string.Empty)); }
+            catch { return item != null && item.Unit != null ? item.Unit : string.Empty; }
+        }
+
+        /// <summary>표시 시점 배율(표시값 = 저장값 × 배율) — DisplayScaleGetter(동적) 우선, 없으면 고정 DisplayScale.</summary>
+        private static double EffectiveScale(ParameterGridItem item)
+        {
+            try { return item == null ? 1.0 : (item.DisplayScaleGetter != null ? item.DisplayScaleGetter() : item.DisplayScale); }
+            catch { return item != null ? item.DisplayScale : 1.0; }
+        }
+
         private string FormatValue(ParameterGridItem item)
         {
             try
@@ -437,7 +451,7 @@ namespace QMC.Vision.Ui.Controls
 
                 if (item.ValueType == ParameterGridValueType.Double)
                 {
-                    double value = Convert.ToDouble(raw, CultureInfo.InvariantCulture) * item.DisplayScale;
+                    double value = Convert.ToDouble(raw, CultureInfo.InvariantCulture) * EffectiveScale(item);
                     return value.ToString("0.#####", CultureInfo.InvariantCulture);
                 }
 
@@ -610,7 +624,7 @@ namespace QMC.Vision.Ui.Controls
                     return;
 
                 string currentText = FormatValue(item);
-                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.Unit))
+                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, EffectiveUnit(item)))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK) return;
 

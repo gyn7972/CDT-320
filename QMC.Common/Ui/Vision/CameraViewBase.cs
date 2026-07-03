@@ -141,6 +141,13 @@ namespace QMC.Common.Ui.Controls
         private ICameraViewSource _source;
         private bool _live;
 
+        // ── 프레임 카운터/FPS (툴바 Live/Grab 전용 표시) ──
+        private long   _liveFrameTotal;    // 라이브 시작 후 누적 수신 프레임 수
+        private int    _fpsWindowCount;    // 현재 1초 창 프레임 수
+        private int    _fpsWindowStartMs;  // 현재 창 시작 tick
+        private double _fpsValue;          // 마지막 계산 FPS
+        private bool   _showGrabCount;     // 직전 동작이 단발 Grab → "Grab #1" 표시
+
         public bool ShowToolbar
         {
             get { return _tools != null && _tools.Visible; }
@@ -229,7 +236,16 @@ namespace QMC.Common.Ui.Controls
         private void DoToolbarGrab()
         {
             if (_source == null) return;
-            try { var b = _source.GrabFrame(); if (b != null) { SetImage(b); b.Dispose(); } }
+            try
+            {
+                var b = _source.GrabFrame();
+                if (b != null)
+                {
+                    SetImage(b); b.Dispose();
+                    _showGrabCount = true;          // 단발 그랩 = 프레임 1장 표시
+                    _liveFrameTotal = 0; _fpsValue = 0; _fpsWindowCount = 0;
+                }
+            }
             catch { }
         }
 
@@ -238,13 +254,15 @@ namespace QMC.Common.Ui.Controls
             if (_source == null || _live || !_source.SupportsLive) return;
             try
             {
+                _liveFrameTotal = 0; _fpsWindowCount = 0; _fpsValue = 0;
+                _fpsWindowStartMs = Environment.TickCount; _showGrabCount = false;
                 _source.StartLive(bmp =>
                 {
                     if (bmp == null) return;
                     try
                     {
                         if (IsHandleCreated && !IsDisposed)
-                            BeginInvoke(new Action(() => { SetImage(bmp); bmp.Dispose(); }));
+                            BeginInvoke(new Action(() => { SetImage(bmp); bmp.Dispose(); CountLiveFrame(); }));
                         else bmp.Dispose();
                     }
                     catch { try { bmp.Dispose(); } catch { } }
@@ -260,6 +278,22 @@ namespace QMC.Common.Ui.Controls
             try { _source?.StopLive(); } catch { }
             _live = false;
             if (_tbLive != null) _tbLive.Checked = false;   // 라이브 종료 → 활성 표시 해제
+            Invalidate();                                   // FPS 라벨 갱신
+        }
+
+        /// <summary>라이브 프레임 1건 수신 — 누적/FPS 계산(UI 스레드에서 호출).</summary>
+        private void CountLiveFrame()
+        {
+            _liveFrameTotal++;
+            _fpsWindowCount++;
+            int now = Environment.TickCount;
+            int elapsed = now - _fpsWindowStartMs;
+            if (elapsed >= 1000)
+            {
+                _fpsValue = _fpsWindowCount * 1000.0 / elapsed;
+                _fpsWindowCount = 0;
+                _fpsWindowStartMs = now;
+            }
         }
 
         /// <summary>컨트롤/폼 종료 시 라이브를 반드시 정지 — 종료 레이스 방지.</summary>
@@ -591,9 +625,15 @@ namespace QMC.Common.Ui.Controls
                     g.DrawString(InfoText, f, br, 8, 6 + TopInset);
 
             if (ShowLiveLabel && _frame != null)
+            {
+                // 라이브 중: FPS + 누적 프레임 수 / 단발 Grab 직후: "Grab #1" / 그 외: 기존 "Live" 표기 유지
+                string liveTxt = _live
+                    ? "Live  " + (_fpsValue > 0 ? _fpsValue.ToString("0.0") : "--") + " fps  #" + _liveFrameTotal
+                    : (_showGrabCount ? "Grab  #1" : "Live");
                 using (var br = new SolidBrush(InfoForeColor))
                 using (var f  = new Font("Consolas", 9F))
-                    g.DrawString("Live", f, br, 8, Height - 22);
+                    g.DrawString(liveTxt, f, br, 8, Height - 22);
+            }
 
             if (_editing && _frame != null)
             {

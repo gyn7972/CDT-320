@@ -35,6 +35,10 @@ namespace QMC.Vision.Ui.Controls
         public ParameterGridValueType ValueType { get; set; }
         public ParameterGridScope Scope { get; set; }
         public double DisplayScale { get; set; }
+        /// <summary>동적 단위 라벨(전역 mm/px 토글 연동 등) — 지정 시 표시 시점마다 평가해 Unit 대신 사용.</summary>
+        public Func<string> UnitGetter { get; set; }
+        /// <summary>동적 표시 배율(표시값 = 저장값 × 배율) — 지정 시 DisplayScale 대신 표시 시점마다 평가.</summary>
+        public Func<double> DisplayScaleGetter { get; set; }
         public Func<object> Getter { get; set; }
         public Action<object> Setter { get; set; }
         public Func<object, bool> Validator { get; set; }
@@ -71,6 +75,35 @@ namespace QMC.Vision.Ui.Controls
                 DisplayScale = 1000.0,
                 Getter = () => getter(),
                 Setter = value => setter(Convert.ToDouble(value) / 1000.0)
+            };
+        }
+
+        /// <summary>길이(측정계) 파라미터 — 저장/판정은 항상 mm(SSOT), 표시·입력은 전역 표시 단위(GENERAL mm/px)로 환산.
+        /// scaleGetter = 카메라 스케일(mm/px). px 표시 모드: 표시 = mm ÷ 스케일, 입력 = px × 스케일 → mm 저장.
+        /// 스케일 ≤ 0(미보정)이면 환산 1(mm=px) — 단위 라벨은 전역 토글(UnitContext.UnitLabel)을 따른다.</summary>
+        public static ParameterGridItem Measure(string displayName, ParameterGridScope scope, Func<double> getter, Action<double> setter, Func<double> scaleGetter)
+        {
+            Func<double> dispScale = () =>
+            {
+                try
+                {
+                    double s = scaleGetter != null ? scaleGetter() : 0.0;
+                    return (QMC.Vision.Core.UnitContext.DisplayMm || s <= 0) ? 1.0 : 1.0 / s;
+                }
+                catch { return 1.0; }
+            };
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Unit = QMC.Vision.Core.UnitContext.UnitLabel,
+                UnitGetter = () => QMC.Vision.Core.UnitContext.UnitLabel,
+                Scope = scope,
+                ValueType = ParameterGridValueType.Double,
+                DisplayScale = 1.0,
+                DisplayScaleGetter = dispScale,
+                Getter = () => getter(),
+                Setter = value => { double f = dispScale(); setter(f > 0 ? Convert.ToDouble(value) / f : Convert.ToDouble(value)); }
             };
         }
 

@@ -308,8 +308,35 @@ namespace QMC.CDT320.VisionComm
             return response.IsAck;
         }
 
-        /// <summary>비동기 검사 결과를 폴링한다.</summary>
-        public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int timeoutMs = 5000)
+        /// <summary>비동기 검사 시작(픽커 배치 규약) — "inspector|picker|chip_uid|die_index" 전송.
+        /// die_index=픽업 순서(1-base). Vision 이 레시피 칩위치로 인덱스→셀을 매칭해 Bottom 맵에 그린다(0이면 생략).</summary>
+        public async Task<bool> InspectAsyncStartAsync(string inspector, int picker, string chipUid, int dieIndex, int timeoutMs = 30000)
+        {
+            VisionProtocolResponse response = dieIndex > 0
+                ? await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, picker, chipUid, dieIndex).ConfigureAwait(false)
+                : await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, picker, chipUid).ConfigureAwait(false);
+            return response.IsAck;
+        }
+
+        /// <summary>다음 EPD(Exposure Done) 푸시를 1회 대기. true=수신 / false=타임아웃.
+        /// ★ 모션 안전 규약: INSPECTASYNC 의 ACK(STARTED)는 '그랩 전' 선응답이므로, 핸들러는 ACK 가 아니라
+        /// 이 EPD 를 받고 픽커를 다음 위치로 움직여야 한다(촬상 전 이동 → 흔들림/빈 촬상 방지).
+        /// 경합 방지를 위해 InspectAsyncStartAsync 호출 '전'에 이 Task 를 만들어 두고 이후 await 할 것.</summary>
+        public Task<bool> WaitExposureDoneAsync(int timeoutMs = 5000)
+        {
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Action<string> h = null;
+            h = _m => { ExposureDone -= h; tcs.TrySetResult(true); };
+            ExposureDone += h;
+            var timer = new System.Threading.Timer(_s => { ExposureDone -= h; tcs.TrySetResult(false); },
+                                                   null, timeoutMs, System.Threading.Timeout.Infinite);
+            tcs.Task.ContinueWith(_t => { try { timer.Dispose(); } catch { } });
+            return tcs.Task;
+        }
+
+        /// <summary>비동기 검사 결과 요청 — Vision 은 완료까지 대기(최대 6s) 후 데이터로 응답(요청 1회=데이터 1회).
+        /// 타임아웃은 서버 대기 상한(6s)보다 길어야 한다. "0" 응답(대기 만료)이면 재요청.</summary>
+        public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int timeoutMs = 10000)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectResult, timeoutMs, CancellationToken.None, inspector).ConfigureAwait(false);
             return AsyncInspectPoll.Parse(response.RawLine);

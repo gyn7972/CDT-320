@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.History
+﻿namespace QMC.CDT_320.Ui.Pages.History
 {
     partial class MessageEditPage
     {
@@ -78,6 +78,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.gridHeaderStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.gridHeaderStyle.ForeColor = System.Drawing.Color.White;
             this.grid.ColumnHeadersDefaultCellStyle = this.gridHeaderStyle;
+            this.grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.grid.AllowUserToResizeRows = false;
             this.grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colCode, this.colKind, this.colKo, this.colEn });
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.EnableHeadersVisualStyles = false;

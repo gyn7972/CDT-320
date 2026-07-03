@@ -225,9 +225,20 @@ namespace QMC.Vision.Ui.Pages
             if (_result != null && _result.Columns.Count >= 3)
             {
                 if (_result.Columns["Item"]  != null) _result.Columns["Item"].HeaderText  = Lang.T("col.item");
-                if (_result.Columns["Value"] != null) _result.Columns["Value"].HeaderText = Lang.T("col.value");
+                UpdateResultUnitHeader();
                 if (_result.Columns["Pass"]  != null) _result.Columns["Pass"].HeaderText  = Lang.T("col.result");
             }
+        }
+
+        /// <summary>결과 '값' 컬럼 헤더에 전역 표시 단위(mm/px)를 표기 — 결과 값 환산과 단위 표기 일치.</summary>
+        private void UpdateResultUnitHeader()
+        {
+            try
+            {
+                if (_result != null && _result.Columns["Value"] != null)
+                    _result.Columns["Value"].HeaderText = Lang.T("col.value") + " [" + QMC.Vision.Core.UnitContext.UnitLabel + "]";
+            }
+            catch { }
         }
 
         /// <summary>C3b-3 — 조명 지정(SettingsPage) 변경을 레벨 그리드에 반영. RecipePage 가 타깃 표시 시 호출(캐시 재바인딩).</summary>
@@ -307,10 +318,10 @@ namespace QMC.Vision.Ui.Pages
             else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
             {
                 items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => pg.Threshold,     v => { pg.Threshold = v; }));
-                // Gap Lower/Upper·Offset 단위 = Pixel Size 가 0이면 px, >0이면 mm (아래 Pixel Size 로 단위 결정).
-                items.Add(ParameterGridItem.Double("Gap Lower", "px/mm", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Upper", "px/mm", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Gap Offset","px/mm", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
+                // Gap Lower/Upper·Offset — 저장/판정은 mm(SSOT), 표시·입력은 전역 표시 단위(GENERAL mm/px)로 환산(Measure).
+                items.Add(ParameterGridItem.Measure("Gap Lower", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; PushChartLimits(); }, () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Gap Upper", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; PushChartLimits(); }, () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Gap Offset", ParameterGridScope.Recipe, () => pg.GapOffset, v => { pg.GapOffset = v; }, () => _module?.ScaleX ?? 1.0));
                 items.Add(ParameterGridItem.Bool("Dark Die", ParameterGridScope.Recipe, () => pg.DarkDie, v => { pg.DarkDie = v; }));
                 items.Add(ParameterGridItem.Int("Edge Step", "px", ParameterGridScope.Recipe, () => pg.EdgeStep, v => { pg.EdgeStep = v; }));
                 items.Add(ParameterGridItem.Double("Band Trim", "", ParameterGridScope.Recipe, () => pg.BandTrim, v => { pg.BandTrim = v; }));
@@ -323,14 +334,14 @@ namespace QMC.Vision.Ui.Pages
                 // Bottom 사이즈·칩핑·이물 (CDT-310 BottomInspectionParameter)
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => bi.ChipThreshold, v => { bi.ChipThreshold = v; }));
                 items.Add(ParameterGridItem.Bool  ("Dark Chip", ParameterGridScope.Recipe, () => bi.DarkChip, v => { bi.DarkChip = v; }));
-                items.Add(ParameterGridItem.Double("Chipping Depth", "mm", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }));
+                items.Add(ParameterGridItem.Measure("Chipping Depth", ParameterGridScope.Recipe, () => bi.ChippingDepth, v => { bi.ChippingDepth = v; }, () => _module?.ScaleY ?? 1.0));
                 items.Add(ParameterGridItem.Int   ("Chip Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ChipEdgeMargin, v => { bi.ChipEdgeMargin = v; }));
-                // 너비/높이 상·하한[mm] (0=미설정) — 차트 Limit 점선 + 사이즈 NG 기준.
-                items.Add(ParameterGridItem.Double("Width Lower",  "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Width Upper",  "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Width,  v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipUpperSpecLimit.Height); PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Height Lower", "mm", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Height, v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF(bi.ChipLowerSpecLimit.Width, (float)v); PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Height Upper", "mm", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Height, v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF(bi.ChipUpperSpecLimit.Width, (float)v); PushChartLimits(); }));
-                items.Add(ParameterGridItem.Double("Foreign Size", "mm", ParameterGridScope.Recipe, () => bi.ForeignObjectSize, v => { bi.ForeignObjectSize = v; }));
+                // 너비/높이 상·하한 — 저장/판정 mm(SSOT)·표시는 전역 단위 환산. (0=미설정) 차트 Limit 점선 + 사이즈 NG 기준.
+                items.Add(ParameterGridItem.Measure("Width Lower",  ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Width,  v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipLowerSpecLimit.Height); PushChartLimits(); }, () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Width Upper",  ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Width,  v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF((float)v, bi.ChipUpperSpecLimit.Height); PushChartLimits(); }, () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Height Lower", ParameterGridScope.Recipe, () => bi.ChipLowerSpecLimit.Height, v => { bi.ChipLowerSpecLimit = new System.Drawing.SizeF(bi.ChipLowerSpecLimit.Width, (float)v); PushChartLimits(); }, () => _module?.ScaleY ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Height Upper", ParameterGridScope.Recipe, () => bi.ChipUpperSpecLimit.Height, v => { bi.ChipUpperSpecLimit = new System.Drawing.SizeF(bi.ChipUpperSpecLimit.Width, (float)v); PushChartLimits(); }, () => _module?.ScaleY ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Foreign Size", ParameterGridScope.Recipe, () => bi.ForeignObjectSize, v => { bi.ForeignObjectSize = v; }, () => _module?.ScaleX ?? 1.0));
                 items.Add(ParameterGridItem.Int   ("Foreign Edge Margin", "px", ParameterGridScope.Recipe, () => bi.ForeignEdgeMargin, v => { bi.ForeignEdgeMargin = v; }));
                 items.Add(ParameterGridItem.Int   ("TopHat Radius", "px", ParameterGridScope.Recipe, () => bi.TopHatRadius, v => { bi.TopHatRadius = v; }));
                 items.Add(ParameterGridItem.Int   ("TopHat Threshold", "", ParameterGridScope.Recipe, () => bi.TopHatThreshold, v => { bi.TopHatThreshold = v; }));
@@ -347,8 +358,17 @@ namespace QMC.Vision.Ui.Pages
                 items.Add(ParameterGridItem.Int   ("Chip Threshold", "", ParameterGridScope.Recipe, () => si.ChipThreshold, v => { si.ChipThreshold = v; }));
                 if (si.IsChippingRole)
                 {
-                    items.Add(ParameterGridItem.Double("Upper Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v => { si.ChippingUpperLimit = v; PushChartLimits(); }));
-                    items.Add(ParameterGridItem.Double("Lower Limit", "mm", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v => { si.ChippingLowerLimit = v; PushChartLimits(); }));
+                    // 판정식: Lower ≤ 측정값 ≤ Upper (Lower 는 보통 음수=노이즈 허용). Upper<Lower 모순 입력 차단.
+                    items.Add(ParameterGridItem.Measure("Upper Limit", ParameterGridScope.Recipe, () => si.ChippingUpperLimit, v =>
+                    {
+                        if (v < si.ChippingLowerLimit) { MessageBox.Show($"Upper Limit({v} mm)은 Lower Limit({si.ChippingLowerLimit} mm) 이상이어야 합니다.\n판정: Lower ≤ 측정값 ≤ Upper", "입력 확인"); return; }
+                        si.ChippingUpperLimit = v; PushChartLimits();
+                    }, () => _module?.ScaleY ?? 1.0));
+                    items.Add(ParameterGridItem.Measure("Lower Limit", ParameterGridScope.Recipe, () => si.ChippingLowerLimit, v =>
+                    {
+                        if (v > si.ChippingUpperLimit) { MessageBox.Show($"Lower Limit({v} mm)은 Upper Limit({si.ChippingUpperLimit} mm) 이하여야 합니다.\n(측정 0도 NG가 됩니다. 보통 0 또는 음수 권장)", "입력 확인"); return; }
+                        si.ChippingLowerLimit = v; PushChartLimits();
+                    }, () => _module?.ScaleY ?? 1.0));
                     items.Add(ParameterGridItem.Double("Chip Thickness", "mm", ParameterGridScope.Recipe, () => si.ChipThickness, v => { si.ChipThickness = v; }));
                     // CDT-310 FindLine 라인검출 조정값
                     items.Add(ParameterGridItem.Double("Scan Rate", "", ParameterGridScope.Recipe, () => si.ScanRate, v => { si.ScanRate = v; }));
@@ -463,6 +483,7 @@ namespace QMC.Vision.Ui.Pages
                 _node.LoadSettings();
                 _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 inspector 주입
                 _params.RefreshValues();
+                UpdateResultUnitHeader();       // 단위 토글 후 재진입 시 헤더 단위 동기
                 RefreshOverlay();
                 RefreshStageInfo();             // 그랩 전에도 STAGE 를 실제(저장 이미지) 해상도로 표시
                 _dirty = false;                 // 저장본으로 되돌렸으므로 변경상태 해제
@@ -671,9 +692,11 @@ namespace QMC.Vision.Ui.Pages
 
                 var r = _inspector.Inspect(img);
                 _result.Rows.Clear();
+                UpdateResultUnitHeader();   // '값 [mm/px]' — 값 환산과 단위 표기 일치
+                // 결과 값도 전역 표시 단위로 — 길이 항목만 환산(스토어/통신/저장은 mm 원본 유지).
                 if (r.Items != null)
                     foreach (var it in r.Items)
-                        _result.Rows.Add(it.Name, it.Value, it.IsPass ? "✓" : "✗");
+                        _result.Rows.Add(it.Name, QMC.Vision.Core.UnitContext.ItemValueToDisplay(it.Name, it.Value, _inspector), it.IsPass ? "✓" : "✗");
 
                 _lblVerdict.Text = r.IsPass ? "PASS" : "FAIL";
                 _lblVerdict.BackColor = r.IsPass ? Color.FromArgb(40, 180, 90) : Color.FromArgb(220, 60, 60);
@@ -742,7 +765,7 @@ namespace QMC.Vision.Ui.Pages
                     Color green = Color.FromArgb(120, 230, 120);   // 일반
                     Color red   = Color.FromArgb(255, 90, 90);     // 에러(NG)
                     if (r.Items != null)
-                        foreach (var it in r.Items) { lines.Add(it.Name + ": " + it.Value); cols.Add(green); }
+                        foreach (var it in r.Items) { lines.Add(it.Name + ": " + QMC.Vision.Core.UnitContext.ItemValueToDisplay(it.Name, it.Value, _inspector)); cols.Add(green); }
                     if (r.Defects != null)
                     {
                         int i = 1;
@@ -862,23 +885,23 @@ namespace QMC.Vision.Ui.Pages
         {
             if (IsBackSideModule())
             {
-                items.Add(ParameterGridItem.Double("Back 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
-                items.Add(ParameterGridItem.Double("Back 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
+                items.Add(ParameterGridItem.Measure("Back 기준값", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v), () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Back 리밋 ±", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v), () => _module?.ScaleX ?? 1.0));
             }
             else
             {
-                items.Add(ParameterGridItem.Double("Front 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
-                items.Add(ParameterGridItem.Double("Front 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
+                items.Add(ParameterGridItem.Measure("Front 기준값", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v), () => _module?.ScaleX ?? 1.0));
+                items.Add(ParameterGridItem.Measure("Front 리밋 ±", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v), () => _module?.ScaleX ?? 1.0));
             }
         }
 
         /// <summary>차트 전용 기준값+리밋± 4칸(차트1 기준/±, 차트2 기준/±)을 그리드에 추가 — 모듈별 두 그래프 라벨.</summary>
         private void AddChartLimitItems(System.Collections.Generic.List<ParameterGridItem> items, string g1, string g2)
         {
-            items.Add(ParameterGridItem.Double(g1 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v)));
-            items.Add(ParameterGridItem.Double(g1 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v)));
-            items.Add(ParameterGridItem.Double(g2 + " 기준값", "mm", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v)));
-            items.Add(ParameterGridItem.Double(g2 + " 리밋 ±", "mm", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v)));
+            items.Add(ParameterGridItem.Measure(g1 + " 기준값", ParameterGridScope.Recipe, () => GetChartTarget(1), v => SetChartTarget(1, v), () => _module?.ScaleX ?? 1.0));
+            items.Add(ParameterGridItem.Measure(g1 + " 리밋 ±", ParameterGridScope.Recipe, () => GetChartTol(1),    v => SetChartTol(1, v), () => _module?.ScaleX ?? 1.0));
+            items.Add(ParameterGridItem.Measure(g2 + " 기준값", ParameterGridScope.Recipe, () => GetChartTarget(2), v => SetChartTarget(2, v), () => _module?.ScaleX ?? 1.0));
+            items.Add(ParameterGridItem.Measure(g2 + " 리밋 ±", ParameterGridScope.Recipe, () => GetChartTol(2),    v => SetChartTol(2, v), () => _module?.ScaleX ?? 1.0));
         }
 
         /// <summary>검사 결과 표시 전체 초기화 — 카메라 오버레이(검출/판정/결과라인) + 결과 그리드 + PASS/FAIL 패널.
@@ -1046,7 +1069,7 @@ namespace QMC.Vision.Ui.Pages
             Add("[ " + (insp != null ? insp.Id : "") + " ]   " + (r.IsPass ? "OK" : "NG"), r.IsPass ? green : red);
             if (r.Items != null)
                 foreach (var it in r.Items)
-                    Add("  " + it.Name + " : " + it.Value, it.IsPass ? green : red);   // 항목별 합/불 색
+                    Add("  " + it.Name + " : " + QMC.Vision.Core.UnitContext.ItemValueToDisplay(it.Name, it.Value, insp), it.IsPass ? green : red);   // 항목별 합/불 색(표시 단위 환산)
             if (r.Defects != null && r.Defects.Count > 0)
             {
                 Add("- Defects (" + r.Defects.Count + ") -", red);

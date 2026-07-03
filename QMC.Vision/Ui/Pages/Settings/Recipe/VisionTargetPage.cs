@@ -967,13 +967,17 @@ namespace QMC.Vision.Ui.Pages
             if (_measureMenuItem != null) _measureMenuItem.Checked = _measureOn;
         }
 
-        /// <summary>카메라 스케일(mm/px)을 CameraView 에 주입 — 측정 mm 환산용. (모듈별 CameraConfig SSOT)</summary>
+        /// <summary>측정 단위를 전역 표시 단위(GENERAL mm/px)와 통일 — mm 모드 & 카메라 스케일 보정 시
+        /// 모듈 ScaleX/Y(mm/px, CameraConfig SSOT) 주입, 아니면 px(MmPerPixel=0).</summary>
         private void ApplyScaleToCam()
         {
             try
             {
                 if (_cam == null) return;
-                _cam.MmPerPixelX = 0; _cam.MmPerPixelY = 0;   // 측정 px 단위(스케일 무관). mm 필요시 ExportCameraMapping().ScaleX/Y 주입.
+                double sx = 0, sy = 0;
+                try { if (_module != null) { sx = _module.ScaleX; sy = _module.ScaleY; } } catch { }
+                if (QMC.Vision.Core.UnitContext.DisplayMm && sx > 0 && sy > 0) { _cam.MmPerPixelX = sx; _cam.MmPerPixelY = sy; }
+                else { _cam.MmPerPixelX = 0; _cam.MmPerPixelY = 0; }
             }
             catch { }
         }

@@ -74,65 +74,75 @@ namespace QMC.Vision.Core
             SaveRow(cfg, rec);
         }
 
-        /// <summary>강제로 record 한 줄 저장.</summary>
+        /// <summary>강제로 record 한 줄 저장 — 값 캡처만 호출 스레드에서 하고, 파일 쓰기는
+        /// <see cref="DataSaveQueue"/>(백그라운드 스레드)로 넘겨 검사/시퀀스 스레드에 디스크 지연이 더해지지 않게 한다.</summary>
         public static void SaveRow(VisionSettings cfg, DieRecord rec)
         {
             if (cfg == null || rec == null) return;
             try
             {
-                string root = string.IsNullOrEmpty(cfg.DataLogPath) ? @".\Log\Data" : cfg.DataLogPath;
-                Directory.CreateDirectory(root);
+                string root = cfg.EffectiveDataLogPath;   // 비우면 기본 D:\CDT-320\Data — 폴더는 쓰기 시 생성
                 string file = Path.Combine(root, "vision_" + DateTime.Now.ToString("yyyyMMdd") + ".csv");
-
-                lock (_sync)
+                var values = new[]
                 {
-                    bool exists = File.Exists(file);
-                    using (var sw = new StreamWriter(file, true, new UTF8Encoding(false)))
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                    rec.ChipUid,
+                    rec.LoadingSubstrateId,
+                    rec.LoadingSubstrateX,
+                    rec.LoadingSubstrateY,
+                    rec.UnloadingSubstrateId,
+                    rec.UnloadingSubstrateX,
+                    rec.UnloadingSubstrateY,
+                    rec.DieWidth,
+                    rec.DieHeight,
+                    rec.ChipLowerSpecLimitWidth,
+                    rec.ChipUpperSpecLimitWidth,
+                    rec.ChipLowerSpecLimitHeight,
+                    rec.ChipUpperSpecLimitHeight,
+                    rec.BackChippingTopSize,
+                    rec.BackChippingRightSize,
+                    rec.BackChippingBottomSize,
+                    rec.BackChippingLeftSize,
+                    rec.BackChippingLength,
+                    rec.SideChippingBottomSize,
+                    rec.SideChippingLeftSize,
+                    rec.SideChippingTopSize,
+                    rec.SideChippingRightSize,
+                    rec.SideChippingLength,
+                    rec.BackForeignSize,
+                    rec.ForeignObjectSize,
+                    rec.PlaceTopGapAverage,
+                    rec.PlaceBottomGapAverage,
+                    rec.PlaceLeftGapAverage,
+                    rec.PlaceRightGapAverage,
+                    rec.DieGapUpperLimit,
+                    rec.DieGapLowerLimit,
+                };
+                // 디스크 쓰기는 백그라운드 큐에서 수행 — 값은 위에서 이미 캡처했으므로 이후 record 변경과 무관.
+                DataSaveQueue.Enqueue("DataLog:" + rec.ChipUid, () => WriteRow(root, file, values));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[DataLogSaver] SaveRow 실패(" + rec.ChipUid + "): " + ex.Message);
+            }
+        }
+
+        /// <summary>일자 CSV 한 줄 추가(백그라운드 큐 전용). 폴더 없으면 생성, 헤더는 파일 신규 생성 시에만 기록.</summary>
+        private static void WriteRow(string root, string file, string[] values)
+        {
+            lock (_sync)
+            {
+                Directory.CreateDirectory(root);
+                bool exists = File.Exists(file);
+                using (var sw = new StreamWriter(file, true, new UTF8Encoding(false)))
+                {
+                    if (!exists)
                     {
-                        if (!exists)
-                        {
-                            sw.WriteLine("Timestamp," + string.Join(",", Headers));
-                        }
-                        var values = new[]
-                        {
-                            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
-                            rec.ChipUid,
-                            rec.LoadingSubstrateId,
-                            rec.LoadingSubstrateX,
-                            rec.LoadingSubstrateY,
-                            rec.UnloadingSubstrateId,
-                            rec.UnloadingSubstrateX,
-                            rec.UnloadingSubstrateY,
-                            rec.DieWidth,
-                            rec.DieHeight,
-                            rec.ChipLowerSpecLimitWidth,
-                            rec.ChipUpperSpecLimitWidth,
-                            rec.ChipLowerSpecLimitHeight,
-                            rec.ChipUpperSpecLimitHeight,
-                            rec.BackChippingTopSize,
-                            rec.BackChippingRightSize,
-                            rec.BackChippingBottomSize,
-                            rec.BackChippingLeftSize,
-                            rec.BackChippingLength,
-                            rec.SideChippingBottomSize,
-                            rec.SideChippingLeftSize,
-                            rec.SideChippingTopSize,
-                            rec.SideChippingRightSize,
-                            rec.SideChippingLength,
-                            rec.BackForeignSize,
-                            rec.ForeignObjectSize,
-                            rec.PlaceTopGapAverage,
-                            rec.PlaceBottomGapAverage,
-                            rec.PlaceLeftGapAverage,
-                            rec.PlaceRightGapAverage,
-                            rec.DieGapUpperLimit,
-                            rec.DieGapLowerLimit,
-                        };
-                        sw.WriteLine(string.Join(",", values.Select(v => Csv(v))));
+                        sw.WriteLine("Timestamp," + string.Join(",", Headers));
                     }
+                    sw.WriteLine(string.Join(",", values.Select(v => Csv(v))));
                 }
             }
-            catch { }
         }
 
         private static string Csv(string s)

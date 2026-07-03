@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using System;
 using System.CodeDom;
 using System.Collections.Generic;
@@ -569,13 +569,20 @@ namespace QMC.Vision.Inspector
                     result.DefectCode =10;
                     return null;
                 }
-                int nTake = results.Count;
-                if (nTake >2)
-                {
-                    nTake =2;
-                }
-                var vList = (results.Count >0 ? results : tasks.Select(t => t.Result).Where(r => r != null))
-                .OrderBy(t => t.w + t.h).Take(nTake);
+
+                //
+                // EventSearchDieEnd
+                // 결과로 . X,Y,T
+                // 어씽크로 이벤트 호출
+
+
+
+                // 유효(각도 non-NaN) 결과가 없으면 폴백 목록(비-null 태스크 결과)에서 취한다.
+                // 기존 버그: results.Count==0 이면 nTake=0 → Take(0) → 아래 Average 가 빈 시퀀스 예외
+                // → BottomInspect null → 레거시 폴백 재검사(픽커당 검사 2회)로 전체 사이클이 느려졌다.
+                var vSrc = (results.Count > 0 ? results : tasks.Select(t => t.Result).Where(r => r != null)).ToList();
+                int nTake = Math.Min(vSrc.Count, 2);
+                var vList = vSrc.OrderBy(t => t.w + t.h).Take(nTake).ToList();
                 resultChppingNForeign = bestResult;
                 ShiftImage = resultChppingNForeign.shiftimage;
                 ShiftImageSobel = resultChppingNForeign.shiftSobelimage;
@@ -584,8 +591,8 @@ namespace QMC.Vision.Inspector
                 Random rand = new Random();
                 result.Offset = new System.Drawing.PointF((float)rand.NextDouble(), (float)rand.NextDouble());
                 result.Angle = resultChppingNForeign.GetAngle(); // 0 to 360 degrees
-                result.Width = vList.Average(t=>t.w);
-                result.Height = vList.Average(t => t.h);
+                result.Width = vList.Count > 0 ? vList.Average(t => t.w) : 0;
+                result.Height = vList.Count > 0 ? vList.Average(t => t.h) : 0;
                 bool bUssCorrectMotionBlur = false;
                 if(bUssCorrectMotionBlur)
                 {

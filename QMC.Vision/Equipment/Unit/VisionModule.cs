@@ -409,24 +409,57 @@ namespace QMC.Vision.Modules
             catch { }
         }
 
-        /// <summary>지정 경로의 이미지를 GrabResult 로 로드(파일 잠금 방지 위해 복제본 생성). 경로/파일 문제는 실패 GrabResult.</summary>
+        // ── 저장이미지 디코드 캐시(Sim 전용 최적화) ──
+        // 고해상도 저장이미지를 그랩마다 디스크에서 재읽기+재디코드하면 회당 ~1초가 걸려
+        // Bottom 4픽커 배치의 그랩 구간이 수 초를 차지한다. 같은 파일(경로+수정시각+크기)이면
+        // 디코드된 마스터를 재사용하고 복제본만 만들어 반환한다(반환 이미지 소유권은 호출자 — 기존과 동일).
+        // 실기 카메라 그랩 경로는 이 캐시를 타지 않는다.
+        private static readonly object _savedImgCacheLock = new object();
+        private static readonly System.Collections.Generic.Dictionary<string, System.Tuple<DateTime, long, System.Drawing.Bitmap>> _savedImgCache
+            = new System.Collections.Generic.Dictionary<string, System.Tuple<DateTime, long, System.Drawing.Bitmap>>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>지정 경로의 이미지를 GrabResult 로 로드(파일 잠금 방지 위해 복제본 생성). 경로/파일 문제는 실패 GrabResult.
+        /// 동일 파일 반복 로드는 디코드 캐시를 사용(수정 시 자동 무효화).</summary>
         private GrabResult LoadImageAsGrab(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
                 return GrabResult.Fail("저장 이미지 경로 미지정", Name);
-            if (!System.IO.File.Exists(path))
+            var fi = new System.IO.FileInfo(path);
+            if (!fi.Exists)
                 return GrabResult.Fail("저장 이미지 없음: " + path, Name);
             try
             {
                 if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
-                byte[] bytes = System.IO.File.ReadAllBytes(path);
-                using (var ms = new System.IO.MemoryStream(bytes))
-                using (var tmp = System.Drawing.Image.FromStream(ms))
+                System.Drawing.Bitmap clone;
+                lock (_savedImgCacheLock)
                 {
-                    var bmp = new System.Drawing.Bitmap(tmp);
-                    int seq = System.Threading.Interlocked.Increment(ref _savedFrameSeq);
-                    return GrabResult.Success(bmp, seq, "saved:" + System.IO.Path.GetFileName(path));
+                    System.Tuple<DateTime, long, System.Drawing.Bitmap> hit;
+                    if (!_savedImgCache.TryGetValue(path, out hit)
+                        || hit.Item1 != fi.LastWriteTimeUtc || hit.Item2 != fi.Length)
+                    {
+                        byte[] bytes = System.IO.File.ReadAllBytes(path);
+                        System.Drawing.Bitmap master;
+                        using (var ms = new System.IO.MemoryStream(bytes))
+                        using (var tmp = System.Drawing.Image.FromStream(ms))
+                        {
+                            // 24bppRgb 마스터로 1회 변환 — 이후 그랩은 동일 포맷 Clone(=memcpy, 고속).
+                            // 기존 new Bitmap(tmp)=32bpp 재변환이 12000² 기준 그랩마다 ~1초·576MB 할당을 유발했고,
+                            // 검사(ToGray)도 LockBits(24bpp) 요청이라 24bpp 마스터면 잠금 시 포맷 변환도 사라진다.
+                            var b24 = new System.Drawing.Bitmap(tmp.Width, tmp.Height, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                            using (var gg = System.Drawing.Graphics.FromImage(b24))
+                                gg.DrawImage(tmp, 0, 0, tmp.Width, tmp.Height);
+                            master = b24;
+                        }
+                        if (hit != null) { try { hit.Item3.Dispose(); } catch { } }
+                        hit = System.Tuple.Create(fi.LastWriteTimeUtc, fi.Length, master);
+                        _savedImgCache[path] = hit;
+                    }
+                    // GDI+ Bitmap 은 스레드 세이프하지 않으므로 복제도 락 안에서.
+                    // 동일 포맷 Clone = 픽셀 memcpy — new Bitmap(...) 의 포맷 변환 경로보다 수 배 빠름.
+                    clone = hit.Item3.Clone(new System.Drawing.Rectangle(0, 0, hit.Item3.Width, hit.Item3.Height), hit.Item3.PixelFormat);
                 }
+                int seq = System.Threading.Interlocked.Increment(ref _savedFrameSeq);
+                return GrabResult.Success(clone, seq, "saved:" + System.IO.Path.GetFileName(path));
             }
             catch (Exception ex)
             {

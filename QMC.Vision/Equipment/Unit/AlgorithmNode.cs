@@ -261,8 +261,8 @@ namespace QMC.Vision.Modules
                     si.TopHatRadius             = r.TopHatRadius;
                     si.TopHatThreshold          = r.TopHatThreshold;
                     si.MinForeignAreaFilterSize = r.MinForeignAreaFilterSize;
-                    si.MaxForeignAreaFilterSize = r.MaxForeignAreaFilterSize;
-                    si.LinkDistance             = r.LinkDistance;
+                    if (r.MaxForeignAreaFilterSize > 0) si.MaxForeignAreaFilterSize = r.MaxForeignAreaFilterSize;   // 0=미설정 → 기본값 유지(Bottom 238행과 동일 가드)
+                    if (r.LinkDistance > 0)             si.LinkDistance             = r.LinkDistance;
                     if (r.PixelSizeXmmBottom > 0) si.PixelSizeWidthMm  = r.PixelSizeXmmBottom;
                 }
             }

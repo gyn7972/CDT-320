@@ -150,10 +150,12 @@ namespace QMC.Vision.Comm
         private void ProcessLine(NetworkStream stream, string line)
         {
             LastRxUtc = DateTime.UtcNow;
-            LogMsg($"[{ModuleName}] RX: {line}");
             var parts = line.Split('|');
             string mod = parts.Length > 0 ? parts[0] : "";
             string cmd = parts.Length > 1 ? parts[1].ToUpperInvariant() : "";
+            // 결과 폴링(RESULT 계열)은 진행중("0") 응답이 초당 수 회 반복돼 로그 홍수 → 완료/실패 때만 RX/TX 기록.
+            bool isPollCmd = (cmd == "INSPECTRESULT" || cmd == "MATCHRESULT");
+            if (!isPollCmd) LogMsg($"[{ModuleName}] RX: {line}");
 
             if (!_modules.TryGetValue(mod, out var m))
             {
@@ -217,10 +219,12 @@ namespace QMC.Vision.Comm
                 // FOCUS_VAL 응답 = "그랩 완료" ACK(점수 아님, 채점은 백그라운드). 핸들러가 이 ACK를 받고 다음 Z 이동.
                 if (!isAsyncStart)
                 {
+                    bool quiet = isPollCmd && resp == "0";                       // 진행중 폴링 — 로그 생략
+                    if (isPollCmd && !quiet) LogMsg($"[{ModuleName}] RX: {line}");   // 완료/실패 시점만 RX 기록
                     string target = ResolveEchoToken(cmd, parts);
                     Send(stream, string.IsNullOrEmpty(target)
                         ? $"ACK|{mod}|{cmd}|{resp}"
-                        : $"ACK|{mod}|{cmd}|{echo}|{resp}");
+                        : $"ACK|{mod}|{cmd}|{echo}|{resp}", quiet);
                 }
             }
             catch (Exception ex)
@@ -325,66 +329,29 @@ namespace QMC.Vision.Comm
             return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
         }
 
-        /// <summary>비동기 검사 시작 — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환, 그랩·검사는 백그라운드.
-        /// 검사 사용 OFF면 그랩 없이 즉시 완료(PASS). 결과는 (모듈,inspector,chip_uid) 키로 저장.</summary>
+        /// <summary>비동기 검사 시작 — 즉시 STARTED(그랩 전 1차 ACK). 실행은 <see cref="AsyncInspectCore"/>(공용 엔진,
+        /// 일반 시퀀서 DirectVisionCommandDispatcher 와 공유 — TCP/직접 경로 동작 동일).
+        /// 형식: MODULE|INSPECTASYNC|inspector|picker_id|chip_uid[|die_index[|channel]]
+        ///  • die_index = 픽업 순서 1-base(레시피 칩위치 → 맵 셀 매칭). 생략 시 chip_uid 가 숫자면 그 값.
+        ///  • channel   = 측면 0°/90° 채널(Side 전용, 생략 시 -1). 같은 chip_uid 의 채널들은 합산 판정 1회 응답.</summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)
         {
-            string insp    = parts.Length > 2 ? parts[2] : "";
-            string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
-            if (!m.Inspectors.TryGetValue(insp, out var ins)) return "fail:inspector not found";
-
-            // 검사 사용 게이트 OFF → 그랩 없이 즉시 완료(스킵).
-            if (VisionCommandCore.IsInspectionSkipped(m, insp))
-            {
-                ModuleResultStore.Record(m.Name, insp, true, "inspection=skip");
-                AsyncMatchStore.Complete(m.Name, insp, chipUid, "PASS;inspection=skip");
-                return "STARTED";
-            }
-
-            AsyncMatchStore.Start(m.Name, insp, chipUid);
-            var cfg = _cfg;
-            System.Threading.Tasks.Task.Run(() =>
-            {
-                try
-                {
-                    var g = m.GrabForTool(insp);              // 그랩도 백그라운드(ACK 이후 수행)
-                    if (g == null || !g.IsSuccess)
-                    {
-                        try { g?.Dispose(); } catch { }
-                        AsyncMatchStore.Fail(m.Name, insp, chipUid, g?.ErrorMessage ?? "grab");
-                        return;
-                    }
-                    try
-                    {
-                        string res = VisionCommandCore.InspectOnImage(m, cfg, insp, ins, g.Image, chipUid);
-                        if (res != null && (res.StartsWith("PASS") || res.StartsWith("FAIL")))
-                            AsyncMatchStore.Complete(m.Name, insp, chipUid, res);   // payload = PASS;.. / FAIL;..
-                        else
-                            AsyncMatchStore.Fail(m.Name, insp, chipUid, res ?? "no result");
-                    }
-                    finally { try { g.Dispose(); } catch { } }
-                }
-                catch (Exception ex) { AsyncMatchStore.Fail(m.Name, insp, chipUid, ex.Message); }
-            });
-            return "STARTED";
+            string insp = parts.Length > 2 ? parts[2] : "";
+            int picker = 0, dieIndex = 0, channel = -1; string chipUid = "";
+            if (parts.Length >= 5) { int.TryParse(parts[3], out picker); chipUid = parts[4]; }   // picker_id | chip_uid
+            else if (parts.Length == 4) { chipUid = parts[3]; }                                   // 구형: chip_uid 만
+            if (parts.Length >= 6) int.TryParse(parts[5], out dieIndex);
+            if (parts.Length >= 7 && !int.TryParse(parts[6], out channel)) channel = -1;
+            if (dieIndex <= 0) int.TryParse(chipUid, out dieIndex);   // uid 가 숫자면 곧 die_index
+            return AsyncInspectCore.Start(m, _cfg, insp, picker, chipUid, dieIndex, channel);
         }
 
-        /// <summary>비동기 검사 결과 폴링 — (모듈,inspector,chip_uid) 키로 조회.
-        /// "0"(진행/미시작)/"1;PASS|FAIL;.."(완료)/"ERR;사유"(실패).</summary>
+        /// <summary>비동기 검사 결과 — 대기형 응답(요청 1회 = 데이터 응답 1회). <see cref="AsyncInspectCore.WaitResult"/> 위임.</summary>
         private string DoInspectResult(IVisionModule m, string[] parts)
         {
             string insp    = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
-            var st = AsyncMatchStore.TryGet(m.Name, insp, chipUid, out string payload);
-            switch (st)
-            {
-                case AsyncMatchStore.State.Done:    return "1;" + payload;
-                case AsyncMatchStore.State.Error:   return "ERR;" + payload;
-                case AsyncMatchStore.State.Running: return "0";
-                default:                            return "0";
-            }
+            return AsyncInspectCore.WaitResult(m, _cfg, insp, chipUid);
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)
@@ -499,14 +466,14 @@ namespace QMC.Vision.Comm
             LogMsg($"[{ModuleName}] PUSH: {line}");
         }
 
-        private void Send(NetworkStream stream, string line)
+        private void Send(NetworkStream stream, string line, bool quiet = false)
         {
             if (stream == null) { LogMsg($"[{ModuleName}] TX dropped (no stream): {line}"); return; }
             try
             {
                 var data = Encoding.UTF8.GetBytes(line + "\n");
                 stream.Write(data, 0, data.Length);
-                LogMsg($"[{ModuleName}] TX: {line}");
+                if (!quiet) LogMsg($"[{ModuleName}] TX: {line}");   // quiet=진행중 폴링 응답(로그 홍수 방지)
             }
             catch (Exception ex)
             {

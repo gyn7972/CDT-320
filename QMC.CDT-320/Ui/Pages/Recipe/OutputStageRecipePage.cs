@@ -760,6 +760,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var unit = _outputStageUnit;
                 ioCylinderPanel.ColumnCount = 2;   // 2열 배치 (Front Head 기준)
+                ioCylinderPanel.AutoFitParentGroupHeight = true;   // 그룹 높이 실측 자동맞춤 (스크롤 없이 전 항목 표시)
             ioCylinderPanel.SetItems(new[]
                 {
                     // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====

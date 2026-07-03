@@ -269,8 +269,7 @@
             // 
             // cboStepPreset
             // 
-            this.cboStepPreset.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
+            this.cboStepPreset.Dock = System.Windows.Forms.DockStyle.Top;
             this.cboStepPreset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cboStepPreset.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.cboStepPreset.FormattingEnabled = true;
@@ -280,7 +279,7 @@
             "10",
             "1",
             "0"});
-            this.cboStepPreset.Location = new System.Drawing.Point(115, 35);
+            this.cboStepPreset.Location = new System.Drawing.Point(115, 30);
             this.cboStepPreset.Margin = new System.Windows.Forms.Padding(3, 2, 3, 0);
             this.cboStepPreset.Name = "cboStepPreset";
             this.cboStepPreset.Size = new System.Drawing.Size(68, 21);

@@ -97,11 +97,14 @@ namespace QMC.Vision.Ui.Controls
             base.BeginRoiDrag(kind, RectOf(current));
         }
 
-        /// <summary>측정 거리를 px 단위로 표시(스케일 무관). MmPerPixel=0 이면 base 가 "px"로 표기.
-        /// 나중에 mm 가 필요하면 모듈 ScaleX/Y(ExportCameraMapping)를 주입해 전환한다.</summary>
+        /// <summary>측정 단위를 전역 표시 단위(GENERAL mm/px)와 통일 — mm 모드 & 카메라 스케일(mm/px) 보정 시
+        /// 모듈 ScaleX/Y 주입(mm 표기), 아니면 MmPerPixel=0 → base 가 "px"로 표기.</summary>
         protected override void RefreshMeasureScale()
         {
-            MmPerPixelX = 0; MmPerPixelY = 0;   // px 단위 측정
+            double sx = 0, sy = 0;
+            try { if (_module != null) { sx = _module.ScaleX; sy = _module.ScaleY; } } catch { }
+            if (QMC.Vision.Core.UnitContext.DisplayMm && sx > 0 && sy > 0) { MmPerPixelX = sx; MmPerPixelY = sy; }
+            else { MmPerPixelX = 0; MmPerPixelY = 0; }
         }
 
         // ── 마우스 PX 좌표 표시(우클릭 메뉴 ON/OFF, 기본 OFF) ──

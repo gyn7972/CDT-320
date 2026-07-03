@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QMC.Vision", "QMC.Vision\QM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QMc.Vision.Inspector", "VisionInspector\QMc.Vision.Inspector.csproj", "{49EE7EBB-6263-4FEF-8278-817AB96A046D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QMC.MilCameraTest", "QMC.MilCameraTest\QMC.MilCameraTest.csproj", "{F3E000D0-CC06-48EF-8E1E-3C196498892A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,14 @@ Global
 		{49EE7EBB-6263-4FEF-8278-817AB96A046D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{49EE7EBB-6263-4FEF-8278-817AB96A046D}.Release|x64.ActiveCfg = Release|Any CPU
 		{49EE7EBB-6263-4FEF-8278-817AB96A046D}.Release|x64.Build.0 = Release|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Debug|x64.Build.0 = Debug|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Release|x64.ActiveCfg = Release|Any CPU
+		{F3E000D0-CC06-48EF-8E1E-3C196498892A}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

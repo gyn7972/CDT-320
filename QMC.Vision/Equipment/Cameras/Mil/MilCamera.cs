@@ -25,6 +25,7 @@ namespace QMC.Vision.Cameras.Mil
         private int    _digNum;
         private int    _bands = 1;
         private MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
+        private MIL_DIG_HOOK_FUNCTION_PTR _exposureEndHook;   // 노출 종료(ExposureEnd) 훅 델리게이트(GC 방지로 필드 보관)
         private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
         private long _lastLiveTickMs;
         private readonly string _tmpPath;
@@ -92,6 +93,13 @@ namespace QMC.Vision.Cameras.Mil
             }
 
             IsOpen = true;
+
+            // ExposureEnd HW 훅 등록 — 노출 종료 시점(전송 완료보다 앞섬)에 ExposureEnded 발화.
+            //   미지원 보드/카메라는 훅이 동작하지 않아 이벤트가 발화되지 않을 뿐, 기존 동작에는 영향 없다.
+            _exposureEndHook = ExposureEndHook;
+            try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END, _exposureEndHook, IntPtr.Zero); }
+            catch (Exception ex) { _exposureEndHook = null; LiveLog("ExposureEnd 훅 등록 실패(미지원 가능): " + ex.Message); }
+
             // 열릴 때마다 현재(레시피/UI) 설정을 카메라에 재적용 — startup·Connect·재오픈 모두 동일 상태 보장.
             ApplyCurrentSettings();
             RaiseConnectionChanged(CameraConnectionEvent.Opened);
@@ -119,6 +127,8 @@ namespace QMC.Vision.Cameras.Mil
         {
             StopLive();
             if (!IsOpen) return;
+            try { if (_exposureEndHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END + MIL.M_UNHOOK, _exposureEndHook, IntPtr.Zero); } catch { }
+            _exposureEndHook = null;
             try { if (!IsNull(_buf)) MIL.MbufFree(_buf); } catch { }
             try { if (!IsNull(_dig)) MIL.MdigFree(_dig); } catch { }
             _buf = MIL.M_NULL;
@@ -274,6 +284,16 @@ namespace QMC.Vision.Cameras.Mil
                 if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
             }
             catch { }
+            return 0;
+        }
+
+        /// <summary>노출 종료 훅(M_GRAB_EXPOSURE_END) — MIL 내부 스레드에서 호출된다.
+        /// 전송 완료(M_GRAB_FRAME_END)보다 앞서 도착하므로 즉시 ExposureEnded 를 발화해
+        /// 다음 기구 동작을 앞당길 수 있다(HikGigECamera 와 동일 계약).</summary>
+        private MIL_INT ExposureEndHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
+        {
+            try { if (IsOpen) RaiseExposureEnded(); }
+            catch (Exception ex) { LiveLog("ExposureEnd 발화 예외: " + ex.Message); }
             return 0;
         }
 
