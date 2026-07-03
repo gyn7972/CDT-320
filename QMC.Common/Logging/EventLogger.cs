@@ -16,6 +16,13 @@ namespace QMC.Common.Logging
         private const int DefaultSafeReadLimit = 10000;
         private const long MaxEventCsvBytes = 100L * 1024L * 1024L;
         private const string CsvHeader = "When,Kind,User,Code,Source,Description";
+
+        // 이력 화면 '오늘' 뷰용 메모리 최근 버퍼. 종류별로 최근 N개를 유지해 파일 IO 없이 즉시 조회한다.
+        // (한 종류가 폭주해도 다른 종류의 최근 이력이 밀려나지 않도록 종류별로 분리)
+        private const int RecentRowsPerKind = 10000;
+        private static readonly object RecentSyncRoot = new object();
+        private static readonly Dictionary<EventKind, Queue<EventRow>> RecentByKind
+            = new Dictionary<EventKind, Queue<EventRow>>();
         private static string _currentDate;
         private static string _currentPath;
         private static string _logRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
@@ -108,6 +115,7 @@ namespace QMC.Common.Logging
             }
             finally
             {
+                AddRecentRow(row);
                 try
                 {
                     EventLogged?.Invoke(row);
@@ -115,6 +123,91 @@ namespace QMC.Common.Logging
                 catch
                 {
                 }
+            }
+        }
+
+        // 메모리 최근 버퍼에 1건 추가(종류별 상한 유지). 기록 경로에서 호출되므로 예외를 밖으로 내지 않는다.
+        private static void AddRecentRow(EventRow row)
+        {
+            try
+            {
+                if (row == null)
+                    return;
+
+                lock (RecentSyncRoot)
+                {
+                    Queue<EventRow> queue;
+                    if (!RecentByKind.TryGetValue(row.Kind, out queue))
+                    {
+                        queue = new Queue<EventRow>();
+                        RecentByKind[row.Kind] = queue;
+                    }
+
+                    queue.Enqueue(row);
+                    while (queue.Count > RecentRowsPerKind)
+                        queue.Dequeue();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 메모리에 유지 중인 최근 로그를 조회한다(파일 IO 없음). 이력 화면의 '오늘' 뷰가 사용한다.
+        /// 앱 시작 이후 기록된 로그만 담고 있으며, 과거분은 ReadRecent(파일 기반)로 조회한다.
+        /// </summary>
+        public static List<EventRow> ReadRecentMemory(EventKind? kind, int maxRows, Predicate<EventRow> filter = null)
+        {
+            try
+            {
+                int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
+
+                // 락 유지 시간을 줄이기 위해 스냅샷만 뜨고, 필터링은 락 밖에서 수행한다.
+                List<EventRow> snapshot = new List<EventRow>();
+                lock (RecentSyncRoot)
+                {
+                    if (kind != null)
+                    {
+                        Queue<EventRow> queue;
+                        if (RecentByKind.TryGetValue(kind.Value, out queue))
+                            snapshot.AddRange(queue);
+                    }
+                    else
+                    {
+                        foreach (Queue<EventRow> queue in RecentByKind.Values)
+                            snapshot.AddRange(queue);
+                    }
+                }
+
+                // 여러 종류를 합친 경우에만 시간순 정렬이 필요하다(단일 종류는 이미 기록 순).
+                if (kind == null)
+                    snapshot.Sort((a, b) => a.When.CompareTo(b.When));
+
+                Queue<EventRow> rows = new Queue<EventRow>(Math.Min(limit, 1024));
+                foreach (EventRow row in snapshot)
+                {
+                    if (row == null)
+                        continue;
+                    if (filter != null && !filter(row))
+                        continue;
+
+                    rows.Enqueue(row);
+                    while (rows.Count > limit)
+                        rows.Dequeue();
+                }
+
+                return new List<EventRow>(rows);
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
             }
         }
          
@@ -204,33 +297,68 @@ namespace QMC.Common.Logging
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 yield break;
 
-            IEnumerable<string> lines;
+            // FileShare.ReadWrite 로 열어 읽는 동안에도 로그 기록(Append)이 막히지 않게 한다.
+            // (File.ReadLines 는 FileShare.Read 라 대용량 파일을 읽는 동안 기록이 조용히 유실된다)
+            StreamReader reader = TryOpenSharedReader(path);
+            if (reader == null)
+                yield break;
+
             try
             {
-                lines = File.ReadLines(path, Encoding.UTF8);
-            }
-            catch
-            {
-                yield break;
-            }
+                while (true)
+                {
+                    string line;
+                    try
+                    {
+                        line = reader.ReadLine();
+                    }
+                    catch
+                    {
+                        break;
+                    }
 
-            foreach (string line in lines)
+                    if (line == null)
+                        break;
+
+                    EventRow row = TryParseLogLine(line);
+                    if (row != null)
+                        yield return row;
+                }
+            }
+            finally
             {
-                EventRow row = TryParseLogLine(line);
-                if (row != null)
-                    yield return row;
+                try { reader.Dispose(); } catch { }
             }
         }
 
-        public static List<EventRow> ReadRecentFile(string path, int maxRows, Predicate<EventRow> filter = null)
+        private static StreamReader TryOpenSharedReader(string path)
+        {
+            try
+            {
+                var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                return new StreamReader(stream, Encoding.UTF8);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public static List<EventRow> ReadRecentFile(string path, int maxRows, Predicate<EventRow> filter = null, Func<bool> cancelRequested = null)
         {
             try
             {
                 int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
                 Queue<EventRow> rows = new Queue<EventRow>(Math.Min(limit, 1024));
 
+                int scanned = 0;
                 foreach (EventRow row in EnumerateFile(path))
                 {
+                    // 조건이 바뀌어 더 읽을 필요가 없어지면 즉시 중단한다(대용량 파일 낭비 읽기 방지).
+                    // 콜백 비용을 줄이기 위해 2048행마다 한 번만 확인한다.
+                    if (cancelRequested != null && (++scanned & 0x7FF) == 0 && cancelRequested())
+                        break;
+
                     if (row == null)
                         continue;
                     if (filter != null && !filter(row))
@@ -252,30 +380,15 @@ namespace QMC.Common.Logging
             }
         }
 
-        public static List<EventRow> ReadRecent(DateTime date, int maxRows, Predicate<EventRow> filter = null)
+        public static List<EventRow> ReadRecent(DateTime date, int maxRows, Predicate<EventRow> filter = null, Func<bool> cancelRequested = null)
         {
             try
             {
-                int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
-                Queue<EventRow> rows = new Queue<EventRow>(Math.Min(limit, 1024));
-
                 string path = GetActiveLogFileForDate(date);
-                if (!string.IsNullOrWhiteSpace(path))
-                {
-                    foreach (EventRow row in EnumerateFile(path))
-                    {
-                        if (row == null)
-                            continue;
-                        if (filter != null && !filter(row))
-                            continue;
+                if (string.IsNullOrWhiteSpace(path))
+                    return new List<EventRow>();
 
-                        rows.Enqueue(row);
-                        while (rows.Count > limit)
-                            rows.Dequeue();
-                    }
-                }
-
-                return new List<EventRow>(rows);
+                return ReadRecentFile(path, maxRows, filter, cancelRequested);
             }
             catch
             {
@@ -284,6 +397,176 @@ namespace QMC.Common.Logging
             finally
             {
             }
+        }
+
+        /// <summary><see cref="ReadRecentFileTail"/> 의 날짜 버전 — 해당 날짜 활성 파일을 끝에서 거꾸로 읽는다.</summary>
+        public static List<EventRow> ReadRecentTail(DateTime date, int maxRows, Predicate<EventRow> filter = null, Func<bool> cancelRequested = null, EventKind? kindHint = null)
+        {
+            try
+            {
+                string path = GetActiveLogFileForDate(date);
+                if (string.IsNullOrWhiteSpace(path))
+                    return new List<EventRow>();
+
+                return ReadRecentFileTail(path, maxRows, filter, cancelRequested, kindHint);
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 파일을 <b>끝에서 거꾸로</b> 읽어 필터를 통과하는 최신 maxRows 개를 시간순(과거→최신)으로 돌려준다.
+        /// 최신 로그는 파일 끝에 있으므로, 수 GB 파일이라도 필요한 만큼(보통 끝의 수 MB)만 읽고 끝난다.
+        /// 줄 경계는 0x0A(LF) 바이트로 찾는다 — UTF-8 멀티바이트 문자에는 0x0A 가 나올 수 없어 안전하다.
+        /// </summary>
+        public static List<EventRow> ReadRecentFileTail(string path, int maxRows, Predicate<EventRow> filter = null, Func<bool> cancelRequested = null, EventKind? kindHint = null)
+        {
+            try
+            {
+                var newestFirst = new List<EventRow>();
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return newestFirst;
+
+                int limit = maxRows > 0 ? maxRows : DefaultSafeReadLimit;
+
+                // 종류 힌트가 있으면 ",Kind," 토큰을 바이트로 미리 대조해, 종류가 다른 줄은
+                // 문자열 변환/CSV 파싱 없이 건너뛴다 — 원하는 종류가 드문 파일에서 스캔이 몇 배 빨라진다.
+                byte[] kindToken = kindHint != null
+                    ? Encoding.ASCII.GetBytes("," + kindHint.Value + ",")
+                    : null;
+
+                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                {
+                    long pos = stream.Length;
+                    // 역방향 읽기는 OS 미리읽기(순방향 최적화)를 못 받으므로 청크를 크게 잡아
+                    // 탐색(seek) 횟수를 줄인다 — 대용량 파일을 거슬러 훑을 때 디스크 순차 속도에 근접한다.
+                    byte[] chunk = new byte[4 * 1024 * 1024];
+                    byte[] carry = new byte[0];   // 줄 시작을 아직 못 읽은 잘린 앞부분(하위 청크와 이어 붙임)
+
+                    while (pos > 0 && newestFirst.Count < limit)
+                    {
+                        if (cancelRequested != null && cancelRequested())
+                            break;
+
+                        int readSize = (int)Math.Min(chunk.Length, pos);
+                        pos -= readSize;
+                        stream.Seek(pos, SeekOrigin.Begin);
+
+                        int read = 0;
+                        while (read < readSize)
+                        {
+                            int n = stream.Read(chunk, read, readSize - read);
+                            if (n <= 0) break;
+                            read += n;
+                        }
+                        if (read <= 0)
+                            break;
+
+                        // data = 이번 청크 + 직전 반복에서 남긴 carry (carry 는 이번 청크 뒤에 이어지는 내용)
+                        byte[] data = new byte[read + carry.Length];
+                        Buffer.BlockCopy(chunk, 0, data, 0, read);
+                        Buffer.BlockCopy(carry, 0, data, read, carry.Length);
+
+                        // 뒤에서부터 LF 를 찾아 완성된 줄만 처리한다(최신 줄 먼저).
+                        int lineEnd = data.Length;
+                        for (int i = data.Length - 1; i >= 0 && newestFirst.Count < limit; i--)
+                        {
+                            if (data[i] != (byte)'\n')
+                                continue;
+
+                            AppendTailLine(data, i + 1, lineEnd - (i + 1), filter, newestFirst, limit, kindToken);
+                            lineEnd = i;
+                        }
+
+                        if (newestFirst.Count >= limit)
+                            break;
+
+                        // 앞부분(줄 시작 미확정)은 다음 하위 청크와 이어 붙이기 위해 보관한다.
+                        carry = new byte[lineEnd];
+                        Buffer.BlockCopy(data, 0, carry, 0, lineEnd);
+                    }
+
+                    // 파일 맨 앞 줄(남은 carry) 처리.
+                    if (newestFirst.Count < limit && carry.Length > 0 &&
+                        (cancelRequested == null || !cancelRequested()))
+                    {
+                        AppendTailLine(carry, 0, carry.Length, filter, newestFirst, limit, kindToken);
+                    }
+                }
+
+                newestFirst.Reverse();   // 호출부(이력 화면)는 과거→최신 순 목록을 기대한다.
+                return newestFirst;
+            }
+            catch
+            {
+                return new List<EventRow>();
+            }
+            finally
+            {
+            }
+        }
+
+        // 역방향 읽기에서 찾은 줄 하나를 파싱/필터링해 결과에 추가한다(최신 줄 먼저 쌓임).
+        private static void AppendTailLine(byte[] data, int offset, int count, Predicate<EventRow> filter, List<EventRow> newestFirst, int limit, byte[] kindToken)
+        {
+            try
+            {
+                if (count <= 0 || newestFirst.Count >= limit)
+                    return;
+
+                // 줄 끝의 CR(0x0D) 제거 (CRLF 파일 대응).
+                while (count > 0 && data[offset + count - 1] == (byte)'\r')
+                    count--;
+                if (count <= 0)
+                    return;
+
+                // 종류(Kind) 바이트 사전 대조 — 안 맞으면 비싼 문자열 변환/파싱을 건너뛴다.
+                if (kindToken != null && !MatchesKindToken(data, offset, count, kindToken))
+                    return;
+
+                string line = Encoding.UTF8.GetString(data, offset, count);
+                EventRow row = TryParseLogLine(line);
+                if (row == null)
+                    return;
+                if (filter != null && !filter(row))
+                    return;
+
+                newestFirst.Add(row);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        // 줄의 첫 번째 콤마 위치부터 ",Kind," 토큰(바이트)이 정확히 이어지는지 확인한다.
+        // CSV 두 번째 필드(Kind)만 보는 값싼 검사로, 전체 파싱보다 훨씬 빠르다.
+        private static bool MatchesKindToken(byte[] data, int offset, int count, byte[] token)
+        {
+            int end = offset + count;
+            for (int i = offset; i < end; i++)
+            {
+                if (data[i] != (byte)',')
+                    continue;
+
+                // token 은 ','로 시작하므로 i 위치부터 token 전체가 일치해야 한다.
+                if (i + token.Length > end)
+                    return false;
+                for (int j = 1; j < token.Length; j++)
+                {
+                    if (data[i + j] != token[j])
+                        return false;
+                }
+                return true;
+            }
+            return false;
         }
 
         private static EventRow TryParseLogLine(string line)

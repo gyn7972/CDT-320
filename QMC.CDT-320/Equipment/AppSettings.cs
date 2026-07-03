@@ -76,12 +76,26 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public bool   PickerMotionOnlyTestMode { get; set; } = false;
 
+        /// <summary>
+        /// 이력 탭의 로그(Event/시퀀스) 이력 화면 사용 여부. false 면 해당 페이지들은 안내만 표시한다.
+        /// 로그 폭주 등으로 문제가 보일 때 빌드 없이 끌 수 있는 안전 스위치. 기본 true.
+        /// </summary>
+        [DataMember] public bool   FileLogHistoryEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 압축 보관본(Log\Archive\*.zip) 보존일수. 14일이 지난 원본 로그는 자동으로 압축 보관되고(고정 규칙),
+        /// 압축본은 이 일수가 지나면 최종 삭제된다(복구 불가). 0 = 무기한 보관(OFF). 기본 0.
+        /// </summary>
+        [DataMember] public int    ArchiveKeepDays { get; set; } = 0;
+
         // DataContractJsonSerializer 는 필드 이니셜라이저를 실행하지 않으므로, 구 settings.json 에 없는
         // 신규 키는 여기서 기본값을 심는다(없으면 false 로 로드되어 의도치 않게 비전이 꺼지는 문제 방지).
         [OnDeserializing]
         internal void OnDeserializing(StreamingContext ctx)
         {
             UseVision = true;
+            FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
+            // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.
         }
 
         public bool BypassHardware => SimulationMode;
