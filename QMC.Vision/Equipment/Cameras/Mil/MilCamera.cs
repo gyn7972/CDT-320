@@ -26,6 +26,10 @@ namespace QMC.Vision.Cameras.Mil
         private int    _bands = 1;
         private MIL_DIG_HOOK_FUNCTION_PTR _liveHook;   // 라이브 프레임 콜백 델리게이트(GC 방지로 필드 보관)
         private MIL_DIG_HOOK_FUNCTION_PTR _exposureEndHook;   // 노출 종료(ExposureEnd) 훅 델리게이트(GC 방지로 필드 보관)
+        private MIL_DIG_HOOK_FUNCTION_PTR _frameStartHook;    // 프레임 전송 시작 훅 델리게이트(ExposureEnd 폴백용, GC 방지로 필드 보관)
+        private volatile bool _expEndHwFired;                  // HW ExposureEnd 훅이 한 번이라도 발화했는지(폴백 억제)
+        private long _expEndCount;                             // 발화 횟수(진단 로그용)
+        private long _frameStartCount;                         // FRAME_START 횟수(진단 로그용)
         private readonly System.Diagnostics.Stopwatch _liveSw = System.Diagnostics.Stopwatch.StartNew();
         private long _lastLiveTickMs;
         private readonly string _tmpPath;
@@ -94,11 +98,26 @@ namespace QMC.Vision.Cameras.Mil
 
             IsOpen = true;
 
-            // ExposureEnd HW 훅 등록 — 노출 종료 시점(전송 완료보다 앞섬)에 ExposureEnded 발화.
-            //   미지원 보드/카메라는 훅이 동작하지 않아 이벤트가 발화되지 않을 뿐, 기존 동작에는 영향 없다.
+            // ── ExposureEnd 훅 등록 ──────────────────────────────
+            // ① 카메라 GenICam 이벤트 알림 켜기 시도(Hik 과 동일 개념) — 미지원 카메라는 TryFeature 가 조용히 무시.
+            //    CXP 에서 노출을 카메라(Timed)가 제어하면 그래버 훅이 이 알림에 의존할 수 있다.
+            TryFeatureS("EventSelector", "ExposureEnd");
+            TryFeatureS("EventNotification", "On");
+
+            // ② 그래버 M_GRAB_EXPOSURE_END 훅 — 그래버가 노출 신호를 제어/수신하는 구성에서 발화.
+            _expEndHwFired = false;
+            _expEndCount = 0;
+            _frameStartCount = 0;
             _exposureEndHook = ExposureEndHook;
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END, _exposureEndHook, IntPtr.Zero); }
             catch (Exception ex) { _exposureEndHook = null; LiveLog("ExposureEnd 훅 등록 실패(미지원 가능): " + ex.Message); }
+
+            // ③ 폴백: M_GRAB_FRAME_START(그래버가 프레임 수신 시작 = 노출 종료 직후) —
+            //    HW ExposureEnd 훅이 한 번도 발화하지 않는 구성에서 이 시점으로 ExposureEnded 를 대체 발화한다.
+            //    (글로벌 셔터 기준 노출 종료 후 readout/전송이 시작되므로 '기구 동작 앞당김' 계약을 만족)
+            _frameStartHook = FrameStartHook;
+            try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START, _frameStartHook, IntPtr.Zero); }
+            catch (Exception ex) { _frameStartHook = null; LiveLog("FRAME_START 훅 등록 실패: " + ex.Message); }
 
             // 열릴 때마다 현재(레시피/UI) 설정을 카메라에 재적용 — startup·Connect·재오픈 모두 동일 상태 보장.
             ApplyCurrentSettings();
@@ -129,6 +148,8 @@ namespace QMC.Vision.Cameras.Mil
             if (!IsOpen) return;
             try { if (_exposureEndHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END + MIL.M_UNHOOK, _exposureEndHook, IntPtr.Zero); } catch { }
             _exposureEndHook = null;
+            try { if (_frameStartHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START + MIL.M_UNHOOK, _frameStartHook, IntPtr.Zero); } catch { }
+            _frameStartHook = null;
             try { if (!IsNull(_buf)) MIL.MbufFree(_buf); } catch { }
             try { if (!IsNull(_dig)) MIL.MdigFree(_dig); } catch { }
             _buf = MIL.M_NULL;
@@ -289,11 +310,35 @@ namespace QMC.Vision.Cameras.Mil
 
         /// <summary>노출 종료 훅(M_GRAB_EXPOSURE_END) — MIL 내부 스레드에서 호출된다.
         /// 전송 완료(M_GRAB_FRAME_END)보다 앞서 도착하므로 즉시 ExposureEnded 를 발화해
-        /// 다음 기구 동작을 앞당길 수 있다(HikGigECamera 와 동일 계약).</summary>
+        /// 다음 기구 동작을 앞당길 수 있다(HikGigECamera 와 동일 계약).
+        /// <para>주의: 그래버가 노출 신호를 모르는 구성(카메라 Timed 노출 등)에서는 발화되지 않는다 →
+        /// 그 경우 <see cref="FrameStartHook"/> 가 대체 발화한다.</para></summary>
         private MIL_INT ExposureEndHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
         {
-            try { if (IsOpen) RaiseExposureEnded(); }
+            try
+            {
+                _expEndHwFired = true;   // HW 훅 동작 확인 → FRAME_START 폴백 영구 억제
+                long n = System.Threading.Interlocked.Increment(ref _expEndCount);
+                if (n == 1) LiveLog("ExposureEnd HW 훅 첫 발화 확인");
+                if (IsOpen) RaiseExposureEnded();
+            }
             catch (Exception ex) { LiveLog("ExposureEnd 발화 예외: " + ex.Message); }
+            return 0;
+        }
+
+        /// <summary>프레임 전송 시작 훅(M_GRAB_FRAME_START) — ExposureEnd 폴백.
+        /// 그래버가 프레임 수신을 시작했다는 것은 센서 노출이 이미 끝났다는 뜻이므로,
+        /// HW ExposureEnd 훅이 동작하지 않는 구성에서 이 시점에 ExposureEnded 를 발화한다.</summary>
+        private MIL_INT FrameStartHook(MIL_INT hookType, MIL_ID eventId, IntPtr userPtr)
+        {
+            try
+            {
+                long n = System.Threading.Interlocked.Increment(ref _frameStartCount);
+                if (n == 1) LiveLog("FRAME_START 훅 첫 발화 (HW ExposureEnd " + (_expEndHwFired ? "지원" : "미발화 → 폴백 사용") + ")");
+                if (_expEndHwFired) return 0;   // HW 훅이 살아있으면 중복 발화 방지
+                if (IsOpen) RaiseExposureEnded();
+            }
+            catch (Exception ex) { LiveLog("FRAME_START 폴백 발화 예외: " + ex.Message); }
             return 0;
         }
 
