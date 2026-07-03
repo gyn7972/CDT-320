@@ -1,0 +1,183 @@
+{
+  "ArmXVelocity": 2000,
+  "ArmYVelocity": 500,
+  "BlowTimeMs": 100,
+  "IoTimeoutMs": 1000,
+  "MoveTimeoutMs": 5000,
+  "PickLiftPosition": 2,
+  "PickLiftWaitMs": 50,
+  "PickerT0": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerT1": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerT2": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerT3": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerTVelocity": 1000,
+  "PickerX": {
+    "AvoidPosition": 690.551,
+    "BottomPosition": 0,
+    "DieBottomPosition": [
+      0,
+      0,
+      0,
+      576.078
+    ],
+    "DiePickPosition": [
+      0,
+      0,
+      0,
+      243.259
+    ],
+    "DiePlacePosition": [
+      0,
+      0,
+      0,
+      1079.936
+    ],
+    "DieSidePosition": [
+      0,
+      0,
+      0,
+      723.921
+    ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 690.551,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerY": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [
+      0,
+      0,
+      0,
+      32.855
+    ],
+    "DiePickPosition": [
+      0,
+      0,
+      0,
+      32.855
+    ],
+    "DiePlacePosition": [
+      0,
+      0,
+      0,
+      32.855
+    ],
+    "DieSidePosition": [
+      0,
+      0,
+      0,
+      32.855
+    ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerZ0": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerZ1": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerZ2": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerZ3": {
+    "AvoidPosition": 0,
+    "BottomPosition": 0,
+    "DieBottomPosition": [ ],
+    "DiePickPosition": [ ],
+    "DiePlacePosition": [ ],
+    "DieSidePosition": [ ],
+    "InputAvoidPosition": 0,
+    "OutputAvoidPosition": 0,
+    "PickPosition": 0,
+    "PlacePosition": 0,
+    "SidePosition": 0
+  },
+  "PickerZVelocity": 1000,
+  "PlaceDelayMs": 50,
+  "VacuumSettleMs": 50
+}

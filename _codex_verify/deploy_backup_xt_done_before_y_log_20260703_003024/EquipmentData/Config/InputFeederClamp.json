@@ -1,0 +1,5 @@
+{
+  "IgnoreInputWaits": false,
+  "IsSimulationMode": true,
+  "SimulationDelayMs": 75
+}

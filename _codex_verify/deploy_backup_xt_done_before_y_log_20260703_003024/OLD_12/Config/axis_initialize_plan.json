@@ -1,0 +1,224 @@
+{
+  "AllowedInterlockStates": [
+    "Axis: ServoOn, HomeDone, AlarmOff",
+    "Cylinder: Fwd, Bwd",
+    "DigitalInput: On, Off",
+    "Resource: AllOk"
+  ],
+  "AllowedInterlockTargets": [
+    "Axis",
+    "Cylinder",
+    "DigitalInput",
+    "Resource"
+  ],
+  "AllowedRunModes": [
+    "Serial",
+    "Parallel"
+  ],
+  "Comment": "Axis initialize plan. JSON 표준 주석은 사용할 수 없어서 Comment\/Help 필드로 수정 기준을 남깁니다.",
+  "Help": [
+    "StepNo: 낮은 번호부터 실행합니다. 10, 20, 30처럼 여유 있게 번호를 두면 중간 삽입이 쉽습니다.",
+    "GroupName: INIT GROUP 버튼에서 선택 축의 UnitName과 같은 Step을 찾을 때 사용합니다.",
+    "AxisNames: 이 Step에서 HOME 초기화를 수행할 축 이름 목록입니다. Motion 화면의 KEY\/축 이름과 맞춰야 합니다.",
+    "RunMode: Serial은 축을 순서대로 초기화하고, Parallel은 같은 Step의 축을 동시에 초기화합니다.",
+    "InterlockGroup: Step 시작 전에 해당 UnitName 그룹 또는 간섭 그룹 축을 Stop 합니다.",
+    "Interlocks: Step 실행 전에 확인할 조건입니다. 축, 실린더, DI, Resource 조건을 넣을 수 있습니다.",
+    "Enabled: false이면 해당 Step 또는 Interlock 조건을 건너뜁니다."
+  ],
+  "InterlockExamples": [
+    {
+      "Comment": "예시: 특정 축 초기화 전에 다른 축 Alarm이 없어야 하는 경우",
+      "Description": "예시입니다. 실제 사용 시 Name을 실제 축 이름으로 변경하고 Enabled=true로 바꾸세요.",
+      "Enabled": false,
+      "ExpectedState": "AlarmOff",
+      "Name": "StageY",
+      "TargetType": "Axis"
+    },
+    {
+      "Comment": "예시: 특정 축 초기화 전에 클램프 실린더가 후진이어야 하는 경우",
+      "Description": "예시입니다. 실제 사용 시 Name을 실제 실린더 이름으로 변경하고 Enabled=true로 바꾸세요.",
+      "Enabled": false,
+      "ExpectedState": "Bwd",
+      "Name": "ClampCylinder",
+      "TargetType": "Cylinder"
+    },
+    {
+      "Comment": "예시: 문 닫힘 센서 같은 DI가 ON이어야 하는 경우",
+      "Description": "예시입니다. 실제 사용 시 Name을 실제 DI 이름으로 변경하고 Enabled=true로 바꾸세요.",
+      "Enabled": false,
+      "ExpectedState": "On",
+      "Name": "DoorCloseSensor",
+      "TargetType": "DigitalInput"
+    },
+    {
+      "Comment": "예시: CDA\/Vacuum 같은 Resource 상태가 모두 정상이어야 하는 경우",
+      "Description": "예시입니다. 실제 사용 시 Enabled=true로 바꾸세요.",
+      "Enabled": false,
+      "ExpectedState": "AllOk",
+      "Name": "Resources",
+      "TargetType": "Resource"
+    }
+  ],
+  "SavedAt": "\/Date(1780660428529+0900)\/",
+  "Steps": [
+    {
+      "AxisNames": [
+        "CameraZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "CDT-320",
+      "InterlockGroup": "CDT-320",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 10
+    },
+    {
+      "AxisNames": [
+        "GoodStage_StageY",
+        "GoodStage_StageZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "GoodStage",
+      "InterlockGroup": "GoodStage",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 20
+    },
+    {
+      "AxisNames": [
+        "NgStage_StageY",
+        "NgStage_StageZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "NgStage",
+      "InterlockGroup": "NgStage",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 30
+    },
+    {
+      "AxisNames": [
+        "InputLifterZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "IndexCassette",
+      "InterlockGroup": "IndexCassette",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 40
+    },
+    {
+      "AxisNames": [
+        "InputFeederY"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "InputFeeder",
+      "InterlockGroup": "InputFeeder",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 50
+    },
+    {
+      "AxisNames": [
+        "InputStageY",
+        "InputStageT",
+        "InputExpandingZ",
+        "InputVisionX",
+        "NeedleX",
+        "NeedleZ",
+        "EjectPinZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "InputStage",
+      "InterlockGroup": "InputStage",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 60
+    },
+    {
+      "AxisNames": [
+        "FrontPickerX",
+        "FrontPickerY",
+        "FrontPickerT0",
+        "FrontPickerZ0",
+        "FrontPickerT1",
+        "FrontPickerZ1",
+        "FrontPickerT2",
+        "FrontPickerZ2",
+        "FrontPickerT3",
+        "FrontPickerZ3"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "FrontPicker",
+      "InterlockGroup": "FrontPicker",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 70
+    },
+    {
+      "AxisNames": [
+        "RearPickerX",
+        "RearPickerY",
+        "RearPickerT0",
+        "RearPickerZ0",
+        "RearPickerT1",
+        "RearPickerZ1",
+        "RearPickerT2",
+        "RearPickerZ2",
+        "RearPickerT3",
+        "RearPickerZ3"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "RearPicker",
+      "InterlockGroup": "RearPicker",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 80
+    },
+    {
+      "AxisNames": [
+        "OutputVisionX"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "OutputStage",
+      "InterlockGroup": "OutputStage",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 90
+    },
+    {
+      "AxisNames": [
+        "OutputFeederY"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "OutputFeeder",
+      "InterlockGroup": "OutputFeeder",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 100
+    },
+    {
+      "AxisNames": [
+        "OutputLifterZ"
+      ],
+      "Comment": "StepNo 순서대로 실행됩니다. AxisNames는 이 Step에서 HOME 잡을 축 이름입니다.",
+      "Enabled": true,
+      "GroupName": "OutputCassette",
+      "InterlockGroup": "OutputCassette",
+      "Interlocks": [ ],
+      "RunMode": "Serial",
+      "StepNo": 110
+    }
+  ],
+  "Version": 1
+}

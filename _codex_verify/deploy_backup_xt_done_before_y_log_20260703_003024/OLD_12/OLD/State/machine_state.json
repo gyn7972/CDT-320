@@ -1,0 +1,390 @@
+{
+  "Axes": [
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputLifterZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputFeederY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputStageY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputStageT"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputExpandingZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "InputVisionX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "NeedleX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "NeedleZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "EjectPinZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerT0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerZ0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerT1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerZ1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerT2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerZ2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerT3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontPickerZ3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerT0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerZ0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerT1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerZ1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerT2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerZ2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerT3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearPickerZ3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "FrontSideVisionY0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "RearSideVisionY0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputLifterZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputFeederY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputGoodStageY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputGoodStageZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputNGStageY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "NgStage_StageZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": false,
+      "IsInPosition": false,
+      "IsServoOn": false,
+      "Name": "OutputVisionX"
+    }
+  ],
+  "DeveloperMode": true,
+  "IsMachineInitialized": false,
+  "MaterialSnapshotPath": "D:\\CDT-320\\State\\material_state.json",
+  "SaveReason": "ApplicationClosingDeveloperMode",
+  "SavedAt": "\/Date(1780816813328+0900)\/",
+  "Status": "Idle"
+}

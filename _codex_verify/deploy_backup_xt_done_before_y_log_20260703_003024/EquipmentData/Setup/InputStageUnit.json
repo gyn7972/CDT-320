@@ -1,0 +1,13 @@
+{
+  "BarcodeReadTimeoutMs": 3000,
+  "IsSimulationMode": false,
+  "NeedlePinCalVisionTargetId": "NeedlePinCal",
+  "NeedlePinCalVisionTimeoutMs": 5000,
+  "NeedleWorkAreaCenterX": 150,
+  "NeedleWorkAreaCenterY": 147.248,
+  "NeedleWorkAreaRadius": 130,
+  "SafetyRadius": 0,
+  "WorkAreaCenterX": 560,
+  "WorkAreaCenterY": 147.248,
+  "WorkAreaRadius": 130
+}

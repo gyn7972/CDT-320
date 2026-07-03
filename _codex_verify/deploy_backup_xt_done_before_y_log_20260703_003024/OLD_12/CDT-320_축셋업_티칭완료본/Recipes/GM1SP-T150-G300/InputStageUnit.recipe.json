@@ -1,0 +1,101 @@
+{
+  "DieMap": {
+    "Bottom": {
+      "Enabled": true,
+      "Name": "Bottom",
+      "StageYPosition": 0,
+      "VisionOffsetX": 0,
+      "VisionOffsetY": 0,
+      "VisionXPosition": 0
+    },
+    "Left": {
+      "Enabled": true,
+      "Name": "Left",
+      "StageYPosition": 0,
+      "VisionOffsetX": 0,
+      "VisionOffsetY": 0,
+      "VisionXPosition": 0
+    },
+    "Right": {
+      "Enabled": true,
+      "Name": "Right",
+      "StageYPosition": 0,
+      "VisionOffsetX": 0,
+      "VisionOffsetY": 0,
+      "VisionXPosition": 0
+    },
+    "Top": {
+      "Enabled": true,
+      "Name": "Top",
+      "StageYPosition": 0,
+      "VisionOffsetX": 0,
+      "VisionOffsetY": 0,
+      "VisionXPosition": 0
+    },
+    "VisionRetryCount": 3,
+    "VisionTargetId": "DieMapMark"
+  },
+  "EjectPinZ": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "NeedleX": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "NeedleZ": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "VisionX": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 589.929,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "WaferT": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "WaferY": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": -9.76,
+    "ProcessPosition": 147.248,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "WaferZ": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 18.022,
+    "ProcessPosition": -0.8,
+    "ReadyPosition": -0.2,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  }
+}

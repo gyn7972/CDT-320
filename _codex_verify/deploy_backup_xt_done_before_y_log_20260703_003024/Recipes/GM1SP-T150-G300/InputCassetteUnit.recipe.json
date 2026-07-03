@@ -1,0 +1,23 @@
+{
+  "AvoidPosition": 191.221,
+  "FirstSlotPosition": 0,
+  "LoaingPosition": 191.221,
+  "MappingEndPosition": 383.257,
+  "MappingStartPosition": 251.804,
+  "SlotPosition": [
+    251.804,
+    262.804,
+    273.804,
+    284.804,
+    295.804,
+    306.804,
+    317.804,
+    328.804,
+    339.804,
+    350.804,
+    361.804,
+    372.804,
+    383.804
+  ],
+  "UnloadingPosition": 191.221
+}

@@ -2317,6 +2317,18 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                bool logResumePlaceStageMove = description != null &&
+                    description.IndexOf("Place 재시작", StringComparison.Ordinal) >= 0;
+                if (logResumePlaceStageMove)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " " + description + " 이동 시작. axis=" + axis +
+                        ", target=" + target +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", " + OutputStage.BuildStageAxisState(axis, target) +
+                        " - Start");
+                }
+
                 int result = await AwaitStepWithCancellationAsync(OutputStage.MoveStageAxis(axis, target, Options.FineMove, targetName), ct).ConfigureAwait(false);
                 if (result != 0)
                 {
@@ -2343,6 +2355,17 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PLACE-STAGE-FINAL-POS", "OutputStage",
                         description + " final position check failed after move. " +
                         OutputStage.BuildStageAxisState(axis, target));
+                }
+
+                if (logResumePlaceStageMove)
+                {
+                    WriteLog("PickerPlaceSequence",
+                        Name + " " + description + " 이동 완료. 이후 Picker X/T 완료 확인 후에만 PickerY 전진을 허용합니다. axis=" + axis +
+                        ", target=" + target +
+                        ", tolerance=" + tolerance +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", " + OutputStage.BuildStageAxisState(axis, target) +
+                        " - Ok");
                 }
 
                 return 0;

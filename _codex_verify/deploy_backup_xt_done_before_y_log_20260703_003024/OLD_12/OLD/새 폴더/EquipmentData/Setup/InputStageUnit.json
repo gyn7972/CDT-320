@@ -1,0 +1,16 @@
+{
+  "BarcodeReadTimeoutMs": 3000,
+  "CameraFocusZ": -2,
+  "CameraOriginX": 100,
+  "CameraSafeZ": 50,
+  "ExpanderDownPosition": 50,
+  "ExpanderUpPosition": 0,
+  "NeedleDownPosition": 0,
+  "NeedleEjectPosition": 5,
+  "NeedleTeachX": 100,
+  "PickerOffsetX": 0,
+  "PickerOffsetY": 3,
+  "StageYTeachPosition": 200,
+  "UnloadPositionY": 0,
+  "VisionPixelToMm": 0.01
+}

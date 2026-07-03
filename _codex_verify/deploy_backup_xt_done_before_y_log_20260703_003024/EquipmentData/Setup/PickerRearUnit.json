@@ -1,0 +1,66 @@
+{
+  "InputSafetyOffset": 20,
+  "InputVisionToPicker": {
+    "OffsetX": [
+      -250,
+      -285,
+      -320,
+      -355
+    ],
+    "OffsetY": [
+      30,
+      30,
+      30,
+      30
+    ]
+  },
+  "IsSimulationMode": false,
+  "OutputSafetyOffset": 20,
+  "OutputVisionToPicker": {
+    "OffsetX": [
+      355,
+      320,
+      285,
+      250
+    ],
+    "OffsetY": [
+      30,
+      30,
+      30,
+      30
+    ]
+  },
+  "PickerPitchX": 35,
+  "PickerPitchY": 0,
+  "PickerYFacingXClearance": 150,
+  "PickerYOutDistance": 1,
+  "ZoneX": {
+    "Avoid": {
+      "Enabled": true,
+      "MaxX": 691,
+      "MinX": 689
+    },
+    "Bottom": {
+      "Enabled": true,
+      "MaxX": 684,
+      "MinX": 570
+    },
+    "Input": {
+      "Enabled": true,
+      "MaxX": 688,
+      "MinX": 0
+    },
+    "Output": {
+      "Enabled": true,
+      "MaxX": 2000,
+      "MinX": 835
+    },
+    "Side": {
+      "Enabled": true,
+      "MaxX": 830,
+      "MinX": 715
+    },
+    "UseEncoderZone": true,
+    "ZoneTolerance": 1
+  }
+}

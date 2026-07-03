@@ -1,0 +1,15 @@
+{
+  "AvoidPosition": 10,
+  "FirstSlotPosition": 130,
+  "LoaingPosition": 100,
+  "MappingEndPosition": 300,
+  "MappingStartPosition": 150,
+  "SlotPosition": [
+    NaN,
+    NaN,
+    NaN,
+    NaN,
+    NaN
+  ],
+  "UnloadingPosition": 120
+}

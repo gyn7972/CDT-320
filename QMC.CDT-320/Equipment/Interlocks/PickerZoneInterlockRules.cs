@@ -916,6 +916,13 @@ namespace QMC.CDT320.Interlocks
             if (request.TargetName.IndexOf("InspectionContinuous", StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
+            PickerWorkZone declaredFrom;
+            PickerWorkZone declaredTo;
+            if (TryResolveInspectionContinuousTransition(request.TargetName, out declaredFrom, out declaredTo) &&
+                declaredTo == targetZone &&
+                IsAllowedInspectionContinuousTransition(declaredFrom, declaredTo))
+                return true;
+
             // Auto 검사/Place 연속 동작에서는 같은 존 안에서 다음 다이로 X축만 이동할 수 있다.
             // 메뉴얼/단독 이동은 InspectionContinuous 태그가 없으므로 기존 Y Avoid 조건을 그대로 탄다.
             bool allowedTransition =
@@ -933,6 +940,90 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return true;
+        }
+
+        private static bool TryResolveInspectionContinuousTransition(
+            string targetName,
+            out PickerWorkZone from,
+            out PickerWorkZone to)
+        {
+            from = PickerWorkZone.Unknown;
+            to = PickerWorkZone.Unknown;
+
+            if (string.IsNullOrWhiteSpace(targetName))
+                return false;
+
+            string fromValue;
+            string toValue;
+            if (!TryReadTargetNameString(targetName, "From", out fromValue) ||
+                !TryReadTargetNameString(targetName, "To", out toValue))
+                return false;
+
+            from = ParseWorkZoneToken(fromValue);
+            to = ParseWorkZoneToken(toValue);
+            return from != PickerWorkZone.Unknown && to != PickerWorkZone.Unknown;
+        }
+
+        private static bool IsAllowedInspectionContinuousTransition(PickerWorkZone from, PickerWorkZone to)
+        {
+            return (from == PickerWorkZone.Input && to == PickerWorkZone.Input) ||
+                   (from == PickerWorkZone.Input && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Bottom) ||
+                   (from == PickerWorkZone.Side && to == PickerWorkZone.Output) ||
+                   (from == PickerWorkZone.Output && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Output && to == PickerWorkZone.Output);
+        }
+
+        private static bool TryReadTargetNameString(string targetName, string key, out string value)
+        {
+            value = string.Empty;
+            if (string.IsNullOrWhiteSpace(targetName) || string.IsNullOrWhiteSpace(key))
+                return false;
+
+            string[] tokens = targetName.Split(';');
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                string token = tokens[i] != null ? tokens[i].Trim() : string.Empty;
+                if (token.Length == 0)
+                    continue;
+
+                int equal = token.IndexOf('=');
+                if (equal <= 0)
+                    continue;
+
+                string tokenKey = token.Substring(0, equal).Trim();
+                if (!string.Equals(tokenKey, key, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                value = token.Substring(equal + 1).Trim();
+                return value.Length > 0;
+            }
+
+            return false;
+        }
+
+        private static PickerWorkZone ParseWorkZoneToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return PickerWorkZone.Unknown;
+
+            string normalized = value.Trim();
+            if (string.Equals(normalized, "Input", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Input;
+            if (string.Equals(normalized, "Bottom", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Bottom;
+            if (string.Equals(normalized, "Side", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Side;
+            if (string.Equals(normalized, "Place", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "Output", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Output;
+            if (string.Equals(normalized, "Avoid", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Avoid;
+
+            return PickerWorkZone.Unknown;
         }
 
         private static bool VerifyPickerYMove(

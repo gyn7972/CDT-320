@@ -1,0 +1,5 @@
+{
+  "AlignConvergenceThresholdDeg": 0.005,
+  "IsSimulationMode": true,
+  "MaxAlignIterations": 3
+}

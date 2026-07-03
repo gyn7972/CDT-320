@@ -1,0 +1,31 @@
+{
+  "Picker": [
+    {
+      "AlignOffsetT": 0,
+      "AlignOffsetX": 0,
+      "AlignOffsetY": 0
+    },
+    {
+      "AlignOffsetT": 0,
+      "AlignOffsetX": 0,
+      "AlignOffsetY": 0
+    },
+    {
+      "AlignOffsetT": 0,
+      "AlignOffsetX": 0,
+      "AlignOffsetY": 0
+    },
+    {
+      "AlignOffsetT": 0,
+      "AlignOffsetX": 0,
+      "AlignOffsetY": 0
+    }
+  ],
+  "UsePicker": [
+    true,
+    true,
+    true,
+    true
+  ],
+  "bDryRun": false
+}

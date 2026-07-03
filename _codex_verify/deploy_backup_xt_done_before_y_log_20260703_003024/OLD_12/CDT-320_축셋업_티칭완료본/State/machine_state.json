@@ -1,0 +1,719 @@
+{
+  "Axes": [
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputLifterZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputFeederY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputStageY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputStageT"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputExpandingZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "InputVisionX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "NeedleX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "NeedleZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "EjectPinZ"
+    },
+    {
+      "ActualPosition": 690.551,
+      "AlarmCode": 0,
+      "CommandPosition": 690.551,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerY"
+    },
+    {
+      "ActualPosition": -0.005,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerT0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerZ0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerT1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerZ1"
+    },
+    {
+      "ActualPosition": -0.003,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerT2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerZ2"
+    },
+    {
+      "ActualPosition": 0.005,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerT3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontPickerZ3"
+    },
+    {
+      "ActualPosition": 690.79,
+      "AlarmCode": 0,
+      "CommandPosition": 690.79,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerX"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerT0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerZ0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerT1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerZ1"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerT2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerZ2"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerT3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearPickerZ3"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "FrontSideVisionY0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "RearSideVisionY0"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputLifterZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputFeederY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputGoodStageY"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputGoodStageZ"
+    },
+    {
+      "ActualPosition": 0,
+      "AlarmCode": 0,
+      "CommandPosition": 0,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputNGStageY"
+    },
+    {
+      "ActualPosition": 1000.681,
+      "AlarmCode": 0,
+      "CommandPosition": 1000.681,
+      "IsAlarm": false,
+      "IsHomeDone": true,
+      "IsInPosition": true,
+      "IsServoOn": true,
+      "Name": "OutputVisionX"
+    }
+  ],
+  "Cylinders": [
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "InputFeederLift",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "InputFeederClamp",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "ReticleLift",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "ReticleSideSlideFront",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "ReticleSideSlideRear",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "NGBinGuideLift",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": false,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "NGBinGuideClampLift",
+      "OutBwdOn": false,
+      "OutFwdOn": true
+    },
+    {
+      "InBwdOn": false,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "NGBinGuideClamp",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "GoodBinGuideLift",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": false,
+      "InFwdOn": true,
+      "IsBwd": false,
+      "IsFwd": true,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "GoodBinGuideClampLift",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "GoodBinGuideClamp",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    },
+    {
+      "InBwdOn": false,
+      "InFwdOn": true,
+      "IsBwd": false,
+      "IsFwd": true,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "OutputFeederLift",
+      "OutBwdOn": false,
+      "OutFwdOn": true
+    },
+    {
+      "InBwdOn": true,
+      "InFwdOn": false,
+      "IsBwd": true,
+      "IsFwd": false,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "Name": "OutputFeederClamp",
+      "OutBwdOn": true,
+      "OutFwdOn": false
+    }
+  ],
+  "DeveloperMode": true,
+  "InitializeSteps": [
+    {
+      "GroupName": "PickerZ",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 10
+    },
+    {
+      "GroupName": "InputStageNeedleZ",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 10
+    },
+    {
+      "GroupName": "OutputStageZ",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 10
+    },
+    {
+      "GroupName": "PickerT",
+      "Message": "FrontPickerT2 HOME 불가: FrontPickerZ2가 Avoid 위치에 있지 않습니다.",
+      "Status": "Failed",
+      "StepNo": 20
+    },
+    {
+      "GroupName": "InputStageZ",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 20
+    },
+    {
+      "GroupName": "FrontPickerY",
+      "Message": "FrontPickerY HOME 완료 상태가 해제되었습니다. 다시 초기화가 필요합니다.",
+      "Status": "Reinitialize Required",
+      "StepNo": 30
+    },
+    {
+      "GroupName": "RearPickerY",
+      "Message": "RearPickerY HOME 완료 상태가 해제되었습니다. 다시 초기화가 필요합니다.",
+      "Status": "Reinitialize Required",
+      "StepNo": 40
+    },
+    {
+      "GroupName": "Vision",
+      "Message": "FrontSideVisionY0 HOME 완료 상태가 해제되었습니다. 다시 초기화가 필요합니다.",
+      "Status": "Reinitialize Required",
+      "StepNo": 40
+    },
+    {
+      "GroupName": "CylinderTemplate",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 40
+    },
+    {
+      "GroupName": "InputFeederClamp",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 50
+    },
+    {
+      "GroupName": "InputFeederLift",
+      "Message": "",
+      "Status": "Waiting",
+      "StepNo": 60
+    },
+    {
+      "GroupName": "InputVisionX",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 72
+    },
+    {
+      "GroupName": "FrontPickerX",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 73
+    },
+    {
+      "GroupName": "RearPickerX",
+      "Message": "",
+      "Status": "Failed",
+      "StepNo": 74
+    },
+    {
+      "GroupName": "InputFeeder",
+      "Message": "",
+      "Status": "Waiting",
+      "StepNo": 71
+    },
+    {
+      "GroupName": "InputCassette",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 80
+    },
+    {
+      "GroupName": "InputStage",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 80
+    },
+    {
+      "GroupName": "InputStageNeedleX",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 90
+    },
+    {
+      "GroupName": "OutputFeederClamp",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 90
+    },
+    {
+      "GroupName": "OutputFeederLift",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 90
+    },
+    {
+      "GroupName": "SharedRailXOutput",
+      "Message": "OutputVisionX Servo OFF 상태입니다. Servo ON 후 다시 초기화가 필요합니다.",
+      "Status": "Reinitialize Required",
+      "StepNo": 92
+    },
+    {
+      "GroupName": "OutputFeeder",
+      "Message": "OutputFeeder unclamp failed. result=-1",
+      "Status": "Failed",
+      "StepNo": 91
+    },
+    {
+      "GroupName": "OutputStage",
+      "Message": "OutputNGStageY HOME failed. result=-11, reason=Interlock blocked. moving=OutputNGStageY. GoodStage Y is moving., target=0 um, servo=ON, alarm=OFF, pos=0 um",
+      "Status": "Failed",
+      "StepNo": 160
+    },
+    {
+      "GroupName": "InputStageZ",
+      "Message": "InputExpandingZ Servo ON 실패",
+      "Status": "Failed",
+      "StepNo": 10
+    },
+    {
+      "GroupName": "CylinderTemplate",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 10
+    },
+    {
+      "GroupName": "PickerZ",
+      "Message": "",
+      "Status": "Running",
+      "StepNo": 20
+    },
+    {
+      "GroupName": "Vision",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 20
+    },
+    {
+      "GroupName": "CylinderTemplate",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 20
+    },
+    {
+      "GroupName": "PickerZ",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 30
+    },
+    {
+      "GroupName": "PickerT",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 40
+    },
+    {
+      "GroupName": "FrontPickerY",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 40
+    },
+    {
+      "GroupName": "RearPickerY",
+      "Message": "",
+      "Status": "Done",
+      "StepNo": 50
+    }
+  ],
+  "IsMachineInitialized": false,
+  "MaterialSnapshotPath": "D:\\CDT-320\\State\\material_state.json",
+  "SaveReason": "InitializeAxis:InputFeederY",
+  "SavedAt": "\/Date(1781260608092+0900)\/",
+  "Status": "Initializing"
+}

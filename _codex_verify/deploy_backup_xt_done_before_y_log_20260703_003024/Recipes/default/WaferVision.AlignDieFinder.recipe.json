@@ -1,0 +1,28 @@
+{
+  "LightSettings": [ ],
+  "AcceptThreshold": 0,
+  "AngleMode": 0,
+  "SearchRoi": {
+    "AngleDeg": 0,
+    "CenterX": 320,
+    "CenterY": 240,
+    "Height": 300,
+    "InnerRadius": 0,
+    "Name": "WaferVision\/AlignDieFinder.Search",
+    "Radius": 50,
+    "Shape": 0,
+    "Width": 400
+  },
+  "TrainModelPath": null,
+  "TrainRoi": {
+    "AngleDeg": 0,
+    "CenterX": 320,
+    "CenterY": 240,
+    "Height": 100,
+    "InnerRadius": 0,
+    "Name": "WaferVision\/AlignDieFinder.Train",
+    "Radius": 50,
+    "Shape": 0,
+    "Width": 100
+  }
+}

@@ -414,7 +414,10 @@ namespace QMC.CDT320.Sequencing
                     return StopPickerMoveBecauseAlarmActive(description);
 
                 Stopwatch commandWatch = Stopwatch.StartNew();
-                int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
+                int result = await SequenceAwaiter.AwaitAsync(
+                    MovePickerAxisCommandAsync(axis, target, targetName),
+                    -1,
+                    ct).ConfigureAwait(false);
                 commandMs = commandWatch.ElapsedMilliseconds;
                 if (result != 0)
                 {
@@ -562,7 +565,10 @@ namespace QMC.CDT320.Sequencing
                 if (commandTasks.Count > 0)
                 {
                     Stopwatch commandWatch = Stopwatch.StartNew();
-                    int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
+                    int[] commandResults = await SequenceAwaiter.AwaitAsync(
+                        Task.WhenAll(commandTasks),
+                        new int[0],
+                        ct).ConfigureAwait(false);
                     commandMs = commandWatch.ElapsedMilliseconds;
                     for (int commandIndex = 0; commandIndex < commandTargets.Count; commandIndex++)
                     {
@@ -579,7 +585,10 @@ namespace QMC.CDT320.Sequencing
                         waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
 
                     Stopwatch waitWatch = Stopwatch.StartNew();
-                    AxisMoveWaitResult[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
+                    AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
+                        Task.WhenAll(waitTasks),
+                        new AxisMoveWaitResult[0],
+                        ct).ConfigureAwait(false);
                     waitMs = waitWatch.ElapsedMilliseconds;
                     for (int waitIndex = 0; waitIndex < commandTargets.Count; waitIndex++)
                     {
@@ -752,6 +761,12 @@ namespace QMC.CDT320.Sequencing
 
             if (!hasPickerY || IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget))
                 return 0;
+
+            WriteLog("PickerMove",
+                Name + " " + description + " X/T 이동 완료 후 PickerY 전진을 시작합니다. " +
+                "targetY=" + pickerYTarget +
+                ", targetName=" + (targetName ?? "-") +
+                " - Check");
 
             return await MovePickerAxisAndVerifyAsync(
                 PickerAxis.PickerY,

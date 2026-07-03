@@ -1,0 +1,63 @@
+{
+  "Dies": [
+    {
+      "HeightLower": -0.05,
+      "HeightMm": 1,
+      "HeightUpper": 0.05,
+      "Name": "Default",
+      "ThicknessMm": 0.1,
+      "WidthLower": -0.05,
+      "WidthMm": 1,
+      "WidthUpper": 0.05
+    },
+    {
+      "HeightLower": -0.02,
+      "HeightMm": 0.5,
+      "HeightUpper": 0.02,
+      "Name": "Small",
+      "ThicknessMm": 0.08,
+      "WidthLower": -0.02,
+      "WidthMm": 0.5,
+      "WidthUpper": 0.02
+    },
+    {
+      "HeightLower": -0.1,
+      "HeightMm": 3,
+      "HeightUpper": 0.1,
+      "Name": "Large",
+      "ThicknessMm": 0.2,
+      "WidthLower": -0.1,
+      "WidthMm": 3,
+      "WidthUpper": 0.1
+    }
+  ],
+  "Frames": [
+    {
+      "DieSpecName": "Default",
+      "GridX": 5,
+      "GridY": 5,
+      "Name": "8inch_5x5",
+      "OuterDiameterMm": 200,
+      "PitchX": 1,
+      "PitchY": 1
+    },
+    {
+      "DieSpecName": "Default",
+      "GridX": 50,
+      "GridY": 50,
+      "Name": "12inch_50x50",
+      "OuterDiameterMm": 300,
+      "PitchX": 1,
+      "PitchY": 1
+    },
+    {
+      "DieSpecName": "GM1SP-1mm",
+      "GridX": 50,
+      "GridY": 50,
+      "Name": "8inch_50x50",
+      "OuterDiameterMm": 200,
+      "PitchX": 1,
+      "PitchY": 1
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "BarcodeReadTimeoutMs": 3000,
+  "IsSimulationMode": false,
+  "NeedleWorkAreaCenterX": 150,
+  "NeedleWorkAreaCenterY": 147.248,
+  "NeedleWorkAreaRadius": 110,
+  "NeedleXToVisionXOffset": 410,
+  "SafetyRadius": 0,
+  "WorkAreaCenterX": 560,
+  "WorkAreaCenterY": 147.248,
+  "WorkAreaRadius": 130
+}

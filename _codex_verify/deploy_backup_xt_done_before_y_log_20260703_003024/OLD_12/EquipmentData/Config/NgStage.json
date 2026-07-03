@@ -1,0 +1,6 @@
+{
+  "AvoidCheckIntervalMs": 10,
+  "AvoidTimeoutMs": 3000,
+  "IsSimulationMode": true,
+  "bDryRun": true
+}

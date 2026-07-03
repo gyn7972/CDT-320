@@ -1,0 +1,701 @@
+{
+  "Cassettes": [
+    {
+      "CassetteId": "Input1",
+      "CassetteLotId": "",
+      "IsEnabled": true,
+      "IsMapped": false,
+      "IsPresent": false,
+      "LastScanTime": "\/Date(1780712417691+0900)\/",
+      "Level": 1,
+      "Role": 0,
+      "SlotCount": 25,
+      "Slots": [
+        {
+          "HasWafer": false,
+          "SlotNumber": 0,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 1,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 2,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 3,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 4,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 5,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 6,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 7,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 8,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 9,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 10,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 11,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 12,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 13,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 14,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 15,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 16,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 17,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 18,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 19,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 20,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 21,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 22,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 23,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 24,
+          "WaferId": ""
+        }
+      ]
+    },
+    {
+      "CassetteId": "Input2",
+      "CassetteLotId": "",
+      "IsEnabled": false,
+      "IsMapped": false,
+      "IsPresent": false,
+      "LastScanTime": "\/Date(1780712417691+0900)\/",
+      "Level": 2,
+      "Role": 1,
+      "SlotCount": 25,
+      "Slots": [
+        {
+          "HasWafer": false,
+          "SlotNumber": 0,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 1,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 2,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 3,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 4,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 5,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 6,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 7,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 8,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 9,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 10,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 11,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 12,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 13,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 14,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 15,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 16,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 17,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 18,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 19,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 20,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 21,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 22,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 23,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 24,
+          "WaferId": ""
+        }
+      ]
+    },
+    {
+      "CassetteId": "Good1",
+      "CassetteLotId": "",
+      "IsEnabled": true,
+      "IsMapped": false,
+      "IsPresent": false,
+      "LastScanTime": "\/Date(1780712417691+0900)\/",
+      "Level": 1,
+      "Role": 2,
+      "SlotCount": 25,
+      "Slots": [
+        {
+          "HasWafer": false,
+          "SlotNumber": 0,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 1,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 2,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 3,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 4,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 5,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 6,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 7,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 8,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 9,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 10,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 11,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 12,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 13,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 14,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 15,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 16,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 17,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 18,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 19,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 20,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 21,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 22,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 23,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 24,
+          "WaferId": ""
+        }
+      ]
+    },
+    {
+      "CassetteId": "Good2",
+      "CassetteLotId": "",
+      "IsEnabled": false,
+      "IsMapped": false,
+      "IsPresent": false,
+      "LastScanTime": "\/Date(1780712417691+0900)\/",
+      "Level": 2,
+      "Role": 3,
+      "SlotCount": 25,
+      "Slots": [
+        {
+          "HasWafer": false,
+          "SlotNumber": 0,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 1,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 2,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 3,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 4,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 5,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 6,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 7,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 8,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 9,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 10,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 11,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 12,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 13,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 14,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 15,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 16,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 17,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 18,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 19,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 20,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 21,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 22,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 23,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 24,
+          "WaferId": ""
+        }
+      ]
+    },
+    {
+      "CassetteId": "Ng1",
+      "CassetteLotId": "",
+      "IsEnabled": true,
+      "IsMapped": false,
+      "IsPresent": false,
+      "LastScanTime": "\/Date(1780712417691+0900)\/",
+      "Level": 1,
+      "Role": 4,
+      "SlotCount": 25,
+      "Slots": [
+        {
+          "HasWafer": false,
+          "SlotNumber": 0,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 1,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 2,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 3,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 4,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 5,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 6,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 7,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 8,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 9,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 10,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 11,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 12,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 13,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 14,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 15,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 16,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 17,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 18,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 19,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 20,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 21,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 22,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 23,
+          "WaferId": ""
+        },
+        {
+          "HasWafer": false,
+          "SlotNumber": 24,
+          "WaferId": ""
+        }
+      ]
+    }
+  ],
+  "Dies": [ ],
+  "LotId": "Y482CB1",
+  "RecipeName": "GM1SP-T150-G300",
+  "SaveReason": "InitializeFromRecipe",
+  "SavedAt": "\/Date(1780712417691+0900)\/",
+  "Version": 1,
+  "Wafers": [ ]
+}

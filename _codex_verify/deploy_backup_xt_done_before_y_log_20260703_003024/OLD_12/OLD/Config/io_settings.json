@@ -1,0 +1,492 @@
+{
+  "DigitalInputs": {
+    "StartButton": {
+      "IsSimulationMode": false
+    },
+    "StopButton": {
+      "IsSimulationMode": false
+    },
+    "ResetButton": {
+      "IsSimulationMode": false
+    },
+    "ElecEmgOn": {
+      "IsSimulationMode": false
+    },
+    "OpEmgOn": {
+      "IsSimulationMode": false
+    },
+    "RearEmgOn": {
+      "IsSimulationMode": false
+    },
+    "RightEmgOn": {
+      "IsSimulationMode": false
+    },
+    "MainCDA1Check": {
+      "IsSimulationMode": false
+    },
+    "MainCDA2Check": {
+      "IsSimulationMode": false
+    },
+    "MainVacuum1Check": {
+      "IsSimulationMode": false
+    },
+    "MainVacuum2Check": {
+      "IsSimulationMode": false
+    },
+    "MainVacuum3Check": {
+      "IsSimulationMode": false
+    },
+    "MainVacuum4Check": {
+      "IsSimulationMode": false
+    },
+    "LeftDoorCheck": {
+      "IsSimulationMode": false
+    },
+    "RearDoorCheck": {
+      "IsSimulationMode": false
+    },
+    "RightDoorCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferLifterDoorCheck": {
+      "IsSimulationMode": false
+    },
+    "BinLifterDoorCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferLifterIonizerAlarm": {
+      "IsSimulationMode": false
+    },
+    "BinLifterIonizerAlarm": {
+      "IsSimulationMode": false
+    },
+    "WaferStageIonizerAlarm": {
+      "IsSimulationMode": false
+    },
+    "BinStageIonizerAlarm": {
+      "IsSimulationMode": false
+    },
+    "Wafer8CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "Wafer8CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "Wafer12CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "Wafer12CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "WaferRingJUTCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferMapping": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederUp": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederDown": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederUpClamp": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederRingCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederOverloadCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferStage8RingCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferStage12RingCheck": {
+      "IsSimulationMode": false
+    },
+    "WaferStageTouchSensor": {
+      "IsSimulationMode": false
+    },
+    "ReticleUp": {
+      "IsSimulationMode": false
+    },
+    "ReticleDown": {
+      "IsSimulationMode": false
+    },
+    "ReticleFrontSideFw": {
+      "IsSimulationMode": false
+    },
+    "ReticleFrontSideBw": {
+      "IsSimulationMode": false
+    },
+    "ReticleRearSideFw": {
+      "IsSimulationMode": false
+    },
+    "ReticleRearSideBw": {
+      "IsSimulationMode": false
+    },
+    "NeedleVacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPickerCdaTankPressureCheck": {
+      "IsSimulationMode": false
+    },
+    "FrontPickerVacuumTankPressureCheck": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker1Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker2Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker3Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker4Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker5Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker6Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker7Flow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker8Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPickerCdaTankPressureCheck": {
+      "IsSimulationMode": false
+    },
+    "RearPickerVacuumTankPressureCheck": {
+      "IsSimulationMode": false
+    },
+    "RearPicker1Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker2Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker3Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker4Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker5Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker6Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker7Flow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker8Flow": {
+      "IsSimulationMode": false
+    },
+    "NgBinGuideUp": {
+      "IsSimulationMode": false
+    },
+    "NgBinGuideDown": {
+      "IsSimulationMode": false
+    },
+    "NgBinClampUp": {
+      "IsSimulationMode": false
+    },
+    "NgBinUnclamp": {
+      "IsSimulationMode": false
+    },
+    "NgBinRing": {
+      "IsSimulationMode": false
+    },
+    "GoodBinGuideUp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinGuideDown": {
+      "IsSimulationMode": false
+    },
+    "GoodBinClampUp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinUnclamp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinRing": {
+      "IsSimulationMode": false
+    },
+    "BinNFeederUp": {
+      "IsSimulationMode": false
+    },
+    "BinFeederDown": {
+      "IsSimulationMode": false
+    },
+    "BinFeederUnclamp": {
+      "IsSimulationMode": false
+    },
+    "BinFeederRing": {
+      "IsSimulationMode": false
+    },
+    "BinFeederOverload": {
+      "IsSimulationMode": false
+    },
+    "GoodBin8CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "GoodBin8CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "GoodBin12CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "GoodBin12CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "NgBinCassetteBw": {
+      "IsSimulationMode": false
+    },
+    "NgBinCassetteLock": {
+      "IsSimulationMode": false
+    },
+    "NgBin8CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "NgBin8CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "NgBin12CassetteCheck0": {
+      "IsSimulationMode": false
+    },
+    "NgBin12CassetteCheck1": {
+      "IsSimulationMode": false
+    },
+    "BinRingJUTCheck": {
+      "IsSimulationMode": false
+    },
+    "BinMapping": {
+      "IsSimulationMode": false
+    }
+  },
+  "DigitalOutputs": {
+    "StartLamp": {
+      "IsSimulationMode": false
+    },
+    "StopLamp": {
+      "IsSimulationMode": false
+    },
+    "ResetLamp": {
+      "IsSimulationMode": false
+    },
+    "TlRed": {
+      "IsSimulationMode": false
+    },
+    "TlYellow": {
+      "IsSimulationMode": false
+    },
+    "TlGreen": {
+      "IsSimulationMode": false
+    },
+    "Buzzer": {
+      "IsSimulationMode": false
+    },
+    "IonizerOn": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederUp": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederDown": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederClamp": {
+      "IsSimulationMode": false
+    },
+    "WaferFeederUnclamp": {
+      "IsSimulationMode": false
+    },
+    "ReticleUp": {
+      "IsSimulationMode": false
+    },
+    "ReticleDown": {
+      "IsSimulationMode": false
+    },
+    "ReticleFrontSideFw": {
+      "IsSimulationMode": false
+    },
+    "ReticleFrontSideBw": {
+      "IsSimulationMode": false
+    },
+    "ReticleRearSideFw": {
+      "IsSimulationMode": false
+    },
+    "ReticleRearSideBw": {
+      "IsSimulationMode": false
+    },
+    "NgBinGuideUp": {
+      "IsSimulationMode": false
+    },
+    "NgBinGuideDown": {
+      "IsSimulationMode": false
+    },
+    "NgBinClampUp": {
+      "IsSimulationMode": false
+    },
+    "NgBinClampDown": {
+      "IsSimulationMode": false
+    },
+    "NgBinClamp": {
+      "IsSimulationMode": false
+    },
+    "NgBinUnclamp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinGuideUp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinGuideDown": {
+      "IsSimulationMode": false
+    },
+    "GoodBinClampUp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinClampDown": {
+      "IsSimulationMode": false
+    },
+    "GoodBinClamp": {
+      "IsSimulationMode": false
+    },
+    "GoodBinUnclamp": {
+      "IsSimulationMode": false
+    },
+    "BinFeederUp": {
+      "IsSimulationMode": false
+    },
+    "BinFeederDown": {
+      "IsSimulationMode": false
+    },
+    "BinFeederClamp": {
+      "IsSimulationMode": false
+    },
+    "BinFeederUnclamp": {
+      "IsSimulationMode": false
+    },
+    "NgBinCassetteLock": {
+      "IsSimulationMode": false
+    },
+    "NgBinCassetteUnlock": {
+      "IsSimulationMode": false
+    },
+    "BottomVisionBlow": {
+      "IsSimulationMode": false
+    },
+    "BottomVisionBlowOff": {
+      "IsSimulationMode": false
+    },
+    "NeedleVacuum": {
+      "IsSimulationMode": false
+    },
+    "NeedleBlow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker1Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker2Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker3Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker4Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker5Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker6Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker7Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker8Vacuum": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker1Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker2Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker3Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker4Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker5Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker6Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker7Blow": {
+      "IsSimulationMode": false
+    },
+    "FrontPicker8Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker1_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker2_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker3_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker4_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker5_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker6_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker7_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker8_Vacuum": {
+      "IsSimulationMode": false
+    },
+    "RearPicker1_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker2_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker3_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker4_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker5_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker6_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker7_Blow": {
+      "IsSimulationMode": false
+    },
+    "RearPicker8_Blow": {
+      "IsSimulationMode": false
+    }
+  }
+}

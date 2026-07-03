@@ -1,0 +1,9 @@
+{
+  "AvoidPositionZ": 0,
+  "CleaningPositionY": 80,
+  "HomePositionY": 0,
+  "IsSimulationMode": false,
+  "PositionTolerance": 0.05,
+  "UnloadPositionY": -50,
+  "WorkPositionZ": 10
+}

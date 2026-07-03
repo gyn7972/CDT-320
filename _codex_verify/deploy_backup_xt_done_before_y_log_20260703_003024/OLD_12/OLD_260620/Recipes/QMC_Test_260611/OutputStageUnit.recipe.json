@@ -1,0 +1,38 @@
+{
+  "GoodStageY": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "GoodStageZ": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "NGStageY": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  },
+  "VisionX": {
+    "AvoidPosition": 0,
+    "DiePosition": [ ],
+    "LoadPosition": 0,
+    "ProcessPosition": 0,
+    "ReadyPosition": 0,
+    "ReticlePosition": 0,
+    "UnloadPosition": 0
+  }
+}

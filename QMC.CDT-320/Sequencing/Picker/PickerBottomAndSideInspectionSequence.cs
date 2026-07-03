@@ -380,6 +380,29 @@ namespace QMC.CDT320.Sequencing
         {
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = target.X;
+            bool pickerXAlreadyInBottomPosition = IsPickerAxisInPosition(PickerAxis.PickerX, target.X);
+            if (pickerXAlreadyInBottomPosition)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom X 이동 전에 PickerX가 이미 Bottom 목표 위치입니다. " +
+                    "이 상태에서만 PickerY 전진을 허용합니다. " +
+                    "die=" + (target.Die != null ? target.Die.DieId : "-") +
+                    ", pickerNo=" + target.PickerNo +
+                    ", targetX=" + target.X +
+                    ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
+                    " - Check");
+            }
+            else
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom X 이동 후 PickerY 전진 순서로 진행합니다. " +
+                    "die=" + (target.Die != null ? target.Die.DieId : "-") +
+                    ", pickerNo=" + target.PickerNo +
+                    ", targetX=" + target.X +
+                    ", " + BuildPickerAxisState(PickerAxis.PickerX, target.X) +
+                    " - Check");
+            }
+
             if (!_bottomInspectionYReady || !IsPickerAxisInPosition(PickerAxis.PickerY, target.Y))
                 targets[PickerAxis.PickerY] = target.Y;
 
@@ -1128,16 +1151,22 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
                 if (pending.MoveTask != null)
                 {
-                    int commandResult = await pending.MoveTask.ConfigureAwait(false);
+                    int commandResult = await SequenceAwaiter.AwaitAsync(
+                        pending.MoveTask,
+                        -1,
+                        ct).ConfigureAwait(false);
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
                 else if (!IsPickerAxisInPosition(axis, pending.Target))
                 {
-                    int commandResult = await MovePickerAxisCommandAsync(
-                        axis,
-                        pending.Target,
-                        "DieBottomZPreDown[" + pending.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom").ConfigureAwait(false);
+                    int commandResult = await SequenceAwaiter.AwaitAsync(
+                        MovePickerAxisCommandAsync(
+                            axis,
+                            pending.Target,
+                            "DieBottomZPreDown[" + pending.PickerIndex + "];PickerProcess=BottomSide;PickerPhase=InspectionZHold;InspectionContinuous;From=Bottom;To=Bottom"),
+                        -1,
+                        ct).ConfigureAwait(false);
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-PREDOWN-CMD", Name, "예약된 Bottom PickerZ 선행 하강 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
@@ -1272,16 +1301,22 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis axis = GetPickerZAxis(pending.PickerIndex);
                 if (pending.MoveTask != null)
                 {
-                    int commandResult = await pending.MoveTask.ConfigureAwait(false);
+                    int commandResult = await SequenceAwaiter.AwaitAsync(
+                        pending.MoveTask,
+                        -1,
+                        ct).ConfigureAwait(false);
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }
                 else if (!IsPickerAxisInPosition(axis, pending.Target))
                 {
-                    int commandResult = await MovePickerAxisCommandAsync(
-                        axis,
-                        pending.Target,
-                        "DieSideZAvoidDeferred[" + pending.PickerIndex + "]").ConfigureAwait(false);
+                    int commandResult = await SequenceAwaiter.AwaitAsync(
+                        MovePickerAxisCommandAsync(
+                            axis,
+                            pending.Target,
+                            "DieSideZAvoidDeferred[" + pending.PickerIndex + "]"),
+                        -1,
+                        ct).ConfigureAwait(false);
                     if (commandResult != 0)
                         return Fail("PICKER-BOTTOM-SIDE-Z-AVOID-CMD", Name, "예약된 PickerZ Avoid 명령 실패. result=" + commandResult + ", pickerNo=" + ToPickerNo(pending.PickerIndex));
                 }

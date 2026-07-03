@@ -1,0 +1,65 @@
+{
+  "DefaultSafetyDistance": 10,
+  "EnablePathCheck": true,
+  "RequireSameVelocityForGroupMove": true,
+  "Axes": [
+    {
+      "Axis": "InputVisionX",
+      "BodyOffsetMin": -100,
+      "BodyOffsetMax": 100,
+      "RailOriginOffset": 0,
+      "PositionScale": 1,
+      "SafetyDistance": null,
+      "TestTargetPosition": 2.5,
+      "TestVelocity": 5
+    },
+    {
+      "Axis": "FrontPickerX",
+      "BodyOffsetMin": -200,
+      "BodyOffsetMax": 200,
+      "RailOriginOffset": 450,
+      "PositionScale": 1,
+      "SafetyDistance": null,
+      "TestTargetPosition": 0,
+      "TestVelocity": 5
+    },
+    {
+      "Axis": "RearPickerX",
+      "BodyOffsetMin": -200,
+      "BodyOffsetMax": 200,
+      "RailOriginOffset": 450,
+      "PositionScale": 1,
+      "SafetyDistance": null,
+      "TestTargetPosition": 0,
+      "TestVelocity": 5
+    },
+    {
+      "Axis": "OutputVisionX",
+      "BodyOffsetMin": -100,
+      "BodyOffsetMax": 100,
+      "RailOriginOffset": 1000,
+      "PositionScale": 1,
+      "SafetyDistance": null,
+      "TestTargetPosition": 0,
+      "TestVelocity": 5
+    }
+  ],
+  "CollisionPairs": [
+    {
+      "AxisA": "InputVisionX",
+      "AxisB": "FrontPickerX"
+    },
+    {
+      "AxisA": "InputVisionX",
+      "AxisB": "RearPickerX"
+    },
+    {
+      "AxisA": "OutputVisionX",
+      "AxisB": "FrontPickerX"
+    },
+    {
+      "AxisA": "OutputVisionX",
+      "AxisB": "RearPickerX"
+    }
+  ]
+}

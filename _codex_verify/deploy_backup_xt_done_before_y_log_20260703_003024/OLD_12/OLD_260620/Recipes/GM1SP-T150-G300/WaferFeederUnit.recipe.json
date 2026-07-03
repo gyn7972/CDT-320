@@ -1,0 +1,11 @@
+{
+  "AvoidPosition": 0.01,
+  "CassetteExchangePosition": 4,
+  "CassetteLoadPosition": 10,
+  "CassetteUnloadPosition": 3,
+  "WaferBarcodePosition": 9,
+  "WaferLoadAvoidPosition": 5,
+  "WaferLoadPosition": 6,
+  "WaferUnloadAvoidPosition": 7,
+  "WaferUnloadPosition": 8
+}

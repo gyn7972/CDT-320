@@ -1,0 +1,134 @@
+{
+  "Cylinders": {
+    "InputFeederLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "InputFeederClamp": {
+      "BwdLabel": "UNCLAMP",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "CLAMP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": false
+    },
+    "ReticleLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "ReticleSideSlideFront": {
+      "BwdLabel": "BWD",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "FWD",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "ReticleSideSlideRear": {
+      "BwdLabel": "BWD",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "FWD",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "NGBinGuideLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "NGBinGuideClampLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": false,
+      "UseFwdInput": true
+    },
+    "NGBinGuideClamp": {
+      "BwdLabel": "UNCLAMP",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "CLAMP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": false,
+      "UseFwdInput": true
+    },
+    "GoodBinGuideLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "GoodBinGuideClampLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": false,
+      "UseFwdInput": true
+    },
+    "GoodBinGuideClamp": {
+      "BwdLabel": "UNCLAMP",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "CLAMP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": false,
+      "UseFwdInput": true
+    },
+    "OutputFeederLift": {
+      "BwdLabel": "DOWN",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "UP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": true
+    },
+    "OutputFeederClamp": {
+      "BwdLabel": "UNCLAMP",
+      "BwdTimeoutMs": 3000,
+      "FwdLabel": "CLAMP",
+      "FwdTimeoutMs": 3000,
+      "IsSimulationMode": false,
+      "IsSingleSolenoid": false,
+      "UseBwdInput": true,
+      "UseFwdInput": false
+    }
+  }
+}

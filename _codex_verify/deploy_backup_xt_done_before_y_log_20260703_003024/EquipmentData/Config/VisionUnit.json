@@ -1,0 +1,144 @@
+{
+  "FocusCalibration": {
+    "BottomColletScan": {
+      "MinusRange": 0.2,
+      "MotionTimeoutMs": 5000,
+      "MoveAcceleration": 300,
+      "MoveDeceleration": 300,
+      "MoveVelocity": 30,
+      "PlusRange": 0.2,
+      "RepeatCount": 1,
+      "ReturnToDefaultAfterScan": true,
+      "SettleDelayMs": 50,
+      "Step": 0.02,
+      "VisionTimeoutMs": 5000
+    },
+    "FrontCollets": [
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969158968+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969200719+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969234834+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969271550+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      }
+    ],
+    "FrontSide0": {
+      "BestPosition": 0,
+      "BestScore": 0,
+      "DefaultPosition": 0,
+      "SampleCount": 0,
+      "UpdatedAt": "\/Date(946652400000+0900)\/",
+      "UpdatedBy": "",
+      "Valid": false
+    },
+    "FrontSide90": {
+      "BestPosition": 0,
+      "BestScore": 0,
+      "DefaultPosition": 0,
+      "SampleCount": 0,
+      "UpdatedAt": "\/Date(946652400000+0900)\/",
+      "UpdatedBy": "",
+      "Valid": false
+    },
+    "RearCollets": [
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969342488+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969393415+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969430613+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      },
+      {
+        "BestPosition": -4,
+        "BestScore": 1,
+        "DefaultPosition": -4,
+        "SampleCount": 21,
+        "UpdatedAt": "\/Date(1782969561195+0900)\/",
+        "UpdatedBy": "ColletCalibration",
+        "Valid": true
+      }
+    ],
+    "RearSide0": {
+      "BestPosition": 0,
+      "BestScore": 0,
+      "DefaultPosition": 0,
+      "SampleCount": 0,
+      "UpdatedAt": "\/Date(946652400000+0900)\/",
+      "UpdatedBy": "",
+      "Valid": false
+    },
+    "RearSide90": {
+      "BestPosition": 0,
+      "BestScore": 0,
+      "DefaultPosition": 0,
+      "SampleCount": 0,
+      "UpdatedAt": "\/Date(946652400000+0900)\/",
+      "UpdatedBy": "",
+      "Valid": false
+    },
+    "SideVisionScan": {
+      "MinusRange": 0.2,
+      "MotionTimeoutMs": 5000,
+      "MoveAcceleration": 300,
+      "MoveDeceleration": 300,
+      "MoveVelocity": 30,
+      "PlusRange": 0.2,
+      "RepeatCount": 1,
+      "ReturnToDefaultAfterScan": true,
+      "SettleDelayMs": 50,
+      "Step": 0.02,
+      "VisionTimeoutMs": 5000
+    }
+  },
+  "PickerInspectionMode": 1,
+  "bDryRun": true
+}
