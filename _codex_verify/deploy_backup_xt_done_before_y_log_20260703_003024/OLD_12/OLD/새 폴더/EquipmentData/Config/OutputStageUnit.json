@@ -1,6 +1,0 @@
-{
-  "ColletCleaningTimeoutMs": 10000,
-  "IsSimulationMode": true,
-  "TpuPlaceDoneTimeoutMs": 3000,
-  "WaferChangeTimeoutMs": 0
-}

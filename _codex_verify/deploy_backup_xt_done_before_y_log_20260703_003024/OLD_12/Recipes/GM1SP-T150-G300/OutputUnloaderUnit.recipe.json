@@ -1,8 +1,0 @@
-{
-  "ClampSensorTimeoutMs": 1000,
-  "ElevatorMoveTimeoutMs": 10000,
-  "ElevatorVelocity": 80,
-  "FeederMoveTimeoutMs": 5000,
-  "FeederVelocity": 100,
-  "ScanVelocity": 20
-}

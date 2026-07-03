@@ -178,6 +178,10 @@ namespace QMC.CDT320.Sequencing
 
                 switch (action)
                 {
+                    // Todo: GYN 2026.07.03 - 여기서 순번대로 재개할때 항상 인터락 확인 후에 재개하도록 해야 한다. (Feeder/Stage/Picker)
+                    // 재개 Step시에 필요한 인터락 / 안전 상태 확인 후에 작업을 재개하는데 만약 안전 상태로 모션이 가능하면
+                    // 안전상태로 모션 시키고 재개하고 그렇지 않으면 알람 발생 후 장비를 멈춘다.
+
                     // NG 스테이지 완료품을 카세트로 배출
                     case OutputSequenceAutoAction.StoreNgStageToCassette:
                         return await ExecuteCompletedStageStoreAsync(

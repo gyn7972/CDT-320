@@ -159,7 +159,9 @@ namespace QMC.CDT320.Sequencing
                     return false;
 
                 case PickerProcessPhase.BottomInspection:
-                    reason = "BottomInspection은 상대 Picker가 다른 공정 phase 중이면 진입할 수 없습니다.";
+                    if (opposite == PickerProcessPhase.PickUp)
+                        return true;
+                    reason = "BottomInspection은 상대 Picker가 BottomInspection/SideInspection/Place 중이면 진입할 수 없습니다.";
                     return false;
 
                 case PickerProcessPhase.SideInspection:
