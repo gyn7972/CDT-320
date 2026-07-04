@@ -38,7 +38,13 @@ namespace QMC.MilCameraTest
 
         private void btnGrab_Click(object sender, EventArgs e)
         {
+            AddLog("Grab 버튼 클릭");
             _ = GrabOnceAsync();
+        }
+
+        private void btnClearLog_Click(object sender, EventArgs e)
+        {
+            ClearLog();
         }
 
         private void btnLive_Click(object sender, EventArgs e)
@@ -259,6 +265,16 @@ namespace QMC.MilCameraTest
             txtCameraId.Enabled = !open;
             lblStatus.Text = open ? (live ? "Live" : "Opened") : "Closed";
             lblStatus.ForeColor = open ? System.Drawing.Color.DarkGreen : System.Drawing.Color.DimGray;
+        }
+
+        /// <summary>로그 리스트 전체 비우기.</summary>
+        private void ClearLog()
+        {
+            try
+            {
+                lstLog.Items.Clear();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("ClearLog 실패: " + ex.Message); }
         }
 
         private void AddLog(string msg)

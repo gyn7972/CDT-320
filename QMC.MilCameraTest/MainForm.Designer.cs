@@ -24,6 +24,7 @@
             this.btnClose = new System.Windows.Forms.Button();
             this.btnGrab = new System.Windows.Forms.Button();
             this.btnLive = new System.Windows.Forms.Button();
+            this.btnClearLog = new System.Windows.Forms.Button();
             this.lblStatus = new System.Windows.Forms.Label();
             this.lblExposureEnd = new System.Windows.Forms.Label();
             this.picView = new System.Windows.Forms.PictureBox();
@@ -40,6 +41,7 @@
             this.panelTop.Controls.Add(this.btnClose);
             this.panelTop.Controls.Add(this.btnGrab);
             this.panelTop.Controls.Add(this.btnLive);
+            this.panelTop.Controls.Add(this.btnClearLog);
             this.panelTop.Controls.Add(this.lblStatus);
             this.panelTop.Controls.Add(this.lblExposureEnd);
             this.panelTop.Dock = System.Windows.Forms.DockStyle.Top;
@@ -107,9 +109,20 @@
             this.btnLive.Text = "Live";
             this.btnLive.UseVisualStyleBackColor = true;
             this.btnLive.Click += new System.EventHandler(this.btnLive_Click);
-            // 
+            //
+            // btnClearLog
+            //
+            this.btnClearLog.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnClearLog.Location = new System.Drawing.Point(874, 8);
+            this.btnClearLog.Name = "btnClearLog";
+            this.btnClearLog.Size = new System.Drawing.Size(100, 28);
+            this.btnClearLog.TabIndex = 8;
+            this.btnClearLog.Text = "로그 지우기";
+            this.btnClearLog.UseVisualStyleBackColor = true;
+            this.btnClearLog.Click += new System.EventHandler(this.btnClearLog_Click);
+            //
             // lblStatus
-            // 
+            //
             this.lblStatus.AutoSize = true;
             this.lblStatus.ForeColor = System.Drawing.Color.DimGray;
             this.lblStatus.Location = new System.Drawing.Point(544, 14);
@@ -179,6 +192,7 @@
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Button btnGrab;
         private System.Windows.Forms.Button btnLive;
+        private System.Windows.Forms.Button btnClearLog;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.Label lblExposureEnd;
         private System.Windows.Forms.PictureBox picView;
