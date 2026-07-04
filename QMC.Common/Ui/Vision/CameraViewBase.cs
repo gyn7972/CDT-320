@@ -140,6 +140,8 @@ namespace QMC.Common.Ui.Controls
         private ToolStripLabel  _tbMag;
         private ICameraViewSource _source;
         private bool _live;
+        private int  _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(백그라운드 그랩 중 재클릭 무시)
+        private int  _liveBusy;   // 0/1 — Live 시작 재진입 가드
 
         // ── 프레임 카운터/FPS (툴바 Live/Grab 전용 표시) ──
         private long   _liveFrameTotal;    // 라이브 시작 후 누적 수신 프레임 수
@@ -236,48 +238,120 @@ namespace QMC.Common.Ui.Controls
         private void DoToolbarGrab()
         {
             if (_source == null) return;
-            try
+            // 단발 그랩(MIL MdigGrab 등)은 완료까지 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
+            //   워커에서 수행 후 UI 로 마샬링. 재진입 가드로 연속 클릭 겹침 방지(QMC.MilCameraTest 검증 패턴).
+            if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1) return;
+            if (_tbGrab != null) _tbGrab.Enabled = false;
+            var src = _source;
+            System.Threading.Tasks.Task.Run(() =>
             {
-                var b = _source.GrabFrame();
-                if (b != null)
+                Bitmap b = null;
+                try { b = src.GrabFrame(); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Grab 실패: " + ex.Message); }
+                try
                 {
-                    SetImage(b); b.Dispose();
-                    _showGrabCount = true;          // 단발 그랩 = 프레임 1장 표시
-                    _liveFrameTotal = 0; _fpsValue = 0; _fpsWindowCount = 0;
+                    if (IsHandleCreated && !IsDisposed)
+                    {
+                        BeginInvoke(new Action(() =>
+                        {
+                            try
+                            {
+                                if (b != null)
+                                {
+                                    SetImage(b); b.Dispose();
+                                    _showGrabCount = true;          // 단발 그랩 = 프레임 1장 표시
+                                    _liveFrameTotal = 0; _fpsValue = 0; _fpsWindowCount = 0;
+                                }
+                            }
+                            finally
+                            {
+                                if (_tbGrab != null) _tbGrab.Enabled = true;
+                                System.Threading.Interlocked.Exchange(ref _grabBusy, 0);
+                            }
+                        }));
+                    }
+                    else
+                    {
+                        b?.Dispose();
+                        System.Threading.Interlocked.Exchange(ref _grabBusy, 0);
+                    }
                 }
-            }
-            catch { }
+                catch (Exception ex)
+                {
+                    try { b?.Dispose(); } catch { }
+                    System.Threading.Interlocked.Exchange(ref _grabBusy, 0);
+                    System.Diagnostics.Debug.WriteLine("[CameraViewBase] Grab UI 마샬링 실패: " + ex.Message);
+                }
+            });
         }
 
         private void DoToolbarLive()
         {
             if (_source == null || _live || !_source.SupportsLive) return;
-            try
+            if (System.Threading.Interlocked.Exchange(ref _liveBusy, 1) == 1) return;
+
+            _liveFrameTotal = 0; _fpsWindowCount = 0; _fpsValue = 0;
+            _fpsWindowStartMs = Environment.TickCount; _showGrabCount = false;
+
+            // 선반영(재클릭 방지 + 즉시 피드백) — StartLive 실패 시 아래에서 롤백.
+            _live = true;
+            if (_tbLive != null) _tbLive.Checked = true;   // 라이브 중 버튼 활성(눌림) 표시
+
+            // StartLive 는 카메라 feature 쓰기/스트림 개시로 블록될 수 있어 워커에서 수행(QMC.MilCameraTest 검증 패턴).
+            var src = _source;
+            System.Threading.Tasks.Task.Run(() =>
             {
-                _liveFrameTotal = 0; _fpsWindowCount = 0; _fpsValue = 0;
-                _fpsWindowStartMs = Environment.TickCount; _showGrabCount = false;
-                _source.StartLive(bmp =>
+                bool ok = false;
+                try
                 {
-                    if (bmp == null) return;
-                    try
+                    src.StartLive(bmp =>
                     {
-                        if (IsHandleCreated && !IsDisposed)
-                            BeginInvoke(new Action(() => { SetImage(bmp); bmp.Dispose(); CountLiveFrame(); }));
-                        else bmp.Dispose();
+                        if (bmp == null) return;
+                        try
+                        {
+                            if (IsHandleCreated && !IsDisposed)
+                                BeginInvoke(new Action(() => { SetImage(bmp); bmp.Dispose(); CountLiveFrame(); }));
+                            else bmp.Dispose();
+                        }
+                        catch { try { bmp.Dispose(); } catch { } }
+                    });
+                    ok = true;
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 시작 실패: " + ex.Message); }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref _liveBusy, 0);
+                    if (!ok)
+                    {
+                        try
+                        {
+                            if (IsHandleCreated && !IsDisposed)
+                                BeginInvoke(new Action(() =>
+                                {
+                                    _live = false;
+                                    if (_tbLive != null) _tbLive.Checked = false;
+                                    Invalidate();
+                                }));
+                        }
+                        catch (Exception ex2) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 롤백 실패: " + ex2.Message); }
                     }
-                    catch { try { bmp.Dispose(); } catch { } }
-                });
-                _live = true;
-                if (_tbLive != null) _tbLive.Checked = true;   // 라이브 중 버튼 활성(눌림) 표시
-            }
-            catch { }
+                }
+            });
         }
 
         private void DoToolbarStop()
         {
-            try { _source?.StopLive(); } catch { }
+            // UI 상태는 즉시 해제(수신 표시/재클릭 차단) — 실제 정지는 워커에서.
+            //   StopLive 는 MdigHalt/수신스레드 Join 으로 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
             _live = false;
             if (_tbLive != null) _tbLive.Checked = false;   // 라이브 종료 → 활성 표시 해제
+            var src = _source;
+            if (src != null)
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try { src.StopLive(); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 정지 실패: " + ex.Message); }
+                });
             Invalidate();                                   // FPS 라벨 갱신
         }
 

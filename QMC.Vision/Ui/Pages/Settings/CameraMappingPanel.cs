@@ -1328,32 +1328,84 @@ namespace QMC.Vision.Ui.Pages
         private void LiveStart()
         {
             if (_activeCam == null || _isLive) return;
-            try
-            {
-                _fpsT0 = DateTime.Now; _fpsCount = 0;
-                System.Threading.Interlocked.Exchange(ref _uiPending, 0);
-                _activeCam.TriggerMode = CameraTriggerMode.Continuous;
-                _activeCam.StartLive();
-                _isLive = true;
-                _lblStatus.ForeColor = Color.DarkSlateGray;
-                _lblStatus.Text = "Live started";
-            }
-            catch (Exception ex) { _lblStatus.Text = "Live start error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+
+            _fpsT0 = DateTime.Now; _fpsCount = 0;
+            System.Threading.Interlocked.Exchange(ref _uiPending, 0);
+
+            // 선반영(재클릭 방지) — 실패 시 워커에서 롤백. StartLive 는 카메라 feature 쓰기로
+            // 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다(QMC.MilCameraTest 검증 패턴).
+            _isLive = true;
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "Live starting...";
             UpdateConnectButtons();
+
+            var cam = _activeCam;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                string err = null;
+                try
+                {
+                    cam.TriggerMode = CameraTriggerMode.Continuous;
+                    cam.StartLive();
+                }
+                catch (Exception ex) { err = ex.Message; }
+                _uiCtx.Post(_ =>
+                {
+                    try
+                    {
+                        if (err == null)
+                        {
+                            _lblStatus.ForeColor = Color.DarkSlateGray;
+                            _lblStatus.Text = "Live started";
+                        }
+                        else
+                        {
+                            _isLive = false;   // 롤백
+                            _lblStatus.Text = "Live start error: " + err;
+                            _lblStatus.ForeColor = Color.Firebrick;
+                        }
+                        UpdateConnectButtons();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] Live 시작 UI 갱신 실패: " + ex.Message); }
+                }, null);
+            });
         }
 
         private void LiveStop()
         {
             if (_activeCam == null || !_isLive) return;
-            try
-            {
-                _activeCam.StopLive();
-                _isLive = false;
-                _lblStatus.ForeColor = Color.DarkSlateGray;
-                _lblStatus.Text = "Live stopped";
-            }
-            catch (Exception ex) { _lblStatus.Text = "Live stop error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+
+            // UI 상태 즉시 해제(재클릭 차단) — 실제 정지는 워커에서(StopLive 는 MdigHalt 로 블록 가능).
+            _isLive = false;
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "Live stopping...";
             UpdateConnectButtons();
+
+            var cam = _activeCam;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                string err = null;
+                try { cam.StopLive(); }
+                catch (Exception ex) { err = ex.Message; }
+                _uiCtx.Post(_ =>
+                {
+                    try
+                    {
+                        if (err == null)
+                        {
+                            _lblStatus.ForeColor = Color.DarkSlateGray;
+                            _lblStatus.Text = "Live stopped";
+                        }
+                        else
+                        {
+                            _lblStatus.Text = "Live stop error: " + err;
+                            _lblStatus.ForeColor = Color.Firebrick;
+                        }
+                        UpdateConnectButtons();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] Live 정지 UI 갱신 실패: " + ex.Message); }
+                }, null);
+            });
         }
 
         private void Cam_FrameReceived(GrabResult r)
