@@ -28,7 +28,7 @@ namespace QMC.Vision.Ui.Pages
         private Label    _lblHwModeState;
 
         // 컬럼 (정적 구조)
-        private DataGridViewTextBoxColumn  _colPort, _colName, _colBaud, _colChCount, _colPageCount, _colMaxPower;
+        private DataGridViewTextBoxColumn  _colPort, _colName, _colBaud, _colChCount, _colPageCount, _colMaxPower, _colSettle;
         private DataGridViewComboBoxColumn _colVendor;
         private DataGridViewTextBoxColumn  _colLblCh, _colLblName, _colLblColor;
 
@@ -55,6 +55,7 @@ namespace QMC.Vision.Ui.Pages
             this._colPort = new DataGridViewTextBoxColumn(); this._colName = new DataGridViewTextBoxColumn();
             this._colBaud = new DataGridViewTextBoxColumn(); this._colChCount = new DataGridViewTextBoxColumn();
             this._colPageCount = new DataGridViewTextBoxColumn(); this._colMaxPower = new DataGridViewTextBoxColumn();
+            this._colSettle = new DataGridViewTextBoxColumn();
             this._colVendor = new DataGridViewComboBoxColumn();
             this._colLblCh = new DataGridViewTextBoxColumn(); this._colLblName = new DataGridViewTextBoxColumn();
             this._colLblColor = new DataGridViewTextBoxColumn();
@@ -264,6 +265,9 @@ namespace QMC.Vision.Ui.Pages
             this._colVendor.Items.Add("LFine"); this._colVendor.Items.Add("Leesos");
             this._gridCtrl.Columns.Add(this._colVendor);
             this._colVendor.DisplayIndex = 1;
+            // 조명 값 변경 송신 후 안정화 대기(ms) — 캐시 히트(동일 값)면 송신·대기 생략(끝 컬럼: 기존 인덱스 보존).
+            this._colSettle.Name = "SettleDelayMs"; this._colSettle.HeaderText = "안정화(ms)";
+            this._gridCtrl.Columns.Add(this._colSettle);
             this._gridCtrl.DataError       += new DataGridViewDataErrorEventHandler(this.OnGridDataError);
             this._gridCtrl.CellEndEdit     += new DataGridViewCellEventHandler(this.GridCtrl_VendorCellEndEdit);
             this._gridCtrl.SelectionChanged += new System.EventHandler(this.OnGridCtrlSelectionChanged);

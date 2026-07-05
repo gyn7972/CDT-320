@@ -121,9 +121,18 @@ namespace QMC.Vision.Core
             {
                 r = f.Match(image);
             }
-            if (r == null || !r.Success) return "fail:" + (r?.ErrorMessage ?? "no match");
+            if (r == null || !r.Success)
+            {
+                // 실패도 작업 모니터링 뷰에 NG 로 표시(최근 결과 갱신).
+                try { ModuleResultStore.Record(m.Name, finderId, false, "match=fail"); } catch { }
+                return "fail:" + (r?.ErrorMessage ?? "no match");
+            }
             var b = r.Best;
-            if (b == null) return "fail:no match";
+            if (b == null)
+            {
+                try { ModuleResultStore.Record(m.Name, finderId, false, "match=fail"); } catch { }
+                return "fail:no match";
+            }
 
             // 검출 마크(이미지 좌표) 저장 → 뷰어 메타로 핸들러 오버레이에 표시.
             try { ModuleResultStore.RecordMark(m.Name, finderId, b.CenterX, b.CenterY, b.Score); } catch { }
@@ -171,6 +180,10 @@ namespace QMC.Vision.Core
                 MatchOverlayStore.Record(m.Name, marks.ToArray(), rx, ry, rw, rh);
             }
             catch { }
+
+            // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 MATCH 결과값(위치/각/점수)도 라인으로 표시.
+            try { ModuleResultStore.Record(m.Name, finderId, true,
+                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}"); } catch { }
 
             return $"OK;x={b.CenterX:F3};y={b.CenterY:F3};r={rOut:F3};score={b.Score:F3};width={image.Width};height={image.Height}";   // 항상 픽셀 + 이미지크기(px) — 핸들러가 mm 변환
         }
@@ -366,6 +379,8 @@ namespace QMC.Vision.Core
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
                 f.Train(g.Image);
+                // 학습 완료도 작업 모니터링 뷰 결과 라인으로 표시(통신/수동 공용 스토어).
+                try { ModuleResultStore.Record(m.Name, finderId, true, "train=OK"); } catch { }
                 return "OK";
             }
         }
@@ -422,8 +437,10 @@ namespace QMC.Vision.Core
         // 모터 Z 는 핸들러가 보내며 그래프 X 축, Score 는 그래프 Y 축이 된다.
 
         /// <summary>오토포커스 세션 시작(리셋). "FOCUS_START &lt;camera&gt; &lt;target&gt;".
-        /// 이후 각 시리즈 첫 샘플이 자동으로 최초값(점)이 된다.</summary>
-        public static string FocusStart(string[] parts)
+        /// 이후 각 시리즈 첫 샘플이 자동으로 최초값(점)이 된다.
+        /// <para>포커스 전용 노출(AutoFocusRoiStore.ExposureUs)이 지정되어 있으면 스캔 동안 쓰도록
+        /// 카메라에 적용한다(스캔 종료 FOCUS_BEST 에서 레시피 설정으로 복원).</para></summary>
+        public static string FocusStart(IVisionModule m, string[] parts)
         {
             if (parts == null || parts.Length < 4) return "fail:need camera target";
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
@@ -431,7 +448,49 @@ namespace QMC.Vision.Core
             AutoFocusProcessor.WaitForDrain(2000);   // 이전 스캔 잔여 백그라운드 처리 정리 후 리셋
             AutoFocusStore.Start(cam, tgt);
             AutoFocusTactLog.MarkCycleStart(cam + "/" + tgt);
+            PrepareFocusAcquisition(m, cam, tgt);
             return $"OK;camera={cam};target={tgt}";
+        }
+
+        /// <summary>포커스 촬상 준비 — FocusFinder 도구의 조명 + 노출 적용(컨트롤러 캐시 히트면 통신 생략) 후,
+        /// 포커스 전용 노출(AutoFocusRoiStore.ExposureUs)이 지정돼 있으면 그 값으로 덮어쓴다.
+        /// FOCUS_START(핸들러 스캔)와 포커스 페이지 [포커스 측정]이 공용으로 사용한다.</summary>
+        public static void PrepareFocusAcquisition(IVisionModule m, FocusCamera cam, FocusTarget tgt)
+        {
+            try { m?.PrepareToolAcquisition("FocusFinder"); } catch { }
+            ApplyFocusExposure(m, cam, tgt);
+        }
+
+        /// <summary>포커스 전용 노출 적용 — 지정(&gt;0)된 경우에만 카메라에 쓴다. 실패해도 스캔은 계속.</summary>
+        private static void ApplyFocusExposure(IVisionModule m, FocusCamera cam, FocusTarget tgt)
+        {
+            try
+            {
+                double us = AutoFocusRoiStore.GetExposureUs(cam, tgt);
+                if (us <= 0 || m?.Camera == null) return;
+                m.Camera.ExposureUs = us;
+                QMC.Vision.Comm.VisionCommLog.Add(
+                    "[FOCUS] 스캔용 노출 적용 " + us.ToString("F0") + "µs (" + cam + "/" + tgt + ")");
+            }
+            catch (Exception ex)
+            {
+                QMC.Vision.Comm.VisionCommLog.Add("[FOCUS] 스캔용 노출 적용 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>포커스 전용 노출을 썼던 스캔 종료 후 레시피 카메라 설정 복원. 실패해도 응답은 유지.</summary>
+        private static void RestoreRecipeExposure(IVisionModule m, FocusCamera cam, FocusTarget tgt)
+        {
+            try
+            {
+                if (AutoFocusRoiStore.GetExposureUs(cam, tgt) <= 0 || m == null) return;
+                m.ApplyCameraSettings();   // 레시피 노출/게인/프레임레이트 재적용(값은 카메라 유효 범위로 클램프됨)
+                QMC.Vision.Comm.VisionCommLog.Add("[FOCUS] 스캔 종료 — 레시피 카메라 설정 복원 (" + cam + "/" + tgt + ")");
+            }
+            catch (Exception ex)
+            {
+                QMC.Vision.Comm.VisionCommLog.Add("[FOCUS] 레시피 카메라 설정 복원 실패: " + ex.Message);
+            }
         }
 
         /// <summary>
@@ -521,10 +580,11 @@ namespace QMC.Vision.Core
         /// <summary>
         /// 세션의 BEST 결과 조회(핸들러가 TCP 로 결과 회수).
         /// "FOCUS_BEST &lt;camera&gt; &lt;target&gt; [pickupNo]".
-        /// 응답(기존 ROT_CENTER 식 인덱스 키): "OK;p1z=&lt;bestZ&gt;;p1s=&lt;bestScore&gt;;p1n=&lt;n&gt;;p2z=...".
-        /// pickupNo 지정 시 그 픽업만.
+        /// 응답: "OK;bestZ=&lt;평균&gt;;bestScore=&lt;평균&gt;;roiN=&lt;개수&gt;;p1z=...;p1s=...;p1n=...;p2z=...".
+        /// <para>bestZ/bestScore = 측정된 ROI(샘플 있는 것) Best 위치/점수의 <b>평균</b> — 핸들러 피드백 대표값.
+        /// pickupNo 1~4 지정 시 그 ROI 만(콜렛 픽커별 스캔), 0/미지정 = 전체 ROI 평균(바텀 4-ROI 포커스).</para>
         /// </summary>
-        public static string FocusBest(string[] parts)
+        public static string FocusBest(IVisionModule m, string[] parts)
         {
             if (parts == null || parts.Length < 4) return "fail:need camera target";
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
@@ -532,7 +592,7 @@ namespace QMC.Vision.Core
 
             int onlyPickup = -1;
             if (parts.Length > 4) int.TryParse(parts[4], out onlyPickup);
-            if (onlyPickup == 0) onlyPickup = 1;   // 측면(pickup=0) → 단일 시리즈(1)
+            if (onlyPickup <= 0) onlyPickup = -1;   // 0/미지정 = 전체 ROI(샘플 있는 것) 평균
 
             // FOCUS_VAL 들이 백그라운드로 채점 중이므로, 누적이 모두 끝난 뒤(=처리 완료) best 를 회수한다.
             // 완료될 때까지 충분히 대기해야 불완전한 best 로 응답하지 않는다(처리 완료 후 ACK).
@@ -542,8 +602,35 @@ namespace QMC.Vision.Core
             if (sess == null) return "fail:no session";
 
             var inv = System.Globalization.CultureInfo.InvariantCulture;
+            var rows = sess.BuildBestTable();
+
+            // 대표 포커스 = 측정된 ROI(샘플 있는 것들) Best 위치의 평균 — 핸들러 피드백 값.
+            // 핸들러 파서(VisionFocusBestResult.Parse)가 bestZ/bestScore 키를 최우선으로 읽는다.
+            double zSum = 0, sSum = 0; int used = 0;
+            foreach (var row in rows)
+            {
+                if (onlyPickup >= 0 && row.PickupNo != onlyPickup) continue;
+                if (row.SampleCount <= 0) continue;
+                zSum += row.BestMotorZ; sSum += row.BestScore; used++;
+            }
+
             var sb = new System.Text.StringBuilder("OK");
-            foreach (var row in sess.BuildBestTable())
+            if (used > 0)
+            {
+                sb.Append(";bestZ=" + (zSum / used).ToString("F4", inv));
+                sb.Append(";bestScore=" + (sSum / used).ToString("F2", inv));
+                sb.Append(";roiN=" + used);
+                // 작업 모니터링 뷰에도 포커스 결과 표시 — 수동 [포커스 측정]과 동일 키("FOCUS").
+                try
+                {
+                    if (m != null)
+                        ModuleResultStore.Record(m.Name, "FOCUS", true,
+                            "bestZ=" + (zSum / used).ToString("F4", inv)
+                            + ";bestScore=" + (sSum / used).ToString("F2", inv) + ";roiN=" + used);
+                }
+                catch { }
+            }
+            foreach (var row in rows)   // ROI 별 상세(진단/그래프용) — 기존 필드 유지
             {
                 if (onlyPickup >= 0 && row.PickupNo != onlyPickup) continue;
                 int p = row.PickupNo;
@@ -552,6 +639,7 @@ namespace QMC.Vision.Core
                 sb.Append(";p" + p + "n=" + row.SampleCount);
             }
             AutoFocusTactLog.MarkCycleEnd(cam + "/" + tgt);
+            RestoreRecipeExposure(m, cam, tgt);   // 스캔용 노출을 썼으면 레시피 설정으로 원복
             return sb.ToString();
         }
     }

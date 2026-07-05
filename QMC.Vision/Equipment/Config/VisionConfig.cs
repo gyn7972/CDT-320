@@ -24,6 +24,9 @@ namespace QMC.Vision.Config
         [DataMember] public string Target { get; set; } = "";
         /// <summary>ROI1~4(최대 4개). 미설정 항목은 null.</summary>
         [DataMember] public Roi[] Rois { get; set; } = new Roi[4];
+        /// <summary>오토포커스 스캔용 카메라 노출(µs). 0 이하 = 미지정(현재 카메라 노출 유지).
+        /// FOCUS_START 에서 카메라에 적용하고, FOCUS_BEST 에서 레시피 설정으로 복원한다.</summary>
+        [DataMember(IsRequired = false)] public double ExposureUs { get; set; }
     }
 
     [DataContract]

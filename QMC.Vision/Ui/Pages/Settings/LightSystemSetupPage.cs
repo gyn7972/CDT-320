@@ -156,7 +156,7 @@ namespace QMC.Vision.Ui.Pages
             foreach (var c in setup.Controllers)
             {
                 _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower,
-                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor);
+                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor, c.SettleDelayMs);
                 if (!string.IsNullOrEmpty(c.PortName))
                     _labelCache[c.PortName] = CloneLabels(c.ChannelLabels);
             }
@@ -338,11 +338,13 @@ namespace QMC.Vision.Ui.Pages
                 if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
                 string vendor = r.Cells["Vendor"].Value?.ToString()?.Trim();
                 if (string.IsNullOrEmpty(vendor)) vendor = "LFine";
+                int settle = int.TryParse(r.Cells["SettleDelayMs"].Value?.ToString(), out var sd) && sd >= 0 ? sd : 30;
                 setup.Controllers.Add(new LightControllerEntry
                 {
                     PortName = port, Vendor = vendor, Name = Str(r, 1),
                     BaudRate = IntOf(r, 2, 9600), ChannelCount = chCount,
                     PageCount = IntOf(r, 4, 1), MaxPower = IntOf(r, 5, 240),
+                    SettleDelayMs = settle,
                     ChannelLabels = SanitizeLabels(cached, chCount)
                 });
             }

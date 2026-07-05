@@ -162,6 +162,22 @@ namespace QMC.Vision.Ui.Pages
         /// 편입 모드(EmbeddedMode)에서는 호스트 SaveTarget 이 활성 레시피명으로 일괄 저장하므로 사용하지 않는다.</summary>
         public string RecipeName { get; set; } = "default";
 
+        /// <summary>벤더별 표시/편집 허용 채널(대소문자 무시). 미지정 벤더/필터 null 이면 전 채널.
+        /// 호스트가 모듈 하드웨어 결선에 맞게 주입(예: 바텀 검사 = 리스광 ch2, 엘파인 ch6~8).</summary>
+        public IDictionary<string, int[]> VendorChannelFilter { get; set; }
+
+        /// <summary>벤더별 표시/편집 허용 페이지(대소문자 무시). 미지정 벤더/필터 null 이면 지정된 전 페이지.
+        /// 도구별로 쓰는 LFine 페이지가 다를 때 호스트가 주입(예: 바텀 포커스=5, 표면검사=7).</summary>
+        public IDictionary<string, int[]> VendorPageFilter { get; set; }
+
+        /// <summary>바텀 검사 조명 채널 정책 — 리스광(Leesos) 2번(동축), 엘파인(LFine) 6·7·8번(바텀 돔).</summary>
+        public static IDictionary<string, int[]> BottomChannelFilter()
+            => new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Leesos"] = new[] { 2 },
+                ["LFine"] = new[] { 6, 7, 8 },
+            };
+
         /// <summary>R2e — 통합 저장 진입점(타깃 상단바 저장이 호출).
         /// 편입 모드: 조명 레벨을 노드 Recipe.LightSettings POCO 에 반영만 하고, 실제 파일 저장은 호스트 SaveTarget 의
         /// SaveRecipe(활성 레시피명)가 일괄 수행한다(조명이 활성 레시피가 아닌 "default"로 새던 문제 수정).
@@ -182,8 +198,20 @@ namespace QMC.Vision.Ui.Pages
         {
             _algorithm = algorithm;
             _inspectionId = inspectionId;
+            ApplyModuleChannelPolicy();
             UpdateHeaderText();
             BindFields();
+        }
+
+        /// <summary>모듈별 채널 정책 자동 적용 — 바텀 검사는 하위 모든 도구(레티클/콜렛/다이/포커스/스케일/왜곡보정/표면)와
+        /// 모든 편집 화면(레시피 타깃 페이지·FinderPage·InspectorPage)에서 리스광 ch2 + 엘파인 ch6~8 만 표시한다.
+        /// (엘파인 페이지는 모듈 지정 Setup.LightPages 가 P08 하나라 자동으로 P08 고정.)
+        /// 호스트가 이미 필터를 주입했다면 그대로 둔다.</summary>
+        private void ApplyModuleChannelPolicy()
+        {
+            if (VendorChannelFilter == null &&
+                string.Equals(_algorithm, VisionAlgorithm.BottomInspection, StringComparison.OrdinalIgnoreCase))
+                VendorChannelFilter = BottomChannelFilter();
         }
 
         /// <summary>C2 — 노드 컨텍스트 주입 버전. 호스트가 finder/inspector 참조(또는 GetAlgorithm)로 해석한 노드를 전달.</summary>
@@ -287,14 +315,31 @@ namespace QMC.Vision.Ui.Pages
             {
                 var ce = LightSystemSetupStore.Current?.GetController(pr.ControllerPort);
                 int channelCount = (ce != null && ce.ChannelCount > 0) ? ce.ChannelCount : 8;
+
+                // 벤더별 허용 페이지 필터 — 도구가 쓰는 페이지만 행 생성(예: 포커스=5, 표면검사=7).
+                if (VendorPageFilter != null && ce != null && !string.IsNullOrEmpty(ce.Vendor))
+                {
+                    int[] allowPg = null;
+                    foreach (var kv in VendorPageFilter)
+                        if (string.Equals(kv.Key, ce.Vendor, StringComparison.OrdinalIgnoreCase)) { allowPg = kv.Value; break; }
+                    if (allowPg != null && System.Array.IndexOf(allowPg, pr.Page) < 0) continue;
+                }
+
                 var labelByCh = new Dictionary<int, string>();
                 if (ce?.ChannelLabels != null)
                     foreach (var l in ce.ChannelLabels)
                         if (!labelByCh.ContainsKey(l.Channel)) labelByCh[l.Channel] = l.Name ?? "";
                 string ctrlDisp = pr.ControllerPort + ((ce != null && !string.IsNullOrEmpty(ce.Name)) ? $" ({ce.Name})" : "");
 
+                // 벤더별 허용 채널 필터 — 호스트가 주입한 경우 그 채널만 행 생성(하드웨어 결선 외 채널 숨김).
+                int[] allowCh = null;
+                if (VendorChannelFilter != null && ce != null && !string.IsNullOrEmpty(ce.Vendor))
+                    foreach (var kv in VendorChannelFilter)
+                        if (string.Equals(kv.Key, ce.Vendor, StringComparison.OrdinalIgnoreCase)) { allowCh = kv.Value; break; }
+
                 for (int ch = 1; ch <= channelCount; ch++)
                 {
+                    if (allowCh != null && System.Array.IndexOf(allowCh, ch) < 0) continue;
                     string key = Key(pr.ControllerPort, pr.Page, ch);
                     saved.TryGetValue(key, out var s);
                     int level = s?.Level ?? 0;

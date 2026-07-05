@@ -210,9 +210,9 @@ namespace QMC.Vision.Comm
                     case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "CAM_SETTING":resp = DoCameraSetting(m); break;
-                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
-                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
+                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
                     default: resp = null; break;
                 }
 
