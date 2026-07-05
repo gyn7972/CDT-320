@@ -34,13 +34,13 @@ namespace QMC.Vision.Ui.Controls
         {
             try
             {
-                // 활성 도구의 '시뮬 저장이미지 사용' 여부 확인.
+                // 활성 도구의 '시뮬 저장이미지 사용' 여부 확인 — 카메라가 시뮬레이션일 때만 유효.
                 //  - true  : 도구 전용 저장이미지 사용(GrabForTool). 경로에 이미지가 없으면 실패 → 팝업.
-                //  - false : 라이브/카메라 그랩만 사용(_m.Grab()).
+                //  - false : 라이브/카메라 그랩만 사용(실카메라는 항상 실제 촬상).
                 var setup = string.IsNullOrEmpty(ActiveToolId)
                     ? null
                     : _m.GetAlgorithm(ActiveToolId)?.Setup as AlgoSetupBase;
-                bool useSaved = setup != null && setup.SimUseSavedImage;
+                bool useSaved = setup != null && setup.SimUseSavedImage && _m.IsSimCameraMode;
 
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ToolbarGrab",
                     (_m?.Name ?? "?") + ": 툴바 Grab, ActiveToolId='" + (ActiveToolId ?? "(null)") + "', 시뮬저장이미지=" + useSaved); } catch { }

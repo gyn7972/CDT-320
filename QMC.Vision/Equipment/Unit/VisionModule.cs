@@ -306,10 +306,17 @@ namespace QMC.Vision.Modules
             try { old?.Dispose(); } catch { }
         }
 
+        /// <summary>카메라 시뮬레이션 여부 — 카메라 미장착 또는 Sim 카메라.
+        /// 저장이미지/오버라이드 그랩은 이 경우에만 허용(실카메라=항상 실제 촬상, 디스크 이미지 금지).</summary>
+        public bool IsSimCameraMode
+            => Camera == null || Camera.Info == null || Camera.Info.Transport == CameraTransport.Sim;
+
         public GrabResult Grab(int timeoutMs = 3000)
         {
-            // 테스트 오버라이드 — 화면에 표시한 이미지를 grab 으로 반환(오토포커스 ROI 정렬용).
-            Bitmap ov = _simOverride;
+            bool simCam = IsSimCameraMode;
+
+            // 테스트 오버라이드 — 화면에 표시한 이미지를 grab 으로 반환(오토포커스 ROI 정렬용). 시뮬 카메라 전용.
+            Bitmap ov = simCam ? _simOverride : null;
             if (ov != null)
             {
                 Bitmap clone = (Bitmap)ov.Clone();
@@ -320,7 +327,8 @@ namespace QMC.Vision.Modules
 
             // 모듈 레벨 시뮬 이미지 — 핸들러 GRAB 등 모듈 그랩에서 카메라 대신 저장 이미지를 사용(테스트).
             // 한 장을 그랩해 TapFrame → 핸들러 뷰어로 송출되고, 이후 finder MATCH 는 같은 프레임 ROI 검출.
-            var simGrab = TryGrabModuleSavedImage();
+            // 실카메라가 붙어 있으면 저장이미지 설정과 무관하게 항상 실제 촬상한다.
+            var simGrab = simCam ? TryGrabModuleSavedImage() : null;
             if (simGrab != null)
             {
                 if (simGrab.IsSuccess && simGrab.Image != null) TapFrame(simGrab.Image);
@@ -364,15 +372,23 @@ namespace QMC.Vision.Modules
         /// 되돌려 도구 간 노출이 결정적으로 유지되게 한다.</summary>
         public GrabResult GrabForTool(string toolId, int timeoutMs = 3000)
         {
-            var saved = TryGrabSavedImageForTool(toolId);
-            if (saved != null)
+            // 도구 저장이미지는 '카메라 시뮬레이션'일 때만 — 실카메라면 설정과 무관하게 항상 실제 촬상.
+            if (IsSimCameraMode)
             {
-                if (saved.IsSuccess && saved.Image != null) TapFrame(saved.Image);
-                if (saved.IsSuccess) { LogGrab("저장이미지 그랩 성공 (" + saved.Width + "x" + saved.Height + ") toolId='" + toolId + "'"); try { ExposureDone?.Invoke(Name); } catch { } }
-                else { LogGrab("저장이미지 로드 실패 → " + saved.ErrorMessage); try { Alarmed?.Invoke(Name, saved.ErrorMessage); } catch { } }
-                return saved;
+                var saved = TryGrabSavedImageForTool(toolId);
+                if (saved != null)
+                {
+                    if (saved.IsSuccess && saved.Image != null) TapFrame(saved.Image);
+                    if (saved.IsSuccess) { LogGrab("저장이미지 그랩 성공 (" + saved.Width + "x" + saved.Height + ") toolId='" + toolId + "'"); try { ExposureDone?.Invoke(Name); } catch { } }
+                    else { LogGrab("저장이미지 로드 실패 → " + saved.ErrorMessage); try { Alarmed?.Invoke(Name, saved.ErrorMessage); } catch { } }
+                    return saved;
+                }
+                LogGrab("저장이미지 미사용 → 카메라 그랩 (toolId='" + (toolId ?? "(null)") + "')");
             }
-            LogGrab("저장이미지 미사용 → 카메라 그랩 (toolId='" + (toolId ?? "(null)") + "')");
+            else if ((GetAlgorithm(toolId)?.Setup as AlgoSetupBase)?.SimUseSavedImage == true)
+            {
+                LogGrab("실카메라 — 저장이미지 설정 무시하고 실제 그랩 (toolId='" + (toolId ?? "(null)") + "')");
+            }
             PrepareToolAcquisition(toolId);
             return Grab(timeoutMs);
         }
