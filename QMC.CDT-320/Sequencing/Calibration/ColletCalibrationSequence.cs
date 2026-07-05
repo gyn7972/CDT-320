@@ -31,6 +31,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         private double _targetPickerX;
         private double _targetPickerY;
         private double _targetPickerZ;
+        private double _nominalPickerX;
+        private double _nominalPickerY;
         private double _basePickerT;
         private double _measuredTPosition;
         private double? _simPickerX;
@@ -153,6 +155,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 Context.Machine.VisionUnit.Config.CalibrationData.Collet.EnsureObjects();
                 _settings = Context.Machine.VisionUnit.Config.CalibrationData.Collet.Settings;
                 _settings.EnsureDefaults();
+                string referenceReason;
+                if (!IsReferenceCollet() && !IsReferenceColletCalibrationReady(out referenceReason))
+                    return Fail("COLLET-CAL-REFERENCE-NOT-READY", Name,
+                        "Collet Calibration은 4번 Collet을 Bottom 기준 티칭으로 먼저 잡아야 합니다. side=" +
+                        _calibrationSide +
+                        ", colletNo=" + _colletNo +
+                        ", referenceColletNo=4" +
+                        ", reason=" + referenceReason);
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSettings",
                     "Collet Calibration 설정 확인. side=" + _calibrationSide +
@@ -222,9 +232,35 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "ColletCalibration");
 
-                _targetPickerX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition") +
-                                 ResolvePickerPitchXOffset("DieBottomPosition", _colletIndex);
-                _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
+                PickerCalibratedZoneTarget nominalTarget =
+                    CalibrationCoordinateService.ResolvePickerZoneTarget(
+                        Context.Machine,
+                        _calibrationSide,
+                        "DieBottomPosition",
+                        _colletIndex,
+                        null,
+                        false,
+                        false);
+                PickerCalibratedZoneTarget startTarget =
+                    CalibrationCoordinateService.ResolvePickerZoneTarget(
+                        Context.Machine,
+                        _calibrationSide,
+                        "DieBottomPosition",
+                        _colletIndex,
+                        null,
+                        false,
+                        !IsReferenceCollet());
+                double baseBottomX = nominalTarget.TeachingX;
+                double baseBottomY = nominalTarget.TeachingY;
+                double pitchOffsetX = nominalTarget.PitchOffsetX;
+                _nominalPickerX = nominalTarget.X;
+                _nominalPickerY = nominalTarget.Y;
+                double existingColletOffsetX = startTarget.ColletOffsetX;
+                double existingColletOffsetY = startTarget.ColletOffsetY;
+                ColletCalibrationRecord existingRecord = ResolveExistingColletCalibrationRecord();
+
+                _targetPickerX = startTarget.X;
+                _targetPickerY = startTarget.Y;
                 double bottomTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(_colletIndex), "BottomPosition");
                 string focusStartReason;
                 if (!TryResolveBottomColletFocusStartPosition(out _targetPickerZ, out focusStartReason))
@@ -233,18 +269,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                         _calibrationSide + ", colletNo=" + _colletNo +
                         ", " + focusStartReason +
                         ", Vision Focus Cal에서 Bottom Collet Best Focus를 Apply/Save 후 다시 실행하세요.");
-                _basePickerT = GetPickerTeachingPosition(GetPickerTAxis(_colletIndex), "BottomPosition");
+                _basePickerT = startTarget.T;
 
-                double baseBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
-                double pitchOffsetX = ResolvePickerPitchXOffset("DieBottomPosition", _colletIndex);
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalMove",
                     "Collet Calibration Bottom 목표 좌표 계산. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", formulaX=bottomX+pitchOffsetX=" + baseBottomX.ToString("F6") + "+" + pitchOffsetX.ToString("F6") + "=" + _targetPickerX.ToString("F6") +
-                    ", formulaY=bottomY=" + _targetPickerY.ToString("F6") +
+                    ", formulaX=bottomX+pitchOffsetX+savedColletOffsetX=" + baseBottomX.ToString("F6") + "+" + pitchOffsetX.ToString("F6") + "+" + existingColletOffsetX.ToString("F6") + "=" + _targetPickerX.ToString("F6") +
+                    ", formulaY=bottomY+savedColletOffsetY=" + baseBottomY.ToString("F6") + "+" + existingColletOffsetY.ToString("F6") + "=" + _targetPickerY.ToString("F6") +
+                    ", nominalPicker=(" + _nominalPickerX.ToString("F6") + "," + _nominalPickerY.ToString("F6") + ")" +
+                    ", savedColletOffset=(" + existingColletOffsetX.ToString("F6") + "," + existingColletOffsetY.ToString("F6") + ")" +
+                    ", savedColletValid=" + (existingRecord != null && existingRecord.Valid) +
                     ", formulaZ=bottomColletFocusDefaultZ=" + _targetPickerZ.ToString("F6") +
                     ", bottomTeachingZ=" + bottomTeachingZ.ToString("F6") +
-                    ", formulaT=selectedColletBottomT=" + _basePickerT.ToString("F6") +
+                    ", formulaT=" + startTarget.Formula +
                     ", xAxis=" + PickerAxis.PickerX +
                     ", yAxis=" + PickerAxis.PickerY +
                     ", zAxis=" + GetPickerZAxis(_colletIndex) +
@@ -257,7 +294,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     xyTargets,
                     "Collet Calibration Bottom X/Y",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
                 ApplyPickerAxisPositionForSimulation(PickerAxis.PickerX, _targetPickerX);
@@ -270,7 +308,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _basePickerT,
                     "Collet Calibration T 기준 위치",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
                 ApplyPickerAxisPositionForSimulation(GetPickerTAxis(_colletIndex), _basePickerT);
@@ -281,7 +320,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _targetPickerZ,
                     "Collet Calibration Bottom Z",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
                 ApplyPickerAxisPositionForSimulation(GetPickerZAxis(_colletIndex), _targetPickerZ);
@@ -347,7 +387,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
                     "Collet Calibration 시작 전 선택 Picker Z축 Avoid",
-                    ct).ConfigureAwait(false);
+                    ct,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -362,7 +403,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     avoidY,
                     "Collet Calibration 시작 전 선택 PickerY Avoid",
                     ct,
-                    "ColletCalibrationStart;PickerPhase=SafeY;PickerZone=Avoid").ConfigureAwait(false);
+                    "ColletCalibrationStart;PickerPhase=SafeY;PickerZone=Avoid",
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -671,7 +713,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         target,
                         "Collet Calibration T 0도 보정",
                         ct,
-                        BottomFinderTargetName).ConfigureAwait(false);
+                        BottomFinderTargetName,
+                        true).ConfigureAwait(false);
                     if (moveResult != 0)
                         return moveResult;
                     ApplyPickerAxisPositionForSimulation(GetPickerTAxis(_colletIndex), target);
@@ -782,7 +825,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         target,
                         "Collet Calibration T 0도 보정",
                         ct,
-                        BottomFinderTargetName).ConfigureAwait(false);
+                        BottomFinderTargetName,
+                        true).ConfigureAwait(false);
                     if (moveResult != 0)
                         return new MatchStepResult { Result = moveResult, Match = lastMatch };
                     ApplyPickerAxisPositionForSimulation(GetPickerTAxis(_colletIndex), target);
@@ -824,12 +868,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (match == null || !match.Success)
                         return new MatchStepResult { Result = Fail("COLLET-CAL-XY-NO-MATCH", "Vision", "Collet XY 보정에 사용할 Vision 결과가 없습니다."), Match = lastMatch };
 
-                    double offsetMmX = camera.PixelToMmOffsetX(match.X);
-                    double offsetMmY = camera.PixelToMmOffsetY(match.Y);
-                    double diagonal = Math.Sqrt((offsetMmX * offsetMmX) + (offsetMmY * offsetMmY));
-                    bool inTolerance = _settings.UseDiagonalXyTolerance
-                        ? diagonal <= _settings.XyToleranceMm
-                        : Math.Abs(offsetMmX) <= _settings.XyToleranceMm && Math.Abs(offsetMmY) <= _settings.XyToleranceMm;
+                    double offsetMmX;
+                    double offsetMmY;
+                    double diagonal;
+                    bool inTolerance;
+                    if (!TryEvaluateXyMatchTolerance(camera, match, out offsetMmX, out offsetMmY, out diagonal, out inTolerance))
+                        return new MatchStepResult { Result = Fail("COLLET-CAL-XY-NO-MATCH", "Vision", "Collet XY 보정에 사용할 Vision 결과가 없습니다."), Match = lastMatch };
 
                     BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
                     BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
@@ -877,6 +921,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", dx=" + fineAlignDx.ToString("F6") +
                         ", dy=" + fineAlignDy.ToString("F6") +
                         ", fineAlignMaxMm=" + _settings.FineAlignMaxXyMoveMm.ToString("F6") +
+                        ", forceMove=True" +
                         ", formula=fineAlign=(dx<=max && dy<=max)=(" +
                         fineAlignDx.ToString("F6") + "<=" + _settings.FineAlignMaxXyMoveMm.ToString("F6") +
                         " && " + fineAlignDy.ToString("F6") + "<=" + _settings.FineAlignMaxXyMoveMm.ToString("F6") + ")=" + fineAlign +
@@ -906,7 +951,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                         xyTargets,
                         "Collet Calibration XY 중심 보정",
                         ct,
-                        xyMoveTargetName).ConfigureAwait(false);
+                        xyMoveTargetName,
+                        true).ConfigureAwait(false);
                     if (moveResult != 0)
                         return new MatchStepResult { Result = moveResult, Match = lastMatch };
                     ApplyPickerAxisPositionForSimulation(PickerAxis.PickerX, targetX);
@@ -928,14 +974,41 @@ namespace QMC.CDT320.Sequencing.Calibration
                     lastMatch = match;
                 }
 
+                double finalOffsetMmX;
+                double finalOffsetMmY;
+                double finalDiagonal;
+                bool finalInTolerance;
+                if (TryEvaluateXyMatchTolerance(camera, lastMatch, out finalOffsetMmX, out finalOffsetMmY, out finalDiagonal, out finalInTolerance) &&
+                    finalInTolerance)
+                {
+                    BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
+                    BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
+                    double actualX = ReadPickerActual(PickerAxis.PickerX, xAxis, _targetPickerX);
+                    double actualY = ReadPickerActual(PickerAxis.PickerY, yAxis, _targetPickerY);
+
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalXy",
+                        label + " 최종 측정 완료. side=" + _calibrationSide +
+                        ", colletNo=" + _colletNo +
+                        ", iteration=" + _settings.MaxXyIterations +
+                        ", offsetMm=(" + finalOffsetMmX.ToString("F6") + "," + finalOffsetMmY.ToString("F6") + ")" +
+                        ", diagonal=" + finalDiagonal.ToString("F6") +
+                        ", toleranceMm=" + _settings.XyToleranceMm.ToString("F6") +
+                        ", mode=" + (_settings.UseDiagonalXyTolerance ? "Diagonal" : "Axis") +
+                        ", actual=(" + actualX.ToString("F6") + "," + actualY.ToString("F6") + ") - Ok");
+
+                    return new MatchStepResult { Result = 0, Match = lastMatch };
+                }
+
                 return new MatchStepResult { Result = Fail("COLLET-CAL-XY-NOT-CONVERGED", Name,
                     "Collet XY 중심 보정이 허용오차 안으로 수렴하지 않았습니다. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", toleranceMm=" + _settings.XyToleranceMm +
                     ", maxIteration=" + _settings.MaxXyIterations +
+                    ", mode=" + (_settings.UseDiagonalXyTolerance ? "Diagonal" : "Axis") +
                     ", lastOffset=(" +
-                    (lastMatch != null ? camera.PixelToMmOffsetX(lastMatch.X).ToString("F6") : "null") + "," +
-                    (lastMatch != null ? camera.PixelToMmOffsetY(lastMatch.Y).ToString("F6") : "null") + ")"), Match = lastMatch };
+                    (lastMatch != null && lastMatch.Success ? finalOffsetMmX.ToString("F6") : "null") + "," +
+                    (lastMatch != null && lastMatch.Success ? finalOffsetMmY.ToString("F6") : "null") + ")" +
+                    ", lastDiagonal=" + (lastMatch != null && lastMatch.Success ? finalDiagonal.ToString("F6") : "null")), Match = lastMatch };
             }
             catch (OperationCanceledException)
             {
@@ -944,6 +1017,31 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private bool TryEvaluateXyMatchTolerance(
+            VisionCameraPixelCalibration camera,
+            MatchResultDto match,
+            out double offsetMmX,
+            out double offsetMmY,
+            out double diagonal,
+            out bool inTolerance)
+        {
+            offsetMmX = 0.0;
+            offsetMmY = 0.0;
+            diagonal = 0.0;
+            inTolerance = false;
+
+            if (camera == null || match == null || !match.Success)
+                return false;
+
+            offsetMmX = camera.PixelToMmOffsetX(match.X);
+            offsetMmY = camera.PixelToMmOffsetY(match.Y);
+            diagonal = Math.Sqrt((offsetMmX * offsetMmX) + (offsetMmY * offsetMmY));
+            inTolerance = _settings.UseDiagonalXyTolerance
+                ? diagonal <= _settings.XyToleranceMm
+                : Math.Abs(offsetMmX) <= _settings.XyToleranceMm && Math.Abs(offsetMmY) <= _settings.XyToleranceMm;
+            return true;
         }
 
         private bool IsFineAlignXyMove(double actualX, double actualY, double targetX, double targetY)
@@ -983,7 +1081,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     avoidY,
                     "Collet Calibration 큰 XY 보정 전 PickerY Avoid",
                     ct,
-                    "ColletCalibration;PickerZone=Avoid").ConfigureAwait(false);
+                    "ColletCalibration;PickerZone=Avoid",
+                    true).ConfigureAwait(false);
                 if (result == 0)
                 {
                     ApplyPickerAxisPositionForSimulation(PickerAxis.PickerY, avoidY);
@@ -1025,7 +1124,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     avoidZ,
                     "Collet Calibration XY 이동 전 Z Avoid",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result == 0)
                     ApplyPickerAxisPositionForSimulation(zAxis, avoidZ);
 
@@ -1063,7 +1163,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _targetPickerZ,
                     "Collet Calibration XY 이동 후 Z 검사 위치",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result == 0)
                     ApplyPickerAxisPositionForSimulation(zAxis, _targetPickerZ);
 
@@ -1137,7 +1238,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _targetPickerZ,
                     "Collet Calibration AutoFocus Best Z",
                     ct,
-                    BottomFinderTargetName).ConfigureAwait(false);
+                    BottomFinderTargetName,
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1226,6 +1328,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                 BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
                 BaseAxis zAxis = GetPickerAxis(GetPickerZAxis(_colletIndex));
                 _measuredTPosition = tAxis != null ? tAxis.ActualPosition : _basePickerT;
+                double finalPickerX = xAxis != null ? xAxis.ActualPosition : _targetPickerX;
+                double finalPickerY = yAxis != null ? yAxis.ActualPosition : _targetPickerY;
+                double finalPickerZ = zAxis != null ? zAxis.ActualPosition : _targetPickerZ;
+                double colletOffsetX = IsReferenceCollet() ? 0.0 : finalPickerX - _nominalPickerX;
+                double colletOffsetY = IsReferenceCollet() ? 0.0 : finalPickerY - _nominalPickerY;
+                double referenceTeachingShiftX = IsReferenceCollet() ? finalPickerX - _nominalPickerX : 0.0;
+                double referenceTeachingShiftY = IsReferenceCollet() ? finalPickerY - _nominalPickerY : 0.0;
 
                 _calculatedRecord = new ColletCalibrationRecord
                 {
@@ -1235,14 +1344,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                     CenterPixelY = _finalMatch.Y,
                     CenterMmX = centerMmX,
                     CenterMmY = centerMmY,
-                    OffsetX = centerMmX,
-                    OffsetY = centerMmY,
+                    OffsetX = colletOffsetX,
+                    OffsetY = colletOffsetY,
                     ThetaOffset = _finalMatch.AngleDeg,
                     TZeroHomeOffset = _measuredTPosition - _basePickerT,
                     MeasuredTPosition = _measuredTPosition,
-                    FinalPickerX = xAxis != null ? xAxis.ActualPosition : _targetPickerX,
-                    FinalPickerY = yAxis != null ? yAxis.ActualPosition : _targetPickerY,
-                    FinalPickerZ = zAxis != null ? zAxis.ActualPosition : _targetPickerZ,
+                    FinalPickerX = finalPickerX,
+                    FinalPickerY = finalPickerY,
+                    FinalPickerZ = finalPickerZ,
                     FinalPickerT = _measuredTPosition,
                     Valid = true,
                     UpdatedAt = DateTime.Now
@@ -1256,8 +1365,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", formulaCenterMmX=(pixelX-centerX)*scaleX=(" + _finalMatch.X.ToString("F3") + "-" + camera.ImageCenterPixelX.ToString("F3") + ")*" + camera.PixelToMmX.ToString("F9") + "=" + centerMmX.ToString("F6") +
                     ", formulaCenterMmY=(pixelY-centerY)*scaleY=(" + _finalMatch.Y.ToString("F3") + "-" + camera.ImageCenterPixelY.ToString("F3") + ")*" + camera.PixelToMmY.ToString("F9") + "=" + centerMmY.ToString("F6") +
                     ", offset=(" + _calculatedRecord.OffsetX.ToString("F6") + "," + _calculatedRecord.OffsetY.ToString("F6") + ")" +
-                    ", formulaOffsetX=centerMmX=" + centerMmX.ToString("F6") +
-                    ", formulaOffsetY=centerMmY=" + centerMmY.ToString("F6") +
+                    ", formulaOffsetX=" + (IsReferenceCollet() ? "referenceCollet=0" : "finalPickerX-nominalPickerX=" + finalPickerX.ToString("F6") + "-" + _nominalPickerX.ToString("F6") + "=" + colletOffsetX.ToString("F6")) +
+                    ", formulaOffsetY=" + (IsReferenceCollet() ? "referenceCollet=0" : "finalPickerY-nominalPickerY=" + finalPickerY.ToString("F6") + "-" + _nominalPickerY.ToString("F6") + "=" + colletOffsetY.ToString("F6")) +
+                    ", nominalPicker=(" + _nominalPickerX.ToString("F6") + "," + _nominalPickerY.ToString("F6") + ")" +
+                    ", referenceTeachingShift=(" + referenceTeachingShiftX.ToString("F6") + "," + referenceTeachingShiftY.ToString("F6") + ")" +
                     ", thetaOffset=" + _calculatedRecord.ThetaOffset.ToString("F6") +
                     ", finalPicker=(" + _calculatedRecord.FinalPickerX.ToString("F6") + "," + _calculatedRecord.FinalPickerY.ToString("F6") + "," + _calculatedRecord.FinalPickerZ.ToString("F6") + "," + _calculatedRecord.FinalPickerT.ToString("F6") + ")" +
                     ", tZeroHomeOffset=measuredT-baseT=" + _measuredTPosition.ToString("F6") + "-" + _basePickerT.ToString("F6") + "=" + _calculatedRecord.TZeroHomeOffset.ToString("F6"));
@@ -1283,6 +1394,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ColletCalibrationRecord target = data.GetRecord(_calibrationSide, _colletNo);
                 CopyRecord(_calculatedRecord, target);
                 Context.Machine.VisionUnit.Config.CalibrationData.Touch("ColletCalibration");
+                int referenceTeachingResult = SaveReferenceColletBottomTeachingIfNeeded(target);
+                if (referenceTeachingResult != 0)
+                    return referenceTeachingResult;
+
                 if (!Context.Machine.SaveSettings())
                     return Fail("COLLET-CAL-SAVE", Name, "Collet Calibration 결과를 CalibrationData 파일에 저장하지 못했습니다.");
                 ResultRecord = target;
@@ -1613,6 +1728,169 @@ namespace QMC.CDT320.Sequencing.Calibration
                 Name + ":ColletCalibration",
                 ct).ConfigureAwait(false);
             return _inspectionAreaLease != null ? 0 : -1;
+        }
+
+        private bool IsReferenceCollet()
+        {
+            return _colletNo == 4;
+        }
+
+        private ColletCalibrationRecord ResolveExistingColletCalibrationRecord()
+        {
+            try
+            {
+                if (Context == null ||
+                    Context.Machine == null ||
+                    Context.Machine.VisionUnit == null ||
+                    Context.Machine.VisionUnit.Config == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData.Collet == null)
+                    return null;
+
+                ColletCalibrationData data = Context.Machine.VisionUnit.Config.CalibrationData.Collet;
+                data.EnsureObjects();
+                ColletCalibrationRecord record = data.GetRecord(_calibrationSide, _colletNo);
+                return record != null && record.Valid ? record : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsReferenceColletCalibrationReady(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (Context == null || Context.Machine == null)
+                {
+                    reason = "Machine context가 없습니다.";
+                    return false;
+                }
+
+                if (Context.Machine.VisionUnit == null ||
+                    Context.Machine.VisionUnit.Config == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData == null ||
+                    Context.Machine.VisionUnit.Config.CalibrationData.Collet == null)
+                {
+                    reason = "Collet CalibrationData가 없습니다.";
+                    return false;
+                }
+
+                ColletCalibrationData data = Context.Machine.VisionUnit.Config.CalibrationData.Collet;
+                data.EnsureObjects();
+                ColletCalibrationRecord reference = data.GetRecord(_calibrationSide, 4);
+                if (reference == null || !reference.Valid)
+                {
+                    reason = "4번 Collet Calibration 결과가 유효하지 않습니다.";
+                    return false;
+                }
+
+                double bottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
+                double bottomY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
+                double dx = Math.Abs(reference.FinalPickerX - bottomX);
+                double dy = Math.Abs(reference.FinalPickerY - bottomY);
+                const double referenceTeachingToleranceMm = 0.001;
+                if (dx > referenceTeachingToleranceMm || dy > referenceTeachingToleranceMm)
+                {
+                    reason =
+                        "4번 Collet 최종 OK 위치와 현재 Bottom X/Y 티칭값이 다릅니다. " +
+                        "referenceFinal=(" + reference.FinalPickerX.ToString("F6") + "," + reference.FinalPickerY.ToString("F6") + ")" +
+                        ", bottomTeaching=(" + bottomX.ToString("F6") + "," + bottomY.ToString("F6") + ")" +
+                        ", delta=(" + dx.ToString("F6") + "," + dy.ToString("F6") + ")" +
+                        ", toleranceMm=" + referenceTeachingToleranceMm.ToString("F6") +
+                        ". 4번 Collet Calibration을 먼저 완료해서 Bottom 기준 티칭을 저장하세요.";
+                    return false;
+                }
+
+                reason = "OK";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private int SaveReferenceColletBottomTeachingIfNeeded(ColletCalibrationRecord target)
+        {
+            try
+            {
+                if (!IsReferenceCollet())
+                    return 0;
+
+                if (target == null || !target.Valid)
+                    return Fail("COLLET-CAL-REFERENCE-NO-RESULT", Name,
+                        "4번 Collet 기준 Bottom X/Y 티칭으로 저장할 유효한 Calibration 결과가 없습니다. side=" + _calibrationSide);
+
+                if (Context == null || Context.Controller == null || Context.Machine == null)
+                    return Fail("COLLET-CAL-REFERENCE-NO-CONTEXT", Name,
+                        "4번 Collet 기준 Bottom X/Y 티칭을 저장할 Machine context가 없습니다. side=" + _calibrationSide);
+
+                string recipeName = Context.Controller.ActiveRecipeName;
+                if (string.IsNullOrWhiteSpace(recipeName))
+                    return Fail("COLLET-CAL-REFERENCE-NO-RECIPE", Name,
+                        "4번 Collet 기준 Bottom X/Y 티칭을 저장할 활성 Recipe가 없습니다. side=" + _calibrationSide);
+
+                double oldBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
+                double oldBottomY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
+                SetPickerBottomTeachingPosition(PickerAxis.PickerX, target.FinalPickerX);
+                SetPickerBottomTeachingPosition(PickerAxis.PickerY, target.FinalPickerY);
+
+                if (!Context.Machine.SaveRecipe(recipeName))
+                    return Fail("COLLET-CAL-REFERENCE-RECIPE-SAVE", Name,
+                        "4번 Collet 기준 Bottom X/Y 티칭 Recipe 저장에 실패했습니다. side=" + _calibrationSide +
+                        ", recipe=" + recipeName);
+
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalReferenceTeach",
+                    "4번 Collet 최종 OK 위치를 Bottom 기준 X/Y 티칭으로 저장했습니다. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + ")" +
+                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", recipe=" + recipeName);
+
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-REFERENCE-TEACH",
+                    "4번 Collet 최종 OK 위치를 Bottom 기준 X/Y 티칭으로 저장했습니다. side=" + _calibrationSide +
+                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + ")" +
+                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", recipe=" + recipeName);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("COLLET-CAL-REFERENCE-TEACH-EX", Name,
+                    "4번 Collet 기준 Bottom X/Y 티칭 저장 중 예외가 발생했습니다. side=" + _calibrationSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void SetPickerBottomTeachingPosition(PickerAxis axis, double position)
+        {
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+            {
+                if (FrontPicker == null)
+                    throw new InvalidOperationException("Front Picker Unit이 없습니다.");
+
+                FrontPicker.SetPickerAxisTeachingPosition(axis, "BottomPosition", position);
+                return;
+            }
+
+            if (RearPicker == null)
+                throw new InvalidOperationException("Rear Picker Unit이 없습니다.");
+
+            RearPicker.SetPickerAxisTeachingPosition(axis, "BottomPosition", position);
         }
 
         private static void CopyRecord(ColletCalibrationRecord source, ColletCalibrationRecord target)

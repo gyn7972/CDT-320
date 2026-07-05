@@ -173,7 +173,7 @@ namespace QMC.CDT320.Ajin
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
-                if (!IsAlarm && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                if (!BaseAxis.IsForceMoveActive && !IsAlarm && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
                 {
                     CommandPosition = targetPos;
                     CurrentVelocity = 0.0;
@@ -398,6 +398,7 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = IsHomeDone;
                 if (IsHomeDone)
                 {
+                    ApplyPickerThetaPcHomeOffsetAfterHome();
                     // 홈 완료 신호를 latch 하여 재실행 후에도 유지한다.
                     _homeDoneLatched = true;
                     RaiseMoveCompleted();
@@ -432,6 +433,44 @@ namespace QMC.CDT320.Ajin
                         EndSharedRailXHomeLimitSuppress();
                 }
             }
+        }
+
+        private void ApplyPickerThetaPcHomeOffsetAfterHome()
+        {
+            try
+            {
+                if (!ShouldApplyPickerThetaPcHomeOffset())
+                    return;
+
+                double homeOffset = Setup.HomeOffset;
+                SetPosition(homeOffset);
+                QMC.Common.Log.Write("Motion", "SYSTEM", "AX-HOME-PC-OFFSET",
+                    Name + " HOME 완료 후 Picker T PC HomeOffset 적용. homeOffset=" +
+                    homeOffset.ToString("F6"));
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "AX-HOME-PC-OFFSET",
+                    Name,
+                    "Picker T PC HomeOffset 적용 실패. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ShouldApplyPickerThetaPcHomeOffset()
+        {
+            return Setup != null && IsPickerThetaAxisName(Name);
+        }
+
+        private static bool IsPickerThetaAxisName(string name)
+        {
+            return !string.IsNullOrWhiteSpace(name) &&
+                   (name.StartsWith("FrontPickerT", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("RearPickerT", StringComparison.OrdinalIgnoreCase));
         }
 
         public override void SetPosition(double newPosition)
@@ -658,8 +697,33 @@ namespace QMC.CDT320.Ajin
                 if (IsMoving)
                     return FailMotion(-2, "JOG STEP", "Axis is already moving.");
 
+                int result;
                 using (BaseAxis.BeginMotionGuardBypass())
-                    return await MoveRelativeAsync(distance, vel);
+                using (BaseAxis.BeginForceMoveScope())
+                {
+                    result = await MoveRelativeAsync(distance, vel);
+                }
+                if (result != 0)
+                    return result;
+
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.05;
+                AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    this,
+                    target,
+                    tolerance,
+                    60000,
+                    0).ConfigureAwait(false);
+                if (wait != null && wait.Success)
+                    return 0;
+
+                return FailMotion(
+                    wait != null ? wait.Code : -1,
+                    "JOG STEP",
+                    "Step Jog 위치 확인 실패. " + AxisMoveWaiter.FormatResult(wait, Name),
+                    target,
+                    true);
             }
             catch (Exception ex)
             {

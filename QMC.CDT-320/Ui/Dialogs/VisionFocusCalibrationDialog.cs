@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Sequencing;
 using QMC.CDT320.Sequencing.Calibration;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Security;
@@ -103,6 +104,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private int _visionTimeoutMs = 5000;
         private int _visionBestTimeoutMs = 120000;
         private bool _returnToDefaultAfterScan = true;
+        private CancellationTokenSource _runCts;
 
         public static VisionFocusCalibrationDialog Open(IWin32Window owner)
         {
@@ -345,10 +347,70 @@ namespace QMC.CDT_320.Ui.Dialogs
             Close();
         }
 
+        private CancellationTokenSource BeginManualCalibrationRun(
+            Form1 host,
+            string actionName,
+            out IDisposable actionScope,
+            out Action stopHandler)
+        {
+            if (host == null || host.Controller == null)
+                throw new InvalidOperationException("MachineController가 준비되지 않았습니다.");
+
+            actionScope = host.Controller.BeginManualActionScope(
+                ManualMotionScopeKind.ProcessSequence,
+                "VisionFocusCalibration:" + actionName + ":" + _selectedKind + ":" + _selectedPickerSide + ":" + _selectedPickerNo);
+            CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
+            _runCts = runCts;
+            stopHandler = delegate
+            {
+                try
+                {
+                    CancellationTokenSource cts = _runCts;
+                    if (cts != null && !cts.IsCancellationRequested)
+                        cts.Cancel();
+
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStop",
+                        "메인 STOP 요청으로 Vision Focus Calibration 정지 요청. action=" + actionName +
+                        ", kind=" + _selectedKind +
+                        ", side=" + _selectedPickerSide +
+                        ", pickerNo=" + _selectedPickerNo);
+                }
+                catch
+                {
+                }
+            };
+            host.Controller.StopRequested += stopHandler;
+            return runCts;
+        }
+
+        private void EndManualCalibrationRun(
+            Form1 host,
+            Action stopHandler,
+            CancellationTokenSource runCts,
+            IDisposable actionScope)
+        {
+            if (host != null && host.Controller != null && stopHandler != null)
+                host.Controller.StopRequested -= stopHandler;
+
+            if (ReferenceEquals(_runCts, runCts))
+                _runCts = null;
+
+            if (runCts != null)
+                runCts.Dispose();
+
+            if (actionScope != null)
+                actionScope.Dispose();
+        }
+
         private async Task RunMoveDefaultAsync()
         {
             if (_busy)
                 return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
 
             try
             {
@@ -363,19 +425,25 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                Form1 host = ResolveHost(out reason);
+                host = ResolveHost(out reason);
                 if (host == null)
                 {
                     lblStatus.Text = reason;
                     return;
                 }
 
+                runCts = BeginManualCalibrationRun(host, "MoveDefault", out actionScope, out stopHandler);
                 VisionFocusScanRequest request = BuildRequest(false);
                 var sequence = new VisionFocusScanSequence(host.Machine, request);
-                int result = await sequence.MoveDefaultOnlyAsync(CancellationToken.None).ConfigureAwait(true);
+                int result = await sequence.MoveDefaultOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 lblStatus.Text = result == 0
                     ? "Default Pos 이동 완료."
                     : "Default Pos 이동 실패. Alarm/Event Log를 확인하세요.";
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Default Pos 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
@@ -384,6 +452,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }
@@ -393,6 +462,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
 
             try
             {
@@ -416,24 +490,31 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                Form1 host = ResolveHost(out reason);
+                host = ResolveHost(out reason);
                 if (host == null)
                 {
                     lblStatus.Text = reason;
                     return;
                 }
 
+                runCts = BeginManualCalibrationRun(host, "MoveZAvoid", out actionScope, out stopHandler);
                 int result;
                 using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusCalibrationDialog.MoveZAvoid"))
                 {
                     result = await MoveSelectedPickerZToAvoidAsync(host.Machine).ConfigureAwait(true);
                 }
+                runCts.Token.ThrowIfCancellationRequested();
 
                 lblStatus.Text = result == 0
                     ? "Picker Z Avoid 이동 완료. " + BuildSelectedPickerAxisLabel(ResolveSelectedPickerZAxis())
                     : "Picker Z Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-Z-AVOID",
                     lblStatus.Text + ", result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Picker Z Avoid 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
@@ -442,6 +523,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }
@@ -451,6 +533,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
 
             try
             {
@@ -475,13 +562,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                Form1 host = ResolveHost(out reason);
+                host = ResolveHost(out reason);
                 if (host == null)
                 {
                     lblStatus.Text = reason;
                     return;
                 }
 
+                runCts = BeginManualCalibrationRun(host, "MoveYAvoid", out actionScope, out stopHandler);
                 int result;
                 string label;
                 using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusCalibrationDialog.MoveYAvoid"))
@@ -496,12 +584,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                     result = await MoveSelectedPickerYToAvoidAsync(host.Machine).ConfigureAwait(true);
                     label = BuildSelectedPickerAxisLabel(PickerAxis.PickerY);
                 }
+                runCts.Token.ThrowIfCancellationRequested();
 
                 lblStatus.Text = result == 0
                     ? "Picker Y Avoid 이동 완료. " + label
                     : "Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-PICKER-Y-AVOID",
                     lblStatus.Text + ", result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
@@ -510,6 +604,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }
@@ -519,6 +614,11 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (_busy)
                 return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
 
             try
             {
@@ -533,7 +633,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                Form1 host = ResolveHost(out reason);
+                host = ResolveHost(out reason);
                 if (host == null)
                 {
                     lblStatus.Text = reason;
@@ -545,9 +645,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 gridSamples.Rows.Clear();
 
+                runCts = BeginManualCalibrationRun(host, "StartScan", out actionScope, out stopHandler);
                 VisionFocusScanRequest request = BuildRequest(true);
                 var sequence = new VisionFocusScanSequence(host.Machine, request);
-                int result = await sequence.RunAsync(CancellationToken.None).ConfigureAwait(true);
+                int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 PopulateSamples(sequence.Result);
                 RefreshSavedGrid();
 
@@ -563,6 +664,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                                  ", Score=" + sequence.Result.BestScore.ToString("F4") +
                                  ", Sample=" + sequence.Result.SampleCount;
             }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Focus Scan이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-STOP", lblStatus.Text);
+            }
             catch (Exception ex)
             {
                 lblStatus.Text = "Focus Scan 예외 발생: " + ex.Message;
@@ -571,6 +677,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }

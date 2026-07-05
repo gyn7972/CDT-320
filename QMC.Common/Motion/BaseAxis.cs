@@ -33,13 +33,25 @@ namespace QMC.Common.Motion
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
         private static readonly AsyncLocal<int> MotionGuardBypassDepth = new AsyncLocal<int>();
+        private static readonly AsyncLocal<int> ForceMoveDepth = new AsyncLocal<int>();
 
         public static AxisMotionGuardHandler MotionGuard { get; set; }
+
+        public static bool IsForceMoveActive
+        {
+            get { return ForceMoveDepth.Value > 0; }
+        }
 
         public static IDisposable BeginMotionGuardBypass()
         {
             MotionGuardBypassDepth.Value = MotionGuardBypassDepth.Value + 1;
             return new MotionGuardBypassScope();
+        }
+
+        public static IDisposable BeginForceMoveScope()
+        {
+            ForceMoveDepth.Value = ForceMoveDepth.Value + 1;
+            return new ForceMoveScope();
         }
 
         // ─────────────────────────────────────────────
@@ -396,7 +408,7 @@ namespace QMC.Common.Motion
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
-                if (!IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                if (!IsForceMoveActive && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
                 {
                     ClearMotionFailure();
                     CommandPosition = targetPos;
@@ -831,6 +843,20 @@ namespace QMC.Common.Motion
             }
         }
 
+        private sealed class ForceMoveScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                ForceMoveDepth.Value = Math.Max(0, ForceMoveDepth.Value - 1);
+            }
+        }
+
         /// <summary>
         /// 클릭 1회에 stepDistance만큼 한 번 이동하는 Step Jog를 비동기로 실행합니다.
         /// </summary>
@@ -850,8 +876,25 @@ namespace QMC.Common.Motion
                 if (!VerifyMotionGuard(target, AxisMotionGuardKind.JogStep))
                     return -1;
 
+                int result;
                 using (BeginMotionGuardBypass())
-                    return await MoveRelativeAsync(distance, vel);
+                using (BeginForceMoveScope())
+                {
+                    result = await MoveRelativeAsync(distance, vel);
+                }
+                if (result != 0)
+                    return result;
+
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.05;
+                AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    this,
+                    target,
+                    tolerance,
+                    60000,
+                    0).ConfigureAwait(false);
+                return wait != null && wait.Success ? 0 : wait != null ? wait.Code : -1;
             }
             catch (Exception)
             {

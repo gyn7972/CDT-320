@@ -35,14 +35,26 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         public static Task<int> MoveAxisAsync(BaseAxis axis, double targetPosition, double velocity)
         {
+            return MoveAxisAsync(axis, targetPosition, velocity, false);
+        }
+
+        public static Task<int> MoveAxisAsync(BaseAxis axis, double targetPosition, double velocity, bool forceMove)
+        {
             if (axis == null)
                 return Task.FromResult(-1);
 
             SharedRailXMotionService service = ResolveService(null);
             SharedRailXAxis railAxis;
             if (service != null && service.TryResolve(axis, out railAxis))
-                return service.MoveAsync(railAxis, targetPosition, velocity);
+            {
+                SharedRailXMovePlan plan = SharedRailXMovePlan.Create(railAxis.ToString(), velocity)
+                    .Add(railAxis, targetPosition);
+                plan.ForceMove = forceMove;
+                return service.MoveAsync(plan);
+            }
 
+            if (forceMove)
+                return MoveAxisAbsoluteForceAsync(axis, targetPosition, velocity);
             return axis.MoveAbsoluteAsync(targetPosition, velocity);
         }
 
@@ -53,6 +65,17 @@ namespace QMC.CDT320.Motion.SharedRailX
             double acceleration,
             double deceleration)
         {
+            return MoveAxisAsync(axis, targetPosition, velocity, acceleration, deceleration, false);
+        }
+
+        public static Task<int> MoveAxisAsync(
+            BaseAxis axis,
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            bool forceMove)
+        {
             if (axis == null)
                 return Task.FromResult(-1);
 
@@ -62,10 +85,11 @@ namespace QMC.CDT320.Motion.SharedRailX
             {
                 SharedRailXMovePlan plan = SharedRailXMovePlan.Create("SingleAxisGuard", velocity)
                     .Add(railAxis, targetPosition, velocity, acceleration, deceleration);
+                plan.ForceMove = forceMove;
                 return service.MoveAsync(plan);
             }
 
-            return MoveAxisWithTemporaryMotionAsync(axis, targetPosition, velocity, acceleration, deceleration);
+            return MoveAxisWithTemporaryMotionAsync(axis, targetPosition, velocity, acceleration, deceleration, forceMove);
         }
 
         public static void MoveJogContinuous(BaseAxis axis, int direction, double speed)
@@ -115,7 +139,41 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (!MotionGuardRuntime.VerifyAxisStepJogWithoutSharedRailX(axis, target, "StepJog", out reason))
                 return Task.FromResult(-1);
 
-            return MoveAxisAsync(axis, target, velocity);
+            return MoveJogStepWithVerifyAsync(axis, target, velocity);
+        }
+
+        private static async Task<int> MoveJogStepWithVerifyAsync(BaseAxis axis, double target, double velocity)
+        {
+            int result = await MoveAxisAsync(axis, target, velocity, true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            double tolerance = ResolveAxisInPositionTolerance(axis);
+            AxisMoveWaitResult wait = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                axis,
+                target,
+                tolerance,
+                60000,
+                0).ConfigureAwait(false);
+            if (wait == null || !wait.Success)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("JOG-STEP", wait),
+                    axis != null ? axis.Name : "Axis",
+                    "Step Jog 위치 확인 실패. target=" + target + ". " +
+                    AxisMoveWaiter.FormatResult(wait, axis != null ? axis.Name : "axis=null"));
+                return wait != null ? wait.Code : -1;
+            }
+
+            return 0;
+        }
+
+        private static double ResolveAxisInPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
         }
 
         private static string BuildContinuousJogTargetName(int direction)
@@ -184,6 +242,23 @@ namespace QMC.CDT320.Motion.SharedRailX
             double acceleration,
             double deceleration)
         {
+            return await MoveAxisWithTemporaryMotionAsync(
+                axis,
+                targetPosition,
+                velocity,
+                acceleration,
+                deceleration,
+                false).ConfigureAwait(false);
+        }
+
+        internal static async Task<int> MoveAxisWithTemporaryMotionAsync(
+            BaseAxis axis,
+            double targetPosition,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            bool forceMove)
+        {
             if (axis == null)
                 return -1;
 
@@ -198,6 +273,9 @@ namespace QMC.CDT320.Motion.SharedRailX
                     axis.Config.Deceleration = deceleration;
                 }
 
+                if (forceMove)
+                    return await MoveAxisAbsoluteForceAsync(axis, targetPosition, velocity).ConfigureAwait(false);
+
                 return await axis.MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
             }
             finally
@@ -208,6 +286,12 @@ namespace QMC.CDT320.Motion.SharedRailX
                     axis.Config.Deceleration = oldDeceleration;
                 }
             }
+        }
+
+        private static async Task<int> MoveAxisAbsoluteForceAsync(BaseAxis axis, double targetPosition, double velocity)
+        {
+            using (BaseAxis.BeginForceMoveScope())
+                return await axis.MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
         }
 
         private static void StartJogGuard(BaseAxis axis, int direction, SharedRailXMotionService service)

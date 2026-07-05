@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         private bool _busy;
         private bool _loadedOnce;
+        private CancellationTokenSource _runCts;
 
         public static NeedlePinCalibrationDialog Open(IWin32Window owner)
         {
@@ -509,10 +510,67 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private CancellationTokenSource BeginManualCalibrationRun(
+            Form1 host,
+            string actionName,
+            out IDisposable actionScope,
+            out Action stopHandler)
+        {
+            if (host == null || host.Controller == null)
+                throw new InvalidOperationException("MachineController가 준비되지 않았습니다.");
+
+            actionScope = host.Controller.BeginManualActionScope(
+                ManualMotionScopeKind.ProcessSequence,
+                "NeedlePinCalibration:" + actionName);
+            CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
+            _runCts = runCts;
+            stopHandler = delegate
+            {
+                try
+                {
+                    CancellationTokenSource cts = _runCts;
+                    if (cts != null && !cts.IsCancellationRequested)
+                        cts.Cancel();
+
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "NeedlePinCalStop",
+                        "메인 STOP 요청으로 Needle Pin Calibration 정지 요청. action=" + actionName);
+                }
+                catch
+                {
+                }
+            };
+            host.Controller.StopRequested += stopHandler;
+            return runCts;
+        }
+
+        private void EndManualCalibrationRun(
+            Form1 host,
+            Action stopHandler,
+            CancellationTokenSource runCts,
+            IDisposable actionScope)
+        {
+            if (host != null && host.Controller != null && stopHandler != null)
+                host.Controller.StopRequested -= stopHandler;
+
+            if (ReferenceEquals(_runCts, runCts))
+                _runCts = null;
+
+            if (runCts != null)
+                runCts.Dispose();
+
+            if (actionScope != null)
+                actionScope.Dispose();
+        }
+
         private async Task MoveToReadyPositionAsync()
         {
             if (_busy)
                 return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
 
             try
             {
@@ -521,14 +579,20 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveToMachine(false) || !CheckReady(false))
                     return;
 
-                Form1 host = ResolveHost();
+                host = ResolveHost();
+                runCts = BeginManualCalibrationRun(host, "MoveReady", out actionScope, out stopHandler);
                 var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()), false);
                 _status.Text = "Ready 위치로 이동 중입니다. OutputCamera/Picker는 Avoid, InputStage는 Process로 이동합니다.";
-                int result = await sequence.MoveReadyPositionOnlyAsync(CancellationToken.None).ConfigureAwait(true);
+                int result = await sequence.MoveReadyPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
                 _status.Text = result == 0
                     ? "Ready 위치 이동 완료. Needle/Camera를 조그로 맞춘 뒤 USE CURRENT로 티칭하세요."
                     : "Ready 위치 이동 실패: " + sequence.Result.Message;
+            }
+            catch (OperationCanceledException)
+            {
+                _status.Text = "Ready 위치 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
@@ -536,6 +600,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }
@@ -546,6 +611,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_busy)
                 return;
 
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
             try
             {
                 _busy = true;
@@ -553,14 +623,20 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveToMachine(false) || !CheckReady(false))
                     return;
 
-                Form1 host = ResolveHost();
+                host = ResolveHost();
+                runCts = BeginManualCalibrationRun(host, "MoveTeach", out actionScope, out stopHandler);
                 var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()), false);
                 _status.Text = "티칭 위치로 이동 중입니다.";
-                int result = await sequence.MoveTeachingPositionOnlyAsync(CancellationToken.None).ConfigureAwait(true);
+                int result = await sequence.MoveTeachingPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
                 _status.Text = result == 0
                     ? "티칭 위치 이동 완료. 위치가 맞으면 START CAL을 실행하세요."
                     : "티칭 위치 이동 실패: " + sequence.Result.Message;
+            }
+            catch (OperationCanceledException)
+            {
+                _status.Text = "티칭 위치 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
             }
             catch (Exception ex)
             {
@@ -568,6 +644,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }
@@ -578,6 +655,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_busy)
                 return;
 
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
             try
             {
                 _busy = true;
@@ -585,11 +667,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!SaveToMachine(false) || !CheckReady(false))
                     return;
 
-                Form1 host = ResolveHost();
+                host = ResolveHost();
+                runCts = BeginManualCalibrationRun(host, "StartCal", out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
                 var sequence = new NeedlePinCalibrationSequence(context, false);
                 _status.Text = "Needle Pin Calibration 실행 중입니다.";
-                int result = await sequence.RunAsync(CancellationToken.None).ConfigureAwait(true);
+                int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
 
                 if (result != 0)
@@ -603,6 +686,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _status.Text = "완료. X Offset=" + sequence.Result.NeedleXToVisionXOffset.ToString("F6") +
                                ", Y Offset=" + sequence.Result.NeedleYToVisionYOffset.ToString("F6");
             }
+            catch (OperationCanceledException)
+            {
+                _status.Text = "Needle Pin Calibration이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-STOP", _status.Text);
+            }
             catch (Exception ex)
             {
                 _status.Text = "Needle Pin Calibration 예외: " + ex.Message;
@@ -611,6 +699,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
                 _busy = false;
                 SetButtonsEnabled(true);
             }

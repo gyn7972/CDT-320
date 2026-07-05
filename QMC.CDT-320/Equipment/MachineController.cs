@@ -131,6 +131,7 @@ namespace QMC.CDT320
         public string LastActionFailureMessage { get; private set; }
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
+        public string ActiveRecipeName { get; private set; } = string.Empty;
         public int CycleTotal { get; private set; }
         public int CycleDone { get; private set; }
         public int GoodCount { get; private set; }
@@ -326,6 +327,20 @@ namespace QMC.CDT320
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
             QMC.Common.IO.BaseCylinder.MotionGuard = VerifyCylinderMotionGuard;
+        }
+
+        public void SetActiveRecipeName(string recipeName)
+        {
+            if (string.IsNullOrWhiteSpace(recipeName))
+            {
+                ActiveRecipeName = string.Empty;
+                return;
+            }
+
+            string normalized = recipeName.Trim();
+            ActiveRecipeName = string.Equals(normalized, "-", StringComparison.OrdinalIgnoreCase)
+                ? string.Empty
+                : normalized;
         }
 
         private static SharedRailXConfig CreateSharedRailXConfig()

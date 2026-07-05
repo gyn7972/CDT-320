@@ -283,9 +283,14 @@ namespace QMC.Vision.Comm
             if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
                 chipUid = newUid;
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
-            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
 
             AsyncMatchStore.Start(m.Name, finder, chipUid);   // 번호별 기존 결과 무효화 + Running 표시
+            if (!m.Finders.TryGetValue(finder, out var f))
+            {
+                AsyncMatchStore.Fail(m.Name, finder, chipUid, "finder not found: " + finder);
+                return "STARTED";
+            }
+
             var cfg = _cfg;
             System.Threading.Tasks.Task.Run(() =>
             {

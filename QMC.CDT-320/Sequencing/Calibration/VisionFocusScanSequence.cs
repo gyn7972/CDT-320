@@ -71,6 +71,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     public sealed class VisionFocusScanSequence
     {
         private const int MaxSampleCount = 1000;
+        private const double ExactMoveSkipToleranceMm = 0.000001;
 
         private readonly CDT320_Machine _machine;
         private readonly VisionFocusScanRequest _request;
@@ -95,7 +96,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.RunAsync"))
+            return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionFocusScanSequence.RunAsync:" + runMode))
             {
             try
             {
@@ -149,7 +155,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.MoveDefaultOnlyAsync"))
+            return await MoveDefaultOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionFocusScanSequence.MoveDefaultOnlyAsync:" + runMode))
             {
             try
             {
@@ -822,13 +833,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return result;
 
                 int pickerIndex = NormalizePickerIndex(_request.PickerNo);
-                PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
-                PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
                 var offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+                PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
-                    ResolveFrontBottomX(pickerIndex, offset),
+                    bottomTarget.X,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeX",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -836,22 +846,22 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
-                    _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY,
+                    bottomTarget.Y,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeY",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
-                    tAxis,
-                    _machine.PickerFrontUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT,
+                    bottomTarget.PickerTAxis,
+                    bottomTarget.T,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeT",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 return await MoveFrontPickerAxisAndVerifyAsync(
-                    zAxis,
+                    bottomTarget.PickerZAxis,
                     ResolveBottomFocusStartZ(),
                     ResolveBottomMotionCommandTag() + ";PickerPhase=StartZ",
                     ct).ConfigureAwait(false);
@@ -887,13 +897,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return result;
 
                 int pickerIndex = NormalizePickerIndex(_request.PickerNo);
-                PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
-                PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
                 var offset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+                PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, offset);
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
-                    ResolveRearBottomX(pickerIndex, offset),
+                    bottomTarget.X,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeX",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -901,22 +910,22 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
-                    _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY,
+                    bottomTarget.Y,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeY",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
-                    tAxis,
-                    _machine.PickerRearUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT,
+                    bottomTarget.PickerTAxis,
+                    bottomTarget.T,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeT",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 return await MoveRearPickerAxisAndVerifyAsync(
-                    zAxis,
+                    bottomTarget.PickerZAxis,
                     ResolveBottomFocusStartZ(),
                     ResolveBottomMotionCommandTag() + ";PickerPhase=StartZ",
                     ct).ConfigureAwait(false);
@@ -1005,15 +1014,21 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveFrontPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
+            BaseAxis item = ResolveFrontPickerAxis(axis);
+            if (IsAxisIdleAtExactPosition(item, target))
+            {
+                LogSkipMove("Picker", "Front", axis.ToString(), target, ExactMoveSkipToleranceMm);
+                return 0;
+            }
+
+            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await _machine.PickerFrontUnit.WaitPickerAxisMoveDoneInPosition(axis, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-FRONT-AXIS-WAIT", "PickerFrontUnit", "FrontPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
 
-            BaseAxis item = ResolveFrontPickerAxis(axis);
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerFrontUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-FRONT-AXIS-FINAL", "PickerFrontUnit",
@@ -1028,15 +1043,21 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveRearPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
+            BaseAxis item = ResolveRearPickerAxis(axis);
+            if (IsAxisIdleAtExactPosition(item, target))
+            {
+                LogSkipMove("Picker", "Rear", axis.ToString(), target, ExactMoveSkipToleranceMm);
+                return 0;
+            }
+
+            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await _machine.PickerRearUnit.WaitPickerAxisMoveDoneInPosition(axis, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-REAR-AXIS-WAIT", "PickerRearUnit", "RearPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
 
-            BaseAxis item = ResolveRearPickerAxis(axis);
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerRearUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-REAR-AXIS-FINAL", "PickerRearUnit",
@@ -1091,6 +1112,28 @@ namespace QMC.CDT320.Sequencing.Calibration
             return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
+        }
+
+        private static bool IsAxisIdleAtExactPosition(BaseAxis axis, double target)
+        {
+            return axis != null &&
+                   !axis.IsMoving &&
+                   Math.Abs(axis.ActualPosition - target) <= ExactMoveSkipToleranceMm;
+        }
+
+        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(
+            BaseAxis axis,
+            double target,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                axis,
+                target,
+                ResolveAxisInPositionTolerance(axis),
+                timeoutMs,
+                0,
+                ct);
         }
 
         private static string FormatAxisActual(BaseAxis axis)
@@ -1236,19 +1279,15 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             int pickerIndex = NormalizePickerIndex(_request.PickerNo);
-            PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
-            PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
             PickerAlignOffset offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+            PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
 
-            double xTarget = ResolveFrontBottomX(pickerIndex, offset);
-            double yTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY;
-            double tTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT;
             double zTarget = ResolveBottomFocusStartZ();
 
-            bool xOk = IsFrontPickerAxisInPosition(PickerAxis.PickerX, xTarget, out string xDetail);
-            bool yOk = IsFrontPickerAxisInPosition(PickerAxis.PickerY, yTarget, out string yDetail);
-            bool tOk = IsFrontPickerAxisInPosition(tAxis, tTarget, out string tDetail);
-            bool zOk = IsFrontPickerAxisInPosition(zAxis, zTarget, out string zDetail);
+            bool xOk = IsFrontPickerAxisInPosition(PickerAxis.PickerX, bottomTarget.X, out string xDetail);
+            bool yOk = IsFrontPickerAxisInPosition(PickerAxis.PickerY, bottomTarget.Y, out string yDetail);
+            bool tOk = IsFrontPickerAxisInPosition(bottomTarget.PickerTAxis, bottomTarget.T, out string tDetail);
+            bool zOk = IsFrontPickerAxisInPosition(bottomTarget.PickerZAxis, zTarget, out string zDetail);
 
             detail = xDetail + ", " + yDetail + ", " + tDetail + ", " + zDetail;
             return xOk && yOk && tOk && zOk;
@@ -1264,19 +1303,15 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             int pickerIndex = NormalizePickerIndex(_request.PickerNo);
-            PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
-            PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
             PickerAlignOffset offset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
+            PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, offset);
 
-            double xTarget = ResolveRearBottomX(pickerIndex, offset);
-            double yTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY;
-            double tTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT;
             double zTarget = ResolveBottomFocusStartZ();
 
-            bool xOk = IsRearPickerAxisInPosition(PickerAxis.PickerX, xTarget, out string xDetail);
-            bool yOk = IsRearPickerAxisInPosition(PickerAxis.PickerY, yTarget, out string yDetail);
-            bool tOk = IsRearPickerAxisInPosition(tAxis, tTarget, out string tDetail);
-            bool zOk = IsRearPickerAxisInPosition(zAxis, zTarget, out string zDetail);
+            bool xOk = IsRearPickerAxisInPosition(PickerAxis.PickerX, bottomTarget.X, out string xDetail);
+            bool yOk = IsRearPickerAxisInPosition(PickerAxis.PickerY, bottomTarget.Y, out string yDetail);
+            bool tOk = IsRearPickerAxisInPosition(bottomTarget.PickerTAxis, bottomTarget.T, out string tDetail);
+            bool zOk = IsRearPickerAxisInPosition(bottomTarget.PickerZAxis, zTarget, out string zDetail);
 
             detail = xDetail + ", " + yDetail + ", " + tDetail + ", " + zDetail;
             return xOk && yOk && tOk && zOk;
@@ -1603,10 +1638,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 BaseAxis pickerZ = ResolveFrontPickerAxis(axis);
                 double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleInPosition(pickerZ) &&
-                    _machine.PickerFrontUnit.IsPickerAxisInPosition(axis, position, tolerance))
+                if (IsAxisIdleAtExactPosition(pickerZ, position))
                 {
-                    LogSkipMove("PickerZ", "Front", axis.ToString(), position, tolerance);
+                    LogSkipMove("PickerZ", "Front", axis.ToString(), position, ExactMoveSkipToleranceMm);
                     return 0;
                 }
 
@@ -1616,11 +1650,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _request.MoveVelocity,
                     _request.MoveAcceleration,
                     _request.MoveDeceleration,
-                    ResolveBottomMotionCommandTag()).ConfigureAwait(false);
+                    ResolveBottomMotionCommandTag(),
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return FailPickerZCommand("Front", position, result);
 
-                wait = await _machine.PickerFrontUnit.WaitPickerAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+                wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
                 if (!wait.Success)
                     return FailPickerZWait("Front", position, wait);
 
@@ -1631,10 +1666,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 BaseAxis pickerZ = ResolveRearPickerAxis(axis);
                 double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleInPosition(pickerZ) &&
-                    _machine.PickerRearUnit.IsPickerAxisInPosition(axis, position, tolerance))
+                if (IsAxisIdleAtExactPosition(pickerZ, position))
                 {
-                    LogSkipMove("PickerZ", "Rear", axis.ToString(), position, tolerance);
+                    LogSkipMove("PickerZ", "Rear", axis.ToString(), position, ExactMoveSkipToleranceMm);
                     return 0;
                 }
 
@@ -1644,11 +1678,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                     _request.MoveVelocity,
                     _request.MoveAcceleration,
                     _request.MoveDeceleration,
-                    ResolveBottomMotionCommandTag()).ConfigureAwait(false);
+                    ResolveBottomMotionCommandTag(),
+                    true).ConfigureAwait(false);
                 if (result != 0)
                     return FailPickerZCommand("Rear", position, result);
 
-                wait = await _machine.PickerRearUnit.WaitPickerAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+                wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
                 if (!wait.Success)
                     return FailPickerZWait("Rear", position, wait);
 
@@ -1664,10 +1699,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             VisionAxis axis = ResolveSideVisionAxis();
             BaseAxis visionAxis = _machine.VisionUnit.ResolveVisionAxis(axis);
             double tolerance = ResolveAxisInPositionTolerance(visionAxis);
-            if (IsAxisIdleInPosition(visionAxis) &&
-                _machine.VisionUnit.IsVisionAxisInPosition(axis, position, tolerance))
+            if (IsAxisIdleAtExactPosition(visionAxis, position))
             {
-                LogSkipMove("SideVisionY", ResolveCameraName(), axis.ToString(), position, tolerance);
+                LogSkipMove("SideVisionY", ResolveCameraName(), axis.ToString(), position, ExactMoveSkipToleranceMm);
                 return 0;
             }
 
@@ -1677,7 +1711,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _request.MoveVelocity,
                 _request.MoveAcceleration,
                 _request.MoveDeceleration,
-                "VisionFocusCal;Side").ConfigureAwait(false);
+                "VisionFocusCal;Side",
+                true).ConfigureAwait(false);
             if (result != 0)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-MOVE", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 명령 실패. axis=" + axis +
@@ -1687,7 +1722,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", dec=" + _request.MoveDeceleration +
                     ", result=" + result);
 
-            AxisMoveWaitResult wait = await _machine.VisionUnit.WaitVisionAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(visionAxis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-WAIT", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 완료 확인 실패. axis=" + axis +
@@ -1930,20 +1965,19 @@ namespace QMC.CDT320.Sequencing.Calibration
             return pickerNo - 1;
         }
 
-        private double ResolveFrontBottomX(int pickerIndex, PickerAlignOffset offset)
+        private PickerCalibratedZoneTarget ResolveBottomZoneTarget(
+            VisionFocusPickerSide side,
+            int pickerIndex,
+            PickerAlignOffset offset)
         {
-            double baseX = _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
-            double pitch = _machine.PickerFrontUnit.Setup != null ? Math.Abs(_machine.PickerFrontUnit.Setup.PickerPitchX) : 0.0;
-            double offsetX = offset != null ? offset.AlignOffsetX : 0.0;
-            return baseX + pitch * Math.Max(0, 3 - pickerIndex) + offsetX;
-        }
-
-        private double ResolveRearBottomX(int pickerIndex, PickerAlignOffset offset)
-        {
-            double baseX = _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
-            double pitch = _machine.PickerRearUnit.Setup != null ? Math.Abs(_machine.PickerRearUnit.Setup.PickerPitchX) : 0.0;
-            double offsetX = offset != null ? offset.AlignOffsetX : 0.0;
-            return baseX + pitch * Math.Max(0, 3 - pickerIndex) + offsetX;
+            return CalibrationCoordinateService.ResolvePickerZoneTarget(
+                _machine,
+                side,
+                "DieBottomPosition",
+                pickerIndex,
+                offset,
+                true,
+                true);
         }
 
         private int ResolveMotionTimeoutMs()

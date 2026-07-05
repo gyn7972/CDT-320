@@ -68,7 +68,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RunAsync"))
+            return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionCameraCalibrationSequence.RunAsync:" + runMode))
             {
             try
             {
@@ -343,7 +348,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindInputReticleAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindInputReticleAsync"))
+            return await PrepareAndFindInputReticleAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> PrepareAndFindInputReticleAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionCameraCalibrationSequence.PrepareAndFindInputReticleAsync:" + runMode))
             {
             try
             {
@@ -427,7 +437,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> PrepareAndFindOutputReticleAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.PrepareAndFindOutputReticleAsync"))
+            return await PrepareAndFindOutputReticleAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> PrepareAndFindOutputReticleAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionCameraCalibrationSequence.PrepareAndFindOutputReticleAsync:" + runMode))
             {
             try
             {
@@ -932,7 +947,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionCameraCalibrationSequence.RetractReticleFromBottomCameraAsync"))
+            return await RetractReticleFromBottomCameraAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionCameraCalibrationSequence.RetractReticleFromBottomCameraAsync:" + runMode))
             {
             try
             {

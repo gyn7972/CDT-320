@@ -226,8 +226,36 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            await MoveAxisAsync(unitAxis, target, speedType, customSpeed).ConfigureAwait(false);
+            int result = await MoveAxisAsync(unitAxis, target, speedType, customSpeed, true).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            double tolerance = ResolveAxisInPositionTolerance(axis);
+            AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                axis,
+                target,
+                tolerance,
+                60000,
+                0).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+            {
+                Log.Write("Main", "MOTION", Name,
+                    "축 Step Jog 위치 확인 실패. axis=" + unitAxis +
+                    ", target=" + target +
+                    ", tolerance=" + tolerance +
+                    ", result=" + AxisMoveWaiter.FormatResult(waitResult, unitAxis.ToString()) +
+                    " - Failed");
+                return waitResult != null ? waitResult.Code : -1;
+            }
+
             return 0;
+        }
+
+        private static double ResolveAxisInPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
         }
 
         public Task<int> JogContinuousAsync(
@@ -350,6 +378,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveAxisAsync(TAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
         {
+            return await MoveAxisAsync(axis, targetPos, speedType, customSpeed, false).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveAxisAsync(TAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
             try
             {
                 var item = GetAxis(axis);
@@ -359,7 +392,8 @@ namespace QMC.CDT320
                     targetPos,
                     velocity,
                     UnitJogVelocityResolver.ResolveAcceleration(item),
-                    UnitJogVelocityResolver.ResolveDeceleration(item)).ConfigureAwait(false);
+                    UnitJogVelocityResolver.ResolveDeceleration(item),
+                    forceMove).ConfigureAwait(false);
                 if (result != 0)
                 {
                     Log.Write("Main", "MOTION", Name,
