@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 
@@ -19,10 +19,10 @@ namespace QMC.Vision.Core
         {
             public string Insp;
             public string ChipUid;
-            public int    Picker;   // 픽커 번호(1~4). 0 이면 미지정(도착 순서로 대체).
+            public int    Picker;   // 전역 픽커(1~8: Front 콜렛=1~4, Back 콜렛=5~8). 0 이면 미지정(도착 순서로 대체).
             public int    IndexX;   // 다이 격자 좌표(Bottom 위치맵용). 미지정이면 0.
             public int    IndexY;
-            public int    Channel;  // 측면 채널(0°/90° 등). 해당 없으면 -1.
+            public int    Channel;  // 측면 채널(신형 0=0°/1=90°, 구형 0~3). 해당 없으면 -1.
             public Bitmap Image;
             public long   Gen;      // 그랩 시점의 결과 스토어 세대 — 웨이퍼 경계(Clear) 넘긴 잔여 배치 판별
         }

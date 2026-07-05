@@ -65,6 +65,9 @@
     <Compile Include="Sequencing\Common\VisionSelfRunTcpState.cs" />
     <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
     <Compile Include="Equipment\Core\AlignAngleEstimator.cs" />
+    <Compile Include="Equipment\Core\ColletAddress.cs" />
+    <Compile Include="Equipment\Core\ColletInspectorCache.cs" />
+    <Compile Include="Equipment\Core\BottomXytPushService.cs" />
     <Compile Include="Equipment\Core\PendingGrabStore.cs" />
     <Compile Include="Equipment\Core\AsyncInspectCore.cs" />
     <Compile Include="Sequencing\Common\SequenceToolCatalog.cs" />

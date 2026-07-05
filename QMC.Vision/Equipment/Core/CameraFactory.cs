@@ -25,7 +25,10 @@ namespace QMC.Vision.Core
         public static ICamera Create(CameraInfo info)
         {
             if (info == null) return new SimCamera("Sim/0");
-            if (!string.IsNullOrEmpty(info.Id) && info.Id.StartsWith("Mil/")) return new MilCamera(info);
+            // MIL 미가용(미설치/보드 없음)이면 Id 를 유지한 SimCamera 로 대체 — 개인 PC 에서도
+            // 실기와 동일한 "Mil/n" 설정/레시피를 그대로 쓰게 한다(Sim=Real). 보드가 있으면 기존 경로.
+            if (!string.IsNullOrEmpty(info.Id) && info.Id.StartsWith("Mil/"))
+                return MilCamera.IsMilAvailable ? (ICamera)new MilCamera(info) : new SimCamera(info.Id);
             switch (info.Transport)
             {
                 case CameraTransport.GigE: return new HikGigECamera(info);
@@ -39,8 +42,13 @@ namespace QMC.Vision.Core
         {
             if (string.IsNullOrEmpty(id)) return new SimCamera("Sim/0");
             if (id.StartsWith("Sim/")) return new SimCamera(id);
-            // Matrox MIL(CL/CXP): "Mil/n". MIL 미가용/카메라 없으면 Open 에서 실패 → 호출자가 Sim 으로 대체.
-            if (id.StartsWith("Mil/")) return new MilCamera(new CameraInfo { Id = id, Vendor = "Matrox", Transport = CameraTransport.CoaXPress });
+            // Matrox MIL(CL/CXP): "Mil/n". MIL 미가용(미설치/보드 없음)이면 Id 를 유지한 SimCamera 로 대체
+            //   (개인 PC Sim 환경 — 실기와 동일 설정/DCF UI 유지). 보드는 있는데 카메라 미연결이면
+            //   기존대로 MilCamera 생성 → Open 실패 → 알람(실기 진단 경로 유지).
+            if (id.StartsWith("Mil/"))
+                return MilCamera.IsMilAvailable
+                    ? (ICamera)new MilCamera(new CameraInfo { Id = id, Vendor = "Matrox", Transport = CameraTransport.CoaXPress })
+                    : new SimCamera(id);
 
             // HIK: 사용자가 IP(xxx.xxx.xxx.xxx) 로 지정했다고 가정.
             // SDK 로드 여부 + enum 결과로 매칭 시도.

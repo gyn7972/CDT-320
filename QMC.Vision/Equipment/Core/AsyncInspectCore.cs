@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using QMC.Vision.Config;
 using QMC.Vision.Modules;
@@ -10,9 +10,11 @@ namespace QMC.Vision.Core
     /// <para>TCP 서버(<see cref="QMC.Vision.Comm.VisionTcpServer"/>)와 일반 시퀀서의
     /// DirectVisionCommandDispatcher 가 공유한다 — TCP시뮬/일반 시퀀서 동작 동일 보장.</para>
     /// <para>흐름(방식 B): 요청 즉시 STARTED → 백그라운드 그랩(모듈별 게이트로 직렬화, 실기 카메라 보호)
-    /// → 보관 개수가 배치 크기(Bottom/Bin=픽커4, Side=채널2)에 도달하면 일괄 병렬 검사 자동 시작
-    /// → 결과요청 1회 = 완료까지 대기 후 데이터 응답 1회.</para>
-    /// <para>같은 chip_uid 그룹(측면 ch1+ch2)은 전 채널 완료 후 합산 판정(모두 PASS 여야 PASS)으로 1회 Complete.</para>
+    /// → 보관 개수가 배치 크기(Bottom/Bin=FB그룹 콜렛4, Side=자기 카메라 콜렛4×채널2=8)에 도달하면
+    /// 일괄 병렬 검사 자동 시작 → 결과요청 1회 = 완료까지 대기 후 데이터 응답 1회.</para>
+    /// <para>8콜렛 순차 규약: Front 배치(전역픽커 1~4) 완료 후 Back 배치(5~8)가 진행되므로
+    /// Bottom/Bin 은 사이클당 4장 배치가 2회(F→B) 돈다. 같은 chip_uid 그룹(측면 0°+90°)은
+    /// 전 채널 완료 후 합산 판정(모두 PASS 여야 PASS)으로 1회 Complete.</para>
     /// </summary>
     public static class AsyncInspectCore
     {
@@ -30,18 +32,20 @@ namespace QMC.Vision.Core
             }
         }
 
-        /// <summary>배치 크기(보관 이미지 수) — Bottom/Bin=픽커 4장, Side=4픽커 × 채널(0°/90°) 2장 = 8장.
-        /// 실기 촬영 순서: 트리거1(0°)에 Front/Back 동시 촬영 → 트리거2(90°)에 Front/Back 동시 촬영.
-        /// 즉 모듈(앞/뒤) 기준 다이당 요청 2회(채널 명시), Front↔Back 동시성은 두 모듈 병렬 구동으로 표현.
+        /// <summary>배치 크기(보관 이미지 수) — Bottom/Bin=FB그룹당 콜렛 4장, Side=자기 카메라 콜렛 4 × 채널(0°/90°) 2 = 8장.
+        /// 실기 촬영 순서(8콜렛 순차): Front 콜렛 1~4 Bottom → Front 카메라(콜렛당 0°→90°) →
+        /// Back 콜렛 1~4 Bottom → Back 카메라. Front/Back 동시 촬영 없음(상호배제) —
+        /// Side 모듈은 자기 그룹 콜렛만 담당하므로 배치 8장(4콜렛×2채널)이 유지된다.
         /// TODO: 머신 설정 승격.</summary>
         public static int ExpectedBatchCount(IVisionModule m)
-            => IsSideModule(m) ? 8 : 4;
+            => IsSideModule(m) ? ColletAddress.ColletsPerGroup * 2 : ColletAddress.ColletsPerGroup;
 
         private static bool IsSideModule(IVisionModule m)
             => m?.Name != null && m.Name.IndexOf("Side", StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>비동기 검사 시작 — 즉시 "STARTED"/"fail:.." 반환, 그랩·검사는 백그라운드.
-        /// channel: 측면 0°/90° 채널(없으면 -1). dieIndex: 픽업 순서 1-base(레시피 칩위치 매칭, 0=없음).</summary>
+        /// picker: 전역 픽커 1~8(fb×4+콜렛). channel: 측면 0(0°)/1(90°), 없으면 -1.
+        /// dieIndex: 픽업 순서 1-base(레시피 칩위치 매칭). 0=없음, -1=다이 없는 메뉴얼 테스트(맵/집계 생략).</summary>
         public static string Start(IVisionModule m, VisionSettings cfg, string insp,
                                    int picker, string chipUid, int dieIndex, int channel)
         {
@@ -132,7 +136,7 @@ namespace QMC.Vision.Core
             }
         }
 
-        /// <summary>보관된 그랩 전체를 '픽커/채널별 독립 인스펙터 인스턴스'로 병렬 검사(공유 인스펙터 락 회피).
+        /// <summary>보관된 그랩 전체를 '콜렛(전역 픽커 1~8)/채널별 영속 인스턴스'로 병렬 검사(공유 인스펙터 락 회피).
         /// 결과는 chip_uid 그룹 단위로 <see cref="AsyncMatchStore"/> 에 저장 — 같은 uid 의 항목(측면 2채널)은
         /// 전원 완료 후 합산 판정(모두 PASS 여야 PASS, t=최대값) 1회. Bin 배치검사의 x/y 오프셋은 보존.</summary>
         private static void ProcessPendingBatchParallel(IVisionModule m, VisionSettings cfg, string insp)
@@ -164,13 +168,13 @@ namespace QMC.Vision.Core
                             // 웨이퍼 경계(Clear) 이전에 그랩된 잔여 항목 — 새 맵에 유령 셀이 생기므로 폐기.
                             if (it.Gen != curGen)
                             { errors[uid] = "stale wafer batch(폐기 — 새 웨이퍼 초기화 이후 도착)"; return; }
-                            // 픽커/채널마다 새 인스펙터 인스턴스 — 모듈 한정 id(모듈명/도구)로 도메인 검사기 선택
-                            // (짧은 id 만으론 Side 의 SurfaceInspector 가 Bottom 으로 오인될 수 있다).
-                            if (!DomainInspectorFactory.TryCreate(m.Name + "/" + it.Insp, out var ins))
+                            // 콜렛(전역 픽커)·채널별 '영속' 인스펙터 인스턴스(8콜렛 확정 정책) —
+                            // 매 배치 생성 대신 ColletInspectorCache 재사용(속도), 파라미터는 레시피 1벌 공유.
+                            if (!ColletInspectorCache.TryGet(m.Name, it.Insp, picker, it.Channel, out var ins))
                             { errors[uid] = "inspector create fail"; return; }
 
                             UnitContext.ApplyScale(ins, m.ScaleX, m.ScaleY);
-                            if (template != null) VisionCommandCore.CopyInspectorConfig(template, ins);   // 레시피 파라미터 복제
+                            if (template != null) VisionCommandCore.CopyInspectorConfig(template, ins);   // 레시피 파라미터 복제(공유 레시피 → 인스턴스 반영)
 
                             string res = VisionCommandCore.InspectOnImageExplicit(
                                 m, cfg, it.Insp, ins, it.Image, it.ChipUid, picker, it.Channel, it.IndexX, it.IndexY);

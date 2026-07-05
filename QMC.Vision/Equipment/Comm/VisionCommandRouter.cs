@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text;
 using QMC.Vision.Config;
@@ -80,12 +80,27 @@ namespace QMC.Vision.Comm
         {
             string finder  = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
+            // 신형 고정 8파트(finder|fb|collet|die_index|channel|chip_uid) — chip_uid 는 맨 뒤.
+            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
+                chipUid = newUid;
             return VisionCommandCore.Match(m, cfg, finder, chipUid);
         }
 
+        /// <summary>동기 검사. 신형 고정 8파트(inspector|fb|collet|die_index|channel|chip_uid)면
+        /// (fb,collet)→전역 픽커(1~8) 컨텍스트를 걸고 실행, 구형(≤7파트)은 기존 그대로.</summary>
         private static string DoInspect(IVisionModule m, VisionSettings cfg, string[] parts)
         {
-            string insp    = parts.Length > 2 ? parts[2] : "";
+            string insp = parts.Length > 2 ? parts[2] : "";
+            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out int dieIndex, out int channel, out string uid))
+            {
+                int picker = ColletAddress.ToGlobalPicker(fb, collet);
+                int ix = 0, iy = 0;   // die_index=-1(메뉴얼) 또는 0 이면 맵 매칭 생략
+                if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
+                { ix = 0; iy = 0; }
+                VisionCommandCore.SetInspectContext(m.Name, picker, channel, ix, iy);
+                try { return VisionCommandCore.Inspect(m, cfg, insp, uid); }
+                finally { VisionCommandCore.SetInspectContext(m.Name, 0, -1, 0, 0); }
+            }
             string chipUid = parts.Length > 3 ? parts[3] : "";
             return VisionCommandCore.Inspect(m, cfg, insp, chipUid);
         }

@@ -491,7 +491,7 @@ namespace QMC.Vision.Modules
                 LogGrab("toolId='" + toolId + "' SimUseSavedImage=false → 폴백");
                 return null;
             }
-            // 측면 채널2(90°)면 Ch2 전용 이미지 사용(있을 때). 채널 홀수(1=Front ch2, 3=Back ch2)=90°.
+            // 측면 90° 채널이면 Ch2 전용 이미지 사용(있을 때). 채널 홀수=90° — 신형 1(90°), 구형 1/3(Front·Back ch2) 모두 홀수라 호환.
             string path = s.SimSavedImagePath;
             int ch = QMC.Vision.Core.VisionCommandCore.CurrentInspectChannel(Name);
             if ((ch % 2) == 1 && !string.IsNullOrWhiteSpace(s.SimSavedImagePathCh2))

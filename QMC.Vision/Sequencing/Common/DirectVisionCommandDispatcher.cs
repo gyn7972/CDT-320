@@ -1,4 +1,4 @@
-using QMC.Vision.Config;
+﻿using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 
@@ -25,15 +25,25 @@ namespace QMC.Vision.Sequencing
                 case "MATCH":   return VisionCommandCore.Match(module, cfg, id, chipUid);
                 case "INSPECT": return VisionCommandCore.Inspect(module, cfg, id, chipUid);
                 // 비동기 배치 검사 — TCP 서버와 동일 엔진(AsyncInspectCore) 공유. 일반 시퀀서도 배치 병렬 동작.
-                // args: [tool, picker, chip_uid, die_index, channel] (RESULT 는 [tool, chip_uid]).
+                // 신형 args(6인자 고정): [tool, fb, collet, die_index, channel, chip_uid] — (fb,collet)→전역 픽커 1~8.
+                //   die_index=-1 은 다이 없음(메뉴얼) — uid 숫자 폴백 미적용.
+                // 구형 args(하위호환): [tool, picker, chip_uid, die_index, channel] (RESULT 는 [tool, chip_uid]).
                 case "INSPECTASYNC":
                 {
                     int picker = 0, dieIndex = 0, channel = -1;
-                    string uid = args != null && args.Length > 2 ? args[2] : string.Empty;
-                    if (args != null && args.Length > 1) int.TryParse(args[1], out picker);
-                    if (args != null && args.Length > 3) int.TryParse(args[3], out dieIndex);
-                    if (args != null && args.Length > 4 && !int.TryParse(args[4], out channel)) channel = -1;
-                    if (dieIndex <= 0) int.TryParse(uid, out dieIndex);
+                    string uid;
+                    if (ColletAddress.TryParseArgs(args, out int fb, out int collet, out dieIndex, out channel, out uid))
+                    {
+                        picker = ColletAddress.ToGlobalPicker(fb, collet);
+                    }
+                    else
+                    {
+                        uid = args != null && args.Length > 2 ? args[2] : string.Empty;
+                        if (args != null && args.Length > 1) int.TryParse(args[1], out picker);
+                        if (args != null && args.Length > 3) int.TryParse(args[3], out dieIndex);
+                        if (args != null && args.Length > 4 && !int.TryParse(args[4], out channel)) channel = -1;
+                        if (dieIndex <= 0) int.TryParse(uid, out dieIndex);
+                    }
                     return AsyncInspectCore.Start(module, cfg, id, picker, uid, dieIndex, channel);
                 }
                 case "INSPECTRESULT": return AsyncInspectCore.WaitResult(module, cfg, id, chipUid);

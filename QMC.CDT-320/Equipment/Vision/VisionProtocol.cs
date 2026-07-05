@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -149,6 +149,8 @@ namespace QMC.CDT320.VisionComm
         public const string LegacyExposureDone = "EPD";
         public const string Alarm = "ARM";
         public const string RecipeRequest = "RECIPEREQ";
+        /// <summary>Bottom 외곽 종료(EventSearchDieEnd) XYT — "XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=..".</summary>
+        public const string BottomXyt = "XYT";
     }
 
     public sealed class VisionProtocolMessage
@@ -241,7 +243,8 @@ namespace QMC.CDT320.VisionComm
                 return string.Equals(Header, VisionProtocolPushCommands.ExposureDone, StringComparison.OrdinalIgnoreCase) ||
                        string.Equals(Header, VisionProtocolPushCommands.LegacyExposureDone, StringComparison.OrdinalIgnoreCase) ||
                        string.Equals(Header, VisionProtocolPushCommands.Alarm, StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(Header, VisionProtocolPushCommands.RecipeRequest, StringComparison.OrdinalIgnoreCase);
+                       string.Equals(Header, VisionProtocolPushCommands.RecipeRequest, StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(Header, VisionProtocolPushCommands.BottomXyt, StringComparison.OrdinalIgnoreCase);
             }
         }
 

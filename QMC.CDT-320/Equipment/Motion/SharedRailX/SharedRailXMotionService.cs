@@ -387,7 +387,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 PickerWorkZone workZone;
                 string owner;
                 bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
-                if (workAreaActive && workZone == PickerWorkZone.Bottom)
+                // 현재 기준: INSPECT_B/INSPECT_S는 공유레일 판단에서 같은 Process 영역으로 본다.
+                if (workAreaActive && PickerZoneInterlockRules.IsProcessZone(workZone))
                 {
                     WriteBottomBypassLogThrottled(pickerAxis, isFront, owner);
                     return false;

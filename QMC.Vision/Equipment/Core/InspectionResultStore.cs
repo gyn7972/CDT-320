@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -21,8 +21,8 @@ namespace QMC.Vision.Core
         public class Item
         {
             public string Mode;
-            public int Picker;              // 1~4 (0=미지정)
-            public int Channel = -1;        // Side 채널 0~3(Front ch1/2, Back ch1/2), -1=단일
+            public int Picker;              // 전역 픽커 1~8(Front 콜렛 1~4=1~4, Back 콜렛 1~4=5~8. 0=미지정)
+            public int Channel = -1;        // Side 채널: 신형 0(0°)/1(90°), 구형 0~3(Front ch1/2, Back ch1/2). -1=단일
             public int IndexX, IndexY;
             public bool Pass;
             public Dictionary<string, double> Values = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -35,7 +35,8 @@ namespace QMC.Vision.Core
         }
 
         /// <summary>다이 1개(Index X/Y) 단위 집계 — 실제 운영뷰처럼 한 다이에 Front/Back max 칩핑을 모은다.
-        /// 채널(0~1=Front, 2~3=Back) 결과가 들어올 때마다 해당 측 max 갱신. 그리드/추세 차트가 이걸 읽는다.</summary>
+        /// Front/Back 판별: 신형=전역 픽커 그룹(1~4=Front, 5~8=Back), 구형=채널(0~1=Front, 2~3=Back).
+        /// 결과가 들어올 때마다 해당 측 max 갱신. 그리드/추세 차트가 이걸 읽는다.</summary>
         public sealed class DieRecord
         {
             public int Picker, IndexX, IndexY;
@@ -75,14 +76,14 @@ namespace QMC.Vision.Core
             new Dictionary<string, List<Item>>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, Item[]> _latest =
             new Dictionary<string, Item[]>(StringComparer.OrdinalIgnoreCase);
-        // 모드 → [picker 1..4][channel 0..3] 최신(Side 4채널 뷰어 바인딩)
+        // 모드 → [picker 1..8][channel 0..3] 최신(뷰어 바인딩. 신형 Side 는 채널 0/1 만 사용)
         private static readonly Dictionary<string, Item[][]> _latestCh =
             new Dictionary<string, Item[][]>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>모드별 변경 통지(UI 스레드 마샬링은 구독자 책임).</summary>
         public static event Action<string> Changed;
 
-        /// <summary>결과 1건 기록. picker(1~4)면 per-picker 최신도 갱신.</summary>
+        /// <summary>결과 1건 기록. picker(1~8, 전역 픽커)면 per-picker 최신도 갱신.</summary>
         public static void Record(Item it)
         {
             if (it == null || string.IsNullOrEmpty(it.Mode)) return;
@@ -95,7 +96,7 @@ namespace QMC.Vision.Core
                 // 시퀀스/핸들러 구동 결과(picker 1~4)는 다이(IndexX/IndexY[,Channel]) 단위로 중복 제거 —
                 // 멈춤→재개나 재검사로 같은 다이가 다시 들어오면 누적하지 않고 제자리 갱신(맵/차트 중복·깨짐 방지).
                 int replaceIdx = -1;
-                if (it.Picker >= 1 && it.Picker <= 4)
+                if (it.Picker >= 1 && it.Picker <= ColletAddress.TotalCollets)
                 {
                     for (int i = list.Count - 1; i >= 0; i--)
                     {
@@ -114,11 +115,11 @@ namespace QMC.Vision.Core
                     if (list.Count > MaxHistory) list.RemoveRange(0, list.Count - MaxHistory);
                 }
 
-                if (it.Picker >= 1 && it.Picker <= 4)
+                if (it.Picker >= 1 && it.Picker <= ColletAddress.TotalCollets)
                 {
                     if (!_latest.TryGetValue(it.Mode, out var arr))
                     {
-                        arr = new Item[5]; _latest[it.Mode] = arr;
+                        arr = new Item[ColletAddress.TotalCollets + 1]; _latest[it.Mode] = arr;
                     }
                     var old = arr[it.Picker];
                     arr[it.Picker] = it;
@@ -129,8 +130,8 @@ namespace QMC.Vision.Core
                     {
                         if (!_latestCh.TryGetValue(it.Mode, out var grid))
                         {
-                            grid = new Item[5][];
-                            for (int p = 0; p < 5; p++) grid[p] = new Item[4];
+                            grid = new Item[ColletAddress.TotalCollets + 1][];
+                            for (int p = 0; p < grid.Length; p++) grid[p] = new Item[4];
                             _latestCh[it.Mode] = grid;
                         }
                         var oldc = grid[it.Picker][it.Channel];
@@ -155,8 +156,10 @@ namespace QMC.Vision.Core
                         if (ord.Count > MaxHistory) { var rm = ord[0]; ord.RemoveAt(0); map.Remove(DieKey(rm.IndexX, rm.IndexY)); }
                     }
                     die.Picker = it.Picker; die.Time = DateTime.Now;
-                    if (it.Channel <= 1) { die.FrontMax = Math.Max(die.FrontMax, mc); die.HasFront = true; }
-                    else                 { die.BackMax  = Math.Max(die.BackMax,  mc); die.HasBack  = true; }
+                    // Front/Back 판별 — 신형: 전역 픽커 그룹(5~8=Back). 구형: 채널 2/3=Back.
+                    bool isBack = it.Picker > ColletAddress.ColletsPerGroup || it.Channel >= 2;
+                    if (!isBack) { die.FrontMax = Math.Max(die.FrontMax, mc); die.HasFront = true; }
+                    else         { die.BackMax  = Math.Max(die.BackMax,  mc); die.HasBack  = true; }
                 }
 
                 // 바텀 위치 고정 맵 — Width/Height 있으면(바텀 결과) 위치(Index X/Y) 셀을 최신값으로 갱신(이력과 무관).
@@ -194,22 +197,25 @@ namespace QMC.Vision.Core
             lock (_lock) { return _bottomMap.TryGetValue(mode, out var m) ? new List<BottomCell>(m.Values) : new List<BottomCell>(); }
         }
 
-        /// <summary>해당 모드 picker(1~4)·channel(0~3)의 최신 결과(없으면 null).</summary>
+        /// <summary>해당 모드 picker(1~8)·channel(0~3)의 최신 결과(없으면 null).</summary>
         public static Item LatestChannel(string mode, int picker, int channel)
         {
             lock (_lock)
             {
-                return (_latestCh.TryGetValue(mode, out var grid) && picker >= 1 && picker <= 4 && channel >= 0 && channel <= 3)
+                return (_latestCh.TryGetValue(mode, out var grid)
+                        && picker >= 1 && picker <= ColletAddress.TotalCollets && picker < grid.Length
+                        && channel >= 0 && channel <= 3)
                     ? grid[picker][channel] : null;
             }
         }
 
-        /// <summary>해당 모드 picker(1~4)의 최신 결과(없으면 null).</summary>
+        /// <summary>해당 모드 picker(1~8, 전역 픽커)의 최신 결과(없으면 null).</summary>
         public static Item Latest(string mode, int picker)
         {
             lock (_lock)
             {
-                return (_latest.TryGetValue(mode, out var arr) && picker >= 1 && picker <= 4) ? arr[picker] : null;
+                return (_latest.TryGetValue(mode, out var arr) && picker >= 1 && picker <= ColletAddress.TotalCollets && picker < arr.Length)
+                    ? arr[picker] : null;
             }
         }
 

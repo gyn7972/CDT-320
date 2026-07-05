@@ -3253,9 +3253,17 @@ namespace QMC.CDT320
         private string ResolvePickerWorkZoneName(string targetName)
         {
             string name = targetName ?? string.Empty;
-            if (name.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                name.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                name.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            // 현재 기준: Input side avoid는 Input 영역 진입으로 태그해서 ExpandingZ <= 0 인터락을 태운다.
+            if (name.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Input";
+
+            // 현재 기준: Output side avoid는 Output 영역 진입으로 태그해서 Output 조건 인터락을 태운다.
+            if (name.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Output";
+
+            // 기존 조건: InputAvoidPosition도 Avoid로 태그했다.
+            // 현재 필요 여부: 사용 안 함. InputAvoidPosition/OutputAvoidPosition은 위에서 각 작업 존으로 분리한다.
+            if (name.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 name.IndexOf("SafeRetreat", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "Avoid";
             if (name.IndexOf("DiePick", StringComparison.OrdinalIgnoreCase) >= 0 ||

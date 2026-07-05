@@ -361,12 +361,19 @@ namespace QMC.CDT320.Interlocks
 
         private bool IsPickerYSafeByPosition(bool isFront, double position, double tolerance)
         {
+            // 현재 기준: X 안전거리 안에서 PickerY 안전 위치는 Home(0) 또는 실제 AvoidPosition만 인정한다.
             if (Math.Abs(position) <= tolerance)
                 return true;
 
-            return IsNearPickerYTeachingPosition(isFront, "AvoidPosition", position, tolerance) ||
-                   IsNearPickerYTeachingPosition(isFront, "InputAvoidPosition", position, tolerance) ||
-                   IsNearPickerYTeachingPosition(isFront, "OutputAvoidPosition", position, tolerance);
+            if (IsNearPickerYTeachingPosition(isFront, "AvoidPosition", position, tolerance))
+                return true;
+
+            // 기존 조건: InputAvoidPosition/OutputAvoidPosition도 실시간 감시 안전 위치로 보았다.
+            // 현재 필요 여부: 사용 안 함. Input/OutputSideAvoid는 작업존으로 보고 실제 Avoid/Home만 안전 위치로 인정한다.
+            //return IsNearPickerYTeachingPosition(isFront, "InputAvoidPosition", position, tolerance) ||
+            //       IsNearPickerYTeachingPosition(isFront, "OutputAvoidPosition", position, tolerance);
+
+            return false;
         }
 
         private bool IsNearPickerYTeachingPosition(bool isFront, string positionName, double position, double tolerance)

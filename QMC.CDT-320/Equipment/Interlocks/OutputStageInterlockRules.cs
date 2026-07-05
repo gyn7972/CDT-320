@@ -274,6 +274,15 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyGoodStageZNonAvoidMoveClear(request, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 현재 기준: GoodStageZ가 플러스 방향으로 올라갈 때 Output 존 PickerZ0~Z3는 0 이상 또는 Avoid 위치여야 한다.
+            if (!PickerZoneInterlockRules.VerifyPickerZAtOrAboveZeroForZoneStageZMove(
+                machine,
+                PickerWorkZone.Output,
+                "OutputGoodStageZ",
+                IsGoodStageZMovingPositive(request),
+                out reason))
+                return false;
+
             // OutputFeederY가 Avoid 위치여야 이동 가능.
             if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
@@ -294,29 +303,17 @@ namespace QMC.CDT320.Interlocks
         private static bool CanAutoOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
+
+            // 현재 기준: Auto OutputGoodStageZ도 Manual OutputGoodStageZ 기본 인터락을 먼저 통과해야 한다.
+            if (!CanManualOutputGoodStageZ(request, out reason))
                 return false;
 
+            // 현재 기준: Auto에서는 Output transport 점유 상태를 추가로 확인한다.
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageZ", out reason))
                 return false;
 
-            // OutputFeederY가 Avoid 위치여야 이동 가능.
-            if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageZ", out reason))
-                return false;
-
-            // OutputFeeder 상태 — 세 조건 개별 확인.
-            if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
-                return false;
-
-            // Feeder -> Stage Load 준비 중 GoodStageZ는 FeederY가 Avoid 위치인 상태에서
-            // Load 높이로 이동한다. 이때 OutputFeeder는 bin을 잡고 있어야 하므로
-            // clamp/unclamp 상태를 GoodStageZ 일반 이동 인터락으로 강제하지 않는다.
-
-            if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
-                return false;
-
-            if (!VerifyGoodStageZNonAvoidMoveClear(request, "OutputGoodStageZ", out reason))
-                return false;
+            // 기존 조건: Auto GoodStageZ는 OutputFeeder clamp/unclamp 상태를 강제하지 않았다.
+            // 현재 필요 여부: 사용 안 함. Auto도 Manual 기본 인터락을 먼저 통과시키고, Auto 전용 예외는 별도 검토한다.
 
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason);
         }
@@ -929,6 +926,26 @@ namespace QMC.CDT320.Interlocks
 
             BaseAxis axis = stage.GoodStage != null ? stage.GoodStage.StageZ : null;
             return IsTargetPosition(axis, target, stage.Recipe.GoodStageZ.AvoidPosition);
+        }
+
+        private static bool IsGoodStageZMovingPositive(MotionGuardRuleContext request)
+        {
+            try
+            {
+                OutputStageUnit stage = request != null && request.Machine != null ? request.Machine.OutputStageUnit : null;
+                if (stage == null)
+                    return false;
+
+                BaseAxis axis = stage.GoodStage != null ? stage.GoodStage.StageZ : null;
+                double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                    ? axis.Config.InPositionTolerance
+                    : 0.01;
+                return axis != null && request != null && request.TargetValue > axis.ActualPosition + tolerance;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static bool IsGoodStageZLoadOrUnloadTarget(OutputStageUnit stage, double target)

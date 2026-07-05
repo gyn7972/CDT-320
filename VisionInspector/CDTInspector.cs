@@ -21,6 +21,15 @@ namespace QMC.Vision.Inspector
 {
     public class CDTInspector
     {
+        /// <summary>
+        /// EventSearchDieEnd — Bottom 외곽(패턴) 탐색이 끝나는 즉시 X/Y/T 를 통지한다
+        /// (칩핑/이물 CUDA 검사 '이전' 발화 — Side 공정이 결과 완료를 기다리지 않고 XYT 를 쓰게 함).
+        /// 인자: (x, y, angleDeg, indexX, indexY). x/y 는 최종 result.Offset 과 동일 규약
+        /// (ChipRoi 오프셋 + 0.5 스케일 + X/Y 스왑, 픽셀). angle 이 NaN 이면 외곽 미검출.
+        /// 구독자는 즉시 반환할 것(무거운 작업은 구독자 측에서 비동기 처리).
+        /// 코어 알고리즘 로직은 변경하지 않는다 — 좌표 '사본' 으로 계산해 원본 결과 흐름에 영향 없음.
+        /// </summary>
+        public static event Action<float, float, double, int, int> SearchDieEnd;
 
         // CUDA DLL 함수 선언
         [System.Runtime.InteropServices.DllImport("MakePixelShiftImage.dll", CallingConvention = System.Runtime.InteropServices.CallingConvention.Cdecl)]
@@ -442,6 +451,38 @@ namespace QMC.Vision.Inspector
 
         }
 
+        /// <summary>SearchDieEnd 발화 — 최종 result.Offset/Angle 과 동일 규약의 X/Y/T 를 좌표 사본으로 선계산해 통지.
+        /// 실패해도 검사 흐름에 영향 주지 않는다(로그만).</summary>
+        private void RaiseSearchDieEnd(BottomInspectionParameter bip, QMC_ResultChppingNForeign best)
+        {
+            try
+            {
+                var handler = SearchDieEnd;
+                if (handler == null || best == null || bip == null)
+                    return;
+
+                // 아래 본류(660행대)와 동일한 보정을 '사본'에 적용 — 원본 포인트는 본류가 나중에 직접 보정한다.
+                PointF lt = best.LeftTop, rt = best.RightTop, rb = best.RightBottom, lb = best.LeftBottom;
+                OffsetPointFAndReSize(ref lt, bip.ChipRoi, 0.5);
+                OffsetPointFAndReSize(ref rt, bip.ChipRoi, 0.5);
+                OffsetPointFAndReSize(ref rb, bip.ChipRoi, 0.5);
+                OffsetPointFAndReSize(ref lb, bip.ChipRoi, 0.5);
+                float cx = (lt.X + rt.X + rb.X + lb.X) / 4f;
+                float cy = (lt.Y + rt.Y + rb.Y + lb.Y) / 4f;
+                double angle = best.GetAngle();   // NaN = 외곽 미검출(구독자 판단)
+
+                // 최종 result.Offset 규약(X/Y 스왑)과 동일하게 전달.
+                handler(cy, cx, angle, bip.IndexX, bip.IndexY);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("VisionInspector", "SearchDieEnd 통지 실패(검사 흐름에는 영향 없음): " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public BottomResult BottomInspect(BottomInspectionParameter bip)
         {
             lock (CodaLock)
@@ -571,10 +612,8 @@ namespace QMC.Vision.Inspector
                 }
 
                 //
-                // EventSearchDieEnd
-                // 결과로 . X,Y,T
-                // 어씽크로 이벤트 호출
-
+                // EventSearchDieEnd — 외곽 확정 즉시 X/Y/T 통지(아래 CUDA 칩핑/이물 단계 이전).
+                RaiseSearchDieEnd(bip, bestResult);
 
 
                 // 유효(각도 non-NaN) 결과가 없으면 폴백 목록(비-null 태스크 결과)에서 취한다.
