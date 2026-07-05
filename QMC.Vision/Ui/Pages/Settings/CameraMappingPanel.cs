@@ -773,9 +773,10 @@ namespace QMC.Vision.Ui.Pages
                 if (string.IsNullOrEmpty(port)) continue;
                 int page = 0;
                 int.TryParse(r.Cells["Page"].Value?.ToString(), out page);
-                var ce = LightSystemSetupStore.Current?.GetController(port);
                 if (page < 0) page = 0;
-                if (ce != null && ce.PageCount > 0 && page > ce.PageCount - 1) page = ce.PageCount - 1;
+                // 주의: PageCount 상한 클램프 금지 — 컨트롤러 설정의 PageCount 가 실제 장비보다 작게
+                // 등록돼 있으면(예: LFine 12페이지인데 8) 사용자가 지정한 페이지(P08 등)를 저장할 때마다
+                // 몰래 깎아(8→7, 1→0) 조명이 꺼지는 사고가 났다. 지정 값은 그대로 저장한다.
                 if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
                     list.Add(new LightPageRef { ControllerPort = port, Page = page });
             }
