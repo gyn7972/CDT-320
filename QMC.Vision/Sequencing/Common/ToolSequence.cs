@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Vision.Config;
+using QMC.Vision.Core;
 using QMC.Vision.DieMaps;
 using QMC.Vision.Modules;
 
@@ -39,7 +40,7 @@ namespace QMC.Vision.Sequencing
         public string ToolId { get; }
         public string Name { get; }
         public bool IsFinder => Cmd == "MATCH";
-        /// <summary>측면(앞/뒤) 검사 INSPECT — 픽커 1~4 분배(핸들러 TCP 픽커 인덱스 모사).</summary>
+        /// <summary>측면(앞/뒤) 검사 INSPECT — 모듈이 곧 콜렛 그룹(Front=fb0/Rear=fb1). 자기 그룹 콜렛 1~4만 담당.</summary>
         private bool IsSideInspect()
             => !IsFinder && (Kind == SequenceModuleKind.FrontSideVision || Kind == SequenceModuleKind.RearSideVision);
 
@@ -49,7 +50,7 @@ namespace QMC.Vision.Sequencing
         private bool IsBinInspect()
             => !IsFinder && Kind == SequenceModuleKind.BinVision;
 
-        /// <summary>비동기 배치 검사 대상(Bottom/Bin=픽커 4장, Side=채널 2장) — INSPECTASYNC 가 자체 그랩.</summary>
+        /// <summary>비동기 배치 검사 대상(Bottom/Bin=FB그룹당 콜렛 4장×2그룹, Side=자기 그룹 콜렛 4×채널 2) — INSPECTASYNC 가 자체 그랩.</summary>
         private bool IsAsyncBatchInspect()
             => IsBottomInspect() || IsBinInspect() || IsSideInspect();
 
@@ -125,49 +126,7 @@ namespace QMC.Vision.Sequencing
                 string result;
                 if (IsAsyncBatchInspect())
                 {
-                    // ── Sim==Real 병렬 경로(Bottom/Bin/Side 공용) ── 실제 핸들러 플로우와 동일하게:
-                    //  픽커 1~N(=4)의 그랩 요청을 INSPECTASYNC(그랩만)로 연속 전송 → 마지막 그랩에서
-                    //  백엔드가 자동 병렬 검사 시작 → 다이별 INSPECTRESULT(대기형) 1회로 결과 회수.
-                    //  Side 촬영 순서(실기): 트리거1(0°)=Front/Back 동시 → 트리거2(90°)=Front/Back 동시.
-                    //  모듈(앞/뒤) 기준 다이당 요청 2회(채널 명시: 앞=0/1, 뒤=2/3) → 4픽커=8장 배치,
-                    //  Front↔Back 동시성은 두 모듈 시퀀스 병렬 구동으로 표현. 결과는 다이당 1회(채널 합산).
-                    //  Bin(Die gap)은 완료 payload 의 x=/y= 에 배치 오프셋이 실린다.
-                    int baseCh = (Kind == SequenceModuleKind.RearSideVision) ? 2 : 0;
-                    int[] chs = IsSideInspect() ? new[] { baseCh, baseCh + 1 } : new[] { -1 };   // -1 = 채널 없음
-                    int n = BatchPickerCount();
-                    var pk = new int[n]; var cu = new string[n]; var dq = new int[n];
-                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
-                    {
-                        int seq = ++_dieSeq;
-                        MaybeClearForNewWafer(seq);
-                        int picker = ((seq - 1) % 4) + 1;
-                        int ix, iy; NextPickupCell(seq, out ix, out iy);
-                        pk[i] = picker; dq[i] = seq;
-                        string uid = ResolveChipUid(ix, iy);    // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
-                        if (string.IsNullOrEmpty(uid))
-                            uid = seq.ToString();   // die_index 를 그대로 키로 사용(요청마다 유니크·짧음). 실기는 핸들러 자재 ID 자리.
-                        cu[i] = uid;
-                        // 형식: inspector|picker|chip_uid[|die_index[|channel]].
-                        // uid 가 숫자(=die_index)면 4번째 필드 생략 — 채널이 있으면 자리 유지를 위해 전체 전송.
-                        foreach (int ch in chs)
-                        {
-                            string[] aa = ch >= 0
-                                ? new[] { ToolId, picker.ToString(), uid, seq.ToString(), ch.ToString() }
-                                : (uid == seq.ToString()
-                                    ? new[] { ToolId, picker.ToString(), uid }
-                                    : new[] { ToolId, picker.ToString(), uid, seq.ToString() });
-                            Context.Dispatch(Module, "INSPECTASYNC", aa);
-                        }
-                    }
-                    // 전체 그랩 완료 → 백엔드 자동 병렬 처리. 다이별 결과 회수 + 판정 로그.
-                    string last = null;
-                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
-                    {
-                        last = await PollInspectResult(cu[i], ct).ConfigureAwait(false);
-                        if (i < n - 1) { _curPicker = pk[i]; _curDie = dq[i]; Judge(last); }   // 다이 1..N-1 로그
-                    }
-                    _curPicker = pk[n - 1]; _curDie = dq[n - 1];   // 마지막 다이 → 아래 공통 Judge 가 로그
-                    result = last;
+                    result = await RunColletBatchesAsync(ct).ConfigureAwait(false);
                 }
                 else
                 {
@@ -190,8 +149,91 @@ namespace QMC.Vision.Sequencing
             finally { sw.Stop(); LastCycleMs = sw.Elapsed.TotalMilliseconds; CycleCount++; }
         }
 
-        /// <summary>한 배치에서 그랩할 픽커 수(실제 관례 = 4). TODO: 머신/설정 상수로 승격(백엔드 ExpectedPickerCount 와 일치 유지).</summary>
-        private static int BatchPickerCount() => 4;
+        // ── 8콜렛(Front4+Back4) 순차 배치 — Sim==Real ─────────────────────────
+        // 실기: Front 콜렛1~4 Bottom → Front 카메라(콜렛당 0°→90°) → Back 콜렛1~4 Bottom → Back 카메라.
+        // Front/Back 동시 촬영 없음(상호배제). Bottom/Bin 모듈은 두 그룹(F→B)을 순차로,
+        // Side 모듈은 자기 그룹(모듈=fb)만 담당한다. 측면 F/B 는 게이트로 상호배제.
+        private static readonly SemaphoreSlim _sideGroupGate = new SemaphoreSlim(1, 1);
+
+        /// <summary>이 모듈이 담당하는 콜렛 그룹(fb). Side 전용(Front=0/Rear=1), 그 외 -1.</summary>
+        private int ModuleFb()
+        {
+            if (Kind == SequenceModuleKind.FrontSideVision) return ColletAddress.Front;
+            if (Kind == SequenceModuleKind.RearSideVision) return ColletAddress.Back;
+            return -1;
+        }
+
+        /// <summary>
+        /// 콜렛 배치 실행 — 신형 고정 인자([tool, fb, collet, die_index, channel, chip_uid])로
+        /// INSPECTASYNC 를 그룹(콜렛 4)씩 보내고, 그룹 결과 회수 후 다음 그룹으로 넘어간다(F→B 순차).
+        /// 반환은 마지막 다이 결과(공통 Judge 가 로그).
+        /// </summary>
+        private async Task<string> RunColletBatchesAsync(CancellationToken ct)
+        {
+            int[] fbGroups = IsSideInspect()
+                ? new[] { ModuleFb() }
+                : new[] { ColletAddress.Front, ColletAddress.Back };
+            int[] chs = IsSideInspect() ? new[] { 0, 1 } : new[] { -1 };   // 신형 채널: Side 0=0°/1=90°, 그 외 -1
+            string last = null;
+
+            for (int g = 0; g < fbGroups.Length && !ct.IsCancellationRequested; g++)
+            {
+                int fb = fbGroups[g];
+                bool gate = IsSideInspect();
+                if (gate)
+                    await _sideGroupGate.WaitAsync(ct).ConfigureAwait(false);   // 측면 F/B 상호배제(실기: 동시 촬영 불가)
+                try
+                {
+                    int n = ColletAddress.ColletsPerGroup;
+                    var pk = new int[n]; var cu = new string[n]; var dq = new int[n];
+                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
+                    {
+                        int local = ++_dieSeq;
+                        int collet = ((local - 1) % ColletAddress.ColletsPerGroup) + 1;
+                        int seq = GlobalDieSeq(local, fb);
+                        MaybeClearForNewWafer(seq);
+                        int ix, iy; NextPickupCell(seq, out ix, out iy);
+                        pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = seq;
+                        string uid = ResolveChipUid(ix, iy);    // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
+                        if (string.IsNullOrEmpty(uid))
+                            uid = seq.ToString();   // 실기는 핸들러 자재 ID(DieId) 자리 — Sim 은 순번으로 대체
+                        cu[i] = uid;
+                        foreach (int ch in chs)
+                        {
+                            // 신형 고정 8파트 와이어와 동일 인자 순서(chip_uid 맨 뒤).
+                            Context.Dispatch(Module, "INSPECTASYNC",
+                                new[] { ToolId, fb.ToString(), collet.ToString(), seq.ToString(), ch.ToString(), uid });
+                        }
+                    }
+                    // 그룹 그랩 완료(4장) → 백엔드 자동 병렬 처리 → 다이별 결과 회수.
+                    // 다음 그룹(Back)은 이 그룹 결과 회수 후에만 진행 — 실기 순차 규약 유지.
+                    for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
+                    {
+                        last = await PollInspectResult(cu[i], ct).ConfigureAwait(false);
+                        _curPicker = pk[i]; _curDie = dq[i];
+                        bool lastOfCycle = g == fbGroups.Length - 1 && i == n - 1;
+                        if (!lastOfCycle)
+                            Judge(last);   // 마지막 다이는 RunCycleAsync 공통 Judge 가 로그
+                    }
+                }
+                finally
+                {
+                    if (gate) _sideGroupGate.Release();
+                }
+            }
+            return last;
+        }
+
+        /// <summary>모듈 자체 다이 카운트(local) → 웨이퍼 전역 픽업 순번.
+        /// Bottom/Bin(두 그룹 모두 담당)은 local 그대로, Side(자기 그룹만)는 8콜렛 블록 기준으로 환산해
+        /// Front(1~4)/Back(5~8) 모듈이 같은 웨이퍼의 서로 다른 다이를 가리키게 한다.</summary>
+        private int GlobalDieSeq(int local, int fb)
+        {
+            if (!IsSideInspect()) return local;
+            int block = (local - 1) / ColletAddress.ColletsPerGroup;
+            int idx = (local - 1) % ColletAddress.ColletsPerGroup;
+            return block * ColletAddress.TotalCollets + fb * ColletAddress.ColletsPerGroup + idx + 1;
+        }
 
         /// <summary>INSPECTRESULT 를 완료/실패까지 폴링. 완료 "1;PASS|FAIL;.." → "PASS|FAIL;.." 로, "0"=진행중, "ERR/fail:"=실패.</summary>
         private async Task<string> PollInspectResult(string chipUid, CancellationToken ct)

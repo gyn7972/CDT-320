@@ -235,6 +235,8 @@ namespace QMC.Vision.Ui.Pages
                     () => VisionConfigStore.Current?.MilDcfPath ?? "",
                     v => { if (VisionConfigStore.Current != null) VisionConfigStore.Current.MilDcfPath = v?.Trim() ?? ""; },
                     "Matrox DCF (*.dcf)|*.dcf|모든 파일 (*.*)|*.*"),
+                ParameterGridItem.Action("DCF 불러오기(표준 폴더로 복사 후 지정)", "불러오기", ParameterGridScope.Config, LoadDcfFromFile),
+                ParameterGridItem.Action("DCF 저장하기(현재 파일 백업 복사)", "저장하기", ParameterGridScope.Config, SaveDcfBackup),
                 ParameterGridItem.Action("DCF 적용(카메라 재오픈)", "적용", ParameterGridScope.Config, ApplyDcfReopen),
             };
         }
@@ -268,6 +270,100 @@ namespace QMC.Vision.Ui.Pages
             }
             catch (Exception ex)
             { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 적용 예외: " + ex.Message; }
+        }
+
+        /// <summary>DCF 불러오기 — 파일 선택 후 표준 DCF 폴더로 복사하고 전역 경로(MilDcfPath)로 지정.
+        /// DCF 는 MIL API 로 생성/저장이 불가(Intellicam 전용)하므로 파일 복사/지정 수준으로 관리한다.
+        /// 카메라 반영은 [DCF 적용(카메라 재오픈)] 버튼으로 별도 수행.</summary>
+        private void LoadDcfFromFile()
+        {
+            try
+            {
+                var cfg = VisionConfigStore.Current;
+                if (cfg == null)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "설정 저장소가 준비되지 않았습니다."; return; }
+
+                using (var dlg = new OpenFileDialog())
+                {
+                    dlg.Filter = "Matrox DCF (*.dcf)|*.dcf|모든 파일 (*.*)|*.*";
+                    dlg.Title  = "MIL DCF 파일 불러오기";
+                    string initDir = GetDcfFolder();
+                    if (System.IO.Directory.Exists(initDir)) dlg.InitialDirectory = initDir;
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+                    string src    = dlg.FileName;
+                    string folder = GetDcfFolder();
+                    System.IO.Directory.CreateDirectory(folder);
+                    string dst = System.IO.Path.Combine(folder, System.IO.Path.GetFileName(src));
+
+                    // 선택 파일이 표준 폴더 밖이면 복사(동명 파일은 덮어쓰기 확인).
+                    if (!string.Equals(System.IO.Path.GetFullPath(src), System.IO.Path.GetFullPath(dst),
+                                       StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (System.IO.File.Exists(dst))
+                        {
+                            var r = QMC.Common.MessageDialog.Show(
+                                "표준 DCF 폴더에 같은 이름의 파일이 있습니다. 덮어쓸까요?\r\n" + dst,
+                                "DCF 불러오기", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                            if (r != DialogResult.Yes) return;
+                        }
+                        System.IO.File.Copy(src, dst, true);
+                    }
+
+                    cfg.MilDcfPath = dst;
+                    VisionConfigStore.Save();
+                    try { _dcfGrid?.RefreshValues(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] DCF 그리드 갱신 실패: " + ex.Message); }
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = "DCF 불러오기 완료 — " + System.IO.Path.GetFileName(dst) + "  · [DCF 적용]으로 카메라 재오픈";
+                }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 불러오기 예외: " + ex.Message; }
+        }
+
+        /// <summary>DCF 저장하기 — 현재 지정된 DCF 파일을 다른 이름/위치로 백업 복사.
+        /// (MIL 은 현재 디지타이저 상태를 DCF 로 내보내는 API 가 없어 파일 백업 수준. DCF 편집은 Intellicam.)</summary>
+        private void SaveDcfBackup()
+        {
+            try
+            {
+                string cur = VisionConfigStore.Current?.MilDcfPath;
+                if (string.IsNullOrWhiteSpace(cur) || !System.IO.File.Exists(cur))
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "저장할 DCF 가 없습니다 — 먼저 DCF 파일을 지정하세요."; return; }
+
+                using (var dlg = new SaveFileDialog())
+                {
+                    dlg.Filter   = "Matrox DCF (*.dcf)|*.dcf|모든 파일 (*.*)|*.*";
+                    dlg.Title    = "DCF 백업 저장";
+                    dlg.FileName = System.IO.Path.GetFileNameWithoutExtension(cur)
+                                   + "_backup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".dcf";
+                    string initDir = System.IO.Path.GetDirectoryName(cur);
+                    if (System.IO.Directory.Exists(initDir)) dlg.InitialDirectory = initDir;
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+                    System.IO.File.Copy(cur, dlg.FileName, true);
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = "DCF 백업 저장 완료 — " + dlg.FileName;
+                }
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 저장 예외: " + ex.Message; }
+        }
+
+        /// <summary>표준 DCF 폴더 — 현재 지정 DCF 의 폴더, 없으면 실행폴더\DCF.</summary>
+        private static string GetDcfFolder()
+        {
+            try
+            {
+                string cur = VisionConfigStore.Current?.MilDcfPath;
+                if (!string.IsNullOrWhiteSpace(cur))
+                {
+                    string d = System.IO.Path.GetDirectoryName(cur);
+                    if (!string.IsNullOrEmpty(d)) return d;
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] DCF 폴더 결정 실패: " + ex.Message); }
+            return System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DCF");
         }
 
         /// <summary>지정된 .mfs 파일을 연결된 카메라에 일괄 적용(FeatureLoad). 연결/정지 상태 확인.</summary>
@@ -1328,32 +1424,84 @@ namespace QMC.Vision.Ui.Pages
         private void LiveStart()
         {
             if (_activeCam == null || _isLive) return;
-            try
-            {
-                _fpsT0 = DateTime.Now; _fpsCount = 0;
-                System.Threading.Interlocked.Exchange(ref _uiPending, 0);
-                _activeCam.TriggerMode = CameraTriggerMode.Continuous;
-                _activeCam.StartLive();
-                _isLive = true;
-                _lblStatus.ForeColor = Color.DarkSlateGray;
-                _lblStatus.Text = "Live started";
-            }
-            catch (Exception ex) { _lblStatus.Text = "Live start error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+
+            _fpsT0 = DateTime.Now; _fpsCount = 0;
+            System.Threading.Interlocked.Exchange(ref _uiPending, 0);
+
+            // 선반영(재클릭 방지) — 실패 시 워커에서 롤백. StartLive 는 카메라 feature 쓰기로
+            // 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다(QMC.MilCameraTest 검증 패턴).
+            _isLive = true;
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "Live starting...";
             UpdateConnectButtons();
+
+            var cam = _activeCam;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                string err = null;
+                try
+                {
+                    cam.TriggerMode = CameraTriggerMode.Continuous;
+                    cam.StartLive();
+                }
+                catch (Exception ex) { err = ex.Message; }
+                _uiCtx.Post(_ =>
+                {
+                    try
+                    {
+                        if (err == null)
+                        {
+                            _lblStatus.ForeColor = Color.DarkSlateGray;
+                            _lblStatus.Text = "Live started";
+                        }
+                        else
+                        {
+                            _isLive = false;   // 롤백
+                            _lblStatus.Text = "Live start error: " + err;
+                            _lblStatus.ForeColor = Color.Firebrick;
+                        }
+                        UpdateConnectButtons();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] Live 시작 UI 갱신 실패: " + ex.Message); }
+                }, null);
+            });
         }
 
         private void LiveStop()
         {
             if (_activeCam == null || !_isLive) return;
-            try
-            {
-                _activeCam.StopLive();
-                _isLive = false;
-                _lblStatus.ForeColor = Color.DarkSlateGray;
-                _lblStatus.Text = "Live stopped";
-            }
-            catch (Exception ex) { _lblStatus.Text = "Live stop error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+
+            // UI 상태 즉시 해제(재클릭 차단) — 실제 정지는 워커에서(StopLive 는 MdigHalt 로 블록 가능).
+            _isLive = false;
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "Live stopping...";
             UpdateConnectButtons();
+
+            var cam = _activeCam;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                string err = null;
+                try { cam.StopLive(); }
+                catch (Exception ex) { err = ex.Message; }
+                _uiCtx.Post(_ =>
+                {
+                    try
+                    {
+                        if (err == null)
+                        {
+                            _lblStatus.ForeColor = Color.DarkSlateGray;
+                            _lblStatus.Text = "Live stopped";
+                        }
+                        else
+                        {
+                            _lblStatus.Text = "Live stop error: " + err;
+                            _lblStatus.ForeColor = Color.Firebrick;
+                        }
+                        UpdateConnectButtons();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] Live 정지 UI 갱신 실패: " + ex.Message); }
+                }, null);
+            });
         }
 
         private void Cam_FrameReceived(GrabResult r)

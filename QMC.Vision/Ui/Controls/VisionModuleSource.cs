@@ -16,7 +16,15 @@ namespace QMC.Vision.Ui.Controls
         private Action<Bitmap> _onFrame;
         private Action<GrabResult> _handler;
 
-        public VisionModuleSource(IVisionModule m) { _m = m; }
+        // 생성 시(UI 스레드) SynchronizationContext 캡처 — GrabFrame 이 워커 스레드에서 호출돼도
+        // 사용자 안내 팝업은 UI 스레드에서 뜨도록 마샬링한다(CameraViewBase 툴바 Grab 비동기화 대응).
+        private readonly System.Threading.SynchronizationContext _uiCtx;
+
+        public VisionModuleSource(IVisionModule m)
+        {
+            _m = m;
+            _uiCtx = System.Threading.SynchronizationContext.Current;
+        }
 
         /// <summary>현재 편집 중인 도구(Finder/Inspector)의 등록 id. 설정되면 툴바 Grab 이 GrabForTool 로
         /// 도구 전용 시뮬 저장이미지를 우선 사용한다. 비어있으면 모듈 Grab(카메라/모듈 저장이미지).</summary>
@@ -49,20 +57,37 @@ namespace QMC.Vision.Ui.Controls
                         string detail = (g != null && !string.IsNullOrEmpty(g.ErrorMessage))
                             ? g.ErrorMessage
                             : ("경로: " + path);
-                        try
-                        {
-                            QMC.Common.MessageDialog.Show(
-                                "시뮬 저장이미지를 불러올 수 없습니다.\r\n" + detail,
-                                "시뮬 이미지",
-                                System.Windows.Forms.MessageBoxButtons.OK,
-                                System.Windows.Forms.MessageBoxIcon.Warning);
-                        }
-                        catch { }
+                        ShowWarningOnUi("시뮬 저장이미지를 불러올 수 없습니다.\r\n" + detail, "시뮬 이미지");
                     }
                     return null;
                 }
             }
-            catch { return null; }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VisionModuleSource] GrabFrame 실패: " + ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>경고 팝업을 UI 스레드에서 표시 — 워커 스레드 호출 대응(컨텍스트 없으면 직접 표시).</summary>
+        private void ShowWarningOnUi(string message, string title)
+        {
+            try
+            {
+                System.Threading.SendOrPostCallback show = _ =>
+                {
+                    try
+                    {
+                        QMC.Common.MessageDialog.Show(message, title,
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Warning);
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionModuleSource] 팝업 표시 실패: " + ex.Message); }
+                };
+                if (_uiCtx != null) _uiCtx.Post(show, null);
+                else show(null);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionModuleSource] 팝업 마샬링 실패: " + ex.Message); }
         }
 
         public bool SupportsLive => _m?.Camera != null;

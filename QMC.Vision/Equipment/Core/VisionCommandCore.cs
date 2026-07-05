@@ -239,7 +239,12 @@ namespace QMC.Vision.Core
             }
             catch { }
 
-            var r = ins.Inspect(image);
+            // Bottom 외곽 종료(EventSearchDieEnd) XYT 푸시용 스레드 컨텍스트 —
+            // CDTInspector.SearchDieEnd 가 이 스레드에서 동기 발화되므로 여기서 식별을 주입한다.
+            BottomXytPushService.SetContext(m.Name, ctxPicker, ctxIndexX, ctxIndexY, chipUid);
+            InspectionResult r;
+            try { r = ins.Inspect(image); }
+            finally { BottomXytPushService.ClearContext(); }
             if (r == null || r.Items == null) return "fail:inspect returned null";
             var items = string.Join(";", r.Items.Select(i => $"{i.Name}={i.Value}"));   // 핸들러 프로토콜: ; 구분
 
