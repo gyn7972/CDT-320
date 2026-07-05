@@ -55,9 +55,9 @@ namespace QMC.Vision.Comm
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
                     case "DISTORT":    resp = DoDistort(m);          break;
                     case "CAM_SWITCH": resp = DoCamSwitch(parts);    break;
-                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
-                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
+                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
                     default:           resp = null;                  break;
                 }
                 if (resp == null) return $"ERR|{mod}|{cmd}|unknown command";

@@ -250,6 +250,7 @@ namespace QMC.Vision.Ui.Pages
         private void BuildChildPanels()
         {
             _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true, RecipeName = RecipeName };
+            // 바텀 검사 채널 정책(리스광 ch2 + 엘파인 P08 ch6~8)은 패널이 SelectInspection 에서 자동 적용.
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
@@ -398,6 +399,15 @@ namespace QMC.Vision.Ui.Pages
         private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
         {
             if (_node == null) return;
+
+            // 도구 전용 카메라 노출(µs) — 0 = 모듈 기본(카메라 매핑 레시피 노출) 사용.
+            // GrabForTool(INSPECT/툴바 그랩)이 그랩 직전에 적용한다.
+            if (_node.Recipe is QMC.Vision.Modules.AlgoRecipeBase)
+            {
+                items.Add(ParameterGridItem.Double("노출 (µs, 0=모듈 기본)", "µs", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.AlgoRecipeBase)?.ExposureUs ?? 0,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.AlgoRecipeBase r) { r.ExposureUs = v > 0 ? v : 0; MarkDirty(); } }));
+            }
 
             // 검사기별 '검사 사용'(품목별) — false 면 시퀀스/핸들러에서 이 검사를 건너뛴다(PASS 처리).
             // 측면 Surface 검사기에서는 '오염검사 사용' 역할. 로드 시 Recipe POCO 가 교체될 수 있어 람다에서 매번 _node 로 읽는다.

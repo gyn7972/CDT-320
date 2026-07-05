@@ -49,6 +49,10 @@ namespace QMC.Vision.Ui.Controls
                     var anchor = content.Anchor;
                     var bounds = content.Bounds;
                     var margin = content.Margin;
+                    // 원래 z-인덱스 보존 — 도킹 레이아웃은 컬렉션 역순으로 계산되므로 래퍼를 끝에 그냥
+                    // 추가하면 Fill 래퍼가 전체 영역을 먼저 차지해 Top/Bottom 형제(헤더/버튼바)가 그 위를
+                    // 덮는다(조명 그리드 첫 행들이 헤더 밑에 가려지던 원인).
+                    int zIndex = parent.Controls.GetChildIndex(content);
 
                     parent.Controls.Remove(content);
                     content.Dock = DockStyle.Fill;
@@ -65,6 +69,7 @@ namespace QMC.Vision.Ui.Controls
                         panel.Bounds = bounds;
                     }
                     parent.Controls.Add(panel);
+                    parent.Controls.SetChildIndex(panel, zIndex);
                 }
 
                 return panel;

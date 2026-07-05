@@ -75,6 +75,45 @@ namespace QMC.Vision.Core
             }
         }
 
+        /// <summary>지정 (카메라,타깃)의 오토포커스 스캔용 카메라 노출(µs). 0 이하 = 미지정.</summary>
+        public static double GetExposureUs(FocusCamera camera, FocusTarget target)
+        {
+            try
+            {
+                lock (_lock)
+                {
+                    AutoFocusRoiSet set = FindSet(camera, target, false);
+                    return set != null ? set.ExposureUs : 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[AutoFocusRoiStore] GetExposureUs 실패: " + ex.Message);
+                return 0;
+            }
+        }
+
+        /// <summary>지정 (카메라,타깃)의 오토포커스 스캔용 카메라 노출(µs) 설정 + 즉시 저장. 성공 시 true.
+        /// 0 이하 = 미지정(스캔 시 현재 카메라 노출 유지).</summary>
+        public static bool SetExposureUs(FocusCamera camera, FocusTarget target, double exposureUs)
+        {
+            try
+            {
+                lock (_lock)
+                {
+                    AutoFocusRoiSet set = FindSet(camera, target, true);
+                    set.ExposureUs = exposureUs > 0 ? exposureUs : 0;
+                }
+                VisionConfigStore.Save();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[AutoFocusRoiStore] SetExposureUs 실패: " + ex.Message);
+                return false;
+            }
+        }
+
         /// <summary>지정 (카메라,타깃)의 ROI 전체 초기화 + 즉시 저장. 성공 시 true.</summary>
         public static bool ClearRois(FocusCamera camera, FocusTarget target)
         {

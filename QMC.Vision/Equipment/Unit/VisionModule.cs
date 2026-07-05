@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QMC.Vision.Modules
 {
@@ -358,7 +359,9 @@ namespace QMC.Vision.Modules
             return g;
         }
 
-        /// <summary>도구(Finder/Inspector) 단위 그랩 — 도구 전용 저장이미지가 있으면 우선, 없으면 <see cref="Grab(int)"/> 위임.</summary>
+        /// <summary>도구(Finder/Inspector) 단위 그랩 — 도구 전용 저장이미지가 있으면 우선, 없으면 <see cref="Grab(int)"/> 위임.
+        /// 카메라 그랩 시 도구 전용 노출(Recipe.ExposureUs&gt;0)이 있으면 적용하고, 없으면 모듈 레시피 노출로
+        /// 되돌려 도구 간 노출이 결정적으로 유지되게 한다.</summary>
         public GrabResult GrabForTool(string toolId, int timeoutMs = 3000)
         {
             var saved = TryGrabSavedImageForTool(toolId);
@@ -370,7 +373,86 @@ namespace QMC.Vision.Modules
                 return saved;
             }
             LogGrab("저장이미지 미사용 → 카메라 그랩 (toolId='" + (toolId ?? "(null)") + "')");
+            PrepareToolAcquisition(toolId);
             return Grab(timeoutMs);
+        }
+
+        /// <summary>도구 촬상 준비 — 노출(도구 전용 or 모듈 기본) + 조명(도구 Recipe.LightSettings) 적용.
+        /// 조명은 컨트롤러 배치 캐시가 동일 값이면 통신/안정화 대기를 생략하므로 그랩마다 호출해도 비용이 없다.
+        /// GrabForTool(MATCH/INSPECT/툴바 그랩)과 라이브 시작(VisionModuleSource)이 호출한다.</summary>
+        public void PrepareToolAcquisition(string toolId)
+        {
+            ApplyToolExposure(toolId);
+            ApplyToolLights(toolId);
+        }
+
+        /// <summary>도구 조명 적용 — 노드 Recipe.LightSettings 를 컨트롤러별 페이지 배치로 송신.
+        /// 미지정(빈 목록) 도구는 조명을 건드리지 않는다. 송신/대기는 컨트롤러 캐시가 관리(동일 값 = 생략).</summary>
+        private void ApplyToolLights(string toolId)
+        {
+            try
+            {
+                var recipe = GetAlgorithm(toolId)?.Recipe as AlgoRecipeBase;
+                var settings = recipe?.LightSettings;
+                if (settings == null || settings.Count == 0) return;   // 조명 미지정 도구 — 현재 상태 유지
+
+                var tasks = new List<Task<bool>>();
+                foreach (var grp in settings.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).GroupBy(s => s.ControllerPort))
+                {
+                    var ctrl = QMC.Vision.Comm.LightHub.Get(grp.Key);
+                    if (ctrl == null)
+                    {
+                        LogGrab("조명 포트 '" + grp.Key + "' LightHub 미등록 → 건너뜀 (toolId='" + toolId + "')");
+                        continue;
+                    }
+                    var list = grp.ToList();
+                    string port = grp.Key;
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        bool allOk = true;
+                        foreach (var pgrp in list.GroupBy(s => s.Page).OrderBy(g => g.Key))
+                        {
+                            await ctrl.SwitchPageAsync(pgrp.Key).ConfigureAwait(false);
+                            int[] values = new int[ctrl.ChannelCount];   // 0 = OFF(미사용)
+                            foreach (var s in pgrp)
+                                if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
+                                    values[s.Channel - 1] = s.On ? s.Level : 0;
+                            // 컨트롤러가 캐시 히트면 송신/대기 생략, 미스면 송신 + SettleDelayMs 대기.
+                            bool ok2 = await ctrl.SetChannelBatchAsync(pgrp.Key, values).ConfigureAwait(false);
+                            LogGrab("도구 조명 " + port + " P" + pgrp.Key.ToString("00") +
+                                    " [" + string.Join(",", values) + "] 결과=" + ok2 + " (toolId='" + toolId + "')");
+                            allOk &= ok2;
+                        }
+                        return allOk;
+                    }));
+                }
+                if (tasks.Count == 0) return;
+                // 그랩 전에 조명 안정화까지 완료되어야 하므로 동기 대기(캐시 히트 시 즉시 반환).
+                bool ok = Task.WhenAll(tasks).GetAwaiter().GetResult().All(r => r);
+                if (!ok) LogGrab("조명 적용 일부 실패 (toolId='" + toolId + "') — 시리얼 연결/NAK 확인");
+            }
+            catch (Exception ex) { LogGrab("조명 적용 실패: " + ex.Message + " (toolId='" + (toolId ?? "") + "')"); }
+        }
+
+        /// <summary>도구 전용 노출 적용 — 도구 Recipe.ExposureUs&gt;0 이면 그 값, 아니면 모듈 레시피 노출.
+        /// 현재 카메라 캐시값과 다를 때만 feature 를 쓴다(연속 그랩 시 카메라 왕복 최소화).</summary>
+        private void ApplyToolExposure(string toolId)
+        {
+            try
+            {
+                if (Camera == null) return;
+                double us = 0;
+                var r = GetAlgorithm(toolId)?.Recipe as AlgoRecipeBase;
+                if (r != null && r.ExposureUs > 0) us = r.ExposureUs;
+                if (us <= 0) us = CameraNode?.Recipe?.Exposure ?? 0;   // 도구 미지정 → 모듈 기본으로 복원
+                if (us <= 0) return;
+                if (Math.Abs(Camera.ExposureUs - us) > 0.01)
+                {
+                    Camera.ExposureUs = us;
+                    LogGrab("도구 노출 적용 " + us.ToString("F0") + "µs (toolId='" + (toolId ?? "") + "')");
+                }
+            }
+            catch (Exception ex) { LogGrab("도구 노출 적용 실패: " + ex.Message); }
         }
 
         /// <summary>모듈(카메라) 레벨 SimUseSavedImage=true 면 저장 이미지를 로드. 아니면 null(카메라 그랩으로 위임).</summary>

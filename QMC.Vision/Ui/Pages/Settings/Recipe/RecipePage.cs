@@ -344,7 +344,15 @@ namespace QMC.Vision.Ui.Pages
             if (!_cache.TryGetValue(key, out var page))
             {
                 string k = key;
-                if (s.IsFinder)
+                if (s.IsFinder && s.Id == "FocusFinder" &&
+                    string.Equals(s.Module.Name, "BottomInspection", StringComparison.OrdinalIgnoreCase))
+                {
+                    // 바텀 검사 '포커스'는 패턴 매칭을 사용하지 않는다 — 오토포커스 ROI1~4 전용 페이지.
+                    var ftp = new FocusTargetPage(s.Module, QMC.Vision.Core.FocusCamera.Bottom, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
+                    ftp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
+                    page = ftp;
+                }
+                else if (s.IsFinder)
                 {
                     var vtp = new VisionTargetPage(s.Module, s.Finder, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
                     vtp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };

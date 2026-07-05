@@ -65,6 +65,10 @@ namespace QMC.Vision.Modules
         /// 없으면 <see cref="Grab(int)"/>(모듈 저장이미지→실제 카메라)로 위임한다.</summary>
         GrabResult GrabForTool(string toolId, int timeoutMs = 3000);
 
+        /// <summary>도구 촬상 준비 — 노출(도구 전용 or 모듈 기본) + 조명(도구 Recipe.LightSettings) 적용.
+        /// 조명 컨트롤러 배치 캐시가 동일 값이면 통신/안정화 대기를 생략한다. 라이브 시작 전에도 호출한다.</summary>
+        void PrepareToolAcquisition(string toolId);
+
         void SetCamera(ICamera newCamera);
         void RaiseAlarm(string reason);
         Bitmap AcquireViewerFrame();

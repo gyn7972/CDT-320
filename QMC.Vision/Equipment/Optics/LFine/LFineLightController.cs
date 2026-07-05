@@ -21,10 +21,14 @@ namespace QMC.Vision.Optics.LFine
         private readonly int[] _power;       // 1-기반 — 채널별 on-time 상태(GetPowerAsync 표시용; 밝기 = strobe on-time)
         private readonly int[] _lastOnPower; // On/Off 복원용 직전 on-time
         private int _currentPage;            // 현재 페이지 (SC/SP 명령마다 포함; 레퍼런스에 별도 전환 명령 없음)
+        private readonly LightBatchCache _batchCache = new LightBatchCache();   // 페이지별 마지막 송신값 — 동일 값 재송신/대기 생략
 
         public bool   IsConnected { get; private set; }
         public string PortName    => _cfg.PortName;
         public int    ChannelCount => _cfg.ChannelCount;
+
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms) — LightControllerEntry.SettleDelayMs 주입. 캐시 히트 시 대기 없음.</summary>
+        public int SettleDelayMs { get; set; }
 
         public LFineLightController(LFineLightConfig cfg)
         {
@@ -47,6 +51,7 @@ namespace QMC.Vision.Optics.LFine
                 };
                 _port.Open();
                 IsConnected = true;
+                _batchCache.Clear();   // 재연결 — 장비 상태 미지수 → 다음 배치는 반드시 송신
                 return Task.FromResult(true);
             }
             catch (Exception ex)
@@ -76,7 +81,7 @@ namespace QMC.Vision.Optics.LFine
             }
             // 밝기 = strobe on-time. 단일 채널 명령(SC)으로 현재 페이지에 송신.
             bool ok = SendFrame(LFineProtocol.ChannelOnTimeFrame(_currentPage, channel, power));
-            if (ok) { _power[channel] = power; if (power > 0) _lastOnPower[channel] = power; }
+            if (ok) { _power[channel] = power; if (power > 0) _lastOnPower[channel] = power; _batchCache.Clear(); }   // 개별 명령 → 배치 캐시 무효화
             return Task.FromResult(ok);
         }
 
@@ -91,7 +96,7 @@ namespace QMC.Vision.Optics.LFine
             }
             // LFine PS 디지털: strobe on-time 이 곧 밝기 — 단일 채널 명령(SC) 으로 현재 페이지에 송신.
             bool ok = SendFrame(LFineProtocol.ChannelOnTimeFrame(_currentPage, channel, onTimeUs));
-            if (ok) { _power[channel] = onTimeUs; if (onTimeUs > 0) _lastOnPower[channel] = onTimeUs; }
+            if (ok) { _power[channel] = onTimeUs; if (onTimeUs > 0) _lastOnPower[channel] = onTimeUs; _batchCache.Clear(); }   // 개별 명령 → 배치 캐시 무효화
             return Task.FromResult(ok);
         }
 
@@ -116,11 +121,13 @@ namespace QMC.Vision.Optics.LFine
             return Task.FromResult(true);
         }
 
-        /// <summary>Stage 79 — 페이지 채널 일괄 적용 = SP 1프레임. 항상 송신(SP 는 데이터 설정일 뿐 발사 아님 —
-        /// 발사는 트리거 HW/ST. 캐시 skip 잔재 제거).</summary>
-        public Task<bool> SetChannelBatchAsync(int page, int[] times)
+        /// <summary>페이지 채널 일괄 적용 = SP 1프레임.
+        /// 이전 송신값과 같으면(캐시 히트) 통신·안정화 대기 모두 생략하고, 값이 달라진 경우에만
+        /// 송신 후 SettleDelayMs 만큼 대기한다(조명 안정화 — 그랩 직전 매번 호출해도 비용 없음).</summary>
+        public async Task<bool> SetChannelBatchAsync(int page, int[] times)
         {
-            if (times == null || times.Length != ChannelCount) return Task.FromResult(false);
+            if (times == null || times.Length != ChannelCount) return false;
+            if (_batchCache.IsHit(page, times)) return true;   // 캐시 히트 — 송신/대기 생략
 
             bool ok = SendFrame(LFineProtocol.PageOnTimeFrame(page, times));   // 페이지 전체 1프레임
             if (ok)
@@ -131,8 +138,10 @@ namespace QMC.Vision.Optics.LFine
                     _power[i + 1] = times[i];
                     if (times[i] > 0) _lastOnPower[i + 1] = times[i];
                 }
+                _batchCache.Store(page, times);
+                if (SettleDelayMs > 0) await Task.Delay(SettleDelayMs).ConfigureAwait(false);   // 조명 안정화 대기
             }
-            return Task.FromResult(ok);
+            return ok;
         }
 
         /// <summary>실 하드웨어 모드(SM 0~3) 런타임 설정 — @SM0000;{mode} 송신. 영속 아님.</summary>

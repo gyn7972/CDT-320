@@ -18,6 +18,10 @@ namespace QMC.Vision.Optics
         /// <summary>이 컨트롤러가 관리하는 채널 수.</summary>
         int    ChannelCount { get; }
 
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms) — LightControllerEntry.SettleDelayMs 에서 주입.
+        /// 배치 적용 시 이전 송신값과 같으면(캐시 히트) 통신·대기 모두 생략된다.</summary>
+        int    SettleDelayMs { get; set; }
+
         /// <summary>시리얼 Open. 실패 시 false + LIGHT-OPEN-FAIL 알람.</summary>
         Task<bool> ConnectAsync();
         /// <summary>시리얼 Close.</summary>
@@ -37,8 +41,9 @@ namespace QMC.Vision.Optics
         /// <summary>Stage 69 — 페이지 전환 (LFine 페이지 모델). PageCount==1 이면 no-op(true).</summary>
         Task<bool> SwitchPageAsync(int page);
 
-        /// <summary>Stage 79 — 한 페이지/배치의 채널 값 일괄 적용 (valuesPerChannel.Length == ChannelCount, 인덱스 0 = 채널 1).
-        /// 항상 송신(캐시 skip 없음 — 데이터 설정 명령이라 동일값 재송신 무해). LFine = SP 1프레임.
+        /// <summary>한 페이지/배치의 채널 값 일괄 적용 (valuesPerChannel.Length == ChannelCount, 인덱스 0 = 채널 1).
+        /// 이전 송신값과 같으면(캐시 히트) 통신을 생략하고, 값이 달라진 경우에만 송신 후
+        /// <see cref="SettleDelayMs"/> 만큼 안정화 대기한다. LFine = SP 1프레임.
         /// Leesos = 전체동일값 LCT 1프레임 / 그 외 LC loop. Sim = 캐시 갱신.</summary>
         Task<bool> SetChannelBatchAsync(int page, int[] valuesPerChannel);
 

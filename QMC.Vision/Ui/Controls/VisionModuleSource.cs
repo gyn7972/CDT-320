@@ -96,6 +96,9 @@ namespace QMC.Vision.Ui.Controls
         {
             var cam = _m?.Camera;
             if (cam == null) return;
+            // 라이브 시작 전 촬상 준비 — 활성 도구(없으면 모듈 기본)의 노출 + 조명 적용.
+            //   조명 컨트롤러는 동일 값이면(캐시 히트) 통신/안정화 대기를 생략한다.
+            try { _m.PrepareToolAcquisition(ActiveToolId); } catch { }
             _onFrame = onFrame;
             _handler = r =>
             {

@@ -83,5 +83,54 @@ namespace QMC.Vision.Optics.LFine
         /// <summary>페이지 전체 on-time 프레임 (SP 명령 단축).</summary>
         public static byte[] PageOnTimeFrame(int page, int[] times)
             => WrapFrame(BuildPageOnTimeCommand(page, times));
+
+        // ── LCP24-100PS/VS 매뉴얼(2021.04) §5 Protocol 추가 명령 ─────────────
+        //  페이지 "00"~"11"(12개), 채널 "00"~"15", ON-TIME 10us 단위 "000"~"150"(0~1500us).
+
+        /// <summary>WP — 현재 페이지 ON-TIME 데이터를 장비 플래시에 저장. 예 page=2 → "WP0200".</summary>
+        public static string BuildWritePageCommand(int page)
+            => string.Format("WP{0:00}00", page);
+
+        /// <summary>WP 프레임 (장비 저장).</summary>
+        public static byte[] WritePageFrame(int page) => WrapFrame(BuildWritePageCommand(page));
+
+        /// <summary>GP — 페이지 ON-TIME 데이터 읽기 요청. 예 page=2 → "GP0200".</summary>
+        public static string BuildGetPageCommand(int page)
+            => string.Format("GP{0:00}00", page);
+
+        /// <summary>GP 프레임 (페이지 데이터 읽기).</summary>
+        public static byte[] GetPageFrame(int page) => WrapFrame(BuildGetPageCommand(page));
+
+        /// <summary>ST — SW 트리거(모드 3). 채널별 발광 여부 16개(1=발광, 0=안함).
+        /// 예 → "ST0000;0;1;0;1;..."(매뉴얼 §5-(7)).</summary>
+        public static string BuildSwTriggerCommand(bool[] channelTrig)
+        {
+            var sb = new StringBuilder("ST0000");
+            for (int i = 0; i < 16; i++)
+                sb.Append(';').Append(channelTrig != null && i < channelTrig.Length && channelTrig[i] ? '1' : '0');
+            return sb.ToString();
+        }
+
+        /// <summary>ST 프레임 (SW 트리거).</summary>
+        public static byte[] SwTriggerFrame(bool[] channelTrig) => WrapFrame(BuildSwTriggerCommand(channelTrig));
+
+        /// <summary>SS — 모드 1 시퀀스 페이지 순서(12스텝) 설정. 예 → "SS0000;00;01;02;..."(매뉴얼 §5-(6)).</summary>
+        public static string BuildSetSequenceCommand(int[] pages12)
+        {
+            var sb = new StringBuilder("SS0000");
+            for (int i = 0; i < 12; i++)
+                sb.AppendFormat(";{0:00}", pages12 != null && i < pages12.Length ? pages12[i] : 0);
+            return sb.ToString();
+        }
+
+        /// <summary>SS 프레임 (시퀀스 설정).</summary>
+        public static byte[] SetSequenceFrame(int[] pages12) => WrapFrame(BuildSetSequenceCommand(pages12));
+
+        /// <summary>SL — 라스트 시퀀스 페이지("00"~"11", 기본 11) 설정. 예 last=5 → "SL0000;05".</summary>
+        public static string BuildSetLastSequenceCommand(int lastPage)
+            => string.Format("SL0000;{0:00}", lastPage);
+
+        /// <summary>SL 프레임 (라스트 시퀀스 페이지).</summary>
+        public static byte[] SetLastSequenceFrame(int lastPage) => WrapFrame(BuildSetLastSequenceCommand(lastPage));
     }
 }
