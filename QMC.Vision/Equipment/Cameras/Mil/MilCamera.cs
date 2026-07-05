@@ -507,7 +507,8 @@ namespace QMC.Vision.Cameras.Mil
         /// 각 디지타이저 슬롯에 MdigAlloc 을 시도해 **실제로 카메라가 잡히는 채널만** 목록에 넣는다.
         /// <para>듀얼/쿼드 링크(멀티링크) 카메라는 MIL 이 링크를 묶어 1개 디지타이저로 잡으므로
         /// 자동으로 1개 항목으로 합쳐지고, 소비된/빈 채널은 목록에서 제외된다.</para>
-        /// MIL 미가용이거나 연결된 카메라가 없으면 빈 목록.
+        /// MIL 미가용(미설치/보드 없음)이면 **가상 항목(Mil/0..)** 을 노출한다 — 개인 PC(Sim 환경)에서도
+        /// 실기와 동일하게 "Mil/n" 을 선택/설정할 수 있게(Sim=Real). 생성은 CameraFactory 가 SimCamera 로 대체.
         /// </summary>
         public static List<CameraInfo> Enumerate()
         {
@@ -515,7 +516,18 @@ namespace QMC.Vision.Cameras.Mil
             try
             {
                 MilSystem.EnsureInit();
-                if (!MilSystem.IsAvailable) return list;
+                if (!MilSystem.IsAvailable)
+                {
+                    for (int i = 0; i < VirtualSlotCount; i++)
+                        list.Add(new CameraInfo
+                        {
+                            Id        = "Mil/" + i,
+                            Model     = "Matrox MIL (가상 — 미설치, Sim 동작)",
+                            Vendor    = "Matrox",
+                            Transport = CameraTransport.CoaXPress
+                        });
+                    return list;
+                }
 
                 int slots = MilSystem.DigitizerCount;
                 if (slots <= 0) slots = 1;
@@ -546,6 +558,15 @@ namespace QMC.Vision.Cameras.Mil
             catch { }
             return list;
         }
+        /// <summary>MIL 미가용 시 목록에 노출할 가상 디지타이저 수 — 실기 없는 개발 PC 용.</summary>
+        private const int VirtualSlotCount = 2;
+
+        /// <summary>MIL SDK/보드 가용 여부(최초 1회 초기화). CameraFactory 가 SimCamera 대체 판단에 사용.</summary>
+        public static bool IsMilAvailable
+        {
+            get { MilSystem.EnsureInit(); return MilSystem.IsAvailable; }
+        }
+
         // Dispose 는 CameraBase.Dispose() (→ Close()) 가 처리. 별도 override 불필요.
     }
 }

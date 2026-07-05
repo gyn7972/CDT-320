@@ -930,6 +930,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> InspectSideTargetAsync(InspectionTarget target, CancellationToken ct)
         {
+            // Bottom 외곽 XYT 푸시(EventSearchDieEnd) 조회 — Side 에서 해당 콜렛 다이의 X/Y/T 사용 근거.
+            // 현재는 가용성 확인/로그만 수행(보정 반영 방식은 공정 담당 확정 후 적용 — TODO).
+            LogBottomXytForSide(target);
+
             int result = await MoveSideXAndVision0PositionAsync(target, ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -1219,6 +1223,47 @@ namespace QMC.CDT320.Sequencing
             return Side == PickerSequenceSide.Front
                 ? await FrontPicker.GetSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
                 : await RearPicker.GetSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>Side 진입 시 Bottom XYT 푸시 가용성 확인 — (fb=자기 그룹, collet=pickerNo) 최신값 로그.
+        /// TODO(공정 확정 대기): XYT 를 Side 목표 T/위치 보정에 반영하는 수식이 정해지면 여기서 target 에 적용.</summary>
+        private void LogBottomXytForSide(InspectionTarget target)
+        {
+            try
+            {
+                if (target == null)
+                    return;
+
+                int fb = Side == PickerSequenceSide.Front ? 0 : 1;
+                QMC.CDT320.VisionComm.BottomXytPush xyt;
+                if (QMC.CDT320.VisionComm.BottomXytStore.TryGet(fb, target.PickerNo, out xyt))
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side 진입 — Bottom XYT 푸시 확인. die=" + (target.Die != null ? target.Die.DieId : "-") +
+                        ", fb=" + fb +
+                        ", collet=" + target.PickerNo +
+                        ", uid=" + xyt.ChipUid +
+                        ", x=" + xyt.X.ToString("F3") +
+                        ", y=" + xyt.Y.ToString("F3") +
+                        ", t=" + xyt.T.ToString("F4") +
+                        ", valid=" + xyt.IsValid +
+                        ", age=" + (DateTime.Now - xyt.ReceivedAt).TotalMilliseconds.ToString("F0") + "ms - Check");
+                }
+                else
+                {
+                    WriteLog("PickerBottomAndSideInspectionSequence",
+                        Name + " Side 진입 — Bottom XYT 푸시 미수신(스토어 없음). fb=" + fb +
+                        ", collet=" + target.PickerNo + " - Check");
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " Bottom XYT 조회 실패(진행에는 영향 없음). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
         }
 
         private string BuildSideTargetName(InspectionTarget target)

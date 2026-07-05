@@ -53,14 +53,14 @@ namespace QMC.Vision.Core
         private static readonly Dictionary<string, ModeState> _states =
             new Dictionary<string, ModeState>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>시퀀스 검사 결과 1건 누적 + 마지막 다이 도달 판정. picker 1~4(자동 구동)만 대상(수동 테스트 제외).</summary>
+        /// <summary>시퀀스 검사 결과 1건 누적 + 마지막 다이 도달 판정. picker 1~8(전역 픽커, 자동 구동)만 대상(수동 테스트 제외).</summary>
         public static void Accumulate(string mode, int picker, int channel, int indexX, int indexY,
                                       bool pass, IDictionary<string, double> values)
         {
             try
             {
                 if (string.IsNullOrEmpty(mode)) return;
-                if (picker < 1 || picker > 4) return;
+                if (picker < 1 || picker > ColletAddress.TotalCollets) return;
                 var cfg = VisionConfigStore.Current;
                 if (cfg == null || !cfg.DataLogEnable) return;
                 var recipe = ActiveRecipeContext.Current;
