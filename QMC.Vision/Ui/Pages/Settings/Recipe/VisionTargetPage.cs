@@ -894,6 +894,44 @@ namespace QMC.Vision.Ui.Pages
             }
 
             if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label + summary;
+
+            // 작업뷰(운영 모니터/핸들러 뷰어) 동기화 — 수동 MATCH 도 통신 MATCH 와 동일하게
+            // 마크/검색 ROI(MatchOverlayStore) + 판정/결과값(ModuleResultStore)을 발행한다.
+            try
+            {
+                string modName = _module?.Name;
+                string key = ResolveToolId() ?? _finder?.Id ?? tag;
+                if (!string.IsNullOrEmpty(modName))
+                {
+                    if (found)
+                    {
+                        double bw = _finder?.TrainRoi?.Width ?? 0.0, bh = _finder?.TrainRoi?.Height ?? 0.0;
+                        var marks = new System.Collections.Generic.List<QMC.Vision.Core.MatchOverlayStore.Mark>();
+                        if (r.Instances != null)
+                            foreach (var inst in r.Instances)
+                                marks.Add(new QMC.Vision.Core.MatchOverlayStore.Mark
+                                {
+                                    X = inst.CenterX, Y = inst.CenterY, Angle = inst.AngleDeg, Score = inst.Score,
+                                    BoxW = inst.BoxW > 0 ? inst.BoxW : bw, BoxH = inst.BoxH > 0 ? inst.BoxH : bh
+                                });
+                        double rx = 0, ry = 0, rw = 0, rh = 0;
+                        var sr = _finder?.SearchRoi;
+                        if (sr != null && sr.Width > 0 && sr.Height > 0)
+                        { rw = sr.Width; rh = sr.Height; rx = sr.CenterX - rw / 2.0; ry = sr.CenterY - rh / 2.0; }
+                        QMC.Vision.Core.MatchOverlayStore.Record(modName, marks.ToArray(), rx, ry, rw, rh);
+                        QMC.Vision.Core.ModuleResultStore.RecordMark(modName, key, bestInst.CenterX, bestInst.CenterY, bestInst.Score);
+                        QMC.Vision.Core.ModuleResultStore.Record(modName, key, ok,
+                            "x=" + bestInst.CenterX.ToString("F1") + ";y=" + bestInst.CenterY.ToString("F1")
+                            + ";r=" + bestInst.AngleDeg.ToString("F2") + ";score=" + score.ToString("F3"));
+                    }
+                    else
+                    {
+                        QMC.Vision.Core.ModuleResultStore.Record(modName, key, false, "match=fail");
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 결과 스토어 발행 실패: " + ex.Message); }
+
             Status("[" + tag + "] " + label);
             // NG 사유(크기 등)를 Log 탭(EventLogger)에도 남겨 진단 용이.
             if (!ok)

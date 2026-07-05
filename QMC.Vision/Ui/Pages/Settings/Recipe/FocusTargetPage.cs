@@ -318,6 +318,20 @@ namespace QMC.Vision.Ui.Pages
                             if (scores[i].HasValue) log.Append("  ROI" + (i + 1) + "=" + scores[i].Value.ToString("F1"));
                         }
                         VisionCommLog.Add(log.ToString());
+                        // 작업 모니터 타일에도 측정 결과 표시 — 통신 FOCUS_BEST 와 동일 키("FOCUS")로 발행.
+                        try
+                        {
+                            var items = new System.Text.StringBuilder();
+                            for (int i = 0; i < scores.Length; i++)
+                                if (scores[i].HasValue)
+                                {
+                                    if (items.Length > 0) items.Append(';');
+                                    items.Append("ROI").Append(i + 1).Append('=').Append(scores[i].Value.ToString("F1"));
+                                }
+                            if (items.Length > 0)
+                                QMC.Vision.Core.ModuleResultStore.Record(_module.Name, "FOCUS", true, items.ToString());
+                        }
+                        catch (Exception ex2) { System.Diagnostics.Debug.WriteLine("[FocusTargetPage] 결과 스토어 발행 실패: " + ex2.Message); }
                         // 그랩된 프레임 즉시 표시(모듈 뷰어 탭 반영분) — 타이머(400ms) 대기 없이 바로 갱신.
                         RefreshSessionView();
                     }));

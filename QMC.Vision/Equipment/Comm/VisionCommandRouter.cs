@@ -117,29 +117,49 @@ namespace QMC.Vision.Comm
             if (!double.TryParse(parts[2], out var wMm)) return "fail:bad width";
             if (!double.TryParse(parts[3], out var hMm)) return "fail:bad height";
             if (!m.Calibrate(wMm, hMm, out var sx, out var sy, out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "SCALE", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             // 모듈별 CameraConfig 스케일 갱신 + 영속(SSOT=모듈)
             var map = m.ExportCameraMapping();
             map.ScaleX = sx; map.ScaleY = sy;
             m.ImportCameraMapping(map);
             try { m.SaveSettings(); } catch { }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "SCALE", true, $"scaleX={sx:F6};scaleY={sy:F6}"); } catch { }
             return $"OK;scaleX={sx:F6};scaleY={sy:F6}";
         }
 
         private static string DoRotCenter(IVisionModule m)
         {
             if (!m.MeasureRotationalCenter(out var corners, out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "ROT_CENTER", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             var sb = new StringBuilder("OK");
+            var items = new StringBuilder();
             for (int i = 0; i < corners.Count; i++)
+            {
                 sb.Append($";x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+                if (items.Length > 0) items.Append(';');
+                items.Append($"x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+            }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "ROT_CENTER", true, items.ToString()); } catch { }
             return sb.ToString();
         }
 
         private static string DoDistort(IVisionModule m)
         {
             if (!m.LearnDistortion(out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "DISTORT", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "DISTORT", true, "distortion=OK"); } catch { }
             return "OK";
         }
 

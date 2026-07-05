@@ -741,6 +741,20 @@ namespace QMC.Vision.Ui.Pages
                     string mod = _module?.Name;
                     if (!string.IsNullOrEmpty(mod))
                     {
+                        // 모듈 최근 결과(판정 + 항목 라인) — 작업 모니터 타일 OK/NG·결과값도 통신 INSPECT 와 동일하게 갱신.
+                        var itemSb = new System.Text.StringBuilder();
+                        if (r.Items != null)
+                            foreach (var it in r.Items)
+                            { if (itemSb.Length > 0) itemSb.Append(';'); itemSb.Append(it.Name).Append('=').Append(it.Value); }
+                        QMC.Vision.Core.ModuleResultStore.Record(mod, ResolveToolId() ?? _inspector.Id, r.IsPass, itemSb.ToString());
+
+                        // 검사 ROI(노랑) — 작업 뷰 오버레이(마크 없음, 통신 INSPECT 와 동일).
+                        var sroi = _inspector.InspectionRoi;
+                        double orx = 0, ory = 0, orw = 0, orh = 0;
+                        if (sroi != null && sroi.Width > 0 && sroi.Height > 0)
+                        { orw = sroi.Width; orh = sroi.Height; orx = sroi.CenterX - orw / 2.0; ory = sroi.CenterY - orh / 2.0; }
+                        QMC.Vision.Core.MatchOverlayStore.Record(mod, new QMC.Vision.Core.MatchOverlayStore.Mark[0], orx, ory, orw, orh);
+
                         if (_inspector is QMC.Vision.Core.SideAppearanceInspector si && si.IsChippingRole && si.LastValid)
                             QMC.Vision.Core.InspectionOverlayStore.Record(mod, new QMC.Vision.Core.InspectionOverlayStore.Geom
                             {

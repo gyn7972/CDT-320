@@ -121,9 +121,18 @@ namespace QMC.Vision.Core
             {
                 r = f.Match(image);
             }
-            if (r == null || !r.Success) return "fail:" + (r?.ErrorMessage ?? "no match");
+            if (r == null || !r.Success)
+            {
+                // 실패도 작업 모니터링 뷰에 NG 로 표시(최근 결과 갱신).
+                try { ModuleResultStore.Record(m.Name, finderId, false, "match=fail"); } catch { }
+                return "fail:" + (r?.ErrorMessage ?? "no match");
+            }
             var b = r.Best;
-            if (b == null) return "fail:no match";
+            if (b == null)
+            {
+                try { ModuleResultStore.Record(m.Name, finderId, false, "match=fail"); } catch { }
+                return "fail:no match";
+            }
 
             // 검출 마크(이미지 좌표) 저장 → 뷰어 메타로 핸들러 오버레이에 표시.
             try { ModuleResultStore.RecordMark(m.Name, finderId, b.CenterX, b.CenterY, b.Score); } catch { }
@@ -171,6 +180,10 @@ namespace QMC.Vision.Core
                 MatchOverlayStore.Record(m.Name, marks.ToArray(), rx, ry, rw, rh);
             }
             catch { }
+
+            // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 MATCH 결과값(위치/각/점수)도 라인으로 표시.
+            try { ModuleResultStore.Record(m.Name, finderId, true,
+                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}"); } catch { }
 
             return $"OK;x={b.CenterX:F3};y={b.CenterY:F3};r={rOut:F3};score={b.Score:F3};width={image.Width};height={image.Height}";   // 항상 픽셀 + 이미지크기(px) — 핸들러가 mm 변환
         }
@@ -366,6 +379,8 @@ namespace QMC.Vision.Core
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
                 f.Train(g.Image);
+                // 학습 완료도 작업 모니터링 뷰 결과 라인으로 표시(통신/수동 공용 스토어).
+                try { ModuleResultStore.Record(m.Name, finderId, true, "train=OK"); } catch { }
                 return "OK";
             }
         }
@@ -605,6 +620,15 @@ namespace QMC.Vision.Core
                 sb.Append(";bestZ=" + (zSum / used).ToString("F4", inv));
                 sb.Append(";bestScore=" + (sSum / used).ToString("F2", inv));
                 sb.Append(";roiN=" + used);
+                // 작업 모니터링 뷰에도 포커스 결과 표시 — 수동 [포커스 측정]과 동일 키("FOCUS").
+                try
+                {
+                    if (m != null)
+                        ModuleResultStore.Record(m.Name, "FOCUS", true,
+                            "bestZ=" + (zSum / used).ToString("F4", inv)
+                            + ";bestScore=" + (sSum / used).ToString("F2", inv) + ";roiN=" + used);
+                }
+                catch { }
             }
             foreach (var row in rows)   // ROI 별 상세(진단/그래프용) — 기존 필드 유지
             {
