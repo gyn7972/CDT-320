@@ -941,7 +941,7 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (targetZone == PickerWorkZone.Bottom &&
+                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
                     IsOppositePickerInPlacePhase() &&
                     !IsOppositePickerYAtAvoidPosition())
                 {
@@ -955,7 +955,7 @@ namespace QMC.CDT320.Sequencing
                     oppositeIsFront,
                     out workAreaZone,
                     out workAreaOwner);
-                if (targetZone == PickerWorkZone.Bottom &&
+                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
                     oppositeWorkActive &&
                     workAreaZone == PickerWorkZone.Output &&
                     !IsOppositePickerYAtAvoidPosition())
@@ -1545,7 +1545,7 @@ namespace QMC.CDT320.Sequencing
                         out oppositeOwner);
 
                     if (oppositeWorkActive &&
-                        (oppositeZone == PickerWorkZone.Bottom || oppositeZone == PickerWorkZone.Side))
+                        PickerZoneInterlockRules.IsProcessZone(oppositeZone))
                     {
                         if (!loggedWait)
                         {
