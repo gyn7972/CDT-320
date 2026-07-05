@@ -206,6 +206,15 @@ namespace QMC.CDT320.VisionComm
             return VisionFocusStartResult.Parse(response.RawLine);
         }
 
+        /// <summary>다음 EPD(노출 종료) 푸시를 1회 대기하는 Task 생성 — 경합 방지를 위해 명령 전송 '전'에 만들어 둘 것.
+        /// Vision 은 FOCUS_VAL 그랩의 노출이 끝나면 즉시 EPD 를 푸시하므로, 핸들러는 이를 받고 바로 다음 위치로
+        /// 이동을 시작할 수 있다(결과 ACK 는 채점 후 도착). 미연결이면 null.</summary>
+        public static Task<bool> WaitExposureDoneAsync(AutoVisionChannel channel, int timeoutMs)
+        {
+            VisionTcpClient client = ResolveClient(channel);
+            return client != null ? client.WaitExposureDoneAsync(timeoutMs) : null;
+        }
+
         public static async Task<VisionFocusValueResult> FocusValueAsync(AutoVisionChannel channel, double motorZ, string camera, string target, int pickupNo, bool initial, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);

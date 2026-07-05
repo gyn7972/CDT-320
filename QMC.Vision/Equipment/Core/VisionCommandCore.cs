@@ -520,14 +520,11 @@ namespace QMC.Vision.Core
             if (parts.Length > 5) int.TryParse(parts[5], out pickup);
             bool isInitial = parts.Length > 6 && IsInitFlag(parts[6]);
 
-            // 응답 = "그랩 완료" ACK. read loop 는 grab + 큐에 넣기만(저장만) 하고 즉시 ACK.
-            // ROI 잘라내기(LockBits) + 채점은 전부 백그라운드 → ACK 지연 = grab 시간뿐.
-            // 오토포커스 내부 grab — ExposureDone(EPD) 푸시 억제(응답 스트림 오염 방지). ExposureDone 은 grab 내에서 동기 발화.
+            // 그랩 — 노출 종료 시 EPD 푸시(억제하지 않음). 핸들러는 EPD 를 받는 즉시 다음 위치로
+            // 이동을 시작할 수 있다(EPD 는 응답 큐와 무관한 비동기 푸시 라인 — 스트림 오염 없음).
+            // 순서: 명령 수신 → 노출 종료 EPD → (전송+채점) → 결과(score) ACK.
             var swGrab = Stopwatch.StartNew();
-            GrabResult g;
-            SuppressExposurePush = true;
-            try { g = m.Grab(); }
-            finally { SuppressExposurePush = false; }
+            GrabResult g = m.Grab();
             swGrab.Stop();
             if (g == null || !g.IsSuccess)
             {
@@ -553,11 +550,25 @@ namespace QMC.Vision.Core
 
             if (rects.Count > 0)
             {
-                LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, 0);
-                // 원본 g 의 소유권을 백그라운드로 이전(거기서 crop/채점 후 Dispose).
-                AutoFocusProcessor.Enqueue(m.Name, cam, tgt, motorZ, isInitial, swGrab.ElapsedMilliseconds,
-                    g, rects.ToArray(), series.ToArray(), imgW, imgH);
-                return $"OK;z={motorZ.ToString("F4", inv)};pickup={pickup};init={(isInitial ? 1 : 0)};queued=1";
+                // 동기 채점 — EPD(노출 종료)는 이미 푸시됐으므로 응답이 채점만큼 늦어도 핸들러 모션을 막지 않는다.
+                // 응답에 평균 score + ROI 별 점수(r{n})를 담아 '결과가 나오면 결과를 보내는' 흐름을 완성한다.
+                var swAlgo = Stopwatch.StartNew();
+                var roiScores = AutoFocusProcessor.ScoreNow(m.Name, cam, tgt, motorZ, isInitial,
+                    swGrab.ElapsedMilliseconds, g, rects.ToArray(), series.ToArray(), imgW, imgH);
+                swAlgo.Stop();
+                LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
+
+                double sum = 0;
+                foreach (var kv in roiScores) sum += kv.Value;
+                double avg = roiScores.Count > 0 ? sum / roiScores.Count : 0;
+                var sbv = new System.Text.StringBuilder();
+                sbv.Append("OK;z=").Append(motorZ.ToString("F4", inv));
+                sbv.Append(";score=").Append(avg.ToString("F2", inv));
+                sbv.Append(";pickup=").Append(pickup);
+                sbv.Append(";init=").Append(isInitial ? 1 : 0);
+                foreach (var kv in roiScores)
+                    sbv.Append(";r").Append(kv.Key).Append('=').Append(kv.Value.ToString("F2", inv));
+                return sbv.ToString();
             }
 
             // ROI 미설정 → 전체 프레임 동기 채점(드문 폴백). 측면(pickup=0)은 시리즈 1로.

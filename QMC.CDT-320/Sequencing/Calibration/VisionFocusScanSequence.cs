@@ -1383,24 +1383,59 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 Result.Samples.Clear();
+
+                // 첫 스캔 위치로 이동 + 안정화(측정 파이프라인 진입 전 1회).
+                int moveResult = await MoveToScanPositionAsync(_scanPositions[0], ct).ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+
                 for (int i = 0; i < _scanPositions.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
                     double position = _scanPositions[i];
-                    int moveResult = await MoveScanAxisAndVerifyAsync(position, ct).ConfigureAwait(false);
-                    if (moveResult != 0)
-                        return moveResult;
 
-                    if (_request.SettleDelayMs > 0)
-                        await Task.Delay(_request.SettleDelayMs, ct).ConfigureAwait(false);
+                    // EPD(노출 종료) 파이프라인 — Vision 은 FOCUS_VAL 노출이 끝나면 즉시 EPD 를 푸시한다.
+                    // EPD 를 받으면 결과(ACK, 채점 후 도착)를 기다리는 동안 다음 위치 이동을 병렬로 시작해
+                    // '이동 ↔ 채점' 이 겹치도록 한다. (경합 방지: EPD 대기 Task 는 명령 전송 '전'에 생성)
+                    Task<bool> epdTask = _useSimulatedVisionFocus
+                        ? null
+                        : VisionCommandService.WaitExposureDoneAsync(ResolveChannel(), _request.VisionTimeoutMs);
 
-                    VisionFocusScanSample sample = await MeasureFocusValueAsync(i + 1, position, i == 0, ct).ConfigureAwait(false);
+                    Task<VisionFocusScanSample> ackTask = MeasureFocusValueAsync(i + 1, position, i == 0, ct);
+
+                    // EPD 와 ACK 중 먼저 오는 쪽까지만 대기 — EPD 를 안 보내는 구버전 Vision 이어도
+                    // ACK 도착 즉시 진행되므로 타임아웃만큼 늘어지지 않는다.
+                    Task<int> moveNextTask = null;
+                    if (epdTask != null)
+                    {
+                        await Task.WhenAny(epdTask, ackTask).ConfigureAwait(false);
+                        bool epdReceived = epdTask.Status == TaskStatus.RanToCompletion && epdTask.Result;
+                        if (epdReceived && i + 1 < _scanPositions.Count)
+                            moveNextTask = MoveToScanPositionAsync(_scanPositions[i + 1], ct);
+                    }
+
+                    VisionFocusScanSample sample = await ackTask.ConfigureAwait(false);
                     Result.Samples.Add(sample);
                     if (!sample.Success)
+                    {
+                        if (moveNextTask != null)
+                            try { await moveNextTask.ConfigureAwait(false); } catch { /* 실패 보고는 FOCUS_VAL 기준 */ }
                         return Fail("VISION-FOCUS-CAL-FOCUS-VAL", "VisionFocusScanSequence",
                             "FOCUS_VAL 응답 실패. 대상=" + BuildTargetLabel() +
                             ", position=" + position.ToString("F3") +
                             ", raw=" + sample.Raw);
+                    }
+
+                    // EPD 미수신(타임아웃/미연결/시뮬) 폴백 — 기존과 동일하게 ACK(그랩 완료) 후 순차 이동.
+                    if (moveNextTask == null && i + 1 < _scanPositions.Count)
+                        moveNextTask = MoveToScanPositionAsync(_scanPositions[i + 1], ct);
+
+                    if (moveNextTask != null)
+                    {
+                        moveResult = await moveNextTask.ConfigureAwait(false);
+                        if (moveResult != 0)
+                            return moveResult;
+                    }
                 }
 
                 CurrentStep = VisionFocusScanStep.FocusBest;
@@ -1413,6 +1448,34 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("VISION-FOCUS-CAL-MEASURE-EX", "VisionFocusScanSequence", "Focus 스캔 측정 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>스캔 위치 이동 + 완료 확인 + 안정화 대기(SettleDelayMs). 성공 0, 실패 결과코드.</summary>
+        private async Task<int> MoveToScanPositionAsync(double position, CancellationToken ct)
+        {
+            try
+            {
+                int result = await MoveScanAxisAndVerifyAsync(position, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (_request.SettleDelayMs > 0)
+                    await Task.Delay(_request.SettleDelayMs, ct).ConfigureAwait(false);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-FOCUS-CAL-SCAN-MOVE-EX", "VisionFocusScanSequence",
+                    "Focus 스캔 위치 이동 예외 발생. position=" + position.ToString("F3") + ", error=" + ex.Message);
             }
             finally
             {
