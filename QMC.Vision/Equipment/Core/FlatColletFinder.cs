@@ -41,7 +41,8 @@ namespace QMC.Vision.Core
             byte[] mask;
             Bitmap res = Collet.StdDevFilter.Apply(image, roi, blk, stdThreshold, useCuda, out backend, out mask);
 
-            // 정밀(블랍): 연결요소 라벨링 최대 블랍 / 고속(모멘트): 전경 2차모멘트. (원본 chkFast 와 동일)
+            // 정밀(블랍): 연결요소 라벨링 최대 블랍 → 변별 외곽 라인 피팅(스파이크에 강건) /
+            // 고속(모멘트): 전경 2차모멘트. (원본 chkFast 와 동일)
             Collet.DetectedRect d = fast
                 ? Collet.BlobRectFinder.FindByMoments(mask, image.Width, image.Height)
                 : Collet.BlobRectFinder.FindLargestRect(mask, image.Width, image.Height);

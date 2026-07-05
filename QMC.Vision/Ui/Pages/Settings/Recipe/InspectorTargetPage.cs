@@ -689,8 +689,19 @@ namespace QMC.Vision.Ui.Pages
         private void DoInspect()
         {
             if (_inspector == null) { Status("ERR: inspector not bound"); return; }
-            var img = CurrentImage;
-            if (img == null) { DoGrab(); img = CurrentImage; }
+            // '그랩 → 검사' — 통신 INSPECT(GrabForTool→Inspect)와 동일하게 항상 새로 촬상해,
+            // 화면 표시/검출 오버레이/결과가 전부 같은 프레임을 쓰게 한다.
+            // 단, [Load]로 불러온 테스트 이미지가 있으면 그 이미지로 검사(오프라인 튜닝 보존).
+            Bitmap img;
+            if (_loadedImage != null)
+            {
+                img = _loadedImage;
+            }
+            else
+            {
+                DoGrab();
+                img = (_lastGrab != null && _lastGrab.IsSuccess) ? _lastGrab.Image : null;
+            }
             if (img == null) { Status("INSPECT: no image"); return; }
             try
             {

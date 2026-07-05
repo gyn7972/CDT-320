@@ -561,6 +561,20 @@ namespace QMC.Vision.Core
                 double sum = 0;
                 foreach (var kv in roiScores) sum += kv.Value;
                 double avg = roiScores.Count > 0 ? sum / roiScores.Count : 0;
+
+                // 메인 모니터링 UI(작업 페이지 타일) 실시간 갱신 — 스캔 중 각 Z 의 포커스 스코어를
+                // 스토어에 반영해 이미지뿐 아니라 스코어도 라이브로 올라오게 한다(스캔 종료 FOCUS_BEST 는 best 로 덮어씀).
+                try
+                {
+                    var live = new System.Text.StringBuilder();
+                    live.Append("z=").Append(motorZ.ToString("F3", inv));
+                    live.Append(";avgScore=").Append(avg.ToString("F1", inv));
+                    foreach (var kv in roiScores)
+                        live.Append(";r").Append(kv.Key).Append('=').Append(kv.Value.ToString("F1", inv));
+                    ModuleResultStore.Record(m.Name, "FOCUS", true, live.ToString());
+                }
+                catch { }
+
                 var sbv = new System.Text.StringBuilder();
                 sbv.Append("OK;z=").Append(motorZ.ToString("F4", inv));
                 sbv.Append(";score=").Append(avg.ToString("F2", inv));
@@ -577,6 +591,9 @@ namespace QMC.Vision.Core
             LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, 0);
             int series0 = pickup >= 1 ? pickup : 1;
             AutoFocusStore.AddSample(cam, tgt, series0, motorZ, score, isInitial);
+            // 메인 모니터링 UI 실시간 스코어 갱신(위 ROI 경로와 동일).
+            try { ModuleResultStore.Record(m.Name, "FOCUS", true,
+                "z=" + motorZ.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv)); } catch { }
             return $"OK;z={motorZ.ToString("F4", inv)};score={score.ToString("F2", inv)};pickup={pickup};init={(isInitial ? 1 : 0)}";
         }
 
