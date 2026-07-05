@@ -433,11 +433,17 @@ namespace QMC.Vision.Core
             AutoFocusProcessor.WaitForDrain(2000);   // 이전 스캔 잔여 백그라운드 처리 정리 후 리셋
             AutoFocusStore.Start(cam, tgt);
             AutoFocusTactLog.MarkCycleStart(cam + "/" + tgt);
-            // 스캔 준비 — FocusFinder 도구의 조명 + 노출 적용(컨트롤러 캐시 히트면 통신 생략),
-            // 이어서 포커스 전용 노출(AutoFocusRoiStore)이 지정돼 있으면 그 값으로 덮어쓴다.
+            PrepareFocusAcquisition(m, cam, tgt);
+            return $"OK;camera={cam};target={tgt}";
+        }
+
+        /// <summary>포커스 촬상 준비 — FocusFinder 도구의 조명 + 노출 적용(컨트롤러 캐시 히트면 통신 생략) 후,
+        /// 포커스 전용 노출(AutoFocusRoiStore.ExposureUs)이 지정돼 있으면 그 값으로 덮어쓴다.
+        /// FOCUS_START(핸들러 스캔)와 포커스 페이지 [포커스 측정]이 공용으로 사용한다.</summary>
+        public static void PrepareFocusAcquisition(IVisionModule m, FocusCamera cam, FocusTarget tgt)
+        {
             try { m?.PrepareToolAcquisition("FocusFinder"); } catch { }
             ApplyFocusExposure(m, cam, tgt);
-            return $"OK;camera={cam};target={tgt}";
         }
 
         /// <summary>포커스 전용 노출 적용 — 지정(&gt;0)된 경우에만 카메라에 쓴다. 실패해도 스캔은 계속.</summary>

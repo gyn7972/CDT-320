@@ -45,7 +45,9 @@ namespace QMC.Vision.Ui.Controls
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ToolbarGrab",
                     (_m?.Name ?? "?") + ": 툴바 Grab, ActiveToolId='" + (ActiveToolId ?? "(null)") + "', 시뮬저장이미지=" + useSaved); } catch { }
 
-                using (var g = useSaved ? _m.GrabForTool(ActiveToolId) : _m.Grab())
+                // 활성 도구가 있으면 GrabForTool 경유 — 도구 전용 노출/조명(PrepareToolAcquisition)이 적용된다.
+                //   (저장이미지 우선 순위는 GrabForTool 내부에서 동일하게 처리.)
+                using (var g = !string.IsNullOrEmpty(ActiveToolId) ? _m.GrabForTool(ActiveToolId) : _m.Grab())
                 {
                     if (g != null && g.IsSuccess && g.Image != null)
                         return (Bitmap)g.Image.Clone();

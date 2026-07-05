@@ -83,6 +83,7 @@ namespace QMC.Vision.Ui.Pages
             grid.Columns["n"].FillWeight = 40;
 
             camView.AttachModule(_module);
+            camView.SetActiveTool("FocusFinder");   // 툴바 Grab/Live 도 FocusFinder 조명/노출을 적용해 촬상
             camView.RoiEdited += camView_RoiEdited;
 
             btnTargetCollet.Click += (s, e) => SelectTarget(FocusTarget.Collet);
@@ -276,6 +277,9 @@ namespace QMC.Vision.Ui.Pages
                 string error = null;
                 try
                 {
+                    // 촬상 준비 — FocusFinder 조명/노출 + 포커스 전용 노출(페이지의 '노출 적용' 저장값) 적용.
+                    //   핸들러 FOCUS_START 와 동일 경로라 측정 조건이 스캔과 일치한다.
+                    VisionCommandCore.PrepareFocusAcquisition(_module, _camera, target);
                     using (GrabResult g = _module.Grab())
                     {
                         if (g == null || !g.IsSuccess || g.Image == null)
