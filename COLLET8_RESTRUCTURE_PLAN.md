@@ -1,15 +1,17 @@
 # COLLET8_RESTRUCTURE_PLAN — 8콜렛(Front4+Back4) 구조 전환 계획
 
-작성: 2026-07-04 · 상태: **분석 완료, 코드 작업 전** (사용자 확인 후 진행)
+작성: 2026-07-04 · 상태: **P1~P4 구현 완료(2026-07-04)** — 잔여: P5 UI, 장비 PC 빌드/사이클 검증
 
 ## 1. 실제 장비 구조 (변경 목표)
 
 - 콜렛 총 **8개** = Front 4개 + Back 4개 (기존 가정 4개는 오류)
-- 공정 순서(순차, 동시 아님):
-  1. Front 콜렛 1~4 Bottom 촬영
-  2. Front 카메라로 4개 촬영 완료
-  3. Back 콜렛 1~4 Bottom 촬영
-  4. Back 카메라로 4개 촬영 완료
+- 공정 순서(순차, 동시 아님) — **2026-07-04 사용자 확정**:
+  1. Front 콜렛 1~4 Bottom 촬영 (순차) → 완료
+  2. Front Side 카메라로 콜렛 1~4 순차 촬영 (콜렛당 0° → 90°) → 완료
+  3. Back 콜렛 1~4 Bottom 촬영 (순차) → 완료
+  4. Back Side 카메라로 콜렛 1~4 순차 촬영 (콜렛당 0° → 90°) → 완료
+- **상호배제**: 한쪽(F/B) 콜렛 4개가 촬영 중이면 다른 쪽은 촬영 불가
+- 커버리지: Front 콜렛 다이=Front 카메라만, Back 콜렛 다이=Back 카메라만 (1:1)
 - 주소 체계: `[FRONT/BACK][콜렛][DIE번호]` → Front=`[0][1~4][die]`, Back=`[1][1~4][die]`
 - **모든 검사/패턴은 콜렛 기준 독립 인스턴스** (8세트)
 
@@ -59,24 +61,34 @@ ColletKey = (fb: 0=Front/1=Back, collet: 1~4)
 검사 단위 키: (fb, collet, dieNo[, channel])
 ```
 
-### 3.2 와이어 포맷 변경 (하위호환 고려)
+### 3.2 와이어 포맷 (확정안)
 
 ```
-MODULE|INSPECTASYNC|inspector|fb|collet|chip_uid[|die_index[|channel]]
-MODULE|INSPECTRESULT|inspector|chip_uid            (유지 — uid 키)
-MODULE|MATCHASYNC|finder|fb|collet|chip_uid ...    (동일 규칙)
+MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid   (고정 8파트, 생략 없음)
+MODULE|INSPECTRESULT|inspector|chip_uid                              (유지 — uid 키)
+MODULE|MATCHASYNC|finder|fb|collet|die_index|channel|chip_uid        (동일 규칙)
 ```
 
-- 파서(`VisionTcpServer.DoInspectAsync`, `VisionCommandRouter`)에서 인자 수로 신/구형 판별 → 이행기 호환
-- `channel`은 Side 0°/90° 전용으로 축소(0/1) — FB 인코딩 용도(2/3) 폐기
+- **신/구형 판별 = 파트 수**: 구형 최대 7파트(`inspector|picker|chip_uid|die_index|channel`) vs 신형 고정 8파트 → `parts.Length == 8`이면 신형. 중간 생략형이 없어 모호성 제거
+- chip_uid를 맨 뒤(가변 길이 문자열)에 두고 숫자 필드는 위치 고정
+- **메뉴얼 테스트(다이 없음)**: die_index=-1 → Vision은 맵 셀 매칭·다이 데이터 집계를 생략하고 검사/결과 응답만 수행. 기존 "uid가 숫자면 die_index로 대체" 폴백(VisionTcpServer.cs:345)은 die_index=-1일 때 발동 금지
+
+| 필드 | 값 | 역할 |
+|---|---|---|
+| fb | 0=Front / 1=Back | 콜렛 그룹 |
+| collet | 1~4 | 기존 picker_id 자리 |
+| chip_uid | 다이 고유 ID (`Die.cs:31` Guid 12자리, MaterialStorage 키) | 결과 매칭 키 — INSPECTRESULT 회수·검사기 간 다이별 집계. **offset/칩위치 아님, 삭제 불가** |
+| die_index | 픽업 순서 1-base, **-1=다이 없음(메뉴얼 테스트)** | 웨이퍼맵 셀 매칭(칩위치는 이 값 담당). -1이면 맵 매칭/다이 집계 생략, 검사만 수행 |
+| channel | Side: 0=0° / 1=90°, Bottom/Bin: **-1**(채널 없음, 현행 기본값 동일) | 기존 0~3의 FB 인코딩(앞=0/1, 뒤=2/3) 폐기 |
+
 - Sim 셀프런(`TcpLoopbackVisionCommandDispatcher`)은 인자 패스스루라 ToolSequence만 고치면 동일 반영 (Sim==Real 원칙)
 
 ### 3.3 Vision 코어
 
 1. `AsyncInspectCore`/`AsyncMatchStore`/`PendingGrabStore`: 키에 `(fb, collet)` 추가. 배치 트리거 = **FB 그룹당 4장** (사이클당 2배치)
 2. `InspectionResultStore`: `[picker 1~4]` → `[fb 0~1][collet 1~4]` (또는 pickerGlobal 1~8)
-3. **콜렛별 검사기/파인더 인스턴스 8세트**: `CopyInspectorConfig` 확장 → `(fb, collet)` 키 딕셔너리. 패턴(콜렛 파인더 포함) 콜렛별 독립 등록
-4. 레시피: 콜렛별 파라미터/패턴 8개 슬롯 (기존 4 → 8 마이그레이션 필요)
+3. **콜렛별 런타임 인스턴스 8세트** (2026-07-04 확정): 파라미터/티칭은 레시피 1벌 공유, 처리 속도용 실행 인스턴스만 `(fb, collet)` 키 딕셔너리 8개 — `CopyInspectorConfig` 방식 확장
+4. 레시피: **슬롯 확장/마이그레이션 불필요** (파라미터 공유 확정). 기존 레시피 그대로 사용
 
 ### 3.4 Vision 시퀀서 (ToolSequence)
 
@@ -93,24 +105,54 @@ MODULE|MATCHASYNC|finder|fb|collet|chip_uid ...    (동일 규칙)
 - InspectionViewerControl 등 1~4 고정 패널 → Front/Back 탭 or 8열
 - Bottom 4-맵/PositionMap 픽커 키 확장
 
-## 4. 사용자 확인 필요 (코드 작업 전 질문)
+## 4. 확인 현황 (2026-07-04)
 
-1. **Side 카메라 커버리지**: Front 콜렛 다이는 Front 카메라만, Back 콜렛 다이는 Back 카메라만 촬영? (기존: 다이 하나를 앞/뒤 카메라 둘 다 촬영) — 다이당 측면 검사 범위가 달라짐
-2. 콜렛별 0°/90° 2트리거는 유지되는지
-3. 콜렛 패턴 8개 = 각각 **별도 티칭(학습) 패턴**인지, 동일 패턴의 런타임 인스턴스 8개인지
-4. Bottom 카메라는 1대 공용(Front 배치 → Back 배치 순차 사용)이 맞는지
-5. 와이어 포맷: `fb|collet` 분리 필드 방식(위 제안) 동의 여부 — 통신 포맷 변경 최소화 원칙 예외 승인
-6. 기존 4픽커 레시피 → 8콜렛 마이그레이션 정책 (Front 값 복사 → Back 초기값?)
+**확정됨**
+1. ~~Side 커버리지~~ → Front 콜렛=Front 카메라만, Back 콜렛=Back 카메라만 (1:1), 상호배제
+2. ~~0°/90°~~ → 콜렛당 0° → 90° 순차 유지 (channel 0/1)
+3. ~~와이어 포맷~~ → 3.2 확정안 (fb 분리 필드 + chip_uid 유지)
+4. ~~Bottom 카메라~~ → Front 배치 → Back 배치 순차 사용
+5. ~~검사/패턴 인스턴스~~ → 콜렛 기준 독립 8세트 (F4+B4)
+
+6. ~~인스턴스 방식~~ → 파라미터/티칭 공유 + **런타임 인스턴스 8개** (속도 목적)
+7. ~~레시피 마이그레이션~~ → 불필요 (파라미터 공유라 기존 레시피 유지)
+
+**미확정 없음 — 코드 작업 가능**
 
 ## 5. 단계별 작업 계획 (승인 후)
 
-| 단계 | 내용 | 범위 |
-|---|---|---|
-| P1 | 주소체계/키 구조 도입 (ColletKey, 스토어 키 확장, 하위호환 파서) | Vision 코어 |
-| P2 | 와이어 포맷 fb 필드 + 핸들러 송신부 | 프로토콜 양측 |
-| P3 | 콜렛별 인스턴스 8세트 + 레시피 8슬롯/마이그레이션 | Vision |
-| P4 | 시퀀스 순차화 (Front→Back), Sim 셀프런 동기 | 핸들러+Vision |
-| P5 | UI 8콜렛 확장 (뷰어/맵) | Vision UI |
-| P6 | 회귀 검증 (`perl tools/verify_all.pl`, `--auto-cycle`) | 전체 |
+| 단계 | 내용 | 범위 | 상태(2026-07-04) |
+|---|---|---|---|
+| P1 | 주소체계/키 구조 (ColletAddress 신설, 스토어 1~8 확장, 하위호환 파서) | Vision 코어 | **완료** |
+| P2 | 와이어 신형 8파트 (서버/라우터/디스패처 파싱 + 핸들러 Client/Service/Adapter 송신) | 프로토콜 양측 | **완료** |
+| P3 | (fb,collet[,ch]) 영속 런타임 인스턴스 — ColletInspectorCache 신설, 레시피 1벌 공유 | Vision | **완료** |
+| P4 | 시퀀스 순차화 — Vision ToolSequence F→B 배치 + Side F/B 게이트. 핸들러는 기존 InspectionArea 배타 + WaitOppositePendingSide 로 이미 보장 확인 | 핸들러+Vision | **완료** |
+| P5 | UI 8콜렛 확장 (InspectionViewerControl p=1..4 루프, 4맵/픽커 패널) | Vision UI | 미착수 |
+| P6 | 검증 — 정적 검사 수행(수정 파일 전체 인코딩/괄호 OK). verify_all 실패분은 기존 트리 노후 베이스라인(파일 이동)으로 본 작업과 무관 확인. **MSBuild 컴파일 + --auto-cycle 은 장비 PC에서 필요** | 전체 | 부분 완료 |
+
+### 구현 파일 목록 (2026-07-04)
+
+- 신규: `QMC.Vision\Equipment\Core\ColletAddress.cs`(주소 SSOT+파서), `ColletInspectorCache.cs`(콜렛별 영속 인스턴스) — csproj 등록됨
+- Vision: VisionTcpServer(DoInspect/DoInspectAsync/DoMatch/DoMatchAsync 신형 8파트), VisionCommandRouter, DirectVisionCommandDispatcher(신형 6인자), AsyncInspectCore(캐시 사용·배치 주석), PendingGrabStore/InspectionResultStore/WaferDataSaver(픽커 1~8), ToolSequence(RunColletBatchesAsync — Bottom/Bin F→B 순차·Side 모듈=fb·상호배제 게이트, 전역 다이순번 환산), VisionModule(90° 채널 주석)
+- 핸들러: VisionTcpClient(신형 오버로드 5종), VisionCommandService(신형 래퍼 5종), AutoVisionRequestService(MatchColletAsync/WaitMatchResultByUidAsync/MatchBottomOffsetAsync(fb,collet)/InspectColletAsync), VisionAdapters(TpuVisionAdapter Fb 유도, 바텀 8콜렛 uid "F1"~"B4", 측면 ch0/1 — pickerNo*10+side 패킹 제거[INSPECT], SideVisionResult 3/4=미사용 true)
+- 구형 와이어(≤7파트)는 전부 하위호환 유지
 
 > 원칙 준수: CDT-310 알고리즘 코어 무변경, Sim==Real, 통신 포맷 변경은 본 건 명시 승인 범위 내.
+
+## 6. Bottom XYT 어싱크 푸시 (EventSearchDieEnd, 2026-07-04 추가 구현)
+
+**요구**: Bottom 외곽(패턴) 탐색이 끝나는 즉시 해당 다이의 X/Y/T 를 어싱크 이벤트로 핸들러에 전달 — Side 공정이 사용. 칩핑/이물(CUDA) 검사 완료를 기다리지 않는다.
+
+**와이어(신규 푸시, EPD/ARM 계열)**: `XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=..`
+— x/y=px(Vision 최종 result.Offset 규약: ChipRoi 보정+0.5 스케일+X/Y 스왑), t=deg, 응답 큐와 무관.
+페이로드 끝에 `valid=0|1` 포함 — **미검출 정책(2026-07-04 확정): 외곽 미검출이면 x/y/t 전부 0 으로 송신하고 valid=0, 핸들러/Side 는 정지하지 않고 진행.** Side 의 XYT 사용 목적은 사이드 위치 보정으로 추정(정확한 수식 미확정 — 훅에서 로그만, 확정 시 적용).
+
+**경로**:
+
+1. `VisionInspector\CDTInspector.cs` — `SearchDieEnd` static 이벤트 신설, `BottomInspect` 의 외곽 확정 지점(주석 "EventSearchDieEnd", CUDA 칩핑 이전)에서 좌표 '사본'으로 최종 규약과 동일한 XYT 를 선계산해 발화. **코어 알고리즘 무변경**(CDT-310 원칙 준수 — 이벤트 발화만 추가).
+2. `QMC.Vision\Equipment\Core\BottomXytPushService.cs`(신규) — 검사 스레드 로컬 컨텍스트(모듈/전역픽커/uid, `VisionCommandCore.InspectOnImageExplicit` 가 주입)와 결합해 백그라운드 Task 로 푸시. 픽커 식별 불가(구형 수동)면 생략.
+3. `VisionTcpServer` — 모듈명→서버 정적 레지스트리 + `PushBottomXyt()` 브로드캐스트.
+4. 핸들러 `VisionTcpClient` — 수신 루프에서 XYT 푸시 파싱 → `BottomXytStore`(신규, (fb,collet)·uid 최신 보관) 기록 + `BottomXytReceived` 이벤트.
+5. `PickerBottomAndSideInspectionSequence.InspectSideTargetAsync` — Side 진입 시 (fb, collet) XYT 조회/로그 훅. **보정 반영 수식은 공정 담당 확정 대기(TODO)** — 확정 시 이 지점에서 target 에 적용.
+
+**한계/메모**: 레거시 폴백(InspectLegacy) 경로는 이벤트 미발화(라이브러리 경로 전용). BottomXytStore.Clear() 랏 경계 호출은 미배선(로그 전용 단계라 무해). Sim 셀프런 루프백은 푸시를 무시(핸들러 연결 시에만 소비).
