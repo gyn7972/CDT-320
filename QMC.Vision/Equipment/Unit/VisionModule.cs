@@ -41,6 +41,8 @@ namespace QMC.Vision.Modules
         public event Action<string, string> Alarmed;
 
         private volatile bool _exposureEndFired;
+        private volatile bool _grabInProgress;     // 모듈 Grab 진행 중 — 카메라 노출 이벤트→ExposureDone 승격 허용 창(라이브 발화 스팸 방지)
+        private volatile bool _relayExposureEnd;   // 이 그랩에서 카메라 이벤트를 ExposureDone 으로 승격할지(EPD 억제 플래그를 그랩 시작 시 캡처)
 
         private readonly object _tapLock = new object();
         private Bitmap _lastFrame;
@@ -250,9 +252,14 @@ namespace QMC.Vision.Modules
             Camera.FrameReceived += OnCameraFrameReceived;
         }
 
+        /// <summary>카메라 HW 노출 종료 이벤트(SDK 콜백 스레드) — 모듈 Grab 진행 중에만 ExposureDone(EPD)으로 승격.
+        /// 라이브 중 발화(Mil FRAME_START 폴백은 매 프레임 발화)는 EPD 로 승격하지 않는다.</summary>
         private void OnCameraExposureEnded()
         {
+            if (!_grabInProgress) return;
             _exposureEndFired = true;
+            // EPD 억제 플래그(ThreadStatic)는 SDK 콜백 스레드에서 보이지 않으므로 Grab 시작 시 캡처한 값으로 판단.
+            if (!_relayExposureEnd) return;
             try { ExposureDone?.Invoke(Name); } catch { }
         }
 
@@ -324,11 +331,20 @@ namespace QMC.Vision.Modules
             if (Camera == null) return GrabResult.Fail("camera not assigned", Name);
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
+
+            // 실카메라 노출 종료(ExposureEnded) → ExposureDone(EPD) 승격 — 그랩 진행 중에만 허용.
+            // 노출 이벤트는 전송 완료보다 먼저 도착하므로 핸들러가 EPD 수신 즉시 기구 동작을 앞당길 수 있다.
             _exposureEndFired = false;
-            
+            _relayExposureEnd = !VisionCommandCore.SuppressExposurePush;
+            _grabInProgress = true;
+
+            GrabResult g;
+            try { g = Camera.Grab(timeoutMs); }
+            finally { _grabInProgress = false; }
+
+            // 폴백 — 노출 이벤트 미지원 카메라(Sim 등)는 그랩 완료 시점에 발화(핸들러 EPD 대기 멈춤 방지).
+            // 명령 스레드 동기 발화라 Comm 링크의 ThreadStatic EPD 억제가 그대로 동작한다.
             if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
-            
-            var g = Camera.Grab(timeoutMs);
             if (g != null && g.IsSuccess)
             {
                 // 합성 OFF 빈 프레임(sim-blank)은 뷰어(_lastFrame)에 반영하지 않고 이전 화면 유지.
@@ -576,7 +592,7 @@ namespace QMC.Vision.Modules
 
         public void Dispose()
         {
-            try { if (Camera != null) Camera.FrameReceived -= OnCameraFrameReceived; } catch { }
+            try { if (Camera != null) { Camera.ExposureEnded -= OnCameraExposureEnded; Camera.FrameReceived -= OnCameraFrameReceived; } } catch { }
             try { Camera?.Dispose(); } catch { }
             lock (_tapLock) { _lastFrame?.Dispose(); _lastFrame = null; }
         }
