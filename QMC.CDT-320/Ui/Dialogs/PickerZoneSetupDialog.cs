@@ -224,14 +224,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
-                // Ranges가 겹친다. 어쩔수없다.
-                //string validationMessage;
-                //if (!ValidateGridRanges(out validationMessage))
-                //{
-                //    MessageDialog.Show(validationMessage, "Picker Zone",
-                //        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                //    return;
-                //}
+                string validationMessage;
+                if (!ValidateGridRanges(out validationMessage))
+                {
+                    MessageDialog.Show(validationMessage, "Picker Zone",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
                 ApplyGridToSetup(setup);
                 ApplySafetyToSelectedPickerSetup();
@@ -580,6 +579,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 StringBuilder builder = new StringBuilder();
+                double tolerance;
+                if (!TryParseDouble(txtTolerance.Text, out tolerance) || tolerance <= 0.0)
+                {
+                    message = "Zone 허용오차 값이 올바르지 않습니다.";
+                    return false;
+                }
 
                 for (int i = 0; i < gridZones.Rows.Count; i++)
                 {
@@ -609,7 +614,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                             return false;
                         }
 
-                        if (RangesOverlap(firstMin, firstMax, secondMin, secondMax))
+                        if (RangesOverlap(firstMin, firstMax, secondMin, secondMax, tolerance))
                             builder.AppendLine(Convert.ToString(first.Cells[colZone.Index].Value) + " / " +
                                                Convert.ToString(second.Cells[colZone.Index].Value));
                     }
@@ -620,7 +625,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 message = "Picker X Zone 범위가 겹쳐 저장할 수 없습니다.\r\n\r\n" +
                           builder +
-                          "\r\n각 Zone의 Min/Max를 서로 겹치지 않게 다시 설정하세요.";
+                          "\r\nZone 허용오차(" + FormatNumber(tolerance) + "mm)를 포함해 서로 겹치지 않게 다시 설정하세요.";
                 return false;
             }
             catch (Exception ex)
@@ -656,12 +661,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             return true;
         }
 
-        private static bool RangesOverlap(double firstMin, double firstMax, double secondMin, double secondMax)
+        private static bool RangesOverlap(double firstMin, double firstMax, double secondMin, double secondMax, double tolerance)
         {
-            double aMin = Math.Min(firstMin, firstMax);
-            double aMax = Math.Max(firstMin, firstMax);
-            double bMin = Math.Min(secondMin, secondMax);
-            double bMax = Math.Max(secondMin, secondMax);
+            double safeTolerance = Math.Max(0.0, tolerance);
+            double aMin = Math.Min(firstMin, firstMax) - safeTolerance;
+            double aMax = Math.Max(firstMin, firstMax) + safeTolerance;
+            double bMin = Math.Min(secondMin, secondMax) - safeTolerance;
+            double bMax = Math.Max(secondMin, secondMax) + safeTolerance;
 
             return aMin <= bMax && bMin <= aMax;
         }

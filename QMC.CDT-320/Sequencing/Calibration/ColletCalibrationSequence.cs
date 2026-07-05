@@ -225,7 +225,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 _targetPickerX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition") +
                                  ResolvePickerPitchXOffset("DieBottomPosition", _colletIndex);
                 _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
-                _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_colletIndex), "BottomPosition");
+                double bottomTeachingZ = GetPickerTeachingPosition(GetPickerZAxis(_colletIndex), "BottomPosition");
+                string focusStartReason;
+                if (!TryResolveBottomColletFocusStartPosition(out _targetPickerZ, out focusStartReason))
+                    return Fail("COLLET-CAL-NO-FOCUS-POS", Name,
+                        "Collet Calibration 시작 Z 위치로 사용할 Bottom Collet Focus Cal 등록값이 없습니다. side=" +
+                        _calibrationSide + ", colletNo=" + _colletNo +
+                        ", " + focusStartReason +
+                        ", Vision Focus Cal에서 Bottom Collet Best Focus를 Apply/Save 후 다시 실행하세요.");
                 _basePickerT = GetPickerTeachingPosition(GetPickerTAxis(_colletIndex), "BottomPosition");
 
                 double baseBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
@@ -235,7 +242,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", colletNo=" + _colletNo +
                     ", formulaX=bottomX+pitchOffsetX=" + baseBottomX.ToString("F6") + "+" + pitchOffsetX.ToString("F6") + "=" + _targetPickerX.ToString("F6") +
                     ", formulaY=bottomY=" + _targetPickerY.ToString("F6") +
-                    ", formulaZ=selectedColletBottomZ=" + _targetPickerZ.ToString("F6") +
+                    ", formulaZ=bottomColletFocusDefaultZ=" + _targetPickerZ.ToString("F6") +
+                    ", bottomTeachingZ=" + bottomTeachingZ.ToString("F6") +
                     ", formulaT=selectedColletBottomT=" + _basePickerT.ToString("F6") +
                     ", xAxis=" + PickerAxis.PickerX +
                     ", yAxis=" + PickerAxis.PickerY +
@@ -277,6 +285,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
                 ApplyPickerAxisPositionForSimulation(GetPickerZAxis(_colletIndex), _targetPickerZ);
+
+                result = await RunAutoFocusIfNeededAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = ColletCalibrationStep.FindCollet;
                 return 0;
@@ -647,10 +659,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                     double theta = match.AngleDeg;
                     if (Math.Abs(theta) <= _settings.ThetaToleranceDeg)
                     {
-                        int focusResult = await RunAutoFocusIfNeededAsync(ct).ConfigureAwait(false);
-                        if (focusResult != 0)
-                            return focusResult;
-
                         CurrentStep = ColletCalibrationStep.AdjustXyToCenter;
                         return 0;
                     }
@@ -1099,6 +1107,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     MinusRange = focusSettings.MinusRange,
                     PlusRange = focusSettings.PlusRange,
                     Step = focusSettings.Step,
+                    FineMinusRange = focusSettings.FineMinusRange,
+                    FinePlusRange = focusSettings.FinePlusRange,
+                    FineStep = focusSettings.FineStep,
                     RepeatCount = focusSettings.RepeatCount,
                     MoveVelocity = focusSettings.MoveVelocity,
                     MoveAcceleration = focusSettings.MoveAcceleration,
@@ -1106,6 +1117,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     SettleDelayMs = focusSettings.SettleDelayMs,
                     MotionTimeoutMs = focusSettings.MotionTimeoutMs,
                     VisionTimeoutMs = focusSettings.VisionTimeoutMs,
+                    VisionBestTimeoutMs = focusSettings.VisionBestTimeoutMs,
                     ReturnToDefaultAfterScan = false,
                     UpdatedBy = "ColletCalibration"
                 };
@@ -1114,11 +1126,29 @@ namespace QMC.CDT320.Sequencing.Calibration
                 int result = await focus.RunAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-AUTO-FOCUS", Name,
-                        "Collet T 보정 후 AutoFocus 실행에 실패했습니다. side=" + _calibrationSide +
+                        "Collet Calibration 시작 AutoFocus 실행에 실패했습니다. side=" + _calibrationSide +
                         ", colletNo=" + _colletNo +
                         ", message=" + focus.Result.Message);
 
                 _targetPickerZ = focus.Result.BestPosition;
+                PickerAxis zAxis = GetPickerZAxis(_colletIndex);
+                result = await MovePickerAxisAndVerifyAsync(
+                    zAxis,
+                    _targetPickerZ,
+                    "Collet Calibration AutoFocus Best Z",
+                    ct,
+                    BottomFinderTargetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ApplyPickerAxisPositionForSimulation(zAxis, _targetPickerZ);
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalAutoFocus",
+                    "Collet Calibration AutoFocus Best Z 적용. side=" + _calibrationSide +
+                    ", colletNo=" + _colletNo +
+                    ", zAxis=" + zAxis +
+                    ", bestZ=" + _targetPickerZ.ToString("F6") +
+                    ", score=" + focus.Result.BestScore.ToString("F6") +
+                    ", sampleCount=" + focus.Result.SampleCount);
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1135,6 +1165,48 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private bool TryResolveBottomColletFocusStartPosition(out double position, out string reason)
+        {
+            position = 0.0;
+            reason = string.Empty;
+
+            if (Context == null || Context.Machine == null ||
+                Context.Machine.VisionUnit == null ||
+                Context.Machine.VisionUnit.Config == null)
+            {
+                reason = "Vision Focus Cal 설정 객체가 없습니다.";
+                return false;
+            }
+
+            VisionFocusCalibrationData focusData = Context.Machine.VisionUnit.Config.FocusCalibration;
+            if (focusData == null)
+            {
+                reason = "FocusCalibration 설정이 없습니다.";
+                return false;
+            }
+
+            focusData.EnsureObjects();
+            VisionFocusPositionRecord record = focusData.GetColletRecord(_calibrationSide, _colletNo);
+            if (!HasRegisteredFocusDefaultPosition(record))
+            {
+                reason = "recordValid=" + (record != null && record.Valid) +
+                         ", default=" + (record != null ? record.DefaultPosition.ToString("F6") : "null") +
+                         ", best=" + (record != null ? record.BestPosition.ToString("F6") : "null");
+                return false;
+            }
+
+            position = record.DefaultPosition;
+            return true;
+        }
+
+        private static bool HasRegisteredFocusDefaultPosition(VisionFocusPositionRecord record)
+        {
+            if (record == null)
+                return false;
+
+            return record.Valid || Math.Abs(record.DefaultPosition) > 0.0000001;
         }
 
         private int CalculateOffset()

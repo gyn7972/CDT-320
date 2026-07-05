@@ -2186,6 +2186,13 @@ namespace QMC.CDT320
             return 0.0;
         }
 
+        public void SetPickerAxisTeachingPosition(PickerAxis axis, string positionName, double position)
+        {
+            SetPickerTeachingPosition(axis, positionName, position);
+            EventLogger.Write(EventKind.Event, "QMC", "PK-TEACH",
+                Name + "." + axis + "." + positionName + "=" + position.ToString("0.######"));
+        }
+
         public bool ValidatePickerTeachingComplete()
         {
             foreach (PickerAxis axis in axes.Keys)

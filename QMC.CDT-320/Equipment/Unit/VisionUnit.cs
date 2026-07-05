@@ -650,6 +650,13 @@ namespace QMC.CDT320
             return 0.0;
         }
 
+        public void SetVisionAxisTeachingPosition(VisionAxis axis, string positionName, double position)
+        {
+            SetVisionTeachingPosition(axis, positionName, position);
+            EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH",
+                axis + "." + positionName + "=" + position.ToString("0.######"));
+        }
+
         public bool ValidateVisionTeachingComplete()
         {
             return Recipe.FrontSideVision.AvoidPosition != 0.0 &&
