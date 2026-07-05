@@ -270,22 +270,30 @@ namespace QMC.Vision.Ui.Pages
                 catch { }
 
                 // MATCH 결과 오버레이(찾은 위치/각/박스 + 검색 ROI) — 시퀀서/핸들러 MATCH 결과 반영.
+                // 스토어가 비어 있으면(새 그랩 시작 시 GrabForTool 이 지움) 뷰 오버레이도 즉시 지운다 —
+                // 새 프레임에 직전 검출이 겹쳐 보이지 않게(검사 완료 시 새 오버레이 기록으로 갱신).
                 try
                 {
-                    if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null &&
-                        QMC.Vision.Core.MatchOverlayStore.TryGet(m.Name, out var ov))
+                    if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null)
                     {
-                        var roi = (ov.RoiW > 0 && ov.RoiH > 0)
-                            ? new RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
-                            : RectangleF.Empty;
-                        System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
-                        if (ov.Marks != null && ov.Marks.Length > 0)
+                        if (QMC.Vision.Core.MatchOverlayStore.TryGet(m.Name, out var ov))
                         {
-                            marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
-                            foreach (var k in ov.Marks)
-                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
+                            var roi = (ov.RoiW > 0 && ov.RoiH > 0)
+                                ? new RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
+                                : RectangleF.Empty;
+                            System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
+                            if (ov.Marks != null && ov.Marks.Length > 0)
+                            {
+                                marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
+                                foreach (var k in ov.Marks)
+                                    marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
+                            }
+                            _viewByMod[i].SetOverlay(roi, marks);
                         }
-                        _viewByMod[i].SetOverlay(roi, marks);
+                        else
+                        {
+                            _viewByMod[i].SetOverlay(RectangleF.Empty, null);
+                        }
                     }
                 }
                 catch { }
@@ -305,17 +313,8 @@ namespace QMC.Vision.Ui.Pages
                 }
                 catch { }
 
-                // 대기(비-LIVE)면 이전 검출 오버레이 제거 — 정지/유휴 중 직전 오버레이가 남지 않게.
-                try
-                {
-                    bool liveNow = (now - _lastActiveTick[i]) <= LiveTimeoutMs;
-                    if (!liveNow && _viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null)
-                    {
-                        _viewByMod[i].CustomOverlayPaint = null;                         // 칩핑 프로파일/기준선
-                        _viewByMod[i].SetOverlay(System.Drawing.RectangleF.Empty, null); // 매치/결함 마크
-                    }
-                }
-                catch { }
+                // 유휴 중에도 마지막 검출 그림은 유지한다 — 오버레이 제거는 새 그랩 시점
+                // (GrabForTool 이 스토어를 비움 → 위의 스토어-빈 분기)에만 일어난다.
 
                 UpdateCardState(i, now);
             }

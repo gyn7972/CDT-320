@@ -613,6 +613,8 @@ namespace QMC.Vision.Ui.Pages
             _lastGrab = _module.GrabForTool(toolId);
             if (_lastGrab.IsSuccess)
             {
+                // 새 그랩 — 직전 검사 오버레이/판정/결과 그리드를 먼저 지운다(INSPECT 완료 시 새 결과로 갱신).
+                ClearInspectResult();
                 _cam.SetFrame(_lastGrab);
                 OnImageReady(_lastGrab.Image);
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");

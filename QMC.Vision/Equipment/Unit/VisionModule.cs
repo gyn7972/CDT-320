@@ -372,6 +372,17 @@ namespace QMC.Vision.Modules
         /// 되돌려 도구 간 노출이 결정적으로 유지되게 한다.</summary>
         public GrabResult GrabForTool(string toolId, int timeoutMs = 3000)
         {
+            // 새 촬상 시작 — 이전 검출 오버레이(마크/박스/검출 기하)를 먼저 지운다.
+            // 새 프레임 위에 직전 결과가 겹쳐 '업데이트 안 되는 것처럼' 보이는 문제 방지.
+            // 검사/매치가 끝나면 각 경로가 새 오버레이를 기록한다(결과 라인·판정 텍스트는 유지).
+            try
+            {
+                QMC.Vision.Core.MatchOverlayStore.Clear(Name);
+                QMC.Vision.Core.InspectionOverlayStore.Clear(Name);
+                QMC.Vision.Core.ModuleResultStore.ClearMarks(Name);
+            }
+            catch (Exception ex) { LogGrab("오버레이 스토어 초기화 실패: " + ex.Message); }
+
             // 도구 저장이미지는 '카메라 시뮬레이션'일 때만 — 실카메라면 설정과 무관하게 항상 실제 촬상.
             if (IsSimCameraMode)
             {

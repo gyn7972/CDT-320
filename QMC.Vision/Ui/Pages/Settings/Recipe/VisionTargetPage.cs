@@ -476,6 +476,17 @@ namespace QMC.Vision.Ui.Pages
             _lastGrab = _module.GrabForTool(ResolveToolId());
             if (_lastGrab.IsSuccess)
             {
+                // 새 그랩 — 직전 검출 오버레이(매칭 박스/콜렛 사각/판정 표시)를 먼저 지운다.
+                // 새 프레임에 옛 결과가 겹쳐 '업데이트 안 되는 것처럼' 보이지 않게. MATCH 완료 시 새로 그린다.
+                try
+                {
+                    _cam.ClearDetectOverlay();
+                    _cam.ClearColletOverlay();
+                    _cam.ClearResultOverlay();
+                    _cam.SetOverlay(ActiveRoi(), (MatchResult)null);   // ROI 표시만 유지
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 그랩 오버레이 초기화 실패: " + ex.Message); }
+
                 _cam.SetFrame(_lastGrab);
                 OnImageReady(_lastGrab.Image);
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
