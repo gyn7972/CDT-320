@@ -44,7 +44,7 @@ namespace QMC.CDT320
     public sealed class VisionConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
-        [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; }
+        [DataMember] public PickerInspectionPipelineMode PickerInspectionMode { get; set; } = PickerInspectionPipelineMode.BottomAndSidePipeline;
         [DataMember] public VisionFocusCalibrationData FocusCalibration { get; set; } = new VisionFocusCalibrationData();
         public CalibrationData CalibrationData { get; set; } = new CalibrationData();
 

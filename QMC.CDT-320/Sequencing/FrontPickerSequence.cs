@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -220,6 +222,16 @@ namespace QMC.CDT320.Sequencing
                 if (front == null || front.IsFrontPickerInAvoidPosition())
                     return;
 
+                string safeReason;
+                if (!CanMoveIdlePickerToAvoid(front, out safeReason))
+                {
+                    WriteLog("EnsureIdlePickerAvoidAsync",
+                        "FrontPicker 작업 대기 중 Idle Avoid 이동을 생략합니다. " +
+                        "현재 기준: 실제 Picker가 Process 존이거나 phase/workArea가 남아 있으면 자동 Avoid 이동하지 않습니다. " +
+                        "reason=" + safeReason + " - Check");
+                    return;
+                }
+
                 using (SequenceResourceLease pickerLease = await Context.Resources
                     .AcquireAsync(SequenceResourceKind.FrontPicker, "FrontPicker:IdleAvoid", 200, ct, false)
                     .ConfigureAwait(false))
@@ -229,6 +241,14 @@ namespace QMC.CDT320.Sequencing
 
                     if (front.IsFrontPickerInAvoidPosition())
                         return;
+
+                    if (!CanMoveIdlePickerToAvoid(front, out safeReason))
+                    {
+                        WriteLog("EnsureIdlePickerAvoidAsync",
+                            "FrontPicker Idle Avoid 이동 직전 조건이 바뀌어 이동을 생략합니다. " +
+                            "reason=" + safeReason + " - Check");
+                        return;
+                    }
 
                     WriteLog("EnsureIdlePickerAvoidAsync", "FrontPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
                     int result = await front.MoveToFrontPickerAvoidPosition(false).ConfigureAwait(false);
@@ -252,6 +272,64 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("EnsureIdlePickerAvoidAsync", "FrontPicker 작업 대기 중 Avoid 이동 예외 발생: " + ex.Message + " - Failed");
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CanMoveIdlePickerToAvoid(PickerFrontUnit front, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (front == null)
+                {
+                    reason = "FrontPickerUnit=null";
+                    return false;
+                }
+
+                if (Context != null && Context.PickerPhases != null)
+                {
+                    PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                    if (snapshot.Front.Phase != PickerProcessPhase.Idle)
+                    {
+                        reason = "FrontPicker phase가 Idle이 아닙니다. phase=" + snapshot.Front;
+                        return false;
+                    }
+                }
+
+                PickerWorkZone workZone;
+                string owner;
+                if (PickerZoneInterlockRules.TryGetPickerWorkArea(true, out workZone, out owner))
+                {
+                    reason = "FrontPicker workArea가 남아 있습니다. zone=" + workZone + ", owner=" + owner;
+                    return false;
+                }
+
+                PickerWorkZone xZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
+                    Context != null ? Context.Machine : null,
+                    true);
+                if (PickerZoneInterlockRules.IsProcessZone(xZone))
+                {
+                    reason = "FrontPickerX가 Process 존에 있습니다. xZone=" + xZone;
+                    return false;
+                }
+
+                if (xZone == PickerWorkZone.Unknown &&
+                    !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    reason = "FrontPickerX 존을 확정할 수 없고 FrontPickerY가 Avoid가 아닙니다.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Idle Avoid 안전 조건 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
             finally
             {

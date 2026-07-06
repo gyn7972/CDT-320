@@ -223,22 +223,33 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                // 아래 조건이 어떻게 되지? 지금 Home Step에서 피더가 먼저 잡고 픽커가 홈 잡는데?
-
                 string pickerDetail;
-                // 현재 기준: Home InputFeederY 이동 전 FrontPicker가 Input 존에 있으면 차단한다.
-                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
+                // 현재 기준: Home InputFeederY는 PickerY가 Home/Avoid이고 Picker X/Y/Z가 정지 상태면 초기 홈 이동을 허용한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransportForFeederHome(machine, true, PickerWorkZone.Input, out pickerDetail))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
-                        "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        "InputFeederY HOME 이동 차단. FrontPicker가 Input zone을 사용 중이거나 Home 안전 상태가 아닙니다. " + pickerDetail,
                         out reason);
 
-                // 현재 기준: Home InputFeederY 이동 전 RearPicker가 Input 존에 있으면 차단한다.
-                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
+                // 현재 기준: Home InputFeederY는 RearPicker도 동일한 Home 안전 기준을 통과해야 한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransportForFeederHome(machine, false, PickerWorkZone.Input, out pickerDetail))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
-                        "InputFeederY 이동 차단. RearPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        "InputFeederY HOME 이동 차단. RearPicker가 Input zone을 사용 중이거나 Home 안전 상태가 아닙니다. " + pickerDetail,
                         out reason);
+
+                // 기존 조건: Home InputFeederY도 일반 이송처럼 Picker가 Input zone이면 무조건 차단했다.
+                // 현재 필요 여부: 사용 안 함. 초기화 순서상 Picker 홈 전 X=0/Y=0 상태가 Input으로 잡힐 수 있어 Home 전용 안전 기준을 사용한다.
+                //if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                //        out reason);
+                //if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY 이동 차단. RearPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                //        out reason);
 
                 //string axisReason;
 

@@ -911,13 +911,29 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 VisionUnit vision = Context != null && Context.Machine != null ? Context.Machine.VisionUnit : null;
-                return vision != null &&
-                       vision.Config != null &&
-                       vision.Config.PickerInspectionMode == PickerInspectionPipelineMode.BottomAndSidePipeline;
+                if (vision == null || vision.Config == null)
+                    return true;
+
+                if (vision.Config.PickerInspectionMode == PickerInspectionPipelineMode.BottomAndSidePipeline)
+                    return true;
+
+                if (Options == null || Options.RunMode == SequenceRunMode.Auto)
+                {
+                    // 현재 기준: Auto에서는 Bottom 후 Y/X Avoid 복귀 없이 Bottom/Side 통합 검사만 사용한다.
+                    WriteLog("PickerProcessSequence",
+                        Name + " Auto Bottom/Side 검사는 통합 파이프라인으로 강제합니다. " +
+                        "기존 조건: VisionConfig.PickerInspectionMode=" + vision.Config.PickerInspectionMode +
+                        "이면 Serial Bottom 후 Side 경로를 사용할 수 있었습니다. " +
+                        "현재 필요 여부: 실장비 안전을 위해 Auto에서는 사용하지 않습니다. side=" + Side + " - Check");
+                    return true;
+                }
+
+                return false;
             }
             catch
             {
-                return false;
+                // 현재 기준: 모드 판정 실패 시 Auto 공정은 Serial 구경로보다 통합 파이프라인을 우선한다.
+                return true;
             }
             finally
             {

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -224,6 +226,16 @@ namespace QMC.CDT320.Sequencing
                 if (rear == null || rear.IsRearPickerInAvoidPosition())
                     return;
 
+                string safeReason;
+                if (!CanMoveIdlePickerToAvoid(rear, out safeReason))
+                {
+                    WriteLog("EnsureIdlePickerAvoidAsync",
+                        "RearPicker 작업 대기 중 Idle Avoid 이동을 생략합니다. " +
+                        "현재 기준: 실제 Picker가 Process 존이거나 phase/workArea가 남아 있으면 자동 Avoid 이동하지 않습니다. " +
+                        "reason=" + safeReason + " - Check");
+                    return;
+                }
+
                 using (SequenceResourceLease pickerLease = await Context.Resources
                     .AcquireAsync(SequenceResourceKind.RearPicker, "RearPicker:IdleAvoid", 200, ct, false)
                     .ConfigureAwait(false))
@@ -233,6 +245,14 @@ namespace QMC.CDT320.Sequencing
 
                     if (rear.IsRearPickerInAvoidPosition())
                         return;
+
+                    if (!CanMoveIdlePickerToAvoid(rear, out safeReason))
+                    {
+                        WriteLog("EnsureIdlePickerAvoidAsync",
+                            "RearPicker Idle Avoid 이동 직전 조건이 바뀌어 이동을 생략합니다. " +
+                            "reason=" + safeReason + " - Check");
+                        return;
+                    }
 
                     WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중이므로 Avoid 위치로 이동합니다. - Start");
                     int result = await rear.MoveToRearPickerAvoidPosition(false).ConfigureAwait(false);
@@ -256,6 +276,64 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("EnsureIdlePickerAvoidAsync", "RearPicker 작업 대기 중 Avoid 이동 예외 발생: " + ex.Message + " - Failed");
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CanMoveIdlePickerToAvoid(PickerRearUnit rear, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (rear == null)
+                {
+                    reason = "RearPickerUnit=null";
+                    return false;
+                }
+
+                if (Context != null && Context.PickerPhases != null)
+                {
+                    PickerPhaseSnapshot snapshot = Context.PickerPhases.GetSnapshot();
+                    if (snapshot.Rear.Phase != PickerProcessPhase.Idle)
+                    {
+                        reason = "RearPicker phase가 Idle이 아닙니다. phase=" + snapshot.Rear;
+                        return false;
+                    }
+                }
+
+                PickerWorkZone workZone;
+                string owner;
+                if (PickerZoneInterlockRules.TryGetPickerWorkArea(false, out workZone, out owner))
+                {
+                    reason = "RearPicker workArea가 남아 있습니다. zone=" + workZone + ", owner=" + owner;
+                    return false;
+                }
+
+                PickerWorkZone xZone = PickerZoneInterlockRules.GetPickerCurrentXZone(
+                    Context != null ? Context.Machine : null,
+                    false);
+                if (PickerZoneInterlockRules.IsProcessZone(xZone))
+                {
+                    reason = "RearPickerX가 Process 존에 있습니다. xZone=" + xZone;
+                    return false;
+                }
+
+                if (xZone == PickerWorkZone.Unknown &&
+                    !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    reason = "RearPickerX 존을 확정할 수 없고 RearPickerY가 Avoid가 아닙니다.";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "Idle Avoid 안전 조건 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
             }
             finally
             {

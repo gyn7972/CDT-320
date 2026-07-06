@@ -448,6 +448,48 @@ namespace QMC.CDT320.Interlocks
             return IsPickerBlockingZoneTransport(machine, isFront, zone, null, string.Empty, out detail);
         }
 
+        public static bool IsPickerBlockingZoneTransportForFeederHome(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerWorkZone zone,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                PickerZoneTransportState state = ResolvePickerZoneTransportState(machine, isFront, zone, null, string.Empty);
+                detail = state.Describe();
+                if (!state.BlocksTransport)
+                    return false;
+
+                if (state.WorkAreaBlocksTransport || state.UnknownUnsafe)
+                    return true;
+
+                string idleDetail;
+                // 현재 기준: Feeder HOME 중에는 PickerY가 Home/Avoid이고 Picker X/Y/Z가 정지 상태면 초기 홈 이동을 허용한다.
+                if (state.IsRequestedZoneActive &&
+                    state.YAvoid &&
+                    ArePickerXyzAxesIdle(machine, isFront, out idleDetail))
+                {
+                    detail += ", feederHomeBypass=PickerY safe and Picker X/Y/Z idle. " + idleDetail;
+                    return false;
+                }
+
+                detail += ", feederHomeBlock=Picker is not safe for feeder home.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = (isFront ? "FrontPicker" : "RearPicker") +
+                    " feeder home zone transport check failed. error=" + ex.Message;
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool IsPickerBlockingZoneTransport(
             CDT320_Machine machine,
             bool isFront,
@@ -473,6 +515,44 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        private static bool ArePickerXyzAxesIdle(CDT320_Machine machine, bool isFront, out string detail)
+        {
+            detail = string.Empty;
+
+            BaseAxis x = GetPickerX(machine, isFront);
+            BaseAxis y = GetPickerY(machine, isFront);
+            if (IsAxisMoving(x))
+            {
+                detail = BuildPickerSideName(isFront) + "PickerX is moving.";
+                return false;
+            }
+
+            if (IsAxisMoving(y))
+            {
+                detail = BuildPickerSideName(isFront) + "PickerY is moving.";
+                return false;
+            }
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                BaseAxis z = GetPickerZ(machine, isFront, zAxes[i]);
+                if (!IsAxisMoving(z))
+                    continue;
+
+                detail = BuildPickerSideName(isFront) + zAxes[i] + " is moving.";
+                return false;
+            }
+
+            detail = BuildPickerSideName(isFront) + "Picker X/Y/Z idle.";
+            return true;
+        }
+
+        private static bool IsAxisMoving(BaseAxis axis)
+        {
+            return axis != null && axis.IsMoving;
         }
 
         public static PickerZoneTransportState ResolvePickerZoneTransportState(
@@ -754,16 +834,26 @@ namespace QMC.CDT320.Interlocks
                     !IsAvoidZone(targetZone) &&
                     IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
                 {
+                    string shareDetail;
+                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 X 이동을 허용한다.
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    {
+                        // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 X 이동을 무조건 차단했다.
+                        // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
+                    }
+                    else
+                    {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
                         BuildXBlockedMessage(
                             movingName,
-                            targetZone + " 작업 영역을 반대 픽커가 사용 중입니다. owner=" + occupiedOwner,
+                            targetZone + " 작업 영역을 반대 픽커가 사용 중입니다. owner=" + occupiedOwner + ", " + shareDetail,
                             ownX,
                             ownY,
                             currentZone,
                             targetZone),
                         out reason);
+                    }
                 }
 
                 if (IsAvoidZone(targetZone))
@@ -771,9 +861,29 @@ namespace QMC.CDT320.Interlocks
                     if (IsPickerYAtAvoid(request.Machine, isFront))
                         return true;
 
+                    string avoidFacingDetail;
+                    // 현재 기준: X Avoid 복귀는 자기 PickerY가 전진 상태여도 양쪽 PickerY가 동시에 전진하지 않으면 허용한다.
+                    if (CanMovePickerXByOppositeYInterlock(
+                        request.Machine,
+                        isFront,
+                        request.TargetValue,
+                        "X축 Avoid 복귀",
+                        request.TargetName,
+                        out avoidFacingDetail))
+                    {
+                        return true;
+                    }
+
+                    // 기존 조건: X Avoid 이동도 자기 PickerY가 Avoid 또는 0 위치가 아니면 무조건 차단했다.
+                    // 현재 필요 여부: 사용 안 함. X Avoid 복귀는 한쪽 PickerY만 전진 상태인 경우 허용하고 양쪽 동시 전진만 차단한다.
+                    //return MotionGuardRuleHelpers.Block(
+                    //    movingName,
+                    //    BuildXBlockedMessage(movingName, "Avoid 위치로 X축 이동하려면 자기 PickerY가 Avoid 또는 0 위치여야 합니다.", ownX, ownY, currentZone, targetZone),
+                    //    out reason);
+
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        BuildXBlockedMessage(movingName, "Avoid/InputAvoid/OutputAvoid 위치로 X축 이동하려면 자기 PickerY가 Avoid 또는 0 위치여야 합니다.", ownX, ownY, currentZone, targetZone),
+                        movingName + " X Avoid 복귀 불가: " + avoidFacingDetail,
                         out reason);
                 }
 
@@ -1083,6 +1193,60 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        private static bool CanAutoShareProcessWorkAreaWhenOppositeYSafe(
+            MotionGuardRuleContext request,
+            bool isFront,
+            PickerWorkZone targetZone,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                {
+                    detail = "Auto Process 공유 판단 불가: request/machine=null";
+                    return false;
+                }
+
+                if (request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
+                {
+                    detail = "Manual 이동은 Process 작업영역 공유 예외를 적용하지 않습니다.";
+                    return false;
+                }
+
+                if (request.Intent == null || !request.Intent.InspectionContinuous)
+                {
+                    detail = "Auto 검사 연속 이동 태그가 없습니다.";
+                    return false;
+                }
+
+                if (!IsProcessZone(targetZone))
+                {
+                    detail = "대상 존이 Process가 아닙니다. targetZone=" + targetZone;
+                    return false;
+                }
+
+                bool otherFront = !isFront;
+                if (IsPickerYOutOrMovingOut(request.Machine, otherFront, null))
+                {
+                    detail = "같은 Process 존에서 상대 PickerY가 전진/이동 중입니다. 상대 PickerY가 실제 Avoid 또는 0 위치여야 합니다.";
+                    return false;
+                }
+
+                detail = "Auto 검사 연속 이동이고 상대 PickerY가 실제 Avoid 또는 0 위치입니다.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                detail = "Auto Process 공유 판단 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static PickerWorkZone ParseWorkZoneToken(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -1170,16 +1334,27 @@ namespace QMC.CDT320.Interlocks
                     !IsAvoidZone(targetZone) &&
                     IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
                 {
+                    string shareDetail;
+                    // 현재 기준: Auto Bottom/Side 연속동작은 반대 PickerY가 실제 Avoid/Home이면 같은 Process 점유 중에도 Y 전진을 허용한다.
+                    if (CanAutoShareProcessWorkAreaWhenOppositeYSafe(request, isFront, targetZone, out shareDetail))
+                    {
+                        // 기존 조건: 반대 Picker가 같은 Process 작업 영역을 점유하면 Y 위치와 무관하게 Y 전진을 무조건 차단했다.
+                        // 현재 필요 여부: Manual에는 유지하되, Auto 검사 파이프라인은 반대 Y 안전 상태를 기준으로 허용한다.
+                    }
+                    else
+                    {
                     string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
                     return MotionGuardRuleHelpers.Block(
                         movingName,
                         movingName + " Y축 전진 이동 불가: " + targetZone +
                         " 작업 영역을 " + otherActiveName +
                         "가 사용 중입니다. owner=" + occupiedOwner +
+                        ", " + shareDetail +
                         ", targetZone=" + targetZone +
                         ", target=" + request.TargetValue.ToString("0.###") +
                         ", targetName=" + request.TargetName,
                         out reason);
+                    }
                 }
 
                 bool otherFront = !isFront;
@@ -1401,6 +1576,110 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        public static bool VerifyPickerXOppositeYClearance(
+            MotionGuardRuleContext request,
+            bool isFront,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                    return true;
+
+                string detail;
+                // 현재 기준: X 안전거리 안에서는 Front/Rear PickerY가 동시에 전진 상태일 때만 차단한다.
+                if (CanMovePickerXByOppositeYInterlock(
+                    request.Machine,
+                    isFront,
+                    request.TargetValue,
+                    "X축 진입",
+                    request.TargetName,
+                    out detail))
+                {
+                    return true;
+                }
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: " + detail,
+                    out reason);
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " X축 상대 PickerY 거리 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        private static bool CanMovePickerXByOppositeYInterlock(
+            CDT320_Machine machine,
+            bool isFront,
+            double targetX,
+            string moveName,
+            string targetName,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (machine == null)
+                    return true;
+
+                bool ownOut = IsPickerYOutOrMovingOut(machine, isFront, null);
+                if (!ownOut)
+                    return true;
+
+                bool otherFront = !isFront;
+                bool otherOut = IsPickerYOutOrMovingOut(machine, otherFront, null);
+                if (!otherOut)
+                    return true;
+
+                BaseAxis ownX = GetPickerX(machine, isFront);
+                BaseAxis ownY = GetPickerY(machine, isFront);
+                BaseAxis otherX = GetPickerX(machine, otherFront);
+                BaseAxis otherY = GetPickerY(machine, otherFront);
+                if (ownX == null || otherX == null)
+                    return true;
+
+                double clearance = ResolvePickerYFacingXClearance(machine);
+                if (clearance <= 0.0)
+                    return true;
+
+                double otherXTarget = ResolveAxisPathTarget(otherX);
+                // 현재 기준: X 엔코더 현재/목표 경로가 안전거리 안에 들어오지 않으면 양쪽 Y가 전진 상태여도 X 이동은 허용한다.
+                if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, targetX, otherX.ActualPosition, otherXTarget, clearance))
+                    return true;
+
+                detail = BuildFacingYBlockedDetail(
+                    isFront,
+                    moveName,
+                    targetName,
+                    ownX,
+                    ownY,
+                    otherX,
+                    otherY,
+                    targetX,
+                    ownY != null ? ownY.ActualPosition : 0.0,
+                    otherXTarget,
+                    clearance);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                detail = "X축 상대 PickerY 거리 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static bool IsPickerYForwardOrMovingForward(CDT320_Machine machine, bool isFront)
         {
             return IsPickerYOutOrMovingOut(machine, isFront, null);
@@ -1535,13 +1814,11 @@ namespace QMC.CDT320.Interlocks
             double otherTargetX,
             double clearance)
         {
-            string otherName = isFront ? "RearPicker" : "FrontPicker";
             double distance = ownX != null && otherX != null
                 ? Math.Abs(ownX.ActualPosition - otherX.ActualPosition)
                 : 0.0;
 
-            return moveName + " 불가: " + otherName +
-                   "Y가 전진 상태이고 Front/Rear PickerX 엔코더 경로가 마주보는 안전거리 안에 있습니다. " +
+            return moveName + " 불가: Front/Rear PickerY가 동시에 전진 상태이고 PickerX 엔코더 경로가 마주보는 안전거리 안에 있습니다. " +
                    "한쪽 PickerY를 실제 Avoid 또는 0 위치로 이동한 뒤 진행하세요. " +
                    "xDistance=" + distance.ToString("0.###") +
                    ", requiredClearance=" + clearance.ToString("0.###") +

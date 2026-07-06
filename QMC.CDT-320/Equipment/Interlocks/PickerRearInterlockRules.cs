@@ -112,19 +112,20 @@ namespace QMC.CDT320.Interlocks
                         ", targetName=" + (request != null ? request.TargetName : "<null>"),
                         out reason);
 
-                // 현재 기준: Input 진입은 Z Avoid/0 이상, ExpandingZ 0 이하, InputFeederY Avoid/0 이하, Feeder Down, InputVisionX Avoid/0 이하, 상대 FrontPickerY Avoid일 때만 허용한다.
+                // 현재 기준: Input 진입은 Z Avoid/0 이상, ExpandingZ 0 이하, InputFeederY Avoid/0 이하, Feeder Down, InputVisionX Avoid/0 이하, X 안전거리 안에서 양쪽 PickerY 동시 전진을 금지한다.
                 if (targetZone == PickerWorkZone.Input &&
-                    !VerifyManualRearPickerXInputEntry(machine, out reason))
+                    !VerifyManualRearPickerXInputEntry(request, machine, out reason))
                     return false;
 
-                // 현재 기준: Output 진입은 Z Avoid/0 이상, GoodStageZ Process 이하, OutputFeederY Avoid/0 이하, Feeder Down, OutputVisionX Avoid/0 이하, 상대 FrontPickerY Avoid일 때만 허용한다.
+                // 현재 기준: Output 진입은 Z Avoid/0 이상, GoodStageZ Process 이하, OutputFeederY Avoid/0 이하, Feeder Down, OutputVisionX Avoid/0 이하, X 안전거리 안에서 양쪽 PickerY 동시 전진을 금지한다.
                 if (targetZone == PickerWorkZone.Output &&
-                    !VerifyManualRearPickerXOutputEntry(machine, out reason))
+                    !VerifyManualRearPickerXOutputEntry(request, machine, out reason))
                     return false;
 
-                // 현재 기준: Process 존을 다른 존에서 진입할 때는 RearPickerZ0~Z3가 Avoid 또는 0 이상 위치여야 한다.
+                // 현재 기준: Manual Process 존 진입은 RearPickerZ0~Z3가 Avoid 또는 0 이상 위치여야 한다.
                 if (PickerZoneInterlockRules.IsManualPickerXProcessZone(targetZone) &&
                     !PickerZoneInterlockRules.IsManualPickerXProcessZone(currentZone) &&
+                    !CanKeepRearPickerZDuringXMove(request) &&
                     !VerifyRearPickerZAxesAvoidOrNonNegative(machine != null ? machine.PickerRearUnit : null, "RearPickerX", out reason))
                     return false;
 
@@ -161,7 +162,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyManualRearPickerXInputEntry(CDT320_Machine machine, out string reason)
+        private static bool VerifyManualRearPickerXInputEntry(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -185,11 +186,18 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyInputVisionXAtAvoidOrBelowZero(machine != null ? machine.InputStageUnit : null, "RearPickerX", out reason))
                 return false;
 
-            // 현재 기준: RearPickerX Input 진입 전 상대 FrontPickerY는 Avoid 위치여야 한다.
-            return VerifyFrontPickerYAvoidForRearPickerX(machine, out reason);
+            // 현재 기준: RearPickerX Input 진입 전 X 안전거리 안에서 Front/Rear PickerY가 동시에 전진하면 차단한다.
+            if (!PickerZoneInterlockRules.VerifyPickerXOppositeYClearance(request, false, "RearPickerX", out reason))
+                return false;
+
+            // 기존 조건: RearPickerX Input 진입 전 상대 FrontPickerY는 거리와 무관하게 무조건 Avoid 위치여야 했다.
+            // 현재 필요 여부: 사용 안 함. X 안전거리 안에서도 한쪽 PickerY만 전진한 상태는 허용하고 양쪽 동시 전진만 차단한다.
+            //return VerifyFrontPickerYAvoidForRearPickerX(machine, out reason);
+
+            return true;
         }
 
-        private static bool VerifyManualRearPickerXOutputEntry(CDT320_Machine machine, out string reason)
+        private static bool VerifyManualRearPickerXOutputEntry(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -213,8 +221,15 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputVisionXAtAvoidOrBelowZero(machine != null ? machine.OutputStageUnit : null, "RearPickerX", out reason))
                 return false;
 
-            // 현재 기준: RearPickerX Output 진입 전 상대 FrontPickerY는 Avoid 위치여야 한다.
-            return VerifyFrontPickerYAvoidForRearPickerX(machine, out reason);
+            // 현재 기준: RearPickerX Output 진입 전 X 안전거리 안에서 Front/Rear PickerY가 동시에 전진하면 차단한다.
+            if (!PickerZoneInterlockRules.VerifyPickerXOppositeYClearance(request, false, "RearPickerX", out reason))
+                return false;
+
+            // 기존 조건: RearPickerX Output 진입 전 상대 FrontPickerY는 거리와 무관하게 무조건 Avoid 위치여야 했다.
+            // 현재 필요 여부: 사용 안 함. X 안전거리 안에서도 한쪽 PickerY만 전진한 상태는 허용하고 양쪽 동시 전진만 차단한다.
+            //return VerifyFrontPickerYAvoidForRearPickerX(machine, out reason);
+
+            return true;
         }
 
         private static bool VerifyRearPickerZAxesAvoidOrNonNegative(PickerRearUnit picker, string movingName, out string reason)
@@ -581,6 +596,21 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             if (IsInspectionZHoldMove(request))
+                return true;
+
+            string fineAlignDetail;
+            return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail);
+        }
+
+        private static bool CanKeepRearPickerZDuringXMove(MotionGuardRuleContext request)
+        {
+            // 현재 기준: Auto Bottom/Side 검사 연속 X 이동은 PickerZ가 검사 높이를 유지할 수 있다.
+            if (request == null || request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
+                return false;
+
+            if (request.Intent != null &&
+                request.Intent.InspectionContinuous &&
+                IsInspectionZHoldMove(request))
                 return true;
 
             string fineAlignDetail;
