@@ -32,17 +32,19 @@ MODULE|FOCUS_VAL|<motorZ>|<camera>|<target>|[pickupNo]|[init]
 - `camera` / `target` : 위와 동일.
 - `pickupNo` : **Picker 번호 `1`~`4`**. 측면은 `0`(→ 내부 단일 시리즈 1로 매핑).
 - `init` : `1`/`INIT`/`TRUE` 면 이 샘플을 **최초값(점 표시)** 으로 지정. 생략 시 `0`.
-- **노출종료 EPD 푸시 + 결과 ACK**: Vision 은 grab 의 **노출이 끝나는 즉시 `EPD|MODULE` 푸시**를 보낸다
-  (푸시는 응답 큐와 무관한 비동기 라인). 핸들러는 **EPD 를 받고 즉시 다음 Z 로 이동**을 시작할 수 있다
-  (노출 후 이동 → 흔들림/빈 촬상 없음). 이어서 Vision 은 ROI 채점을 마친 뒤 **score 를 담은 ACK** 로 응답한다.
-  순서: `FOCUS_VAL` 수신 → 노출 종료 `EPD` → (전송+채점) → 결과 `ACK`.
-- 채점 동작: [설정 > 오토 포커스]에서 지정한 ROI 들을 `AutoFocusCore.Score(image, roi, AutoFocusThreshold)` 로 채점 →
-  각 ROI 시리즈(1~4)에 `(motorZ, score)` **누적**(append). ROI 미설정이면 전체 프레임 1점(측면=시리즈1). 스텝별 택타임은 `AutoFocusTactLog`.
-- 응답(채점 완료 — 평균 score + ROI 별 점수): `OK;z=12.3400;score=52.10;pickup=2;init=0;r1=53.20;r2=51.00;r3=52.40;r4=51.80`
+- **노출종료 즉시 ACK + EPD**: Vision 은 grab 을 워커로 분리하고, 카메라 **ExposureEnd 이벤트를 받는 즉시
+  ACK 를 회신**한다(같은 시점에 `EPD|MODULE` 푸시도 나감). 영상 전송/버퍼 카피(Grab 완료)와 채점을
+  기다리지 않으므로 핸들러는 **노출이 끝나자마자 다음 Z 로 이동**할 수 있다 — 스텝 시간은 노출+이동만으로 결정.
+  순서: `FOCUS_VAL` 수신 → 노출 종료 → **즉시 `EPD` + `ACK`** → (백그라운드: 전송 → crop → 채점 → 누적).
+- 채점 동작(백그라운드 `AutoFocusProcessor`): [설정 > 오토 포커스]에서 지정한 ROI 들을
+  `AutoFocusCore.Score(image, roi, AutoFocusThreshold)` 로 채점 → 각 ROI 시리즈(1~4)에 `(motorZ, score)`
+  **누적**(append) + 작업 페이지 타일 라이브 스코어 갱신. ROI 미설정이면 전체 프레임 1점(측면=시리즈1).
+  스텝별 택타임은 `AutoFocusTactLog`. 연속 FOCUS_VAL 은 직전 grab 전송 완료 후 촬상(내부 직렬화).
+- 응답(노출 종료 시점, score 미포함 — 채점은 백그라운드): `OK;z=12.3400;pickup=2;init=0;queued=1`
 - 테스트 버튼(설정 > 오토 포커스)도 동일: FOCUS_VAL/FOCUS_BEST 모두 응답 수신.
 
-핸들러 스캔 루프: `FOCUS_START` → (`FOCUS_VAL` → EPD 수신 시 다음 Z 이동을 ACK(채점) 대기와 **병렬** 시작) 반복 →
-응답의 score 로 best 판단(또는 `FOCUS_BEST`). EPD 미수신(구버전/타임아웃)이면 기존처럼 ACK 후 순차 이동으로 폴백.
+핸들러 스캔 루프: `FOCUS_START` → (`FOCUS_VAL` → EPD/ACK 수신 즉시 다음 Z 이동) 반복 → `FOCUS_BEST` 로
+best 회수(백그라운드 채점 완료까지 Vision 이 대기 후 응답).
 
 > 하위호환: 인자 없는 `MODULE|FOCUS_VAL` 단독 호출은 기존 4-ROI(Left/Right top·bottom) 측정으로 동작.
 

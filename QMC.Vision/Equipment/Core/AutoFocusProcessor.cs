@@ -230,6 +230,21 @@ namespace QMC.Vision.Core
             }
             swAlgo.Stop();
 
+            // 메인 모니터링 UI(작업 페이지 타일) 라이브 스코어 — 채점 완료 시점에 각 Z 의 스코어를 반영.
+            // (스캔 종료 FOCUS_BEST 가 best 요약으로 덮어쓴다.)
+            try
+            {
+                if (cnt > 0 && !string.IsNullOrEmpty(job.Module))
+                {
+                    var live = new StringBuilder();
+                    live.Append("z=").Append(job.MotorZ.ToString("F3", inv));
+                    live.Append(";avgScore=").Append((sum / cnt).ToString("F1", inv));
+                    // rd 에는 진단 문자열이 있으므로 outScores 대신 시리즈별 점수를 다시 붙인다.
+                    ModuleResultStore.Record(job.Module, "FOCUS", true, live.ToString());
+                }
+            }
+            catch { /* UI 스토어 기록 실패는 채점에 영향 없음 */ }
+
             try
             {
                 double score = cnt > 0 ? sum / cnt : 0;

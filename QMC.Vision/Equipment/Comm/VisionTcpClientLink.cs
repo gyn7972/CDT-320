@@ -143,9 +143,14 @@ namespace QMC.Vision.Comm
 
         private void OnExposureDone(string moduleName)
         {
-            // 오토포커스 등 내부 grab 중에는 EPD 푸시 안 함(ACK 응답 스트림 오염 방지).
             if (QMC.Vision.Core.VisionCommandCore.SuppressExposurePush) return;
-            Send($"EPD|{moduleName}");
+            // 이 콜백은 카메라 노출종료 훅(MIL 내부 스레드)에서 동기 호출된다 — 여기서 TCP write 를
+            // 직접 하면 그 시간만큼 그래버의 이미지 전송/카피 파이프라인이 밀린다.
+            // EPD 송신은 스레드풀로 비동기 큐잉하고 콜백은 즉시 반환한다(카메라 지연 0).
+            System.Threading.ThreadPool.QueueUserWorkItem(_s =>
+            {
+                try { Send($"EPD|{moduleName}"); } catch { /* 송신 실패는 Send 내부 로그 */ }
+            });
         }
         private void OnAlarmed(string moduleName, string reason) => Send($"ARM|{moduleName}|{reason}");
 

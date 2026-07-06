@@ -445,6 +445,7 @@ namespace QMC.Vision.Core
             if (parts == null || parts.Length < 4) return "fail:need camera target";
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
             if (!AutoFocusStore.TryParseTarget(parts[3], out var tgt)) return "fail:bad target";
+            WaitLastFocusGrab(m != null ? m.Name : null, 5000);   // 이전 스캔의 마지막 grab 전송/투입 완료 대기
             AutoFocusProcessor.WaitForDrain(2000);   // 이전 스캔 잔여 백그라운드 처리 정리 후 리셋
             AutoFocusStore.Start(cam, tgt);
             AutoFocusTactLog.MarkCycleStart(cam + "/" + tgt);
@@ -520,81 +521,116 @@ namespace QMC.Vision.Core
             if (parts.Length > 5) int.TryParse(parts[5], out pickup);
             bool isInitial = parts.Length > 6 && IsInitFlag(parts[6]);
 
-            // 그랩 — 노출 종료 시 EPD 푸시(억제하지 않음). 핸들러는 EPD 를 받는 즉시 다음 위치로
-            // 이동을 시작할 수 있다(EPD 는 응답 큐와 무관한 비동기 푸시 라인 — 스트림 오염 없음).
-            // 순서: 명령 수신 → 노출 종료 EPD → (전송+채점) → 결과(score) ACK.
+            // ── 노출 종료 즉시 응답 ──
+            // 그랩(노출→전송→버퍼 카피)을 워커로 분리하고, 카메라 ExposureEnd 이벤트가 오는 '즉시' ACK 를
+            // 회신한다(EPD 푸시와 거의 동시). 영상 전송/카피/채점을 기다리지 않으므로 핸들러는 노출이
+            // 끝나자마자 다음 Z 로 이동할 수 있다. 채점은 백그라운드 큐(AutoFocusProcessor), 결과는 FOCUS_BEST 회수.
+            //
+            // 직전 샘플의 전송/카피가 아직 진행 중이면 완료를 기다린다(카메라 단발 그랩 직렬화 —
+            // 핸들러 이동+정착 시간이면 보통 끝나 있어 실질 대기 0).
+            WaitLastFocusGrab(m.Name, 5000);
+
+            var expEvt = new System.Threading.ManualResetEventSlim(false);
+            Action<string> onExp = _n => { try { expEvt.Set(); } catch { } };
+            m.ExposureDone += onExp;
+
             var swGrab = Stopwatch.StartNew();
-            GrabResult g = m.Grab();
-            swGrab.Stop();
-            if (g == null || !g.IsSuccess)
+            var grabTask = System.Threading.Tasks.Task.Run(() =>
             {
-                string err = g != null ? g.ErrorMessage : "grab";
-                if (g != null) g.Dispose();
+                try { return m.Grab(); }
+                catch (Exception ex) { return GrabResult.Fail("grab 예외: " + ex.Message, m.Name); }
+            });
+
+            // 노출 종료 또는 그랩 종료(실패 포함) 중 먼저 오는 쪽까지만 대기.
+            // (HW 노출 이벤트 미지원 카메라는 모듈 폴백이 그랩 완료 시점에 발화 → 기존 타이밍과 동일)
+            try
+            {
+                System.Threading.WaitHandle.WaitAny(new System.Threading.WaitHandle[]
+                    { expEvt.WaitHandle, ((IAsyncResult)grabTask).AsyncWaitHandle }, 5000);
+            }
+            finally { m.ExposureDone -= onExp; }
+            long expMs = swGrab.ElapsedMilliseconds;
+
+            // 그랩이 노출 전에 실패로 끝났으면 실패 응답(정상이면 아직 전송 중이라 미완료).
+            if (grabTask.IsCompleted && (grabTask.Result == null || !grabTask.Result.IsSuccess))
+            {
+                string err = grabTask.Result != null ? grabTask.Result.ErrorMessage : "grab";
+                try { grabTask.Result?.Dispose(); } catch { }
                 return "fail:" + err;
             }
 
-            int imgW = g.Image != null ? g.Image.Width : 0;
-            int imgH = g.Image != null ? g.Image.Height : 0;
-
-            // 잘라낼 ROI 영역만 수집(픽셀 작업 없음, 즉시). 실제 crop/채점/Dispose 는 백그라운드.
+            // 백그라운드: 그랩 완료 시 ROI 잘라 채점 큐 투입 — 응답과 완전히 분리.
             Roi[] afRois = AutoFocusRoiStore.GetRois(cam, tgt);
-            var rects = new System.Collections.Generic.List<System.Drawing.Rectangle>();
-            var series = new System.Collections.Generic.List<int>();
-            for (int i = 0; i < afRois.Length; i++)
+            string modName = m.Name;
+            double mz = motorZ;
+            bool init0 = isInitial;
+            int pickup0 = pickup;
+            var scoreTask = grabTask.ContinueWith(t =>
             {
-                Roi roi = afRois[i];
-                if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
-                rects.Add(roi.BoundingBox);
-                series.Add(i + 1);
-            }
-
-            if (rects.Count > 0)
-            {
-                // 동기 채점 — EPD(노출 종료)는 이미 푸시됐으므로 응답이 채점만큼 늦어도 핸들러 모션을 막지 않는다.
-                // 응답에 평균 score + ROI 별 점수(r{n})를 담아 '결과가 나오면 결과를 보내는' 흐름을 완성한다.
-                var swAlgo = Stopwatch.StartNew();
-                var roiScores = AutoFocusProcessor.ScoreNow(m.Name, cam, tgt, motorZ, isInitial,
-                    swGrab.ElapsedMilliseconds, g, rects.ToArray(), series.ToArray(), imgW, imgH);
-                swAlgo.Stop();
-                LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, swAlgo.ElapsedMilliseconds);
-
-                double sum = 0;
-                foreach (var kv in roiScores) sum += kv.Value;
-                double avg = roiScores.Count > 0 ? sum / roiScores.Count : 0;
-
-                // 메인 모니터링 UI(작업 페이지 타일) 실시간 갱신 — 스캔 중 각 Z 의 포커스 스코어를
-                // 스토어에 반영해 이미지뿐 아니라 스코어도 라이브로 올라오게 한다(스캔 종료 FOCUS_BEST 는 best 로 덮어씀).
+                GrabResult g = t.Status == System.Threading.Tasks.TaskStatus.RanToCompletion ? t.Result : null;
                 try
                 {
-                    var live = new System.Text.StringBuilder();
-                    live.Append("z=").Append(motorZ.ToString("F3", inv));
-                    live.Append(";avgScore=").Append(avg.ToString("F1", inv));
-                    foreach (var kv in roiScores)
-                        live.Append(";r").Append(kv.Key).Append('=').Append(kv.Value.ToString("F1", inv));
-                    ModuleResultStore.Record(m.Name, "FOCUS", true, live.ToString());
+                    if (g == null || !g.IsSuccess || g.Image == null) { return; }
+
+                    int imgW = g.Image.Width, imgH = g.Image.Height;
+                    var rects = new System.Collections.Generic.List<System.Drawing.Rectangle>();
+                    var series = new System.Collections.Generic.List<int>();
+                    for (int i = 0; i < afRois.Length; i++)
+                    {
+                        Roi roi = afRois[i];
+                        if (roi == null || roi.Width <= 0 || roi.Height <= 0) continue;
+                        rects.Add(roi.BoundingBox);
+                        series.Add(i + 1);
+                    }
+
+                    if (rects.Count > 0)
+                    {
+                        // 원본 g 소유권을 채점 큐로 이전(거기서 crop/채점/라이브 스코어 기록 후 Dispose).
+                        AutoFocusProcessor.Enqueue(modName, cam, tgt, mz, init0, expMs,
+                            g, rects.ToArray(), series.ToArray(), imgW, imgH);
+                        g = null;
+                    }
+                    else
+                    {
+                        // ROI 미설정 → 전체 프레임 채점(드문 폴백). 측면(pickup=0)은 시리즈 1로.
+                        double score = AutoFocusCore.Score(g.Image);
+                        int series0 = pickup0 >= 1 ? pickup0 : 1;
+                        AutoFocusStore.AddSample(cam, tgt, series0, mz, score, init0);
+                        try { ModuleResultStore.Record(modName, "FOCUS", true,
+                            "z=" + mz.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv)); } catch { }
+                    }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    try { QMC.Vision.Comm.VisionCommLog.Add("[FOCUS] 백그라운드 채점 투입 실패: " + ex.Message); } catch { }
+                }
+                finally { try { g?.Dispose(); } catch { } }
+            }, System.Threading.Tasks.TaskScheduler.Default);
+            RegisterLastFocusGrab(m.Name, scoreTask);
 
-                var sbv = new System.Text.StringBuilder();
-                sbv.Append("OK;z=").Append(motorZ.ToString("F4", inv));
-                sbv.Append(";score=").Append(avg.ToString("F2", inv));
-                sbv.Append(";pickup=").Append(pickup);
-                sbv.Append(";init=").Append(isInitial ? 1 : 0);
-                foreach (var kv in roiScores)
-                    sbv.Append(";r").Append(kv.Key).Append('=').Append(kv.Value.ToString("F2", inv));
-                return sbv.ToString();
+            LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), expMs, 0);   // grab 칸 = 노출 종료까지(응답 시점)
+            return $"OK;z={motorZ.ToString("F4", inv)};pickup={pickup};init={(isInitial ? 1 : 0)};queued=1";
+        }
+
+        // ── 모듈별 '마지막 FOCUS_VAL 그랩(전송+채점 투입)' 추적 — 노출종료 즉시 ACK 구조에서
+        //    카메라 단발 그랩과 FOCUS_BEST 회수가 진행 중인 전송/투입과 겹치지 않게 직렬화한다. ──
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.Tasks.Task> _lastFocusGrab
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Threading.Tasks.Task>(StringComparer.OrdinalIgnoreCase);
+
+        private static void RegisterLastFocusGrab(string module, System.Threading.Tasks.Task t)
+        {
+            if (!string.IsNullOrEmpty(module) && t != null) _lastFocusGrab[module] = t;
+        }
+
+        private static void WaitLastFocusGrab(string module, int timeoutMs)
+        {
+            try
+            {
+                System.Threading.Tasks.Task t;
+                if (!string.IsNullOrEmpty(module) && _lastFocusGrab.TryGetValue(module, out t))
+                    t.Wait(timeoutMs);
             }
-
-            // ROI 미설정 → 전체 프레임 동기 채점(드문 폴백). 측면(pickup=0)은 시리즈 1로.
-            double score = AutoFocusCore.Score(g.Image);
-            g.Dispose();
-            LogTiming(m.Name, "FOCUS_VAL", tgt.ToString(), swGrab.ElapsedMilliseconds, 0);
-            int series0 = pickup >= 1 ? pickup : 1;
-            AutoFocusStore.AddSample(cam, tgt, series0, motorZ, score, isInitial);
-            // 메인 모니터링 UI 실시간 스코어 갱신(위 ROI 경로와 동일).
-            try { ModuleResultStore.Record(m.Name, "FOCUS", true,
-                "z=" + motorZ.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv)); } catch { }
-            return $"OK;z={motorZ.ToString("F4", inv)};score={score.ToString("F2", inv)};pickup={pickup};init={(isInitial ? 1 : 0)}";
+            catch { /* 이전 그랩 실패는 해당 샘플 누락으로 이미 처리 — 다음 샘플 진행 */ }
         }
 
         /// <summary>init 인자 해석 — "1"/"INIT"/"TRUE"(대소문자 무시) 면 최초값.</summary>
@@ -624,6 +660,7 @@ namespace QMC.Vision.Core
 
             // FOCUS_VAL 들이 백그라운드로 채점 중이므로, 누적이 모두 끝난 뒤(=처리 완료) best 를 회수한다.
             // 완료될 때까지 충분히 대기해야 불완전한 best 로 응답하지 않는다(처리 완료 후 ACK).
+            WaitLastFocusGrab(parts.Length > 0 && m != null ? m.Name : null, 10000);   // 마지막 grab 전송/투입 완료까지
             AutoFocusProcessor.WaitForDrain(120000);
 
             var sess = AutoFocusStore.Get(cam, tgt);
