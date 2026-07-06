@@ -353,7 +353,7 @@ namespace QMC.Vision.Comm
         /// <para>신형(고정 8파트): MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid
         ///  • fb=0(Front)/1(Back), collet=1~4 → 전역 픽커 1~8(<see cref="ColletAddress"/>).
         ///  • die_index = 픽업 순서 1-base, -1=다이 없음(메뉴얼 — 맵 매칭/uid 숫자 폴백 미적용).
-        ///  • channel   = Side 0(0°)/1(90°), Bottom/Bin=-1. chip_uid 는 맨 뒤(결과 매칭 키).</para>
+        ///  • channel   = 항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid 는 맨 뒤(결과 매칭 키).</para>
         /// <para>구형(≤7파트, 하위호환): inspector|picker_id|chip_uid[|die_index[|channel]] —
         /// die_index 생략 시 chip_uid 가 숫자면 그 값.</para></summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)

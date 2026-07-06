@@ -173,7 +173,7 @@ namespace QMC.Vision.Sequencing
             int[] fbGroups = IsSideInspect()
                 ? new[] { ModuleFb() }
                 : new[] { ColletAddress.Front, ColletAddress.Back };
-            int[] chs = IsSideInspect() ? new[] { 0, 1 } : new[] { -1 };   // 신형 채널: Side 0=0°/1=90°, 그 외 -1
+            int[] chs = IsSideInspect() ? new[] { 0, 1 } : new[] { 0 };   // 채널은 항상 0/1 — Side 0=0°/1=90°, Bottom/Bin 은 0°로 간주해 0(-1 사용 안 함, 2026-07-04 확정)
             string last = null;
 
             for (int g = 0; g < fbGroups.Length && !ct.IsCancellationRequested; g++)
@@ -196,7 +196,7 @@ namespace QMC.Vision.Sequencing
                         pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = seq;
                         string uid = ResolveChipUid(ix, iy);    // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
                         if (string.IsNullOrEmpty(uid))
-                            uid = seq.ToString();   // 실기는 핸들러 자재 ID(DieId) 자리 — Sim 은 순번으로 대체
+                            uid = BuildSimDieUid(seq);   // 실기 DieId(12자) 형태 모사 — die_index 와 같은 숫자 중복 표기 방지(Sim==Real)
                         cu[i] = uid;
                         foreach (int ch in chs)
                         {
@@ -205,8 +205,9 @@ namespace QMC.Vision.Sequencing
                                 new[] { ToolId, fb.ToString(), collet.ToString(), seq.ToString(), ch.ToString(), uid });
                         }
                     }
-                    // 그룹 그랩 완료(4장) → 백엔드 자동 병렬 처리 → 다이별 결과 회수.
-                    // 다음 그룹(Back)은 이 그룹 결과 회수 후에만 진행 — 실기 순차 규약 유지.
+                    // 백엔드는 요청마다 그랩 즉시 검사(즉시 처리 — 배치 대기 없음, 콜렛별 인스턴스).
+                    // 여기서 그룹 4콜렛 전송 후 결과를 회수하고 다음 그룹(Back)으로 넘어가는 것은
+                    // 실기 모션 순서(F 촬영 완료 → B 진입) 모사 — 백엔드 배치와는 무관하다.
                     for (int i = 0; i < n && !ct.IsCancellationRequested; i++)
                     {
                         last = await PollInspectResult(cu[i], ct).ConfigureAwait(false);
@@ -223,6 +224,11 @@ namespace QMC.Vision.Sequencing
             }
             return last;
         }
+
+        /// <summary>Sim 폴백 chipUid — 실기 자재 ID(Die.Uid 12자) 형태를 모사한 "SIM"+9자리 순번.
+        /// 같은 다이(전역 seq)는 Bottom/Side/Bin 모듈 간 동일 값이 되어 다이 단위 집계가 유지된다.
+        /// (구형처럼 순번 숫자를 그대로 쓰면 신형 와이어에서 die_index 와 중복 표기되어 실기와 달라 보임.)</summary>
+        private static string BuildSimDieUid(int seq) => "SIM" + seq.ToString("D9");
 
         /// <summary>모듈 자체 다이 카운트(local) → 웨이퍼 전역 픽업 순번.
         /// Bottom/Bin(두 그룹 모두 담당)은 local 그대로, Side(자기 그룹만)는 8콜렛 블록 기준으로 환산해

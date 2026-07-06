@@ -57,7 +57,7 @@ namespace QMC.Vision.Core
         private const int MaxHistory = 300;
         private static readonly object _lock = new object();
         // 모드 → 세대 번호: Clear(새 웨이퍼) 마다 +1. 비동기 배치의 '이전 웨이퍼 잔여 그랩'이
-        // 초기화 이후 기록되어 유령 셀을 만드는 것을 차단하는 데 쓴다(PendingGrabStore.Gen 대조).
+        // 초기화 이후 기록되어 유령 셀을 만드는 것을 차단하는 데 쓴다(AsyncInspectCore 가 요청 시점 세대와 대조).
         private static readonly Dictionary<string, long> _generation =
             new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         // 모드 → 바텀 셀 순번 카운터(랏 내 검사 순번, Clear 시 리셋)
