@@ -343,6 +343,73 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        public static bool CanMovePickerXPairByFacingYInterlock(
+            CDT320_Machine machine,
+            double? frontTargetX,
+            double? rearTargetX,
+            string targetName,
+            out string detail)
+        {
+            detail = string.Empty;
+
+            try
+            {
+                if (machine == null || (!frontTargetX.HasValue && !rearTargetX.HasValue))
+                    return true;
+
+                // 현재 기준: Front/Rear PickerX 그룹 이동도 양쪽 PickerY가 동시에 전진 상태이면 X 현재/목표 경로를 같이 확인한다.
+                bool frontOut = IsPickerYOutOrMovingOut(machine, true, null);
+                bool rearOut = IsPickerYOutOrMovingOut(machine, false, null);
+                if (!frontOut || !rearOut)
+                    return true;
+
+                BaseAxis frontX = GetPickerX(machine, true);
+                BaseAxis frontY = GetPickerY(machine, true);
+                BaseAxis rearX = GetPickerX(machine, false);
+                BaseAxis rearY = GetPickerY(machine, false);
+                if (frontX == null || rearX == null)
+                    return true;
+
+                double clearance = ResolvePickerYFacingXClearance(machine);
+                if (clearance <= 0.0)
+                    return true;
+
+                double resolvedFrontTarget = frontTargetX.HasValue ? frontTargetX.Value : ResolveAxisPathTarget(frontX);
+                double resolvedRearTarget = rearTargetX.HasValue ? rearTargetX.Value : ResolveAxisPathTarget(rearX);
+                if (!DoXMovePathsEnterFacingClearance(
+                    frontX.ActualPosition,
+                    resolvedFrontTarget,
+                    rearX.ActualPosition,
+                    resolvedRearTarget,
+                    clearance))
+                {
+                    return true;
+                }
+
+                detail = BuildFacingYBlockedDetail(
+                    true,
+                    "Front/Rear PickerX 그룹 이동",
+                    targetName,
+                    frontX,
+                    frontY,
+                    rearX,
+                    rearY,
+                    resolvedFrontTarget,
+                    frontY != null ? frontY.ActualPosition : 0.0,
+                    resolvedRearTarget,
+                    clearance);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                detail = "Front/Rear PickerX 그룹 이동 Y돌출 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
             CDT320_Machine machine,
             PickerWorkZone zone,

@@ -34,6 +34,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         public double MinusRange { get; set; } = 0.2;
         public double PlusRange { get; set; } = 0.2;
         public double Step { get; set; } = 0.02;
+        public double FineMinusRange { get; set; } = 0.05;
+        public double FinePlusRange { get; set; } = 0.05;
+        public double FineStep { get; set; } = 0.01;
         public int RepeatCount { get; set; } = 1;
         public double MoveVelocity { get; set; } = 30.0;
         public double MoveAcceleration { get; set; } = 300.0;
@@ -41,6 +44,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         public int SettleDelayMs { get; set; } = 50;
         public int MotionTimeoutMs { get; set; } = 5000;
         public int VisionTimeoutMs { get; set; } = 5000;
+        public int VisionBestTimeoutMs { get; set; } = 120000;
         public bool ReturnToDefaultAfterScan { get; set; } = true;
         public string UpdatedBy { get; set; }
     }
@@ -84,6 +88,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public VisionFocusScanStep CurrentStep { get; private set; }
         public VisionFocusScanResult Result { get; private set; }
+
+        public Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            // 현재 기준: 호출부 호환을 위해 runMode를 받되, 실제 수동 공정 스코프는 기존 RunAsync에서 동일하게 적용한다.
+            return RunAsync(ct);
+        }
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
@@ -133,6 +143,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ReleaseFocusWorkArea();
             }
             }
+        }
+
+        public Task<int> MoveDefaultOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            // 현재 기준: 호출부 호환을 위해 runMode를 받되, Default 이동 동작은 기존 함수와 동일하게 유지한다.
+            return MoveDefaultOnlyAsync(ct);
         }
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
@@ -1499,7 +1515,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ResolveCameraName(),
                     ResolveTargetName(),
                     ResolvePickupNoForVision(),
-                    _request.VisionTimeoutMs,
+                    _request.VisionBestTimeoutMs,
                     ct).ConfigureAwait(false);
 
                 if (best == null || !best.Success)
