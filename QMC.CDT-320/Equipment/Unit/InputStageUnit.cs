@@ -819,23 +819,10 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.WaferY)
             {
-                if (!IsNeedleZInHomeOrSafePosition())
-                    return true;
-
-                double targetX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
-                if (!IsInputStageWorkPointInArea(targetX, target, out reason))
-                {
-                    if (IsNeedleZInHomeOrSafePosition())
-                        return true;
-
-                    reason = "InputStageY 원형 작업영역 밖 이동 전 NeedleZ가 반드시 Home 또는 Avoid 위치에 있어야 합니다. " +
-                        reason +
-                        ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
-                        ", needleZHome=0.000" +
-                        ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
-                        ", tolerance=" + ResolveNeedleZInPositionTolerance().ToString("F3");
-                    return false;
-                }
+                double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : ResolveNeedleWorkAreaCenterX();
+                // 현재 기준: StageY 작업 반경은 CameraX가 아니라 현재 NeedleX/StageY 실축 좌표로 계산한다.
+                return IsNeedleWorkPointInArea(needleX, target, out reason);
+            }
 
             if (axis == WaferStageAxis.NeedleX)
             {
