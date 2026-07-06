@@ -281,6 +281,16 @@ namespace QMC.Vision.Core
             try
             {
                 string mode = InspectionResultStore.ModeOf(inspId) ?? InspectionResultStore.ModeOf(m.Name);
+                if (mode == null)
+                {
+                    // 진단(MapTrace): 모드 미해석 → 스토어 기록 자체가 스킵되어 맵/차트에 안 나온다.
+                    try
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MapTrace",
+                            "Record 스킵 — mode 해석 실패(inspId=" + inspId + ", module=" + m.Name + ")");
+                    }
+                    catch { }
+                }
                 if (mode != null)
                 {
                     // 검출 박스(코너) → 픽커 패널 오버레이용으로 함께 전달.
@@ -290,6 +300,16 @@ namespace QMC.Vision.Core
                     var ctx = new InspectCtx { Picker = ctxPicker, Channel = ctxChannel, IndexX = ctxIndexX, IndexY = ctxIndexY };
                     var storeItem = InspectionResultStore.FromResult(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, r, image, box, geom);
                     InspectionResultStore.Record(storeItem);
+                    // 진단(MapTrace): 기록 좌표/키 — Bottom 맵은 Width+Height 둘 다 있어야 셀이 생긴다.
+                    try
+                    {
+                        QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MapTrace",
+                            "Record — mode=" + mode + ", insp=" + inspId + ", picker=" + ctx.Picker + ", ch=" + ctx.Channel +
+                            ", ix=" + ctx.IndexX + ", iy=" + ctx.IndexY +
+                            ", W/H=" + (storeItem.Values.ContainsKey("Width") && storeItem.Values.ContainsKey("Height") ? "O" : "X(맵 셀 미생성)") +
+                            ", pass=" + storeItem.Pass);
+                    }
+                    catch { }
                     // 레시피 웨이퍼 사양의 마지막 다이 도달 시 날짜별 스냅샷 저장 — 실시간 데이터를 자체 누적(뷰어 이력 상한과 무관).
                     WaferDataSaver.Accumulate(mode, ctx.Picker, ctx.Channel, ctx.IndexX, ctx.IndexY, storeItem.Pass, storeItem.Values);
                 }

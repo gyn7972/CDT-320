@@ -313,12 +313,12 @@ namespace QMC.Vision.Ui.Controls
             // Bottom 은 위치별 누적 스토어(BottomCells, 이력 한도와 무관)로 그려 한 랏 전체 위치 유지(스크롤/사라짐 없음).
             if (mode == InspectionMode.Bottom) { BuildBottomPositionMaps(); return; }
             var hist = InspectionResultStore.History(StoreKeyOf(mode));
-            if (hist.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
+            if (hist.Count == 0) { LogMapTrace("PositionMap(" + mode + ")", 0, 0, 0, 0, "history 없음 — 스토어 미기록"); _waferMap.SetMaps(null, null, null, null); return; }
 
-            // 웨이퍼 격자 — 레시피 사양(ActiveRecipeContext) 우선, 결과 인덱스가 벗어나면 확장.
+            // 웨이퍼 격자 — 실제 맵 격자(INPUT DIE 맵 또는 핸들러 동일 기하 자동계산, 2026-07-06) 우선,
+            // 결과 인덱스가 벗어나면 확장. (구 WaferGridX/Y 직접 참조는 자동계산 격자와 어긋남)
             var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
-            int gridX = recipe != null ? recipe.WaferGridX : 0;
-            int gridY = recipe != null ? recipe.WaferGridY : 0;
+            ResolveWaferGrid(recipe, out int gridX, out int gridY);
             foreach (var it in hist)
             {
                 if (it.IndexX + 1 > gridX) gridX = it.IndexX + 1;
@@ -335,13 +335,16 @@ namespace QMC.Vision.Ui.Controls
             SampleData.Series(mode, 1, out up1, out lo1, out t, out col); ApplyChartLimits(1, ref up1, ref lo1);
 
             double[,] m0 = NewNaN(gridY, gridX), m1 = NewNaN(gridY, gridX);
+            int placed = 0, outOfGrid = 0;
             foreach (var it in hist)
             {
                 int cx = it.IndexX, cy = it.IndexY;
-                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
-                double v0 = Val(it, k1); if (!double.IsNaN(v0)) m0[cy, cx] = v0;
+                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) { outOfGrid++; continue; }
+                double v0 = Val(it, k1); if (!double.IsNaN(v0)) { m0[cy, cx] = v0; placed++; }
                 double v1 = Val(it, k2); if (!double.IsNaN(v1)) m1[cy, cx] = v1;
             }
+            LogMapTrace("PositionMap(" + mode + ")", hist.Count, gridX, gridY, placed,
+                "outOfGrid=" + outOfGrid + ", key1=" + k1 + ", key2=" + k2);
 
             if (mode == InspectionMode.Bottom)
             {
@@ -375,11 +378,10 @@ namespace QMC.Vision.Ui.Controls
         private void BuildBottomPositionMaps()
         {
             var cells = InspectionResultStore.BottomCells(InspectionResultStore.Bottom);
-            if (cells.Count == 0) { _waferMap.SetMaps(null, null, null, null); return; }
+            if (cells.Count == 0) { LogMapTrace("BottomMap", 0, 0, 0, 0, "BottomCells 없음 — Width/Height 미기록이면 셀이 안 생김"); _waferMap.SetMaps(null, null, null, null); return; }
 
             var recipe = QMC.Vision.Core.ActiveRecipeContext.Current;
-            int gridX = recipe != null ? recipe.WaferGridX : 0;
-            int gridY = recipe != null ? recipe.WaferGridY : 0;
+            ResolveWaferGrid(recipe, out int gridX, out int gridY);
             foreach (var c in cells)
             {
                 if (c.IndexX + 1 > gridX) gridX = c.IndexX + 1;
@@ -395,17 +397,64 @@ namespace QMC.Vision.Ui.Controls
             double chipLimit = recipe != null ? recipe.MaxChippingDepthMm : 0;
 
             double[,] m0 = NewNaN(gridY, gridX), m1 = NewNaN(gridY, gridX), c1 = NewNaN(gridY, gridX), c2 = NewNaN(gridY, gridX);
+            int placed = 0, outOfGrid = 0;
+            int minIx = int.MaxValue, maxIx = int.MinValue, minIy = int.MaxValue, maxIy = int.MinValue;
             foreach (var c in cells)
             {
                 int cx = c.IndexX, cy = c.IndexY;
-                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) continue;
+                if (cx < minIx) minIx = cx; if (cx > maxIx) maxIx = cx;
+                if (cy < minIy) minIy = cy; if (cy > maxIy) maxIy = cy;
+                if (cx < 0 || cy < 0 || cx >= gridX || cy >= gridY) { outOfGrid++; continue; }
                 m0[cy, cx] = c.Width; m1[cy, cx] = c.Height;
                 c1[cy, cx] = c.Chip1; c2[cy, cx] = c.Chip2;
+                placed++;
             }
+            LogMapTrace("BottomMap", cells.Count, gridX, gridY, placed,
+                "outOfGrid=" + outOfGrid + ", ixRange=" + minIx + "~" + maxIx + ", iyRange=" + minIy + "~" + maxIy);
             _waferMap.SetMap(0, "Width", NormAuto(m0, lo0, up0));
             _waferMap.SetMap(1, "Height", NormAuto(m1, lo1, up1));
             _waferMap.SetMap(2, "1 Channel ChippingSize", NormByMax(c1, chipLimit));
             _waferMap.SetMap(3, "2 Channel ChippingSize", NormByMax(c2, chipLimit));
+        }
+
+        // 진단(MapTrace): 맵 빌드 요약 — 시그니처 변화 시에만 기록(코얼레싱 갱신 스팸 방지).
+        private static string _lastMapTraceSig;
+        private static void LogMapTrace(string tag, int items, int gridX, int gridY, int placed, string extra = "")
+        {
+            string sig = tag + "|" + items + "|" + gridX + "x" + gridY + "|" + placed + "|" + extra;
+            if (sig == _lastMapTraceSig) return;
+            _lastMapTraceSig = sig;
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MapTrace",
+                    tag + " — items=" + items + ", grid=" + gridX + "x" + gridY + ", placed=" + placed +
+                    (string.IsNullOrEmpty(extra) ? "" : ", " + extra));
+            }
+            catch { }
+        }
+
+        /// <summary>맵 그리기용 웨이퍼 격자 — INPUT DIE 맵이 있으면 그 격자, 없으면 핸들러 동일 기하
+        /// (외경/피치/다이크기 → <see cref="QMC.Vision.DieMaps.DieMapBuilder.CalculateWaferGridCount"/>)로 자동 계산.
+        /// 구 WaferGridX/Y 필드는 참고용(2026-07-06 핸들러 기하 이식 이후 실제 격자와 다를 수 있음).</summary>
+        private static void ResolveWaferGrid(QMC.Vision.Modules.VisionMachineRecipe recipe, out int gridX, out int gridY)
+        {
+            gridX = 0; gridY = 0;
+            if (recipe == null) return;
+            if (recipe.InputDieMap != null && recipe.InputDieMap.Entries != null && recipe.InputDieMap.Entries.Count > 0)
+            {
+                gridX = recipe.InputDieMap.DieMapX;
+                gridY = recipe.InputDieMap.DieMapY;
+                return;
+            }
+            if (recipe.WaferGridX > 0 && recipe.WaferGridY > 0)
+            {
+                // Grid 명시 = 격자 수 기준(2026-07-06 규칙) — 사양 자동생성 맵과 동일.
+                gridX = recipe.WaferGridX;
+                gridY = recipe.WaferGridY;
+                return;
+            }
+            gridX = QMC.Vision.DieMaps.DieMapBuilder.CalculateWaferGridCount(recipe.WaferOuterDiameterMm, recipe.WaferPitchX, recipe.WaferDieSizeX);
+            gridY = QMC.Vision.DieMaps.DieMapBuilder.CalculateWaferGridCount(recipe.WaferOuterDiameterMm, recipe.WaferPitchY, recipe.WaferDieSizeY);
         }
 
         private static string StoreKeyOf(InspectionMode mode)
