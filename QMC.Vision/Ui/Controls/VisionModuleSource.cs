@@ -110,7 +110,10 @@ namespace QMC.Vision.Ui.Controls
                 _onFrame?.Invoke(b);
             };
             cam.FrameReceived += _handler;
-            try { cam.TriggerMode = CameraTriggerMode.Continuous; } catch { }
+            // MIL 카메라는 TriggerMode 세터를 호출하지 않는다 — StartLive 내부(EnsureContinuousLiveMode)가
+            // 모드를 관리하며, 외부 트리거 쓰기는 VNP FrameRate 재계산 부작용만 유발(QMC.MilCameraTest 와 동일 경로).
+            if (!(cam is QMC.Vision.Cameras.Mil.MilCamera))
+                try { cam.TriggerMode = CameraTriggerMode.Continuous; } catch { }
             cam.StartLive();
         }
 

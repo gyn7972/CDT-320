@@ -288,6 +288,14 @@ namespace QMC.Vision.Cameras.Mil
                     if (attempt > 0) LiveLog("AcquisitionMode=" + mode + " 적용 (재시도 " + attempt + "회)");
                     return true;
                 }
+                // 쓰기 거부(readback 이 다른 모드) — 카메라가 획득 중(TLParamsLocked)이라 거부하는
+                // 대표 케이스: MdigHalt 가 AcquisitionStop 을 안 보내 카메라가 스트리밍 잠금에 남은 상태.
+                // → GenICam AcquisitionStop 명령을 직접 실행해 잠금 해제 후 재시도.
+                if (attempt == 0)
+                {
+                    LiveLog("AcquisitionMode=" + mode + " 쓰기 거부(readback=" + rb + ") → AcquisitionStop 실행 후 재시도");
+                    TryFeatureExec("AcquisitionStop");
+                }
                 Thread.Sleep(100);
             }
             _acqModeApplied = null;
@@ -642,6 +650,13 @@ namespace QMC.Vision.Cameras.Mil
         {
             if (IsNull(_dig)) return;
             try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
+        }
+
+        /// <summary>GenICam command feature 실행(예: AcquisitionStop). 미지원/실패는 조용히 무시.</summary>
+        private void TryFeatureExec(string command)
+        {
+            if (IsNull(_dig)) return;
+            try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, command, MIL.M_DEFAULT, MIL.M_NULL); } catch { }
         }
 
         // ── Buffer → Bitmap (메모리 직접 변환 — 디스크 미경유) ──

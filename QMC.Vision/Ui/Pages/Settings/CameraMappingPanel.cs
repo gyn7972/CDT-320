@@ -1533,7 +1533,9 @@ namespace QMC.Vision.Ui.Pages
                 string err = null;
                 try
                 {
-                    cam.TriggerMode = CameraTriggerMode.Continuous;
+                    // MIL 카메라는 TriggerMode 세터 생략 — StartLive 내부가 모드 관리(QMC.MilCameraTest 와 동일 경로).
+                    if (!(cam is QMC.Vision.Cameras.Mil.MilCamera))
+                        cam.TriggerMode = CameraTriggerMode.Continuous;
                     cam.StartLive();
                 }
                 catch (Exception ex) { err = ex.Message; }
