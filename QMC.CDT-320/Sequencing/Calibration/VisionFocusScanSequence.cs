@@ -95,14 +95,9 @@ namespace QMC.CDT320.Sequencing.Calibration
         public VisionFocusScanStep CurrentStep { get; private set; }
         public VisionFocusScanResult Result { get; private set; }
 
-        public Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
-        {
-            // 현재 기준: 호출부 호환을 위해 runMode를 받되, 실제 수동 공정 스코프는 기존 RunAsync에서 동일하게 적용한다.
-            return RunAsync(ct);
-        }
-
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            // 현재 기준: runMode 없는 기존 호출은 Manual 스코프로 실행한다.
             return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
         }
 
@@ -160,14 +155,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        public Task<int> MoveDefaultOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
-        {
-            // 현재 기준: 호출부 호환을 위해 runMode를 받되, Default 이동 동작은 기존 함수와 동일하게 유지한다.
-            return MoveDefaultOnlyAsync(ct);
-        }
-
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
+            // 현재 기준: runMode 없는 기존 Default 이동 호출은 Manual 스코프로 실행한다.
             return await MoveDefaultOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
         }
 
