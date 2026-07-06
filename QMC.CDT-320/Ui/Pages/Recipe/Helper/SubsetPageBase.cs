@@ -71,6 +71,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var sectionHeader = CreateSectionHeader(i18nKey);
             sectionHeader.Dock = DockStyle.Fill;   // 셀 전체 채움
             sectionHeader.Margin = Padding.Empty;
+            // 헤더 배경색을 유닛 페이지(카세트 등)와 동일한 진회색으로 통일 (project 바(topBar)는 유지)
+            sectionHeader.BackColor = Color.FromArgb(64, 64, 64);
+            // 헤더 텍스트 시작점을 유닛 페이지(카세트=18)와 동일하게 통일
+            sectionHeader.Padding = new Padding(18, 0, 0, 0);
             headerHost.Controls.Add(sectionHeader, 0, 0);
 
             // Row 1 — TopBar
@@ -83,7 +87,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             var btnSave = new Button
             {
-                Dock = DockStyle.Right, Width = 180, Text = "SAVE",
+                Dock = DockStyle.Right, Width = 150, Text = "SAVE",
                 FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White,
                 Font = UiTheme.ButtonFont
             };
@@ -91,7 +95,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             var btnLoad = new Button
             {
-                Dock = DockStyle.Right, Width = 120, Text = "Reload",
+                Dock = DockStyle.Right, Width = 150, Text = "Reload",
                 FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = UiTheme.ButtonFont
             };
             btnLoad.Click += (s, e) =>
@@ -103,7 +107,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _lblProject = new Label
             {
                 Dock = DockStyle.Fill, ForeColor = Color.White, Font = UiTheme.SectionFont,
-                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0),
+                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(18, 0, 0, 0),
                 Text = "(no project)"
             };
 

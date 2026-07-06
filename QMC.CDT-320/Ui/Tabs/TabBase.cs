@@ -35,6 +35,39 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             InitializeComponent();
             UiDoubleBuffer.Enable(this);
+
+            // 가로 스크롤바가 생기지 않게. (세로 스크롤은 그대로 유지)
+            PnlSidebarButtons.ClientSizeChanged += (s, e) => FitSidebarButtonsWidth();
+            PnlSidebarButtons.ControlAdded += (s, e) => FitSidebarButtonsWidth();
+        }
+
+        private bool _fittingSidebar;
+
+        /// <summary>사이드바 버튼/구분선 폭을 스크롤 패널 클라이언트 폭에 맞춰 가로 스크롤바를 방지한다.</summary>
+        private void FitSidebarButtonsWidth()
+        {
+            if (_fittingSidebar || PnlSidebarButtons == null)
+                return;
+
+            _fittingSidebar = true;
+            try
+            {
+                int avail = PnlSidebarButtons.ClientSize.Width
+                            - PnlSidebarButtons.Padding.Left - PnlSidebarButtons.Padding.Right;
+                if (avail <= 0)
+                    return;
+
+                foreach (Control c in PnlSidebarButtons.Controls)
+                {
+                    int w = avail - c.Margin.Left - c.Margin.Right;
+                    if (w > 0 && c.Width != w)
+                        c.Width = w;
+                }
+            }
+            finally
+            {
+                _fittingSidebar = false;
+            }
         }
 
         public virtual void AttachHost(Form1 host)

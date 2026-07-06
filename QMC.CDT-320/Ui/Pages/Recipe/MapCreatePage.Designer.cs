@@ -171,7 +171,7 @@
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "DIE MAP CREATE";
@@ -188,7 +188,7 @@
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.contentLayout.Padding = new System.Windows.Forms.Padding(0);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 870);
@@ -202,7 +202,7 @@
             this.mapSection.Controls.Add(this.mapPanel, 0, 1);
             this.mapSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapSection.Location = new System.Drawing.Point(8, 8);
-            this.mapSection.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
+            this.mapSection.Margin = new System.Windows.Forms.Padding(0, 0, 1, 0);
             this.mapSection.Name = "mapSection";
             this.mapSection.RowCount = 2;
             this.mapSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
@@ -232,7 +232,7 @@
             this.mapPanel.Controls.Add(this.mapEditorLayout);
             this.mapPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapPanel.Location = new System.Drawing.Point(0, 30);
-            this.mapPanel.Margin = new System.Windows.Forms.Padding(0, 4, 0, 0);
+            this.mapPanel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 0);
             this.mapPanel.Name = "mapPanel";
             this.mapPanel.Size = new System.Drawing.Size(1234, 824);
             this.mapPanel.TabIndex = 1;
@@ -367,9 +367,9 @@
             this.settingSection.Controls.Add(this.edgeSkipPanel, 1, 7);
             this.settingSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.settingSection.Location = new System.Drawing.Point(0, 0);
-            this.settingSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.settingSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.settingSection.Name = "settingSection";
-            this.settingSection.Padding = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.settingSection.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.settingSection.RowCount = 8;
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -390,7 +390,7 @@
             this.lblSettingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSettingTitle.ForeColor = System.Drawing.Color.White;
             this.lblSettingTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblSettingTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblSettingTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblSettingTitle.Name = "lblSettingTitle";
             this.lblSettingTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblSettingTitle.Size = new System.Drawing.Size(420, 22);
@@ -741,7 +741,7 @@
             this.modeSection.Controls.Add(this.binSidePanel, 0, 9);
             this.modeSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeSection.Location = new System.Drawing.Point(0, 248);
-            this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.modeSection.Name = "modeSection";
             this.modeSection.RowCount = 10;
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
@@ -764,7 +764,7 @@
             this.lblModeTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblModeTitle.ForeColor = System.Drawing.Color.White;
             this.lblModeTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblModeTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblModeTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblModeTitle.Name = "lblModeTitle";
             this.lblModeTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblModeTitle.Size = new System.Drawing.Size(420, 22);
@@ -913,7 +913,7 @@
             this.actionSection.Controls.Add(this.btnXyMatchMove, 1, 3);
             this.actionSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionSection.Location = new System.Drawing.Point(0, 571);
-            this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.actionSection.Name = "actionSection";
             this.actionSection.RowCount = 4;
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
@@ -931,7 +931,7 @@
             this.lblActionTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblActionTitle.ForeColor = System.Drawing.Color.White;
             this.lblActionTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblActionTitle.Name = "lblActionTitle";
             this.lblActionTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblActionTitle.Size = new System.Drawing.Size(420, 22);
@@ -1071,7 +1071,7 @@
             // MapCreatePage
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.mainLayout);
             this.Name = "MapCreatePage";
             this.Size = new System.Drawing.Size(1678, 900);

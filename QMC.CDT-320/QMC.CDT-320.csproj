@@ -211,6 +211,7 @@
       <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\Common\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\ManualActionItem.cs" />
     <Compile Include="Ui\Controls\ManualActionPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -1239,6 +1240,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Material\MaterialBinPage.resx">
       <DependentUpon>MaterialBinPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\CalibrationPage.resx">
+      <DependentUpon>CalibrationPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>

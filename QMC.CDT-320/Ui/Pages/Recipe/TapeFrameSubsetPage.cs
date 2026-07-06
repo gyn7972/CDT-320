@@ -37,6 +37,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         protected override void BuildEditor(Panel c)
         {
+            // 편집영역 배경 흰색 통일 (그룹박스 배치는 Designer)
+            if (c != null)
+                c.BackColor = System.Drawing.Color.White;
         }
 
         protected override void LoadFromRecipe()

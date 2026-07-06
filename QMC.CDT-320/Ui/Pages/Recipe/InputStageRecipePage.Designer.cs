@@ -244,7 +244,7 @@
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:recipe.inputStage";
@@ -449,6 +449,7 @@
             // 
             // ioCylinderPanel
             // 
+            this.ioCylinderPanel.AutoFitParentGroupHeight = false;
             this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.ioCylinderPanel.ColumnCount = 1;
             this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;

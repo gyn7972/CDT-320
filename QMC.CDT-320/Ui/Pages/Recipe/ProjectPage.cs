@@ -27,6 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             InitializeComponent();
             ConfigureRuntimeUi();
+            DisableColumnSorting();
             WireEvents();
 
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
@@ -39,6 +40,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 LoadProject(listProjects.Items[0] as string);
             else
                 LoadProject(new RecipeProject { FileName = "NEW" }, false);
+        }
+
+        /// <summary>모든 그리드의 헤더 클릭 정렬(오름/내림차순) 기능을 끈다.</summary>
+        private void DisableColumnSorting()
+        {
+            var grids = new[] { gridSummary, gridGlobal, gridProject, gridXml, gridMap, gridStatus };
+            foreach (var grid in grids)
+                foreach (DataGridViewColumn col in grid.Columns)
+                    col.SortMode = DataGridViewColumnSortMode.NotSortable;
         }
 
         private void ConfigureRuntimeUi()

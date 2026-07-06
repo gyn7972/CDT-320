@@ -22,6 +22,11 @@ namespace QMC.CDT_320.Ui.Util
         private static readonly FieldInfo _eventsField;
         private static readonly bool _initOk;
 
+        // 지금 깜빡임(플래시) 진행 중인 컨트롤 목록. 깜빡이는 220ms 안에 또 클릭되면
+        // 연노랑을 '원래 색'으로 잘못 기억해 버튼이 노란색으로 눌러붙는 문제를 막는다.
+        // (클릭 핸들러/타이머 모두 UI 스레드에서만 실행되므로 별도 잠금은 필요 없다)
+        private static readonly HashSet<Control> _flashing = new HashSet<Control>();
+
         static UiClickAuditor()
         {
             try
@@ -84,24 +89,38 @@ namespace QMC.CDT_320.Ui.Util
             return wired;
         }
 
-        // ?ъ슜???쒓컖 ?쇰뱶諛??꾩슜 ??EventLog 湲곕줉 X (?ㅼ젣 ?몃뱾?щ룄 媛숈씠 ?숈옉)
+        // 사용자 시각 피드백 전용 — EventLog 기록 X (실제 핸들러도 같이 동작).
+        // 배경을 연노랑으로 220ms 깜빡여 "클릭이 받아졌음"을 보여준다.
+        // 흰 글씨 버튼에서도 읽히도록 깜빡이는 동안 글자색도 어두운 색으로 함께 바꾼다.
         private static void FlashOnly(Control c)
         {
             try
             {
-                Color orig = c.BackColor;
+                if (c == null || _flashing.Contains(c))
+                    return;   // 이미 깜빡이는 중 — 원래 색을 다시 기억하면 연노랑이 고착되므로 무시
+
+                Color origBack = c.BackColor;
+                Color origFore = c.ForeColor;
+                _flashing.Add(c);
+
                 c.BackColor = Color.FromArgb(0xFF, 0xF1, 0x9C);
+                c.ForeColor = Color.FromArgb(0x33, 0x33, 0x33);
                 c.Invalidate();
+
                 var t = new Timer { Interval = 220 };
                 t.Tick += (ts, te) =>
                 {
-                    try { c.BackColor = orig; c.Invalidate(); } catch { }
+                    try { c.BackColor = origBack; c.ForeColor = origFore; c.Invalidate(); } catch { }
+                    _flashing.Remove(c);
                     t.Stop();
                     t.Dispose();
                 };
                 t.Start();
             }
-            catch { }
+            catch
+            {
+                _flashing.Remove(c);   // 도중 실패 시에도 다음 클릭의 깜빡임이 막히지 않게 정리
+            }
         }
 
         private static IEnumerable<Control> EnumerateClickable(Control parent)
@@ -187,22 +206,9 @@ namespace QMC.CDT_320.Ui.Util
             }
             catch { }
 
-            // 吏㏃? ?쒓컖 源쒕묀?????대┃???ㅼ젣濡?諛쏆븘議뚯쓬???뚮┝
-            try
-            {
-                Color orig = c.BackColor;
-                c.BackColor = Color.FromArgb(0xFF, 0xF1, 0x9C);
-                c.Invalidate();
-                var t = new Timer { Interval = 220 };
-                t.Tick += (ts, te) =>
-                {
-                    try { c.BackColor = orig; c.Invalidate(); } catch { }
-                    t.Stop();
-                    t.Dispose();
-                };
-                t.Start();
-            }
-            catch { }
+            // FlashOnly 와 같은 클릭에서 겹쳐 호출되면(모든 버튼에 FlashOnly 가 먼저 연결됨)
+            // 가드 덕에 두 번째 깜빡임은 무시되어 연노랑이 '원래 색'으로 고착되지 않는다.
+            FlashOnly(c);
         }
     }
 }
