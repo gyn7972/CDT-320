@@ -398,7 +398,10 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = IsHomeDone;
                 if (IsHomeDone)
                 {
-                    ApplyPickerThetaPcHomeOffsetAfterHome();
+                    int pcOffsetResult = await ApplyPickerThetaPcHomeOffsetAfterHomeAsync().ConfigureAwait(false);
+                    if (pcOffsetResult != 0)
+                        return pcOffsetResult;
+
                     // 홈 완료 신호를 latch 하여 재실행 후에도 유지한다.
                     _homeDoneLatched = true;
                     RaiseMoveCompleted();
@@ -435,18 +438,42 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        private void ApplyPickerThetaPcHomeOffsetAfterHome()
+        private async Task<int> ApplyPickerThetaPcHomeOffsetAfterHomeAsync()
         {
             try
             {
                 if (!ShouldApplyPickerThetaPcHomeOffset())
-                    return;
+                    return 0;
 
-                double homeOffset = Setup.HomeOffset;
-                SetPosition(homeOffset);
+                double pcHomeOffset = Setup.HomeOffset;
+                double startPosition = ActualPosition;
+                double targetPosition = startPosition + pcHomeOffset;
+                int moveResult = 0;
+
+                if (Math.Abs(pcHomeOffset) > ResolveAxisPositionTolerance())
+                {
+                    moveResult = await MoveRelativeAsync(pcHomeOffset).ConfigureAwait(false);
+                    if (moveResult != 0 || IsAlarm)
+                    {
+                        return FailMotion(
+                            moveResult != 0 ? moveResult : (int)AlarmCode,
+                            "HOME PC OFFSET",
+                            "Picker T HOME 완료 후 PC Offset 이동 실패. pcHomeOffset=" + pcHomeOffset.ToString("F6") +
+                            ", start=" + startPosition.ToString("F6") +
+                            ", target=" + targetPosition.ToString("F6"),
+                            targetPosition,
+                            true);
+                    }
+                }
+
+                SetPosition(0.0);
                 QMC.Common.Log.Write("Motion", "SYSTEM", "AX-HOME-PC-OFFSET",
-                    Name + " HOME 완료 후 Picker T PC HomeOffset 적용. homeOffset=" +
-                    homeOffset.ToString("F6"));
+                    Name + " HOME 완료 후 Picker T PC Offset 이동 및 0점 재설정. pcHomeOffset=" +
+                    pcHomeOffset.ToString("F6") +
+                    ", start=" + startPosition.ToString("F6") +
+                    ", target=" + targetPosition.ToString("F6") +
+                    ", zeroSet=0.000000");
+                return 0;
             }
             catch (Exception ex)
             {
@@ -454,11 +481,19 @@ namespace QMC.CDT320.Ajin
                     AlarmSeverity.Error,
                     "AX-HOME-PC-OFFSET",
                     Name,
-                    "Picker T PC HomeOffset 적용 실패. error=" + ex.Message);
+                    "Picker T PC Offset 이동/0점 재설정 실패. error=" + ex.Message);
+                return -1;
             }
             finally
             {
             }
+        }
+
+        private double ResolveAxisPositionTolerance()
+        {
+            return Config != null && Config.InPositionTolerance > 0.0
+                ? Config.InPositionTolerance
+                : 0.01;
         }
 
         private bool ShouldApplyPickerThetaPcHomeOffset()

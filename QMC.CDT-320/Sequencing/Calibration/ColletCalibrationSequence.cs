@@ -1219,6 +1219,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     MotionTimeoutMs = focusSettings.MotionTimeoutMs,
                     VisionTimeoutMs = focusSettings.VisionTimeoutMs,
                     VisionBestTimeoutMs = focusSettings.VisionBestTimeoutMs,
+                    FocusValueReceiveMode = focusSettings.FocusValueReceiveMode,
                     ReturnToDefaultAfterScan = false,
                     UpdatedBy = "ColletCalibration"
                 };
@@ -1335,6 +1336,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 double colletOffsetY = IsReferenceCollet() ? 0.0 : finalPickerY - _nominalPickerY;
                 double referenceTeachingShiftX = IsReferenceCollet() ? finalPickerX - _nominalPickerX : 0.0;
                 double referenceTeachingShiftY = IsReferenceCollet() ? finalPickerY - _nominalPickerY : 0.0;
+                double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
+                double tZeroResidual = _measuredTPosition - _basePickerT;
+                double tZeroHomeOffset = activeTPcHomeOffset + tZeroResidual;
 
                 _calculatedRecord = new ColletCalibrationRecord
                 {
@@ -1347,7 +1351,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     OffsetX = colletOffsetX,
                     OffsetY = colletOffsetY,
                     ThetaOffset = _finalMatch.AngleDeg,
-                    TZeroHomeOffset = _measuredTPosition - _basePickerT,
+                    TZeroHomeOffset = tZeroHomeOffset,
                     MeasuredTPosition = _measuredTPosition,
                     FinalPickerX = finalPickerX,
                     FinalPickerY = finalPickerY,
@@ -1371,7 +1375,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", referenceTeachingShift=(" + referenceTeachingShiftX.ToString("F6") + "," + referenceTeachingShiftY.ToString("F6") + ")" +
                     ", thetaOffset=" + _calculatedRecord.ThetaOffset.ToString("F6") +
                     ", finalPicker=(" + _calculatedRecord.FinalPickerX.ToString("F6") + "," + _calculatedRecord.FinalPickerY.ToString("F6") + "," + _calculatedRecord.FinalPickerZ.ToString("F6") + "," + _calculatedRecord.FinalPickerT.ToString("F6") + ")" +
-                    ", tZeroHomeOffset=measuredT-baseT=" + _measuredTPosition.ToString("F6") + "-" + _basePickerT.ToString("F6") + "=" + _calculatedRecord.TZeroHomeOffset.ToString("F6"));
+                    ", activeTPcHomeOffset=" + activeTPcHomeOffset.ToString("F6") +
+                    ", tZeroResidual=measuredT-baseT=" + _measuredTPosition.ToString("F6") + "-" + _basePickerT.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
+                    ", tZeroHomeOffset=activePcOffset+residual=" + activeTPcHomeOffset.ToString("F6") + "+" + tZeroResidual.ToString("F6") + "=" + _calculatedRecord.TZeroHomeOffset.ToString("F6"));
 
                 CurrentStep = ColletCalibrationStep.SaveColletCalibration;
                 return 0;
@@ -1716,6 +1722,21 @@ namespace QMC.CDT320.Sequencing.Calibration
                    axis == PickerAxis.PickerT1 ||
                    axis == PickerAxis.PickerT2 ||
                    axis == PickerAxis.PickerT3;
+        }
+
+        private static double ResolvePickerTPcHomeOffset(BaseAxis axis)
+        {
+            try
+            {
+                return axis != null && axis.Setup != null ? axis.Setup.HomeOffset : 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> AcquireCalibrationAreaAsync(CancellationToken ct)

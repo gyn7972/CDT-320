@@ -826,7 +826,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double pitchOffsetX = ResolveBottomPitchXOffset(machine, colletIndex);
                 double bottomTeachingX = actualX - pitchOffsetX;
                 double baseBottomT = GetSelectedPickerTeachingPosition(machine, tAxisKind, "BottomPosition");
-                double tZeroHomeOffset = actualT - baseBottomT;
+                double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
+                double tZeroResidual = actualT - baseBottomT;
+                double tZeroHomeOffset = activeTPcHomeOffset + tZeroResidual;
 
                 string message =
                     "현재 위치를 Bottom 검사 티칭 위치로 저장하시겠습니까?\r\n" +
@@ -834,7 +836,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "X Teaching=" + bottomTeachingX.ToString("F6") + " (actualX=" + actualX.ToString("F6") + ", pitch=" + pitchOffsetX.ToString("F6") + ")\r\n" +
                     "Y Teaching=" + actualY.ToString("F6") + "\r\n" +
                     "Z Teaching=" + actualZ.ToString("F6") + " (" + zAxisKind + ")\r\n" +
-                    "T Zero Offset=" + tZeroHomeOffset.ToString("F6") + " (" + tAxisKind + ")";
+                    "T Zero Offset=" + tZeroHomeOffset.ToString("F6") + " (" + tAxisKind + ")\r\n" +
+                    "  Active PC Offset=" + activeTPcHomeOffset.ToString("F6") +
+                    ", Residual=" + tZeroResidual.ToString("F6");
                 if (QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
@@ -867,12 +871,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", bottomTeachingX=actualX-pitchOffset=" + actualX.ToString("F6") + "-" + pitchOffsetX.ToString("F6") + "=" + bottomTeachingX.ToString("F6") +
                     ", bottomTeachingY=" + actualY.ToString("F6") +
                     ", bottomTeachingZ=" + actualZ.ToString("F6") +
-                    ", tZeroHomeOffset=actualT-baseBottomT=" + actualT.ToString("F6") + "-" + baseBottomT.ToString("F6") + "=" + tZeroHomeOffset.ToString("F6") +
+                    ", activeTPcHomeOffset=" + activeTPcHomeOffset.ToString("F6") +
+                    ", tZeroResidual=actualT-baseBottomT=" + actualT.ToString("F6") + "-" + baseBottomT.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
+                    ", tZeroHomeOffset=activePcOffset+residual=" + activeTPcHomeOffset.ToString("F6") + "+" + tZeroResidual.ToString("F6") + "=" + tZeroHomeOffset.ToString("F6") +
                     ", validUnchanged=" + record.Valid +
                     ", recipeSaved=" + recipeSaved);
 
                 lblStatus.Text = recipeSaved
-                    ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6")
+                    ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6") + " (Active=" + activeTPcHomeOffset.ToString("F6") + ", Residual=" + tZeroResidual.ToString("F6") + ")"
                     : "Bottom 검사 티칭 값은 메모리에 반영됐지만 Recipe 저장에 실패했습니다. Alarm/Event Log를 확인하세요.";
             }
             catch (Exception ex)
@@ -929,11 +935,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double oldHomeOffset = tAxis.Setup.HomeOffset;
                 double newHomeOffset = record.TZeroHomeOffset;
                 string message =
-                    "저장된 TZeroHomeOffset을 T축 HomeOffset으로 적용하시겠습니까?\r\n" +
-                    "Side=" + _side + ", Collet=" + _colletNo + ", Axis=" + tAxis.Name + "\r\n" +
-                    "Old HomeOffset=" + oldHomeOffset.ToString("F6") + "\r\n" +
-                    "New HomeOffset=" + newHomeOffset.ToString("F6") + "\r\n" +
-                    "다음 Picker T Home 동작부터 PC HomeOffset으로 좌표 기준을 적용합니다.";
+                    "TZeroHomeOffset을 T축 PC Zero로 적용할까요?\r\n" +
+                    "Side=" + _side + ", Collet=" + _colletNo + "\r\n" +
+                    "Axis=" + tAxis.Name + "\r\n" +
+                    "Old Offset=" + oldHomeOffset.ToString("F6") + "\r\n" +
+                    "New Offset=" + newHomeOffset.ToString("F6") + "\r\n" +
+                    "보드에는 쓰지 않습니다.\r\n" +
+                    "다음 T Home 후 Offset 이동 및 0점 설정합니다.";
                 if (QMC.Common.MessageDialog.Show(this, message, "COLLET CAL", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
@@ -942,22 +950,22 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host.SaveMachineSettings();
 
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalApplyTHome",
-                    "T HomeOffset 적용. side=" + _side +
+                    "T Absolute PC Zero Offset 적용. side=" + _side +
                     ", colletNo=" + _colletNo +
                     ", axis=" + tAxis.Name +
-                    ", oldHomeOffset=" + oldHomeOffset.ToString("F6") +
-                    ", newHomeOffset=" + newHomeOffset.ToString("F6") +
+                    ", oldPcOffset=" + oldHomeOffset.ToString("F6") +
+                    ", newPcOffset=" + newHomeOffset.ToString("F6") +
                     ", boardWrite=False" +
-                    ", applyMode=PickerT PcHomeOffsetAfterHome" +
+                    ", applyMode=PickerT MovePcOffsetAfterHomeThenZero" +
                     ", motionAxisStore=" + MotionAxisStore.DefaultPath);
 
-                lblStatus.Text = "T HomeOffset을 적용했습니다. axis=" + tAxis.Name +
-                                 ", HomeOffset=" + newHomeOffset.ToString("F6") +
-                                 ", BoardWrite=False";
+                lblStatus.Text = "T 절대 PC Zero 보정값을 적용했습니다. axis=" + tAxis.Name +
+                                 ", Offset=" + newHomeOffset.ToString("F6") +
+                                 ", BoardWrite=False, Home 후 이동 뒤 0점 설정";
             }
             catch (Exception ex)
             {
-                lblStatus.Text = "T HomeOffset 적용 실패: " + ex.Message;
+                lblStatus.Text = "T PC Zero 보정값 적용 실패: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-APPLY-T-HOME", lblStatus.Text);
                 QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -1041,6 +1049,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return machine != null && machine.PickerFrontUnit != null ? ResolveFrontPickerAxis(machine.PickerFrontUnit, axis) : null;
 
             return machine != null && machine.PickerRearUnit != null ? ResolveRearPickerAxis(machine.PickerRearUnit, axis) : null;
+        }
+
+        private static double ResolvePickerTPcHomeOffset(BaseAxis axis)
+        {
+            try
+            {
+                return axis != null && axis.Setup != null ? axis.Setup.HomeOffset : 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
         }
 
         private static BaseAxis ResolveFrontPickerAxis(PickerFrontUnit picker, PickerAxis axis)

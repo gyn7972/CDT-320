@@ -37,6 +37,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             MotionTimeout,
             VisionTimeout,
             VisionBestTimeout,
+            FocusValueMode,
             ReturnDefault
         }
 
@@ -82,6 +83,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static readonly string[] SideOptions = { "Front", "Rear" };
         private static readonly string[] ColletOptions = { "1", "2", "3", "4" };
         private static readonly string[] BoolOptions = { "True", "False" };
+        private static readonly string[] FocusValueModeOptions = { "Ack Only", "Wait Result (Test)" };
 
         private bool _loading;
         private bool _busy;
@@ -103,6 +105,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private int _motionTimeoutMs = 5000;
         private int _visionTimeoutMs = 5000;
         private int _visionBestTimeoutMs = 120000;
+        private VisionFocusValueReceiveMode _focusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
         private bool _returnToDefaultAfterScan = true;
         private CancellationTokenSource _runCts;
 
@@ -705,6 +708,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 MotionTimeoutMs = _motionTimeoutMs,
                 VisionTimeoutMs = _visionTimeoutMs,
                 VisionBestTimeoutMs = _visionBestTimeoutMs,
+                FocusValueReceiveMode = _focusValueReceiveMode,
                 ReturnToDefaultAfterScan = _returnToDefaultAfterScan,
                 UpdatedBy = UserSession.Name
             };
@@ -738,6 +742,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _motionTimeoutMs = settings.MotionTimeoutMs;
                 _visionTimeoutMs = settings.VisionTimeoutMs;
                 _visionBestTimeoutMs = settings.VisionBestTimeoutMs;
+                _focusValueReceiveMode = settings.FocusValueReceiveMode;
                 _returnToDefaultAfterScan = settings.ReturnToDefaultAfterScan;
                 _defaultPosition = ResolveSavedDefaultPosition(host.Machine);
             }
@@ -782,6 +787,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.MotionTimeoutMs = _motionTimeoutMs;
                 settings.VisionTimeoutMs = _visionTimeoutMs;
                 settings.VisionBestTimeoutMs = _visionBestTimeoutMs;
+                settings.FocusValueReceiveMode = _focusValueReceiveMode;
                 settings.ReturnToDefaultAfterScan = _returnToDefaultAfterScan;
 
                 VisionFocusPositionRecord record = ResolveSelectedRecord(host.Machine);
@@ -944,6 +950,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.MotionTimeout, "Motion Timeout (ms)", "ms", "축 이동 완료 대기 시간입니다.", true), _motionTimeoutMs.ToString(CultureInfo.InvariantCulture), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.VisionTimeout, "Vision Timeout (ms)", "ms", "VisionPC Focus 응답 대기 시간입니다.", true), _visionTimeoutMs.ToString(CultureInfo.InvariantCulture), true);
                 AddSettingRow(CreateNumberInfo(FocusSettingKey.VisionBestTimeout, "Best Timeout (ms)", "ms", "VisionPC FOCUS_BEST 응답 대기 시간입니다. 백그라운드 Focus 점수 처리가 완료될 때까지 기다립니다.", true), _visionBestTimeoutMs.ToString(CultureInfo.InvariantCulture), true);
+                AddSettingRow(CreateOptionInfo(FocusSettingKey.FocusValueMode, "Focus Val Mode", "Ack Only는 FOCUS_VAL 그랩 ACK만 받고 진행하며 최종 점수는 FOCUS_BEST에서만 받습니다. Wait Result는 테스트용 기존 대기 모드입니다.", FocusValueModeOptions), FocusValueModeToText(_focusValueReceiveMode), true);
                 AddSettingRow(CreateOptionInfo(FocusSettingKey.ReturnDefault, "Return Default", "스캔 완료 후 Default Pos로 복귀할지 선택합니다.", BoolOptions), _returnToDefaultAfterScan ? "True" : "False", true);
 
                 _loading = oldLoading;
@@ -1017,6 +1024,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case FocusSettingKey.ReturnDefault:
                     _returnToDefaultAfterScan = value == "True";
+                    break;
+                case FocusSettingKey.FocusValueMode:
+                    _focusValueReceiveMode = TextToFocusValueMode(value);
                     break;
             }
         }
@@ -1488,6 +1498,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         private static string SideToText(VisionFocusPickerSide side)
         {
             return side == VisionFocusPickerSide.Rear ? "Rear" : "Front";
+        }
+
+        private static string FocusValueModeToText(VisionFocusValueReceiveMode mode)
+        {
+            return mode == VisionFocusValueReceiveMode.WaitResultForTest
+                ? "Wait Result (Test)"
+                : "Ack Only";
+        }
+
+        private static VisionFocusValueReceiveMode TextToFocusValueMode(string text)
+        {
+            return string.Equals(text, "Wait Result (Test)", StringComparison.OrdinalIgnoreCase)
+                ? VisionFocusValueReceiveMode.WaitResultForTest
+                : VisionFocusValueReceiveMode.AckOnly;
         }
 
         private static bool IsBottomFocusKind(VisionFocusScanKind kind)
