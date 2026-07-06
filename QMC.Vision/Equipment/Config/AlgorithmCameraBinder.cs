@@ -50,14 +50,17 @@ namespace QMC.Vision.Config
             // 일반 노드: 사용자가 지정(저장)한 값만 적용(미지정은 카메라 현재값 유지).
             // IO Output(Strobe) 그룹: 저장값이 없어도 기본값으로 항상 적용 — MVS가 LineSelector를 Line0(입력)으로
             //   초기화하므로, 적용 때마다 Line1 선택 + 스트로브 설정을 결정적으로 다시 구성한다.
+            // MIL(프레임그래버) 카메라 — 스트로브/IO 는 DCF(Camera Configuration)가 원천이므로
+            // MVS 기본값을 강제 적용하면 DCF 구성이 덮인다 → MIL 은 IO Output 그룹도 '저장값 있을 때만' 적용.
+            bool isMilCam = cam is QMC.Vision.Cameras.Mil.MilCamera;
             foreach (var def in CameraNodeCatalog.All)
             {
                 bool isIoOutput = string.Equals(def.Group, "IO Output(Strobe)", StringComparison.OrdinalIgnoreCase);
                 var v = m.GetNode(def.Node);
                 if (v == null)
                 {
-                    if (!isIoOutput) continue;   // 비-IO 노드는 저장값 있을 때만
-                    v = def.Default;             // IO Output 노드는 기본값으로라도 적용
+                    if (!isIoOutput || isMilCam) continue;   // 비-IO 노드(및 MIL 카메라)는 저장값 있을 때만
+                    v = def.Default;             // IO Output 노드는 기본값으로라도 적용(MVS 전용)
                 }
                 if (string.IsNullOrEmpty(v)) continue;
                 try { cam.SetParameterTyped(def.Node, def.Kind, v); }

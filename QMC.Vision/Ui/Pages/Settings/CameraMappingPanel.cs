@@ -279,10 +279,35 @@ namespace QMC.Vision.Ui.Pages
                 if (_activeCamOwned)
                 {
                     Disconnect();
-                    Connect();
+
+                    // 바인더 적용(설정 그리드 값 push) 없이 재오픈 — 이전 설정값(노출/FPS 등)이 DCF
+                    // Camera Configuration 값을 덮지 않게 한다. Open 직후 카메라 실제값(=DCF)을 설정
+                    // 버퍼로 역반영하고 사용자가 [저장]으로 영속한다(.mfs [불러오기]와 동일 패턴).
+                    var m = CurrentMapping();
+                    ICamera cam = null;
+                    try
+                    {
+                        cam = CameraFactory.CreateById(m.CameraId);
+                        cam.Open();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { cam?.Dispose(); } catch { }
+                        _lblStatus.ForeColor = Color.Firebrick;
+                        _lblStatus.Text = "DCF 적용(재오픈) 실패: " + ex.Message;
+                        return;
+                    }
+                    cam.FrameReceived     += Cam_FrameReceived;
+                    cam.ExposureEnded     += Cam_ExposureEnded;
+                    cam.ConnectionChanged += Cam_ConnectionChanged;
+                    _activeCam = cam;
+                    _activeCamOwned = true;
+                    _expEndCount = 0;
+                    int n = SyncBufferFromCamera(cam, m);
+                    BindFields();
                     UpdateConnectButtons();
                     _lblStatus.ForeColor = Color.DarkSlateGray;
-                    _lblStatus.Text = "DCF 적용(재오픈) 완료.";
+                    _lblStatus.Text = $"DCF 적용(재오픈) 완료 + 설정 반영({n}개) — [저장]으로 영속";
                 }
                 else
                 {
@@ -292,6 +317,23 @@ namespace QMC.Vision.Ui.Pages
             }
             catch (Exception ex)
             { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 적용 예외: " + ex.Message; }
+        }
+
+        /// <summary>카메라 실제값(Open 직후 = DCF 적용 상태)을 설정 버퍼(m)에 역반영 — DCF 적용 후
+        /// 그리드가 DCF 값을 표시/영속하게 한다(LoadMfsIntoBuffer 와 동일 개념, 코어 파라미터만). 반영 수 반환.</summary>
+        private int SyncBufferFromCamera(ICamera cam, AlgorithmCameraMapping m)
+        {
+            int n = 0;
+            try
+            {
+                if (cam == null || m == null) return 0;
+                if (cam.ExposureUs > 0)           { m.ExposureUs = cam.ExposureUs; n++; }
+                if (cam.Gain >= 0)                { m.Gain       = cam.Gain; n++; }
+                if (cam.AcquisitionFrameRate > 0) { m.FrameRate  = cam.AcquisitionFrameRate; n++; }
+                m.PixelFormat = cam.PixelFormat.ToString(); n++;
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] SyncBufferFromCamera 실패: " + ex.Message); }
+            return n;
         }
 
         /// <summary>DCF 불러오기 — 파일 선택 후 표준 DCF 폴더로 복사하고 전역 경로(MilDcfPath)로 지정.

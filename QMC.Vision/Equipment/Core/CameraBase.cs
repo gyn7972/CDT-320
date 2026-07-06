@@ -64,6 +64,14 @@ namespace QMC.Vision.Core
             protected set => _resolution = value;
         }
 
+        // ─── 캐시 직접 주입(장치 쓰기 없음) ───────
+        /// <summary>파생 클래스가 장치 실제값(DCF/카메라 readback)을 캐시에만 반영할 때 사용 — Open 직후
+        /// '장치 상태 채택'용. 프로퍼티 세터와 달리 On*Changed(장치 쓰기)를 호출하지 않는다.</summary>
+        protected void SeedExposureUs(double us)              { _exposureUs = us; }
+        protected void SeedGain(double gainDb)                { _gain = gainDb; }
+        protected void SeedFrameRate(double fps)              { _fps = fps; }
+        protected void SeedPixelFormat(CameraPixelFormat fmt) { _pixelFormat = fmt; }
+
         protected CameraBase(CameraInfo info) { Info = info ?? new CameraInfo(); }
 
         // ─── Hooks (파생 클래스에서 override — SDK 호출) ───
