@@ -714,15 +714,17 @@ namespace QMC.CDT320.Sequencing
 
                 double targetY = _pickTarget.TargetY;
                 double targetX = _pickTarget.TargetX;
+                double targetNeedleX = ResolveNeedleXForVisionX(targetX);
 
                 string areaReason;
                 if (IsPickerMotionOnlyTestMode())
                 {
-                    if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out areaReason))
                     {
                         return Fail("PICKER-PICKUP-STAGE-WORK-AREA", stage.Name,
                             "Picker Motion Only Test 목표 위치가 InputStage 작업 가능 영역을 벗어났습니다. die=" + _currentDieId +
                             ", pickerNo=" + _currentPickerNo +
+                            ", needleX=" + targetNeedleX.ToString("F6") +
                             ", reason=" + areaReason);
                     }
 
@@ -742,9 +744,10 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out areaReason))
                     return Fail("PICKER-PICKUP-STAGE-WORK-AREA", stage.Name,
-                        "Input die target is outside input stage work area. " + areaReason);
+                        "Input die target is outside input stage needle work area. " +
+                        "needleX=" + targetNeedleX.ToString("F6") + ". " + areaReason);
 
                 int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(
                     stage,
@@ -3572,6 +3575,7 @@ namespace QMC.CDT320.Sequencing
 
                 double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : targetX;
                 double currentY = stage.StageY != null ? stage.StageY.ActualPosition : targetY;
+                double currentNeedleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : ResolveNeedleXForVisionX(currentX);
                 double targetNeedleX = ResolveNeedleXForVisionX(targetX);
 
                 string needleAreaReason;
@@ -3633,7 +3637,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string xFirstReason;
-                bool canMoveXFirst = stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason);
+                // 현재 기준: 경로 판단은 CameraX가 아니라 NeedleX/StageY 실축 조합으로 확인한다.
+                bool canMoveXFirst = stage.IsNeedleWorkPointInArea(targetNeedleX, currentY, out xFirstReason);
                 if (canMoveXFirst)
                 {
                     int result = await MoveInputVisionXAndNeedleXAndVerifyAsync(
@@ -3653,7 +3658,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string yFirstReason;
-                bool canMoveYFirst = stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason);
+                bool canMoveYFirst = stage.IsNeedleWorkPointInArea(currentNeedleX, targetY, out yFirstReason);
                 if (canMoveYFirst)
                 {
                     int result = await MoveInputStageYAndVerifyAsync(stage, currentX, targetY, description + " StageY", ct).ConfigureAwait(false);
@@ -3673,7 +3678,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string finalTargetReason;
-                if (stage.IsInputStageWorkPointInArea(targetX, targetY, out finalTargetReason))
+                if (stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out finalTargetReason))
                 {
                     int result = await MoveInputStageYAndVerifyAsync(
                         stage,
