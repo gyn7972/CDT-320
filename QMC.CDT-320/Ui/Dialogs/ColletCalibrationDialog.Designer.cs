@@ -285,7 +285,7 @@
             this.colTZero.HeaderText = "T ZERO";
             this.colTZero.Name = "colTZero";
             this.colTZero.ReadOnly = true;
-            this.colTZero.ToolTipText = "Bottom T 기준 위치와 캘리브레이션 완료 T 위치의 차이입니다. APPLY T HOME 시 Picker T HomeOffset으로 사용합니다.";
+            this.colTZero.ToolTipText = "현재 적용 중인 PC Offset에 캘리브레이션 잔여 T 오차를 더한 절대 보정값입니다. APPLY T HOME 시 보드에 쓰지 않고 Picker T 홈 완료 후 이동/0점 설정값으로 사용합니다.";
             this.colTZero.Width = 80;
             // 
             // colFinalX

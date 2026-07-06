@@ -217,6 +217,11 @@ namespace QMC.CDT320.VisionComm
 
         public static async Task<VisionFocusValueResult> FocusValueAsync(AutoVisionChannel channel, double motorZ, string camera, string target, int pickupNo, bool initial, int timeoutMs, CancellationToken ct)
         {
+            return await FocusValueAsync(channel, motorZ, camera, target, pickupNo, initial, timeoutMs, ct, false).ConfigureAwait(false);
+        }
+
+        public static async Task<VisionFocusValueResult> FocusValueAsync(AutoVisionChannel channel, double motorZ, string camera, string target, int pickupNo, bool initial, int timeoutMs, CancellationToken ct, bool waitResultForTest)
+        {
             VisionTcpClient client = ResolveClient(channel);
             if (client == null)
                 return new VisionFocusValueResult { Success = false, Raw = "Vision client is null." };
@@ -230,7 +235,10 @@ namespace QMC.CDT320.VisionComm
                 target,
                 pickupNo,
                 initial ? 1 : 0).ConfigureAwait(false);
-            return VisionFocusValueResult.Parse(response.RawLine);
+            if (waitResultForTest)
+                return VisionFocusValueResult.Parse(response.RawLine);
+
+            return VisionFocusValueResult.FromAck(response, motorZ, pickupNo, initial);
         }
 
         public static async Task<VisionFocusBestResult> FocusBestAsync(AutoVisionChannel channel, string camera, string target, int pickupNo, int timeoutMs, CancellationToken ct)

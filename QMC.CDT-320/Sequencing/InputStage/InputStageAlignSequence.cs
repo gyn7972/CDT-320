@@ -55,6 +55,7 @@ namespace QMC.CDT320.Sequencing
         private double _pitchY;
         private double _thetaFromTwoPoint;
         private int _thetaRetryCount;
+        private int _twoPointThetaRetryCount;
         private bool _alignAnchorReady;
         private int _alignAnchorRow;
         private int _alignAnchorCol;
@@ -130,7 +131,7 @@ namespace QMC.CDT320.Sequencing
                         return WaitRef2MarkResultAsync(ct);
                     // 얼라인 결과 계산
                     case InputStageAlignStep.CalculateAlignResult:
-                        return Task.FromResult(CalculateAlignResult());
+                        return CalculateAlignResultAsync(ct);
                     // 얼라인 결과 적용
                     case InputStageAlignStep.ApplyAlignResult:
                         return Task.FromResult(ApplyAlignResult());
@@ -240,6 +241,7 @@ namespace QMC.CDT320.Sequencing
             _pitchY = 0.0;
             _thetaFromTwoPoint = 0.0;
             _thetaRetryCount = 0;
+            _twoPointThetaRetryCount = 0;
             _alignAnchorReady = false;
             _alignAnchorRow = 0;
             _alignAnchorCol = 0;
@@ -374,8 +376,12 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 double deltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
+                int limitResult = CheckThetaCorrectionLimit(deltaTheta, "Center");
+                if (limitResult != 0)
+                    return limitResult;
+
                 double targetT = Stage.StageT.ActualPosition + deltaTheta;
-                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct).ConfigureAwait(false);
+                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct, true).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 CurrentStep = InputStageAlignStep.RequestThetaVerify;
@@ -614,10 +620,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CalculateAlignResult()
+        private async Task<int> CalculateAlignResultAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (_map == null || _ref1Result == null || _ref2Result == null)
                 {
                     WriteLog("InputStageAlignSequence",
@@ -646,13 +653,23 @@ namespace QMC.CDT320.Sequencing
                 _originY = _ref1Y - (_map.Ref1Row * _pitchY);
 
                 _thetaFromTwoPoint = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
-                if (Math.Abs(_thetaFromTwoPoint) > ResolveThetaTolerance())
-                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-REF-THETA", Stage.Name,
-                        "Two point theta is out of tolerance. theta=" + _thetaFromTwoPoint.ToString("F6") +
-                        ", tolerance=" + ResolveThetaTolerance().ToString("F6"));
+                double thetaTolerance = ResolveThetaTolerance();
+                double thetaAbs = Math.Abs(_thetaFromTwoPoint);
+                if (ShouldCorrectTwoPointTheta(thetaAbs, thetaTolerance))
+                {
+                    int result = await CorrectTwoPointThetaAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return 0;
+                }
 
                 CurrentStep = InputStageAlignStep.ApplyAlignResult;
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -661,6 +678,113 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private bool ShouldCorrectTwoPointTheta(double thetaAbs, double tolerance)
+        {
+            try
+            {
+                if (thetaAbs <= 1e-9)
+                    return false;
+
+                if (thetaAbs > tolerance)
+                    return true;
+
+                return _twoPointThetaRetryCount == 0 && Math.Max(0, Options.AlignRetryCount) > 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> CorrectTwoPointThetaAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                double tolerance = ResolveThetaTolerance();
+                bool isResidualCorrection = Math.Abs(_thetaFromTwoPoint) <= tolerance;
+                double correctionTheta = -_thetaFromTwoPoint;
+
+                int limitResult = CheckThetaCorrectionLimit(correctionTheta, "Ref1Ref2");
+                if (limitResult != 0)
+                    return limitResult;
+
+                if (!Options.EnableMotion)
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-REF-THETA-MOTION", Stage.Name,
+                        "Two point theta correction is required but motion is disabled. theta=" + _thetaFromTwoPoint.ToString("F6") +
+                        ", tolerance=" + tolerance.ToString("F6"));
+
+                if (_twoPointThetaRetryCount >= Math.Max(0, Options.AlignRetryCount))
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-REF-THETA", Stage.Name,
+                        "Two point theta is out of tolerance after correction retry. theta=" + _thetaFromTwoPoint.ToString("F6") +
+                        ", tolerance=" + tolerance.ToString("F6") +
+                        ", retry=" + _twoPointThetaRetryCount +
+                        ", maxRetry=" + Options.AlignRetryCount);
+
+                _twoPointThetaRetryCount++;
+                double targetT = Stage.StageT.ActualPosition + correctionTheta;
+                WriteLog("InputStageAlignSequence",
+                    "Two point theta correction. theta=" + _thetaFromTwoPoint.ToString("F6") +
+                    ", tolerance=" + tolerance.ToString("F6") +
+                    ", correction=" + correctionTheta.ToString("F6") +
+                    ", targetT=" + targetT.ToString("F6") +
+                    ", mode=" + (isResidualCorrection ? "Residual" : "OutOfTolerance") +
+                    ", retry=" + _twoPointThetaRetryCount +
+                    "/" + Options.AlignRetryCount + " - Start");
+
+                int moveResult = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT two point theta correction", ct, true).ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+
+                ClearRefAlignRuntimeState();
+                _thetaRetryCount = 0;
+                CurrentStep = InputStageAlignStep.MoveVisionProcessPosition;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-REF-THETA-EX", Stage.Name,
+                    "Two point theta correction failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearRefAlignRuntimeState()
+        {
+            _ref1Result = null;
+            _ref2Result = null;
+            _ref1X = 0.0;
+            _ref1Y = 0.0;
+            _ref2X = 0.0;
+            _ref2Y = 0.0;
+            _originX = 0.0;
+            _originY = 0.0;
+            _pitchX = 0.0;
+            _pitchY = 0.0;
+            _thetaFromTwoPoint = 0.0;
+        }
+
+        private int CheckThetaCorrectionLimit(double correctionTheta, string source)
+        {
+            double limit = ResolveThetaCorrectionLimit();
+            if (Math.Abs(correctionTheta) <= limit)
+                return 0;
+
+            return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-LIMIT", Stage.Name,
+                "Theta correction exceeds limit. source=" + source +
+                ", correction=" + correctionTheta.ToString("F6") +
+                ", limit=" + limit.ToString("F6"));
         }
 
         private int FailAndResetAlignRuntimeState(string alarmCode, string source, string message)
@@ -1435,9 +1559,14 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAxisAndVerifyAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
+            return await MoveAxisAndVerifyAsync(axis, target, description, ct, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveAxisAndVerifyAsync(WaferStageAxis axis, double target, string description, CancellationToken ct, bool forceMove)
+        {
             try
             {
-                int result = await MoveAxisCommandAsync(axis, target, description, ct).ConfigureAwait(false);
+                int result = await MoveAxisCommandAsync(axis, target, description, ct, forceMove).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
@@ -1457,6 +1586,11 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAxisCommandAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
+            return await MoveAxisCommandAsync(axis, target, description, ct, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveAxisCommandAsync(WaferStageAxis axis, double target, string description, CancellationToken ct, bool forceMove)
+        {
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -1470,7 +1604,7 @@ namespace QMC.CDT320.Sequencing
                 int result;
                 using (MotionGuardRuntime.BeginAxisTeachingMove(stageAxis, target, targetName))
                 {
-                    result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                    result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove, forceMove), ct).ConfigureAwait(false);
                 }
                 if (result != 0)
                     return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name,
@@ -1683,6 +1817,23 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return 0.005;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveThetaCorrectionLimit()
+        {
+            try
+            {
+                return Options.AlignThetaCorrectionLimitDeg > 0.0
+                    ? Options.AlignThetaCorrectionLimitDeg
+                    : (Stage.Config != null ? Stage.Config.AlignThetaCorrectionLimitDeg : 1.0);
+            }
+            catch
+            {
+                return 1.0;
             }
             finally
             {

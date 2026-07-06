@@ -10,6 +10,7 @@ namespace QMC.CDT320.Sequencing
         public string WaferId { get; set; }
         public bool AllowFallbackMap { get; set; }
         public double AlignThetaToleranceDeg { get; set; }
+        public double AlignThetaCorrectionLimitDeg { get; set; }
         public int AlignRetryCount { get; set; }
         public string CenterAlignTargetId { get; set; }
         public string Ref1AlignTargetId { get; set; }
@@ -31,6 +32,7 @@ namespace QMC.CDT320.Sequencing
                 WaferId = "",
                 AllowFallbackMap = true,
                 AlignThetaToleranceDeg = 0.005,
+                AlignThetaCorrectionLimitDeg = 1.0,
                 AlignRetryCount = 3,
                 CenterAlignTargetId = "Center",
                 Ref1AlignTargetId = "Ref1",

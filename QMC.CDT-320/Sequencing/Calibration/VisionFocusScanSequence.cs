@@ -45,6 +45,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         public int MotionTimeoutMs { get; set; } = 5000;
         public int VisionTimeoutMs { get; set; } = 5000;
         public int VisionBestTimeoutMs { get; set; } = 120000;
+        public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         public bool ReturnToDefaultAfterScan { get; set; } = true;
         public string UpdatedBy { get; set; }
     }
@@ -1447,16 +1448,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ct.ThrowIfCancellationRequested();
                     double position = _scanPositions[i];
 
-                    // EPD(노출 종료) 파이프라인 — Vision 은 FOCUS_VAL 노출이 끝나면 즉시 EPD 를 푸시한다.
-                    // EPD 를 받으면 결과(ACK, 채점 후 도착)를 기다리는 동안 다음 위치 이동을 병렬로 시작해
-                    // '이동 ↔ 채점' 이 겹치도록 한다. (경합 방지: EPD 대기 Task 는 명령 전송 '전'에 생성)
+                    // EPD(노출 종료) 파이프라인 — 기본 모드는 FOCUS_VAL 그랩 ACK만 받고 점수는 FOCUS_BEST에서 회수한다.
+                    // EPD 를 받으면 ACK 대기와 다음 위치 이동을 병렬로 시작해 '이동 ↔ 비전 처리' 가 겹치도록 한다.
+                    // 경합 방지: EPD 대기 Task 는 명령 전송 '전'에 생성한다.
                     Task<bool> epdTask = _useSimulatedVisionFocus
                         ? null
                         : VisionCommandService.WaitExposureDoneAsync(ResolveChannel(), _request.VisionTimeoutMs);
                     Task<VisionFocusScanSample> ackTask = MeasureFocusValueAsync(Result.Samples.Count + 1, position, i == 0, ct);
 
-                    // EPD 와 ACK 중 먼저 오는 쪽까지만 대기 — EPD 를 안 보내는 구버전 Vision 이어도
-                    // ACK 도착 즉시 진행되므로 타임아웃만큼 늘어지지 않는다.
+                    // EPD 와 ACK 중 먼저 오는 쪽까지만 대기 — EPD 를 안 보내는 구버전 Vision 이어도 ACK 도착 즉시 진행된다.
                     Task<int> moveNextTask = null;
                     if (epdTask != null)
                     {
@@ -1486,7 +1486,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                             ", raw=" + sample.Raw);
                     }
 
-                    // EPD 미수신(타임아웃/미연결/시뮬) 폴백 — 기존과 동일하게 ACK(그랩 완료) 후 순차 이동.
+                    // EPD 미수신(타임아웃/미연결/시뮬) 폴백 — ACK(그랩 완료) 후 순차 이동.
                     if (moveNextTask == null && i + 1 < _scanPositions.Count)
                         moveNextTask = MoveToScanPositionAsync(_scanPositions[i + 1], ct);
 
@@ -1877,7 +1877,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ResolvePickupNoForVision(),
                 initial,
                 _request.VisionTimeoutMs,
-                ct).ConfigureAwait(false);
+                ct,
+                _request.FocusValueReceiveMode == VisionFocusValueReceiveMode.WaitResultForTest).ConfigureAwait(false);
 
             return new VisionFocusScanSample
             {
