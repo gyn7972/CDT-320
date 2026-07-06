@@ -1654,6 +1654,19 @@ namespace QMC.CDT320
             return 0.0;
         }
 
+        private static double ResolvePickerYPickTeaching(object pickerUnit)
+        {
+            PickerFrontUnit front = pickerUnit as PickerFrontUnit;
+            if (front != null)
+                return front.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+
+            PickerRearUnit rear = pickerUnit as PickerRearUnit;
+            if (rear != null)
+                return rear.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+
+            return 0.0;
+        }
+
         private double ResolveInputNeedleXTargetFromMappedCameraX(double mappedCameraX)
         {
             double offset = 0.0;
@@ -8622,7 +8635,8 @@ namespace QMC.CDT320
                             mappedCameraX,
                             mappedStageY,
                             inputVisionToPickerX,
-                            inputVisionToPickerY);
+                            inputVisionToPickerY,
+                            ResolvePickerYPickTeaching(pickerUnit));
 
                     // 3축 동시 이동. DieMap 좌표를 실제 장비 좌표로 두고 축별 변환/보정만 더한다.
                     double armXTarget = inputTarget.PickerX + pickerOffset.AlignOffsetX;
