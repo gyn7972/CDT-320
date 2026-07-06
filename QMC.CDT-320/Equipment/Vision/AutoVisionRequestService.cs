@@ -382,14 +382,16 @@ namespace QMC.CDT320.VisionComm
         //  fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(0=없음, -1=다이 없는 메뉴얼 테스트),
         //  channel=항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).
 
-        /// <summary>비동기 매칭(신형) — MATCHASYNC(fb/collet 명시) 시작 후 chip_uid 로 MATCHRESULT 회수.</summary>
+        /// <summary>비동기 매칭(신형) — MATCHASYNC(fb/collet 명시) 시작 후 die_index 로 MATCHRESULT 회수(2026-07-06).
+        /// gridX/gridY = 웨이퍼 격자 인덱스(비전 맵 조회 대체, 모름=-1).</summary>
         public static async Task<MatchResultDto> MatchColletAsync(
             AutoVisionChannel channel,
             string finder,
             int fb,
             int collet,
             int dieIndex,
-            string chipUid,
+            int gridX,
+            int gridY,
             int timeoutMs,
             CancellationToken ct)
         {
@@ -408,25 +410,25 @@ namespace QMC.CDT320.VisionComm
                     ", finder=" + finder +
                     ", fb=" + fb + ", collet=" + collet +
                     ", dieIndex=" + dieIndex +
-                    ", chipUid=" + chipUid +
+                    ", grid=" + gridX + ";" + gridY +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await VisionCommandService.StartMatchAsync(channel, finder, fb, collet, dieIndex, 0, chipUid, timeoutMs, ct).ConfigureAwait(false);   // 채널은 항상 0/1 — Bottom 은 0°로 간주해 0
+                bool started = await VisionCommandService.StartMatchAsync(channel, finder, fb, collet, dieIndex, 0, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);   // 채널은 항상 0/1 — Bottom 은 0°로 간주해 0
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",
                         "Vision MATCHASYNC(8콜렛) STARTED 응답 실패. channel=" + channel +
-                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", chipUid=" + chipUid);
+                        ", finder=" + finder + ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex);
                     return BuildMatchFailure("MATCHASYNC STARTED ACK failed.");
                 }
 
-                MatchResultDto result = await WaitMatchResultByUidAsync(channel, finder, chipUid, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto result = await WaitMatchResultByDieAsync(channel, finder, dieIndex, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.Success)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCH",
                         "Vision MATCHRESULT(8콜렛) 실패. channel=" + channel +
                         ", finder=" + finder + ", fb=" + fb + ", collet=" + collet +
-                        ", chipUid=" + chipUid +
+                        ", dieIndex=" + dieIndex +
                         ", raw=" + (result != null ? result.RawError : "null"));
                 }
                 return result;
@@ -448,11 +450,11 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        /// <summary>chip_uid 기준 MATCHRESULT 대기(신형).</summary>
-        public static async Task<MatchResultDto> WaitMatchResultByUidAsync(
+        /// <summary>die_index 기준 MATCHRESULT 대기(신형, 2026-07-06 — 구 chip_uid 키 폐기).</summary>
+        public static async Task<MatchResultDto> WaitMatchResultByDieAsync(
             AutoVisionChannel channel,
             string finder,
-            string chipUid,
+            int dieIndex,
             int timeoutMs,
             CancellationToken ct)
         {
@@ -467,7 +469,7 @@ namespace QMC.CDT320.VisionComm
 
                     int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
                     int pollTimeoutMs = Math.Min(1000, remainMs);
-                    AsyncMatchPoll poll = await VisionCommandService.GetMatchResultAsync(channel, finder, chipUid, pollTimeoutMs, ct).ConfigureAwait(false);
+                    AsyncMatchPoll poll = await VisionCommandService.GetMatchResultAsync(channel, finder, dieIndex, pollTimeoutMs, ct).ConfigureAwait(false);
                     if (poll == null)
                         return BuildMatchFailure("MATCHRESULT response is null.");
                     if (poll.Error)
@@ -478,7 +480,7 @@ namespace QMC.CDT320.VisionComm
                     await Task.Delay(100, ct).ConfigureAwait(false);
                 }
 
-                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", chipUid=" + chipUid + ", timeoutMs=" + timeoutMs);
+                return BuildMatchFailure("MATCHRESULT timeout. channel=" + channel + ", finder=" + finder + ", dieIndex=" + dieIndex + ", timeoutMs=" + timeoutMs);
             }
             catch (OperationCanceledException)
             {
@@ -493,13 +495,15 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
-        /// <summary>Bottom 픽업 오프셋(신형) — fb/collet 명시 MATCHASYNC 로 요청하고 콜렛 번호를 PickerNo 로 보고한다.</summary>
+        /// <summary>Bottom 픽업 오프셋(신형) — fb/collet 명시 MATCHASYNC 로 요청하고 콜렛 번호를 PickerNo 로 보고한다.
+        /// 키=die_index, gridX/gridY=웨이퍼 격자 인덱스(2026-07-06).</summary>
         public static async Task<BottomVisionOffset> MatchBottomOffsetAsync(
             int fb,
             int collet,
             string finder,
             int dieIndex,
-            string chipUid,
+            int gridX,
+            int gridY,
             double scoreThreshold,
             int timeoutMs,
             CancellationToken ct)
@@ -516,14 +520,14 @@ namespace QMC.CDT320.VisionComm
                     return bypassOffset;
                 }
 
-                MatchResultDto match = await MatchColletAsync(AutoVisionChannel.BottomInspection, finder, fb, collet, dieIndex, chipUid, timeoutMs, ct).ConfigureAwait(false);
+                MatchResultDto match = await MatchColletAsync(AutoVisionChannel.BottomInspection, finder, fb, collet, dieIndex, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
                 BottomVisionOffset offset = VisionCameraCalibrationTransform.ToBottomVisionOffset(collet, match, scoreThreshold);
                 if (offset != null)
                 {
                     EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-BOTTOM-CAL",
                         "Bottom Vision 보정 완료(8콜렛). fb=" + fb +
                         ", collet=" + collet +
-                        ", chipUid=" + chipUid +
+                        ", dieIndex=" + dieIndex +
                         ", ok=" + offset.IsOk +
                         ", dxMm=" + offset.OffsetX.ToString("F6") +
                         ", dyMm=" + offset.OffsetY.ToString("F6") +
@@ -549,6 +553,121 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>동기 검사(신형) — "inspector|fb|collet|die_index|channel|chip_uid" 고정 8파트.
         /// 기존 pickerNo*10+side 인덱스 패킹을 대체한다.</summary>
+        /// <summary>비동기 검사 시작(신형 8파트) — STARTED ACK 만 확인. 결과는 <see cref="WaitInspectResultByDieAsync"/> 로 회수.
+        /// Side 는 같은 die_index 로 채널 0/1 두 번 시작 → 결과 1회(그룹 합산 판정).</summary>
+        public static async Task<bool> StartInspectColletAsync(
+            AutoVisionChannel channel,
+            string inspector,
+            int fb,
+            int collet,
+            int dieIndex,
+            int visionChannel,
+            int gridX,
+            int gridY,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return true;
+
+                if (!IsReady(channel, VisionProtocolCommand.InspectAsync, inspector, fb * 4 + collet))
+                    return false;
+
+                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECTASYNC",
+                    "Vision INSPECTASYNC(8콜렛) 시작 요청. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", fb=" + fb + ", collet=" + collet +
+                    ", dieIndex=" + dieIndex +
+                    ", ch=" + visionChannel +
+                    ", grid=" + gridX + ";" + gridY +
+                    ", timeoutMs=" + timeoutMs);
+
+                bool started = await VisionCommandService.InspectAsyncStartAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                {
+                    EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                        "Vision INSPECTASYNC(8콜렛) STARTED 응답 실패. channel=" + channel +
+                        ", inspector=" + inspector +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel);
+                }
+                return started;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECTASYNC",
+                    "Vision INSPECTASYNC(8콜렛) 시작 예외 발생. channel=" + channel +
+                    ", inspector=" + inspector +
+                    ", fb=" + fb + ", collet=" + collet +
+                    ", error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>die_index 기준 INSPECTRESULT 대기(신형) — 서버 대기형 응답(최대 6s/회) + 만료 재요청.</summary>
+        public static async Task<InspectionResultDto> WaitInspectResultByDieAsync(
+            AutoVisionChannel channel,
+            string inspector,
+            int dieIndex,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (ShouldBypassVisionResultRequests())
+                    return BuildBypassInspectionResult(channel, inspector, dieIndex);
+
+                DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                while (DateTime.UtcNow < timeoutAt)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
+                    int pollTimeoutMs = Math.Min(10000, Math.Max(8000, remainMs));   // 서버 대기 상한(6s)보다 길게
+                    AsyncInspectPoll poll = await VisionCommandService.PollInspectResultAsync(channel, inspector, dieIndex, pollTimeoutMs, ct).ConfigureAwait(false);
+                    if (poll == null)
+                        return new InspectionResultDto { IsPass = false, Raw = "INSPECTRESULT response is null." };
+                    if (poll.Error)
+                        return new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                    if (poll.Done)
+                        return poll.Result ?? new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+
+                return new InspectionResultDto
+                {
+                    IsPass = false,
+                    Raw = "INSPECTRESULT timeout. channel=" + channel + ", inspector=" + inspector + ", dieIndex=" + dieIndex + ", timeoutMs=" + timeoutMs
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return new InspectionResultDto { IsPass = false, Raw = ex.Message };
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>콜렛 1개 검사(신형, 비동기 전용) — INSPECTASYNC 시작 후 die_index 로 결과 회수.
+        /// 동기 INSPECT 와이어 폐기(2026-07-06)에 따른 대체 — 호출부 관점의 블로킹 동작은 동일.</summary>
         public static async Task<InspectionResultDto> InspectColletAsync(
             AutoVisionChannel channel,
             string inspector,
@@ -556,7 +675,8 @@ namespace QMC.CDT320.VisionComm
             int collet,
             int dieIndex,
             int visionChannel,
-            string chipUid,
+            int gridX,
+            int gridY,
             int timeoutMs,
             CancellationToken ct)
         {
@@ -567,25 +687,17 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassInspectionResult(channel, inspector, fb * 4 + collet);
 
-                if (!IsReady(channel, VisionProtocolCommand.Inspect, inspector, fb * 4 + collet))
-                    return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
+                bool started = await StartInspectColletAsync(channel, inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
+                if (!started)
+                    return new InspectionResultDto { IsPass = false, Raw = "INSPECTASYNC STARTED ACK failed." };
 
-                EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",
-                    "Vision INSPECT(8콜렛) 요청. channel=" + channel +
-                    ", inspector=" + inspector +
-                    ", fb=" + fb + ", collet=" + collet +
-                    ", dieIndex=" + dieIndex +
-                    ", ch=" + visionChannel +
-                    ", chipUid=" + chipUid +
-                    ", timeoutMs=" + timeoutMs);
-
-                InspectionResultDto result = await VisionCommandService.InspectAsync(channel, inspector, fb, collet, dieIndex, visionChannel, chipUid, timeoutMs, ct).ConfigureAwait(false);
+                InspectionResultDto result = await WaitInspectResultByDieAsync(channel, inspector, dieIndex, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null || !result.IsPass)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                        "Vision INSPECT(8콜렛) 실패/NG. channel=" + channel +
+                        "Vision INSPECTRESULT(8콜렛) 실패/NG. channel=" + channel +
                         ", inspector=" + inspector +
-                        ", fb=" + fb + ", collet=" + collet + ", ch=" + visionChannel +
+                        ", fb=" + fb + ", collet=" + collet + ", dieIndex=" + dieIndex + ", ch=" + visionChannel +
                         ", raw=" + (result != null ? result.Raw : "null"));
                 }
                 return result;
@@ -597,7 +709,7 @@ namespace QMC.CDT320.VisionComm
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-INSPECT",
-                    "Vision INSPECT(8콜렛) 예외 발생. channel=" + channel +
+                    "Vision INSPECTASYNC(8콜렛) 예외 발생. channel=" + channel +
                     ", inspector=" + inspector +
                     ", fb=" + fb + ", collet=" + collet +
                     ", error=" + ex.Message);
@@ -622,7 +734,7 @@ namespace QMC.CDT320.VisionComm
                 if (ShouldBypassVisionResultRequests())
                     return BuildBypassInspectionResult(channel, inspector, index);
 
-                if (!IsReady(channel, VisionProtocolCommand.Inspect, inspector, index))
+                if (!IsReady(channel, VisionProtocolCommand.InspectAsync, inspector, index))
                     return new InspectionResultDto { IsPass = false, Raw = "Vision client is not connected." };
 
                 EventLogger.Write(EventKind.Event, "VISION", "AUTO-VISION-INSPECT",

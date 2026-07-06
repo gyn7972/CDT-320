@@ -1791,6 +1791,56 @@ namespace QMC.CDT320.Sequencing
             {
             }
 
+            throw new SequenceStopException(reason);
+        }
+
+        private void NotifyInputCassetteReplacementRequired()
+        {
+            try
+            {
+                Context.RequestOperatorMessage(
+                    "입력 카세트 교체",
+                    "입력 카세트의 모든 웨이퍼 작업이 완료되었습니다.\r\n카세트를 교체한 뒤 필요한 작업을 진행하세요.");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("NotifyInputCassetteReplacementRequired",
+                    "입력 카세트 교체 메시지 표시 요청 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void LogPublic(string message)
+        {
+            try
+            {
+                Context.LogPublic(message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("InputSequence public log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteLog(string source, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("InputSequence log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+
             // 시퀀스 로그를 이력(EventLogger)에도 분류 기록(스코프 Kind 또는 메시지 접두어 라우팅).
             SequenceLog.EmitTrace(QMC.Common.Logging.EventKind.InputSeq, source, message);
         }

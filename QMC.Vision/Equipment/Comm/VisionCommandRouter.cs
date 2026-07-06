@@ -48,10 +48,8 @@ namespace QMC.Vision.Comm
                     case "PING":       resp = "OK";                  break;
                     case "EXPOSE":
                     case "GRAB":       resp = VisionCommandCore.Grab(m); break;
-                    case "MATCH":      resp = DoMatch(m, cfg, parts); break;
                     case "MATCHASYNC": resp = DoMatchAsync(m, cfg, parts); break;
                     case "MATCHRESULT":resp = DoMatchResult(m, parts); break;
-                    case "INSPECT":    resp = DoInspect(m, cfg, parts); break;
                     case "TRAIN":      resp = DoTrain(m, parts);     break;
                     case "SCALE":      resp = DoScale(m, parts);     break;
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
@@ -79,23 +77,14 @@ namespace QMC.Vision.Comm
             || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
-        private static string DoMatch(IVisionModule m, VisionSettings cfg, string[] parts)
-        {
-            string finder  = parts.Length > 2 ? parts[2] : "";
-            string chipUid = parts.Length > 3 ? parts[3] : "";
-            // 신형 고정 8파트(finder|fb|collet|die_index|channel|chip_uid) — chip_uid 는 맨 뒤.
-            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
-                chipUid = newUid;
-            return VisionCommandCore.Match(m, cfg, finder, chipUid);
-        }
-
         /// <summary>비동기 매칭 시작 — 요청 즉시 STARTED를 돌려주고 그랩/알고리즘은 백그라운드에서 수행한다.</summary>
         private static string DoMatchAsync(IVisionModule m, VisionSettings cfg, string[] parts)
         {
             string finder = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
-                chipUid = newUid;
+            // 신형 고정 8파트(finder|fb|collet|die_index|channel|gridx;gridy) — 결과 매칭 키 = die_index(2026-07-06).
+            if (ColletAddress.TryParseWire(parts, out _, out _, out int dieIndexKey, out _, out _, out _))
+                chipUid = dieIndexKey.ToString();
             if (string.IsNullOrEmpty(finder))
                 return "fail:no finder";
 
@@ -155,25 +144,6 @@ namespace QMC.Vision.Comm
                 case AsyncMatchStore.State.Running: return "0";
                 default: return "0";
             }
-        }
-
-        /// <summary>동기 검사. 신형 고정 8파트(inspector|fb|collet|die_index|channel|chip_uid)면
-        /// (fb,collet)→전역 픽커(1~8) 컨텍스트를 걸고 실행, 구형(≤7파트)은 기존 그대로.</summary>
-        private static string DoInspect(IVisionModule m, VisionSettings cfg, string[] parts)
-        {
-            string insp = parts.Length > 2 ? parts[2] : "";
-            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out int dieIndex, out int channel, out string uid))
-            {
-                int picker = ColletAddress.ToGlobalPicker(fb, collet);
-                int ix = 0, iy = 0;   // die_index=-1(메뉴얼) 또는 0 이면 맵 매칭 생략
-                if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
-                { ix = 0; iy = 0; }
-                VisionCommandCore.SetInspectContext(m.Name, picker, channel, ix, iy);
-                try { return VisionCommandCore.Inspect(m, cfg, insp, uid); }
-                finally { VisionCommandCore.SetInspectContext(m.Name, 0, -1, 0, 0); }
-            }
-            string chipUid = parts.Length > 3 ? parts[3] : "";
-            return VisionCommandCore.Inspect(m, cfg, insp, chipUid);
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)

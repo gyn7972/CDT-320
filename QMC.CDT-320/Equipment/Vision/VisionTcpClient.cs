@@ -286,12 +286,12 @@ namespace QMC.CDT320.VisionComm
             return started;
         }
 
-        /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — 고정 8파트 "finder|fb|collet|die_index|channel|chip_uid" 전송.
-        /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트),
-        /// channel=항상 0/1(Side 0°/90°, Bottom/Bin=0), chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
-        public async Task<bool> MatchAsyncStartAsync(string finder, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — 고정 8파트 "finder|fb|collet|die_index|channel|gridx;gridy" 전송.
+        /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트) = 결과 매칭 키(chip_uid 파트 폐기, 2026-07-06),
+        /// channel=항상 0/1(Side 0°/90°, Bottom/Bin=0), 맨 뒤 = 웨이퍼 격자 인덱스 "gridx;gridy"(비전 맵 조회 대체, 모름=-1;-1).</summary>
+        public async Task<bool> MatchAsyncStartAsync(string finder, int fb, int collet, int dieIndex, int channel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, fb, collet, dieIndex, channel, gridX + ";" + gridY).ConfigureAwait(false);
             bool started = response.IsAck && response.IsResult("STARTED");
             if (!started)
                 LogMsg("MATCHASYNC START rejected: " + response.RawLine);
@@ -317,37 +317,24 @@ namespace QMC.CDT320.VisionComm
             return AsyncMatchPoll.Parse(response.RawLine);
         }
 
-        /// <summary>MATCHASYNC(신형 8파트)에서 사용한 chip_uid 로 MATCHRESULT 를 폴링한다 — "finder|chip_uid" 유지.</summary>
-        public async Task<AsyncMatchPoll> PollMatchResultAsync(string finder, string chipUid, int timeoutMs, CancellationToken ct)
-        {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchResult, timeoutMs, ct, finder, chipUid).ConfigureAwait(false);
-            return AsyncMatchPoll.Parse(response.RawLine);
-        }
+        // (신형) MATCHRESULT 폴링 키 = die_index — 기존 int 오버로드(PollMatchResultAsync(finder, index, ...))와 동일 와이어
+        // "MODULE|MATCHRESULT|finder|die_index" 를 사용한다(chip_uid 폐기, 2026-07-06).
 
-        // ── 비동기 INSPECT (그랩 후 1차 ACK=STARTED → 백그라운드 검사 → INSPECTRESULT 폴링) ──
-        /// <summary>비동기 검사 시작 — 그랩 완료(1차 ACK=STARTED) 면 true. 이후 PollInspectResultAsync 로 완료 폴링.</summary>
+        // ── 비동기 INSPECT (1차 ACK=STARTED → 백그라운드 그랩+검사 → INSPECTRESULT 폴링) ──
+        /// <summary>비동기 검사 시작(구형 인덱스 규약, 수동/셋업용) — 키=index. 이후 PollInspectResultAsync(inspector, index)로 회수.</summary>
         public async Task<bool> InspectAsyncStartAsync(string inspector, int index = 0, int timeoutMs = 30000)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, index).ConfigureAwait(false);
             return response.IsAck;
         }
 
-        /// <summary>비동기 검사 시작(구형 픽커 배치 규약, 하위호환) — "inspector|picker|chip_uid|die_index" 전송.
-        /// die_index=픽업 순서(1-base). Vision 이 레시피 칩위치로 인덱스→셀을 매칭해 Bottom 맵에 그린다(0이면 생략).</summary>
-        public async Task<bool> InspectAsyncStartAsync(string inspector, int picker, string chipUid, int dieIndex, int timeoutMs = 30000)
+        /// <summary>비동기 검사 시작(8콜렛 신형 규약) — 고정 8파트 "inspector|fb|collet|die_index|channel|gridx;gridy" 전송.
+        /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트 — Vision 이 맵 매칭/집계 생략)
+        /// = 결과 매칭 키(chip_uid 파트 폐기, 2026-07-06), channel=항상 0/1(Side 0°/90°, Bottom/Bin 은 0°로 간주해 0),
+        /// 맨 뒤 = 웨이퍼 격자 인덱스 "gridx;gridy"(비전 맵 조회 대체, 모름=-1;-1).</summary>
+        public async Task<bool> InspectAsyncStartAsync(string inspector, int fb, int collet, int dieIndex, int channel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = dieIndex > 0
-                ? await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, picker, chipUid, dieIndex).ConfigureAwait(false)
-                : await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, CancellationToken.None, inspector, picker, chipUid).ConfigureAwait(false);
-            return response.IsAck;
-        }
-
-        /// <summary>비동기 검사 시작(8콜렛 신형 규약) — 고정 8파트 "inspector|fb|collet|die_index|channel|chip_uid" 전송.
-        /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트 — Vision 이 맵 매칭/집계 생략),
-        /// channel=항상 0/1(Side 0°/90°, Bottom/Bin 은 0°로 간주해 0), chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
-        public async Task<bool> InspectAsyncStartAsync(string inspector, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
-        {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, gridX + ";" + gridY).ConfigureAwait(false);
             return response.IsAck;
         }
 
@@ -375,10 +362,10 @@ namespace QMC.CDT320.VisionComm
             return AsyncInspectPoll.Parse(response.RawLine);
         }
 
-        /// <summary>비동기 검사 결과 요청(신형) — INSPECTASYNC 에 사용한 chip_uid 로 회수("inspector|chip_uid" 유지).</summary>
-        public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 검사 결과 요청(신형) — INSPECTASYNC 에 사용한 die_index 로 회수("inspector|die_index", 2026-07-06).</summary>
+        public async Task<AsyncInspectPoll> PollInspectResultAsync(string inspector, int dieIndex, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectResult, timeoutMs, ct, inspector, chipUid).ConfigureAwait(false);
+            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectResult, timeoutMs, ct, inspector, dieIndex).ConfigureAwait(false);
             return AsyncInspectPoll.Parse(response.RawLine);
         }
 
@@ -387,18 +374,43 @@ namespace QMC.CDT320.VisionComm
             return await InspectAsync(inspector, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
         }
 
+        /// <summary>검사(구형 인덱스 규약) — 동기 INSPECT 와이어 폐기(2026-07-06)에 따라 내부를
+        /// INSPECTASYNC(시작) + INSPECTRESULT(대기형 폴링, 키=index)로 재구현. 호출부 시그니처/블로킹 동작은 동일.</summary>
         public async Task<InspectionResultDto> InspectAsync(string inspector, int index, int timeoutMs, CancellationToken ct)
         {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Inspect, timeoutMs, ct, inspector, index).ConfigureAwait(false);
-            return InspectionResultDto.Parse(response.RawLine);
-        }
+            ct.ThrowIfCancellationRequested();
 
-        /// <summary>동기 검사(8콜렛 신형 규약) — 고정 8파트 "inspector|fb|collet|die_index|channel|chip_uid" 전송.
-        /// Vision 이 (fb,collet)→전역 픽커 컨텍스트를 걸고 검사한다(기존 pickerNo*10+side 인덱스 패킹 대체).</summary>
-        public async Task<InspectionResultDto> InspectAsync(string inspector, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
-        {
-            VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.Inspect, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);
-            return InspectionResultDto.Parse(response.RawLine);
+            bool started = await InspectAsyncStartAsync(inspector, index, timeoutMs).ConfigureAwait(false);
+            if (!started)
+            {
+                return new InspectionResultDto
+                {
+                    IsPass = false,
+                    Raw = "INSPECTASYNC STARTED ACK failed. inspector=" + inspector
+                };
+            }
+
+            DateTime timeoutAt = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < timeoutAt)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int remainMs = (int)Math.Max(1, (timeoutAt - DateTime.UtcNow).TotalMilliseconds);
+                int pollTimeoutMs = Math.Min(10000, Math.Max(8000, remainMs));   // 서버 대기 상한(6s)보다 길게
+                AsyncInspectPoll poll = await PollInspectResultAsync(inspector, index, pollTimeoutMs, ct).ConfigureAwait(false);
+                if (poll.Error)
+                    return new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+                if (poll.Done)
+                    return poll.Result ?? new InspectionResultDto { IsPass = false, Raw = poll.Raw };
+
+                await Task.Delay(100, ct).ConfigureAwait(false);
+            }
+
+            return new InspectionResultDto
+            {
+                IsPass = false,
+                Raw = "INSPECTRESULT timeout. inspector=" + inspector + ", timeoutMs=" + timeoutMs
+            };
         }
 
         public async Task<bool> TrainAsync(string finder, int timeoutMs = 5000)
@@ -520,7 +532,7 @@ namespace QMC.CDT320.VisionComm
                                 try { RecipeRequested?.Invoke(); } catch { }
                                 continue;
                             }
-                            // Bottom 외곽 종료 XYT 푸시 — "XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=..".
+                            // Bottom 외곽 종료 XYT 푸시 — "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1".
                             // Side 공정이 Bottom 결과 폴링 없이 XYT 를 쓰도록 스토어 기록 + 이벤트 통지(응답 큐 무관).
                             if (response.IsPush &&
                                 string.Equals(response.Command, VisionProtocolPushCommands.BottomXyt, StringComparison.OrdinalIgnoreCase))
@@ -540,8 +552,8 @@ namespace QMC.CDT320.VisionComm
             finally { Disconnect(); }
         }
 
-        /// <summary>XYT 푸시 파싱/기록 — Fields=[fb, collet, chip_uid, "x=..;y=..;t=..;ix=..;iy=.."].
-        /// 파싱 실패는 로그만 남기고 무시(수신 루프 보호).</summary>
+        /// <summary>XYT 푸시 파싱/기록 — Fields=[fb, collet, die_index, "x=..;y=..;t=..;ix=..;iy=..;valid=0|1"].
+        /// die_index = 결과 매칭 키(구 chip_uid 자리, 2026-07-06). 파싱 실패는 로그만 남기고 무시(수신 루프 보호).</summary>
         private void HandleBottomXytPush(VisionProtocolResponse response)
         {
             try
@@ -568,7 +580,7 @@ namespace QMC.CDT320.VisionComm
 
                 var push = new BottomXytPush
                 {
-                    Fb = fb, Collet = collet, ChipUid = uid,
+                    Fb = fb, Collet = collet, DieIndex = uid,
                     X = x, Y = y, T = double.IsNaN(t) ? 0.0 : t, IndexX = ix, IndexY = iy,
                     IsValid = valid
                 };

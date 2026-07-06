@@ -48,6 +48,14 @@ namespace QMC.Vision.Sequencing
             int port = ResolvePort(module.Name);
             if (port <= 0) return "fail:no port for module " + module.Name;
 
+            string upper = (cmd ?? string.Empty).ToUpperInvariant();
+            // 동기 MATCH/INSPECT 와이어 폐기(2026-07-06) — 핸들러와 동일하게
+            // 비동기 시작(MATCHASYNC/INSPECTASYNC) + 결과 폴링(MATCHRESULT/INSPECTRESULT)으로 수행(Sim==Real).
+            if (upper == "MATCH")
+                return ExecuteViaAsyncPair(module, port, args, "MATCHASYNC", "MATCHRESULT", true);
+            if (upper == "INSPECT")
+                return ExecuteViaAsyncPair(module, port, args, "INSPECTASYNC", "INSPECTRESULT", false);
+
             string line = BuildRequestLine(module.Name, cmd, args);
 
             Conn conn = GetConn(port);
@@ -63,6 +71,58 @@ namespace QMC.Vision.Sequencing
                 catch (Exception ex)
                 {
                     // 소켓 오류 시 연결을 버려 다음 호출에서 재접속하게 한다. 결과는 시퀀스가 NG 로 처리.
+                    DropConn(conn);
+                    return "fail:tcp " + ex.Message;
+                }
+            }
+        }
+
+        /// <summary>동기 도구 명령을 비동기쌍으로 번역 실행 — 시작(STARTED) 후 결과를 폴링해
+        /// Direct 디스패처와 동일한 결과 계약(MATCH="OK;..", INSPECT="PASS;../FAIL;..", 실패="fail:..")으로 반환.
+        /// 폴링 키 = args[1](구형 tool|key — 배치 경로가 아니므로 구형 인자 그대로).</summary>
+        private string ExecuteViaAsyncPair(IVisionModule module, int port, string[] args,
+                                           string startCmd, string resultCmd, bool matchStyle)
+        {
+            const int TotalTimeoutMs = 15000;
+            const int PollDelayMs = 100;
+
+            string tool = args != null && args.Length > 0 ? args[0] : string.Empty;
+            string key = args != null && args.Length > 1 ? args[1] : string.Empty;
+            if (string.IsNullOrEmpty(tool)) return "fail:no tool";
+            string[] pair = string.IsNullOrEmpty(key) ? new[] { tool } : new[] { tool, key };
+
+            Conn conn = GetConn(port);
+            lock (conn.Gate)
+            {
+                try
+                {
+                    EnsureConnected(conn, port);
+
+                    WriteLine(conn, BuildRequestLine(module.Name, startCmd, pair));
+                    string started = ExtractPayload(ReadAckLine(conn));
+                    if (!string.Equals(started, "STARTED", StringComparison.OrdinalIgnoreCase))
+                        return started != null && started.StartsWith("fail:", StringComparison.Ordinal) ? started : "fail:" + started;
+
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    while (sw.ElapsedMilliseconds < TotalTimeoutMs)
+                    {
+                        WriteLine(conn, BuildRequestLine(module.Name, resultCmd, pair));
+                        string payload = ExtractPayload(ReadAckLine(conn));
+                        if (string.IsNullOrEmpty(payload)) return "fail:no response";
+                        if (payload.StartsWith("fail:", StringComparison.Ordinal)) return payload;
+                        if (payload.StartsWith("ERR", StringComparison.OrdinalIgnoreCase)) return "fail:" + payload;
+                        if (payload.StartsWith("1;", StringComparison.Ordinal))
+                        {
+                            string body = payload.Substring(2);   // MATCH="x=..;y=..;.." / INSPECT="PASS;.."
+                            return matchStyle ? "OK;" + body : body;
+                        }
+                        // "0" = 진행중 — 폴링 계속
+                        System.Threading.Thread.Sleep(PollDelayMs);
+                    }
+                    return "fail:" + resultCmd.ToLowerInvariant() + " timeout";
+                }
+                catch (Exception ex)
+                {
                     DropConn(conn);
                     return "fail:tcp " + ex.Message;
                 }

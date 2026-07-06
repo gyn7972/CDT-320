@@ -105,7 +105,7 @@ namespace QMC.CDT320.VisionComm
     /// Picker bottom/side vision adapter.
     /// Bottom은 BottomInspection 채널을 사용하고, Side는 생성 시 전달받은 Front/Rear side 채널을 사용한다.
     /// <para>8콜렛 규약: 이 어댑터의 side 채널이 곧 콜렛 그룹(fb)이다 — FrontSide=fb0, RearSide=fb1.
-    /// Vision 요청은 신형 고정 8파트("tool|fb|collet|die_index|channel|chip_uid")로 전송한다.</para>
+    /// Vision 요청은 신형 고정 8파트("tool|fb|collet|die_index|channel|gridx;gridy")로 전송한다(키=die_index, 2026-07-06).</para>
     /// </summary>
     public class TpuVisionAdapter : IVisionTpuClient
     {
@@ -128,11 +128,18 @@ namespace QMC.CDT320.VisionComm
             get { return _sideChannel == AutoVisionChannel.RearSide ? 1 : 0; }
         }
 
-        /// <summary>어댑터 수준 임시 chip_uid("F1"~"B4") — 시퀀스가 자재 DieId 를 넘기기 전까지의 결과 매칭 키.</summary>
-        private string BuildColletUid(int collet, int channel)
+        /// <summary>콜렛의 비전 주소(die_index/grid) 조회 — 시퀀스가 <see cref="VisionDieAddressStore"/> 에
+        /// 기록한 값을 사용, 없으면 콜렛별 고유 음수 합성키(-1~-8, 메뉴얼 취급 — 키 충돌 방지).</summary>
+        private void ResolveDieAddress(int collet, out int dieIndex, out int gridX, out int gridY)
         {
-            string baseUid = (Fb == 0 ? "F" : "B") + collet;
-            return channel >= 0 ? baseUid + "-C" + channel : baseUid;
+            VisionDieAddress addr;
+            if (VisionDieAddressStore.TryGet(Fb, collet, out addr))
+            {
+                dieIndex = addr.DieIndex; gridX = addr.GridX; gridY = addr.GridY;
+                return;
+            }
+            dieIndex = VisionDieAddressStore.FallbackDieIndex(Fb, collet);
+            gridX = -1; gridY = -1;
         }
 
         public Task<bool> TriggerBottomExposeAsync(int pickerNo = 0, int timeoutMs = 1000)
@@ -165,13 +172,16 @@ namespace QMC.CDT320.VisionComm
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    // 신형 8파트: fb/collet 명시. die_index=0(이 계층은 다이 정보 없음 — 오프셋 매칭엔 미사용).
+                    // 신형 8파트: fb/collet 명시 + die_index(키)/grid — 시퀀스가 기록한 다이 주소 사용.
+                    int dieIndex, gridX, gridY;
+                    ResolveDieAddress(collet, out dieIndex, out gridX, out gridY);
                     results[i] = await AutoVisionRequestService.MatchBottomOffsetAsync(
                         Fb,
                         collet,
                         "DieFinder",
-                        0,
-                        BuildColletUid(collet, -1),
+                        dieIndex,
+                        gridX,
+                        gridY,
                         MatchScoreThreshold,
                         timeoutMs,
                         ct).ConfigureAwait(false);
@@ -215,32 +225,45 @@ namespace QMC.CDT320.VisionComm
         {
             try
             {
-                // 8콜렛 규약: 콜렛(=pickerNo 1~4) 다이는 자기 그룹 카메라(fb)만 촬영한다 —
-                // 채널 0(0°)/1(90°) 2회 검사(기존 pickerNo*10+side 패킹·4채널 루프 대체).
-                bool[] ok = new bool[2];
+                // 8콜렛 규약: 콜렛(=pickerNo 1~4) 다이는 자기 그룹 카메라(fb)만 촬영한다.
+                // 비동기 전용(2026-07-06): 같은 die_index 로 채널 0(0°)/1(90°) INSPECTASYNC 를 모두 시작하고
+                // INSPECTRESULT 1회로 그룹 합산 판정(모두 PASS 여야 PASS)을 회수한다.
+                int dieIndex, gridX, gridY;
+                ResolveDieAddress(pickerNo, out dieIndex, out gridX, out gridY);
+
                 for (int ch = 0; ch <= 1; ch++)
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    InspectionResultDto inspection = await AutoVisionRequestService.InspectColletAsync(
+                    bool started = await AutoVisionRequestService.StartInspectColletAsync(
                         _sideChannel,
                         "SurfaceInspector",
                         Fb,
                         pickerNo,
-                        0,
+                        dieIndex,
                         ch,
-                        BuildColletUid(pickerNo, ch),
+                        gridX,
+                        gridY,
                         timeoutMs,
                         ct).ConfigureAwait(false);
 
-                    ok[ch] = inspection != null && inspection.IsPass;
+                    if (!started)
+                        return new SideVisionResult { PickerNo = pickerNo, Side1Ok = false, Side2Ok = false, Side3Ok = true, Side4Ok = true };
                 }
 
+                InspectionResultDto inspection = await AutoVisionRequestService.WaitInspectResultByDieAsync(
+                    _sideChannel,
+                    "SurfaceInspector",
+                    dieIndex,
+                    timeoutMs,
+                    ct).ConfigureAwait(false);
+
+                bool pass = inspection != null && inspection.IsPass;
                 return new SideVisionResult
                 {
                     PickerNo = pickerNo,
-                    Side1Ok = ok[0],
-                    Side2Ok = ok[1],
+                    Side1Ok = pass,   // 그룹 합산 판정(0°/90° 모두 PASS 여야 PASS) — 채널별 상세는 Vision 결과 스토어 참조
+                    Side2Ok = pass,
                     Side3Ok = true,   // 미사용 — 콜렛당 자기 카메라 0°/90° 2촬영 체계(합산 판정은 1·2만 반영)
                     Side4Ok = true
                 };
