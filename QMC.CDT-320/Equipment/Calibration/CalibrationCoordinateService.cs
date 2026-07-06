@@ -42,6 +42,7 @@ namespace QMC.CDT320.Calibration
         public double StageY { get; set; }
         public double InputVisionToPickerX { get; set; }
         public double InputVisionToPickerY { get; set; }
+        public double PickerYForward { get; set; }
         public double ColletOffsetX { get; set; }
         public double ColletOffsetY { get; set; }
         public string Formula { get; set; }
@@ -55,6 +56,7 @@ namespace QMC.CDT320.Calibration
         public double PickerT { get; set; }
         public double OutputVisionToPickerX { get; set; }
         public double OutputVisionToPickerY { get; set; }
+        public double PickerYForward { get; set; }
         public double RuntimeOffsetX { get; set; }
         public double RuntimeOffsetY { get; set; }
         public double RuntimeOffsetT { get; set; }
@@ -233,21 +235,25 @@ namespace QMC.CDT320.Calibration
             double dieX,
             double dieY,
             double inputVisionToPickerX,
-            double inputVisionToPickerY)
+            double inputVisionToPickerY,
+            double pickerYTeaching)
         {
             PickerCalibrationOffset collet = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
+            double pickerYForward = Math.Abs(pickerYTeaching);
             PickerCalibratedManualInputTarget target = new PickerCalibratedManualInputTarget
             {
                 InputVisionToPickerX = inputVisionToPickerX,
                 InputVisionToPickerY = inputVisionToPickerY,
+                PickerYForward = pickerYForward,
                 ColletOffsetX = collet.X,
                 ColletOffsetY = collet.Y
             };
             target.PickerX = dieX + inputVisionToPickerX + collet.X;
-            target.StageY = dieY + inputVisionToPickerY + collet.Y;
+            // 현재 기준: PickerY 전진량은 StageY 보정에서 제외해 Y 방향 보상이 중복되지 않게 한다.
+            target.StageY = dieY + inputVisionToPickerY - pickerYForward + collet.Y;
             target.Formula =
                 "PickerX=dieX(" + F(dieX) + ")+inputVisionToPickerX(" + F(inputVisionToPickerX) + ")+colletX(" + F(collet.X) + ")=" + F(target.PickerX) +
-                " / StageY=dieY(" + F(dieY) + ")+inputVisionToPickerY(" + F(inputVisionToPickerY) + ")+colletY(" + F(collet.Y) + ")=" + F(target.StageY);
+                " / StageY=dieY(" + F(dieY) + ")+inputVisionToPickerY(" + F(inputVisionToPickerY) + ")-pickerYForward(" + F(pickerYForward) + ")+colletY(" + F(collet.Y) + ")=" + F(target.StageY);
             return target;
         }
 
@@ -267,10 +273,12 @@ namespace QMC.CDT320.Calibration
             double runtimeX = runtimeOffset != null ? runtimeOffset.AlignOffsetX : 0.0;
             double runtimeY = runtimeOffset != null ? runtimeOffset.AlignOffsetY : 0.0;
             double runtimeT = runtimeOffset != null ? runtimeOffset.AlignOffsetT : 0.0;
+            double pickerYForward = Math.Abs(pickerYTeaching);
             PickerCalibratedManualOutputTarget target = new PickerCalibratedManualOutputTarget
             {
                 OutputVisionToPickerX = outputVisionToPickerX,
                 OutputVisionToPickerY = outputVisionToPickerY,
+                PickerYForward = pickerYForward,
                 RuntimeOffsetX = runtimeX,
                 RuntimeOffsetY = runtimeY,
                 RuntimeOffsetT = runtimeT,
@@ -278,12 +286,13 @@ namespace QMC.CDT320.Calibration
                 ColletOffsetY = collet.Y,
                 ColletOffsetT = collet.T
             };
-            target.OutputStageY = slotY + outputVisionToPickerY;
+            // 현재 기준: PickerY 전진량은 OutputStageY 보정에서 제외해 Y 방향 보상이 중복되지 않게 한다.
+            target.OutputStageY = slotY + outputVisionToPickerY - pickerYForward;
             target.PickerX = slotX + outputVisionToPickerX + runtimeX + collet.X;
             target.PickerY = pickerYTeaching + runtimeY + collet.Y;
             target.PickerT = pickerTTeaching + runtimeT + collet.T;
             target.Formula =
-                "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")=" + F(target.OutputStageY) +
+                "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYForward(" + F(pickerYForward) + ")=" + F(target.OutputStageY) +
                 " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ")+colletX(" + F(collet.X) + ")=" + F(target.PickerX) +
                 " / PickerY=teachingY(" + F(pickerYTeaching) + ")+runtimeY(" + F(runtimeY) + ")+colletY(" + F(collet.Y) + ")=" + F(target.PickerY) +
                 " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(" + F(collet.T) + ")=" + F(target.PickerT);

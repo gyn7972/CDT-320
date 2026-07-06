@@ -34,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public double OutputStageY { get; set; }
             public double PickerX { get; set; }
             public double PickerY { get; set; }
+            public double PickerYForward { get; set; }
             public double PickerT { get; set; }
         }
 
@@ -1205,6 +1206,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "StageY=" + targets.OutputStageY.ToString("F3") + " mm\r\n" +
                     "PickerX=" + targets.PickerX.ToString("F3") + " mm\r\n" +
                     "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
+                    "PickerY Forward=" + targets.PickerYForward.ToString("F3") + " mm\r\n" +
                     "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
                     "PickerZ는 이동하지 않습니다.",
                     "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -1631,6 +1633,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     OutputStageY = calibratedTarget.OutputStageY,
                     PickerX = calibratedTarget.PickerX,
                     PickerY = calibratedTarget.PickerY,
+                    PickerYForward = calibratedTarget.PickerYForward,
                     PickerT = calibratedTarget.PickerT
                 };
                 return true;

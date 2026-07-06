@@ -1287,6 +1287,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
+                double pickerYTeaching = ResolvePickerYPickTeaching(host, side);
                 PickerCalibratedManualInputTarget target =
                     CalibrationCoordinateService.ResolveManualInputMapTarget(
                         host.Machine,
@@ -1295,7 +1296,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         entry.PosX,
                         entry.PosY,
                         offsetX,
-                        offsetY);
+                        offsetY,
+                        pickerYTeaching);
                 double targetPickerX = target.PickerX;
                 double targetStageY = target.StageY;
                 double targetNeedleX = ResolveInputNeedleXForVisionX(host, entry.PosX);
@@ -1306,6 +1308,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "NeedleX=" + targetNeedleX.ToString("F3") + " mm\r\n" +
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
+                    " PickerY Forward=" + target.PickerYForward.ToString("F3") + " mm\r\n" +
                     " ColletCal Offset X=" + target.ColletOffsetX.ToString("F3") + " mm, Y=" + target.ColletOffsetY.ToString("F3") + " mm)",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
@@ -1362,6 +1365,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     SetActionButtonsEnabled(true);
                 }
             }
+        }
+
+        private static double ResolvePickerYPickTeaching(Form1 host, PickerSequenceSide side)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return 0.0;
+
+                if (side == PickerSequenceSide.Front && host.Machine.PickerFrontUnit != null)
+                    return host.Machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+
+                if (side == PickerSequenceSide.Rear && host.Machine.PickerRearUnit != null)
+                    return host.Machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "PickerY pick teaching resolve failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return 0.0;
         }
 
         private static double ResolveInputNeedleXForVisionX(Form1 host, double visionX)
