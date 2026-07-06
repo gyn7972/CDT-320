@@ -97,6 +97,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
+            // 현재 기준: runMode 없는 기존 호출은 Manual 스코프로 실행한다.
             return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
         }
 
@@ -156,6 +157,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
+            // 현재 기준: runMode 없는 기존 Default 이동 호출은 Manual 스코프로 실행한다.
             return await MoveDefaultOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
         }
 
