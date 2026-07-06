@@ -4,6 +4,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
+    // 인터락 기준: Picker X/Y 위치를 Avoid/Input/Process/Output 작업 존으로 분류한다.
     internal enum PickerWorkZone
     {
         Unknown,
@@ -14,6 +15,7 @@ namespace QMC.CDT320.Interlocks
         Output
     }
 
+    // 인터락 기준: Feeder/Stage 이동 시 Picker가 해당 존 운송을 막는지 판단하기 위한 상태 묶음이다.
     internal sealed class PickerZoneTransportState
     {
         public bool IsFront { get; set; }
@@ -30,6 +32,7 @@ namespace QMC.CDT320.Interlocks
         public BaseAxis PickerY { get; set; }
         public bool UnknownUnsafe { get; set; }
 
+        // 인터락 기준: 현재/목표 Picker X 존이 요청 존과 겹치는지 판단한다.
         public bool IsRequestedZoneActive
         {
             get
@@ -39,6 +42,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Picker 작업영역 점유가 해당 존 운송을 막는지 판단한다.
         public bool WorkAreaBlocksTransport
         {
             get
@@ -50,6 +54,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 점유 기록이 있어도 실제 Picker가 물리적으로 빠져 있어 운송 가능한지 판단한다.
         public bool IsWorkAreaPhysicallyClearForTransport
         {
             get
@@ -63,11 +68,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Picker 존/작업영역/Unknown 상태가 최종 운송 차단인지 판단한다.
         public bool BlocksTransport
         {
             get { return IsRequestedZoneActive || WorkAreaBlocksTransport || UnknownUnsafe; }
         }
 
+        // 인터락 기준: Picker 존 운송 차단 판단에 사용한 상태를 로그 문자열로 만든다.
         public string Describe()
         {
             return (IsFront ? "FrontPicker" : "RearPicker") +
@@ -86,17 +93,20 @@ namespace QMC.CDT320.Interlocks
                 ", targetName=" + (string.IsNullOrWhiteSpace(TargetName) ? "-" : TargetName);
         }
 
+        // 인터락 기준: 축 실제 위치를 인터락 로그용 문자열로 변환한다.
         private static string FormatAxis(BaseAxis axis)
         {
             return axis != null ? axis.ActualPosition.ToString("0.###") : "<null>";
         }
 
+        // 인터락 기준: 축이 이동 중인지 판단한다.
         private static bool IsAxisMoving(BaseAxis axis)
         {
             return axis != null && axis.IsMoving;
         }
     }
 
+    // 인터락 항목: Picker 작업 존, 상대 PickerY 돌출, X 안전거리, 작업영역 점유를 공통으로 관리한다.
     internal static class PickerZoneInterlockRules
     {
         private const double DefaultTolerance = 0.05;
@@ -126,6 +136,7 @@ namespace QMC.CDT320.Interlocks
         private static DateTime lastFrontEncoderOverlapLogUtc = DateTime.MinValue;
         private static DateTime lastRearEncoderOverlapLogUtc = DateTime.MinValue;
 
+        // 인터락 항목: PickerY 이동 중 활성 목표 존을 등록해 반대 Picker 진입을 제어한다.
         public static IDisposable BeginPickerZoneMove(string side, PickerAxis axis, string targetName)
         {
             bool isFront = string.Equals(side, "Front", StringComparison.OrdinalIgnoreCase);
@@ -147,11 +158,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: Input Pick 작업영역 점유를 등록한다.
         public static IDisposable BeginInputPickAreaUse(bool isFront, string owner)
         {
             return BeginPickerWorkAreaUse(isFront, PickerWorkZone.Input, owner);
         }
 
+        // 인터락 항목: Picker 작업영역 점유를 등록해 같은 존 중복 진입을 막는다.
         public static IDisposable BeginPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
         {
             // 현재 기준: INSPECT_B/INSPECT_S 작업 점유는 같은 Process 존 점유로 관리한다.
@@ -164,6 +177,7 @@ namespace QMC.CDT320.Interlocks
             return new PickerWorkAreaScope(isFront, zone);
         }
 
+        // 인터락 기준: 현재 Picker가 점유 중인 작업영역과 소유자를 조회한다.
         public static bool TryGetPickerWorkArea(bool isFront, out PickerWorkZone zone, out string owner)
         {
             zone = PickerWorkZone.Unknown;
@@ -212,6 +226,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: Ready Avoid 안전 상태일 때만 Picker 작업영역 점유 상태를 해제한다.
         public static bool ClearPickerWorkAreasForReadyIfSafe(CDT320_Machine machine, out string detail)
         {
             detail = string.Empty;
@@ -262,32 +277,38 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: PickerY 이동 중 등록된 활성 목표 존을 조회한다.
         public static PickerWorkZone GetPickerYActiveTargetZone(bool isFront)
         {
             return GetActivePickerYTargetZone(isFront);
         }
 
+        // 인터락 기준: 현재 PickerX 위치가 속한 작업 존을 조회한다.
         public static PickerWorkZone GetPickerCurrentXZone(CDT320_Machine machine, bool isFront)
         {
             return ResolveCurrentXZoneWithContext(machine, isFront);
         }
 
+        // 인터락 기준: 지정 PickerX 위치가 속한 작업 존을 조회한다.
         public static PickerWorkZone GetPickerXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             return ResolveXZoneByPosition(machine, isFront, position);
         }
 
+        // 인터락 기준: Bottom/Side를 Process 존으로 묶어 판단한다.
         internal static bool IsProcessZone(PickerWorkZone zone)
         {
             return zone == PickerWorkZone.Bottom || zone == PickerWorkZone.Side;
         }
 
+        // 인터락 기준: Bottom/Side를 같은 Process 대표 존으로 정규화한다.
         internal static PickerWorkZone NormalizeInterlockZone(PickerWorkZone zone)
         {
             // 현재 기준: INSPECT_B/INSPECT_S는 인터락에서 하나의 Process 존으로 취급한다.
             return IsProcessZone(zone) ? PickerWorkZone.Bottom : zone;
         }
 
+        // 인터락 기준: 두 작업 존이 인터락상 같은 존인지 판단한다.
         internal static bool IsSameInterlockZone(PickerWorkZone first, PickerWorkZone second)
         {
             if (first == PickerWorkZone.Unknown || second == PickerWorkZone.Unknown)
@@ -296,6 +317,7 @@ namespace QMC.CDT320.Interlocks
             return NormalizeInterlockZone(first) == NormalizeInterlockZone(second);
         }
 
+        // 인터락 항목: Picker X/Y 이동 전 양쪽 PickerY 돌출과 X 안전거리를 공통으로 확인한다.
         public static bool CanMovePickerAxisByFacingYInterlock(
             CDT320_Machine machine,
             bool isFront,
@@ -343,6 +365,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: Front/Rear PickerX 그룹 이동 전 양쪽 PickerY 돌출과 X 이동 경로 겹침을 확인한다.
         public static bool CanMovePickerXPairByFacingYInterlock(
             CDT320_Machine machine,
             double? frontTargetX,
@@ -410,6 +433,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: StageZ가 Picker 방향으로 이동할 때 해당 존 PickerZ가 0 이상 또는 Avoid인지 확인한다.
         public static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
             CDT320_Machine machine,
             PickerWorkZone zone,
@@ -429,6 +453,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, false, zone, movingName, out reason);
         }
 
+        // 인터락 항목: 지정 Front/Rear Picker가 해당 존에 있을 때 PickerZ 안전 위치를 확인한다.
         private static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
             CDT320_Machine machine,
             bool isFront,
@@ -484,6 +509,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: PickerZ 한 축이 0 이상이거나 티칭 Avoid 위치인지 판단한다.
         private static bool IsPickerZAtOrAboveZeroOrAvoid(
             CDT320_Machine machine,
             bool isFront,
@@ -506,6 +532,7 @@ namespace QMC.CDT320.Interlocks
             return rear != null && rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
         }
 
+        // 인터락 항목: 지정 Picker가 해당 존 운송을 차단하는 상태인지 확인한다.
         public static bool IsPickerBlockingZoneTransport(
             CDT320_Machine machine,
             bool isFront,
@@ -515,6 +542,7 @@ namespace QMC.CDT320.Interlocks
             return IsPickerBlockingZoneTransport(machine, isFront, zone, null, string.Empty, out detail);
         }
 
+        // 인터락 항목: Feeder HOME 중 Picker 존 점유가 운송을 차단하는지 안전 예외까지 포함해 확인한다.
         public static bool IsPickerBlockingZoneTransportForFeederHome(
             CDT320_Machine machine,
             bool isFront,
@@ -557,6 +585,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: Picker 현재/목표 X 위치와 작업영역 점유가 해당 존 운송을 차단하는지 확인한다.
         public static bool IsPickerBlockingZoneTransport(
             CDT320_Machine machine,
             bool isFront,
@@ -584,6 +613,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Picker X/Y/Z 축이 모두 정지 상태인지 확인한다.
         private static bool ArePickerXyzAxesIdle(CDT320_Machine machine, bool isFront, out string detail)
         {
             detail = string.Empty;
@@ -617,11 +647,13 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 축이 이동 중인지 판단한다.
         private static bool IsAxisMoving(BaseAxis axis)
         {
             return axis != null && axis.IsMoving;
         }
 
+        // 인터락 기준: Picker 존 운송 차단 판단에 필요한 현재/목표/점유/Unknown 상태를 계산한다.
         public static PickerZoneTransportState ResolvePickerZoneTransportState(
             CDT320_Machine machine,
             bool isFront,
@@ -677,6 +709,7 @@ namespace QMC.CDT320.Interlocks
             return state;
         }
 
+        // 인터락 기준: Picker의 현재 물리 존 이름을 표시용 문자열로 해석한다.
         public static string ResolvePickerPhysicalZoneName(CDT320_Machine machine, bool isFront)
         {
             try
@@ -692,6 +725,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: FrontPickerX 존 이동 가능 여부를 확인한다.
         public static bool VerifyFrontPickerXMove(MotionGuardRuleContext request, out string reason)
         {
             return VerifyPickerXMove(
@@ -701,6 +735,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: RearPickerX 존 이동 가능 여부를 확인한다.
         public static bool VerifyRearPickerXMove(MotionGuardRuleContext request, out string reason)
         {
             return VerifyPickerXMove(
@@ -710,6 +745,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: FrontPickerY 존 이동 가능 여부를 확인한다.
         public static bool VerifyFrontPickerYMove(MotionGuardRuleContext request, out string reason)
         {
             return VerifyPickerYMove(
@@ -719,6 +755,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: RearPickerY 존 이동 가능 여부를 확인한다.
         public static bool VerifyRearPickerYMove(MotionGuardRuleContext request, out string reason)
         {
             return VerifyPickerYMove(
@@ -728,6 +765,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker X/Y 조그/이동 시작 전 Front/Rear Y 돌출 거리 인터락을 1차로 확인한다.
         public static bool VerifyFacingYDistanceFirst(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -783,6 +821,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 요청 종류가 축 이동 인터락 대상인지 판단한다.
         private static bool IsAxisMotionRequest(MotionGuardMoveKind moveKind)
         {
             return moveKind == MotionGuardMoveKind.AxisMove ||
@@ -792,6 +831,7 @@ namespace QMC.CDT320.Interlocks
                    moveKind == MotionGuardMoveKind.AxisStepJog;
         }
 
+        // 인터락 기준: 이동 요청이 Front/Rear Picker X/Y 중 어느 축인지 해석한다.
         private static bool TryResolvePickerXYRequest(
             MotionGuardRuleContext request,
             out bool isFront,
@@ -840,6 +880,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 항목: PickerX 이동 전 목표 존, 작업영역 점유, Y Avoid, 검사 연속 이동, X 안전거리를 확인한다.
         private static bool VerifyPickerXMove(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1052,6 +1093,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 현재 X 이동이 오토 공정 보정 이동인지 판단한다.
         private static bool IsAutoProcessCorrectionXMove(MotionGuardRuleContext request)
         {
             return request != null &&
@@ -1059,6 +1101,7 @@ namespace QMC.CDT320.Interlocks
                    request.Intent.AutoProcessCorrection;
         }
 
+        // 인터락 항목: 오토 공정 보정 X 이동이 장비 모드, 존, 이동량 제한을 만족하는지 확인한다.
         private static bool CanMoveAutoProcessCorrectionX(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1109,6 +1152,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: PickerY가 목표 공정 존의 Ready 위치에 있어 오토 보정 진입 예외가 가능한지 판단한다.
         private static bool IsAutoProcessZoneEntryWithPickerYReady(
             CDT320_Machine machine,
             bool isFront,
@@ -1131,6 +1175,7 @@ namespace QMC.CDT320.Interlocks
                 DefaultAutoProcessZoneEntryYTolerance);
         }
 
+        // 인터락 기준: PickerY 목표 공정 존에 대응되는 티칭 위치명을 해석한다.
         private static string ResolvePickerYProcessPositionName(PickerWorkZone targetZone)
         {
             switch (targetZone)
@@ -1148,6 +1193,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 오토 공정 보정 예외를 허용할 수 있는 실장비/드라이런 모드인지 판단한다.
         private static bool IsRealEquipmentOrDryRunAutoProcess()
         {
             try
@@ -1164,6 +1210,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 오토 공정 보정 X 이동의 최대 허용 이동량을 결정한다.
         private static double ResolveAutoProcessCorrectionMaxDistance(MotionGuardRuleContext request)
         {
             if (request != null &&
@@ -1175,6 +1222,7 @@ namespace QMC.CDT320.Interlocks
             return DefaultAutoProcessCorrectionMaxDistance;
         }
 
+        // 인터락 기준: 검사 연속 이동 태그가 있는 같은 공정 흐름의 X 이동인지 판단한다.
         private static bool IsInspectionContinuousProcessMove(
             MotionGuardRuleContext request,
             PickerWorkZone currentZone,
@@ -1206,6 +1254,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 검사 연속 이동의 선언된 시작/목표 존을 해석한다.
         private static bool TryResolveInspectionContinuousTransition(
             MotionGuardRuleContext request,
             out PickerWorkZone from,
@@ -1222,6 +1271,7 @@ namespace QMC.CDT320.Interlocks
             return from != PickerWorkZone.Unknown && to != PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 검사 연속 이동에서 허용되는 존 전환인지 판단한다.
         private static bool IsAllowedInspectionContinuousTransition(PickerWorkZone from, PickerWorkZone to)
         {
             return (from == PickerWorkZone.Input && to == PickerWorkZone.Input) ||
@@ -1232,6 +1282,7 @@ namespace QMC.CDT320.Interlocks
                    (from == PickerWorkZone.Output && to == PickerWorkZone.Output);
         }
 
+        // 인터락 기준: targetName 메타 문자열에서 인터락 키 값을 읽는다.
         private static bool TryReadTargetNameString(string targetName, string key, out string value)
         {
             value = string.Empty;
@@ -1260,6 +1311,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 항목: Auto 검사 연속 이동 중 상대 PickerY가 안전하면 Process 작업영역 공유 예외를 허용한다.
         private static bool CanAutoShareProcessWorkAreaWhenOppositeYSafe(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1314,6 +1366,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 문자열 토큰을 Picker 작업 존으로 변환한다.
         private static PickerWorkZone ParseWorkZoneToken(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -1339,6 +1392,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 항목: PickerY 전진 이동 전 목표 존, 작업영역 점유, 상대 PickerY, X 안전거리를 확인한다.
         private static bool VerifyPickerYMove(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1471,6 +1525,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: PickerY 전진 전 양쪽 PickerY 돌출과 X 안전거리 조건을 확인한다.
         private static bool VerifyPickerYFacingXClearance(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1513,6 +1568,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: PickerY 목표가 전진 위치일 때 상대 PickerY와 X 경로 충돌 가능성을 확인한다.
         private static bool CanMovePickerYByFacingYInterlock(
             CDT320_Machine machine,
             bool isFront,
@@ -1580,6 +1636,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: PickerX 이동 경로가 양쪽 PickerY 전진 상태에서 안전거리 안으로 들어오는지 확인한다.
         private static bool CanMovePickerXByFacingYInterlock(
             CDT320_Machine machine,
             bool isFront,
@@ -1643,6 +1700,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: PickerX Input/Output 진입 전 상대 PickerY와 X 안전거리 조건을 확인한다.
         public static bool VerifyPickerXOppositeYClearance(
             MotionGuardRuleContext request,
             bool isFront,
@@ -1683,6 +1741,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 양쪽 PickerY가 전진 상태일 때 PickerX 경로가 안전거리 안에 들어오는지 확인한다.
         private static bool CanMovePickerXByOppositeYInterlock(
             CDT320_Machine machine,
             bool isFront,
@@ -1747,11 +1806,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: PickerY가 전진 상태이거나 전진 이동 중인지 판단한다.
         private static bool IsPickerYForwardOrMovingForward(CDT320_Machine machine, bool isFront)
         {
             return IsPickerYOutOrMovingOut(machine, isFront, null);
         }
 
+        // 인터락 기준: PickerY가 Home/Avoid 안전 위치 밖에 있거나 밖으로 이동 중인지 판단한다.
         private static bool IsPickerYOutOrMovingOut(CDT320_Machine machine, bool isFront, double? targetY)
         {
             try
@@ -1784,6 +1845,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 지정 PickerY 위치가 안전 위치 밖인지 판단한다.
         private static bool IsPickerYOutByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             try
@@ -1803,6 +1865,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: PickerY 위치가 Home(0) 또는 실제 Avoid 안전 위치인지 판단한다.
         private static bool IsPickerYSafeByPosition(CDT320_Machine machine, bool isFront, double position, double outDistance)
         {
             // 현재 기준: X 안전거리 안에서 PickerY 안전 위치는 Home(0) 또는 실제 AvoidPosition만 인정한다.
@@ -1820,6 +1883,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 기준: PickerY 위치가 지정 티칭 위치와 tolerance 안에 있는지 판단한다.
         private static bool IsNearPickerYTeachingPosition(CDT320_Machine machine, bool isFront, string positionName, double position, double tolerance)
         {
             try
@@ -1836,6 +1900,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 이동 중이면 명령 위치, 정지 중이면 실제 위치를 X 경로 목표로 사용한다.
         private static double ResolveAxisPathTarget(BaseAxis axis)
         {
             try
@@ -1854,6 +1919,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 두 PickerX 현재-목표 경로가 마주보는 안전거리 안에서 겹치는지 판단한다.
         private static bool DoXMovePathsEnterFacingClearance(
             double startX,
             double targetX,
@@ -1868,6 +1934,7 @@ namespace QMC.CDT320.Interlocks
             return otherMax >= min && otherMin <= max;
         }
 
+        // 인터락 기준: 양쪽 PickerY 전진 거리 인터락 차단 상세 메시지를 만든다.
         private static string BuildFacingYBlockedDetail(
             bool isFront,
             string moveName,
@@ -1899,6 +1966,7 @@ namespace QMC.CDT320.Interlocks
                    ", targetName=" + (string.IsNullOrWhiteSpace(targetName) ? "-" : targetName);
         }
 
+        // 인터락 기준: Front/Rear PickerY 돌출 시 적용할 X 안전거리를 설정에서 결정한다.
         private static double ResolvePickerYFacingXClearance(CDT320_Machine machine)
         {
             double front = 0.0;
@@ -1913,6 +1981,7 @@ namespace QMC.CDT320.Interlocks
             return configured > 0.0 ? configured : DefaultPickerYFacingXClearance;
         }
 
+        // 인터락 기준: PickerY가 Home/Avoid 밖으로 나갔다고 볼 기준 거리를 설정에서 결정한다.
         private static double ResolvePickerYOutDistance(CDT320_Machine machine)
         {
             double front = 0.0;
@@ -1927,6 +1996,7 @@ namespace QMC.CDT320.Interlocks
             return configured > 0.0 ? configured : DefaultPickerYOutDistance;
         }
 
+        // 인터락 기준: Front/Rear PickerY가 서로 다른 존으로 전진 공유 가능한지 판단한다.
         public static bool CanShareForwardY(PickerWorkZone targetZone, PickerWorkZone otherZone)
         {
             if (targetZone == PickerWorkZone.Unknown || otherZone == PickerWorkZone.Unknown)
@@ -1937,6 +2007,7 @@ namespace QMC.CDT320.Interlocks
             return !IsSameInterlockZone(targetZone, otherZone);
         }
 
+        // 인터락 항목: Picker가 Input 존에 있거나 진입할 때 PickerZ와 InputExpandingZ 안전 조건을 확인한다.
         private static bool VerifyInputStageZSafeForInputZone(
             CDT320_Machine machine,
             bool isFront,
@@ -1977,6 +2048,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 기준: InputExpandingZ가 0 이하 위치인지 판단한다.
         private static bool IsInputExpanderZAtOrBelowZero(InputStageUnit stage)
         {
             if (stage == null || stage.ExpanderZ == null)
@@ -2003,6 +2075,7 @@ namespace QMC.CDT320.Interlocks
         //           Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
         //}
 
+        // 인터락 항목: Input 존 진입 전 PickerZ 전체가 0 이상 또는 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZHomeOrAvoidForInputZone(
             CDT320_Machine machine,
             bool isFront,
@@ -2036,6 +2109,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: PickerZ 한 축이 0 이상 또는 티칭 Avoid 위치인지 판단한다.
         private static bool IsPickerZHomeOrAvoid(CDT320_Machine machine, bool isFront, PickerAxis zAxis, BaseAxis axis)
         {
             if (axis == null)
@@ -2055,11 +2129,13 @@ namespace QMC.CDT320.Interlocks
             return rear != null && rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
         }
 
+        // 인터락 기준: Front/Rear 표시 이름을 만든다.
         private static string BuildPickerSideName(bool isFront)
         {
             return isFront ? "Front" : "Rear";
         }
 
+        // 인터락 기준: InputExpandingZ 상태를 차단 로그용 문자열로 만든다.
         private static string BuildInputStageZState(InputStageUnit stage)
         {
             if (stage == null)
@@ -2077,6 +2153,7 @@ namespace QMC.CDT320.Interlocks
                    ", tolerance=" + ResolveTolerance(stage.ExpanderZ).ToString("0.###");
         }
 
+        // 인터락 기준: PickerX 존 인터락 차단 메시지를 만든다.
         private static string BuildXBlockedMessage(
             string movingName,
             string detail,
@@ -2092,11 +2169,13 @@ namespace QMC.CDT320.Interlocks
                    ", yActual=" + FormatAxis(ownY) + ".";
         }
 
+        // 인터락 기준: 축 실제 위치를 인터락 로그용 문자열로 변환한다.
         private static string FormatAxis(BaseAxis axis)
         {
             return axis != null ? axis.ActualPosition.ToString("0.###") : "<null>";
         }
 
+        // 인터락 기준: PickerX 이동 요청의 목표 존을 해석한다.
         private static PickerWorkZone ResolveTargetXZone(MotionGuardRuleContext request, bool isFront)
         {
             return ResolveTargetXZoneWithContext(
@@ -2106,6 +2185,7 @@ namespace QMC.CDT320.Interlocks
                 request != null ? request.TargetName : string.Empty);
         }
 
+        // 인터락 기준: PickerX 목표 위치/목표명과 Encoder Zone 설정으로 목표 존을 해석한다.
         private static PickerWorkZone ResolveTargetXZoneWithContext(
             CDT320_Machine machine,
             bool isFront,
@@ -2126,6 +2206,7 @@ namespace QMC.CDT320.Interlocks
             return ParseZone(targetName);
         }
 
+        // 인터락 기준: PickerX 위치 또는 목표명으로 작업 존을 해석한다.
         private static PickerWorkZone ResolvePickerXZoneByNameOrPosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2146,6 +2227,7 @@ namespace QMC.CDT320.Interlocks
             return ParseZone(targetName);
         }
 
+        // 인터락 기준: 수동 PickerX 이동 목표 존을 해석한다.
         internal static PickerWorkZone ResolveManualPickerXTargetZone(MotionGuardRuleContext request, bool isFront)
         {
             return ResolveManualPickerXZone(
@@ -2155,6 +2237,7 @@ namespace QMC.CDT320.Interlocks
                 request != null ? request.TargetName : string.Empty);
         }
 
+        // 인터락 기준: 수동 PickerX 현재 존을 해석한다.
         internal static PickerWorkZone ResolveManualPickerXCurrentZone(CDT320_Machine machine, bool isFront)
         {
             BaseAxis x = GetPickerX(machine, isFront);
@@ -2165,11 +2248,13 @@ namespace QMC.CDT320.Interlocks
                 string.Empty);
         }
 
+        // 인터락 기준: 수동 PickerX 존이 Process 존인지 판단한다.
         internal static bool IsManualPickerXProcessZone(PickerWorkZone zone)
         {
             return zone == PickerWorkZone.Bottom || zone == PickerWorkZone.Side;
         }
 
+        // 인터락 기준: 수동 PickerX 존을 위치/이름 기반으로 해석한다.
         private static PickerWorkZone ResolveManualPickerXZone(
             CDT320_Machine machine,
             bool isFront,
@@ -2179,6 +2264,7 @@ namespace QMC.CDT320.Interlocks
             return ResolvePickerXZoneByNameOrPosition(machine, isFront, position, targetName);
         }
 
+        // 인터락 기준: 수동 PickerX 목표명 문자열에서 작업 존을 해석한다.
         private static PickerWorkZone ParseManualPickerXZone(string targetName)
         {
             string name = (targetName ?? string.Empty).Replace(" ", string.Empty);
@@ -2215,6 +2301,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 수동 PickerX 위치를 티칭/피치 범위 기준 작업 존으로 해석한다.
         private static PickerWorkZone ResolveManualPickerXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             if (machine == null)
@@ -2239,6 +2326,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 수동 PickerX 위치가 Bottom/Side 공정 범위 안인지 판단한다.
         private static bool IsManualPickerXInProcessRange(CDT320_Machine machine, bool isFront, double position)
         {
             BaseAxis x = GetPickerX(machine, isFront);
@@ -2260,6 +2348,7 @@ namespace QMC.CDT320.Interlocks
             return position >= min - tolerance && position <= max + tolerance;
         }
 
+        // 인터락 기준: PickerX 공정 범위 계산에 기준 티칭 위치를 추가한다.
         private static void AddManualPickerXProcessBoundary(
             CDT320_Machine machine,
             bool isFront,
@@ -2272,6 +2361,7 @@ namespace QMC.CDT320.Interlocks
             max = Math.Max(max, position);
         }
 
+        // 인터락 기준: PickerX 공정 범위 계산에 collet별 런타임 offset 적용 위치를 추가한다.
         private static void AddManualPickerXProcessBoundary(
             CDT320_Machine machine,
             bool isFront,
@@ -2286,6 +2376,7 @@ namespace QMC.CDT320.Interlocks
             max = Math.Max(max, position);
         }
 
+        // 인터락 기준: PickerX 위치가 Side 공정 범위를 지나 Output 쪽인지 판단한다.
         private static bool IsManualPickerXOutputSide(CDT320_Machine machine, bool isFront, double position)
         {
             BaseAxis x = GetPickerX(machine, isFront);
@@ -2301,6 +2392,7 @@ namespace QMC.CDT320.Interlocks
             return position > sideMax + tolerance;
         }
 
+        // 인터락 기준: PickerY 이동 요청의 목표 존을 목표명/위치/현재 X존으로 해석한다.
         private static PickerWorkZone ResolveTargetYZone(MotionGuardRuleContext request, bool isFront)
         {
             PickerWorkZone byName = ParseZone(request != null ? request.TargetName : string.Empty);
@@ -2321,6 +2413,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: PickerX 실제 위치만으로 현재 작업 존을 해석한다.
         private static PickerWorkZone ResolveCurrentXZone(CDT320_Machine machine, bool isFront)
         {
             BaseAxis x = GetPickerX(machine, isFront);
@@ -2330,6 +2423,7 @@ namespace QMC.CDT320.Interlocks
             return ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
         }
 
+        // 인터락 기준: PickerX 위치, 작업영역 점유, 활성 Y존을 함께 봐서 현재 존을 해석한다.
         private static PickerWorkZone ResolveCurrentXZoneWithContext(CDT320_Machine machine, bool isFront)
         {
             try
@@ -2370,6 +2464,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: X 위치와 현재 Y/점유 상태를 함께 봐서 Picker 작업 존을 해석한다.
         private static PickerWorkZone ResolveXZoneByPositionWithContext(CDT320_Machine machine, bool isFront, double position)
         {
             PickerWorkZone zone = ResolveXZoneByPosition(machine, isFront, position);
@@ -2397,6 +2492,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: PickerY 실제 위치가 속한 작업 존을 해석한다.
         private static PickerWorkZone ResolveCurrentYZone(CDT320_Machine machine, bool isFront)
         {
             BaseAxis y = GetPickerY(machine, isFront);
@@ -2406,6 +2502,7 @@ namespace QMC.CDT320.Interlocks
             return ResolveYZoneByPosition(machine, isFront, y.ActualPosition);
         }
 
+        // 인터락 기준: PickerX 위치를 Encoder Zone 우선, 티칭 Zone 보조 기준으로 해석한다.
         private static PickerWorkZone ResolveXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             if (machine == null)
@@ -2430,6 +2527,7 @@ namespace QMC.CDT320.Interlocks
             return ResolvePickerXTeachingZoneByPosition(machine, isFront, position);
         }
 
+        // 인터락 기준: PickerX 위치를 티칭 위치와 공정 범위 기준 작업 존으로 해석한다.
         private static PickerWorkZone ResolvePickerXTeachingZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "AvoidPosition", position))
@@ -2459,6 +2557,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: Encoder Zone 설정 범위로 PickerX 위치의 작업 존을 해석한다.
         private static bool TryResolveEncoderXZoneByPosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2522,6 +2621,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Encoder Zone 매칭 결과를 누적하고 중복 매칭 여부를 관리한다.
         private static void SetEncoderZoneMatch(PickerWorkZone matchedZone, ref PickerWorkZone zone, ref int matchCount)
         {
             if (matchCount == 0)
@@ -2542,6 +2642,7 @@ namespace QMC.CDT320.Interlocks
             zone = PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: Encoder Zone 중복 매칭 로그용 존 문자열을 누적한다.
         private static void AppendEncoderZoneMatch(ref string matches, PickerWorkZone zone)
         {
             if (matches.Length > 0)
@@ -2549,6 +2650,7 @@ namespace QMC.CDT320.Interlocks
             matches += zone.ToString();
         }
 
+        // 인터락 기준: Encoder Zone 범위가 겹쳐 Unknown 처리된 상태를 로그로 남긴다.
         private static void WriteEncoderZoneOverlapLog(
             bool isFront,
             double position,
@@ -2582,6 +2684,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Encoder Zone 겹침 로그를 Side별 최초 1회만 남길지 판단한다.
         private static bool ShouldWriteEncoderOverlapLog(bool isFront)
         {
             lock (activeZoneLock)
@@ -2600,6 +2703,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Encoder Zone 범위를 로그용 문자열로 변환한다.
         private static string FormatZoneRange(PickerZoneXRange range)
         {
             if (range == null)
@@ -2610,6 +2714,7 @@ namespace QMC.CDT320.Interlocks
                    ", max=" + range.MaxX.ToString("0.###") + "}";
         }
 
+        // 인터락 기준: Picker X Encoder Zone 설정이 하나라도 활성화되어 있는지 판단한다.
         private static bool IsZoneConfigured(PickerZoneXSetup setup)
         {
             return setup != null &&
@@ -2620,6 +2725,7 @@ namespace QMC.CDT320.Interlocks
                     (setup.Output != null && setup.Output.Enabled));
         }
 
+        // 인터락 기준: Front/Rear Picker의 X Encoder Zone 설정을 가져온다.
         private static PickerZoneXSetup GetPickerZoneXSetup(CDT320_Machine machine, bool isFront)
         {
             try
@@ -2651,6 +2757,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Picker X Encoder Zone 기능이 사용 가능하게 설정되어 있는지 판단한다.
         private static bool IsPickerXEncoderZoneConfigured(CDT320_Machine machine, bool isFront)
         {
             try
@@ -2667,11 +2774,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 지정 X 위치가 Encoder Zone 범위 안인지 판단한다.
         private static bool IsInZone(PickerZoneXRange range, double position, double tolerance)
         {
             return range != null && range.Enabled && range.Contains(position, tolerance);
         }
 
+        // 인터락 기준: Picker 작업 존을 화면/로그 표시명으로 변환한다.
         private static string ToDisplayName(PickerWorkZone zone)
         {
             switch (zone)
@@ -2690,6 +2799,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: PickerY 위치를 티칭 위치 기준 작업 존으로 해석한다.
         private static PickerWorkZone ResolveYZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             if (machine == null)
@@ -2716,6 +2826,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: Picker 목표 위치가 Avoid보다 안쪽으로 진입하는 위치인지 판단한다.
         private static bool IsPickerTargetBelowAvoidPosition(CDT320_Machine machine, bool isFront, PickerAxis axis, double position)
         {
             BaseAxis baseAxis = axis == PickerAxis.PickerX ? GetPickerX(machine, isFront) : GetPickerY(machine, isFront);
@@ -2724,6 +2835,7 @@ namespace QMC.CDT320.Interlocks
             return position < avoid - tolerance;
         }
 
+        // 인터락 기준: PickerY가 Home(0) 또는 실제 Avoid 위치에 있는지 판단한다.
         private static bool IsPickerYAtAvoid(CDT320_Machine machine, bool isFront)
         {
             if (machine == null)
@@ -2744,6 +2856,7 @@ namespace QMC.CDT320.Interlocks
                    rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
         }
 
+        // 인터락 기준: 축이 Home(0) 위치에 있는지 판단한다.
         private static bool IsAxisAtHomePosition(BaseAxis axis)
         {
             if (axis == null)
@@ -2753,6 +2866,7 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(axis.ActualPosition) <= tolerance;
         }
 
+        // 인터락 기준: PickerY 목표가 안전 복귀 위치인지 판단한다.
         private static bool IsPickerYTargetAvoid(MotionGuardRuleContext request, bool isFront)
         {
             if (request == null)
@@ -2766,6 +2880,7 @@ namespace QMC.CDT320.Interlocks
                 ResolvePickerYOutDistance(request.Machine));
         }
 
+        // 인터락 기준: Picker X/Y 위치가 지정 티칭 위치와 tolerance 안에 있는지 판단한다.
         private static bool IsAtPickerPosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2779,6 +2894,7 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(position - target) <= tolerance;
         }
 
+        // 인터락 기준: Picker X/Y 위치가 기준 또는 collet offset 포함 티칭 존 위치인지 판단한다.
         private static bool IsAtPickerZonePosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2791,6 +2907,7 @@ namespace QMC.CDT320.Interlocks
             return IsAtPickerZonePosition(machine, isFront, axis, positionName, position, tolerance);
         }
 
+        // 인터락 기준: 지정 tolerance로 Picker X/Y 위치가 기준 또는 offset 포함 티칭 존 위치인지 판단한다.
         private static bool IsAtPickerZonePosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2813,6 +2930,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 기준: collet별 런타임 보정 offset을 Picker X/Y 존 판정에 반영한다.
         private static double GetRuntimePickerZoneOffset(CDT320_Machine machine, bool isFront, PickerAxis axis, int pickerIndex)
         {
             if (machine == null)
@@ -2841,6 +2959,7 @@ namespace QMC.CDT320.Interlocks
             return 0.0;
         }
 
+        // 인터락 기준: Front/Rear Picker의 지정 축 티칭 위치를 가져온다.
         private static double GetPickerTeachingPosition(
             CDT320_Machine machine,
             bool isFront,
@@ -2860,6 +2979,7 @@ namespace QMC.CDT320.Interlocks
             return rear != null ? rear.GetPickerTeachingPosition(axis, positionName) : 0.0;
         }
 
+        // 인터락 기준: Front/Rear PickerX 실제 Axis 객체를 가져온다.
         private static BaseAxis GetPickerX(CDT320_Machine machine, bool isFront)
         {
             if (machine == null)
@@ -2869,6 +2989,7 @@ namespace QMC.CDT320.Interlocks
                 : (machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null);
         }
 
+        // 인터락 기준: Front/Rear PickerY 실제 Axis 객체를 가져온다.
         private static BaseAxis GetPickerY(CDT320_Machine machine, bool isFront)
         {
             if (machine == null)
@@ -2878,6 +2999,7 @@ namespace QMC.CDT320.Interlocks
                 : (machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerY : null);
         }
 
+        // 인터락 기준: Front/Rear PickerZ 실제 Axis 객체를 가져온다.
         private static BaseAxis GetPickerZ(CDT320_Machine machine, bool isFront, PickerAxis zAxis)
         {
             if (machine == null)
@@ -2913,6 +3035,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 위치 비교에 사용할 축별 tolerance 값을 결정한다.
         private static double ResolveTolerance(BaseAxis axis)
         {
             if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
@@ -2921,6 +3044,7 @@ namespace QMC.CDT320.Interlocks
             return DefaultTolerance;
         }
 
+        // 인터락 기준: targetName 문자열을 Picker 작업 존으로 해석한다.
         private static PickerWorkZone ParseZone(string targetName)
         {
             string name = (targetName ?? string.Empty).Replace(" ", string.Empty);
@@ -2961,11 +3085,13 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: targetName 문자열에 특정 존/위치 키워드가 포함되어 있는지 판단한다.
         private static bool Contains(string value, string pattern)
         {
             return value.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        // 인터락 기준: 현재 등록된 PickerY 활성 목표 존을 조회한다.
         private static PickerWorkZone GetActivePickerYTargetZone(bool isFront)
         {
             lock (activeZoneLock)
@@ -2974,6 +3100,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 반대 Picker가 같은 작업영역을 점유 중인지 판단한다.
         private static bool IsOtherPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
         {
             lock (activeZoneLock)
@@ -2982,6 +3109,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 지정 Picker가 작업영역을 점유 중인지 판단한다.
         private static bool IsPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
         {
             owner = string.Empty;
@@ -3012,6 +3140,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: FrontPicker 작업영역 점유 해제 전 전체 축이 Ready Avoid 안전 상태인지 확인한다.
         private static bool IsFrontPickerReadyAvoidSafe(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -3026,6 +3155,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: RearPicker 작업영역 점유 해제 전 전체 축이 Ready Avoid 안전 상태인지 확인한다.
         private static bool IsRearPickerReadyAvoidSafe(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -3040,6 +3170,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker 전체 축이 알람/이동 없이 Avoid 위치에 있는지 최종 확인한다.
         private static bool ArePickerAxesReadyAvoidSafe(
             System.Collections.Generic.IReadOnlyDictionary<PickerAxis, BaseAxis> axes,
             System.Func<PickerAxis, double> resolveAvoidTarget,
@@ -3108,6 +3239,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: Ready Avoid 최종 확인에 사용할 위치 tolerance를 결정한다.
         private static double ResolveReadyAvoidTolerance(BaseAxis axis)
         {
             try
@@ -3126,6 +3258,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 모든 Picker 작업영역 점유 카운터를 잠금 상태에서 해제한다.
         private static bool ClearAllPickerWorkAreasLocked(out string summary)
         {
             var cleared = new System.Collections.Generic.List<string>();
@@ -3144,6 +3277,7 @@ namespace QMC.CDT320.Interlocks
             return cleared.Count > 0;
         }
 
+        // 인터락 항목: 지정 Picker 작업영역 점유 카운터와 owner를 해제한다.
         private static void ClearPickerWorkAreaLocked(
             bool isFront,
             PickerWorkZone zone,
@@ -3160,6 +3294,7 @@ namespace QMC.CDT320.Interlocks
             owner = string.Empty;
         }
 
+        // 인터락 항목: 지정 Picker 작업영역 점유 카운터와 owner를 등록한다.
         private static void AddPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
         {
             string safeOwner = owner ?? string.Empty;
@@ -3221,6 +3356,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 지정 Picker 작업영역 점유 카운터를 해제한다.
         private static void RemovePickerWorkAreaUse(bool isFront, PickerWorkZone zone)
         {
             zone = NormalizeInterlockZone(zone);
@@ -3296,11 +3432,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 지정 작업 존이 Avoid 존인지 판단한다.
         private static bool IsAvoidZone(PickerWorkZone zone)
         {
             return zone == PickerWorkZone.Avoid;
         }
 
+        // 인터락 기준: PickerY 활성 목표 존을 using 범위가 끝나면 이전 값으로 복구한다.
         private sealed class ActiveZoneScope : IDisposable
         {
             private readonly bool isFront;
@@ -3315,6 +3453,7 @@ namespace QMC.CDT320.Interlocks
                 this.active = active;
             }
 
+            // 인터락 기준: PickerY 활성 목표 존 등록을 해제하고 이전 존으로 복구한다.
             public void Dispose()
             {
                 if (disposed || !active)
@@ -3332,6 +3471,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: Picker 작업영역 점유를 using 범위가 끝나면 자동 해제한다.
         private sealed class PickerWorkAreaScope : IDisposable
         {
             private readonly bool isFront;
@@ -3344,6 +3484,7 @@ namespace QMC.CDT320.Interlocks
                 this.zone = zone;
             }
 
+            // 인터락 기준: Picker 작업영역 점유 카운터를 자동 해제한다.
             public void Dispose()
             {
                 if (disposed)

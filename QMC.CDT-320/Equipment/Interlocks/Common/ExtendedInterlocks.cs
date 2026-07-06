@@ -16,6 +16,7 @@ namespace QMC.CDT320.Interlocks
             EjectZ = ejectZ; StageR = stageR; EjectUpThreshold = ejectUpThreshold;
         }
 
+        // 인터락 항목: EjectZ가 상승한 상태에서 StageR 회전 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -46,6 +47,7 @@ namespace QMC.CDT320.Interlocks
             LoaderOverStageMin = overMin; LoaderOverStageMax = overMax;
         }
 
+        // 인터락 항목: LoaderX가 Stage 위 범위에 있을 때 StageZ 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -76,6 +78,7 @@ namespace QMC.CDT320.Interlocks
             UnloaderOverStageMin = overMin; UnloaderOverStageMax = overMax;
         }
 
+        // 인터락 항목: UnloaderX가 Stage 위 범위에 있을 때 StageZ 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -106,6 +109,7 @@ namespace QMC.CDT320.Interlocks
             EjectUpThreshold = ejectUpThr; PickerDownThreshold = pickerDownThr;
         }
 
+        // 인터락 항목: EjectZ가 상승한 상태에서 PickerZ 하강 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -146,6 +150,7 @@ namespace QMC.CDT320.Interlocks
             ForbiddenYMin = yMin; ForbiddenYMax = yMax;
         }
 
+        // 인터락 항목: BinGuide가 전진된 상태에서 Picker XY가 금지 영역으로 들어가는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;

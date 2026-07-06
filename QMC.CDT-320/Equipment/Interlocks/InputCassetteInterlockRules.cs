@@ -5,6 +5,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class InputCassetteInterlockRules
     {
+        // 인터락 항목: InputLifterZ 이동 요청을 Input Cassette 리프터 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -17,6 +18,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputLifterZ 이동 종류별로 수동/홈/자동 리프터 조건을 선택한다.
         public static bool VerifyWaferLifterZ(
             CDT320_Machine machine,
             double targetPosition,
@@ -70,6 +72,7 @@ namespace QMC.CDT320.Interlocks
 
         }
 
+        // 인터락 항목: 수동 InputLifterZ 이동은 카세트 돌출 감지와 InputFeederY 이동 중 여부를 확인한다.
         private static bool CanManualWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -96,6 +99,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputLifterZ 홈은 카세트 돌출, FeederY 이동, 카세트 측 안전 위치를 확인한다.
         private static bool CanHomeWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -132,6 +136,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 자동 InputLifterZ 이동은 카세트 돌출, FeederY 정지, FeederY 안전 위치를 확인한다.
         private static bool CanAutoWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -161,6 +166,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: InputLifterZ 이동 전 InputFeederY가 카세트 측 안전 위치인지 판단한다.
         private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder)
         {
             if (feeder == null || feeder.FeederY == null)
@@ -175,6 +181,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: InputFeeder Lift가 Down 상태인지 센서/실린더 상태로 판단한다.
         private static bool IsFeederDown(InputFeederUnit feeder)
         {
             if (feeder == null)
@@ -187,6 +194,7 @@ namespace QMC.CDT320.Interlocks
             return cylinder != null && cylinder.IsBwd;
         }
 
+        // 인터락 기준: InputFeeder Clamp가 Clamp 상태인지 센서/실린더 상태로 판단한다.
         private static bool IsFeederClamp(InputFeederUnit feeder)
         {
             if (feeder == null)

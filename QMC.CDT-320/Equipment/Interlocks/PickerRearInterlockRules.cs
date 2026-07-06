@@ -6,6 +6,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class PickerRearInterlockRules
     {
+        // 인터락 항목: RearPicker X/Y/T/Z 이동 요청을 해당 축별 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -32,6 +33,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: RearPickerX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -52,6 +54,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 RearPickerX 이동 전 수동 기본 조건, Z Avoid, VisionX Avoid, Busy 상태를 확인한다.
         private static bool CanAutoRearPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -93,6 +96,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 RearPickerX 이동 전 목표 존별 Input/Process/Output 진입 조건과 PickerZone 조건을 확인한다.
         private static bool CanManualRearPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -162,6 +166,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerX Input 진입 전 Z, ExpanderZ, InputFeeder, InputVisionX, 상대 PickerY 거리 조건을 확인한다.
         private static bool VerifyManualRearPickerXInputEntry(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -197,6 +202,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: RearPickerX Output 진입 전 Z, GoodStageZ, OutputFeeder, OutputVisionX, 상대 PickerY 거리 조건을 확인한다.
         private static bool VerifyManualRearPickerXOutputEntry(MotionGuardRuleContext request, CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -232,6 +238,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: RearPickerZ 전체가 Avoid 위치 또는 0 이상 위치인지 확인한다.
         private static bool VerifyRearPickerZAxesAvoidOrNonNegative(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -266,6 +273,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: Picker Input 진입 전 InputExpandingZ가 0 이하 또는 Avoid 위치인지 확인한다.
         private static bool VerifyInputExpanderZAtOrBelowZero(InputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -291,6 +299,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker Input 진입 전 InputFeederY가 Avoid 또는 0 이하 위치인지 확인한다.
         private static bool VerifyInputFeederYAtAvoidOrBelowZero(InputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -313,6 +322,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker Input 진입 전 InputFeeder Lift가 Down 상태인지 확인한다.
         private static bool VerifyInputFeederDown(InputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -327,6 +337,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: InputFeeder Lift가 Down 상태가 아닙니다.", out reason);
         }
 
+        // 인터락 항목: Picker Input 진입 전 InputVisionX가 Avoid 또는 0 이하 위치인지 확인한다.
         private static bool VerifyInputVisionXAtAvoidOrBelowZero(InputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -349,6 +360,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker Output 진입 전 OutputGoodStageZ가 Process 이하 위치인지 확인한다.
         private static bool VerifyGoodStageZAtOrBelowProcess(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -377,6 +389,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker Output 진입 전 OutputFeederY가 Avoid 또는 0 이하 위치인지 확인한다.
         private static bool VerifyOutputFeederYAtAvoidOrBelowZero(OutputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -399,6 +412,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: Picker Output 진입 전 OutputFeeder Lift가 Down 상태인지 확인한다.
         private static bool VerifyOutputFeederDown(OutputFeederUnit feeder, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -413,6 +427,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block(movingName, movingName + " 이동 불가: OutputFeeder Lift가 Down 상태가 아닙니다.", out reason);
         }
 
+        // 인터락 항목: Picker Output 진입 전 OutputVisionX가 Avoid 또는 0 이하 위치인지 확인한다.
         private static bool VerifyOutputVisionXAtAvoidOrBelowZero(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -435,6 +450,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: RearPickerX 이동 전 상대 FrontPickerY가 Avoid 위치인지 확인한다.
         private static bool VerifyFrontPickerYAvoidForRearPickerX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -450,6 +466,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block("RearPickerX", "RearPickerX 이동 불가: 상대 FrontPickerY가 Avoid 위치가 아닙니다.", out reason);
         }
 
+        // 인터락 항목: PickerX 이동 전 InputVisionX가 정지 및 Avoid 위치인지 확인한다.
         private static bool VerifyInputVisionXAvoidForPickerX(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -489,6 +506,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: Collet Calibration Bottom 진입 전 Input/Output VisionX가 Avoid 위치인지 확인한다.
         private static bool VerifyVisionXAvoidForColletCalibrationBottomMove(CDT320_Machine machine, string movingName, MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -537,6 +555,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 현재 이동이 Collet Calibration Bottom 존 이동인지 판단한다.
         private static bool IsColletCalibrationBottomMove(MotionGuardRuleContext request)
         {
             // 현재 기준: ColletCalibration 플래그와 Bottom 존이 모두 맞을 때 Bottom 보정 이동으로 본다.
@@ -546,6 +565,7 @@ namespace QMC.CDT320.Interlocks
                    request.Intent.PickerZone == PickerWorkZone.Bottom;
         }
 
+        // 인터락 항목: RearPicker 평면 이동 전 Z축 전체 Avoid 여부를 확인하되 검사/보정 예외를 반영한다.
         private static bool VerifyRearPickerZAxesAvoidForMove(PickerRearUnit picker, string movingName, MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -577,6 +597,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 검사 중 PickerZ를 유지해도 되는 Z Hold 이동인지 판단한다.
         private static bool IsInspectionZHoldMove(MotionGuardRuleContext request)
         {
             // 현재 기준: InspectionZHold 의도가 없으면 Z Hold 이동으로 보지 않는다.
@@ -589,6 +610,7 @@ namespace QMC.CDT320.Interlocks
                    request.Intent.PickerZone == PickerWorkZone.Output;
         }
 
+        // 인터락 기준: RearPickerY 이동 중 PickerZ 유지 예외를 허용할지 판단한다.
         private static bool CanKeepRearPickerZDuringYMove(MotionGuardRuleContext request)
         {
             // 현재 기준: 자동 티칭 이동에서만 Z Hold/FineAlign 예외를 적용한다.
@@ -602,6 +624,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail);
         }
 
+        // 인터락 기준: RearPickerX 이동 중 PickerZ 유지 예외를 허용할지 판단한다.
         private static bool CanKeepRearPickerZDuringXMove(MotionGuardRuleContext request)
         {
             // 현재 기준: Auto Bottom/Side 검사 연속 X 이동은 PickerZ가 검사 높이를 유지할 수 있다.
@@ -617,6 +640,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail);
         }
 
+        // 인터락 항목: RearPickerY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -637,6 +661,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 RearPickerY 이동 전 수동 기본 조건과 Busy 상태를 확인한다.
         private static bool CanAutoRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -656,6 +681,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason);
         }
 
+        // 인터락 항목: 수동 RearPickerY 이동 전 Z Home/Avoid, Reticle, OutputStageZ, PickerZone 조건을 확인한다.
         private static bool CanManualRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -705,6 +731,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerT 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -725,6 +752,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 RearPickerT 이동 전 RearPicker Busy 상태를 확인한다.
         private static bool CanAutoRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -747,6 +775,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 RearPickerT 이동 전 대응 Z축이 Avoid 위치인지 확인한다.
         private static bool CanManualRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -781,6 +810,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerX 홈 전 VisionX, ExpanderZ, 양쪽 PickerY, RearPickerZ 안전 위치를 확인한다.
         private static bool CanHomeRearPickerX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -841,6 +871,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerY 홈 전 RearPickerZ 전체가 Home 또는 Avoid 위치인지 확인한다.
         private static bool CanHomeRearPickerY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -866,6 +897,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerT 홈 전 대응 Z축이 Avoid 위치인지 확인한다.
         private static bool CanHomeRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -900,6 +932,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyRearPickerZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -920,12 +953,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearPickerZ 홈은 현재 별도 차단 조건 없이 허용한다.
         private static bool CanHomeRearPickerZ(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
             return true;
         }
 
+        // 인터락 항목: RearPickerZ 수동 이동 전 Reticle, InputExpanderZ, OutputGoodStageZ, Busy 조건을 확인한다.
         private static bool CanManualRearPickerZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -964,12 +999,14 @@ namespace QMC.CDT320.Interlocks
             return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
         }
 
+        // 인터락 항목: 자동 RearPickerZ 이동은 수동 RearPickerZ 조건과 동일하게 확인한다.
         private static bool CanAutoRearPickerZ(MotionGuardRuleContext request, out string reason)
         {
             // 현재 기준: Auto RearPickerZ도 Manual RearPickerZ 기본 인터락과 동일하게 확인한다.
             return CanManualRearPickerZ(request, out reason);
         }
 
+        // 인터락 기준: PickerZ 이동 요청의 목표 작업 존을 해석한다.
         private static PickerWorkZone ResolvePickerZTargetZone(MotionGuardRuleContext request)
         {
             // 현재 기준: 요청 Intent에 PickerZone이 있으면 Z축 목표 존으로 사용한다.
@@ -979,6 +1016,7 @@ namespace QMC.CDT320.Interlocks
             return PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 목표 존에 InputFeeder Avoid 조건이 필요한지 판단한다.
         private static bool RequiresInputFeederAvoid(PickerWorkZone targetZone)
         {
             // 현재 기준: Input 또는 Unknown 존이면 InputFeederY Avoid 조건을 적용한다.
@@ -986,6 +1024,7 @@ namespace QMC.CDT320.Interlocks
                    targetZone == PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 목표 존에 OutputFeeder Avoid 조건이 필요한지 판단한다.
         private static bool RequiresOutputFeederAvoid(PickerWorkZone targetZone)
         {
             // 현재 기준: Output 또는 Unknown 존이면 OutputFeederY Avoid 조건을 적용한다.
@@ -993,6 +1032,7 @@ namespace QMC.CDT320.Interlocks
                    targetZone == PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 목표 존에 InputStageZ 안전 조건이 필요한지 판단한다.
         private static bool RequiresInputStageZSafe(PickerWorkZone targetZone)
         {
             // 현재 기준: Input 또는 Unknown 존이면 InputExpandingZ 안전 위치 조건을 적용한다.
@@ -1000,6 +1040,7 @@ namespace QMC.CDT320.Interlocks
                    targetZone == PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 목표 존에 OutputStageZ 안전 조건이 필요한지 판단한다.
         private static bool RequiresOutputStageZSafeForPickerY(PickerWorkZone targetZone)
         {
             // 현재 기준: Output 또는 Unknown 존이면 OutputStage GoodStageZ 안전 위치 조건을 적용한다.
@@ -1007,11 +1048,13 @@ namespace QMC.CDT320.Interlocks
                    targetZone == PickerWorkZone.Unknown;
         }
 
+        // 인터락 기준: 목표명 문자열에 특정 존/위치 키워드가 포함되어 있는지 판단한다.
         private static bool Contains(string value, string pattern)
         {
             return (value ?? string.Empty).IndexOf(pattern, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        // 인터락 항목: Picker 이동 전 Reticle 관련 실린더가 이동 중인지 확인한다.
         private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1032,11 +1075,13 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 실린더가 현재 이동 중인지 판단한다.
         private static bool IsCylinderMoving(BaseCylinder cylinder)
         {
             return MotionGuardRuleHelpers.IsCylinderMoving(cylinder);
         }
 
+        // 인터락 항목: RearPicker 내부 다른 축 Busy 상태를 확인한다.
         private static bool VerifyRearPickerNotBusy(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1068,6 +1113,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 현재 명령 축을 제외한 축이 이동 중인지 판단한다.
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)
         {
             // 현재 기준: 축이 이동 중이 아니면 Busy 차단 대상이 아니다.
@@ -1084,6 +1130,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: RearPickerZ 전체가 Avoid 위치인지 확인한다.
         private static bool VerifyRearPickerZAxesAvoid(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1106,6 +1153,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: RearPickerZ 전체가 Home 또는 Avoid 위치인지 확인한다.
         private static bool VerifyRearPickerZAxesHomeOrAvoid(PickerRearUnit picker, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1129,6 +1177,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 축이 Home 위치이거나 티칭 Avoid 위치인지 판단한다.
         private static bool IsAxisAtHomeOrTeachingAvoid(BaseAxis axis, System.Func<bool> isTeachingAvoid)
         {
             // 방어 조건: 축 참조가 없으면 Home/Avoid 확인을 통과시킨다.
@@ -1145,6 +1194,7 @@ namespace QMC.CDT320.Interlocks
             return isTeachingAvoid != null && isTeachingAvoid();
         }
 
+        // 인터락 기준: 축이 0 이상 위치인지 tolerance를 포함해 판단한다.
         private static bool IsAxisAtOrAboveZero(BaseAxis axis)
         {
             // 방어 조건: 축 참조가 없으면 0 이상 조건을 만족하지 않은 것으로 본다.
@@ -1155,6 +1205,7 @@ namespace QMC.CDT320.Interlocks
             return axis.ActualPosition >= -ResolveAxisTolerance(axis);
         }
 
+        // 인터락 기준: 위치 비교에 사용할 축별 tolerance 값을 결정한다.
         private static double ResolveAxisTolerance(BaseAxis axis)
         {
             // 현재 기준: 축 InPositionTolerance가 있으면 그 값을 위치 비교 tolerance로 사용한다.
@@ -1164,6 +1215,7 @@ namespace QMC.CDT320.Interlocks
             return 0.05;
         }
 
+        // 인터락 기준: ExpanderZ가 Home/Avoid/Process/Ready 중 안전 위치인지 판단한다.
         private static bool IsExpanderZHomeAvoidProcessOrReady(InputStageUnit stage)
         {
             // 방어 조건: InputStage 또는 ExpanderZ 참조가 없으면 ExpanderZ 조건을 적용하지 않는다.
@@ -1191,6 +1243,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // RearPickerX 이동 전제: ExpanderZ가 Avoid/Process/Ready 위치여야 한다. (Home(0)은 제외)
+        // 인터락 기준: ExpanderZ가 RearPicker 평면 이동 가능한 Avoid/Process/Ready 위치인지 판단한다.
         private static bool IsExpanderZAvoidProcessOrReady(InputStageUnit stage)
         {
             // 방어 조건: InputStage 또는 ExpanderZ 참조가 없으면 ExpanderZ 조건을 적용하지 않는다.
@@ -1213,6 +1266,7 @@ namespace QMC.CDT320.Interlocks
                    System.Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
         }
 
+        // 인터락 기준: RearPicker 논리 축을 실제 Axis 객체로 변환한다.
         private static BaseAxis ResolveRearPickerAxis(PickerRearUnit picker, PickerAxis axis)
         {
             // 방어 조건: RearPicker 참조가 없으면 축을 해석하지 않는다.
@@ -1235,6 +1289,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: RearPickerT 축명에 대응되는 Z축을 해석한다.
         private static bool TryResolvePairedZAxis(string movingName, out PickerAxis zAxis)
         {
             zAxis = PickerAxis.PickerZ0;
@@ -1262,6 +1317,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: RearPicker 인터락 차단 사유를 로그에 기록한다.
         private static void LogBlockedReason(string reason)
         {
             try

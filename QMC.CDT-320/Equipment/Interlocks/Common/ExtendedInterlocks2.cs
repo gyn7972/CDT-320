@@ -17,6 +17,7 @@ namespace QMC.CDT320.Interlocks
             LifterZ = lifterZ; ExpanderAxis = expanderAxis; LifterUpThreshold = lifterUpThr;
         }
 
+        // 인터락 항목: LifterZ가 상승한 상태에서 Expander 축 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -43,6 +44,7 @@ namespace QMC.CDT320.Interlocks
             BarcodeBusySignal = barcodeBusy; LoaderX = loaderX;
         }
 
+        // 인터락 항목: Barcode Reader가 Busy 상태일 때 LoaderX 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -73,6 +75,7 @@ namespace QMC.CDT320.Interlocks
             ForbiddenXMin = forbidMin; ForbiddenXMax = forbidMax;
         }
 
+        // 인터락 항목: SubPort Guide가 활성화된 상태에서 PickerX가 금지 범위로 들어가는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -102,6 +105,7 @@ namespace QMC.CDT320.Interlocks
             PickerDownThreshold = pickerDownThr;
         }
 
+        // 인터락 항목: Collet Cleaner가 활성화된 상태에서 PickerZ 하강 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -126,6 +130,7 @@ namespace QMC.CDT320.Interlocks
             EmgInput = emgInput;
         }
 
+        // 인터락 항목: EMO 입력이 들어온 상태에서 모든 축 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;

@@ -9,6 +9,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class OutputFeederInterlockRules
     {
+        // 인터락 항목: OutputFeederY/Lift/Clamp 이동 요청을 각 Feeder 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -27,6 +28,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputFeederY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinFeederY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -48,6 +50,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 OutputFeederY 이동은 Vision/Picker/Stage 안전 위치와 Lift/Clamp 상태를 확인한다.
         private static bool CanAutoOutputFeederY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -96,6 +99,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 수동 OutputFeederY 이동은 Bin 돌출, Vision/Picker/Stage 안전 위치, Lift/Clamp 상태를 확인한다.
         private static bool CanManualOutputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -216,6 +220,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputFeederY 홈은 주변 X축 홈 준비, 피커 Output 존 점유, 빈 자재 상태를 확인한다.
         private static bool CanHomeOutputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -350,6 +355,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputFeederLift 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputFeederLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -379,6 +385,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputFeederLift 초기화는 FeederY 안전 위치, LifterZ, Clamp/자재 상태를 확인한다.
         private static bool CanInitializeOutputFeederLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -429,6 +436,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputFeederLift 이동은 FeederY 안전 위치, LifterZ, Clamp 상태를 확인한다.
         private static bool CanMoveOutputFeederLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -464,6 +472,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputFeederClamp 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputFeederClamp(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -493,11 +502,13 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputFeederClamp 초기화는 일반 Clamp 이동 조건과 동일하게 확인한다.
         private static bool CanInitializeOutputFeederClamp(CDT320_Machine machine, double targetValue, out string reason)
         {
             return CanMoveOutputFeederClamp(machine, targetValue, out reason);
         }
 
+        // 인터락 항목: OutputFeederClamp 이동은 FeederY 안전 위치, LifterZ, Lift Down 상태를 확인한다.
         private static bool CanMoveOutputFeederClamp(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -530,6 +541,7 @@ namespace QMC.CDT320.Interlocks
             return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
+        // 인터락 기준: OutputFeederY 홈 전 OutputVisionX가 홈 완료 또는 홈 위치인지 판단한다.
         private static bool IsOutputVisionXHomeReadyForOutputFeederHome(OutputStageUnit stage, out string reason)
         {
             reason = string.Empty;
@@ -539,6 +551,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(stage.OutputCameraX, "OutputVisionX", out reason);
         }
 
+        // 인터락 기준: OutputFeederY 홈 전 FrontPickerX가 홈 완료 또는 홈 위치인지 판단한다.
         private static bool IsFrontPickerXHomeReadyForOutputFeederHome(PickerFrontUnit picker, out string reason)
         {
             reason = string.Empty;
@@ -548,6 +561,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(picker.PickerX, "FrontPickerX", out reason);
         }
 
+        // 인터락 기준: OutputFeederY 홈 전 RearPickerX가 홈 완료 또는 홈 위치인지 판단한다.
         private static bool IsRearPickerXHomeReadyForOutputFeederHome(PickerRearUnit picker, out string reason)
         {
             reason = string.Empty;
@@ -557,6 +571,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(picker.PickerX, "RearPickerX", out reason);
         }
 
+        // 인터락 항목: OutputFeederY 홈 전 Feeder 위 자재 존재 여부와 Vacuum 상태를 확인한다.
         private static bool VerifyOutputFeederEmptyForHome(OutputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -597,6 +612,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: OutputFeederY 이동 전 OutputVisionX가 Avoid 위치인지 판단한다.
         private static bool IsOutputVisionXInAvoidPosition(OutputStageUnit stage)
         {
             if (stage == null)
@@ -605,6 +621,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsAt(stage.OutputCameraX, stage.Recipe.VisionX.AvoidPosition);
         }
 
+        // 인터락 기준: FrontPicker가 Output 존 안에 있는지 판단한다.
         private static bool IsFrontPickerInOutputZone(PickerFrontUnit picker)
         {
             if (picker == null)
@@ -619,6 +636,7 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 기준: RearPicker가 Output 존 안에 있는지 판단한다.
         private static bool IsRearPickerInOutputZone(PickerRearUnit picker)
         {
             if (picker == null)
@@ -633,11 +651,13 @@ namespace QMC.CDT320.Interlocks
             return false;
         }
 
+        // 인터락 기준: Output Stage 모듈이 Avoid 위치인지 판단한다.
         private static bool IsStageModuleAtAvoid(StageModule stage)
         {
             return stage == null || stage.IsAtAvoidPosition();
         }
 
+        // 인터락 기준: OutputFeeder Lift가 Up 상태인지 센서/실린더 상태로 판단한다.
         private static bool IsFeederUp(OutputFeederUnit feeder)
         {
             if (feeder == null)
@@ -650,6 +670,7 @@ namespace QMC.CDT320.Interlocks
             return cylinder != null && cylinder.IsFwd;
         }
 
+        // 인터락 기준: OutputFeeder Clamp가 Unclamp 상태인지 센서/실린더 상태로 판단한다.
         private static bool IsFeederUnclamp(OutputFeederUnit feeder)
         {
             if (feeder == null)
@@ -662,6 +683,7 @@ namespace QMC.CDT320.Interlocks
             return cylinder != null && cylinder.IsBwd;
         }
 
+        // 인터락 기준: DryRun 입력은 실제 센서가 없어도 안전 상태로 인정한다.
         private static bool IsDryRunInput(BaseDigitalInput input)
         {
             return input != null && input.Config != null &&

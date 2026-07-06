@@ -33,6 +33,7 @@ namespace QMC.CDT320.Interlocks
             StageWorkspaceMax = stageWorkspaceMax;
         }
 
+        // 인터락 항목: 픽커가 스테이지 작업영역에 있고 Z가 내려온 상태에서 Stage XY 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -67,6 +68,7 @@ namespace QMC.CDT320.Interlocks
             FrontX = frontX; RearX = rearX; MinDistance = minDistance;
         }
 
+        // 인터락 항목: Front/Rear PickerX 사이 거리가 최소 안전거리보다 작아지는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -103,6 +105,7 @@ namespace QMC.CDT320.Interlocks
             VisionX = visionX; PickerX = pickerX; MinDistance = minDistance;
         }
 
+        // 인터락 항목: VisionX와 PickerX 사이 거리가 최소 안전거리보다 작아지는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -136,6 +139,7 @@ namespace QMC.CDT320.Interlocks
             StageZ = stageZ; EjectZ = ejectZ; MaxJointUp = maxJointUp;
         }
 
+        // 인터락 항목: StageZ와 EjectZ 합산 상승량이 허용치를 넘는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -173,6 +177,7 @@ namespace QMC.CDT320.Interlocks
             PickerDownThreshold = pickerDownThreshold;
         }
 
+        // 인터락 항목: LifterZ가 올라간 상태에서 PickerZ가 내려오는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;

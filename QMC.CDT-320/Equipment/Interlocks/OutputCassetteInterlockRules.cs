@@ -6,6 +6,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class OutputCassetteInterlockRules
     {
+        // 인터락 항목: OutputLifterZ 이동 요청을 Output Cassette 리프터 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -18,6 +19,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputLifterZ 이동 종류별로 홈/티칭 리프터 조건을 선택한다.
         private static bool VerifyBinLifterZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -55,6 +57,7 @@ namespace QMC.CDT320.Interlocks
             
         }
 
+        // 인터락 항목: OutputLifterZ 홈은 Bin 돌출, OutputFeederY 이동 중, 카세트 안전 위치를 확인한다.
         private static bool CanHomeBinLifterZ(OutputCassetteUnit cassette, OutputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -89,6 +92,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputLifterZ 이동은 Bin 돌출, OutputFeederY 이동 중, 카세트 안전 위치를 확인한다.
         private static bool CanMoveBinLifterZ(OutputCassetteUnit cassette, OutputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
@@ -123,6 +127,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: OutputLifterZ 이동 전 OutputFeederY가 Avoid 또는 카세트/스테이지 안전 위치인지 판단한다.
         private static bool IsOutputFeederYSafeForOutputLifterZ(OutputFeederUnit feeder)
         {
             if (feeder == null || feeder.FeederY == null)
@@ -135,6 +140,7 @@ namespace QMC.CDT320.Interlocks
                    IsOutputFeederYSafeForOutputLifterZ(feeder, BinSide.Ng);
         }
 
+        // 인터락 기준: Good/NG별 OutputFeederY 카세트/스테이지 로드·언로드 안전 위치를 판단한다.
         private static bool IsOutputFeederYSafeForOutputLifterZ(OutputFeederUnit feeder, BinSide side)
         {
             return feeder.IsBinFeederYInCassetteLoadPosition(side) ||
