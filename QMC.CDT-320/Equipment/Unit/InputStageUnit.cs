@@ -107,6 +107,9 @@ namespace QMC.CDT320
         /// <summary>얼라인 수렴 임계값 [deg]. 이 값 이하이면 반복을 종료한다.</summary>
         [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
 
+        /// <summary>얼라인 T 보정 1회 이동 허용 최대값 [deg].</summary>
+        [DataMember] public double AlignThetaCorrectionLimitDeg { get; set; } = 1.0;
+
         [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
 
         [OnDeserialized]
@@ -117,6 +120,8 @@ namespace QMC.CDT320
 
         public void EnsurePickUpMotionDefaults()
         {
+            if (AlignThetaCorrectionLimitDeg <= 0.0)
+                AlignThetaCorrectionLimitDeg = 1.0;
             if (PickUpNeedleSyncLiftDistance <= 0.0)
                 PickUpNeedleSyncLiftDistance = 0.5;
             if (PickUpNeedleSyncLiftVelocity <= 0.0)
@@ -1493,6 +1498,13 @@ namespace QMC.CDT320
             if (!CanHandleJogAxis(axis))
                 return -1;
 
+            // 이동 중 반복 Step Jog 입력은 조작 중복이므로 알람 없이 리턴한다.
+            if (IsJogAxisMoving(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction);
+                return 0;
+            }
+
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
 
@@ -1518,6 +1530,13 @@ namespace QMC.CDT320
             if (!CanHandleJogAxis(axis))
                 return Task.FromResult(-1);
 
+            // 이동 중 반복 Continuous Jog 입력은 현재 이동을 유지하고 추가 알람을 만들지 않는다.
+            if (IsJogAxisMoving(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction);
+                return Task.FromResult(0);
+            }
+
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
             Direction dir = direction < 0 ? Direction.Minus : Direction.Plus;
 
@@ -1526,6 +1545,42 @@ namespace QMC.CDT320
                 return Task.FromResult(ManualMoveInputStageAxisJog(stageAxis, dir, speed));
 
             return Task.FromResult(0);
+        }
+
+        private static bool IsJogAxisMoving(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                axis.UpdateStatus();
+                return axis.IsMoving;
+            }
+            catch
+            {
+                return axis != null && axis.IsMoving;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void VerifyJogSafetyWhileMoving(BaseAxis axis, int direction)
+        {
+            try
+            {
+                if (axis == null)
+                    return;
+
+                SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(axis, direction);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         public Task<int> StopJogAsync(BaseAxis axis)
@@ -1542,6 +1597,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveInputStageAxis(WaferStageAxis axis, double targetPos, bool bFine = false)
         {
+            return await MoveInputStageAxis(axis, targetPos, bFine, false).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveInputStageAxis(WaferStageAxis axis, double targetPos, bool bFine, bool forceMove)
+        {
             try
             {
                 BaseAxis item = ResolveInputStageAxis(axis);
@@ -1554,7 +1614,7 @@ namespace QMC.CDT320
                 // 인터락 사전검사는 실제 이동(MoveAbsoluteAsync)의 BaseAxis.MotionGuard 훅에서
                 // InputStageInterlockRules.Verify로 1번 수행한다. 여기서 중복 호출하지 않는다.
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                if (!forceMove && !item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -1563,7 +1623,7 @@ namespace QMC.CDT320
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
                 double acceleration = ResolveInputStageMoveAcceleration(axis, bFine);
                 double deceleration = ResolveInputStageMoveDeceleration(axis, bFine);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
                 {
                     string message = axis + " move failed. result=" + result +

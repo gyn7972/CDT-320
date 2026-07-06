@@ -31,7 +31,7 @@
             this.button1 = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
             this.button3 = new System.Windows.Forms.Button();
-            this.lblMessage = new System.Windows.Forms.Label();
+            this.lblMessage = new System.Windows.Forms.TextBox();
             this.panel1 = new System.Windows.Forms.Panel();
             this.lblTitle = new System.Windows.Forms.Label();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
@@ -83,13 +83,18 @@
             // 
             // lblMessage
             // 
+            this.lblMessage.BackColor = System.Drawing.SystemColors.ControlLightLight;
+            this.lblMessage.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.lblMessage.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblMessage.Font = new System.Drawing.Font("Tahoma", 10F, System.Drawing.FontStyle.Bold);
             this.lblMessage.Location = new System.Drawing.Point(114, 3);
-            this.lblMessage.Margin = new System.Windows.Forms.Padding(3);
+            this.lblMessage.Multiline = true;
             this.lblMessage.Name = "lblMessage";
+            this.lblMessage.ReadOnly = true;
+            this.lblMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             this.lblMessage.Size = new System.Drawing.Size(327, 118);
             this.lblMessage.TabIndex = 2;
+            this.lblMessage.TabStop = false;
             this.lblMessage.Text = "This is a message";
             // 
             // panel1
@@ -207,6 +212,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.tableLayoutPanel1.ResumeLayout(false);
             this.tableLayoutPanel2.ResumeLayout(false);
+            this.tableLayoutPanel2.PerformLayout();
             this.tableLayoutPanel4.ResumeLayout(false);
             this.tableLayoutPanel4.PerformLayout();
             this.tableLayoutPanel3.ResumeLayout(false);
@@ -219,7 +225,7 @@
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
         private System.Windows.Forms.Button button3;
-        private System.Windows.Forms.Label lblMessage;
+        private System.Windows.Forms.TextBox lblMessage;
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.Label lblTitle;

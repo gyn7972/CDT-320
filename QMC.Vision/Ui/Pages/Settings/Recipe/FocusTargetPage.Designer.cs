@@ -134,25 +134,129 @@ namespace QMC.Vision.Ui.Pages
             this.flowRight.Controls.Add(this.lblMeasureHdr);
             this.flowRight.Controls.Add(this.btnMeasure);
 
-            SectionLabel(this.lblTargetHdr, "포커스 대상");
-            Std(this.btnTargetCollet, "콜렛", Color.FromArgb(0x22, 0x22, 0x22));
-            Std(this.btnTargetDie, "다이", Color.FromArgb(0x22, 0x22, 0x22));
-            SectionLabel(this.lblRoiHdr, "ROI 설정");
+            this.lblTargetHdr.Text = "포커스 대상";
+            this.lblTargetHdr.Width = 180;
+            this.lblTargetHdr.Height = 24;
+            this.lblTargetHdr.Margin = new Padding(0, 2, 0, 4);
+            this.lblTargetHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblTargetHdr.Font = UiTheme.SectionFont;
+            this.lblTargetHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this.lblTargetHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this.lblTargetHdr.Padding = new Padding(8, 0, 0, 0);
+            this.btnTargetCollet.Text = "콜렛";
+            this.btnTargetCollet.Width = 180;
+            this.btnTargetCollet.Height = 30;
+            this.btnTargetCollet.Margin = new Padding(0, 0, 0, 3);
+            this.btnTargetCollet.FlatStyle = FlatStyle.Flat;
+            this.btnTargetCollet.Font = UiTheme.ButtonFont;
+            this.btnTargetCollet.BackColor = Color.White;
+            this.btnTargetCollet.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnTargetCollet.TextAlign = ContentAlignment.MiddleLeft;
+            this.btnTargetDie.Text = "다이";
+            this.btnTargetDie.Width = 180;
+            this.btnTargetDie.Height = 30;
+            this.btnTargetDie.Margin = new Padding(0, 0, 0, 3);
+            this.btnTargetDie.FlatStyle = FlatStyle.Flat;
+            this.btnTargetDie.Font = UiTheme.ButtonFont;
+            this.btnTargetDie.BackColor = Color.White;
+            this.btnTargetDie.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnTargetDie.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblRoiHdr.Text = "ROI 설정";
+            this.lblRoiHdr.Width = 180;
+            this.lblRoiHdr.Height = 24;
+            this.lblRoiHdr.Margin = new Padding(0, 2, 0, 4);
+            this.lblRoiHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblRoiHdr.Font = UiTheme.SectionFont;
+            this.lblRoiHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this.lblRoiHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this.lblRoiHdr.Padding = new Padding(8, 0, 0, 0);
             this.lblRoiHdr.Margin = new Padding(0, 10, 0, 4);
-            Std(this.btnRoi0, "ROI 1 지정", Color.Red);
-            Std(this.btnRoi1, "ROI 2 지정", Color.Goldenrod);
-            Std(this.btnRoi2, "ROI 3 지정", Color.RoyalBlue);
-            Std(this.btnRoi3, "ROI 4 지정", Color.ForestGreen);
-            Std(this.btnRoiClear, "ROI 전체 지우기", Color.FromArgb(0x22, 0x22, 0x22));
-            SectionLabel(this.lblExposureHdr, "카메라 노출 (µs)");
+            this.btnRoi0.Text = "ROI 1 지정";
+            this.btnRoi0.Width = 180;
+            this.btnRoi0.Height = 30;
+            this.btnRoi0.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi0.FlatStyle = FlatStyle.Flat;
+            this.btnRoi0.Font = UiTheme.ButtonFont;
+            this.btnRoi0.BackColor = Color.White;
+            this.btnRoi0.ForeColor = Color.Red;
+            this.btnRoi0.TextAlign = ContentAlignment.MiddleLeft;
+            this.btnRoi1.Text = "ROI 2 지정";
+            this.btnRoi1.Width = 180;
+            this.btnRoi1.Height = 30;
+            this.btnRoi1.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi1.FlatStyle = FlatStyle.Flat;
+            this.btnRoi1.Font = UiTheme.ButtonFont;
+            this.btnRoi1.BackColor = Color.White;
+            this.btnRoi1.ForeColor = Color.Goldenrod;
+            this.btnRoi1.TextAlign = ContentAlignment.MiddleLeft;
+            this.btnRoi2.Text = "ROI 3 지정";
+            this.btnRoi2.Width = 180;
+            this.btnRoi2.Height = 30;
+            this.btnRoi2.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi2.FlatStyle = FlatStyle.Flat;
+            this.btnRoi2.Font = UiTheme.ButtonFont;
+            this.btnRoi2.BackColor = Color.White;
+            this.btnRoi2.ForeColor = Color.RoyalBlue;
+            this.btnRoi2.TextAlign = ContentAlignment.MiddleLeft;
+            this.btnRoi3.Text = "ROI 4 지정";
+            this.btnRoi3.Width = 180;
+            this.btnRoi3.Height = 30;
+            this.btnRoi3.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoi3.FlatStyle = FlatStyle.Flat;
+            this.btnRoi3.Font = UiTheme.ButtonFont;
+            this.btnRoi3.BackColor = Color.White;
+            this.btnRoi3.ForeColor = Color.ForestGreen;
+            this.btnRoi3.TextAlign = ContentAlignment.MiddleLeft;
+            this.btnRoiClear.Text = "ROI 전체 지우기";
+            this.btnRoiClear.Width = 180;
+            this.btnRoiClear.Height = 30;
+            this.btnRoiClear.Margin = new Padding(0, 0, 0, 3);
+            this.btnRoiClear.FlatStyle = FlatStyle.Flat;
+            this.btnRoiClear.Font = UiTheme.ButtonFont;
+            this.btnRoiClear.BackColor = Color.White;
+            this.btnRoiClear.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnRoiClear.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblExposureHdr.Text = "카메라 노출 (µs)";
+            this.lblExposureHdr.Width = 180;
+            this.lblExposureHdr.Height = 24;
+            this.lblExposureHdr.Margin = new Padding(0, 2, 0, 4);
+            this.lblExposureHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblExposureHdr.Font = UiTheme.SectionFont;
+            this.lblExposureHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this.lblExposureHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this.lblExposureHdr.Padding = new Padding(8, 0, 0, 0);
             this.lblExposureHdr.Margin = new Padding(0, 10, 0, 4);
             this.txtExposure.Width = 180;
             this.txtExposure.Margin = new Padding(0, 0, 0, 3);
             this.txtExposure.TextAlign = HorizontalAlignment.Right;
-            Std(this.btnExposureApply, "노출 적용 (저장)", Color.FromArgb(0x22, 0x22, 0x22));
-            SectionLabel(this.lblMeasureHdr, "측정");
+            this.btnExposureApply.Text = "노출 적용 (저장)";
+            this.btnExposureApply.Width = 180;
+            this.btnExposureApply.Height = 30;
+            this.btnExposureApply.Margin = new Padding(0, 0, 0, 3);
+            this.btnExposureApply.FlatStyle = FlatStyle.Flat;
+            this.btnExposureApply.Font = UiTheme.ButtonFont;
+            this.btnExposureApply.BackColor = Color.White;
+            this.btnExposureApply.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnExposureApply.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblMeasureHdr.Text = "측정";
+            this.lblMeasureHdr.Width = 180;
+            this.lblMeasureHdr.Height = 24;
+            this.lblMeasureHdr.Margin = new Padding(0, 2, 0, 4);
+            this.lblMeasureHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblMeasureHdr.Font = UiTheme.SectionFont;
+            this.lblMeasureHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this.lblMeasureHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this.lblMeasureHdr.Padding = new Padding(8, 0, 0, 0);
             this.lblMeasureHdr.Margin = new Padding(0, 10, 0, 4);
-            Std(this.btnMeasure, "포커스 측정 (ROI별)", Color.FromArgb(0x22, 0x22, 0x22));
+            this.btnMeasure.Text = "포커스 측정 (ROI별)";
+            this.btnMeasure.Width = 180;
+            this.btnMeasure.Height = 30;
+            this.btnMeasure.Margin = new Padding(0, 0, 0, 3);
+            this.btnMeasure.FlatStyle = FlatStyle.Flat;
+            this.btnMeasure.Font = UiTheme.ButtonFont;
+            this.btnMeasure.BackColor = Color.White;
+            this.btnMeasure.ForeColor = Color.FromArgb(0x22, 0x22, 0x22);
+            this.btnMeasure.TextAlign = ContentAlignment.MiddleLeft;
 
             // ── 하단: 피크 곡선(좌 40%) + 검사 조명(중 30%) + ROI별 값 그리드(우 30%) ──
             // 고정폭 도킹은 좁은 화면에서 차트 폭이 0 이하로 계산되어 Chart 가 예외를 던지므로
@@ -182,7 +286,14 @@ namespace QMC.Vision.Ui.Pages
             this.pnlGridBox.Padding = new Padding(3, 0, 0, 0);
             this.pnlGridBox.Controls.Add(this.grid);
             this.pnlGridBox.Controls.Add(this.lblHdrGrid);
-            Header(this.lblHdrGrid, "ROI별 포커스 값 (측정값 / Best)");
+            this.lblHdrGrid.Dock = DockStyle.Top;
+            this.lblHdrGrid.Height = 28;
+            this.lblHdrGrid.Text = "ROI별 포커스 값 (측정값 / Best)";
+            this.lblHdrGrid.BackColor = UiTheme.StatusBarBg;
+            this.lblHdrGrid.ForeColor = UiTheme.StatusBarFg;
+            this.lblHdrGrid.Font = UiTheme.SectionFont;
+            this.lblHdrGrid.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblHdrGrid.Padding = new Padding(10, 0, 0, 0);
             this.grid.Dock = DockStyle.Fill;
             this.grid.ReadOnly = true;
             this.grid.AllowUserToAddRows = false;
@@ -193,7 +304,14 @@ namespace QMC.Vision.Ui.Pages
             this.pnlChartBox.Padding = new Padding(0, 0, 3, 0);
             this.pnlChartBox.Controls.Add(this.chart);
             this.pnlChartBox.Controls.Add(this.lblHdrChart);
-            Header(this.lblHdrChart, "포커스 곡선 (X=모터 Z, Y=Score · ★=Best)");
+            this.lblHdrChart.Dock = DockStyle.Top;
+            this.lblHdrChart.Height = 28;
+            this.lblHdrChart.Text = "포커스 곡선 (X=모터 Z, Y=Score · ★=Best)";
+            this.lblHdrChart.BackColor = UiTheme.StatusBarBg;
+            this.lblHdrChart.ForeColor = UiTheme.StatusBarFg;
+            this.lblHdrChart.Font = UiTheme.SectionFont;
+            this.lblHdrChart.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblHdrChart.Padding = new Padding(10, 0, 0, 0);
             this.chart.Dock = DockStyle.Fill;
             this.chart.MinimumSize = new Size(1, 1);   // 과도 축소 시 0px 폭 예외(Chart ArgumentException) 방지
             this.chart.BackColor = Color.White;
@@ -206,7 +324,14 @@ namespace QMC.Vision.Ui.Pages
             this.pnlImage.Controls.Add(this.camView);
             this.pnlImage.Controls.Add(this.txtFocusLog);
             this.pnlImage.Controls.Add(this.lblHdrImg);
-            Header(this.lblHdrImg, "카메라 이미지 (Grab/Live · ROI 드래그 지정 · 프로토콜 그랩 자동 표시)");
+            this.lblHdrImg.Dock = DockStyle.Top;
+            this.lblHdrImg.Height = 28;
+            this.lblHdrImg.Text = "카메라 이미지 (Grab/Live · ROI 드래그 지정 · 프로토콜 그랩 자동 표시)";
+            this.lblHdrImg.BackColor = UiTheme.StatusBarBg;
+            this.lblHdrImg.ForeColor = UiTheme.StatusBarFg;
+            this.lblHdrImg.Font = UiTheme.SectionFont;
+            this.lblHdrImg.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblHdrImg.Padding = new Padding(10, 0, 0, 0);
             this.camView.Dock = DockStyle.Fill;
             this.camView.BackColor = Color.Black;
             this.camView.ShowToolbar = true;
@@ -243,40 +368,7 @@ namespace QMC.Vision.Ui.Pages
             this.ResumeLayout(false);
         }
 
-        // ── 공통 스타일 헬퍼 (AutoFocusPanel 과 동일 룩) ──
-        private static void Header(Label l, string text)
-        {
-            l.Dock = DockStyle.Top;
-            l.Height = 28;
-            l.Text = text;
-            l.BackColor = UiTheme.StatusBarBg;
-            l.ForeColor = UiTheme.StatusBarFg;
-            l.Font = UiTheme.SectionFont;
-            l.TextAlign = ContentAlignment.MiddleLeft;
-            l.Padding = new Padding(10, 0, 0, 0);
-        }
 
-        private static void SectionLabel(Label l, string text)
-        {
-            l.Text = text;
-            l.Width = 180; l.Height = 24;
-            l.Margin = new Padding(0, 2, 0, 4);
-            l.TextAlign = ContentAlignment.MiddleLeft;
-            l.Font = UiTheme.SectionFont;
-            l.ForeColor = UiTheme.SidebarHeaderFg;
-            l.BackColor = UiTheme.SidebarHeaderBg;
-            l.Padding = new Padding(8, 0, 0, 0);
-        }
 
-        private static void Std(Button b, string text, Color fg)
-        {
-            b.Text = text;
-            b.Width = 180; b.Height = 30; b.Margin = new Padding(0, 0, 0, 3);
-            b.FlatStyle = FlatStyle.Flat;
-            b.Font = UiTheme.ButtonFont;
-            b.BackColor = Color.White;
-            b.ForeColor = fg;
-            b.TextAlign = ContentAlignment.MiddleLeft;
-        }
     }
 }

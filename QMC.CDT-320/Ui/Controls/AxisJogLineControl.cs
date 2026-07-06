@@ -89,7 +89,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void StartContinuousJog(int direction)
         {
-            if (!PrepareAxis())
+            if (!PrepareAxis(direction))
                 return;
 
             try
@@ -104,7 +104,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async Task StepJogAsync(int direction)
         {
-            if (!PrepareAxis())
+            if (!PrepareAxis(direction))
                 return;
 
             try
@@ -117,15 +117,40 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private bool PrepareAxis()
+        private bool PrepareAxis(int direction)
         {
-            if (_axis == null || _axis.IsAlarm)
+            if (_axis == null)
+                return false;
+
+            bool limitRecoveryJog = IsLimitRecoveryJog(_axis, direction);
+            if (_axis.IsAlarm && !limitRecoveryJog)
+                return false;
+
+            try { _axis.UpdateStatus(); } catch { }
+            if (_axis.IsAlarm && !limitRecoveryJog)
                 return false;
 
             if (!_axis.IsServoOn)
                 _axis.ServoOn();
 
             return true;
+        }
+
+        private static bool IsLimitRecoveryJog(BaseAxis axis, int direction)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                QMC.CDT320.Ajin.AjinAxis ajinAxis = axis as QMC.CDT320.Ajin.AjinAxis;
+                // 리밋 복구 Jog는 알람 상태여도 리밋을 빠져나가는 방향일 때만 허용한다.
+                return ajinAxis != null && ajinAxis.CanRecoverLimitByJogDirection(direction);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private JogSpeedType SpeedType => SpeedProvider != null ? JogSpeedType.Custom : (MoveOptions != null ? MoveOptions.SpeedType : JogSpeedType.Fine);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -134,7 +134,7 @@ namespace QMC.Vision.Ui.Controls
             if (_crossline)
             {
                 PointF c = ToScreen(new PointF(_img.Width / 2f, _img.Height / 2f));
-                using (var pen = new Pen(Color.FromArgb(0x33, 0xC8, 0xD8), 1f) { DashStyle = DashStyle.Dash })
+                using (var pen = new Pen(Color.Red, 1f) { DashStyle = DashStyle.Dash })
                 {
                     g.DrawLine(pen, c.X, 0, c.X, Height);
                     g.DrawLine(pen, 0, c.Y, Width, c.Y);

@@ -634,6 +634,25 @@ namespace QMC.CDT320.VisionComm
                                string.Equals(init, "ON", StringComparison.OrdinalIgnoreCase);
             return result;
         }
+
+        public static VisionFocusValueResult FromAck(VisionProtocolResponse response, double motorZ, int pickupNo, bool initial)
+        {
+            var result = new VisionFocusValueResult();
+            result.Raw = response != null ? response.RawLine : "null";
+            result.Z = motorZ;
+            result.PickupNo = pickupNo;
+            result.IsInitial = initial;
+
+            if (response == null)
+                return result;
+
+            string token = response.ResultToken ?? string.Empty;
+            bool rejected = response.IsError ||
+                            string.Equals(token, "ERR", StringComparison.OrdinalIgnoreCase) ||
+                            token.StartsWith("fail", StringComparison.OrdinalIgnoreCase);
+            result.Success = response.IsAck && !rejected;
+            return result;
+        }
     }
 
     public sealed class VisionFocusBestResult

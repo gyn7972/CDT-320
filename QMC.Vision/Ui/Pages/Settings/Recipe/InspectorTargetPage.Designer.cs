@@ -162,7 +162,7 @@ namespace QMC.Vision.Ui.Pages
             this._cam.BackColor = System.Drawing.Color.DimGray;
             this._cam.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cam.InfoForeColor = System.Drawing.Color.LightGreen;
-            this._cam.InfoText = "STAGE\r\nW:640 H:480";
+            this._cam.InfoText = "";   // 초기 placeholder — 런타임에 실제 카메라명+실그랩 W/H 로 설정(StageName/RefreshStageInfo)
             this._cam.Location = new System.Drawing.Point(3, 27);
             this._cam.MmPerPixelX = 0D;
             this._cam.MmPerPixelY = 0D;

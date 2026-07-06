@@ -48,6 +48,7 @@ namespace QMC.Vision.Ui.Pages
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             BuildChildPanels();
             Text = module.Name + " / " + inspector.Id;
+            _cam.StageName = module.Name;   // 좌측상단 명칭=실제 카메라(하드코딩 STAGE 제거), W/H=실그랩 크기 자동
         }
 
         /// <summary>런타임 의존 자식 패널(주입 _module/_inspector 기반) — Designer 직렬화 불가라 Code 유지.</summary>

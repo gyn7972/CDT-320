@@ -45,6 +45,8 @@ namespace QMC.Vision.Ui.Pages
         private FocusTarget _target = FocusTarget.Collet;
         private long _lastLogRev = -1;
         private long _lastTactRev = -1;
+        private IVisionModule _module;      // 라이브 이미지 뷰 프레임 탭 대상(현재 카메라 모듈)
+        private long _lastViewerSeq = -1;   // ViewerFrameSeq 변경 감지용(핸들러 TCP 그랩 프레임 자동 표시)
         private readonly Random _rng = new Random();
 
         public AutoFocusPanel()
@@ -95,7 +97,7 @@ namespace QMC.Vision.Ui.Pages
             btnProcImg.Click += (s, e) => OpenProcImg();
             camView.RoiEdited += camView_RoiEdited;
 
-            timer.Tick += (s, e) => RefreshView();
+            timer.Tick += (s, e) => { RefreshView(); RefreshViewerFrame(); };
             SelectTarget(0);
         }
 
@@ -276,7 +278,30 @@ namespace QMC.Vision.Ui.Pages
             Form1 host = FindForm() as Form1;
             if (host == null) return;
             IVisionModule mod = ModuleFor(host, _camera);
-            if (mod != null) camView.AttachModule(mod);
+            if (mod != null) { camView.AttachModule(mod); camView.StageName = mod.Name; }   // 명칭=선택 카메라, W/H=실그랩 자동
+            _module = mod;              // 뷰어 탭 대상 갱신
+            _lastViewerSeq = -1;        // 새 모듈 → 다음 프레임을 반드시 한 번 표시
+        }
+
+        /// <summary>핸들러 TCP(FOCUS_*/GRAB) 로 그랩된 최신 프레임을 라이브 이미지 뷰에 자동 표시.
+        /// 모듈 뷰어 탭(ViewerFrameSeq) 변경을 감지해 갱신한다. 라이브 중에는 라이브 스트림이 우선.
+        /// (FocusTargetPage.RefreshViewerFrame 과 동일 패턴 — AutoFocus 페이지에 누락돼 있어
+        ///  실측 데이터는 갱신되지만 라이브 이미지가 'No Image' 로 남던 문제 수정.)</summary>
+        private void RefreshViewerFrame()
+        {
+            try
+            {
+                if (_module == null || camView.IsLive) return;
+                long seq = _module.ViewerFrameSeq;
+                if (seq == _lastViewerSeq) return;
+                _lastViewerSeq = seq;
+                if (seq <= 0) return;
+                Bitmap f = _module.AcquireViewerFrame();
+                if (f == null) return;
+                try { camView.SetImage(f); }   // 내부 복제 — 원본은 여기서 해제
+                finally { f.Dispose(); }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[AutoFocusPanel] 프레임 갱신 실패: " + ex.Message); }
         }
 
         /// <summary>픽업 번호 목록 — 모든 카메라/타깃 공통 Pickup1~4.</summary>

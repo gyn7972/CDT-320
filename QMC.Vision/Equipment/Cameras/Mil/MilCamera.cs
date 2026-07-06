@@ -119,34 +119,54 @@ namespace QMC.Vision.Cameras.Mil
             try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START, _frameStartHook, IntPtr.Zero); }
             catch (Exception ex) { _frameStartHook = null; LiveLog("FRAME_START 훅 등록 실패: " + ex.Message); }
 
-            // 열릴 때마다 현재(레시피/UI) 설정을 카메라에 재적용 — startup·Connect·재오픈 모두 동일 상태 보장.
-            ApplyCurrentSettings();
+            // DCF(Camera Configuration)가 MdigAlloc 시점에 이미 카메라에 적용돼 있으므로,
+            // 캐시(기본값)를 밀어쓰지 않고 카메라 실제값을 readback 해 캐시에 채택한다.
+            AdoptCameraSettings();
             LiveLog("Open 상태: " + DescribeAcqState());
             RaiseConnectionChanged(CameraConnectionEvent.Opened);
         }
 
-        /// <summary>현재 CameraBase 에 캐시된 설정값을 카메라(GenICam feature)에 재적용. Open 직후 호출.</summary>
-        private void ApplyCurrentSettings()
+        /// <summary>Open 직후 — DCF 적용값(카메라 실제 상태)을 캐시에 채택한다(카메라 쓰기 없음).
+        /// 기존에는 캐시 기본값(노출 10000µs/10fps/Mono8 등)을 무조건 카메라에 써서 DCF Camera
+        /// Configuration 의 ExposureTime/AcquisitionFrameRate 등이 덮여버렸다 — readback 채택으로 전환.
+        /// (레시피/설정 값은 호스트(AlgorithmCameraBinder/VisionModule)가 Open 이후 프로퍼티 세터로
+        /// 적용하므로 여기서 밀어쓸 필요가 없다.)</summary>
+        private void AdoptCameraSettings()
         {
             // Open 직후 — 카메라 실제 상태를 알 수 없으므로 모드 캐시를 무효화하고 기준 모드를 새로 적용한다.
             _acqModeApplied = null;
             _trigOffApplied = false;
 
-            try { OnExposureChanged(ExposureUs); }              catch { }
-            try { OnGainChanged(Gain); }                        catch { }
-            try { OnFrameRateChanged(AcquisitionFrameRate); }   catch { }
-            try { OnPixelFormatChanged(PixelFormat); }          catch { }
-            try { if (Roi.Width > 0 && Roi.Height > 0) OnRoiChanged(Roi); } catch { }
+            double exp  = InquireFeatureD("ExposureTime");
+            double gain = InquireFeatureD("Gain");
+            double fps  = InquireFeatureD("AcquisitionFrameRate");
+            string pf   = InquireFeatureAsString("PixelFormat");
+            if (exp > 0)             SeedExposureUs(exp);
+            if (!double.IsNaN(gain)) SeedGain(gain);
+            if (fps > 0)             SeedFrameRate(fps);
+            if (Enum.TryParse(pf, out CameraPixelFormat pfe)) SeedPixelFormat(pfe);
+            LiveLog("DCF/카메라 값 채택: ExposureTime=" + exp + " Gain=" + gain
+                  + " AcqFrameRate=" + fps + " PixelFormat=" + pf);
 
             // 기준 = 단발 그랩 모드(SingleFrame + TriggerMode Off). 라이브 진입 시에만 Continuous 로 전환.
             //   (이 카메라는 AcquisitionStart 로 촬상하므로 TriggerMode 는 항상 Off 유지.)
             try { EnsureSingleFrameGrabMode(); } catch { }
         }
 
+        /// <summary>GenICam float feature 현재값 readback. 미지원/실패 시 NaN.</summary>
+        private double InquireFeatureD(string feature)
+        {
+            if (IsNull(_dig)) return double.NaN;
+            try { double v = double.NaN; MIL.MdigInquireFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_DOUBLE, ref v); return v; }
+            catch { return double.NaN; }
+        }
+
         public override void Close()
         {
             StopLive();
             if (!IsOpen) return;
+            // 타임아웃으로 백그라운드에 남은 MdigHalt 가 있으면 잠깐 대기 — MbufFree/MdigFree 와 겹침 방지.
+            if (!WaitHaltDone(3000)) LiveLog("Close: MdigHalt 미완료 상태로 해제 진행");
             try { if (_exposureEndHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_EXPOSURE_END + MIL.M_UNHOOK, _exposureEndHook, IntPtr.Zero); } catch { }
             _exposureEndHook = null;
             try { if (_frameStartHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_START + MIL.M_UNHOOK, _frameStartHook, IntPtr.Zero); } catch { }
@@ -167,12 +187,18 @@ namespace QMC.Vision.Cameras.Mil
                 return GrabResult.Fail("grab busy", Info.Id);
             try
             {
+                // 직전 Live 정지의 MdigHalt 가 아직 백그라운드에서 진행 중이면 완료까지 잠깐 대기 — 미완료면
+                // 즉시 실패 반환(그대로 MdigHalt/MdigGrab 에 들어가면 무한 블록 → UI Grab 버튼이 영구 비활성).
+                if (!WaitHaltDone(2000))
+                    return GrabResult.Fail("이전 Live 정지(MdigHalt) 미완료 — 잠시 후 다시 시도하세요", Info.Id);
+
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_TIMEOUT, (double)timeoutMs); } catch { }
                 // 동기 그랩 — MdigGrab 이 프레임 완료까지 블록한다.
                 try { MIL.MdigControl(_dig, MIL.M_GRAB_MODE, (double)MIL.M_SYNCHRONOUS); } catch { }
                 // 라이브 중이 아니면 직전 단발 획득을 확실히 정지 → 다음 그랩이 깨끗이 재-arm.
-                if (!_continuousOn)
-                    try { MIL.MdigHalt(_dig); } catch { }
+                //   MdigHalt 는 획득 상태가 꼬이면 무한 블록하므로 직접 호출하지 않고 타임아웃 보호.
+                if (!_continuousOn && !HaltWithTimeout(2000))
+                    return GrabResult.Fail("MdigHalt 타임아웃 — 카메라 획득 상태 확인 필요(Event 로그 MilLive 참조)", Info.Id);
                 EnsureSingleFrameGrabMode();
 
                 // 단발 촬상 = AcquisitionMode SingleFrame + AcquisitionStart(=MdigGrab) → 1프레임.
@@ -189,6 +215,7 @@ namespace QMC.Vision.Cameras.Mil
 
         private volatile bool _continuousOn;
         private readonly object _liveCtl = new object();   // StartLive/StopLive 직렬화 — Stop(MdigHalt) 진행 중 Start 겹침 방지
+        private readonly ManualResetEventSlim _haltDone = new ManualResetEventSlim(true);   // set = 진행 중 MdigHalt 없음(타임아웃으로 백그라운드에 남은 halt 추적)
         private int _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(연속 클릭/다중 경로 겹침 방지)
         private long _liveFrameCount;   // 진단용 — 라이브 훅 호출 횟수
 
@@ -198,14 +225,13 @@ namespace QMC.Vision.Cameras.Mil
         private bool   _trigOffApplied;     // TriggerMode=Off 적용됨
 
         /// <summary>단발 그랩 모드 보장 — AcquisitionMode SingleFrame(+FrameCount 1) + TriggerMode Off.
-        /// 이미 적용돼 있으면 카메라에 쓰지 않는다(연속 그랩 시 재설정/멈춤 방지).</summary>
+        /// 이미 적용돼 있으면 카메라에 쓰지 않는다(연속 그랩 시 재설정/멈춤 방지). 적용은 readback 검증.</summary>
         private void EnsureSingleFrameGrabMode()
         {
             if (_acqModeApplied != "SingleFrame")
             {
-                TryFeatureS("AcquisitionMode", "SingleFrame");
-                TryFeatureI("AcquisitionFrameCount", 1);
-                _acqModeApplied = "SingleFrame";
+                if (ApplyAcquisitionModeVerified("SingleFrame"))
+                    TryFeatureI("AcquisitionFrameCount", 1);
             }
             if (!_trigOffApplied)
             {
@@ -215,14 +241,14 @@ namespace QMC.Vision.Cameras.Mil
         }
 
         /// <summary>라이브(연속) 모드 보장 — AcquisitionMode Continuous + TriggerMode Off. 변경 시에만 적용.
-        /// 모드 전환 시 카메라가 AcquisitionFrameRate 를 재계산해 낮춰둘 수 있으므로 캐시 값을 재적용한다.</summary>
-        private void EnsureContinuousLiveMode()
+        /// 모드 전환 시 카메라가 AcquisitionFrameRate 를 재계산해 낮춰둘 수 있으므로 캐시 값을 재적용한다.
+        /// false = AcquisitionMode 적용이 readback 검증에 실패(카메라가 SingleFrame 에 남아 있음).</summary>
+        private bool EnsureContinuousLiveMode()
         {
             bool changed = false;
             if (_acqModeApplied != "Continuous")
             {
-                TryFeatureS("AcquisitionMode", "Continuous");
-                _acqModeApplied = "Continuous";
+                if (!ApplyAcquisitionModeVerified("Continuous")) return false;
                 changed = true;
             }
             if (!_trigOffApplied)
@@ -233,6 +259,49 @@ namespace QMC.Vision.Cameras.Mil
             }
             if (changed && AcquisitionFrameRate > 0)
                 TryFeatureD("AcquisitionFrameRate", ClampFeatureRangeD("AcquisitionFrameRate", AcquisitionFrameRate));
+            return true;
+        }
+
+        /// <summary>AcquisitionMode 를 readback 으로 검증하며 적용 — 획득 정지 직후에는 카메라
+        /// (TLParamsLocked 잔존)가 feature 쓰기를 조용히 거부할 수 있고, 그러면 캐시만 어긋나
+        /// 라이브가 1프레임만 나오는 증상이 된다 → 불일치면 잠깐 대기 후 재시도(최대 5회/0.5s).
+        /// readback 미지원("?"/빈값) 카메라는 검증 불가 → 쓰기 성공으로 간주(기존 동작 유지).
+        /// 실패 시 캐시 무효화(다음 Grab/Live 에서 재적용) + 로그.</summary>
+        private bool ApplyAcquisitionModeVerified(string mode)
+        {
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                TryFeatureS("AcquisitionMode", mode);
+                string rb = InquireFeatureAsString("AcquisitionMode");
+                // 명시적으로 '다른 모드' 문자열로 읽힐 때만 실패 취급 — readback 미지원("?"/빈값)이나
+                // 미인식 형식(정수 enum 값 등)은 검증 불가 → 성공 간주(오탐으로 라이브가 막히지 않게).
+                bool knownOther = !string.IsNullOrEmpty(rb) && rb != "?"
+                    && (rb.Equals("SingleFrame", StringComparison.OrdinalIgnoreCase)
+                     || rb.Equals("MultiFrame",  StringComparison.OrdinalIgnoreCase)
+                     || rb.Equals("Continuous",  StringComparison.OrdinalIgnoreCase))
+                    && !rb.Equals(mode, StringComparison.OrdinalIgnoreCase);
+                if (!knownOther)
+                {
+                    if (!string.IsNullOrEmpty(rb) && rb != "?" && !rb.Equals(mode, StringComparison.OrdinalIgnoreCase))
+                        LiveLog("AcquisitionMode readback 형식 미인식('" + rb + "') — 검증 생략, 적용 성공 처리");
+                    _acqModeApplied = mode;
+                    if (attempt > 0) LiveLog("AcquisitionMode=" + mode + " 적용 (재시도 " + attempt + "회)");
+                    return true;
+                }
+                // 쓰기 거부(readback 이 다른 모드) — 카메라가 획득 중(TLParamsLocked)이라 거부하는
+                // 대표 케이스: MdigHalt 가 AcquisitionStop 을 안 보내 카메라가 스트리밍 잠금에 남은 상태.
+                // → GenICam AcquisitionStop 명령을 직접 실행해 잠금 해제 후 재시도.
+                if (attempt == 0)
+                {
+                    LiveLog("AcquisitionMode=" + mode + " 쓰기 거부(readback=" + rb + ") → AcquisitionStop 실행 후 재시도");
+                    TryFeatureExec("AcquisitionStop");
+                }
+                Thread.Sleep(100);
+            }
+            _acqModeApplied = null;
+            LiveLog("AcquisitionMode=" + mode + " 적용 실패 — readback=" + InquireFeatureAsString("AcquisitionMode")
+                  + " (획득 미정지/TLParamsLocked 추정)");
+            return false;
         }
 
         public override void StartLive()
@@ -243,11 +312,19 @@ namespace QMC.Vision.Cameras.Mil
             lock (_liveCtl)
             {
                 if (!IsOpen || IsGrabbing) return;
-                IsGrabbing = true;
 
-                // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다. (모드는 변경 시에만 적용)
-                //   (SingleFrame 복원은 StopLive 에서.)
-                EnsureContinuousLiveMode();
+                // 타임아웃으로 백그라운드에 남은 직전 MdigHalt 가 있으면 완료까지 대기 — 미완료 상태로
+                // 시작하면 획득 상태가 꼬여 '1프레임 라이브'가 되거나 다음 halt 가 무한 블록한다.
+                if (!WaitHaltDone(3000))
+                    throw new InvalidOperationException("이전 Live 정지(MdigHalt)가 완료되지 않았습니다 — 잠시 후 다시 시도하세요.");
+
+                // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다.
+                //   적용은 readback 으로 검증 — 조용히 거부되면 카메라가 SingleFrame 에 남아
+                //   '한 번만 그랩되는 라이브' 증상이 된다. (SingleFrame 복원은 StopLive 에서.)
+                if (!EnsureContinuousLiveMode())
+                    throw new InvalidOperationException("AcquisitionMode=Continuous 적용 실패 — 카메라 획득 상태 확인 필요(Event 로그 MilLive 참조)");
+
+                IsGrabbing = true;
 
                 // 프레임마다 MIL 내부 스레드가 호출하는 훅 — 우리 폴링 스레드를 만들지 않는다.
                 //   델리게이트는 필드로 보관해야 콜백 중 GC 되지 않는다.
@@ -256,7 +333,16 @@ namespace QMC.Vision.Cameras.Mil
                 _liveHook = LiveGrabHook;
                 try { MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END, _liveHook, IntPtr.Zero); } catch { }
                 try { MIL.MdigGrabContinuous(_dig, _buf); _continuousOn = true; }
-                catch (Exception ex) { _continuousOn = false; LiveLog("MdigGrabContinuous 실패: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    // 시작 실패 — 훅/상태 원복(IsGrabbing 이 true 로 남으면 UI 가 라이브 중으로 오인).
+                    _continuousOn = false;
+                    IsGrabbing = false;
+                    try { if (_liveHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END + MIL.M_UNHOOK, _liveHook, IntPtr.Zero); } catch { }
+                    _liveHook = null;
+                    LiveLog("MdigGrabContinuous 실패: " + ex.Message);
+                    throw;
+                }
                 LiveLog("StartLive: continuousOn=" + _continuousOn + ", acqMode=" + _acqModeApplied + " | " + DescribeAcqState());
             }
         }
@@ -265,7 +351,8 @@ namespace QMC.Vision.Cameras.Mil
         /// 라이브 저속(예: DCF 트리거 1Hz 잔존) 원인 추적용.</summary>
         private string DescribeAcqState()
         {
-            return "TriggerMode=" + InquireFeatureAsString("TriggerMode")
+            return "AcqMode=" + InquireFeatureAsString("AcquisitionMode")
+                 + " TriggerMode=" + InquireFeatureAsString("TriggerMode")
                  + " TriggerSource=" + InquireFeatureAsString("TriggerSource")
                  + " AcqFrameRate=" + InquireFeatureAsString("AcquisitionFrameRate")
                  + " FrameRateEnable=" + InquireFeatureAsString("AcquisitionFrameRateEnable")
@@ -309,9 +396,8 @@ namespace QMC.Vision.Cameras.Mil
                 bool wasLive = _continuousOn;
                 LiveLog("StopLive enter: continuousOn=" + _continuousOn + ", frames=" + _liveFrameCount);
 
-                // 순서 중요 — MdigHalt 보다 먼저: ① IsGrabbing=false 로 진행 중인 훅이 즉시 빠지게,
-                //   ② 훅 해제로 새 콜백 차단. 이렇게 해야 MdigHalt 가 무거운 콜백(144M 변환)·UI 마샬링과 데드락/멈춤하지 않는다.
-                IsGrabbing = false;
+                // 순서 중요 — MdigHalt 보다 먼저 훅 해제로 새 콜백 차단. 이렇게 해야 MdigHalt 가
+                //   무거운 콜백(144M 변환)·UI 마샬링과 데드락/멈춤하지 않는다.
                 try { if (_liveHook != null) MIL.MdigHookFunction(_dig, MIL.M_GRAB_FRAME_END + MIL.M_UNHOOK, _liveHook, IntPtr.Zero); } catch { }
                 _liveHook = null;
                 LiveLog("unhooked");
@@ -320,28 +406,48 @@ namespace QMC.Vision.Cameras.Mil
                 {
                     // MdigHalt 는 진행 중 그랩이 프레임 경계에 도달하길 기다린다. 카메라가 프레임을 안 보내는
                     // 상태(트리거 잔존/AcquisitionMode 미전환)면 무한 대기 → 호출 스레드(UI Stop/폼 종료)가
-                    // 통째로 멈춘다 → 백그라운드 스레드에서 halt 하고 3초만 대기. 타임아웃이면 로그 남기고
-                    // 진행(프로세스 종료는 Form1 종료 워치독이 보장).
+                    // 통째로 멈춘다 → 백그라운드 스레드에서 halt 하고 3초만 대기(_haltDone 으로 잔여 halt 추적).
                     LiveLog("before MdigHalt");
-                    var haltDone = new ManualResetEventSlim(false);
-                    var haltThread = new Thread(() =>
-                    {
-                        try { MIL.MdigHalt(_dig); } catch (Exception ex) { LiveLog("MdigHalt 예외: " + ex.Message); }
-                        try { haltDone.Set(); } catch { }
-                    }) { IsBackground = true, Name = "MilHalt-dig" + _digNum };
-                    haltThread.Start();
-                    if (haltDone.Wait(3000))
-                        LiveLog("after MdigHalt");
-                    else
-                        LiveLog("MdigHalt 타임아웃(3s) — 카메라가 프레임을 보내지 않는 상태로 추정, 강제 진행 (트리거/AcquisitionMode 미전환 여부 확인 필요)");
+                    bool halted = HaltWithTimeout(3000);
                     _continuousOn = false;
+                    if (halted)
+                    {
+                        LiveLog("after MdigHalt");
+                        // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브).
+                        if (wasLive) EnsureSingleFrameGrabMode();
+                    }
+                    else
+                    {
+                        // halt 미완료 — 획득이 아직 진행 중일 수 있어 여기서 feature 를 쓰지 않는다
+                        //   (진행 중 획득에 쓰면 조용히 거부되고 캐시만 어긋난다 → '1프레임 라이브' 원인).
+                        //   캐시를 무효화해 다음 Grab/StartLive 가 WaitHaltDone 후 검증 적용으로 복원한다.
+                        LiveLog("MdigHalt 타임아웃(3s) — 카메라가 프레임을 보내지 않는 상태로 추정, 모드 복원은 다음 Grab/Live 에서 수행");
+                        _acqModeApplied = null;
+                    }
                 }
-
-                // 스탑 = SingleFrame(1프레임)으로 복원 → 다음 Grab 은 AcquisitionStart 1장(+스트로브). (변경 시에만 적용)
-                if (wasLive)
-                    EnsureSingleFrameGrabMode();
                 LiveLog("StopLive done");
             }
+        }
+
+        /// <summary>타임아웃으로 백그라운드에 남은 직전 MdigHalt 완료 대기. true=완료(또는 진행 중 halt 없음).</summary>
+        private bool WaitHaltDone(int timeoutMs)
+        {
+            try { return _haltDone.Wait(timeoutMs); } catch { return true; }
+        }
+
+        /// <summary>MdigHalt 를 백그라운드 스레드에서 수행하고 최대 timeoutMs 만 대기 — MdigHalt 는 카메라가
+        /// 프레임을 보내지 않는 상태면 무한 블록하므로 호출 스레드(UI Stop/Grab/폼 종료)를 보호한다.
+        /// false=타임아웃(halt 스레드는 계속 진행, 완료 시 _haltDone set → 다음 Grab/Live 는 WaitHaltDone 으로 재합류).</summary>
+        private bool HaltWithTimeout(int timeoutMs)
+        {
+            _haltDone.Reset();
+            var haltThread = new Thread(() =>
+            {
+                try { MIL.MdigHalt(_dig); } catch (Exception ex) { LiveLog("MdigHalt 예외: " + ex.Message); }
+                try { _haltDone.Set(); } catch { }
+            }) { IsBackground = true, Name = "MilHalt-dig" + _digNum };
+            haltThread.Start();
+            return _haltDone.Wait(timeoutMs);
         }
 
         /// <summary>라이브 미리보기 최대 FPS(고해상도 센서 변환·표시 부하 완화). 0 이하면 무제한.</summary>
@@ -448,20 +554,25 @@ namespace QMC.Vision.Cameras.Mil
         /// AcquisitionFrameRate 를 1로 재계산(무효화)하는 부작용이 있어 라이브/연속그랩이 1fps 로 떨어진다.</para></summary>
         protected override void OnTriggerModeChanged(CameraTriggerMode mode)
         {
-            _trigOffApplied = false;   // 트리거 모드가 외부에서 바뀌면 캐시 무효화 → 다음 Grab/Live 가 TriggerMode 재적용
             switch (mode)
             {
                 case CameraTriggerMode.Continuous:
                 case CameraTriggerMode.Software:
+                    // Off 를 지금 썼으므로 캐시 유효 유지 — 무효화하면 직후 Grab/Live 가 같은 값을
+                    // 다시 써서(VNP 는 트리거 관련 쓰기에 FrameRate 재계산 부작용) 라이브가 흔들릴 수 있다.
                     TryFeatureS("TriggerMode", "Off");
+                    _trigOffApplied = true;
                     break;
                 case CameraTriggerMode.Line0:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line0");
                     break;
                 case CameraTriggerMode.Line1:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line1");
                     break;
                 case CameraTriggerMode.Line2:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line2");
                     break;
             }
@@ -485,6 +596,22 @@ namespace QMC.Vision.Cameras.Mil
             TryFeatureI("Height", roi.Height);
             TryFeatureI("OffsetX", roi.X);
             TryFeatureI("OffsetY", roi.Y);
+        }
+
+        /// <summary>GenICam feature 원시 readback — 설정화면 '카메라 현재값 읽기' 등 공용 경로용
+        /// (HikGigECamera.GetRawParameter 와 동일 계약). 미지원/실패 시 null.</summary>
+        public override string GetRawParameter(string key)
+        {
+            if (!IsOpen || string.IsNullOrEmpty(key)) return null;
+            string v = InquireFeatureAsString(key);
+            return (string.IsNullOrEmpty(v) || v == "?") ? null : v;
+        }
+
+        /// <summary>GenICam feature 원시 쓰기 — 미지원 feature 는 조용히 무시(TryFeatureS).</summary>
+        public override void SetRawParameter(string key, string value)
+        {
+            if (!IsOpen || string.IsNullOrEmpty(key)) return;
+            TryFeatureS(key, value ?? "");
         }
 
         /// <summary>MVS 카탈로그 노드 → MIL GenICam feature 적용(MVS의 SetParameterTyped 와 동일 역할).
@@ -539,6 +666,13 @@ namespace QMC.Vision.Cameras.Mil
         {
             if (IsNull(_dig)) return;
             try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
+        }
+
+        /// <summary>GenICam command feature 실행(예: AcquisitionStop). 미지원/실패는 조용히 무시.</summary>
+        private void TryFeatureExec(string command)
+        {
+            if (IsNull(_dig)) return;
+            try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_EXECUTE, command, MIL.M_DEFAULT, MIL.M_NULL); } catch { }
         }
 
         // ── Buffer → Bitmap (메모리 직접 변환 — 디스크 미경유) ──

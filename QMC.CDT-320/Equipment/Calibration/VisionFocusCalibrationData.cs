@@ -19,6 +19,12 @@ namespace QMC.CDT320.Calibration
         BottomDie = 5
     }
 
+    public enum VisionFocusValueReceiveMode
+    {
+        AckOnly = 0,
+        WaitResultForTest = 1
+    }
+
     [DataContract]
     public sealed class VisionFocusScanSettings
     {
@@ -36,6 +42,7 @@ namespace QMC.CDT320.Calibration
         [DataMember] public int MotionTimeoutMs { get; set; } = 5000;
         [DataMember] public int VisionTimeoutMs { get; set; } = 5000;
         [DataMember] public int VisionBestTimeoutMs { get; set; } = 120000;
+        [DataMember] public VisionFocusValueReceiveMode FocusValueReceiveMode { get; set; } = VisionFocusValueReceiveMode.AckOnly;
         [DataMember] public bool ReturnToDefaultAfterScan { get; set; } = true;
 
         public void EnsureDefaults()
@@ -55,6 +62,8 @@ namespace QMC.CDT320.Calibration
             if (MotionTimeoutMs <= 0) MotionTimeoutMs = 5000;
             if (VisionTimeoutMs <= 0) VisionTimeoutMs = 5000;
             if (VisionBestTimeoutMs <= 0) VisionBestTimeoutMs = 120000;
+            if (!Enum.IsDefined(typeof(VisionFocusValueReceiveMode), FocusValueReceiveMode))
+                FocusValueReceiveMode = VisionFocusValueReceiveMode.AckOnly;
         }
     }
 

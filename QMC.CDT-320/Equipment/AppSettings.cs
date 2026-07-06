@@ -52,6 +52,11 @@ namespace QMC.CDT320
         /// 통과 처리(bypass)하여 비전 없이도 동작한다(시뮬/DryRun 바이패스와 동일 경로). 기본 true.</summary>
         [DataMember] public bool   UseVision            { get; set; } = true;
 
+        /// <summary>뷰어 측정 스케일 계수 — 표시 mm/px = 저장 스케일(mm/px) × 이 계수.
+        /// Vision 이 뷰어 이미지를 다운스케일(원본→표시)하면 표시 1px 가 더 넓어지므로 계수=원본폭/표시폭(예 5120/1600=3.2)로 보정한다.
+        /// 기본 1.0 = 저장 스케일 그대로(다운스케일 없음/풀해상도). 계수 ≤ 0 이면 자동(표시폭 meta.Width에서 산출). 향후 다운스케일 파라미터화 시 이 값에 반영.</summary>
+        [DataMember] public double ViewerMeasureScaleFactor { get; set; } = 1.0;
+
         // ── Barcode link (CDT-310 매뉴얼 사양 — Serial Port 4/6) ──
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
         [DataMember] public int    WaferBarcodeSerialPort { get; set; } = 4;
@@ -94,6 +99,7 @@ namespace QMC.CDT320
         internal void OnDeserializing(StreamingContext ctx)
         {
             UseVision = true;
+            ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
             // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.
         }

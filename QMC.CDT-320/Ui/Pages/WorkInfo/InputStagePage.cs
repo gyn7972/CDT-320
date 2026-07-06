@@ -307,6 +307,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     options.MoveTimeoutMs = stage.Config.SequenceMoveTimeoutMs;
                 if (stage.Config.AlignConvergenceThresholdDeg > 0.0)
                     options.AlignThetaToleranceDeg = stage.Config.AlignConvergenceThresholdDeg;
+                if (stage.Config.AlignThetaCorrectionLimitDeg > 0.0)
+                    options.AlignThetaCorrectionLimitDeg = stage.Config.AlignThetaCorrectionLimitDeg;
                 if (stage.Config.MaxAlignIterations > 0)
                     options.AlignRetryCount = stage.Config.MaxAlignIterations;
                 if (stage.Recipe != null && stage.Recipe.DieMap != null)

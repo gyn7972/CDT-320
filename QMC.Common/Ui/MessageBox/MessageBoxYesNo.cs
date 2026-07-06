@@ -185,10 +185,40 @@ namespace QMC.Common
         {
             this.Title = title;
             this.Message = message;
+            FitToMessage();
             var dlgResult = this.ShowDialog(owner, buttonText);
 
             //Logger.Log(Logger.Module.Button, Logger.Type.Info, $"Dialog Result [{Title}]= {dlgResult}");
             return dlgResult;
+        }
+
+        private void FitToMessage()
+        {
+            const int minWidth = 450;
+            const int maxWidth = 720;
+            const int minHeight = 200;
+            const int maxHeight = 520;
+
+            try
+            {
+                string message = lblMessage.Text ?? string.Empty;
+                int targetMessageWidth = 430;
+                Size measured = TextRenderer.MeasureText(
+                    message,
+                    lblMessage.Font,
+                    new Size(targetMessageWidth, int.MaxValue),
+                    TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+
+                int desiredWidth = Math.Max(minWidth, Math.Min(maxWidth, targetMessageWidth + 140));
+                int desiredHeight = Math.Max(minHeight, Math.Min(maxHeight, measured.Height + 115));
+                ClientSize = new Size(desiredWidth, desiredHeight);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
 

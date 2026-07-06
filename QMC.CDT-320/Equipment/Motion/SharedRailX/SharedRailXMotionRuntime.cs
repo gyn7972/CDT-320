@@ -98,6 +98,13 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return;
 
             SharedRailXMotionService service = ResolveService(null);
+            // 이동 중 반복 조그 입력은 새 명령은 막고, 현재 방향 인터락만 재확인한다.
+            if (IsAxisMovingForJog(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction, service);
+                return;
+            }
+
             if (service != null && service.IsSharedRailAxis(axis))
             {
                 string reason;
@@ -133,6 +140,14 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (axis == null)
                 return Task.FromResult(-1);
 
+            SharedRailXMotionService service = ResolveService(null);
+            // 이동 중 반복 Step Jog 입력은 새 명령은 막고, 현재 방향 인터락만 재확인한다.
+            if (IsAxisMovingForJog(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction, service);
+                return Task.FromResult(0);
+            }
+
             double velocity = ResolveJogVelocity(axis, speedType, customSpeed);
             double target = axis.ActualPosition + ((direction < 0 ? -1.0 : 1.0) * Math.Abs(stepDistance));
             string reason;
@@ -140,6 +155,67 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return Task.FromResult(-1);
 
             return MoveJogStepWithVerifyAsync(axis, target, velocity);
+        }
+
+        public static void VerifyJogSafetyWhileMoving(BaseAxis axis, int direction)
+        {
+            VerifyJogSafetyWhileMoving(axis, direction, ResolveService(null));
+        }
+
+        private static void VerifyJogSafetyWhileMoving(BaseAxis axis, int direction, SharedRailXMotionService service)
+        {
+            try
+            {
+                if (axis == null)
+                    return;
+
+                double guardTarget = ResolveJogGuardTarget(axis, direction);
+                string reason;
+                if (service != null && service.IsSharedRailAxis(axis))
+                {
+                    if (!MotionGuardRuntime.VerifyAxisContinuousJogWithoutSharedRailX(
+                        axis,
+                        guardTarget,
+                        BuildContinuousJogTargetName(direction),
+                        out reason))
+                        return;
+
+                    if (!service.VerifyJogMove(axis, direction, out reason))
+                    {
+                        AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X", "SharedRailX", reason);
+                    }
+
+                    return;
+                }
+
+                MotionGuardRuntime.VerifyAxisContinuousJog(axis, guardTarget, "ContinuousJog", out reason);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Error, "SHARED-RAIL-X-JOG-GUARD", "SharedRailX", ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisMovingForJog(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                axis.UpdateStatus();
+                return axis.IsMoving;
+            }
+            catch
+            {
+                return axis != null && axis.IsMoving;
+            }
+            finally
+            {
+            }
         }
 
         private static async Task<int> MoveJogStepWithVerifyAsync(BaseAxis axis, double target, double velocity)
