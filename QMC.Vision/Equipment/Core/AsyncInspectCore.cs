@@ -60,17 +60,22 @@ namespace QMC.Vision.Core
 
         /// <summary>비동기 검사 시작 — 즉시 "STARTED"/"fail:.." 반환(그랩 전 선응답), 그랩·검사는 백그라운드.
         /// picker: 전역 픽커 1~8(fb×4+콜렛). channel: 항상 0/1(Side 0°/90°, Bottom/Bin=0. 구형 수신만 -1).
-        /// dieIndex: 픽업 순서 1-base(레시피 칩위치 매칭). 0=없음, -1=다이 없는 메뉴얼 테스트(맵/집계 생략).</summary>
+        /// dieIndex: 픽업 순서 1-base(=결과 매칭 키 chipUid, 2026-07-06). 0=없음, -1=다이 없는 메뉴얼 테스트(맵/집계 생략).
+        /// gridX/gridY: 핸들러가 와이어로 직접 내려준 웨이퍼 격자 인덱스(신형 "gridx;gridy") —
+        /// 0 이상이면 그대로 사용(맵 조회 대체), 음수(구형)만 PickupOrderResolver 폴백.</summary>
         public static string Start(IVisionModule m, VisionSettings cfg, string insp,
-                                   int picker, string chipUid, int dieIndex, int channel)
+                                   int picker, string chipUid, int dieIndex, int channel,
+                                   int gridX = -1, int gridY = -1)
         {
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(insp)) return "fail:no inspector";
             if (!m.Inspectors.ContainsKey(insp)) return "fail:inspector not found";
 
             int ix = 0, iy = 0;
-            if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
-            { ix = 0; iy = 0; }   // 레시피 순서를 못 구하면 맵 표시만 생략(검사는 정상 진행)
+            if (gridX >= 0 && gridY >= 0)
+            { ix = gridX; iy = gridY; }   // 신형 — 핸들러 grid 수신값 그대로(레시피 맵 조회 대체)
+            else if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
+            { ix = 0; iy = 0; }   // 구형 폴백 — 레시피 순서를 못 구하면 맵 표시만 생략(검사는 정상 진행)
 
             // 검사 사용 게이트 OFF → 그랩 없이 즉시 완료(스킵).
             if (VisionCommandCore.IsInspectionSkipped(m, insp))
@@ -87,7 +92,8 @@ namespace QMC.Vision.Core
             {
                 if (!_agg.TryGetValue(key, out var exist))
                 {
-                    _agg[key] = new UidAgg { Remain = ExpectedPerUid(m) };
+                    // 채널 명시(운영 0/1)만 그룹 기대 수 적용 — 채널 없는 구형/수동(-1)은 단건 완결(대기 방지).
+                    _agg[key] = new UidAgg { Remain = channel >= 0 ? ExpectedPerUid(m) : 1 };
                     AsyncMatchStore.Start(m.Name, insp, chipUid);
                 }
             }

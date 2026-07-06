@@ -198,10 +198,8 @@ namespace QMC.Vision.Comm
                     case "PING": resp = "OK"; break;
                     case "EXPOSE":
                     case "GRAB": resp = DoExpose(m); break;
-                    case "MATCH": resp = DoMatch(m, parts); break;
                     case "MATCHASYNC": resp = DoMatchAsync(m, parts); break;   // 그랩+알고리즘 백그라운드 (ACK는 1단계에서 이미 보냄)
                     case "MATCHRESULT": resp = DoMatchResult(m, parts); break;  // 폴링: 0/1;data/ERR
-                    case "INSPECT": resp = DoInspect(m, parts); break;
                     case "INSPECTASYNC": resp = DoInspectAsync(m, parts); break;   // 그랩+검사 백그라운드 (ACK는 1단계)
                     case "INSPECTRESULT": resp = DoInspectResult(m, parts); break;  // 폴링: 0/1;PASS|FAIL../ERR
                     case "TRAIN": resp = DoTrain(m, parts); break;
@@ -244,16 +242,15 @@ namespace QMC.Vision.Comm
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>응답 ACK 의 echo 토큰 선택.
-        /// 동기 도구 계열(MATCH/INSPECT/TRAIN)은 finder/inspector(parts[2])를 echo 하여 핸들러가 어떤 도구 결과인지 식별.
-        /// 비동기 계열(MATCHASYNC/RESULT, INSPECTASYNC/RESULT)은 echo 없음 — 번호(chip_uid)는 저장 키로만 쓰고 응답엔 넣지 않는다.</summary>
+        /// 동기 도구 계열(TRAIN)은 finder(parts[2])를 echo 하여 핸들러가 어떤 도구 결과인지 식별.
+        /// 비동기 계열(MATCHASYNC/RESULT, INSPECTASYNC/RESULT)은 echo 없음 — 키(die_index)는 저장 키로만 쓰고 응답엔 넣지 않는다.
+        /// (동기 MATCH/INSPECT 는 2026-07-06 프로토콜 개편으로 제거 — 비동기 전용.)</summary>
         private static string ResolveEchoToken(string cmd, string[] parts)
         {
             switch (cmd)
             {
-                case "MATCH":
-                case "INSPECT":
                 case "TRAIN":
-                    return parts.Length > 2 ? parts[2] : null;   // finder / inspector
+                    return parts.Length > 2 ? parts[2] : null;   // finder
                 default:
                     return null;                                  // 비동기 계열 등은 echo 없음(예: ACK|MODULE|MATCHASYNC|STARTED)
             }
@@ -262,16 +259,6 @@ namespace QMC.Vision.Comm
         // 명령 실행은 공통 코어(VisionCommandCore)로 위임 — 자체 시퀀서(DirectVisionCommandDispatcher)와 동일 구현 공유.
         private string DoExpose(IVisionModule m) => VisionCommandCore.Grab(m);
 
-        private string DoMatch(IVisionModule m, string[] parts)
-        {
-            string finder  = parts.Length > 2 ? parts[2] : "";
-            string chipUid = parts.Length > 3 ? parts[3] : "";
-            // 신형 고정 8파트(finder|fb|collet|die_index|channel|chip_uid) — chip_uid 는 맨 뒤.
-            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
-                chipUid = newUid;
-            return VisionCommandCore.Match(m, _cfg, finder, chipUid);
-        }
-
         /// <summary>비동기 매칭 시작 — 요청 즉시 "STARTED"(그랩 전 1차 ACK) 반환, 그랩과 알고리즘은 모두 백그라운드.
         /// 결과는 <see cref="AsyncMatchStore"/> 에 (모듈,finder,chip_uid) 키로 저장되고 핸들러는 MATCHRESULT|finder|chip_uid 로 폴링한다.
         /// ※ 그랩 전 ACK 이므로 핸들러는 EPD(촬상완료) 동기화 후 스테이지를 이동해야 한다(요청한 번호의 첫 영상 보장).</summary>
@@ -279,9 +266,9 @@ namespace QMC.Vision.Comm
         {
             string finder  = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            // 신형 고정 8파트(finder|fb|collet|die_index|channel|chip_uid) — chip_uid 는 맨 뒤.
-            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
-                chipUid = newUid;
+            // 신형 고정 8파트(finder|fb|collet|die_index|channel|gridx;gridy) — 결과 매칭 키 = die_index(2026-07-06).
+            if (ColletAddress.TryParseWire(parts, out _, out _, out int dieIndexKey, out _, out _, out _))
+                chipUid = dieIndexKey.ToString();
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
 
             AsyncMatchStore.Start(m.Name, finder, chipUid);   // 번호별 기존 결과 무효화 + Running 표시
@@ -335,40 +322,23 @@ namespace QMC.Vision.Comm
             }
         }
 
-        /// <summary>동기 검사. 신형 고정 8파트(inspector|fb|collet|die_index|channel|chip_uid)면
-        /// (fb,collet)→전역 픽커(1~8) 컨텍스트를 걸고 실행, 구형(≤7파트)은 기존 그대로.</summary>
-        private string DoInspect(IVisionModule m, string[] parts)
-        {
-            string insp = parts.Length > 2 ? parts[2] : "";
-            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out int dieIndex, out int channel, out string uid))
-            {
-                int picker = ColletAddress.ToGlobalPicker(fb, collet);
-                int ix = 0, iy = 0;   // die_index=-1(메뉴얼) 또는 0 이면 맵 매칭 생략
-                if (dieIndex > 0 && !QMC.Vision.DieMaps.PickupOrderResolver.TryGetCell(dieIndex, out ix, out iy))
-                { ix = 0; iy = 0; }
-                VisionCommandCore.SetInspectContext(m.Name, picker, channel, ix, iy);
-                try { return VisionCommandCore.Inspect(m, _cfg, insp, uid); }
-                finally { VisionCommandCore.SetInspectContext(m.Name, 0, -1, 0, 0); }
-            }
-            string chipUid = parts.Length > 3 ? parts[3] : "";
-            return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
-        }
-
         /// <summary>비동기 검사 시작 — 즉시 STARTED(그랩 전 1차 ACK). 실행은 <see cref="AsyncInspectCore"/>(공용 엔진,
         /// 일반 시퀀서 DirectVisionCommandDispatcher 와 공유 — TCP/직접 경로 동작 동일).
-        /// <para>신형(고정 8파트): MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid
+        /// <para>신형(고정 8파트): MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|gridx;gridy
         ///  • fb=0(Front)/1(Back), collet=1~4 → 전역 픽커 1~8(<see cref="ColletAddress"/>).
-        ///  • die_index = 픽업 순서 1-base, -1=다이 없음(메뉴얼 — 맵 매칭/uid 숫자 폴백 미적용).
-        ///  • channel   = 항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid 는 맨 뒤(결과 매칭 키).</para>
+        ///  • die_index = 픽업 순서 1-base = 결과 매칭 키(chip_uid 파트 폐기, 2026-07-06). -1=다이 없음(메뉴얼).
+        ///  • channel   = 항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0.
+        ///  • gridx;gridy = 웨이퍼 격자 인덱스(핸들러 직접 송신 — 레시피 맵 조회 대체).</para>
         /// <para>구형(≤7파트, 하위호환): inspector|picker_id|chip_uid[|die_index[|channel]] —
         /// die_index 생략 시 chip_uid 가 숫자면 그 값.</para></summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)
         {
             string insp = parts.Length > 2 ? parts[2] : "";
-            int picker = 0, dieIndex = 0, channel = -1; string chipUid = "";
-            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out dieIndex, out channel, out chipUid))
+            int picker = 0, dieIndex = 0, channel = -1, gridX = -1, gridY = -1; string chipUid = "";
+            if (ColletAddress.TryParseWire(parts, out int fb, out int collet, out dieIndex, out channel, out gridX, out gridY))
             {
                 picker = ColletAddress.ToGlobalPicker(fb, collet);   // 신형 — 폴백 없음(die_index=-1 존중)
+                chipUid = dieIndex.ToString();                       // 결과 매칭 키 = die_index
             }
             else
             {
@@ -378,7 +348,7 @@ namespace QMC.Vision.Comm
                 if (parts.Length >= 7 && !int.TryParse(parts[6], out channel)) channel = -1;
                 if (dieIndex <= 0) int.TryParse(chipUid, out dieIndex);   // uid 가 숫자면 곧 die_index(구형 전용)
             }
-            return AsyncInspectCore.Start(m, _cfg, insp, picker, chipUid, dieIndex, channel);
+            return AsyncInspectCore.Start(m, _cfg, insp, picker, chipUid, dieIndex, channel, gridX, gridY);
         }
 
         /// <summary>비동기 검사 결과 — 대기형 응답(요청 1회 = 데이터 응답 1회). <see cref="AsyncInspectCore.WaitResult"/> 위임.</summary>
@@ -514,7 +484,8 @@ namespace QMC.Vision.Comm
 
         /// <summary>
         /// Bottom 외곽 종료(EventSearchDieEnd) XYT 비동기 푸시 —
-        /// "XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=..;valid=0|1" (x/y=px, t=deg).
+        /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1" (x/y=px, t=deg).
+        /// die_index = 결과 매칭 키(구 chip_uid 자리 — chipUid 인자에 die_index 문자열이 들어온다, 2026-07-06).
         /// 정책(2026-07-04): 외곽 미검출이면 x/y/t 를 0 으로 보내고 valid=0 — 수신측은 진행(정지하지 않음).
         /// EPD/ARM 과 같은 푸시 계열(응답 큐 무관). Side 공정이 Bottom 완료 대기 없이 XYT 를 소비한다.
         /// </summary>
