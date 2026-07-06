@@ -21,7 +21,7 @@ namespace QMC.CDT_320.Ui.Controls
     ///   100ms UI Timer 가 signature 비교 후 변경분만 Invalidate 한다.</description></item>
     /// </list>
     /// </summary>
-    public class LiveLotMapView : Control
+    public class LiveLotMapView : QMC.CDT320.Ui.Controls.DieMapView
     {
         private const int RefreshIntervalMs = 100;
         private static readonly Color InspectionWaitColor = Color.FromArgb(0xCC, 0xDD, 0xEE);
@@ -46,12 +46,15 @@ namespace QMC.CDT_320.Ui.Controls
 
         public LiveLotMapView()
         {
-            SetStyle(ControlStyles.AllPaintingInWmPaint |
-                     ControlStyles.OptimizedDoubleBuffer |
-                     ControlStyles.ResizeRedraw |
-                     ControlStyles.UserPaint, true);
             BackColor = Color.FromArgb(0xDD, 0xDD, 0xDD);
-            DoubleBuffered = true;
+            // 현재 기준: 작업 메인도 Input/Output 전환 화면과 같은 DieMapView 렌더러를 사용한다.
+            CompactUsedBounds = true;
+            ShowWaferOutline = true;
+            EntryVisibilityPredicate = entry => entry != null && entry.IsTarget;
+            CellColorResolver = ResolveLiveEntryColor;
+            CellStatusResolver = ResolveLiveEntryStatusText;
+            CellTextResolver = entry => "";
+            LegendItemsResolver = BuildLiveLegendItems;
 
             if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
@@ -125,12 +128,25 @@ namespace QMC.CDT_320.Ui.Controls
                 _stats = CalculateMapStats(_displayMap, _displayStates);
                 Lot lot = LotStorage.ActiveLot;
                 _lotText = lot != null ? lot.LotID : "(no active lot)";
+                // 현재 기준: 작업 메인도 공통 DieMapView에 상태 캡션과 맵 데이터를 전달한다.
+                Caption = BuildCaption(_displayMap, _stats);
+                SetMap(_displayMap, false);
                 Invalidate();
             }
             catch
             {
                 // 표시 갱신 중 일시적 실패는 무시한다.
             }
+        }
+
+        private string BuildCaption(DieMap map, MapStats stats)
+        {
+            if (map == null)
+                return string.Format("INPUT WAFER MAP   LOT {0}  (no input die map)", _lotText);
+
+            return string.Format("INPUT WAFER MAP   LOT {0}  target={1}  wait={2}  vision={3}  pick={4}  good={5}  ng={6}",
+                _lotText, stats.Target, stats.InspectionWait, stats.InspectionDone,
+                stats.PickComplete, stats.Good, stats.Ng);
         }
 
         /// <summary>
@@ -219,10 +235,10 @@ namespace QMC.CDT_320.Ui.Controls
                     if (!string.IsNullOrWhiteSpace(entry.DieUid))
                         dieById.TryGetValue(entry.DieUid, out die);
                     if (die == null)
-                        dieByGrid.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out die);
+                        dieByGrid.TryGetValue(BuildEntryGridKey(entry), out die);
                     if (die == null)
                     {
-                        states[BuildGridKey(entry.DieMapX, entry.DieMapY)] = InputDieMapCellState.InspectionWait;
+                        states[BuildEntryGridKey(entry)] = InputDieMapCellState.InspectionWait;
                         continue;
                     }
 
@@ -234,7 +250,7 @@ namespace QMC.CDT_320.Ui.Controls
                     else if (die.Output_BinCode > 0)
                         entry.BinCode = die.Output_BinCode;
 
-                    states[BuildGridKey(entry.DieMapX, entry.DieMapY)] = ResolveInputDieMapCellState(die);
+                    states[BuildEntryGridKey(entry)] = ResolveInputDieMapCellState(die);
                 }
             }
             catch
@@ -256,6 +272,12 @@ namespace QMC.CDT_320.Ui.Controls
                 DieMapY = source.DieMapY,
                 PitchX = source.PitchX,
                 PitchY = source.PitchY,
+                DieSizeX = source.DieSizeX,
+                DieSizeY = source.DieSizeY,
+                OuterDiameterMm = source.OuterDiameterMm,
+                EdgeSkipMode = source.EdgeSkipMode,
+                SideEdgeSkip = source.SideEdgeSkip,
+                TopBottomEdgeSkip = source.TopBottomEdgeSkip,
                 OriginX = source.OriginX,
                 OriginY = source.OriginY,
                 CreatedAt = source.CreatedAt
@@ -274,6 +296,8 @@ namespace QMC.CDT_320.Ui.Controls
                         SequenceNo = entry.SequenceNo,
                         DieMapX = entry.DieMapX,
                         DieMapY = entry.DieMapY,
+                        OriginalMapX = entry.OriginalMapX,
+                        OriginalMapY = entry.OriginalMapY,
                         IsTarget = entry.IsTarget,
                         Result = entry.Result,
                         BinCode = entry.BinCode,
@@ -284,12 +308,17 @@ namespace QMC.CDT_320.Ui.Controls
                 }
             }
 
-            return clone;
+            return DieMapGenerator.Normalize(clone);
         }
 
         private static string BuildGridKey(int x, int y)
         {
             return x.ToString() + ":" + y.ToString();
+        }
+
+        private static string BuildEntryGridKey(DieMapEntry entry)
+        {
+            return BuildGridKey(DieMapGenerator.ResolveMapIndexX(entry), DieMapGenerator.ResolveMapIndexY(entry));
         }
 
         private static long ComputeSignature(DieMap map, Dictionary<string, InputDieMapCellState> states)
@@ -298,6 +327,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 long h = 17;
                 Lot lot = LotStorage.ActiveLot;
+                h = h * 31 + BuildStringHash(lot != null ? lot.LotID : null);
                 h = h * 31 + (lot != null ? lot.ProcessedDies : 0);
                 h = h * 31 + (lot != null ? lot.GoodCount : 0);
                 h = h * 31 + (lot != null ? lot.TotalDies : 0);
@@ -315,7 +345,7 @@ namespace QMC.CDT_320.Ui.Controls
                         h = h * 31 + entry.BinCode;
 
                         InputDieMapCellState state;
-                        if (states != null && states.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out state))
+                        if (states != null && states.TryGetValue(BuildEntryGridKey(entry), out state))
                             h = h * 31 + (int)state;
                     }
                 }
@@ -328,7 +358,26 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private static int BuildStringHash(string value)
+        {
+            unchecked
+            {
+                if (string.IsNullOrEmpty(value))
+                    return 0;
+
+                int hash = 17;
+                for (int i = 0; i < value.Length; i++)
+                    hash = hash * 31 + value[i];
+                return hash;
+            }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+        }
+
+        private void PaintLegacyMapView(PaintEventArgs e)
         {
             // OnPaint 는 캐시된 표시 값만 그린다. (복원/Normalize/저장/전역 쓰기 금지)
             var g = e.Graphics;
@@ -372,8 +421,8 @@ namespace QMC.CDT_320.Ui.Controls
                         if (entry == null || !entry.IsTarget)
                             continue;
 
-                        int x = x0 + entry.DieMapX * cell;
-                        int y = y0 + entry.DieMapY * cell;
+                        int x = x0 + DieMapGenerator.ResolveMapIndexX(entry) * cell;
+                        int y = y0 + DieMapGenerator.ResolveMapIndexY(entry) * cell;
                         Color c = ResolveEntryColor(entry, states);
 
                         using (var br = new SolidBrush(c))
@@ -447,6 +496,38 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private Color ResolveLiveEntryColor(DieMapEntry entry)
+        {
+            return ResolveEntryColor(entry, _displayStates);
+        }
+
+        private string ResolveLiveEntryStatusText(DieMapEntry entry)
+        {
+            InputDieMapCellState state = ResolveEntryState(entry, _displayStates);
+            switch (state)
+            {
+                case InputDieMapCellState.PickComplete:
+                    return "PickComplete";
+                case InputDieMapCellState.InspectionDone:
+                    return "VisionDone";
+                case InputDieMapCellState.InspectionWait:
+                    return "Wait";
+                default:
+                    return entry != null ? entry.Result.ToString() : string.Empty;
+            }
+        }
+
+        private Tuple<string, Color>[] BuildLiveLegendItems()
+        {
+            return new[]
+            {
+                Tuple.Create("Wait", InspectionWaitColor),
+                Tuple.Create("Vision", InspectionDoneColor),
+                Tuple.Create("Pick", PickCompleteColor),
+                Tuple.Create("NG", Color.IndianRed)
+            };
+        }
+
         private static Color ResolveEntryColor(DieMapEntry entry, Dictionary<string, InputDieMapCellState> states)
         {
             if (entry == null || !entry.IsTarget)
@@ -486,7 +567,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return InputDieMapCellState.None;
 
             InputDieMapCellState state;
-            if (states.TryGetValue(BuildGridKey(entry.DieMapX, entry.DieMapY), out state))
+            if (states.TryGetValue(BuildEntryGridKey(entry), out state))
                 return state;
 
             return InputDieMapCellState.None;

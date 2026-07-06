@@ -38,13 +38,19 @@ namespace QMC.CDT320.Recipes
             switch (kind)
             {
                 case RecipeMapKind.GoodBin:
+                    // 현재 기준: 빈 맵 미설정 시 InputDieMap을 1차 폴백으로 공유 사용한다.
                     return !string.IsNullOrWhiteSpace(project.GoodBinDieMapFileName)
                         ? project.GoodBinDieMapFileName
-                        : project.OutputDieMapFileName;
+                        : (!string.IsNullOrWhiteSpace(project.OutputDieMapFileName)
+                            ? project.OutputDieMapFileName
+                            : project.InputDieMapFileName);
                 case RecipeMapKind.NgBin:
+                    // 현재 기준: 빈 맵 미설정 시 InputDieMap을 1차 폴백으로 공유 사용한다.
                     return !string.IsNullOrWhiteSpace(project.NgBinDieMapFileName)
                         ? project.NgBinDieMapFileName
-                        : project.OutputDieMapFileName;
+                        : (!string.IsNullOrWhiteSpace(project.OutputDieMapFileName)
+                            ? project.OutputDieMapFileName
+                            : project.InputDieMapFileName);
                 default:
                     return project.InputDieMapFileName;
             }
@@ -54,7 +60,7 @@ namespace QMC.CDT320.Recipes
         public static string BuildDefaultPath(RecipeProject project, RecipeMapKind kind)
         {
             string recipeName = SanitizeFileName(project != null ? project.FileName : "Recipe");
-            return Path.Combine(GetDieMapDirectory(), recipeName + "_" + FileSuffix(kind) + ".json");
+            return Path.Combine(GetDieMapDirectory(), recipeName + "_" + FileSuffix(kind) + ".txt");
         }
 
         /// <summary>이름 기반 라이브러리 저장 경로. 접미사가 없으면 종류 접미사를 붙인다.</summary>
@@ -64,7 +70,7 @@ namespace QMC.CDT320.Recipes
             string suffix = FileSuffix(kind);
             if (!safeName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
                 safeName += "_" + suffix;
-            return Path.Combine(GetDieMapDirectory(), safeName + ".json");
+            return Path.Combine(GetDieMapDirectory(), safeName + ".txt");
         }
 
         /// <summary>레시피명 기반 기본 맵 이름 (확장자 없음).</summary>

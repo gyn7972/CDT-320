@@ -1133,6 +1133,32 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             string areaReason;
+            double overrideWorkAreaNeedleX;
+            if (axis == WaferStageAxis.WaferY &&
+                TryResolveInputStageWorkAreaNeedleX(request, out overrideWorkAreaNeedleX))
+            {
+                double targetY = request != null ? request.TargetValue : 0.0;
+                if (!stage.VerifyNeedleZSafeForWaferYNonProcessTravel(targetY, out areaReason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: InputStageY 비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
+                        areaReason +
+                        ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
+                        out reason);
+                }
+
+                // 현재 기준: StageY 이동 작업 반경은 CameraX가 아니라 NeedleX/StageY 실축 좌표로 확인한다.
+                if (stage.IsNeedleWorkPointInArea(overrideWorkAreaNeedleX, targetY, out areaReason))
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " blocked by InputStage needle work area. " + areaReason +
+                    ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
+                    out reason);
+            }
+
             double overrideWorkAreaX;
             if (axis == WaferStageAxis.WaferY &&
                 TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
@@ -1189,6 +1215,27 @@ namespace QMC.CDT320.Interlocks
             catch
             {
                 workAreaX = 0.0;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryResolveInputStageWorkAreaNeedleX(MotionGuardRuleContext request, out double workAreaNeedleX)
+        {
+            workAreaNeedleX = 0.0;
+            try
+            {
+                if (request == null || request.Intent == null || !request.Intent.InputStageWorkAreaNeedleX.HasValue)
+                    return false;
+
+                workAreaNeedleX = request.Intent.InputStageWorkAreaNeedleX.Value;
+                return true;
+            }
+            catch
+            {
+                workAreaNeedleX = 0.0;
                 return false;
             }
             finally

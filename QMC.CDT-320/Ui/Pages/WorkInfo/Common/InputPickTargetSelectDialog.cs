@@ -564,7 +564,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 mapView.SelectedEntry = entry;
                 lblStatus.Text = "Selected die is not available for PickUp test. die=" +
                                  (entry.DieUid ?? "-") +
-                                 ", map=" + entry.DieMapX + "/" + entry.DieMapY +
+                                 ", map=" + ResolveEntryMapX(entry) + "/" + ResolveEntryMapY(entry) +
                                  ", state=" + ResolveMapCellStatus(entry);
             }
             catch (Exception ex)
@@ -652,6 +652,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                              _selectedTarget.TargetX.ToString("0.###", CultureInfo.InvariantCulture) +
                              "/" +
                              _selectedTarget.TargetY.ToString("0.###", CultureInfo.InvariantCulture);
+        }
+
+        private static int ResolveEntryMapX(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexX(entry);
+        }
+
+        private static int ResolveEntryMapY(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexY(entry);
         }
 
         private Color ResolveMapCellColor(DieMapEntry entry)

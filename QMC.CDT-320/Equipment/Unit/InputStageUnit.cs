@@ -804,24 +804,9 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.WaferY)
             {
-                double targetX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
-                if (!IsInputStageWorkPointInArea(targetX, target, out reason))
-                {
-                    if (IsNeedleZInHomeOrSafePosition())
-                        return true;
-
-                    reason = "InputStageY 원형 작업영역 밖 이동 전 NeedleZ가 반드시 Home 또는 Avoid 위치에 있어야 합니다. " +
-                        reason +
-                        ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
-                        ", needleZHome=0.000" +
-                        ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
-                        ", tolerance=" + ResolveNeedleZInPositionTolerance().ToString("F3");
-                    return false;
-                }
-
-                // 원형 작업영역 안에서의 StageY 조그/스텝 이동은 NeedleZ/EjectPinZ가 공정 높이에 있어도 허용한다.
-                // 원 밖으로 나가는 이동만 위 분기에서 NeedleZ Home/Avoid 조건으로 방어한다.
-                return true;
+                double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : ResolveNeedleWorkAreaCenterX();
+                // 현재 기준: StageY 작업 반경은 CameraX가 아니라 현재 NeedleX/StageY 실축 좌표로 계산한다.
+                return IsNeedleWorkPointInArea(needleX, target, out reason);
             }
 
             if (axis == WaferStageAxis.NeedleX)
@@ -842,9 +827,10 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.WaferT || axis == WaferStageAxis.WaferExpandingZ)
             {
-                double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
+                double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : ResolveNeedleWorkAreaCenterX();
                 double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
-                return IsInputStageWorkPointInArea(visionX, stageY, out reason);
+                // 현재 기준: Stage T/Z 작업 반경도 실제 간섭축인 NeedleX/StageY 기준으로 확인한다.
+                return IsNeedleWorkPointInArea(needleX, stageY, out reason);
             }
 
             return true;
@@ -908,10 +894,10 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.WaferY)
             {
-                double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
+                double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : ResolveNeedleWorkAreaCenterX();
                 double stageYActual = motionAxis.ActualPosition;
                 string currentAreaReason;
-                bool currentPointInArea = IsInputStageWorkPointInArea(visionX, stageYActual, out currentAreaReason);
+                bool currentPointInArea = IsNeedleWorkPointInArea(needleX, stageYActual, out currentAreaReason);
 
                 if (IsNeedleZInHomeOrSafePosition())
                 {
@@ -933,16 +919,16 @@ namespace QMC.CDT320
                     return false;
                 }
 
-                bool visionXOutsideBand;
+                bool needleXOutsideBand;
                 if (!TryResolveWaferYContinuousJogTarget(
                     stageYActual,
-                    visionX,
-                    ResolveWorkAreaCenterY(),
-                    ResolveWorkAreaCenterX(),
-                    ResolveWorkAreaRadius(),
+                    needleX,
+                    ResolveNeedleWorkAreaCenterY(),
+                    ResolveNeedleWorkAreaCenterX(),
+                    ResolveNeedleWorkAreaRadius(),
                     direction,
                     out target,
-                    out visionXOutsideBand,
+                    out needleXOutsideBand,
                     out reason))
                     return false;
 
@@ -1103,42 +1089,42 @@ namespace QMC.CDT320
 
         private static bool TryResolveWaferYContinuousJogTarget(
             double stageYActual,
-            double visionXActual,
+            double needleXActual,
             double stageYCenter,
-            double visionXCenter,
+            double needleXCenter,
             double radius,
             Direction direction,
             out double target,
-            out bool visionXOutsideCircularBand,
+            out bool needleXOutsideCircularBand,
             out string reason)
         {
-            visionXOutsideCircularBand = false;
+            needleXOutsideCircularBand = false;
             if (TryResolveCircularJogTarget(
                 stageYActual,
-                visionXActual,
+                needleXActual,
                 stageYCenter,
-                visionXCenter,
+                needleXCenter,
                 radius,
                 direction,
-                "InputStage work area",
+                "Needle work area",
                 out target,
                 out reason))
             {
                 return true;
             }
 
-            double xDelta = visionXActual - visionXCenter;
+            double xDelta = needleXActual - needleXCenter;
             if (radius <= 0.0 || Math.Abs(xDelta) <= radius)
                 return false;
 
-            visionXOutsideCircularBand = true;
+            needleXOutsideCircularBand = true;
             double tolerance = 0.0001;
             if (Math.Abs(stageYActual - stageYCenter) <= tolerance)
             {
                 reason = "InputStageY가 이미 복귀 기준 위치입니다. y=" + stageYActual.ToString("F3") +
                     ", centerY=" + stageYCenter.ToString("F3") +
-                    ", visionX=" + visionXActual.ToString("F3") +
-                    ", centerX=" + visionXCenter.ToString("F3") +
+                    ", needleX=" + needleXActual.ToString("F3") +
+                    ", centerX=" + needleXCenter.ToString("F3") +
                     ", radius=" + radius.ToString("F3");
                 return false;
             }
@@ -1151,8 +1137,8 @@ namespace QMC.CDT320
                 reason = "InputStageY 조그 방향이 복귀 방향이 아닙니다. y=" + stageYActual.ToString("F3") +
                     ", centerY=" + stageYCenter.ToString("F3") +
                     ", direction=" + direction +
-                    ", visionX=" + visionXActual.ToString("F3") +
-                    ", centerX=" + visionXCenter.ToString("F3") +
+                    ", needleX=" + needleXActual.ToString("F3") +
+                    ", centerX=" + needleXCenter.ToString("F3") +
                     ", radius=" + radius.ToString("F3");
                 return false;
             }

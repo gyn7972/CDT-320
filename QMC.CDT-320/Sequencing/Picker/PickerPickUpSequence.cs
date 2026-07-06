@@ -1196,17 +1196,9 @@ namespace QMC.CDT320.Sequencing
                 PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
                 string targetName = BuildPickMoveTargetName();
 
-                string areaReason;
-                if (!stage.IsInputStageWorkPointInArea(_pickTarget.TargetX, _targetStageY, out areaReason))
-                {
-                    return Fail("PICKER-PICKUP-CORRECTED-STAGE-WORK-AREA", stage.Name,
-                        "Pick corrected StageY target is outside input stage work area. " +
-                        "die=" + _currentDieId +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", inputVisionX=" + _pickTarget.TargetX +
-                        ", targetStageY=" + _targetStageY +
-                        ", reason=" + areaReason);
-                }
+                // 기존 조건: CameraX/StageY 기준 체크는 실제 간섭축 기준이 아니라서 PickUp 보정 이동 차단 조건으로 쓰지 않는다.
+                // string areaReason;
+                // if (!stage.IsInputStageWorkPointInArea(_pickTarget.TargetX, _targetStageY, out areaReason)) ...
 
                 string needleAreaReason;
                 if (!stage.IsNeedleWorkPointInArea(_targetNeedleX, _targetStageY, out needleAreaReason))
@@ -1238,7 +1230,8 @@ namespace QMC.CDT320.Sequencing
                     _pickTarget.TargetX,
                     _targetStageY,
                     "pick corrected StageY",
-                    ct);
+                    ct,
+                    _targetNeedleX);
                 Task<int> needleXMove = MoveNeedleXAndVerifyAsync(
                     stage,
                     _targetNeedleX,
@@ -3518,10 +3511,11 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PICKUP-NEEDLEZ-RECIPE", stage.Name,
                         description + " 전 NeedleZ Avoid 위치 정보가 없습니다.");
 
-                double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : stage.ResolveWorkAreaCenterX();
+                double currentX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : stage.ResolveNeedleWorkAreaCenterX();
                 double currentY = stage.StageY != null ? stage.StageY.ActualPosition : stage.ResolveWorkAreaCenterY();
                 string areaReason;
-                if (stage.IsInputStageWorkPointInArea(currentX, currentY, out areaReason))
+                // 현재 기준: NeedleZ 하강 가능 여부는 CameraX가 아니라 NeedleX/StageY 실축 작업 원으로 확인한다.
+                if (stage.IsNeedleWorkPointInArea(currentX, currentY, out areaReason))
                     return 0;
                 if (stage.IsNeedleZInSafePosition())
                     return 0;
@@ -3749,7 +3743,7 @@ namespace QMC.CDT320.Sequencing
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, stageYTarget))
                 {
                     commandAxes.Add(Tuple.Create(WaferStageAxis.WaferY, stageYTarget, description + " StageY"));
-                    commandTasks.Add(MoveInputStageYForPickerWorkPointCommandAsync(stage, visionTarget, stageYTarget, description + " StageY", ct));
+                    commandTasks.Add(MoveInputStageYForPickerWorkPointCommandAsync(stage, visionTarget, stageYTarget, description + " StageY", ct, needleTarget));
                 }
 
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleX, needleTarget))
@@ -3954,7 +3948,8 @@ namespace QMC.CDT320.Sequencing
             double workAreaVisionX,
             double target,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            double? workAreaNeedleX = null)
         {
             try
             {
@@ -3967,7 +3962,8 @@ namespace QMC.CDT320.Sequencing
                         workAreaVisionX,
                         target,
                         description,
-                        ct).ConfigureAwait(false);
+                        ct,
+                        workAreaNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -4042,7 +4038,8 @@ namespace QMC.CDT320.Sequencing
             double workAreaVisionX,
             double target,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            double? workAreaNeedleX = null)
         {
             try
             {
@@ -4054,7 +4051,8 @@ namespace QMC.CDT320.Sequencing
                         workAreaVisionX,
                         target,
                         Options != null && Options.FineMove,
-                        "PickerPickUp"),
+                        "PickerPickUp",
+                        workAreaNeedleX),
                     ct).ConfigureAwait(false);
 
                 if (result != 0)

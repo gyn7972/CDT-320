@@ -563,8 +563,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             using (var dialog = new OpenFileDialog())
             {
                 dialog.Title = "Select Die Map";
-                dialog.Filter = "DieMap files|*.json;*.csv|JSON|*.json|CSV|*.csv|All files|*.*";
-                dialog.InitialDirectory = RecipeMapPaths.GetDieMapDirectory();
+                dialog.Filter = "DieMap files|*.json;*.csv;*.txt|JSON|*.json|CSV|*.csv|WaferMap TXT|*.txt|All files|*.*";
+                string waferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
+                dialog.InitialDirectory = Directory.Exists(waferMapDir) ? waferMapDir : RecipeMapPaths.GetDieMapDirectory();
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;
 

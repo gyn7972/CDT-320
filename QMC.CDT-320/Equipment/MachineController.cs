@@ -1533,27 +1533,37 @@ namespace QMC.CDT320
         // Stage 28: legacy InputStage cycle helper
         // ------------------------------------------------------------------
 
+        private sealed class InputDieMotionTarget
+        {
+            public QMC.CDT320.DieMaps.DieMapEntry Entry { get; set; }
+            public int Row { get; set; }
+            public int Col { get; set; }
+            public double CameraX { get; set; }
+            public double StageY { get; set; }
+        }
+
         /// <summary>다이 1개 픽업을 위해 StageY/CameraX를 이동합니다.</summary>
         public async Task<int> MoveInputStageToDieAsync(int row, int col)
         {
             try
             {
                 var stage = _machine.InputStageUnit;
-                // Stage 28: Origin + Pitch가 설정되어 있으면 정확 좌표로 이동하고, 아니면 추정값을 사용합니다.
-                double targetX = stage.OriginX + col * (stage.PitchX > 0 ? stage.PitchX : 0.15);
-                double targetY = stage.OriginY + row * (stage.PitchY > 0 ? stage.PitchY : 0.15);
+                InputDieMotionTarget dieTarget = ResolveInputDieMotionTarget(row, col);
+                // 현재 기준: DieMap PosX/PosY는 다이맵핑 완료 후 실제 장비 목표 좌표이고 보정값만 더한다.
+                double targetX = dieTarget.CameraX + stage.WaferAlignOffsetX;
+                double targetY = dieTarget.StageY + stage.WaferAlignOffsetY;
 
                 int xResult = await MoveAxisAsync(stage.CameraX, targetX, 100.0).ConfigureAwait(false);
                 if (xResult != 0)
                 {
-                    Log($"[INPUTSTAGE] Move to die [{row},{col}] CameraX failed. result={xResult}");
+                    Log($"[INPUTSTAGE] Move to die [{row},{col}] CameraX failed. result={xResult}, target={targetX:F3}");
                     return xResult;
                 }
 
                 int yResult = await MoveAxisAsync(stage.StageY, targetY, 100.0).ConfigureAwait(false);
                 if (yResult != 0)
                 {
-                    Log($"[INPUTSTAGE] Move to die [{row},{col}] StageY failed. result={yResult}");
+                    Log($"[INPUTSTAGE] Move to die [{row},{col}] StageY failed. result={yResult}, target={targetY:F3}");
                     return yResult;
                 }
 
@@ -1574,6 +1584,91 @@ namespace QMC.CDT320
             {
                 Log($"[INPUTSTAGE] MoveToDie finished. row={row}, col={col}");
             }
+        }
+
+        private InputDieMotionTarget ResolveInputDieMotionTarget(int row, int col)
+        {
+            var stage = _machine != null ? _machine.InputStageUnit : null;
+            QMC.CDT320.DieMaps.DieMapEntry entry = _inputDieMap != null ? _inputDieMap.GetCell(col, row) : null;
+            if (entry != null)
+            {
+                return new InputDieMotionTarget
+                {
+                    Entry = entry,
+                    Row = row,
+                    Col = col,
+                    CameraX = entry.PosX,
+                    StageY = entry.PosY
+                };
+            }
+
+            double pitchX = stage != null && stage.PitchX > 0.0 ? stage.PitchX : 0.15;
+            double pitchY = stage != null && stage.PitchY > 0.0 ? stage.PitchY : 0.15;
+            double originX = stage != null ? stage.OriginX : 0.0;
+            double originY = stage != null ? stage.OriginY : 0.0;
+            return new InputDieMotionTarget
+            {
+                Row = row,
+                Col = col,
+                CameraX = originX + col * pitchX,
+                StageY = originY + row * pitchY
+            };
+        }
+
+        private static PickerVisionCoordinateOffsets ResolveInputVisionToPickerOffsets(object pickerUnit)
+        {
+            PickerFrontUnit front = pickerUnit as PickerFrontUnit;
+            if (front != null && front.Setup != null)
+                return front.Setup.InputVisionToPicker;
+
+            PickerRearUnit rear = pickerUnit as PickerRearUnit;
+            if (rear != null && rear.Setup != null)
+                return rear.Setup.InputVisionToPicker;
+
+            return null;
+        }
+
+        private static double ResolvePickerPitchX(object pickerUnit)
+        {
+            PickerFrontUnit front = pickerUnit as PickerFrontUnit;
+            if (front != null && front.Setup != null)
+                return front.Setup.PickerPitchX;
+
+            PickerRearUnit rear = pickerUnit as PickerRearUnit;
+            if (rear != null && rear.Setup != null)
+                return rear.Setup.PickerPitchX;
+
+            return 0.0;
+        }
+
+        private static double ResolvePickerPitchY(object pickerUnit)
+        {
+            PickerFrontUnit front = pickerUnit as PickerFrontUnit;
+            if (front != null && front.Setup != null)
+                return front.Setup.PickerPitchY;
+
+            PickerRearUnit rear = pickerUnit as PickerRearUnit;
+            if (rear != null && rear.Setup != null)
+                return rear.Setup.PickerPitchY;
+
+            return 0.0;
+        }
+
+        private double ResolveInputNeedleXTargetFromMappedCameraX(double mappedCameraX)
+        {
+            double offset = 0.0;
+            if (_machine != null &&
+                _machine.VisionUnit != null &&
+                _machine.VisionUnit.Config != null &&
+                _machine.VisionUnit.Config.CalibrationData != null &&
+                _machine.VisionUnit.Config.CalibrationData.Needle != null &&
+                _machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+            {
+                offset = _machine.VisionUnit.Config.CalibrationData.Needle.NeedleXToVisionXOffset;
+            }
+
+            // 현재 기준: DieMap X는 InputVisionX 실제 목표 좌표이고 NeedleX는 보정 offset만 빼서 변환한다.
+            return mappedCameraX - offset;
         }
 
         /// <summary>InputStage의 웨이퍼 언로드 시퀀스입니다(사이클 종료 시).</summary>
@@ -8240,16 +8335,10 @@ namespace QMC.CDT320
                 }
                 var d = _inputPickupSequence[seqIdx];
 
-                // CameraX / StageY 동시 이동(각 die의 X/Y 좌표로 정렬).
-                //   CameraX  = CameraOriginX + WaferAlignOffsetX + die.X
-                //   StageY   = StageYTeachPosition + WaferAlignOffsetY + die.Y
+                // CameraX / StageY 동시 이동: DieMap PosX/PosY는 다이맵핑 후 실제 장비 목표 좌표다.
                 stage.Recipe.EnsurePositionObjects();
-                double camXTarget = stage.Recipe.VisionX.ReadyPosition
-                                  + stage.WaferAlignOffsetX
-                                  + d.PosX;
-                double stageYTarget = stage.Recipe.WaferY.ReadyPosition
-                                    + stage.WaferAlignOffsetY
-                                    + d.PosY;
+                double camXTarget = d.PosX + stage.WaferAlignOffsetX;
+                double stageYTarget = d.PosY + stage.WaferAlignOffsetY;
                 try
                 {
                     int[] moveResults = await Task.WhenAll(
@@ -8405,9 +8494,13 @@ namespace QMC.CDT320
             await MoveInputStageToDieAsync(row, col);
 
             // Stage 40: Dual Arm 모드. 짝수 idx는 LeftArm, 홀수 idx는 RightArm.
-            dynamic front = (DualArmMode && (index % 2 == 1))
+            bool useRearPicker = DualArmMode && (index % 2 == 1);
+            dynamic front = useRearPicker
                         ? (object)_machine.PickerRearUnit
                         : _machine.PickerFrontUnit;
+            VisionFocusPickerSide pickerSide = useRearPicker
+                ? VisionFocusPickerSide.Rear
+                : VisionFocusPickerSide.Front;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();
@@ -8510,25 +8603,31 @@ namespace QMC.CDT320
                 {
                     front.Config.EnsureArrays();
                     PickerAlignOffset pickerOffset = front.GetRuntimePickerOffset(p) ?? new PickerAlignOffset();
-
-                    // 3축 동시 이동.
-                    double armXTarget =
-                        front.GetPickerTeachingPosition(PickerAxis.PickerX, "PickPosition")
-                        + pickerOffset.AlignOffsetX
-                        + stage.WaferAlignOffsetX
-                        + picker.Setup.ColletOffsetX
-                        + d.X;
                     stage.Recipe.EnsurePositionObjects();
-                    double stageYTarget =
-                        stage.Recipe.WaferY.ReadyPosition
-                        + stage.WaferAlignOffsetY
-                        + d.Y
-                        + vo.Y;
-                    double needleXTarget =
-                        stage.Recipe.NeedleX.ReadyPosition
-                        + stage.WaferAlignOffsetX
-                        + d.X
-                        + vo.X;
+                    double mappedCameraX = d.X + stage.WaferAlignOffsetX + vo.X;
+                    double mappedStageY = d.Y + stage.WaferAlignOffsetY + vo.Y;
+                    object pickerUnit = (object)front;
+                    PickerVisionCoordinateOffsets inputVisionToPicker = ResolveInputVisionToPickerOffsets(pickerUnit);
+                    double inputVisionToPickerX = inputVisionToPicker != null
+                        ? inputVisionToPicker.GetOffsetX(p, ResolvePickerPitchX(pickerUnit))
+                        : 0.0;
+                    double inputVisionToPickerY = inputVisionToPicker != null
+                        ? inputVisionToPicker.GetOffsetY(p, ResolvePickerPitchY(pickerUnit))
+                        : 0.0;
+                    PickerCalibratedManualInputTarget inputTarget =
+                        CalibrationCoordinateService.ResolveManualInputMapTarget(
+                            _machine,
+                            pickerSide,
+                            p,
+                            mappedCameraX,
+                            mappedStageY,
+                            inputVisionToPickerX,
+                            inputVisionToPickerY);
+
+                    // 3축 동시 이동. DieMap 좌표를 실제 장비 좌표로 두고 축별 변환/보정만 더한다.
+                    double armXTarget = inputTarget.PickerX + pickerOffset.AlignOffsetX;
+                    double stageYTarget = inputTarget.StageY + pickerOffset.AlignOffsetY;
+                    double needleXTarget = ResolveInputNeedleXTargetFromMappedCameraX(mappedCameraX);
 
                     int[] pickMoveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, ResolveAxisDefaultVelocity(front.ArmX), true),
