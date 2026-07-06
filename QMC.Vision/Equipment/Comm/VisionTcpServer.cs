@@ -236,10 +236,11 @@ namespace QMC.Vision.Comm
 
         // ── 명령 핸들러 ────────────────────────────
 
-        /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
+        /// <summary>RUN 게이트 면제 명령 — PING/그랩/캘리브레이션용 비전 명령은 수동 셋업에서도 허용한다.</summary>
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
             || cmd == "CAM_SETTING"
+            || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>응답 ACK 의 echo 토큰 선택.
@@ -282,9 +283,14 @@ namespace QMC.Vision.Comm
             if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
                 chipUid = newUid;
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
-            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
 
             AsyncMatchStore.Start(m.Name, finder, chipUid);   // 번호별 기존 결과 무효화 + Running 표시
+            if (!m.Finders.TryGetValue(finder, out var f))
+            {
+                AsyncMatchStore.Fail(m.Name, finder, chipUid, "finder not found: " + finder);
+                return "STARTED";
+            }
+
             var cfg = _cfg;
             System.Threading.Tasks.Task.Run(() =>
             {
@@ -353,7 +359,7 @@ namespace QMC.Vision.Comm
         /// <para>신형(고정 8파트): MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid
         ///  • fb=0(Front)/1(Back), collet=1~4 → 전역 픽커 1~8(<see cref="ColletAddress"/>).
         ///  • die_index = 픽업 순서 1-base, -1=다이 없음(메뉴얼 — 맵 매칭/uid 숫자 폴백 미적용).
-        ///  • channel   = Side 0(0°)/1(90°), Bottom/Bin=-1. chip_uid 는 맨 뒤(결과 매칭 키).</para>
+        ///  • channel   = 항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid 는 맨 뒤(결과 매칭 키).</para>
         /// <para>구형(≤7파트, 하위호환): inspector|picker_id|chip_uid[|die_index[|channel]] —
         /// die_index 생략 시 chip_uid 가 숫자면 그 값.</para></summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)

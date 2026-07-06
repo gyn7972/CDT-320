@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace QMC.Vision.Core
 {
@@ -11,7 +11,7 @@ namespace QMC.Vision.Core
     ///  • fb        : 0=Front / 1=Back
     ///  • collet    : 1~4
     ///  • die_index : 픽업 순서 1-base, -1=다이 없음(메뉴얼 테스트 — 맵 매칭/다이 집계 생략)
-    ///  • channel   : Side 0=0° / 1=90°, Bottom/Bin=-1
+    ///  • channel   : 항상 0/1 — Side 0=0°/1=90°, Bottom/Bin 은 0°로 간주해 0(-1 미사용, 구형 수신만 -1 허용)
     ///  • chip_uid  : 핸들러 자재 고유 ID(결과 매칭 키)
     /// 신/구형 판별 = 파트 수(구형 ≤7, 신형 =8). 구형 포맷은 이행기 하위호환으로 계속 수용한다.</para>
     /// </summary>

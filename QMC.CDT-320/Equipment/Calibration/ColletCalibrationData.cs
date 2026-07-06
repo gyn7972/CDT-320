@@ -6,7 +6,9 @@ namespace QMC.CDT320.Calibration
     [DataContract]
     public sealed class ColletCalibrationSettings
     {
-        [DataMember] public string BottomFinderName { get; set; } = "COLLET";
+        public const string DefaultBottomFinderName = "ColletFinder";
+
+        [DataMember] public string BottomFinderName { get; set; } = DefaultBottomFinderName;
         [DataMember] public int VisionTimeoutMs { get; set; } = 5000;
         [DataMember] public double ScoreThreshold { get; set; } = 0.0;
         [DataMember] public double ThetaToleranceDeg { get; set; } = 0.02;
@@ -22,8 +24,7 @@ namespace QMC.CDT320.Calibration
 
         public void EnsureDefaults()
         {
-            if (string.IsNullOrWhiteSpace(BottomFinderName))
-                BottomFinderName = "COLLET";
+            BottomFinderName = NormalizeBottomFinderName(BottomFinderName);
             if (VisionTimeoutMs <= 0)
                 VisionTimeoutMs = 5000;
             if (ScoreThreshold < 0.0)
@@ -50,6 +51,19 @@ namespace QMC.CDT320.Calibration
                 FineAlignMaxXyMoveMm = 0.2;
             if (FineAlignMaxXyMoveMm > 2.0)
                 FineAlignMaxXyMoveMm = 2.0;
+        }
+
+        public static string NormalizeBottomFinderName(string finderName)
+        {
+            if (string.IsNullOrWhiteSpace(finderName))
+                return DefaultBottomFinderName;
+
+            string value = finderName.Trim();
+            if (string.Equals(value, "COLLET", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "Collet", StringComparison.OrdinalIgnoreCase))
+                return DefaultBottomFinderName;
+
+            return value;
         }
     }
 

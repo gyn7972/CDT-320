@@ -574,6 +574,19 @@ namespace QMC.CDT320.Interlocks
                    request.Intent.PickerZone == PickerWorkZone.Output;
         }
 
+        private static bool CanKeepRearPickerZDuringYMove(MotionGuardRuleContext request)
+        {
+            // 현재 기준: 자동 티칭 이동에서만 Z Hold/FineAlign 예외를 적용한다.
+            if (request == null || request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
+                return false;
+
+            if (IsInspectionZHoldMove(request))
+                return true;
+
+            string fineAlignDetail;
+            return MotionGuardRuleHelpers.IsColletCalibrationFineAlignMove(request, false, out fineAlignDetail);
+        }
+
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -621,8 +634,9 @@ namespace QMC.CDT320.Interlocks
             {
                 CDT320_Machine machine = request != null ? request.Machine : null;
 
-                // 현재 기준: RearPickerY 수동 이동 전 Z0~Z3는 Home(0) 또는 Avoid 위치여야 한다.
-                if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+                // 현재 기준: 자동 검사 Z Hold/FineAlign 이동은 Z축을 유지해야 하므로 Home/Avoid 조건에서 제외한다.
+                if (!CanKeepRearPickerZDuringYMove(request) &&
+                    !VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                     return false;
 
                 // 현재 기준: Reticle 실린더가 이동 중이면 RearPickerY 수동 이동을 차단한다.

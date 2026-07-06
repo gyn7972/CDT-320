@@ -380,7 +380,7 @@ namespace QMC.CDT320.VisionComm
 
         // ── 8콜렛(Front4+Back4) 신형 규약 — 고정 8파트 "tool|fb|collet|die_index|channel|chip_uid" ──
         //  fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(0=없음, -1=다이 없는 메뉴얼 테스트),
-        //  channel=Side 0(0°)/1(90°)·그 외 -1, chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).
+        //  channel=항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).
 
         /// <summary>비동기 매칭(신형) — MATCHASYNC(fb/collet 명시) 시작 후 chip_uid 로 MATCHRESULT 회수.</summary>
         public static async Task<MatchResultDto> MatchColletAsync(
@@ -411,7 +411,7 @@ namespace QMC.CDT320.VisionComm
                     ", chipUid=" + chipUid +
                     ", timeoutMs=" + timeoutMs);
 
-                bool started = await VisionCommandService.StartMatchAsync(channel, finder, fb, collet, dieIndex, -1, chipUid, timeoutMs, ct).ConfigureAwait(false);
+                bool started = await VisionCommandService.StartMatchAsync(channel, finder, fb, collet, dieIndex, 0, chipUid, timeoutMs, ct).ConfigureAwait(false);   // 채널은 항상 0/1 — Bottom 은 0°로 간주해 0
                 if (!started)
                 {
                     EventLogger.Write(EventKind.Alarm, "VISION", "AUTO-VISION-MATCHASYNC",

@@ -105,7 +105,8 @@ namespace QMC.CDT320.Ajin
                         s.SoftLimitPlus = src.SoftLimitPlus;
                         s.SoftLimitMinus = src.SoftLimitMinus;
                         s.SoftLimitEnabled = src.SoftLimitEnabled;
-                        s.HomeOffset = src.HomeOffset;
+                        if (IsPickerThetaAxisName(axis.Name))
+                            s.HomeOffset = src.HomeOffset;
                         s.HomeDirection = src.HomeDirection;
                         s.HomeSignal = src.HomeSignal;
                         s.HomeTimeoutMs = src.HomeTimeoutMs;
@@ -149,6 +150,13 @@ namespace QMC.CDT320.Ajin
         private static void ApplyPersistedAxisValues()
         {
             ApplyPersistedAxisValues(AxisManager.GetAll());
+        }
+
+        private static bool IsPickerThetaAxisName(string name)
+        {
+            return !string.IsNullOrWhiteSpace(name) &&
+                   (name.StartsWith("FrontPickerT", StringComparison.OrdinalIgnoreCase) ||
+                    name.StartsWith("RearPickerT", StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool IsApplicationDryRunMode()

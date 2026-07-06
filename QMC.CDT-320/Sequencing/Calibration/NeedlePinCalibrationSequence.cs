@@ -43,7 +43,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveReadyPositionOnlyAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.MoveReadyPositionOnlyAsync"))
+            return await MoveReadyPositionOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveReadyPositionOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "NeedlePinCalibrationSequence.MoveReadyPositionOnlyAsync:" + runMode))
             {
             try
             {
@@ -76,11 +81,16 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveTeachingPositionOnlyAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.MoveTeachingPositionOnlyAsync"))
+            return await MoveTeachingPositionOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveTeachingPositionOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "NeedlePinCalibrationSequence.MoveTeachingPositionOnlyAsync:" + runMode))
             {
             try
             {
-                int result = await MoveReadyPositionOnlyAsync(ct).ConfigureAwait(false);
+                int result = await MoveReadyPositionOnlyAsync(ct, runMode).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 result = await MoveNeedlePinCalPositionAsync(ct).ConfigureAwait(false);
@@ -106,11 +116,16 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
-            using (MotionGuardRuntime.BeginManualSequenceProcessMove("NeedlePinCalibrationSequence.RunAsync"))
+            return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
+        }
+
+        public async Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
+        {
+            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "NeedlePinCalibrationSequence.RunAsync:" + runMode))
             {
             try
             {
-                int result = await MoveTeachingPositionOnlyAsync(ct).ConfigureAwait(false);
+                int result = await MoveTeachingPositionOnlyAsync(ct, runMode).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 VisionAlignResult vision = await RequestVisionAsync(ct).ConfigureAwait(false);

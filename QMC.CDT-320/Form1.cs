@@ -55,6 +55,7 @@ namespace QMC.CDT_320
             {
                 if (string.IsNullOrEmpty(fileName)) fileName = "-";
                 CurrentRecipeName = NormalizeRecipeName(fileName);
+                Controller?.SetActiveRecipeName(CurrentRecipeName);
                 if (lblProjectValue.InvokeRequired)
                     lblProjectValue.Invoke((Action)(() => SetTextIfChanged(lblProjectValue, fileName)));
                 else
@@ -201,6 +202,7 @@ namespace QMC.CDT_320
                     return;
 
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
+                Controller?.SetActiveRecipeName(CurrentRecipeName);
                 Machine.LoadRecipe(recipeName);
                 _currentRecipe = QMC.CDT320.Recipes.RecipeStore.Load(CurrentRecipeName);
 
@@ -248,6 +250,7 @@ namespace QMC.CDT_320
                     return false;
 
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
+                Controller?.SetActiveRecipeName(CurrentRecipeName);
                 if (!Machine.SaveRecipe(recipeName))
                 {
                     QMC.Common.Logging.EventLogger.Write(
@@ -554,6 +557,7 @@ namespace QMC.CDT_320
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
+            Controller.SetActiveRecipeName(CurrentRecipeName);
             ApplyRuntimeMode();
             Controller.ApplyStartupMachineRuntimeState(cfg);
             AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);

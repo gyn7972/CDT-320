@@ -11,11 +11,12 @@ namespace QMC.CDT320.Calibration
 
     public enum VisionFocusScanKind
     {
-        BottomCollet,
-        FrontSide0,
-        FrontSide90,
-        RearSide0,
-        RearSide90
+        BottomCollet = 0,
+        FrontSide0 = 1,
+        FrontSide90 = 2,
+        RearSide0 = 3,
+        RearSide90 = 4,
+        BottomDie = 5
     }
 
     [DataContract]
@@ -24,6 +25,9 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double MinusRange { get; set; } = 0.2;
         [DataMember] public double PlusRange { get; set; } = 0.2;
         [DataMember] public double Step { get; set; } = 0.02;
+        [DataMember] public double FineMinusRange { get; set; } = 0.05;
+        [DataMember] public double FinePlusRange { get; set; } = 0.05;
+        [DataMember] public double FineStep { get; set; } = 0.01;
         [DataMember] public int RepeatCount { get; set; } = 1;
         [DataMember] public double MoveVelocity { get; set; } = 30.0;
         [DataMember] public double MoveAcceleration { get; set; } = 300.0;
@@ -31,6 +35,7 @@ namespace QMC.CDT320.Calibration
         [DataMember] public int SettleDelayMs { get; set; } = 50;
         [DataMember] public int MotionTimeoutMs { get; set; } = 5000;
         [DataMember] public int VisionTimeoutMs { get; set; } = 5000;
+        [DataMember] public int VisionBestTimeoutMs { get; set; } = 120000;
         [DataMember] public bool ReturnToDefaultAfterScan { get; set; } = true;
 
         public void EnsureDefaults()
@@ -38,6 +43,9 @@ namespace QMC.CDT320.Calibration
             if (MinusRange <= 0) MinusRange = 0.2;
             if (PlusRange <= 0) PlusRange = 0.2;
             if (Step <= 0) Step = 0.02;
+            if (FineMinusRange <= 0) FineMinusRange = 0.05;
+            if (FinePlusRange <= 0) FinePlusRange = 0.05;
+            if (FineStep <= 0) FineStep = 0.01;
             if (RepeatCount <= 0) RepeatCount = 1;
             if (RepeatCount > 100) RepeatCount = 100;
             if (MoveVelocity <= 0) MoveVelocity = 30.0;
@@ -46,6 +54,7 @@ namespace QMC.CDT320.Calibration
             if (SettleDelayMs < 0) SettleDelayMs = 50;
             if (MotionTimeoutMs <= 0) MotionTimeoutMs = 5000;
             if (VisionTimeoutMs <= 0) VisionTimeoutMs = 5000;
+            if (VisionBestTimeoutMs <= 0) VisionBestTimeoutMs = 120000;
         }
     }
 
@@ -93,9 +102,12 @@ namespace QMC.CDT320.Calibration
     public sealed class VisionFocusCalibrationData
     {
         [DataMember] public VisionFocusScanSettings BottomColletScan { get; set; } = new VisionFocusScanSettings();
+        [DataMember] public VisionFocusScanSettings BottomDieScan { get; set; } = new VisionFocusScanSettings();
         [DataMember] public VisionFocusScanSettings SideVisionScan { get; set; } = new VisionFocusScanSettings();
-        [DataMember] public VisionFocusPositionRecord[] FrontCollets { get; set; } = CreateColletRecords();
-        [DataMember] public VisionFocusPositionRecord[] RearCollets { get; set; } = CreateColletRecords();
+        [DataMember] public VisionFocusPositionRecord[] FrontCollets { get; set; } = CreatePickerRecords();
+        [DataMember] public VisionFocusPositionRecord[] RearCollets { get; set; } = CreatePickerRecords();
+        [DataMember] public VisionFocusPositionRecord[] FrontDies { get; set; } = CreatePickerRecords();
+        [DataMember] public VisionFocusPositionRecord[] RearDies { get; set; } = CreatePickerRecords();
         [DataMember] public VisionFocusPositionRecord FrontSide0 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord FrontSide90 { get; set; } = new VisionFocusPositionRecord();
         [DataMember] public VisionFocusPositionRecord RearSide0 { get; set; } = new VisionFocusPositionRecord();
@@ -110,12 +122,16 @@ namespace QMC.CDT320.Calibration
         public void EnsureObjects()
         {
             if (BottomColletScan == null) BottomColletScan = new VisionFocusScanSettings();
+            if (BottomDieScan == null) BottomDieScan = new VisionFocusScanSettings();
             if (SideVisionScan == null) SideVisionScan = new VisionFocusScanSettings();
             BottomColletScan.EnsureDefaults();
+            BottomDieScan.EnsureDefaults();
             SideVisionScan.EnsureDefaults();
 
-            FrontCollets = EnsureColletRecords(FrontCollets);
-            RearCollets = EnsureColletRecords(RearCollets);
+            FrontCollets = EnsurePickerRecords(FrontCollets);
+            RearCollets = EnsurePickerRecords(RearCollets);
+            FrontDies = EnsurePickerRecords(FrontDies);
+            RearDies = EnsurePickerRecords(RearDies);
             if (FrontSide0 == null) FrontSide0 = new VisionFocusPositionRecord();
             if (FrontSide90 == null) FrontSide90 = new VisionFocusPositionRecord();
             if (RearSide0 == null) RearSide0 = new VisionFocusPositionRecord();
@@ -132,6 +148,20 @@ namespace QMC.CDT320.Calibration
             EnsureObjects();
             int index = NormalizePickerIndex(pickerNo);
             return side == VisionFocusPickerSide.Front ? FrontCollets[index] : RearCollets[index];
+        }
+
+        public VisionFocusPositionRecord GetDieRecord(VisionFocusPickerSide side, int pickerNo)
+        {
+            EnsureObjects();
+            int index = NormalizePickerIndex(pickerNo);
+            return side == VisionFocusPickerSide.Front ? FrontDies[index] : RearDies[index];
+        }
+
+        public VisionFocusPositionRecord GetBottomRecord(VisionFocusScanKind kind, VisionFocusPickerSide side, int pickerNo)
+        {
+            return kind == VisionFocusScanKind.BottomDie
+                ? GetDieRecord(side, pickerNo)
+                : GetColletRecord(side, pickerNo);
         }
 
         public VisionFocusPositionRecord GetSideRecord(VisionFocusScanKind kind)
@@ -154,11 +184,11 @@ namespace QMC.CDT320.Calibration
             return pickerNo - 1;
         }
 
-        private static VisionFocusPositionRecord[] EnsureColletRecords(VisionFocusPositionRecord[] records)
+        private static VisionFocusPositionRecord[] EnsurePickerRecords(VisionFocusPositionRecord[] records)
         {
             if (records == null || records.Length != 4)
             {
-                VisionFocusPositionRecord[] next = CreateColletRecords();
+                VisionFocusPositionRecord[] next = CreatePickerRecords();
                 if (records != null)
                 {
                     int count = Math.Min(records.Length, next.Length);
@@ -182,7 +212,7 @@ namespace QMC.CDT320.Calibration
             return records;
         }
 
-        private static VisionFocusPositionRecord[] CreateColletRecords()
+        private static VisionFocusPositionRecord[] CreatePickerRecords()
         {
             return new[]
             {

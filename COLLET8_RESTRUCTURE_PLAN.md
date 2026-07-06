@@ -79,7 +79,7 @@ MODULE|MATCHASYNC|finder|fb|collet|die_index|channel|chip_uid        (동일 규
 | collet | 1~4 | 기존 picker_id 자리 |
 | chip_uid | 다이 고유 ID (`Die.cs:31` Guid 12자리, MaterialStorage 키) | 결과 매칭 키 — INSPECTRESULT 회수·검사기 간 다이별 집계. **offset/칩위치 아님, 삭제 불가** |
 | die_index | 픽업 순서 1-base, **-1=다이 없음(메뉴얼 테스트)** | 웨이퍼맵 셀 매칭(칩위치는 이 값 담당). -1이면 맵 매칭/다이 집계 생략, 검사만 수행 |
-| channel | Side: 0=0° / 1=90°, Bottom/Bin: **-1**(채널 없음, 현행 기본값 동일) | 기존 0~3의 FB 인코딩(앞=0/1, 뒤=2/3) 폐기 |
+| channel | **항상 0/1** — Side 0=0°/1=90°, Bottom/Bin은 0°로 간주해 **0** (2026-07-04 확정: -1 미사용, 구형 수신만 허용) | 기존 0~3의 FB 인코딩(앞=0/1, 뒤=2/3) 폐기 |
 
 - Sim 셀프런(`TcpLoopbackVisionCommandDispatcher`)은 인자 패스스루라 ToolSequence만 고치면 동일 반영 (Sim==Real 원칙)
 
@@ -138,6 +138,14 @@ MODULE|MATCHASYNC|finder|fb|collet|die_index|channel|chip_uid        (동일 규
 - 구형 와이어(≤7파트)는 전부 하위호환 유지
 
 > 원칙 준수: CDT-310 알고리즘 코어 무변경, Sim==Real, 통신 포맷 변경은 본 건 명시 승인 범위 내.
+
+## 5.5 검사 백엔드 즉시 처리 전환 (2026-07-04 확정)
+
+- 구(방식B) "그랩 4장 축적 → 일괄 병렬" **폐기** — 콜렛별 독립 인스턴스(8세트)가 있으므로 모을 이유 없음.
+- 신규: 요청 1건 = 그랩(모듈 게이트 직렬화, 카메라 보호) → **그랩 완료 즉시 해당 콜렛·채널 인스턴스로 검사**. 검사는 게이트 밖이라 다음 그랩과 자연 병렬.
+- chip_uid 그룹 합산: Side=2건(0°/90°), Bottom/Bin=1건 — 기대 수 도달 시 1회 Complete(모두 PASS여야 PASS). `ExpectedPerUid` 로 일원화, `ExpectedBatchCount`/PendingGrabStore 사용 제거(파일은 보존).
+- STARTED 선응답 의미 확정: 실기도 "빠른 스텝 이동을 위해 그랩 전 미리 응답"이 맞음(비전은 즉시 그랩 수행). 촬상 완료 동기화가 필요한 지점은 EPD 푸시 사용.
+- Side 보정 흐름 확정: Bottom 전 촬영 완료 → Side가 Bottom XYT **Offset 기준 보정 후** 촬영(수식 반영 위치 = InspectSideTargetAsync 훅).
 
 ## 6. Bottom XYT 어싱크 푸시 (EventSearchDieEnd, 2026-07-04 추가 구현)
 

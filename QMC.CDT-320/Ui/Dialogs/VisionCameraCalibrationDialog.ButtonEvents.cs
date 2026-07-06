@@ -8,7 +8,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         private void btnRunAll_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("PREPARE && FIND BOTTOM", ct => Sequence.RunAsync(ct));
+            _ = RunOperationAsync("PREPARE && FIND BOTTOM", ct => Sequence.RunAsync(ct, QMC.CDT320.Sequencing.SequenceRunMode.Manual));
         }
 
         private void btnFindBottom_Click(object sender, EventArgs e)
@@ -18,17 +18,17 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void btnFindInput_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("FIND INPUT", ct => Sequence.PrepareAndFindInputReticleAsync(ct));
+            _ = RunOperationAsync("FIND INPUT", ct => Sequence.PrepareAndFindInputReticleAsync(ct, QMC.CDT320.Sequencing.SequenceRunMode.Manual));
         }
 
         private void btnFindOutput_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("FIND OUTPUT", ct => Sequence.PrepareAndFindOutputReticleAsync(ct));
+            _ = RunOperationAsync("FIND OUTPUT", ct => Sequence.PrepareAndFindOutputReticleAsync(ct, QMC.CDT320.Sequencing.SequenceRunMode.Manual));
         }
 
         private void btnRetractReticle_Click(object sender, EventArgs e)
         {
-            _ = RunOperationAsync("RETICLE BACK", ct => Sequence.RetractReticleFromBottomCameraAsync(ct));
+            _ = RunOperationAsync("RETICLE BACK", ct => Sequence.RetractReticleFromBottomCameraAsync(ct, QMC.CDT320.Sequencing.SequenceRunMode.Manual));
         }
 
         private void btnCalculateSave_Click(object sender, EventArgs e)

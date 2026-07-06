@@ -9,6 +9,7 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         public string Name { get; set; }
         public double Velocity { get; set; }
+        public bool ForceMove { get; set; }
         public IReadOnlyList<SharedRailXTarget> Targets { get { return _targets; } }
 
         public static SharedRailXMovePlan Create(string name, double velocity)

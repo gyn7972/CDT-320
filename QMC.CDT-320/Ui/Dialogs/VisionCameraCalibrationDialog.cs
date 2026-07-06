@@ -377,6 +377,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_busy)
                 return;
 
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
             try
             {
                 string reason;
@@ -387,12 +392,37 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
+                host = FindHostForm();
+                if (host == null || host.Controller == null)
+                    throw new InvalidOperationException("MachineController가 준비되지 않았습니다.");
+
                 _busy = true;
                 SetButtonsEnabled(false);
-                _cts = new CancellationTokenSource();
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.ProcessSequence,
+                    "VisionCameraCalibration:" + actionName);
+                runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
+                _cts = runCts;
+                stopHandler = delegate
+                {
+                    try
+                    {
+                        CancellationTokenSource cts = _cts;
+                        if (cts != null && !cts.IsCancellationRequested)
+                            cts.Cancel();
+
+                        QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionCameraCalStop",
+                            "메인 STOP 요청으로 Vision Camera Calibration 정지 요청. action=" + actionName);
+                    }
+                    catch
+                    {
+                    }
+                };
+                host.Controller.StopRequested += stopHandler;
+
                 lblStatus.Text = actionName + " 실행 중입니다. Vision 응답을 기다립니다.";
 
-                int result = await operation(_cts.Token).ConfigureAwait(true);
+                int result = await operation(runCts.Token).ConfigureAwait(true);
                 RefreshData();
 
                 lblStatus.Text = result == 0
@@ -402,6 +432,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             catch (OperationCanceledException)
             {
                 lblStatus.Text = actionName + " 작업이 취소되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-STOP", lblStatus.Text);
             }
             catch (Exception ex)
             {
@@ -411,11 +442,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
-                if (_cts != null)
-                {
-                    _cts.Dispose();
+                if (host != null && host.Controller != null && stopHandler != null)
+                    host.Controller.StopRequested -= stopHandler;
+
+                if (ReferenceEquals(_cts, runCts))
                     _cts = null;
-                }
+
+                if (runCts != null)
+                    runCts.Dispose();
+
+                if (actionScope != null)
+                    actionScope.Dispose();
 
                 _busy = false;
                 SetButtonsEnabled(true);
