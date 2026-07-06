@@ -83,6 +83,7 @@
     <Compile Include="Equipment\Calibration\CalibrationData.cs" />
     <Compile Include="Equipment\Calibration\CalibrationDataStore.cs" />
     <Compile Include="Equipment\Calibration\CalibrationCoordinateService.cs" />
+    <Compile Include="Equipment\Calibration\PickerVisionOffsetCalibrationService.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationData.cs" />
     <Compile Include="Equipment\Calibration\VisionCameraCalibrationTransform.cs" />
     <Compile Include="Equipment\Calibration\ColletCalibrationData.cs" />

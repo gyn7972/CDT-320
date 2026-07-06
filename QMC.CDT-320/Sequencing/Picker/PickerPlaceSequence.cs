@@ -914,6 +914,22 @@ namespace QMC.CDT320.Sequencing
             _targetPickerY = coordinate.PickerY;
             _targetPickerT = coordinate.PickerT;
             _targetPickerZ = coordinate.PickerZ;
+
+            WriteLog("PickerPlaceSequence",
+                Name + " calculated place target. die=" + dieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", outputSide=" + _currentOutputSide +
+                ", outputStageY=" + _targetOutputStageY +
+                ", pickerX=" + _targetPickerX +
+                ", pickerY=" + _targetPickerY +
+                ", pickerT=" + _targetPickerT +
+                ", pickerZ=" + _targetPickerZ +
+                ", outputStageBaseY=" + outputStageBaseY +
+                ", receiveTargetX=" + (_receiveTarget != null ? _receiveTarget.TargetX.ToString() : "-") +
+                ", receiveTargetY=" + (_receiveTarget != null ? _receiveTarget.TargetY.ToString() : "-") +
+                ", outputVisionToPickerOffsetX=" + _outputVisionToPickerX +
+                ", outputVisionToPickerOffsetY=" + _outputVisionToPickerY +
+                ", formula=" + coordinate.Formula + " - Ok");
         }
 
         private async Task<int> MovePickerXYAndTToPlaceAsync(CancellationToken ct)

@@ -1438,6 +1438,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (referenceTeachingResult != 0)
                     return referenceTeachingResult;
 
+                string offsetSummary;
+                PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(Context.Machine, "ColletCalibration", out offsetSummary);
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalPickerVisionOffset", offsetSummary);
+
                 if (!Context.Machine.SaveSettings())
                     return Fail("COLLET-CAL-SAVE", Name, "Collet Calibration 결과를 CalibrationData 파일에 저장하지 못했습니다.");
                 ResultRecord = target;

@@ -1,4 +1,5 @@
 ﻿using System;
+
 using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
@@ -117,10 +118,8 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, front.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, front.Setup.PickerPitchY);
-            if (!inputVision)
-            {
-                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Front);
-            }
+            // 현재 기준: HomeClearance는 홈 기준 카메라/픽커 하드웨어 거리이므로 sign 기준으로 X 좌표 변환에 반영한다.
+            offsetX += ResolveVisionToPickerHomeBridge(inputVision, PickerSequenceSide.Front);
             return true;
         }
 
@@ -156,14 +155,12 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, rear.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, rear.Setup.PickerPitchY);
-            if (!inputVision)
-            {
-                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Rear);
-            }
+            // 현재 기준: HomeClearance는 홈 기준 카메라/픽커 하드웨어 거리이므로 sign 기준으로 X 좌표 변환에 반영한다.
+            offsetX += ResolveVisionToPickerHomeBridge(inputVision, PickerSequenceSide.Rear);
             return true;
         }
 
-        private static double ResolveOutputHomeGap(PickerSequenceSide side)
+        private static double ResolveVisionToPickerHomeBridge(bool inputVision, PickerSequenceSide side)
         {
             try
             {
@@ -171,22 +168,54 @@ namespace QMC.CDT320.Sequencing
                 if (config == null)
                     return 0.0;
 
+                SharedRailXAxis visionAxis = inputVision
+                    ? SharedRailXAxis.InputVisionX
+                    : SharedRailXAxis.OutputVisionX;
                 SharedRailXAxis pickerAxis = side == PickerSequenceSide.Front
                     ? SharedRailXAxis.FrontPickerX
                     : SharedRailXAxis.RearPickerX;
 
                 SharedRailXAxisPair pair;
-                if (config.TryGetCollisionPair(SharedRailXAxis.OutputVisionX, pickerAxis, out pair))
-                    return pair.HomeClearance;
+                if (!config.TryGetCollisionPair(visionAxis, pickerAxis, out pair))
+                    return 0.0;
+
+                int visionSign;
+                int pickerSign;
+                ResolvePairSigns(visionAxis, pickerAxis, pair, out visionSign, out pickerSign);
+                if (pickerSign == 0)
+                    return 0.0;
+                if (-visionSign != pickerSign)
+                    return 0.0;
+
+                // 현재 기준: clearance=0일 때 pickerX=(homeClearance-visionSign*visionX)/pickerSign 이다.
+                return pair.HomeClearance / pickerSign;
             }
             catch
             {
+                return 0.0;
             }
             finally
             {
             }
-
-            return 0.0;
         }
+
+        private static void ResolvePairSigns(
+            SharedRailXAxis axisA,
+            SharedRailXAxis axisB,
+            SharedRailXAxisPair pair,
+            out int signA,
+            out int signB)
+        {
+            if (pair.AxisA == axisA && pair.AxisB == axisB)
+            {
+                signA = pair.AxisATowardSign;
+                signB = pair.AxisBTowardSign;
+                return;
+            }
+
+            signA = pair.AxisBTowardSign;
+            signB = pair.AxisATowardSign;
+        }
+
     }
 }
