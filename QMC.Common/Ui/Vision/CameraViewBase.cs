@@ -946,3 +946,27 @@ namespace QMC.Common.Ui.Controls
 
                         // 인덱스 + 각도(°). 점수는 MATCH RESULT 그리드에서 확인. 컴팩트 라벨.
                         string txt = idx.ToString() + " " + m.AngleDeg.ToString("F1") + "°";
+                        var ts = g.MeasureString(txt, f);
+                        float tx = cx + 7, ty = cy - ts.Height - 1;
+                        if (tx + ts.Width + 2 > ClientSize.Width)  tx = cx - ts.Width - 7;
+                        if (ty < 0)                                ty = cy + 7;
+                        g.FillRectangle(bg, tx - 1, ty, ts.Width + 2, ts.Height);
+                        g.DrawString(txt, f, brT, tx, ty);
+                        }
+                        idx++;
+                    }
+                }
+            }
+        }
+
+        private static Rectangle FitRect(Size src, Size dst)
+        {
+            double rx = (double)dst.Width  / src.Width;
+            double ry = (double)dst.Height / src.Height;
+            double r  = Math.Min(rx, ry);
+            int w = (int)(src.Width  * r);
+            int h = (int)(src.Height * r);
+            return new Rectangle((dst.Width - w) / 2, (dst.Height - h) / 2, w, h);
+        }
+    }
+}
