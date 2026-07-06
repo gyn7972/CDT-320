@@ -142,10 +142,15 @@ namespace QMC.Vision.Ui.Pages
         // ── Private Methods ──
         private DieMap BuildFromSpec(VisionMachineRecipe r)
         {
-            int sideSkip = (int)_nSideSkip.Value;
-            int tbSkip = (int)_nTbSkip.Value;
-            return DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                r.WaferOuterDiameterMm, sideSkip, tbSkip, "INPUT");
+            // 핸들러 DieMapGenerator 동일 기하(2026-07-06) — skip 숫자는 모드(Grid=개수/MM=mm)에 따라 해석.
+            var mode = DieMapBuilder.IsMillimeterEdgeSkipMode(r.WaferEdgeSkipMode)
+                ? WaferEdgeSkipMode.Millimeter
+                : WaferEdgeSkipMode.Grid;
+            double sideSkip = (double)_nSideSkip.Value;
+            double tbSkip = (double)_nTbSkip.Value;
+            return DieMapBuilder.GenerateCircularWafer(
+                r.WaferOuterDiameterMm, r.WaferPitchX, r.WaferPitchY,
+                r.WaferDieSizeX, r.WaferDieSizeY, mode, sideSkip, tbSkip, "INPUT");
         }
 
         private void GenerateFromSpec()

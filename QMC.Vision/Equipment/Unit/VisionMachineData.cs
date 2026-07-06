@@ -100,6 +100,18 @@ namespace QMC.Vision.Modules
         /// <summary>상하(Top/Bottom) edge skip 행 수.</summary>
         [DataMember] public int WaferTopBottomEdgeSkip { get; set; } = 0;
 
+        // ── 핸들러 TapeFrameSubset 동등 필드(2026-07-06 이식) — 맵 생성은 핸들러 DieMapGenerator.GenerateCircularWafer 와 동일 기하 ──
+        /// <summary>다이 X 크기(mm) — 격자 자동계산·다이 사각형 원 내접 판정에 사용(0이면 피치로 간주).</summary>
+        [DataMember] public double WaferDieSizeX { get; set; } = 1.0;
+        /// <summary>다이 Y 크기(mm).</summary>
+        [DataMember] public double WaferDieSizeY { get; set; } = 1.0;
+        /// <summary>Edge skip 모드 — "Grid"(행/열 수) / "MM"(외곽 물리 거리 mm). 핸들러 EdgeSkipMode 동등.</summary>
+        [DataMember] public string WaferEdgeSkipMode { get; set; } = "Grid";
+        /// <summary>MM 모드 좌우 edge skip 거리(mm).</summary>
+        [DataMember] public double WaferSideEdgeSkipMm { get; set; } = 0.0;
+        /// <summary>MM 모드 상하 edge skip 거리(mm).</summary>
+        [DataMember] public double WaferTopBottomEdgeSkipMm { get; set; } = 0.0;
+
         /// <summary>웨이퍼(입력) 픽업 순서 옵션(시작 코너/방향/지그재그).</summary>
         [DataMember] public PickupSubset Pickup { get; set; } = new PickupSubset();
         /// <summary>Bin(출력) 픽업 순서 옵션.</summary>
@@ -163,6 +175,9 @@ namespace QMC.Vision.Modules
             WaferPitchX = d.WaferPitchX; WaferPitchY = d.WaferPitchY;
             WaferOuterDiameterMm = d.WaferOuterDiameterMm; WaferRotate = d.WaferRotate;
             WaferSideEdgeSkip = d.WaferSideEdgeSkip; WaferTopBottomEdgeSkip = d.WaferTopBottomEdgeSkip;
+            WaferDieSizeX = d.WaferDieSizeX; WaferDieSizeY = d.WaferDieSizeY;
+            WaferEdgeSkipMode = d.WaferEdgeSkipMode;
+            WaferSideEdgeSkipMm = d.WaferSideEdgeSkipMm; WaferTopBottomEdgeSkipMm = d.WaferTopBottomEdgeSkipMm;
             Pickup = new PickupSubset(); OutputPickup = new PickupSubset(); InputDieMap = null;
         }
     }

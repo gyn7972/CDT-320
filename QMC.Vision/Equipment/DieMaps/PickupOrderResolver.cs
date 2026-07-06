@@ -61,8 +61,12 @@ namespace QMC.Vision.DieMaps
             if (r == null) return "";
             string map = r.InputDieMap != null && r.InputDieMap.Entries != null
                 ? "M" + r.InputDieMap.Entries.Count + "_" + r.InputDieMap.CreatedAt.Ticks
-                : "G" + r.WaferGridX + "x" + r.WaferGridY + "_" + r.WaferPitchX + "_" + r.WaferPitchY
-                  + "_" + r.WaferOuterDiameterMm + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip;
+                : "G" + r.WaferPitchX + "_" + r.WaferPitchY
+                  + "_" + r.WaferOuterDiameterMm
+                  + "_" + r.WaferDieSizeX + "_" + r.WaferDieSizeY
+                  + "_" + (r.WaferEdgeSkipMode ?? "Grid")
+                  + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip
+                  + "_" + r.WaferSideEdgeSkipMm + "_" + r.WaferTopBottomEdgeSkipMm;
             var p = r.Pickup ?? new PickupSubset();
             return map + "|" + (int)p.StartCorner + (int)p.Direction + (int)p.Pattern;
         }
@@ -73,8 +77,7 @@ namespace QMC.Vision.DieMaps
             if (r == null) return list;
             DieMap map = (r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0)
                 ? r.InputDieMap
-                : DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                    r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip, "WAFER");
+                : DieMapBuilder.GenerateWaferSpecMap(r, "WAFER");   // 핸들러 DieMapGenerator 동일 기하(2026-07-06)
             var ordered = PickupSequenceGenerator.Build(map, r.Pickup);
             foreach (var e in ordered)
                 if (e != null) list.Add(new[] { e.DieMapX, e.DieMapY });

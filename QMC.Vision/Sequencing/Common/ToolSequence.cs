@@ -193,13 +193,14 @@ namespace QMC.Vision.Sequencing
                         int seq = GlobalDieSeq(local, fb);
                         MaybeClearForNewWafer(seq);
                         int ix, iy; NextPickupCell(seq, out ix, out iy);
-                        pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = seq;
-                        cu[i] = seq.ToString();   // 결과 매칭 키 = die_index(chip_uid 폐기, 2026-07-06 — Sim==Real)
+                        int dieNo = WaferDieNo(seq);   // 레시피(웨이퍼 사양) 기준 1~Count 순환 — 실기 InputSequenceNo 와 동일 규약(Sim==Real)
+                        pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = dieNo;
+                        cu[i] = dieNo.ToString();   // 결과 매칭 키 = die_index(chip_uid 폐기, 2026-07-06)
                         foreach (int ch in chs)
                         {
                             // 신형 고정 8파트 와이어와 동일 인자 순서(맨 뒤 = "gridx;gridy").
                             Context.Dispatch(Module, "INSPECTASYNC",
-                                new[] { ToolId, fb.ToString(), collet.ToString(), seq.ToString(), ch.ToString(), ix + ";" + iy });
+                                new[] { ToolId, fb.ToString(), collet.ToString(), dieNo.ToString(), ch.ToString(), ix + ";" + iy });
                         }
                     }
                     // 백엔드는 요청마다 그랩 즉시 검사(즉시 처리 — 배치 대기 없음, 콜렛별 인스턴스).
@@ -344,6 +345,14 @@ namespace QMC.Vision.Sequencing
             if (PickupOrderResolver.TryGetCell(seq, out ix, out iy)) return;
             ix = DieIndexX;   // 폴백(구 동작)
             iy = seq;
+        }
+
+        /// <summary>누적 픽업 순번(seq) → 레시피 웨이퍼 사양 기준 웨이퍼-로컬 다이 번호(1~Count).
+        /// 실기 die_index(InputSequenceNo, 웨이퍼당 1-base)와 동일 규약 — 레시피 미확정(Count=0)이면 누적값 그대로.</summary>
+        private static int WaferDieNo(int seq)
+        {
+            int count = PickupOrderResolver.Count;
+            return count > 0 ? ((seq - 1) % count) + 1 : seq;
         }
 
         /// <summary>
