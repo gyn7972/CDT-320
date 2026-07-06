@@ -130,7 +130,7 @@
             this.ClientSize = new System.Drawing.Size(1100, 760);
             this.Controls.Add(this._tabs);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.MinimizeBox = false;
+            this.MinimizeBox = true;
             this.MinimumSize = new System.Drawing.Size(900, 560);
             this.Name = "VisionViewDialog";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
