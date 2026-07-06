@@ -160,9 +160,7 @@ namespace QMC.Vision.Ui.Pages
             // 입력 대상이고 저장된 INPUT DIE 맵이 있으면 그것을, 아니면 웨이퍼 사양으로 격자 내접 원 생성.
             if (!_isOutput && r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0)
                 return r.InputDieMap;
-            return DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip,
-                _isOutput ? "BIN" : "WAFER");
+            return DieMapBuilder.GenerateWaferSpecMap(r, _isOutput ? "BIN" : "WAFER");   // 핸들러 DieMapGenerator 동일 기하(2026-07-06)
         }
 
         private static string DescribeOptions(PickupSubset p)

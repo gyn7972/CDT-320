@@ -225,13 +225,16 @@ namespace QMC.Vision.Ui.Pages
         {
             try
             {
-                int gridX = (int)_nGridX.Value;
-                int gridY = (int)_nGridY.Value;
                 double pitchX = (double)_nPitchX.Value;
                 double pitchY = (double)_nPitchY.Value;
                 double diameter = (double)_nDiameter.Value;
 
-                _preview = DieMapBuilder.GenerateCircleDieMap(gridX, gridY, pitchX, pitchY, diameter, 0, 0, "WAFER");
+                // 핸들러 DieMapGenerator 동일 기하(2026-07-06) — Grid 수는 외경/피치/다이 크기로 자동 계산(입력 Grid X/Y는 참고용).
+                var r = GetRecipe();
+                _preview = DieMapBuilder.GenerateCircularWafer(
+                    diameter, pitchX, pitchY,
+                    r != null ? r.WaferDieSizeX : 0, r != null ? r.WaferDieSizeY : 0,
+                    WaferEdgeSkipMode.Grid, 0, 0, "WAFER");
                 _mapView.ShowWaferOutline = true;
                 _mapView.Caption = "Wafer Spec Preview";
                 _mapView.Map = _preview;
