@@ -762,6 +762,14 @@ namespace QMC.Common.Motion
         public virtual void MoveJogContinuous(int direction, JogSpeedType speedType,
                                               double customVel = 0)
         {
+            UpdateStatus();
+            // 조그 중 반복 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+            if (IsMoving)
+            {
+                VerifyMotionGuard(ResolveJogGuardTarget(direction), AxisMotionGuardKind.JogContinuous);
+                return;
+            }
+
             if (!IsServoOn || IsAlarm)
             {
                 FailAxisNotReady("JOG", 0, false);
@@ -870,6 +878,14 @@ namespace QMC.Common.Motion
         {
             try
             {
+                UpdateStatus();
+                // 이동 중 추가 Step Jog 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+                if (IsMoving)
+                {
+                    VerifyMotionGuard(ResolveJogGuardTarget(direction), AxisMotionGuardKind.JogContinuous);
+                    return 0;
+                }
+
                 double vel = GetJogVelocity(speedType, customVel);
                 double distance = direction * Math.Abs(stepDistance);
                 double target = ActualPosition + distance;

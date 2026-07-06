@@ -117,7 +117,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void StartContinuousJog(BaseAxis axis, int direction)
         {
-            if (!PrepareAxis(axis))
+            if (!PrepareAxis(axis, direction))
                 return;
 
             try
@@ -132,7 +132,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async Task StepJogAsync(BaseAxis axis, int direction)
         {
-            if (!PrepareAxis(axis))
+            if (!PrepareAxis(axis, direction))
                 return;
 
             try
@@ -145,15 +145,61 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private bool PrepareAxis(BaseAxis axis)
+        private bool PrepareAxis(BaseAxis axis, int direction)
         {
-            if (axis == null || axis.IsAlarm)
+            if (axis == null)
                 return false;
+
+            bool limitRecoveryJog = IsLimitRecoveryJog(axis, direction);
+            if (axis.IsAlarm && !limitRecoveryJog)
+                return false;
+
+            try { axis.UpdateStatus(); } catch { }
+            if (axis.IsAlarm && !limitRecoveryJog)
+                return false;
+
+            // 이동 중 반복 조그 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+            if (axis.IsMoving)
+            {
+                VerifyJogSafetyWhileMoving(axis, direction);
+                return false;
+            }
 
             if (!axis.IsServoOn)
                 axis.ServoOn();
 
             return true;
+        }
+
+        private static bool IsLimitRecoveryJog(BaseAxis axis, int direction)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                QMC.CDT320.Ajin.AjinAxis ajinAxis = axis as QMC.CDT320.Ajin.AjinAxis;
+                // 리밋 복구 Jog는 알람 상태여도 리밋을 빠져나가는 방향일 때만 허용한다.
+                return ajinAxis != null && ajinAxis.CanRecoverLimitByJogDirection(direction);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void VerifyJogSafetyWhileMoving(BaseAxis axis, int direction)
+        {
+            try
+            {
+                if (axis == null)
+                    return;
+
+                QMC.CDT320.Motion.SharedRailX.SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(axis, direction);
+            }
+            catch
+            {
+            }
         }
 
         private void StopAxis(BaseAxis axis)

@@ -2502,8 +2502,17 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item == null)
                     return;
 
-                // HOME END(IsHomeDone) 미완료 축은 조그 불가 — 알람 띄우고 차단(step·연속 공통).
-                if (item.Axis != null && !item.Axis.IsHomeDone)
+                // 이동 중 반복 조그 입력은 조작 노이즈로 보고 추가 알람/팝업 없이 무시한다.
+                if (IsJogAxisMoving(item))
+                {
+                    VerifyJogSafetyWhileMoving(item, direction);
+                    return;
+                }
+
+                bool limitRecoveryJog = IsLimitRecoveryJog(item, direction);
+
+                // HOME END 미완료 축도 리밋에서 빠져나가는 방향의 Jog 복구는 허용한다.
+                if (item.Axis != null && !item.Axis.IsHomeDone && !limitRecoveryJog)
                 {
                     string homeEndMsg = (item.AxisName ?? "Axis") +
                         " 조그 불가: HOME END가 완료되지 않았습니다(원점복귀 필요).";
@@ -2555,6 +2564,61 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     _isContinuousJogStarting = false;
                 }
+            }
+        }
+
+        private static bool IsLimitRecoveryJog(JogAxisItem item, int direction)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return false;
+
+                QMC.CDT320.Ajin.AjinAxis ajinAxis = item.Axis as QMC.CDT320.Ajin.AjinAxis;
+                return ajinAxis != null && ajinAxis.CanRecoverLimitByJogDirection(direction);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsJogAxisMoving(JogAxisItem item)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return false;
+
+                item.Axis.UpdateStatus();
+                return item.Axis.IsMoving;
+            }
+            catch
+            {
+                return item != null && item.Axis != null && item.Axis.IsMoving;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void VerifyJogSafetyWhileMoving(JogAxisItem item, int direction)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return;
+
+                QMC.CDT320.Motion.SharedRailX.SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(item.Axis, direction);
+            }
+            catch
+            {
+            }
+            finally
+            {
             }
         }
 

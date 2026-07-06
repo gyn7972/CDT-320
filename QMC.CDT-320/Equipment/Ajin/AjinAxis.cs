@@ -22,10 +22,17 @@ namespace QMC.CDT320.Ajin
         private bool _isHomeSearching;
         private int _motionStopSerial;
 
+        // 소프트리밋은 보드 센서가 아니므로 알람 리셋 전까지 소프트웨어 latch 로 유지한다.
+        private bool _softLimitAlarmLatched;
+        private uint _softLimitAlarmLatchedCode;
+        private bool _limitRecoveryActive;
+        private int _limitRecoveryDirection;
+
         // 저장된 모터 초기화(HomeDone) 신호 latch.
         // 실장비는 프로그램 재실행 시 아진 보드가 HomeDone 을 off 로 보고하지만 실제로는 홈이 유지된다.
         // latch 가 살아있으면 보드의 off 보고를 무시하고 저장된 완료 상태를 유지한다.
-        // 모터 알람 발생 또는 서보 OFF 시 latch 를 해제하여 재초기화가 필요하도록 한다.
+        // 서보 알람 또는 서보 OFF 시 latch 를 해제하여 재초기화가 필요하도록 한다.
+        // 리밋 알람은 위치 기준이 사라진 것은 아니므로 latch 를 유지한다.
         private bool _homeDoneLatched;
 
         public int AxisNo { get; }
@@ -113,7 +120,10 @@ namespace QMC.CDT320.Ajin
                 return;
             }
 
-            if (!AjinSystem.IsOpen || IsAlarm) return;
+            if (!AjinSystem.IsOpen) return;
+            UpdateStatus();
+            // 리밋 밖 복구를 위해 리밋 알람만 있는 경우에는 Servo ON을 허용한다.
+            if (IsAlarm && !IsRecoverableLimitAlarmActive()) return;
             int ret;
             lock (_sync)
                 ret = AXM.SetAmpEnabled(AxisNo, true);
@@ -142,6 +152,10 @@ namespace QMC.CDT320.Ajin
         public override void ResetAlarm()
         {
             _motionDirection = 0;
+            _softLimitAlarmLatched = false;
+            _softLimitAlarmLatchedCode = 0;
+            _limitRecoveryActive = false;
+            _limitRecoveryDirection = 0;
 
             if (UseSimulation || !AjinSystem.IsOpen)
             {
@@ -170,6 +184,7 @@ namespace QMC.CDT320.Ajin
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
 
                 UpdateStatus();
+                bool limitRecoveryTarget = IsLimitRecoveryTarget(targetPos);
                 double tolerance = Config != null && Config.InPositionTolerance > 0.0
                     ? Config.InPositionTolerance
                     : 0.01;
@@ -189,12 +204,19 @@ namespace QMC.CDT320.Ajin
                     !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
                     return FailMotion(-11, "ABS MOVE", interlockReason, targetPos, true);
 
-                if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                if (!IsServoOn || !AjinSystem.IsOpen)
                     return FailAjinAxisNotReady("ABS MOVE", targetPos, true);
+                if (IsAlarm && !limitRecoveryTarget)
+                    return FailAjinAxisNotReady("ABS MOVE", targetPos, true);
+                if (limitRecoveryTarget)
+                    BeginLimitRecovery(targetPos > ActualPosition ? 1 : -1);
 
-                int limitCheck = CheckSoftLimitTarget(targetPos);
-                if (limitCheck != 0)
-                    return limitCheck;
+                if (!limitRecoveryTarget)
+                {
+                    int limitCheck = CheckSoftLimitTarget(targetPos);
+                    if (limitCheck != 0)
+                        return limitCheck;
+                }
 
                 // 명시 velocity 가 없거나, 기존 시퀀스 헬퍼가 스케일된 DefaultVelocity 를 명시값으로 넘긴 경우에는
                 // DefaultVelocity 기반 일반 이동으로 보고 가속/감속도 동일한 비율로 스케일한다.
@@ -296,6 +318,8 @@ namespace QMC.CDT320.Ajin
         {
             Interlocked.Increment(ref _motionStopSerial);
             _motionDirection = 0;
+            _limitRecoveryActive = false;
+            _limitRecoveryDirection = 0;
 
             if (UseSimulation)
             {
@@ -314,6 +338,8 @@ namespace QMC.CDT320.Ajin
         {
             Interlocked.Increment(ref _motionStopSerial);
             _motionDirection = 0;
+            _limitRecoveryActive = false;
+            _limitRecoveryDirection = 0;
 
             if (UseSimulation)
             {
@@ -559,8 +585,24 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
-                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
-                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                bool sharedRailJog = !SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this);
+
+                if (!UseSimulation)
+                {
+                    UpdateStatus();
+                    // 이동 중 반복 입력은 새 Jog 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+                    if (IsMoving)
+                    {
+                        if (sharedRailJog)
+                            SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
+                        else if (!SharedRailXMotionRuntime.IsInternalDispatch)
+                            VerifyJogSafetyWhileMoving(direction);
+                        return;
+                    }
+                }
+
+                if (sharedRailJog)
                 {
                     SharedRailXMotionRuntime.MoveJogContinuous(this, direction, ResolveJogSpeed(speedType, customVel));
                     return;
@@ -574,8 +616,14 @@ namespace QMC.CDT320.Ajin
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                 {
-                    FailAjinAxisNotReady("JOG", 0, false);
-                    return;
+                    bool limitRecoveryJog = IsLimitRecoveryDirection(direction);
+                    if (!IsServoOn || !AjinSystem.IsOpen || !limitRecoveryJog)
+                    {
+                        FailAjinAxisNotReady("JOG", 0, false);
+                        return;
+                    }
+
+                    BeginLimitRecovery(direction);
                 }
 
                 double jogTarget = ResolveJogGuardTarget(direction);
@@ -587,7 +635,8 @@ namespace QMC.CDT320.Ajin
                     return;
                 }
 
-                UpdateStatus();
+                if (!IsLimitRecoveryActiveForDirection(direction))
+                    UpdateStatus();
 
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
@@ -640,6 +689,23 @@ namespace QMC.CDT320.Ajin
         private double ResolveJogSpeed(JogSpeedType speedType, double customVel)
         {
             return GetJogVelocity(speedType, customVel);
+        }
+
+        private void VerifyJogSafetyWhileMoving(int direction)
+        {
+            try
+            {
+                double jogTarget = ResolveJogGuardTarget(direction);
+                string interlockReason;
+                MotionGuardRuntime.VerifyAxisContinuousJog(this, jogTarget, "ContinuousJog", out interlockReason);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Error, "AX-JOG-GUARD", Name, ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private double ResolveJogGuardTarget(int direction)
@@ -701,8 +767,24 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
-                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
-                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                bool sharedRailJog = !SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this);
+
+                if (!UseSimulation)
+                {
+                    UpdateStatus();
+                    // 이동 중 반복 Step Jog 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+                    if (IsMoving)
+                    {
+                        if (sharedRailJog)
+                            SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
+                        else if (!SharedRailXMotionRuntime.IsInternalDispatch)
+                            VerifyJogSafetyWhileMoving(direction);
+                        return 0;
+                    }
+                }
+
+                if (sharedRailJog)
                 {
                     return await SharedRailXMotionRuntime.MoveJogStepAsync(
                         this,
@@ -716,7 +798,13 @@ namespace QMC.CDT320.Ajin
                     return await base.MoveJogStepAsync(direction, speedType, stepDistance, customVel);
 
                 if (!IsServoOn || IsAlarm)
-                    return FailAjinAxisNotReady("JOG STEP", 0, false);
+                {
+                    bool limitRecoveryStep = IsLimitRecoveryDirection(direction);
+                    if (!IsServoOn || !limitRecoveryStep)
+                        return FailAjinAxisNotReady("JOG STEP", 0, false);
+
+                    BeginLimitRecovery(direction);
+                }
 
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
@@ -728,9 +816,13 @@ namespace QMC.CDT320.Ajin
                 if (!MotionGuardRuntime.VerifyAxisStepJog(this, target, "StepJog", out interlockReason))
                     return FailMotion(-11, "JOG STEP", interlockReason);
 
-                UpdateStatus();
+                if (IsRecoverableLimitAlarmActive() && !IsLimitRecoveryTarget(target))
+                    return FailAjinAxisNotReady("JOG STEP", target, true);
+
+                if (!IsLimitRecoveryActiveForDirection(direction))
+                    UpdateStatus();
                 if (IsMoving)
-                    return FailMotion(-2, "JOG STEP", "Axis is already moving.");
+                    return 0;
 
                 int result;
                 using (BaseAxis.BeginMotionGuardBypass())
@@ -903,24 +995,51 @@ namespace QMC.CDT320.Ajin
                 RaisePositionChanged();
 
             bool wasMoving = IsMoving;
+            int statusMotionDirection = _motionDirection;
             IsMoving = mot;
             IsInPosition = inp;
-            if (wasMoving && !IsMoving && IsInPosition)
-            {
-                _motionDirection = 0;
-                RaiseMoveCompleted();
-            }
 
             bool limitAlarmSuppressed = _isHomeSearching || IsSharedRailXHomeLimitSuppressed();
             bool wasAlarm = IsAlarm;
-            bool softLimitPositive = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
-                ActualPosition >= Setup.SoftLimitPlus && _motionDirection > 0;
-            bool softLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
-                ActualPosition <= Setup.SoftLimitMinus && _motionDirection < 0;
-            bool hardLimitPositive = !limitAlarmSuppressed && pel && _motionDirection > 0;
-            bool hardLimitNegative = !limitAlarmSuppressed && mel && _motionDirection < 0;
+            double softLimitTolerance = ResolveSoftLimitStatusTolerance();
+            bool rawSoftLimitPositive = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+                ((ActualPosition >= Setup.SoftLimitPlus - softLimitTolerance && statusMotionDirection > 0) ||
+                 ActualPosition > Setup.SoftLimitPlus + softLimitTolerance);
+            bool rawSoftLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
+                ((ActualPosition <= Setup.SoftLimitMinus + softLimitTolerance && statusMotionDirection < 0) ||
+                 ActualPosition < Setup.SoftLimitMinus - softLimitTolerance);
+            bool rawHardLimitPositive = !limitAlarmSuppressed && pel;
+            bool rawHardLimitNegative = !limitAlarmSuppressed && mel;
+            bool suppressLimitAlarmForRecovery = ShouldSuppressLimitAlarmForRecovery(
+                rawSoftLimitPositive,
+                rawSoftLimitNegative,
+                rawHardLimitPositive,
+                rawHardLimitNegative);
+            bool softLimitPositive = rawSoftLimitPositive && !suppressLimitAlarmForRecovery;
+            bool softLimitNegative = rawSoftLimitNegative && !suppressLimitAlarmForRecovery;
+            bool hardLimitPositive = rawHardLimitPositive && !suppressLimitAlarmForRecovery;
+            bool hardLimitNegative = rawHardLimitNegative && !suppressLimitAlarmForRecovery;
+            if (!rawSoftLimitPositive && !rawSoftLimitNegative && !rawHardLimitPositive && !rawHardLimitNegative)
+            {
+                _limitRecoveryActive = false;
+                _limitRecoveryDirection = 0;
+            }
+            else if (_limitRecoveryActive && !suppressLimitAlarmForRecovery)
+            {
+                _limitRecoveryActive = false;
+                _limitRecoveryDirection = 0;
+            }
 
-            IsAlarm = fault || softLimitPositive || softLimitNegative || hardLimitPositive || hardLimitNegative;
+            if (softLimitPositive || softLimitNegative)
+            {
+                _softLimitAlarmLatched = true;
+                _softLimitAlarmLatchedCode = softLimitPositive ? 10u : 11u;
+            }
+
+            bool softLimitLatched = _softLimitAlarmLatched;
+            bool limitAlarm = softLimitPositive || softLimitNegative || hardLimitPositive || hardLimitNegative || softLimitLatched;
+
+            IsAlarm = fault || limitAlarm;
             if (IsAlarm)
             {
                 if (fault)
@@ -933,6 +1052,8 @@ namespace QMC.CDT320.Ajin
                     AlarmCode = 20;
                 else if (hardLimitNegative)
                     AlarmCode = 21;
+                else if (softLimitLatched)
+                    AlarmCode = _softLimitAlarmLatchedCode != 0 ? _softLimitAlarmLatchedCode : 10;
 
                 if (!wasAlarm)
                 {
@@ -949,7 +1070,7 @@ namespace QMC.CDT320.Ajin
             Sensor_PEL = pel;
             Sensor_MEL = mel;
             Sensor_ORG = org;
-            if (!limitAlarmSuppressed && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
+            if (!limitAlarmSuppressed && !IsAlarm && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 AlarmManager.Raise(
@@ -962,9 +1083,20 @@ namespace QMC.CDT320.Ajin
             if (servoRet == 0)
                 IsServoOn = svOn;
 
-            // 저장된 초기화(HomeDone) 신호 무효화: 모터 알람 발생 또는 서보 OFF 시 latch 해제.
-            if (IsAlarm || !IsServoOn)
+            // 리밋 알람은 HomeDone 기준을 유지하고, 서보 알람/서보 OFF일 때만 latch를 해제한다.
+            if (!IsServoOn || fault || (IsAlarm && !limitAlarm))
                 _homeDoneLatched = false;
+
+            if (wasMoving && !IsMoving && IsInPosition)
+            {
+                _motionDirection = 0;
+                if (!IsAlarm)
+                    RaiseMoveCompleted();
+            }
+            else if (!IsMoving)
+            {
+                _motionDirection = 0;
+            }
 
             // latch 가 살아있으면 보드의 재실행 후 HomeDone=off 보고를 무시하고 저장된 완료 상태를 유지한다.
             // latch 가 없으면 보드의 HomeResult 를 그대로 반영한다.
@@ -972,6 +1104,200 @@ namespace QMC.CDT320.Ajin
                 IsHomeDone = true;
             else if (homeRet == 0)
                 IsHomeDone = homeResult == AXT_MOTION_HOME_RESULT.HOME_SUCCESS;
+        }
+
+        private double ResolveSoftLimitStatusTolerance()
+        {
+            try
+            {
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.001;
+                if (double.IsNaN(tolerance) || double.IsInfinity(tolerance) || tolerance <= 0.0)
+                    tolerance = 0.001;
+                return Math.Min(tolerance, 0.001);
+            }
+            catch
+            {
+                return 0.001;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsRecoverableLimitAlarmActive()
+        {
+            return IsPositiveLimitActive() || IsNegativeLimitActive();
+        }
+
+        public bool CanRecoverLimitByJogDirection(int direction)
+        {
+            try
+            {
+                if (UseSimulation)
+                    return false;
+
+                UpdateStatus();
+                // 리밋 알람 복구는 리밋에서 빠져나가는 Jog 방향일 때만 외부 UI에서 허용한다.
+                return IsRecoverableLimitAlarmActive() && IsLimitRecoveryDirection(direction);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsPositiveLimitActive()
+        {
+            try
+            {
+                if (Sensor_PEL || AlarmCode == 20)
+                    return true;
+                if (_softLimitAlarmLatched && _softLimitAlarmLatchedCode == 10)
+                    return true;
+                if (AlarmCode == 10)
+                    return true;
+                return Setup != null &&
+                       Setup.SoftLimitEnabled &&
+                       ActualPosition > Setup.SoftLimitPlus + ResolveSoftLimitStatusTolerance();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsNegativeLimitActive()
+        {
+            try
+            {
+                if (Sensor_MEL || AlarmCode == 21)
+                    return true;
+                if (_softLimitAlarmLatched && _softLimitAlarmLatchedCode == 11)
+                    return true;
+                if (AlarmCode == 11)
+                    return true;
+                return Setup != null &&
+                       Setup.SoftLimitEnabled &&
+                       ActualPosition < Setup.SoftLimitMinus - ResolveSoftLimitStatusTolerance();
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsLimitRecoveryTarget(double targetPosition)
+        {
+            try
+            {
+                bool positiveLimit = IsPositiveLimitActive();
+                bool negativeLimit = IsNegativeLimitActive();
+                if (positiveLimit == negativeLimit)
+                    return false;
+
+                // +리밋에서는 -방향, -리밋에서는 +방향으로 빠져나가는 이동만 복구로 인정한다.
+                return positiveLimit
+                    ? targetPosition < ActualPosition
+                    : targetPosition > ActualPosition;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsLimitRecoveryDirection(int direction)
+        {
+            try
+            {
+                int normalizedDirection = direction < 0 ? -1 : direction > 0 ? 1 : 0;
+                if (normalizedDirection == 0)
+                    return false;
+
+                bool positiveLimit = IsPositiveLimitActive();
+                bool negativeLimit = IsNegativeLimitActive();
+                if (positiveLimit == negativeLimit)
+                    return false;
+
+                // +리밋에서는 -방향, -리밋에서는 +방향 Jog만 복구로 허용한다.
+                return positiveLimit
+                    ? normalizedDirection < 0
+                    : normalizedDirection > 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsLimitRecoveryActiveForDirection(int direction)
+        {
+            int normalizedDirection = direction < 0 ? -1 : direction > 0 ? 1 : 0;
+            return _limitRecoveryActive &&
+                   normalizedDirection != 0 &&
+                   _limitRecoveryDirection == normalizedDirection;
+        }
+
+        private void BeginLimitRecovery(int direction)
+        {
+            int normalizedDirection = direction < 0 ? -1 : direction > 0 ? 1 : 0;
+            if (normalizedDirection == 0)
+                return;
+
+            _limitRecoveryActive = true;
+            _limitRecoveryDirection = normalizedDirection;
+            _softLimitAlarmLatched = false;
+            _softLimitAlarmLatchedCode = 0;
+            IsAlarm = false;
+            AlarmCode = 0;
+            ClearMotionFailure();
+        }
+
+        private bool ShouldSuppressLimitAlarmForRecovery(
+            bool softLimitPositive,
+            bool softLimitNegative,
+            bool hardLimitPositive,
+            bool hardLimitNegative)
+        {
+            try
+            {
+                if (!_limitRecoveryActive || !IsMoving)
+                    return false;
+
+                bool positiveLimit = softLimitPositive || hardLimitPositive;
+                bool negativeLimit = softLimitNegative || hardLimitNegative;
+                if (positiveLimit == negativeLimit)
+                    return false;
+
+                // 복구 방향으로 실제 이동 중일 때만 리밋 알람 재발생을 잠시 억제한다.
+                return positiveLimit
+                    ? _limitRecoveryDirection < 0
+                    : _limitRecoveryDirection > 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private int CheckSoftLimitTarget(double targetPos)
@@ -1011,6 +1337,8 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = false;
                 IsAlarm = true;
                 AlarmCode = alarmCode;
+                _softLimitAlarmLatched = true;
+                _softLimitAlarmLatchedCode = alarmCode;
                 _motionDirection = 0;
 
                 string message = "Soft limit reached (" + side + "). Position=" +

@@ -1498,6 +1498,13 @@ namespace QMC.CDT320
             if (!CanHandleJogAxis(axis))
                 return -1;
 
+            // 이동 중 반복 Step Jog 입력은 조작 중복이므로 알람 없이 리턴한다.
+            if (IsJogAxisMoving(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction);
+                return 0;
+            }
+
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
 
@@ -1523,6 +1530,13 @@ namespace QMC.CDT320
             if (!CanHandleJogAxis(axis))
                 return Task.FromResult(-1);
 
+            // 이동 중 반복 Continuous Jog 입력은 현재 이동을 유지하고 추가 알람을 만들지 않는다.
+            if (IsJogAxisMoving(axis))
+            {
+                VerifyJogSafetyWhileMoving(axis, direction);
+                return Task.FromResult(0);
+            }
+
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
             Direction dir = direction < 0 ? Direction.Minus : Direction.Plus;
 
@@ -1531,6 +1545,42 @@ namespace QMC.CDT320
                 return Task.FromResult(ManualMoveInputStageAxisJog(stageAxis, dir, speed));
 
             return Task.FromResult(0);
+        }
+
+        private static bool IsJogAxisMoving(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                axis.UpdateStatus();
+                return axis.IsMoving;
+            }
+            catch
+            {
+                return axis != null && axis.IsMoving;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void VerifyJogSafetyWhileMoving(BaseAxis axis, int direction)
+        {
+            try
+            {
+                if (axis == null)
+                    return;
+
+                SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(axis, direction);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         public Task<int> StopJogAsync(BaseAxis axis)
