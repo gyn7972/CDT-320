@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Calibration;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
@@ -3215,6 +3216,34 @@ namespace QMC.CDT320.Sequencing
                 return 0.0;
 
             stage.Recipe.EnsurePositionObjects();
+            try
+            {
+                CalibrationData data = Context != null &&
+                                       Context.Machine != null &&
+                                       Context.Machine.VisionUnit != null &&
+                                       Context.Machine.VisionUnit.Config != null
+                    ? Context.Machine.VisionUnit.Config.CalibrationData
+                    : null;
+                if (data != null)
+                {
+                    data.EnsureObjects();
+                    if (data.Needle != null &&
+                        data.Needle.NeedleZCalibrationValid)
+                    {
+                        WriteLog("PickerPickUpSequence",
+                            Name + " NeedleZ target uses NeedleCalibrationData.NeedlePinReadyPosition=" +
+                            data.Needle.NeedlePinReadyPosition.ToString("F6") + " - Check");
+                        return data.Needle.NeedlePinReadyPosition;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence",
+                    Name + " NeedleZ calibration target resolve failed, recipe fallback used. error=" +
+                    ex.Message + " - Check");
+            }
+
             return stage.Recipe.NeedleZ.ProcessPosition;
         }
 

@@ -21,9 +21,13 @@ namespace QMC.CDT320.Calibration
         [DataMember] public bool UseDiagonalXyTolerance { get; set; } = true;
         [DataMember] public double FineAlignMaxXyMoveMm { get; set; } = 0.2;
         [DataMember] public bool RunAutoFocusAfterTheta { get; set; } = true;
+        [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
 
         public void EnsureDefaults()
         {
+            if (Motion == null)
+                Motion = new CalibrationMotionSettings();
+            Motion.EnsureDefaults();
             BottomFinderName = NormalizeBottomFinderName(BottomFinderName);
             if (VisionTimeoutMs <= 0)
                 VisionTimeoutMs = 5000;

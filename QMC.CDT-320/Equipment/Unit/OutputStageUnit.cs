@@ -1048,6 +1048,77 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveStageAxisCommandWithMotion(
+            BinStageAxis axis,
+            double targetPos,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string targetName = null)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return 0;
+
+                BaseAxis item = ResolveStageAxis(axis);
+                if (IsAxisAtTarget(item, targetPos))
+                    return 0;
+
+                int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
+                    axis,
+                    targetPos,
+                    itemTimeoutMs: ResolveStageAxisMoveTimeout(axis),
+                    bFine: false,
+                    ct: CancellationToken.None).ConfigureAwait(false);
+                if (clearResult != 0)
+                    return clearResult;
+
+                EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE",
+                    axis + " calibration motion command. target=" + targetPos +
+                    ", velocity=" + velocity +
+                    ", acc=" + acceleration +
+                    ", dec=" + deceleration);
+
+                int result;
+                if (!string.IsNullOrWhiteSpace(targetName))
+                {
+                    // 캘리브레이션 이동도 기존 축 인터락/티칭 이동 컨텍스트를 그대로 탄다.
+                    using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, targetName))
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                            item,
+                            targetPos,
+                            velocity,
+                            acceleration,
+                            deceleration).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                        item,
+                        targetPos,
+                        velocity,
+                        acceleration,
+                        deceleration).ConfigureAwait(false);
+                }
+
+                if (result != 0 || item.IsAlarm)
+                    return RaiseOutputStageAlarm(
+                        "OS-MOVE",
+                        axis + " calibration motion command failed. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        FormatStageAxisLastMotionFailure(item));
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " calibration motion command exception. " + ex.Message);
+            }
+        }
+
         private static string FormatStageAxisLastMotionFailure(BaseAxis axis)
         {
             if (axis == null ||
@@ -1751,6 +1822,40 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> MoveVisionXToAvoidAndVerifyAsync(
+            int timeoutMs,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                Recipe.EnsurePositionObjects();
+                return await MoveStageAxisAndVerifyAsync(
+                    BinStageAxis.VisionX,
+                    Recipe.VisionX.AvoidPosition,
+                    timeoutMs,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    "OutputStageUnit.CalibrationVisionAvoid",
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-VISION-AVOID-EX", "OutputVisionX avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> EnsureStageMutualInterlockForLoadAsync(BinSide side, int timeoutMs, bool bFine = false)
         {
             return await EnsureStageMutualInterlockForLoadAsync(side, timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
@@ -2241,6 +2346,41 @@ namespace QMC.CDT320
                 return RaiseOutputStageAlarm(
                     AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
                     axis + " 조그 속도 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
+                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
+            return 0;
+        }
+
+        private async Task<int> MoveStageAxisAndVerifyAsync(
+            BinStageAxis axis,
+            double targetPos,
+            int timeoutMs,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string targetName,
+            CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (!HasStageAxis(axis))
+                return 0;
+
+            int result = await MoveStageAxisCommandWithMotion(
+                axis,
+                targetPos,
+                velocity,
+                acceleration,
+                deceleration,
+                targetName).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return RaiseOutputStageAlarm(
+                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
+                    axis + " calibration motion complete/in-position check failed. target=" + targetPos + ". " +
                     AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
 
             return 0;

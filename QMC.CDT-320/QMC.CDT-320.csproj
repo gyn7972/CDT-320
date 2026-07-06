@@ -364,6 +364,9 @@
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\NeedlePinCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\NeedleCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\PickerPickUpZCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\PickerPlaceZCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
@@ -724,6 +727,15 @@
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\NeedleCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PickUpZCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PlaceZCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.Designer.cs">

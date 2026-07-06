@@ -30,12 +30,14 @@ namespace QMC.CDT320.Sequencing.Calibration
         private static readonly Random SimVisionRandom = new Random();
 
         private readonly MachineSequenceContext _context;
-        private readonly bool _fineMove;
+        public NeedlePinCalibrationSequence(MachineSequenceContext context)
+            : this(context, false)
+        {
+        }
 
         public NeedlePinCalibrationSequence(MachineSequenceContext context, bool fineMove)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
-            _fineMove = fineMove;
             Result = new NeedlePinCalibrationResult();
         }
 
@@ -178,26 +180,49 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return Fail("OutputStageUnit is null.");
 
             machine.InputStageUnit.Recipe.EnsurePositionObjects();
+            ResolveMotionSettings();
             return 0;
+        }
+
+        private CalibrationMotionSettings ResolveMotionSettings()
+        {
+            CDT320_Machine machine = _context != null ? _context.Machine : null;
+            if (machine != null && machine.VisionUnit != null && machine.VisionUnit.Config != null)
+            {
+                machine.VisionUnit.Config.EnsureCalibrationObjects();
+                machine.VisionUnit.Config.CalibrationData.EnsureObjects();
+                machine.VisionUnit.Config.CalibrationData.Needle.EnsureObjects();
+                return machine.VisionUnit.Config.CalibrationData.Needle.Motion.Clone();
+            }
+
+            var motion = new CalibrationMotionSettings();
+            motion.EnsureDefaults();
+            return motion;
         }
 
         private async Task<int> MoveSharedRailAxesToAvoidAsync(CancellationToken ct)
         {
             CDT320_Machine machine = _context.Machine;
-            int timeout = ResolveTimeout();
+            CalibrationMotionSettings motion = ResolveMotionSettings();
+            int timeout = motion.MoveTimeoutMs;
 
             ct.ThrowIfCancellationRequested();
-            int result = await machine.OutputStageUnit.MoveVisionXToAvoidAndVerifyAsync(timeout, _fineMove, ct).ConfigureAwait(false);
+            int result = await machine.OutputStageUnit.MoveVisionXToAvoidAndVerifyAsync(
+                timeout,
+                motion.MoveVelocity,
+                motion.MoveAcceleration,
+                motion.MoveDeceleration,
+                ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OutputCameraX avoid move failed. result=" + result);
 
             ct.ThrowIfCancellationRequested();
-            result = await machine.PickerFrontUnit.MoveToFrontPickerAvoidPosition(_fineMove).ConfigureAwait(false);
+            result = await machine.PickerFrontUnit.MoveToFrontPickerAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
             if (result != 0)
                 return Fail("FrontPickerX avoid move failed. result=" + result);
 
             ct.ThrowIfCancellationRequested();
-            result = await machine.PickerRearUnit.MoveToRearPickerAvoidPosition(_fineMove).ConfigureAwait(false);
+            result = await machine.PickerRearUnit.MoveToRearPickerAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
             if (result != 0)
                 return Fail("RearPickerX avoid move failed. result=" + result);
 
@@ -231,10 +256,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             if (result != 0) return result;
 
             ct.ThrowIfCancellationRequested();
+            CalibrationMotionSettings motion = ResolveMotionSettings();
             result = await stage.MoveNeedleWorkPointSafelyAsync(
                 stage.Recipe.NeedleX.NeedlePinCalPosition,
                 stage.Recipe.WaferY.ProcessPosition,
-                _fineMove,
+                motion.MoveVelocity,
+                motion.MoveAcceleration,
+                motion.MoveDeceleration,
+                motion.MoveTimeoutMs,
                 "NeedlePinCalibrationSequence.MoveNeedlePinCalPositionAsync").ConfigureAwait(false);
             if (result != 0) return result;
 
@@ -247,11 +276,17 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveStageAxisAsync(InputStageUnit stage, WaferStageAxis axis, double target, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            int result = await stage.MoveInputStageAxis(axis, target, _fineMove).ConfigureAwait(false);
+            CalibrationMotionSettings motion = ResolveMotionSettings();
+            int result = await stage.MoveInputStageAxisCommandWithMotion(
+                axis,
+                target,
+                motion.MoveVelocity,
+                motion.MoveAcceleration,
+                motion.MoveDeceleration).ConfigureAwait(false);
             if (result != 0)
                 return Fail(axis + " move failed. target=" + target.ToString("F6") + ", result=" + result);
 
-            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+            AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, motion.MoveTimeoutMs, ct).ConfigureAwait(false);
             if (waitResult == null || !waitResult.Success)
             {
                 if (IsStageAxisAtTarget(stage, axis, target))
@@ -442,14 +477,6 @@ namespace QMC.CDT320.Sequencing.Calibration
             Result.NeedleXToVisionXOffset = needleXToVisionX;
             Result.NeedleYToVisionYOffset = needleYToVisionY;
             _context.Machine.SaveSettings();
-        }
-
-        private int ResolveTimeout()
-        {
-            InputStageUnit stage = _context.Machine != null ? _context.Machine.InputStageUnit : null;
-            if (stage != null && stage.Setup != null && stage.Setup.NeedlePinCalVisionTimeoutMs > 0)
-                return stage.Setup.NeedlePinCalVisionTimeoutMs;
-            return 5000;
         }
 
         private int Fail(string message)

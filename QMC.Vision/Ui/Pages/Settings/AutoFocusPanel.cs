@@ -554,14 +554,34 @@ namespace QMC.Vision.Ui.Pages
             byte[] data = Encoding.UTF8.GetBytes(line + "\n");
             ns.Write(data, 0, data.Length);
             ns.ReadTimeout = timeoutMs;
-            var sb = new StringBuilder();
-            int b;
-            while ((b = ns.ReadByte()) != -1)
+            // 실제 핸들러↔비전 경로(TcpLoopbackVisionCommandDispatcher.ReadAckLine)와 동일하게
+            // EPD/ARM/XYT/RECIPEREQ 등 비동기 푸시 라인은 건너뛰고 ACK/ERR 응답만 반환한다.
+            while (true)
             {
-                if (b == '\n') break;
-                if (b != '\r') sb.Append((char)b);
+                var sb = new StringBuilder();
+                int b;
+                while ((b = ns.ReadByte()) != -1)
+                {
+                    if (b == '\n') break;
+                    if (b != '\r') sb.Append((char)b);
+                }
+                if (b == -1 && sb.Length == 0)
+                    throw new System.IO.IOException("connection closed");
+                string resp = sb.ToString();
+                if (resp.Length == 0) continue;   // 빈 줄 스킵
+                if (IsAsyncPush(resp)) continue;  // 푸시는 무시하고 다음 라인 대기
+                return resp;                      // 실제 ACK/ERR 응답
             }
-            return sb.ToString();
+        }
+
+        /// <summary>헤더가 ACK/ERR 가 아니면 비동기 푸시(EPD/ARM/XYT/RECIPEREQ 등)로 간주.</summary>
+        private static bool IsAsyncPush(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return false;
+            int bar = line.IndexOf('|');
+            string header = bar >= 0 ? line.Substring(0, bar) : line;
+            return !header.Equals("ACK", StringComparison.OrdinalIgnoreCase)
+                && !header.Equals("ERR", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

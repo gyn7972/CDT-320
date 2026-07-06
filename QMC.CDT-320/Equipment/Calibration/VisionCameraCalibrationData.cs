@@ -138,6 +138,7 @@ namespace QMC.CDT320.Calibration
         [DataMember] public VisionCameraPixelCalibration OutputCamera { get; set; } = new VisionCameraPixelCalibration();
         [DataMember] public VisionCameraPixelCalibration FrontSideCamera { get; set; } = new VisionCameraPixelCalibration();
         [DataMember] public VisionCameraPixelCalibration RearSideCamera { get; set; } = new VisionCameraPixelCalibration();
+        [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
         [DataMember] public string UpdatedBy { get; set; }
@@ -162,6 +163,8 @@ namespace QMC.CDT320.Calibration
             if (OutputCamera == null) OutputCamera = new VisionCameraPixelCalibration();
             if (FrontSideCamera == null) FrontSideCamera = new VisionCameraPixelCalibration();
             if (RearSideCamera == null) RearSideCamera = new VisionCameraPixelCalibration();
+            if (Motion == null) Motion = new CalibrationMotionSettings();
+            Motion.EnsureDefaults();
             BottomCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
             InputCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);
             OutputCamera.EnsureDefaults(ImageCenterPixelX, ImageCenterPixelY, PixelToMmX, PixelToMmY);

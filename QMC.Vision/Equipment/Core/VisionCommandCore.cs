@@ -528,7 +528,8 @@ namespace QMC.Vision.Core
             //
             // 직전 샘플의 전송/카피가 아직 진행 중이면 완료를 기다린다(카메라 단발 그랩 직렬화 —
             // 핸들러 이동+정착 시간이면 보통 끝나 있어 실질 대기 0).
-            WaitLastFocusGrab(m.Name, 5000);
+            //WaitLastFocusGrab(m.Name, 5000);
+            WaitLastFocusGrab(m.Name, 0);
 
             var expEvt = new System.Threading.ManualResetEventSlim(false);
             Action<string> onExp = _n => { try { expEvt.Set(); } catch { } };

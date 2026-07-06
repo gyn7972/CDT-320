@@ -14,6 +14,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private CalibrationSetupDialog _colletZHeightDialog;
         private VisionFocusCalibrationDialog _visionFocusDialog;
         private CalibrationSetupDialog _colletRotationCenterDialog;
+        private PickUpZCalibrationDialog _pickUpZDialog;
+        private PlaceZCalibrationDialog _placeZDialog;
+        private NeedleCalibrationDialog _needleZDialog;
 
         public CalibrationPage()
         {
@@ -65,6 +68,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnColletZHeightCal.Click += btnColletZHeightCal_Click;
                 btnVisionFocusCal.Click += btnVisionFocusCal_Click;
                 btnColletRotationCenterCal.Click += btnColletRotationCenterCal_Click;
+                btnPickUpZCal.Click += btnPickUpZCal_Click;
+                btnPlaceZCal.Click += btnPlaceZCal_Click;
+                btnNeedleZCal.Click += btnNeedleZCal_Click;
             }
             catch (Exception ex)
             {
@@ -189,6 +195,87 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "COLLET ROTATION CENTER CAL",
                 "Bottom 카메라에서 콜렛 회전 각도별 위치를 측정해 회전 중심과 보정 오프셋을 계산하는 캘리브레이션입니다.",
                 "저장 제안: 콜렛별 회전 중심 보정값은 Config에 저장합니다.");
+        }
+
+        private void btnPickUpZCal_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (_pickUpZDialog == null || _pickUpZDialog.IsDisposed)
+                {
+                    _pickUpZDialog = PickUpZCalibrationDialog.Open(host);
+                    _pickUpZDialog.StartPosition = FormStartPosition.Manual;
+                    _pickUpZDialog.Location = ResolveDialogLocation(_pickUpZDialog);
+                    lblStatus.Text = "PICKUP Z CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, _pickUpZDialog);
+                lblStatus.Text = "PICKUP Z CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PICKUP-Z-CAL-OPEN", "PICKUP Z CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "PICKUP Z CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnPlaceZCal_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (_placeZDialog == null || _placeZDialog.IsDisposed)
+                {
+                    _placeZDialog = PlaceZCalibrationDialog.Open(host);
+                    _placeZDialog.StartPosition = FormStartPosition.Manual;
+                    _placeZDialog.Location = ResolveDialogLocation(_placeZDialog);
+                    lblStatus.Text = "PLACE Z CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, _placeZDialog);
+                lblStatus.Text = "PLACE Z CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PLACE-Z-CAL-OPEN", "PLACE Z CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "PLACE Z CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnNeedleZCal_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Form host = FindForm();
+                if (_needleZDialog == null || _needleZDialog.IsDisposed)
+                {
+                    _needleZDialog = NeedleCalibrationDialog.Open(host);
+                    _needleZDialog.StartPosition = FormStartPosition.Manual;
+                    _needleZDialog.Location = ResolveDialogLocation(_needleZDialog);
+                    lblStatus.Text = "NEEDLE Z CAL 설정창을 열었습니다.";
+                    return;
+                }
+
+                ActivateDialog(host, _needleZDialog);
+                lblStatus.Text = "NEEDLE Z CAL 설정창이 이미 열려 있습니다.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NEEDLE-Z-CAL-OPEN", "NEEDLE Z CAL 설정창 열기 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "NEEDLE Z CAL 설정창 열기 실패:\r\n" + ex.Message, "Calibration", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private void ShowDialogOnce(ref NeedlePinCalibrationDialog dialog, string title, string purpose, string storageGuide)
