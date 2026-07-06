@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -54,28 +54,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.SuspendLayout();
             this.grpPickPlace.SuspendLayout();
             this.tlpPickPlace.SuspendLayout();
-            this.grpCollet.SuspendLayout();
-            this.tlpCollet.SuspendLayout();
-            this.grpInspection.SuspendLayout();
-            this.tlpInspection.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._nPickRetry)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPickDelay)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPlaceDelay)).BeginInit();
+            this.grpCollet.SuspendLayout();
+            this.tlpCollet.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._nColletInterval)).BeginInit();
+            this.grpInspection.SuspendLayout();
+            this.tlpInspection.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // _editorPanel
-            //
+            // 
             this._editorPanel.BackColor = System.Drawing.Color.White;
             this._editorPanel.Controls.Add(this.editorLayout);
             this._editorPanel.Size = new System.Drawing.Size(1094, 676);
-            //
+            // 
             // _lblProject
-            //
+            // 
             this._lblProject.Size = new System.Drawing.Size(794, 36);
-            //
-            // editorLayout  (좌측 50%만 사용, 그룹박스 세로 배치 + 균등 여백)
-            //
+            // 
+            // editorLayout
+            // 
             this.editorLayout.BackColor = System.Drawing.Color.White;
             this.editorLayout.ColumnCount = 2;
             this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -87,7 +87,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.Location = new System.Drawing.Point(8, 12);
             this.editorLayout.Margin = new System.Windows.Forms.Padding(0);
             this.editorLayout.Name = "editorLayout";
-            this.editorLayout.Padding = new System.Windows.Forms.Padding(0);
             this.editorLayout.RowCount = 5;
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 140F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -96,22 +95,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 106F));
             this.editorLayout.Size = new System.Drawing.Size(1078, 656);
             this.editorLayout.TabIndex = 0;
-            //
+            // 
             // grpPickPlace
-            //
+            // 
             this.grpPickPlace.BackColor = System.Drawing.Color.White;
             this.grpPickPlace.Controls.Add(this.tlpPickPlace);
             this.grpPickPlace.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPickPlace.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpPickPlace.Location = new System.Drawing.Point(0, 0);
             this.grpPickPlace.Margin = new System.Windows.Forms.Padding(0);
             this.grpPickPlace.Name = "grpPickPlace";
             this.grpPickPlace.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
+            this.grpPickPlace.Size = new System.Drawing.Size(539, 140);
             this.grpPickPlace.TabIndex = 0;
             this.grpPickPlace.TabStop = false;
             this.grpPickPlace.Text = "Pick / place parameters";
-            //
+            // 
             // tlpPickPlace
-            //
+            // 
             this.tlpPickPlace.BackColor = System.Drawing.Color.White;
             this.tlpPickPlace.ColumnCount = 2;
             this.tlpPickPlace.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
@@ -123,6 +124,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpPickPlace.Controls.Add(this.lblPlaceDelay, 0, 2);
             this.tlpPickPlace.Controls.Add(this._nPlaceDelay, 1, 2);
             this.tlpPickPlace.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpPickPlace.Location = new System.Drawing.Point(6, 20);
             this.tlpPickPlace.Margin = new System.Windows.Forms.Padding(0);
             this.tlpPickPlace.Name = "tlpPickPlace";
             this.tlpPickPlace.RowCount = 4;
@@ -130,21 +132,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpPickPlace.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpPickPlace.Size = new System.Drawing.Size(527, 114);
             this.tlpPickPlace.TabIndex = 0;
-            //
+            // 
             // lblPickRetry
-            //
+            // 
             this.lblPickRetry.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickRetry.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPickRetry.Location = new System.Drawing.Point(3, 0);
             this.lblPickRetry.Name = "lblPickRetry";
+            this.lblPickRetry.Size = new System.Drawing.Size(214, 34);
             this.lblPickRetry.TabIndex = 1;
             this.lblPickRetry.Text = "Pick retry count";
             this.lblPickRetry.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nPickRetry
-            //
+            // 
             this._nPickRetry.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nPickRetry.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nPickRetry.Location = new System.Drawing.Point(223, 5);
             this._nPickRetry.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nPickRetry.Maximum = new decimal(new int[] {
             10,
@@ -157,26 +163,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickRetry.Name = "_nPickRetry";
+            this._nPickRetry.Size = new System.Drawing.Size(301, 23);
             this._nPickRetry.TabIndex = 2;
             this._nPickRetry.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // lblPickDelay
-            //
+            // 
             this.lblPickDelay.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickDelay.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPickDelay.Location = new System.Drawing.Point(3, 34);
             this.lblPickDelay.Name = "lblPickDelay";
+            this.lblPickDelay.Size = new System.Drawing.Size(214, 34);
             this.lblPickDelay.TabIndex = 3;
             this.lblPickDelay.Text = "Pick delay (ms)";
             this.lblPickDelay.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nPickDelay
-            //
+            // 
             this._nPickDelay.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nPickDelay.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nPickDelay.Location = new System.Drawing.Point(223, 39);
             this._nPickDelay.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nPickDelay.Maximum = new decimal(new int[] {
             1000,
@@ -184,21 +194,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickDelay.Name = "_nPickDelay";
+            this._nPickDelay.Size = new System.Drawing.Size(301, 23);
             this._nPickDelay.TabIndex = 4;
-            //
+            // 
             // lblPlaceDelay
-            //
+            // 
             this.lblPlaceDelay.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPlaceDelay.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPlaceDelay.Location = new System.Drawing.Point(3, 68);
             this.lblPlaceDelay.Name = "lblPlaceDelay";
+            this.lblPlaceDelay.Size = new System.Drawing.Size(214, 34);
             this.lblPlaceDelay.TabIndex = 5;
             this.lblPlaceDelay.Text = "Place delay (ms)";
             this.lblPlaceDelay.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nPlaceDelay
-            //
+            // 
             this._nPlaceDelay.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nPlaceDelay.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nPlaceDelay.Location = new System.Drawing.Point(223, 73);
             this._nPlaceDelay.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nPlaceDelay.Maximum = new decimal(new int[] {
             1000,
@@ -206,23 +220,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPlaceDelay.Name = "_nPlaceDelay";
+            this._nPlaceDelay.Size = new System.Drawing.Size(301, 23);
             this._nPlaceDelay.TabIndex = 6;
-            //
+            // 
             // grpCollet
-            //
+            // 
             this.grpCollet.BackColor = System.Drawing.Color.White;
             this.grpCollet.Controls.Add(this.tlpCollet);
             this.grpCollet.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCollet.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpCollet.Location = new System.Drawing.Point(0, 292);
             this.grpCollet.Margin = new System.Windows.Forms.Padding(0);
             this.grpCollet.Name = "grpCollet";
             this.grpCollet.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
+            this.grpCollet.Size = new System.Drawing.Size(539, 106);
             this.grpCollet.TabIndex = 1;
             this.grpCollet.TabStop = false;
             this.grpCollet.Text = "Collet cleaning";
-            //
+            // 
             // tlpCollet
-            //
+            // 
             this.tlpCollet.BackColor = System.Drawing.Color.White;
             this.tlpCollet.ColumnCount = 2;
             this.tlpCollet.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
@@ -232,44 +249,53 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpCollet.Controls.Add(this.lblColletInterval, 0, 1);
             this.tlpCollet.Controls.Add(this._nColletInterval, 1, 1);
             this.tlpCollet.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpCollet.Location = new System.Drawing.Point(6, 20);
             this.tlpCollet.Margin = new System.Windows.Forms.Padding(0);
             this.tlpCollet.Name = "tlpCollet";
             this.tlpCollet.RowCount = 3;
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpCollet.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpCollet.Size = new System.Drawing.Size(527, 80);
             this.tlpCollet.TabIndex = 0;
-            //
+            // 
             // lblColletEnable
-            //
+            // 
             this.lblColletEnable.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblColletEnable.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletEnable.Location = new System.Drawing.Point(3, 0);
             this.lblColletEnable.Name = "lblColletEnable";
+            this.lblColletEnable.Size = new System.Drawing.Size(214, 34);
             this.lblColletEnable.TabIndex = 8;
             this.lblColletEnable.Text = "Collet cleaning";
             this.lblColletEnable.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbColletEnable
-            //
+            // 
             this._cbColletEnable.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbColletEnable.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbColletEnable.Location = new System.Drawing.Point(223, 3);
             this._cbColletEnable.Name = "_cbColletEnable";
+            this._cbColletEnable.Size = new System.Drawing.Size(301, 28);
             this._cbColletEnable.TabIndex = 9;
             this._cbColletEnable.Text = "Collet cleaning enable";
-            //
+            // 
             // lblColletInterval
-            //
+            // 
             this.lblColletInterval.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblColletInterval.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblColletInterval.Location = new System.Drawing.Point(3, 34);
             this.lblColletInterval.Name = "lblColletInterval";
+            this.lblColletInterval.Size = new System.Drawing.Size(214, 34);
             this.lblColletInterval.TabIndex = 10;
             this.lblColletInterval.Text = "Cleaning interval";
             this.lblColletInterval.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _nColletInterval
-            //
+            // 
             this._nColletInterval.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nColletInterval.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nColletInterval.Location = new System.Drawing.Point(223, 39);
             this._nColletInterval.Margin = new System.Windows.Forms.Padding(3, 5, 3, 4);
             this._nColletInterval.Maximum = new decimal(new int[] {
             10000,
@@ -282,28 +308,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nColletInterval.Name = "_nColletInterval";
+            this._nColletInterval.Size = new System.Drawing.Size(301, 23);
             this._nColletInterval.TabIndex = 11;
             this._nColletInterval.Value = new decimal(new int[] {
             1,
             0,
             0,
             0});
-            //
+            // 
             // grpInspection
-            //
+            // 
             this.grpInspection.BackColor = System.Drawing.Color.White;
             this.grpInspection.Controls.Add(this.tlpInspection);
             this.grpInspection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInspection.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpInspection.Location = new System.Drawing.Point(0, 550);
             this.grpInspection.Margin = new System.Windows.Forms.Padding(0);
             this.grpInspection.Name = "grpInspection";
             this.grpInspection.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
+            this.grpInspection.Size = new System.Drawing.Size(539, 106);
             this.grpInspection.TabIndex = 2;
             this.grpInspection.TabStop = false;
             this.grpInspection.Text = "Inspection enable";
-            //
+            // 
             // tlpInspection
-            //
+            // 
             this.tlpInspection.BackColor = System.Drawing.Color.White;
             this.tlpInspection.ColumnCount = 2;
             this.tlpInspection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
@@ -313,50 +342,60 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpInspection.Controls.Add(this.lblPlacementInspection, 0, 1);
             this.tlpInspection.Controls.Add(this._cbPlacementInspect, 1, 1);
             this.tlpInspection.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tlpInspection.Location = new System.Drawing.Point(6, 20);
             this.tlpInspection.Margin = new System.Windows.Forms.Padding(0);
             this.tlpInspection.Name = "tlpInspection";
             this.tlpInspection.RowCount = 3;
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpInspection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.tlpInspection.Size = new System.Drawing.Size(527, 80);
             this.tlpInspection.TabIndex = 0;
-            //
+            // 
             // lblBottomInspection
-            //
+            // 
             this.lblBottomInspection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBottomInspection.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblBottomInspection.Location = new System.Drawing.Point(3, 0);
             this.lblBottomInspection.Name = "lblBottomInspection";
+            this.lblBottomInspection.Size = new System.Drawing.Size(214, 34);
             this.lblBottomInspection.TabIndex = 13;
             this.lblBottomInspection.Text = "Bottom inspection";
             this.lblBottomInspection.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbBottomInspect
-            //
+            // 
             this._cbBottomInspect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbBottomInspect.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbBottomInspect.Location = new System.Drawing.Point(223, 3);
             this._cbBottomInspect.Name = "_cbBottomInspect";
+            this._cbBottomInspect.Size = new System.Drawing.Size(301, 28);
             this._cbBottomInspect.TabIndex = 14;
             this._cbBottomInspect.Text = "Bottom vision inspection";
-            //
+            // 
             // lblPlacementInspection
-            //
+            // 
             this.lblPlacementInspection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPlacementInspection.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblPlacementInspection.Location = new System.Drawing.Point(3, 34);
             this.lblPlacementInspection.Name = "lblPlacementInspection";
+            this.lblPlacementInspection.Size = new System.Drawing.Size(214, 34);
             this.lblPlacementInspection.TabIndex = 15;
             this.lblPlacementInspection.Text = "Placement inspection";
             this.lblPlacementInspection.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbPlacementInspect
-            //
+            // 
             this._cbPlacementInspect.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPlacementInspect.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._cbPlacementInspect.Location = new System.Drawing.Point(223, 37);
             this._cbPlacementInspect.Name = "_cbPlacementInspect";
+            this._cbPlacementInspect.Size = new System.Drawing.Size(301, 28);
             this._cbPlacementInspect.TabIndex = 16;
             this._cbPlacementInspect.Text = "Placement bin inspection";
-            //
+            // 
             // ModuleSubsetPage
-            //
+            // 
             this.Name = "ModuleSubsetPage";
             this.Size = new System.Drawing.Size(1094, 742);
             this.Controls.SetChildIndex(this._editorPanel, 0);
@@ -364,14 +403,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.ResumeLayout(false);
             this.grpPickPlace.ResumeLayout(false);
             this.tlpPickPlace.ResumeLayout(false);
-            this.grpCollet.ResumeLayout(false);
-            this.tlpCollet.ResumeLayout(false);
-            this.grpInspection.ResumeLayout(false);
-            this.tlpInspection.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._nPickRetry)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPickDelay)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._nPlaceDelay)).EndInit();
+            this.grpCollet.ResumeLayout(false);
+            this.tlpCollet.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._nColletInterval)).EndInit();
+            this.grpInspection.ResumeLayout(false);
+            this.tlpInspection.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

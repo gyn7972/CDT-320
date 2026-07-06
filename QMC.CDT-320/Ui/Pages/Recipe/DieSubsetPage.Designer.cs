@@ -117,7 +117,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.dieEditorLayout.Location = new System.Drawing.Point(8, 12);
             this.dieEditorLayout.Margin = new System.Windows.Forms.Padding(0);
             this.dieEditorLayout.Name = "dieEditorLayout";
-            this.dieEditorLayout.Padding = new System.Windows.Forms.Padding(0);
             this.dieEditorLayout.RowCount = 5;
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 200F));
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -133,11 +132,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpDieSpec.Controls.Add(this.tlpDie);
             this.grpDieSpec.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpDieSpec.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpDieSpec.Location = new System.Drawing.Point(10, 10);
+            this.grpDieSpec.Location = new System.Drawing.Point(0, 0);
             this.grpDieSpec.Margin = new System.Windows.Forms.Padding(0);
             this.grpDieSpec.Name = "grpDieSpec";
             this.grpDieSpec.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
-            this.grpDieSpec.Size = new System.Drawing.Size(529, 206);
+            this.grpDieSpec.Size = new System.Drawing.Size(539, 200);
             this.grpDieSpec.TabIndex = 0;
             this.grpDieSpec.TabStop = false;
             this.grpDieSpec.Text = "Die specification";
@@ -172,7 +171,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpDie.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpDie.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpDie.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.tlpDie.Size = new System.Drawing.Size(517, 180);
+            this.tlpDie.Size = new System.Drawing.Size(527, 174);
             this.tlpDie.TabIndex = 0;
             // 
             // lblSpecLibrary
@@ -194,7 +193,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._cbSpecLibrary.FormattingEnabled = true;
             this._cbSpecLibrary.Location = new System.Drawing.Point(223, 3);
             this._cbSpecLibrary.Name = "_cbSpecLibrary";
-            this._cbSpecLibrary.Size = new System.Drawing.Size(51, 25);
+            this._cbSpecLibrary.Size = new System.Drawing.Size(61, 25);
             this._cbSpecLibrary.TabIndex = 26;
             // 
             // btnLoadSpec
@@ -203,21 +202,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnLoadSpec.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadSpec.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnLoadSpec.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(205)))), ((int)(((byte)(212)))));
-            this.btnLoadSpec.FlatAppearance.BorderSize = 1;
             this.btnLoadSpec.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(225)))), ((int)(((byte)(230)))), ((int)(((byte)(236)))));
             this.btnLoadSpec.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(244)))), ((int)(((byte)(248)))));
             this.btnLoadSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLoadSpec.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
             this.btnLoadSpec.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(55)))), ((int)(((byte)(65)))), ((int)(((byte)(80)))));
+            this.btnLoadSpec.Location = new System.Drawing.Point(290, 3);
             this.btnLoadSpec.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this.btnLoadSpec.Name = "btnLoadSpec";
+            this.btnLoadSpec.Size = new System.Drawing.Size(114, 26);
             this.btnLoadSpec.TabIndex = 27;
             this.btnLoadSpec.Text = "LOAD SPEC";
             this.btnLoadSpec.UseVisualStyleBackColor = false;
             this.btnLoadSpec.Click += new System.EventHandler(this.btnLoadSpec_Click);
-            //
+            // 
             // btnSaveSpec
-            //
+            // 
             this.btnSaveSpec.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(88)))), ((int)(((byte)(31)))));
             this.btnSaveSpec.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSaveSpec.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -227,8 +227,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSaveSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSaveSpec.Font = new System.Drawing.Font("맑은 고딕", 9.75F, System.Drawing.FontStyle.Bold);
             this.btnSaveSpec.ForeColor = System.Drawing.Color.White;
+            this.btnSaveSpec.Location = new System.Drawing.Point(410, 3);
             this.btnSaveSpec.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this.btnSaveSpec.Name = "btnSaveSpec";
+            this.btnSaveSpec.Size = new System.Drawing.Size(114, 26);
             this.btnSaveSpec.TabIndex = 28;
             this.btnSaveSpec.Text = "SAVE SPEC";
             this.btnSaveSpec.UseVisualStyleBackColor = false;
@@ -253,7 +255,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._tbName.Location = new System.Drawing.Point(223, 36);
             this._tbName.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this._tbName.Name = "_tbName";
-            this._tbName.Size = new System.Drawing.Size(291, 23);
+            this._tbName.Size = new System.Drawing.Size(301, 23);
             this._tbName.TabIndex = 2;
             // 
             // lblWidth
@@ -285,7 +287,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nW.Name = "_nW";
-            this._nW.Size = new System.Drawing.Size(291, 23);
+            this._nW.Size = new System.Drawing.Size(301, 23);
             this._nW.TabIndex = 4;
             this._nW.Value = new decimal(new int[] {
             1,
@@ -322,7 +324,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nH.Name = "_nH";
-            this._nH.Size = new System.Drawing.Size(291, 23);
+            this._nH.Size = new System.Drawing.Size(301, 23);
             this._nH.TabIndex = 6;
             this._nH.Value = new decimal(new int[] {
             1,
@@ -336,7 +338,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblThickness.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblThickness.Location = new System.Drawing.Point(3, 135);
             this.lblThickness.Name = "lblThickness";
-            this.lblThickness.Size = new System.Drawing.Size(214, 45);
+            this.lblThickness.Size = new System.Drawing.Size(214, 39);
             this.lblThickness.TabIndex = 7;
             this.lblThickness.Text = "Thickness (mm)";
             this.lblThickness.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -359,7 +361,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nT.Name = "_nT";
-            this._nT.Size = new System.Drawing.Size(291, 23);
+            this._nT.Size = new System.Drawing.Size(301, 23);
             this._nT.TabIndex = 8;
             this._nT.Value = new decimal(new int[] {
             1,
@@ -373,11 +375,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpTolerance.Controls.Add(this.tlpTol);
             this.grpTolerance.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpTolerance.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpTolerance.Location = new System.Drawing.Point(10, 224);
+            this.grpTolerance.Location = new System.Drawing.Point(0, 278);
             this.grpTolerance.Margin = new System.Windows.Forms.Padding(0);
             this.grpTolerance.Name = "grpTolerance";
             this.grpTolerance.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
-            this.grpTolerance.Size = new System.Drawing.Size(529, 164);
+            this.grpTolerance.Size = new System.Drawing.Size(539, 167);
             this.grpTolerance.TabIndex = 1;
             this.grpTolerance.TabStop = false;
             this.grpTolerance.Text = "Tolerances (mm)";
@@ -405,7 +407,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpTol.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpTol.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpTol.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.tlpTol.Size = new System.Drawing.Size(517, 138);
+            this.tlpTol.Size = new System.Drawing.Size(527, 141);
             this.tlpTol.TabIndex = 0;
             // 
             // lblWidthLower
@@ -436,7 +438,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             -2147483648});
             this._nWLow.Name = "_nWLow";
-            this._nWLow.Size = new System.Drawing.Size(291, 23);
+            this._nWLow.Size = new System.Drawing.Size(301, 23);
             this._nWLow.TabIndex = 11;
             // 
             // lblWidthUpper
@@ -462,7 +464,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nWUp.Name = "_nWUp";
-            this._nWUp.Size = new System.Drawing.Size(291, 23);
+            this._nWUp.Size = new System.Drawing.Size(301, 23);
             this._nWUp.TabIndex = 13;
             // 
             // lblHeightLower
@@ -493,7 +495,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             -2147483648});
             this._nHLow.Name = "_nHLow";
-            this._nHLow.Size = new System.Drawing.Size(291, 23);
+            this._nHLow.Size = new System.Drawing.Size(301, 23);
             this._nHLow.TabIndex = 15;
             // 
             // lblHeightUpper
@@ -502,7 +504,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblHeightUpper.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblHeightUpper.Location = new System.Drawing.Point(3, 102);
             this.lblHeightUpper.Name = "lblHeightUpper";
-            this.lblHeightUpper.Size = new System.Drawing.Size(214, 36);
+            this.lblHeightUpper.Size = new System.Drawing.Size(214, 39);
             this.lblHeightUpper.TabIndex = 16;
             this.lblHeightUpper.Text = "Height upper";
             this.lblHeightUpper.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -519,7 +521,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nHUp.Name = "_nHUp";
-            this._nHUp.Size = new System.Drawing.Size(291, 23);
+            this._nHUp.Size = new System.Drawing.Size(301, 23);
             this._nHUp.TabIndex = 17;
             // 
             // grpVision
@@ -528,11 +530,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Controls.Add(this.tlpVis);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpVision.Location = new System.Drawing.Point(10, 396);
+            this.grpVision.Location = new System.Drawing.Point(0, 523);
             this.grpVision.Margin = new System.Windows.Forms.Padding(0);
             this.grpVision.Name = "grpVision";
             this.grpVision.Padding = new System.Windows.Forms.Padding(6, 2, 6, 6);
-            this.grpVision.Size = new System.Drawing.Size(529, 140);
+            this.grpVision.Size = new System.Drawing.Size(539, 133);
             this.grpVision.TabIndex = 2;
             this.grpVision.TabStop = false;
             this.grpVision.Text = "Vision inspection thresholds (mm)";
@@ -557,7 +559,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tlpVis.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpVis.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.tlpVis.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.tlpVis.Size = new System.Drawing.Size(517, 114);
+            this.tlpVis.Size = new System.Drawing.Size(527, 107);
             this.tlpVis.TabIndex = 0;
             // 
             // lblChippingDepth
@@ -583,7 +585,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nChipDepth.Name = "_nChipDepth";
-            this._nChipDepth.Size = new System.Drawing.Size(291, 23);
+            this._nChipDepth.Size = new System.Drawing.Size(301, 23);
             this._nChipDepth.TabIndex = 20;
             // 
             // lblChippingLength
@@ -609,7 +611,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nChipLen.Name = "_nChipLen";
-            this._nChipLen.Size = new System.Drawing.Size(291, 23);
+            this._nChipLen.Size = new System.Drawing.Size(301, 23);
             this._nChipLen.TabIndex = 22;
             // 
             // lblForeignSize
@@ -618,7 +620,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblForeignSize.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblForeignSize.Location = new System.Drawing.Point(3, 68);
             this.lblForeignSize.Name = "lblForeignSize";
-            this.lblForeignSize.Size = new System.Drawing.Size(214, 46);
+            this.lblForeignSize.Size = new System.Drawing.Size(214, 39);
             this.lblForeignSize.TabIndex = 23;
             this.lblForeignSize.Text = "Foreign size max";
             this.lblForeignSize.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -635,7 +637,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nForeign.Name = "_nForeign";
-            this._nForeign.Size = new System.Drawing.Size(291, 23);
+            this._nForeign.Size = new System.Drawing.Size(301, 23);
             this._nForeign.TabIndex = 24;
             // 
             // DieSubsetPage
