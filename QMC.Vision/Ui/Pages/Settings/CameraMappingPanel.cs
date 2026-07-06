@@ -167,6 +167,8 @@ namespace QMC.Vision.Ui.Pages
                     () => m.RoiWidth, v => m.RoiWidth = v), 0, 8000),
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiH"), "px", ParameterGridScope.Recipe,
                     () => m.RoiHeight, v => m.RoiHeight = v), 0, 8000),
+                // 카메라 실제 현재값(노출/게인/FPS/픽셀) 읽어오기 — Hik/MIL 공통(장치 readback 우선).
+                ParameterGridItem.Action("카메라 현재값 읽기(노출/게인/FPS/픽셀)", "읽기", ParameterGridScope.Config, ReadCameraIntoBuffer),
             };
             // 코어 카메라 파라미터(노출/게인/트리거/픽셀/ROI)만 이 그리드에 둔다.
             // MVS 확장 파라미터는 그룹별 접이식 그리드(_imgGrid/_acqGrid/_ioGrid)로 분리.
@@ -260,7 +262,70 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Action("DCF 불러오기(표준 폴더로 복사 후 지정)", "불러오기", ParameterGridScope.Config, LoadDcfFromFile),
                 ParameterGridItem.Action("DCF 저장하기(현재 파일 백업 복사)", "저장하기", ParameterGridScope.Config, SaveDcfBackup),
                 ParameterGridItem.Action("DCF 적용(카메라 재오픈)", "적용", ParameterGridScope.Config, ApplyDcfReopen),
+                // DCF 는 평문 feature 항목(FLOAT_ExposureTime "5000" 등)이라 값 읽기/치환이 가능하다(MilDcfFile).
+                ParameterGridItem.Action("DCF 값 읽기(노출/게인/FPS/픽셀 → 설정 반영)", "값읽기", ParameterGridScope.Config, LoadDcfIntoBuffer),
+                ParameterGridItem.Action("카메라 현재값 → DCF 기록(백업 자동)", "DCF기록", ParameterGridScope.Config, SaveCameraToDcf),
             };
+        }
+
+        /// <summary>[DCF 값 읽기] — DCF(Camera Configuration)의 노출/게인/FPS/픽셀포맷을 설정 그리드에
+        /// 반영한다(카메라 연결 불필요, 파일 파싱). [저장]으로 영속.</summary>
+        private void LoadDcfIntoBuffer()
+        {
+            try
+            {
+                var m = CurrentMapping();
+                if (m == null) return;
+                string path = VisionConfigStore.Current?.MilDcfPath;
+                var f = QMC.Vision.Cameras.Mil.MilDcfFile.ReadFeatures(path);
+                if (f.Count == 0)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 에서 읽을 항목이 없습니다 — 경로 확인: " + (string.IsNullOrEmpty(path) ? "(비어있음)" : path); return; }
+                int n = 0;
+                if (f.TryGetValue("ExposureTime", out var ex1) && double.TryParse(ex1, NumberStyles.Any, CultureInfo.InvariantCulture, out var exd) && exd > 0) { m.ExposureUs = exd; n++; }
+                if (f.TryGetValue("Gain", out var g1) && double.TryParse(g1, NumberStyles.Any, CultureInfo.InvariantCulture, out var gd)) { m.Gain = gd; n++; }
+                if (f.TryGetValue("AcquisitionFrameRate", out var fr1) && double.TryParse(fr1, NumberStyles.Any, CultureInfo.InvariantCulture, out var frd) && frd > 0) { m.FrameRate = frd; n++; }
+                if (f.TryGetValue("PixelFormat", out var pf1) && !string.IsNullOrEmpty(pf1)) { m.PixelFormat = pf1; n++; }
+                BindFields();
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = $"DCF 값 반영({n}개) — [저장]으로 영속";
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 값 읽기 예외: " + ex.Message; }
+        }
+
+        /// <summary>[카메라 현재값 → DCF 기록] — 연결된 카메라의 실제값(GenICam readback)을 DCF 의
+        /// '기존 항목'에만 기록(자동 백업). DCF 에 없는 항목은 건드리지 않는다 — 새 항목/전체 덤프는
+        /// Intellicam [Dump State to DCF] 사용. 기록값은 다음 [DCF 적용(재오픈)]부터 반영.</summary>
+        private void SaveCameraToDcf()
+        {
+            try
+            {
+                string path = VisionConfigStore.Current?.MilDcfPath;
+                if (string.IsNullOrWhiteSpace(path) || !System.IO.File.Exists(path))
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 파일이 지정되어 있지 않습니다."; return; }
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 실행하세요."; return; }
+
+                var vals = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                double exp = ReadRawDouble(_activeCam, "ExposureTime",         _activeCam.ExposureUs);
+                double fps = ReadRawDouble(_activeCam, "AcquisitionFrameRate", _activeCam.AcquisitionFrameRate);
+                double gn  = ReadRawDouble(_activeCam, "Gain",                 _activeCam.Gain);
+                string pf  = null; try { pf = _activeCam.GetRawParameter("PixelFormat"); } catch { }
+                if (exp > 0) vals["ExposureTime"]         = exp.ToString("0.###", CultureInfo.InvariantCulture);
+                if (fps > 0) vals["AcquisitionFrameRate"] = fps.ToString("0.###", CultureInfo.InvariantCulture);
+                if (gn >= 0) vals["Gain"]                 = gn.ToString("0.###", CultureInfo.InvariantCulture);
+                if (!string.IsNullOrEmpty(pf)) vals["PixelFormat"] = pf;
+
+                int n = QMC.Vision.Cameras.Mil.MilDcfFile.WriteFeatures(path, vals, out var err);
+                if (!string.IsNullOrEmpty(err))
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 기록 실패: " + err; return; }
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = n > 0
+                    ? $"카메라 현재값 → DCF 기록({n}개, 백업 생성) — 다음 [DCF 적용(재오픈)]부터 반영"
+                    : "변경된 값 없음(DCF 와 동일하거나 해당 항목이 DCF 에 없음)";
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 기록 예외: " + ex.Message; }
         }
 
         /// <summary>DCF 경로 저장 후 적용 — DCF 는 MdigAlloc(Open) 시점에만 반영되므로 카메라를 재오픈한다.
@@ -319,21 +384,57 @@ namespace QMC.Vision.Ui.Pages
             { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "DCF 적용 예외: " + ex.Message; }
         }
 
-        /// <summary>카메라 실제값(Open 직후 = DCF 적용 상태)을 설정 버퍼(m)에 역반영 — DCF 적용 후
-        /// 그리드가 DCF 값을 표시/영속하게 한다(LoadMfsIntoBuffer 와 동일 개념, 코어 파라미터만). 반영 수 반환.</summary>
+        /// <summary>카메라 '실제 현재값'을 설정 버퍼(m)에 역반영 — Hik/MIL 공통. 장치 readback
+        /// (GetRawParameter, GenICam)을 우선 사용하고 미지원 백엔드(Sim 등)는 캐시값으로 폴백.
+        /// DCF 적용/[카메라 현재값 읽기]에서 사용(LoadMfsIntoBuffer 와 동일 개념). 반영 수 반환.</summary>
         private int SyncBufferFromCamera(ICamera cam, AlgorithmCameraMapping m)
         {
             int n = 0;
             try
             {
                 if (cam == null || m == null) return 0;
-                if (cam.ExposureUs > 0)           { m.ExposureUs = cam.ExposureUs; n++; }
-                if (cam.Gain >= 0)                { m.Gain       = cam.Gain; n++; }
-                if (cam.AcquisitionFrameRate > 0) { m.FrameRate  = cam.AcquisitionFrameRate; n++; }
-                m.PixelFormat = cam.PixelFormat.ToString(); n++;
+                double exp = ReadRawDouble(cam, "ExposureTime",         cam.ExposureUs);
+                double gn  = ReadRawDouble(cam, "Gain",                 cam.Gain);
+                double fps = ReadRawDouble(cam, "AcquisitionFrameRate", cam.AcquisitionFrameRate);
+                string pf  = null; try { pf = cam.GetRawParameter("PixelFormat"); } catch { }
+                if (exp > 0) { m.ExposureUs = exp; n++; }
+                if (gn >= 0) { m.Gain       = gn;  n++; }
+                if (fps > 0) { m.FrameRate  = fps; n++; }
+                m.PixelFormat = string.IsNullOrEmpty(pf) ? cam.PixelFormat.ToString() : pf; n++;
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] SyncBufferFromCamera 실패: " + ex.Message); }
             return n;
+        }
+
+        /// <summary>장치 원시 readback(GetRawParameter) → double 파싱, 미지원/실패 시 폴백값.</summary>
+        private static double ReadRawDouble(ICamera cam, string key, double fallback)
+        {
+            try
+            {
+                var s = cam.GetRawParameter(key);
+                if (!string.IsNullOrEmpty(s) &&
+                    double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v)) return v;
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] ReadRawDouble(" + key + ") 실패: " + ex.Message); }
+            return fallback;
+        }
+
+        /// <summary>[카메라 현재값 읽기] — 연결된 카메라(Hik/MIL 공통)의 실제 값을 그리드에 반영. [저장]으로 영속.</summary>
+        private void ReadCameraIntoBuffer()
+        {
+            try
+            {
+                var m = CurrentMapping();
+                if (m == null) return;
+                if (_activeCam == null || !_activeCam.IsOpen)
+                { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "먼저 Connect 후 읽기를 실행하세요."; return; }
+                int n = SyncBufferFromCamera(_activeCam, m);
+                BindFields();
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = $"카메라 현재값 반영({n}개) — [저장]으로 영속";
+            }
+            catch (Exception ex)
+            { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "카메라 읽기 예외: " + ex.Message; }
         }
 
         /// <summary>DCF 불러오기 — 파일 선택 후 표준 DCF 폴더로 복사하고 전역 경로(MilDcfPath)로 지정.

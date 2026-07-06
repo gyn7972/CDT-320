@@ -142,6 +142,7 @@
     <Compile Include="Equipment\Cameras\Hik\HikGigECamera.cs" />
     <Compile Include="Equipment\Cameras\Mil\MilSystem.cs" />
     <Compile Include="Equipment\Cameras\Mil\MilCamera.cs" />
+    <Compile Include="Equipment\Cameras\Mil\MilDcfFile.cs" />
     <Compile Include="Equipment\Backends\Sim\SimBackend.cs" />
     <Compile Include="Equipment\Backends\Sim\SimPatternFinder.cs" />
     <Compile Include="Equipment\Backends\Sim\SimInspector.cs" />

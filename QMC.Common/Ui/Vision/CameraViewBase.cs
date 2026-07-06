@@ -863,7 +863,7 @@ namespace QMC.Common.Ui.Controls
         private void DrawOverlays(Graphics g, Rectangle dst)
         {
             if (ShowCrosshair)
-                using (var p = new Pen(Color.FromArgb(120, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash })
+                using (var p = new Pen(Color.FromArgb(120, 255, 0, 0), 1f) { DashStyle = DashStyle.Dash })
                 {
                     int top = TopInset;
                     int cx = ClientSize.Width / 2;

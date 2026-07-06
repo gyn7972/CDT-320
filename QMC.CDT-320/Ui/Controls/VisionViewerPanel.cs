@@ -173,8 +173,16 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                double scaleX = _useSavedPixelScale ? _savedPixelScaleX : meta.ScaleX;
-                double scaleY = _useSavedPixelScale ? _savedPixelScaleY : meta.ScaleY;
+                // 저장 스케일은 보정 당시 해상도(_savedWidth/HeightPixel) 기준 mm/px 다.
+                // 뷰어 표시 이미지는 다운스케일될 수 있으므로 실제 표시폭(meta.Width/Height)으로 정규화해야
+                // Vision 측 측정값과 일치한다. 저장 스케일이 없으면 meta.ScaleX(이미 다운스케일 보정됨)를 쓴다.
+                double scaleFactor = AppSettingsStore.Current != null ? AppSettingsStore.Current.ViewerMeasureScaleFactor : 1.0;
+                double scaleX = _useSavedPixelScale
+                    ? EffectiveSavedScale(_savedPixelScaleX, _savedWidthPixel, meta.Width, scaleFactor)
+                    : meta.ScaleX;
+                double scaleY = _useSavedPixelScale
+                    ? EffectiveSavedScale(_savedPixelScaleY, _savedHeightPixel, meta.Height, scaleFactor)
+                    : meta.ScaleY;
                 _cam.MmPerPixelX = scaleX;
                 _cam.MmPerPixelY = scaleY;
 
@@ -186,6 +194,18 @@ namespace QMC.CDT_320.Ui.Controls
                 _cam.SetOverlay(RoiOf(meta), MarksOf(meta));
             }
             catch { }
+        }
+
+        /// <summary>표시용 mm/px 산출 — 저장 스케일 × factor(다운스케일 계수).
+        /// factor>0: 수동 계수(표시 mm/px = savedMmPerPx × factor, 예 5120→1600 이면 3.2).
+        /// factor≤0: 자동 폴백(표시폭 displayPixel 기준 = savedMmPerPx × savedPixel / displayPixel). 정보 부족 시 저장값 그대로.</summary>
+        private static double EffectiveSavedScale(double savedMmPerPx, double savedPixel, double displayPixel, double factor)
+        {
+            if (savedMmPerPx <= 0) return 0.0;
+            if (factor > 0) return savedMmPerPx * factor;
+            if (savedPixel > 0 && displayPixel > 0)
+                return savedMmPerPx * savedPixel / displayPixel;
+            return savedMmPerPx;
         }
 
         private VisionCameraPixelCalibration ResolveSavedPixelCalibration()

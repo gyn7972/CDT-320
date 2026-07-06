@@ -598,6 +598,22 @@ namespace QMC.Vision.Cameras.Mil
             TryFeatureI("OffsetY", roi.Y);
         }
 
+        /// <summary>GenICam feature 원시 readback — 설정화면 '카메라 현재값 읽기' 등 공용 경로용
+        /// (HikGigECamera.GetRawParameter 와 동일 계약). 미지원/실패 시 null.</summary>
+        public override string GetRawParameter(string key)
+        {
+            if (!IsOpen || string.IsNullOrEmpty(key)) return null;
+            string v = InquireFeatureAsString(key);
+            return (string.IsNullOrEmpty(v) || v == "?") ? null : v;
+        }
+
+        /// <summary>GenICam feature 원시 쓰기 — 미지원 feature 는 조용히 무시(TryFeatureS).</summary>
+        public override void SetRawParameter(string key, string value)
+        {
+            if (!IsOpen || string.IsNullOrEmpty(key)) return;
+            TryFeatureS(key, value ?? "");
+        }
+
         /// <summary>MVS 카탈로그 노드 → MIL GenICam feature 적용(MVS의 SetParameterTyped 와 동일 역할).
         /// MIL/카메라가 해당 feature 를 지원하지 않으면 조용히 무시된다(TryFeature* 가 catch).</summary>
         public override void SetParameterTyped(string node, CameraParamKind kind, string value)
