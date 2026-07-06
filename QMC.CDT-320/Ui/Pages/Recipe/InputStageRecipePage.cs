@@ -1283,13 +1283,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var items = new List<ParameterGridItem>();
                 AddStagePositions(items, unit);
                 AddNeedlePickUpSettingItems(items, unit);   // NEEDLE PIN CAL POSITION 바로 아래 배치
-
-                items.Add(AxisDouble("WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaRadius, v => unit.Setup.WorkAreaRadius = Math.Max(0.0, v)));
-                items.Add(AxisDouble("NEEDLE WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaRadius, v => unit.Setup.NeedleWorkAreaRadius = Math.Max(0.0, v)));
-                items.Add(AxisDouble("VISION WORK AREA CENTER X", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.WorkAreaCenterX, v => unit.Setup.WorkAreaCenterX = v));
-                items.Add(AxisDouble("VISION WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaCenterY, v => unit.Setup.WorkAreaCenterY = v));
-                items.Add(AxisDouble("NEEDLE WORK AREA CENTER X", ParameterGridScope.Setup, unit.NeedleBlockX, () => unit.Setup.NeedleWorkAreaCenterX, v => unit.Setup.NeedleWorkAreaCenterX = v));
-                items.Add(AxisDouble("NEEDLE WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaCenterY, v => unit.Setup.NeedleWorkAreaCenterY = v));
+                AddWorkAreaSettingItems(items, unit);
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
@@ -1305,6 +1299,39 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void AddWorkAreaSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            const string groupKey = "WORK_AREA_SETTING";
+            ParameterGridItem header = ParameterGridItem.Header("WORK AREA SETTING", groupKey);
+            header.Description = "InputStage hardware work-area center/radius setup. These values do not follow recipe Process positions.";
+            items.Add(header);
+
+            items.Add(InGroup(Describe(AxisDouble("VISION AREA CENTER X", ParameterGridScope.Setup, unit.CameraX,
+                () => unit.Setup.WorkAreaCenterX,
+                v => unit.Setup.WorkAreaCenterX = v),
+                "Vision/InputStage 작업영역 중심 X. 하드웨어 기준값이며 Process Position으로 대체하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("VISION AREA CENTER Y", ParameterGridScope.Setup, unit.StageY,
+                () => unit.Setup.WorkAreaCenterY,
+                v => unit.Setup.WorkAreaCenterY = v),
+                "Vision/InputStage 작업영역 중심 StageY. 하드웨어 기준값이며 Process Position으로 대체하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("VISION AREA RADIUS", ParameterGridScope.Setup, unit.StageY,
+                () => unit.Setup.WorkAreaRadius,
+                v => unit.Setup.WorkAreaRadius = Math.Max(0.0, v)),
+                "Vision/InputStage 작업영역 반경. StageY/InputVisionX 작업영역 인터락 기준입니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("NEEDLE AREA CENTER X", ParameterGridScope.Setup, unit.NeedleBlockX,
+                () => unit.Setup.NeedleWorkAreaCenterX,
+                v => unit.Setup.NeedleWorkAreaCenterX = v),
+                "Needle 작업영역 중심 NeedleX. NeedleZ/StageY/NeedleX 연동 인터락 기준입니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("NEEDLE AREA CENTER Y", ParameterGridScope.Setup, unit.StageY,
+                () => unit.Setup.NeedleWorkAreaCenterY,
+                v => unit.Setup.NeedleWorkAreaCenterY = v),
+                "Needle 작업영역 중심 StageY. NeedleZ/StageY/NeedleX 연동 인터락 기준입니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("NEEDLE AREA RADIUS", ParameterGridScope.Setup, unit.StageY,
+                () => unit.Setup.NeedleWorkAreaRadius,
+                v => unit.Setup.NeedleWorkAreaRadius = Math.Max(0.0, v)),
+                "Needle 작업영역 반경. NeedleZ가 상승 상태일 때 StageY/NeedleX 이동 가능 범위입니다."), groupKey));
         }
 
         private void AddNeedlePickUpSettingItems(List<ParameterGridItem> items, InputStageUnit unit)
@@ -1327,6 +1354,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)
         {
             item.GroupKey = groupKey;
+            return item;
+        }
+
+        private static ParameterGridItem Describe(ParameterGridItem item, string description)
+        {
+            item.Description = description ?? string.Empty;
             return item;
         }
 
