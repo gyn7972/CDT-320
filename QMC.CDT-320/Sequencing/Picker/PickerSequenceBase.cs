@@ -1057,22 +1057,31 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                BaseAxis oppositeY = ResolveOppositePickerYAxis();
+                if (oppositeY == null)
+                    return true;
+
+                // 현재 기준: 상대 PickerY 안전 판단은 Home(0) 또는 실제 AvoidPosition만 인정한다.
+                if (IsAxisAtHomePosition(oppositeY))
+                    return true;
+
                 if (Side == PickerSequenceSide.Front)
                 {
                     if (RearPicker == null)
                         return true;
 
-                    return RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
-                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
-                           RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                    return RearPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
                 }
 
                 if (FrontPicker == null)
                     return true;
 
-                return FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
-                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
-                       FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                return FrontPicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+
+                // 기존 조건: Front/Rear 모두 InputAvoidPosition/OutputAvoidPosition도 PickerY 안전 위치로 보았다.
+                //return OppositePicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
+                //       OppositePicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
+                //       OppositePicker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
             }
             catch
             {
@@ -1081,6 +1090,22 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsAxisAtHomePosition(BaseAxis axis)
+        {
+            if (axis == null)
+                return true;
+
+            return Math.Abs(axis.ActualPosition) <= ResolveAxisInPositionTolerance(axis);
+        }
+
+        private static double ResolveAxisInPositionTolerance(BaseAxis axis)
+        {
+            if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
+                return axis.Config.InPositionTolerance;
+
+            return 0.05;
         }
 
         private string BuildOppositePickerYState()

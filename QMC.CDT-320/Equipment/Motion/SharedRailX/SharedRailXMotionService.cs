@@ -144,7 +144,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
         }
 
-        private static SharedRailXValidationResult VerifyMotionGuardTargets(
+        private SharedRailXValidationResult VerifyMotionGuardTargets(
             IReadOnlyList<SharedRailXAxisSetting> settings,
             SharedRailXMovePlan plan)
         {
@@ -152,6 +152,10 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return SharedRailXValidationResult.Block("SharedRailX settings are empty.");
             if (plan == null || plan.Targets == null)
                 return SharedRailXValidationResult.Block("SharedRailX move plan is null.");
+
+            SharedRailXValidationResult pickerFacing = VerifyFrontRearPickerFacingYTargets(plan);
+            if (!pickerFacing.Allowed)
+                return pickerFacing;
 
             Dictionary<SharedRailXAxis, SharedRailXAxisSetting> settingMap =
                 settings.Where(x => x != null && x.Axis != null).ToDictionary(x => x.RailAxis);
@@ -168,6 +172,45 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
 
             return SharedRailXValidationResult.Allow();
+        }
+
+        private SharedRailXValidationResult VerifyFrontRearPickerFacingYTargets(SharedRailXMovePlan plan)
+        {
+            try
+            {
+                if (plan == null || plan.Targets == null)
+                    return SharedRailXValidationResult.Allow();
+
+                double frontTarget;
+                double rearTarget;
+                bool hasFrontTarget = plan.TryGetTarget(SharedRailXAxis.FrontPickerX, out frontTarget);
+                bool hasRearTarget = plan.TryGetTarget(SharedRailXAxis.RearPickerX, out rearTarget);
+                if (!hasFrontTarget && !hasRearTarget)
+                    return SharedRailXValidationResult.Allow();
+
+                string detail;
+                // 현재 기준: SharedRailX 그룹 이동은 Front/Rear PickerX 목표까지 포함해서 양쪽 PickerY 돌출 충돌을 먼저 차단한다.
+                if (PickerZoneInterlockRules.CanMovePickerXPairByFacingYInterlock(
+                    _machine,
+                    hasFrontTarget ? (double?)frontTarget : null,
+                    hasRearTarget ? (double?)rearTarget : null,
+                    plan.Name,
+                    out detail))
+                {
+                    return SharedRailXValidationResult.Allow();
+                }
+
+                return SharedRailXValidationResult.Block(
+                    "SharedRailX PickerX group move blocked. " + detail);
+            }
+            catch (Exception ex)
+            {
+                return SharedRailXValidationResult.Block(
+                    "SharedRailX PickerX group facing-Y check exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public Task<int> MoveAsync(SharedRailXAxis axis, double targetPosition, double velocity)

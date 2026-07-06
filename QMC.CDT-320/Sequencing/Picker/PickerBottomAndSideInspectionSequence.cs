@@ -835,6 +835,9 @@ namespace QMC.CDT320.Sequencing
                 if (HasInspectionResult(target.Die, "Side0") &&
                     HasInspectionResult(target.Die, "Side90"))
                 {
+                    // 현재 기준: 기존 검사 기록으로 Side shot을 생략해도 Place 전 Die 최종 판정을 보정한다.
+                    ApplyExistingInspectionFinalResultIfReady(target);
+                    // 기존 조건: 기존 Side 결과가 있으면 Side shot만 생략하고 Die 최종 판정은 갱신하지 않았다.
                     WriteLog("PickerBottomAndSideInspectionSequence",
                         Name + " 기존 Side 검사 결과가 있어 Side shot을 생략합니다. " +
                         "die=" + target.Die.DieId +
@@ -892,6 +895,9 @@ namespace QMC.CDT320.Sequencing
                     if (HasInspectionResult(target.Die, "Side0") &&
                         HasInspectionResult(target.Die, "Side90"))
                     {
+                        // 현재 기준: 병렬 시작 생략 경로에서도 기존 검사 기록으로 Die 최종 판정을 보정한다.
+                        ApplyExistingInspectionFinalResultIfReady(target);
+                        // 기존 조건: 병렬 시작 대상이 이미 Side 완료 상태이면 최종 판정 갱신 없이 return 했다.
                         WriteLog("PickerBottomAndSideInspectionSequence",
                             Name + " Bottom 마지막 검사 중 Side 병렬 시작 대상이 이미 검사 완료 상태입니다. " +
                             "die=" + target.Die.DieId +
@@ -1574,6 +1580,81 @@ namespace QMC.CDT320.Sequencing
                 ", ok90=" + ok90 + " - Ok");
         }
 
+        private void ApplyExistingInspectionFinalResultIfReady(InspectionTarget target)
+        {
+            try
+            {
+                if (target == null || target.Die == null)
+                    return;
+
+                if (target.Die.Result == DieResult.Good || target.Die.Result == DieResult.NG)
+                    return;
+
+                MaterialInspectionResult bottomResult;
+                MaterialInspectionResult side0Result;
+                MaterialInspectionResult side90Result;
+                if (!TryGetInspectionResult(target.Die, "Bottom", out bottomResult) ||
+                    !TryGetInspectionResult(target.Die, "Side0", out side0Result) ||
+                    !TryGetInspectionResult(target.Die, "Side90", out side90Result))
+                    return;
+
+                bool ok = bottomResult == MaterialInspectionResult.Ok &&
+                          side0Result == MaterialInspectionResult.Ok &&
+                          side90Result == MaterialInspectionResult.Ok;
+                DieResult dieResult = ok ? DieResult.Good : DieResult.NG;
+                string ngCode = ok ? "" : BuildExistingInspectionNgCode(bottomResult, side0Result, side90Result);
+
+                MaterialStateService.ApplyDieInspectionResult(
+                    target.Die.DieId,
+                    dieResult,
+                    ngCode,
+                    "BottomSideExistingInspection");
+
+                target.Die.Result = dieResult;
+                if (dieResult == DieResult.NG && !string.IsNullOrWhiteSpace(ngCode))
+                {
+                    if (target.Die.NgCodes == null)
+                        target.Die.NgCodes = new List<string>();
+                    if (!target.Die.NgCodes.Contains(ngCode))
+                        target.Die.NgCodes.Add(ngCode);
+                }
+
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " 기존 Bottom/Side 검사 결과로 Die 최종 판정 보정 완료. " +
+                    "die=" + target.Die.DieId +
+                    ", pickerNo=" + target.PickerNo +
+                    ", result=" + dieResult +
+                    ", bottom=" + bottomResult +
+                    ", side0=" + side0Result +
+                    ", side90=" + side90Result + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " 기존 검사 결과 Die 최종 판정 보정 중 예외가 발생했습니다. " +
+                    "die=" + (target != null && target.Die != null ? target.Die.DieId : "-") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildExistingInspectionNgCode(
+            MaterialInspectionResult bottomResult,
+            MaterialInspectionResult side0Result,
+            MaterialInspectionResult side90Result)
+        {
+            if (bottomResult == MaterialInspectionResult.Ng)
+                return "BOTTOM_NG";
+
+            if (side0Result == MaterialInspectionResult.Ng ||
+                side90Result == MaterialInspectionResult.Ng)
+                return "SIDE_NG";
+
+            return "INSPECTION_NG";
+        }
+
         private static List<InspectionMeasurement> BuildSideMeasurements(SideVisionResult result, string prefix)
         {
             bool side1Ok = result != null && result.Side1Ok;
@@ -1751,6 +1832,39 @@ namespace QMC.CDT320.Sequencing
                     count++;
             }
             return count;
+        }
+
+        private static bool TryGetInspectionResult(DieMaterial die, string inspectionType, out MaterialInspectionResult result)
+        {
+            result = MaterialInspectionResult.Unknown;
+
+            try
+            {
+                if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
+                    return false;
+
+                for (int i = 0; i < die.Inspections.Count; i++)
+                {
+                    DieInspectionRecord record = die.Inspections[i];
+                    if (record == null)
+                        continue;
+
+                    if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    result = record.Result;
+                    return result != MaterialInspectionResult.Unknown;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static bool HasInspectionResult(DieMaterial die, string inspectionType)
