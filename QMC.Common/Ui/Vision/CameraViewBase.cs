@@ -355,7 +355,11 @@ namespace QMC.Common.Ui.Controls
                     });
                     ok = true;
                 }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 시작 실패: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 시작 실패: " + ex.Message);
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "UI", "CameraView", "툴바 Live 시작 실패: " + ex.Message); } catch { }
+                }
                 finally
                 {
                     System.Threading.Interlocked.Exchange(ref _liveBusy, 0);
@@ -388,7 +392,11 @@ namespace QMC.Common.Ui.Controls
                 EnqueueSourceOp(() =>
                 {
                     try { src.StopLive(); }
-                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 정지 실패: " + ex.Message); }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 정지 실패: " + ex.Message);
+                        try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "UI", "CameraView", "툴바 Live 정지 실패: " + ex.Message); } catch { }
+                    }
                 });
             Invalidate();                                   // FPS 라벨 갱신
         }

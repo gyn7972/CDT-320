@@ -273,8 +273,17 @@ namespace QMC.Vision.Cameras.Mil
             {
                 TryFeatureS("AcquisitionMode", mode);
                 string rb = InquireFeatureAsString("AcquisitionMode");
-                if (string.IsNullOrEmpty(rb) || rb == "?" || string.Equals(rb, mode, StringComparison.OrdinalIgnoreCase))
+                // 명시적으로 '다른 모드' 문자열로 읽힐 때만 실패 취급 — readback 미지원("?"/빈값)이나
+                // 미인식 형식(정수 enum 값 등)은 검증 불가 → 성공 간주(오탐으로 라이브가 막히지 않게).
+                bool knownOther = !string.IsNullOrEmpty(rb) && rb != "?"
+                    && (rb.Equals("SingleFrame", StringComparison.OrdinalIgnoreCase)
+                     || rb.Equals("MultiFrame",  StringComparison.OrdinalIgnoreCase)
+                     || rb.Equals("Continuous",  StringComparison.OrdinalIgnoreCase))
+                    && !rb.Equals(mode, StringComparison.OrdinalIgnoreCase);
+                if (!knownOther)
                 {
+                    if (!string.IsNullOrEmpty(rb) && rb != "?" && !rb.Equals(mode, StringComparison.OrdinalIgnoreCase))
+                        LiveLog("AcquisitionMode readback 형식 미인식('" + rb + "') — 검증 생략, 적용 성공 처리");
                     _acqModeApplied = mode;
                     if (attempt > 0) LiveLog("AcquisitionMode=" + mode + " 적용 (재시도 " + attempt + "회)");
                     return true;
@@ -537,20 +546,25 @@ namespace QMC.Vision.Cameras.Mil
         /// AcquisitionFrameRate 를 1로 재계산(무효화)하는 부작용이 있어 라이브/연속그랩이 1fps 로 떨어진다.</para></summary>
         protected override void OnTriggerModeChanged(CameraTriggerMode mode)
         {
-            _trigOffApplied = false;   // 트리거 모드가 외부에서 바뀌면 캐시 무효화 → 다음 Grab/Live 가 TriggerMode 재적용
             switch (mode)
             {
                 case CameraTriggerMode.Continuous:
                 case CameraTriggerMode.Software:
+                    // Off 를 지금 썼으므로 캐시 유효 유지 — 무효화하면 직후 Grab/Live 가 같은 값을
+                    // 다시 써서(VNP 는 트리거 관련 쓰기에 FrameRate 재계산 부작용) 라이브가 흔들릴 수 있다.
                     TryFeatureS("TriggerMode", "Off");
+                    _trigOffApplied = true;
                     break;
                 case CameraTriggerMode.Line0:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line0");
                     break;
                 case CameraTriggerMode.Line1:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line1");
                     break;
                 case CameraTriggerMode.Line2:
+                    _trigOffApplied = false;
                     TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line2");
                     break;
             }
