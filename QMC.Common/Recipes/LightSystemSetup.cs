@@ -64,18 +64,20 @@ namespace QMC.Common.Recipes
         [DataMember] public int    PageCount    { get; set; } = 1;     // 1 = 페이지 미사용
         [DataMember] public int    MaxPower     { get; set; } = 240;
         [DataMember] public int    MaxOnTimeUs  { get; set; } = 999;
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms). 같은 값(캐시 히트)이면 송신·대기 모두 생략된다.</summary>
+        [DataMember(EmitDefaultValue = false)] public int SettleDelayMs { get; set; } = 30;
         [DataMember] public List<LightChannelLabel> ChannelLabels { get; set; } = new List<LightChannelLabel>();
 
-        // Stage 79 — 구버전 JSON 에 키 없으면 Vendor=LFine 주입.
-        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; }
-        [OnDeserialized]  internal void OnDeserialized (StreamingContext c) { if (string.IsNullOrEmpty(Vendor)) Vendor = "LFine"; }
+        // Stage 79 — 구버전 JSON 에 키 없으면 Vendor=LFine 주입. SettleDelayMs 도 기본 30ms 주입.
+        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; SettleDelayMs = 30; }
+        [OnDeserialized]  internal void OnDeserialized (StreamingContext c) { if (string.IsNullOrEmpty(Vendor)) Vendor = "LFine"; if (SettleDelayMs < 0) SettleDelayMs = 0; }
 
         public LightControllerEntry Clone()
         {
             var c = new LightControllerEntry
             {
                 PortName = PortName, Vendor = Vendor, Name = Name, BaudRate = BaudRate, ChannelCount = ChannelCount,
-                PageCount = PageCount, MaxPower = MaxPower, MaxOnTimeUs = MaxOnTimeUs,
+                PageCount = PageCount, MaxPower = MaxPower, MaxOnTimeUs = MaxOnTimeUs, SettleDelayMs = SettleDelayMs,
                 ChannelLabels = new List<LightChannelLabel>()
             };
             if (ChannelLabels != null) foreach (var l in ChannelLabels) c.ChannelLabels.Add(l.Clone());

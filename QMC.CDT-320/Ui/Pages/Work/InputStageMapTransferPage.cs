@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using System.Linq;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
@@ -1230,14 +1231,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                double targetPickerX = entry.PosX + offsetX;
-                double targetStageY = entry.PosY + offsetY;
+                PickerCalibratedManualInputTarget target =
+                    CalibrationCoordinateService.ResolveManualInputMapTarget(
+                        host.Machine,
+                        ToVisionFocusPickerSide(side),
+                        pickerNo - 1,
+                        entry.PosX,
+                        entry.PosY,
+                        offsetX,
+                        offsetY);
+                double targetPickerX = target.PickerX;
+                double targetStageY = target.StageY;
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     ResolvePickerMoveTitle(side, pickerNo) + "를 선택 다이 위치로 이동하시겠습니까?\r\n" +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
                     "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
-                    "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm)",
+                    "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
+                    " ColletCal Offset X=" + target.ColletOffsetX.ToString("F3") + " mm, Y=" + target.ColletOffsetY.ToString("F3") + " mm)",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
@@ -1860,6 +1871,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        private static VisionFocusPickerSide ToVisionFocusPickerSide(PickerSequenceSide side)
+        {
+            return side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
         }
 
         private static string ResolvePickerMoveTitle(PickerSequenceSide side, int pickerNo)

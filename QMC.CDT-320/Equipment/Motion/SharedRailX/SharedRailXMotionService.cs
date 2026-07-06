@@ -296,11 +296,22 @@ namespace QMC.CDT320.Motion.SharedRailX
                             target.TargetPosition,
                             velocity,
                             target.Acceleration.Value,
-                            target.Deceleration.Value));
+                            target.Deceleration.Value,
+                            plan.ForceMove));
                     }
                     else
                     {
-                        tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                        if (plan.ForceMove)
+                        {
+                            tasks.Add(MoveAbsoluteForceAsync(
+                                setting.Axis,
+                                target.TargetPosition,
+                                velocity));
+                        }
+                        else
+                        {
+                            tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                        }
                     }
                 }
 
@@ -308,6 +319,12 @@ namespace QMC.CDT320.Motion.SharedRailX
                 int fail = results.FirstOrDefault(x => x != 0);
                 return fail;
             }
+        }
+
+        private static async Task<int> MoveAbsoluteForceAsync(BaseAxis axis, double targetPosition, double velocity)
+        {
+            using (BaseAxis.BeginForceMoveScope())
+                return await axis.MoveAbsoluteAsync(targetPosition, velocity).ConfigureAwait(false);
         }
 
         private void Add(List<SharedRailXAxisSetting> list, SharedRailXAxis railAxis, BaseAxis axis)
@@ -387,7 +404,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 PickerWorkZone workZone;
                 string owner;
                 bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
-                if (workAreaActive && workZone == PickerWorkZone.Bottom)
+                // 현재 기준: INSPECT_B/INSPECT_S는 공유레일 판단에서 같은 Process 영역으로 본다.
+                if (workAreaActive && PickerZoneInterlockRules.IsProcessZone(workZone))
                 {
                     WriteBottomBypassLogThrottled(pickerAxis, isFront, owner);
                     return false;

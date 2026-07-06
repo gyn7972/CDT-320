@@ -111,13 +111,25 @@ namespace QMC.CDT320.Interlocks
                 return zone;
 
             string name = RawTargetName.Replace(" ", string.Empty);
+            if (ContainsTokenText(name, "InputAvoidPosition"))
+                return PickerWorkZone.Input;
+            if (ContainsTokenText(name, "OutputAvoidPosition"))
+                return PickerWorkZone.Output;
             if (ContainsTokenText(name, "DiePick") || ContainsTokenText(name, "PickPosition"))
                 return PickerWorkZone.Input;
             if (ContainsTokenText(name, "DiePlace") || ContainsTokenText(name, "PlacePosition"))
                 return PickerWorkZone.Output;
-            if (ContainsTokenText(name, "DieBottom") || ContainsTokenText(name, "BottomPosition"))
+            if (ContainsTokenText(name, "PickerZone=Process") ||
+                ContainsTokenText(name, "PickerZone=Inspect") ||
+                ContainsTokenText(name, "PickerZone=Inspection"))
                 return PickerWorkZone.Bottom;
-            if (ContainsTokenText(name, "DieSide") || ContainsTokenText(name, "SidePosition"))
+            if (ContainsTokenText(name, "DieBottom") ||
+                ContainsTokenText(name, "BottomPosition") ||
+                ContainsTokenText(name, "INSPECT_B"))
+                return PickerWorkZone.Bottom;
+            if (ContainsTokenText(name, "DieSide") ||
+                ContainsTokenText(name, "SidePosition") ||
+                ContainsTokenText(name, "INSPECT_S"))
                 return PickerWorkZone.Side;
             if (ContainsTokenText(name, "AvoidPosition") || ContainsTokenText(name, "SafeRetreat"))
                 return PickerWorkZone.Avoid;
@@ -132,6 +144,10 @@ namespace QMC.CDT320.Interlocks
                 name.Equals("Pick", StringComparison.OrdinalIgnoreCase) ||
                 name.Equals("PickUp", StringComparison.OrdinalIgnoreCase))
                 return PickerWorkZone.Input;
+            if (name.Equals("Process", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("Inspect", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("Inspection", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Bottom;
             if (name.Equals("Bottom", StringComparison.OrdinalIgnoreCase))
                 return PickerWorkZone.Bottom;
             if (name.Equals("Side", StringComparison.OrdinalIgnoreCase))

@@ -43,6 +43,7 @@ namespace QMC.Vision.Ui.Pages
         private int _uiPending;   // 라이브 프레임 UI 적체 방지(이전 프레임 처리 중이면 새 프레임 드롭)
         private DateTime _fpsT0 = DateTime.Now;
         private int _fpsCount;
+        private int _expEndCount;   // 카메라 ExposureEnded 수신 횟수(HW 노출 종료 이벤트 동작 확인용)
         private SynchronizationContext _uiCtx;
 
         // ── 카메라 작업 직렬 큐 ──
@@ -1411,9 +1412,11 @@ namespace QMC.Vision.Ui.Pages
                         return;
                     }
                     borrowed.FrameReceived += Cam_FrameReceived;
+                    borrowed.ExposureEnded += Cam_ExposureEnded;
                     borrowed.ConnectionChanged += Cam_ConnectionChanged;
                     _activeCam = borrowed;
                     _activeCamOwned = false;
+                    _expEndCount = 0;
                     _lblStatus.ForeColor = Color.DarkSlateGray;
                     _lblStatus.Text = $"Connected (운영 모듈 공유) — {m.CameraId}";
                     return;
@@ -1429,9 +1432,11 @@ namespace QMC.Vision.Ui.Pages
                     return;
                 }
                 cam.FrameReceived += Cam_FrameReceived;
+                cam.ExposureEnded += Cam_ExposureEnded;
                 cam.ConnectionChanged += Cam_ConnectionChanged;
                 _activeCam = cam;
                 _activeCamOwned = true;
+                _expEndCount = 0;
                 _lblStatus.ForeColor = Color.DarkSlateGray;
                 _lblStatus.Text = string.IsNullOrEmpty(applyErr)
                     ? $"Connected — {m.CameraId}"
@@ -1453,6 +1458,7 @@ namespace QMC.Vision.Ui.Pages
             try { if (_isLive) _activeCam.StopLive(); } catch { }
             _isLive = false;
             try { _activeCam.FrameReceived -= Cam_FrameReceived; } catch { }
+            try { _activeCam.ExposureEnded -= Cam_ExposureEnded; } catch { }
             try { _activeCam.ConnectionChanged -= Cam_ConnectionChanged; } catch { }
             if (_activeCamOwned)
             {
@@ -1468,7 +1474,7 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_activeCam == null || _isLive) return;
 
-            _fpsT0 = DateTime.Now; _fpsCount = 0;
+            _fpsT0 = DateTime.Now; _fpsCount = 0; _expEndCount = 0;
             System.Threading.Interlocked.Exchange(ref _uiPending, 0);
 
             // 선반영(재클릭 방지) — 실패 시 워커에서 롤백. StartLive 는 카메라 feature 쓰기로
@@ -1572,11 +1578,17 @@ namespace QMC.Vision.Ui.Pages
                 var dt = (DateTime.Now - _fpsT0).TotalSeconds;
                 if (dt >= 1.0)
                 {
-                    _lblStatus.Text = $"Live  {_fpsCount / dt:F1} FPS  ({w}x{h})";
+                    _lblStatus.Text = $"Live  {_fpsCount / dt:F1} FPS  ({w}x{h})  EXP {_expEndCount}";
                     _fpsCount = 0; _fpsT0 = DateTime.Now;
                 }
             }
             finally { System.Threading.Interlocked.Exchange(ref _uiPending, 0); }
+        }
+
+        /// <summary>카메라 HW 노출 종료 이벤트(SDK 콜백 스레드) — 카운트만 증가(표시는 라이브 상태줄에서).</summary>
+        private void Cam_ExposureEnded()
+        {
+            System.Threading.Interlocked.Increment(ref _expEndCount);
         }
 
         private void Cam_ConnectionChanged(CameraConnectionEvent ev)

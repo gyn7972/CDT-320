@@ -64,9 +64,13 @@ namespace QMC.Vision.Modules
         /// <summary>검사별 채널 레벨/점등/스트로브/페이지. 키 = (ControllerPort, Channel). 채널은 Setup.LightPages 지정 컨트롤러의 ChannelCount.</summary>
         [DataMember] public List<InspectionLightSetting> LightSettings { get; set; } = new List<InspectionLightSetting>();
 
+        /// <summary>이 도구(Finder/Inspector) 전용 카메라 노출(µs). 0 이하 = 미지정(모듈 레시피 노출 사용).
+        /// GrabForTool(MATCH/INSPECT/툴바 그랩)이 그랩 직전에 적용한다.</summary>
+        [DataMember(IsRequired = false)] public double ExposureUs { get; set; }
+
         protected AlgoRecipeBase() { LightSettings = new List<InspectionLightSetting>(); }
         [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
-        { LightSettings = new List<InspectionLightSetting>(); }
+        { LightSettings = new List<InspectionLightSetting>(); ExposureUs = 0; }
     }
 
     // ── Finder ────────────────────────────────────────────────────

@@ -14,24 +14,33 @@ namespace QMC.Vision.Optics
     /// </summary>
     public static class LightControllerFactory
     {
-        /// <summary>Stage 77 — Setup 의 LightControllerEntry 로 벤더별 컨트롤러 생성.</summary>
+        /// <summary>Stage 77 — Setup 의 LightControllerEntry 로 벤더별 컨트롤러 생성.
+        /// 안정화 대기(SettleDelayMs)는 entry 설정값을 컨트롤러에 주입한다.</summary>
         public static ILightController Create(LightControllerEntry entry, bool useSim)
         {
+            ILightController ctrl;
             if (useSim || entry == null)
-                return new SimLightController(entry?.ChannelCount ?? 8);
-
-            string vendor = string.IsNullOrEmpty(entry.Vendor) ? "LFine" : entry.Vendor;
-            switch (vendor)
+                ctrl = new SimLightController(entry?.ChannelCount ?? 8);
+            else
             {
-                case "LFine":
-                    return new LFineLightController(ToLFineConfig(entry));
-                case "Leesos":
-                    return new LeesosLightController(ToLeesosConfig(entry));
-                default:
-                    AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-MAP-INVALID", "LightControllerFactory",
-                        $"알 수 없는 Vendor '{entry.Vendor}' — Sim 으로 대체");
-                    return new SimLightController(entry.ChannelCount);
+                string vendor = string.IsNullOrEmpty(entry.Vendor) ? "LFine" : entry.Vendor;
+                switch (vendor)
+                {
+                    case "LFine":
+                        ctrl = new LFineLightController(ToLFineConfig(entry));
+                        break;
+                    case "Leesos":
+                        ctrl = new LeesosLightController(ToLeesosConfig(entry));
+                        break;
+                    default:
+                        AlarmManager.Raise(AlarmSeverity.Error, "LIGHT-MAP-INVALID", "LightControllerFactory",
+                            $"알 수 없는 Vendor '{entry.Vendor}' — Sim 으로 대체");
+                        ctrl = new SimLightController(entry.ChannelCount);
+                        break;
+                }
             }
+            ctrl.SettleDelayMs = entry != null && entry.SettleDelayMs > 0 ? entry.SettleDelayMs : 0;
+            return ctrl;
         }
 
         /// <summary>레거시 호환 — LFineLightConfig 직접 (Stage 67 시그니처 유지).</summary>

@@ -5,6 +5,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class InputStageInterlockRules
     {
+        // 현재 기준: InputStage 축별 홈/수동/자동 인터락을 이 파일에서 분기한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -17,7 +18,7 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsMoving(request, "WaferStageT", "StageT", "WaferT"))
                 return VerifyWaferStageT(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "WaferExpandingZ", "ExpanderZ"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "WaferExpandingZ", "InputExpandingZ", "ExpanderZ"))
                 return VerifyWaferExpandingZ(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "InputVisionX", "CameraX"))
@@ -306,15 +307,19 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
-                // 자동 이동 인터락 확인
-                case MotionGuardMoveKind.AxisTeachingMove:
-                    return CanAutoWaferExpandingZ(request, out reason);
-                // 매뉴얼 이동 인터락 확인
-                case MotionGuardMoveKind.AxisMove:
-                    return CanManualWaferExpandingZ(request, out reason);
+                // 현재 기준: ExpanderZ Home은 하강(-) 홈이며 위치 조건 없이 최우선 허용한다.
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeWaferExpandingZ(request.Machine, out reason);
+
+                // 매뉴얼 이동 인터락 확인
+                case MotionGuardMoveKind.AxisMove:
+                    return CanManualWaferExpandingZ(request, out reason);
+
+                // 자동 이동 인터락 확인
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    return CanAutoWaferExpandingZ(request, out reason);
+                
                 default:
                     return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
@@ -322,6 +327,7 @@ namespace QMC.CDT320.Interlocks
 
         private static bool CanHomeWaferExpandingZ(CDT320_Machine machine, out string reason)
         {
+            // 현재 기준: ExpanderZ Home은 어느 위치에서도 허용하며 실제 홈 방향은 축 설정의 NEG를 따른다.
             reason = string.Empty;
             return true;
         }
@@ -330,69 +336,99 @@ namespace QMC.CDT320.Interlocks
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-            bool positiveMove = IsExpanderZPositiveMove(request, stage);
 
+            // 현재 기준: ExpanderZ가 플러스 방향으로 올라갈 때 Input 존 PickerZ가 0 이상 또는 Avoid여야 한다.
+            bool movingPositive = IsExpanderZMovingPositive(request);
+
+            // 현재 기준: Picker Input 영역 조건은 Front/Rear 모두 동일하게 적용한다.
+            // 현재 기준: FrontPicker가 Input 영역이고 ExpanderZ가 플러스 방향이면 FrontPickerZ 0 이상 또는 Avoid 조건을 확인한다.
+            if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, movingPositive, out reason))
+                return false;
+            // 현재 기준: RearPicker가 Input 영역이고 ExpanderZ가 플러스 방향이면 RearPickerZ 0 이상 또는 Avoid 조건을 확인한다.
+            if (!VerifyRearPickerClearForExpanderZ(machine, machine != null ? machine.PickerRearUnit : null, movingPositive, out reason))
+                return false;
+
+            // 현재 기준: ExpanderZ가 플러스 방향으로 올라갈 때 Input 존 PickerZ0~Z3는 0 이상 또는 Avoid여야 한다.
+            if (!PickerZoneInterlockRules.VerifyPickerZAtOrAboveZeroForZoneStageZMove(
+                machine,
+                PickerWorkZone.Input,
+                "ExpanderZ",
+                movingPositive,
+                out reason))
+                return false;
+
+            // 현재 기준: InputFeederY가 이동 중이면 ExpanderZ 이동을 차단한다.
             if (!VerifyInputFeederClear(machine, "ExpanderZ", out reason))
                 return false;
 
-            // InputFeederY가 Avoid 또는 (Stage)Unload 위치여야만 ExpanderZ 이동 가능.
-            if (!VerifyFeederYAvoidOrUnloadForExpanderZ(machine, out reason))
+            // 현재 기준: StageT는 Home(0), Avoid, Process 위치에서만 ExpanderZ 이동을 허용한다.
+            if (!VerifyStageTZeroAvoidOrProcessForExpanderZ(machine, out reason))
                 return false;
 
-            // Front/Rear Picker Z0~Z3가 모두 Avoid여야만 ExpanderZ 이동 가능.
-            if (!VerifyFrontRearPickerZAvoidForExpanderZ(machine, out reason))
+            // 현재 기준: InputFeederY는 Home(0) 또는 안전 위치(Avoid/Unload)에서만 ExpanderZ 이동을 허용한다.
+            if (!VerifyFeederYHomeOrSafeForExpanderZ(machine, out reason))
                 return false;
 
-            if (!VerifyWaferFeederReadyForStageY(machine, "Expander Z", out reason))
-                return false;
-
-            // StageZ축 움직일때 인풋카메라X는 전혀 간섭안된다.
-            //if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
-            //    return false;
-
-            if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
-                return false;
-
-            if (!VerifyRearPickerClearForExpanderZ(machine, machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
-                return false;
-
+            // 기존 조건: InputStage 다른 축이 동작 중이면 ExpanderZ 이동을 차단한다.
             return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
         }
 
         private static bool CanAutoWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
-            CDT320_Machine machine = request != null ? request.Machine : null;
-            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-            bool positiveMove = IsExpanderZPositiveMove(request, stage);
-
-            if (!VerifyInputFeederClear(machine, "ExpanderZ", out reason))
-                return false;
-
-            // InputFeederY가 Avoid 또는 (Stage)Unload 위치여야만 ExpanderZ 이동 가능.
-            if (!VerifyFeederYAvoidOrUnloadForExpanderZ(machine, out reason))
-                return false;
-
-            // Front/Rear Picker Z0~Z3가 모두 Avoid여야만 ExpanderZ 이동 가능.
-            if (!VerifyFrontRearPickerZAvoidForExpanderZ(machine, out reason))
-                return false;
-
-            if (!VerifyWaferFeederReadyForStageY(machine, "Expander Z", out reason))
-                return false;
-
-            if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
-                return false;
-
-            if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
-                return false;
-
-            if (!VerifyRearPickerClearForExpanderZ(machine, machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
-                return false;
-
-            return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
+            // 현재 기준: Auto ExpanderZ는 우선 Manual ExpanderZ와 동일 조건으로 검사한다.
+            // 기존 조건: Auto에서 InputVisionX Avoid 확인(VerifyInputVisionXClearForExpanderZ)을 추가로 수행했다.
+            // 현재 필요 여부: 사용 안 함. Manual과 동일하게 맞추기 위해 호출하지 않는다.
+            return CanManualWaferExpandingZ(request, out reason);
         }
 
-        // ExpanderZ 이동 전제 ①: InputFeederY가 Avoid 또는 (Stage)Unload 위치여야 한다(아니면 차단/알람).
-        private static bool VerifyFeederYAvoidOrUnloadForExpanderZ(CDT320_Machine machine, out string reason)
+        // ExpanderZ 이동 전제 ①: StageT가 Home(0), Avoid, Process 위치 중 하나여야 한다.
+        private static bool VerifyStageTZeroAvoidOrProcessForExpanderZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null || stage.StageT == null)
+                    return true;
+
+                StageAxisPositions waferT = stage.Recipe != null ? stage.Recipe.WaferT : null;
+                if (waferT == null)
+                    return MotionGuardRuleHelpers.Block(
+                        "ExpanderZ",
+                        "ExpanderZ 이동 불가: WaferStageT 레시피 위치가 없습니다.",
+                        out reason);
+
+                double tolerance = ResolveAxisPositionTolerance(stage.StageT);
+                double actual = stage.StageT.ActualPosition;
+                if (System.Math.Abs(actual - 0.0) <= tolerance ||
+                    System.Math.Abs(actual - waferT.AvoidPosition) <= tolerance ||
+                    System.Math.Abs(actual - waferT.ProcessPosition) <= tolerance)
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ 이동 불가: WaferStageT가 Home(0)/Avoid/Process 위치가 아닙니다. actual=" +
+                    actual.ToString("F3") + ", home=0.000, avoid=" + waferT.AvoidPosition.ToString("F3") +
+                    ", process=" + waferT.ProcessPosition.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "Exception occurred while verifying WaferStageT position for ExpanderZ: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // ExpanderZ 이동 전제 ②: InputFeederY가 Home(0) 또는 안전 위치(Avoid/Unload)여야 한다.
+        // 기존 조건: InputFeederY는 Avoid 또는 StageUnload만 허용했다.
+        // 현재 필요 여부: Home(0)도 안전 위치로 포함해야 하므로 현재 함수로 대체한다.
+        private static bool VerifyFeederYHomeOrSafeForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -400,11 +436,12 @@ namespace QMC.CDT320.Interlocks
             {
                 InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
                 if (feeder != null &&
+                    !feeder.IsWaferFeederYInHomePosition() &&
                     !feeder.IsWaferFeederYInAvoidPosition() &&
                     !feeder.IsWaferFeederYInStageUnloadPosition())
                     return MotionGuardRuleHelpers.Block(
                         "ExpanderZ",
-                        "ExpanderZ 이동 불가: InputFeederY가 Avoid 또는 Unload 위치가 아닙니다.",
+                        "ExpanderZ 이동 불가: InputFeederY가 Home(0) 또는 안전 위치(Avoid/Unload)가 아닙니다.",
                         out reason);
 
                 return true;
@@ -413,7 +450,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "ExpanderZ",
-                    "Exception occurred while verifying InputFeederY avoid for ExpanderZ: " + ex.Message,
+                    "Exception occurred while verifying InputFeederY safe position for ExpanderZ: " + ex.Message,
                     out reason);
             }
             finally
@@ -421,7 +458,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // ExpanderZ 이동 전제 ②: Front/Rear Picker Z0~Z3가 모두 Avoid 위치여야 한다(아니면 차단/알람).
+        // ExpanderZ 이동 전제 ③: Front/Rear Picker Z0~Z3가 모두 Avoid 위치여야 한다(아니면 차단/알람).
         private static bool VerifyFrontRearPickerZAvoidForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -1232,18 +1269,25 @@ namespace QMC.CDT320.Interlocks
                    string.Equals(movingName, "WaferY", System.StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool IsExpanderZPositiveMove(MotionGuardRuleContext request, InputStageUnit stage)
+        private static bool IsExpanderZMovingPositive(MotionGuardRuleContext request)
         {
             try
             {
-                if (request == null || stage == null || stage.ExpanderZ == null)
+                if (request == null)
                     return false;
 
-                double tolerance = stage.ExpanderZ.Config != null && stage.ExpanderZ.Config.InPositionTolerance > 0.0
-                    ? stage.ExpanderZ.Config.InPositionTolerance
-                    : 0.05;
+                InputStageUnit stage = request.Machine != null ? request.Machine.InputStageUnit : null;
+                BaseAxis axis = stage != null ? stage.ExpanderZ : null;
+                double tolerance = ResolveAxisPositionTolerance(axis);
+                if (stage != null &&
+                    stage.Recipe != null &&
+                    stage.Recipe.WaferZ != null &&
+                    System.Math.Abs(request.TargetValue - stage.Recipe.WaferZ.AvoidPosition) <= tolerance)
+                {
+                    return false;
+                }
 
-                return request.TargetValue > stage.ExpanderZ.ActualPosition + tolerance;
+                return axis != null && request.TargetValue > axis.ActualPosition + tolerance;
             }
             catch
             {
@@ -1252,6 +1296,14 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        private static double ResolveAxisPositionTolerance(BaseAxis axis)
+        {
+            if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
+                return axis.Config.InPositionTolerance;
+
+            return 0.05;
         }
 
         private static bool VerifyInputVisionXClearForExpanderZ(CDT320_Machine machine, out string reason)
@@ -1294,7 +1346,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyFrontPickerClearForExpanderZ(CDT320_Machine machine, PickerFrontUnit picker, bool positiveMove, out string reason)
+        private static bool VerifyFrontPickerClearForExpanderZ(CDT320_Machine machine, PickerFrontUnit picker, bool targetAtOrAboveZero, out string reason)
         {
             reason = string.Empty;
 
@@ -1312,7 +1364,7 @@ namespace QMC.CDT320.Interlocks
                 return VerifyPickerClearForExpanderZ(
                     "FrontPicker",
                     state,
-                    positiveMove,
+                    targetAtOrAboveZero,
                     out reason);
             }
             catch (System.Exception ex)
@@ -1328,7 +1380,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyRearPickerClearForExpanderZ(CDT320_Machine machine, PickerRearUnit picker, bool positiveMove, out string reason)
+        private static bool VerifyRearPickerClearForExpanderZ(CDT320_Machine machine, PickerRearUnit picker, bool targetAtOrAboveZero, out string reason)
         {
             reason = string.Empty;
 
@@ -1346,7 +1398,7 @@ namespace QMC.CDT320.Interlocks
                 return VerifyPickerClearForExpanderZ(
                     "RearPicker",
                     state,
-                    positiveMove,
+                    targetAtOrAboveZero,
                     out reason);
             }
             catch (System.Exception ex)
@@ -1365,13 +1417,17 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyPickerClearForExpanderZ(
             string pickerName,
             PickerZoneTransportState state,
-            bool blockInputZone,
+            bool movingPositive,
             out string reason)
         {
             reason = string.Empty;
             BaseAxis pickerX = state != null ? state.PickerX : null;
             BaseAxis pickerY = state != null ? state.PickerY : null;
             string stateText = state != null ? state.Describe() : pickerName + " state unavailable.";
+
+            // 현재 기준: ExpanderZ가 마이너스 방향으로 내려가는 이동은 PickerX/Y 이동 상태로 차단하지 않는다.
+            if (!movingPositive)
+                return true;
 
             if (MotionGuardRuleHelpers.IsAxisMoving(pickerX))
                 return MotionGuardRuleHelpers.Block(
@@ -1401,15 +1457,17 @@ namespace QMC.CDT320.Interlocks
                     stateText,
                     out reason);
 
-            if (!blockInputZone)
-                return true;
+            // 기존 조건: Picker가 Input 영역이면 ExpanderZ 목표 0 이상 이동을 무조건 차단했다.
+            // 현재 필요 여부: 사용 안 함. 현재는 ExpanderZ 목표가 0/Avoid보다 클 때 PickerZ 0 이상 또는 Avoid 조건으로 별도 확인한다.
+            //if (targetAtOrAboveZero)
+            //    return MotionGuardRuleHelpers.Block(
+            //        "ExpanderZ",
+            //        "ExpanderZ 이동 불가: " + pickerName + "가 Input 영역에 있을 때 목표 위치를 0 이상으로 이동할 수 없습니다. " +
+            //        stateText +
+            //        ", targetAtOrAboveZero=" + targetAtOrAboveZero,
+            //        out reason);
 
-            return MotionGuardRuleHelpers.Block(
-                "ExpanderZ",
-                "ExpanderZ positive move blocked. " + pickerName + " is in Input zone. " +
-                stateText +
-                ", positiveMove=" + blockInputZone,
-                out reason);
+            return true;
         }
 
         private static string BuildPickerZoneState(

@@ -184,6 +184,7 @@
     <Compile Include="Equipment\Config\CameraNodeCatalog.cs" />
     <Compile Include="Equipment\Optics\ILightController.cs" />
     <Compile Include="Equipment\Optics\LightControllerFactory.cs" />
+    <Compile Include="Equipment\Optics\LightBatchCache.cs" />
     <Compile Include="Equipment\Optics\Sim\SimLightController.cs" />
     <Compile Include="Equipment\Optics\LFine\LFineHardwareMode.cs" />
     <Compile Include="Equipment\Optics\LFine\LFineLightConfig.cs" />
@@ -200,6 +201,12 @@
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\Settings\Recipe\FocusTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\Recipe\FocusTargetPage.Designer.cs">
+      <DependentUpon>FocusTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>

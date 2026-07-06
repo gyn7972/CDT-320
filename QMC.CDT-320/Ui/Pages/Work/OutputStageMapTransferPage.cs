@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Motion;
 using QMC.CDT320;
+using QMC.CDT320.Calibration;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
@@ -1568,20 +1569,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 PickerAlignOffset alignOffset = ResolveRuntimePickerOffset(host, side, pickerIndex);
-                double alignX = alignOffset != null ? alignOffset.AlignOffsetX : 0.0;
-                double alignY = alignOffset != null ? alignOffset.AlignOffsetY : 0.0;
-                double alignT = alignOffset != null ? alignOffset.AlignOffsetT : 0.0;
-
-                double pickerY = GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition") + alignY;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                double pickerT = GetPickerTeachingPosition(host, side, tAxis, "PlacePosition") + alignT;
+                PickerCalibratedManualOutputTarget calibratedTarget =
+                    CalibrationCoordinateService.ResolveManualOutputMapTarget(
+                        host.Machine,
+                        ToVisionFocusPickerSide(side),
+                        pickerIndex,
+                        entry.PosX,
+                        entry.PosY,
+                        offsetX,
+                        offsetY,
+                        alignOffset,
+                        GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition"),
+                        GetPickerTeachingPosition(host, side, tAxis, "PlacePosition"));
 
                 targets = new OutputPlaceManualTargets
                 {
-                    OutputStageY = entry.PosY + offsetY,
-                    PickerX = entry.PosX + offsetX + alignX,
-                    PickerY = pickerY,
-                    PickerT = pickerT
+                    OutputStageY = calibratedTarget.OutputStageY,
+                    PickerX = calibratedTarget.PickerX,
+                    PickerY = calibratedTarget.PickerY,
+                    PickerT = calibratedTarget.PickerT
                 };
                 return true;
             }
@@ -1604,6 +1611,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return host.Machine.PickerFrontUnit != null ? host.Machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) : null;
 
             return host.Machine.PickerRearUnit != null ? host.Machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) : null;
+        }
+
+        private static VisionFocusPickerSide ToVisionFocusPickerSide(PickerSequenceSide side)
+        {
+            return side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
         }
 
         private static double GetPickerTeachingPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, string positionName)

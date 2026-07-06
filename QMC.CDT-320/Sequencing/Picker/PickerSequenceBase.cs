@@ -15,7 +15,6 @@ namespace QMC.CDT320.Sequencing
     internal abstract class PickerSequenceBase<TStep> where TStep : struct
     {
         private const double DefaultAutoProcessCorrectionMaxDistance = 2.0;
-
         protected PickerSequenceBase(
             MachineSequenceContext context,
             PickerSequenceSide side,
@@ -361,7 +360,8 @@ namespace QMC.CDT320.Sequencing
             double target,
             string description,
             CancellationToken ct,
-            string targetName = null)
+            string targetName = null,
+            bool forceMove = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -372,7 +372,7 @@ namespace QMC.CDT320.Sequencing
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
 
-                if (IsPickerAxisAlreadyInPosition(axis, target))
+                if (!forceMove && IsPickerAxisAlreadyInPosition(axis, target))
                 {
                     WriteLog("PickerMove",
                         Name + " " + description + " move skipped. Axis already in position. " +
@@ -391,7 +391,8 @@ namespace QMC.CDT320.Sequencing
                     "target=" + target,
                     "actual=" + axisDetail.Start,
                     "description=" + description,
-                    "targetName=" + targetName);
+                    "targetName=" + targetName,
+                    "forceMove=" + forceMove);
 
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     axis,
@@ -418,7 +419,7 @@ namespace QMC.CDT320.Sequencing
 
                 Stopwatch commandWatch = Stopwatch.StartNew();
                 int result = await SequenceAwaiter.AwaitAsync(
-                    MovePickerAxisCommandAsync(axis, target, targetName),
+                    MovePickerAxisCommandAsync(axis, target, targetName, forceMove),
                     -1,
                     ct).ConfigureAwait(false);
                 commandMs = commandWatch.ElapsedMilliseconds;
@@ -499,7 +500,8 @@ namespace QMC.CDT320.Sequencing
             IDictionary<PickerAxis, double> targets,
             string description,
             CancellationToken ct,
-            string targetName = null)
+            string targetName = null,
+            bool forceMove = false)
         {
             Stopwatch totalWatch = Stopwatch.StartNew();
             long commandMs = 0;
@@ -516,7 +518,8 @@ namespace QMC.CDT320.Sequencing
                     targets,
                     targetName,
                     description,
-                    ct).ConfigureAwait(false);
+                    ct,
+                    forceMove).ConfigureAwait(false);
                 if (yReadyResult != 0)
                     return yReadyResult;
 
@@ -538,7 +541,7 @@ namespace QMC.CDT320.Sequencing
                     if (IsAlarmStopActive())
                         return StopPickerMoveBecauseAlarmActive(description);
 
-                    if (IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
+                    if (!forceMove && IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
                     {
                         if (Options == null || Options.RunMode != SequenceRunMode.Auto)
                         {
@@ -562,7 +565,7 @@ namespace QMC.CDT320.Sequencing
 
                     commandTargets.Add(pair);
                     commandDetails.Add(BuildPickerMoveAxisLogDetail(pair.Key, pair.Value));
-                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
+                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName, forceMove));
                 }
 
                 if (commandTasks.Count > 0)
@@ -737,7 +740,8 @@ namespace QMC.CDT320.Sequencing
             IDictionary<PickerAxis, double> targets,
             string description,
             CancellationToken ct,
-            string targetName = null)
+            string targetName = null,
+            bool forceMove = false)
         {
             if (targets == null || targets.Count == 0)
                 return 0;
@@ -758,11 +762,12 @@ namespace QMC.CDT320.Sequencing
                 xtTargets,
                 description + " X/T",
                 ct,
-                targetName).ConfigureAwait(false);
+                targetName,
+                forceMove).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            if (!hasPickerY || IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget))
+            if (!hasPickerY || (!forceMove && IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, pickerYTarget)))
                 return 0;
 
             WriteLog("PickerMove",
@@ -776,20 +781,22 @@ namespace QMC.CDT320.Sequencing
                 pickerYTarget,
                 description + " Y",
                 ct,
-                targetName).ConfigureAwait(false);
+                targetName,
+                forceMove).ConfigureAwait(false);
         }
 
         private async Task<int> WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
             IDictionary<PickerAxis, double> targets,
             string targetName,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool forceMove = false)
         {
             if (targets == null || !targets.ContainsKey(PickerAxis.PickerY))
                 return 0;
 
             double target = targets[PickerAxis.PickerY];
-            if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
+            if (!forceMove && IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, target))
                 return 0;
 
             double pairedXTarget;
@@ -941,7 +948,7 @@ namespace QMC.CDT320.Sequencing
                     return false;
                 }
 
-                if (targetZone == PickerWorkZone.Bottom &&
+                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
                     IsOppositePickerInPlacePhase() &&
                     !IsOppositePickerYAtAvoidPosition())
                 {
@@ -955,7 +962,7 @@ namespace QMC.CDT320.Sequencing
                     oppositeIsFront,
                     out workAreaZone,
                     out workAreaOwner);
-                if (targetZone == PickerWorkZone.Bottom &&
+                if (PickerZoneInterlockRules.IsProcessZone(targetZone) &&
                     oppositeWorkActive &&
                     workAreaZone == PickerWorkZone.Output &&
                     !IsOppositePickerYAtAvoidPosition())
@@ -1211,31 +1218,32 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            PickerCalibratedZoneTarget zoneTarget = ResolvePickerZoneTarget(positionArrayName, index);
             var xyTargets = new Dictionary<PickerAxis, double>();
-            xyTargets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
-            xyTargets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
-            xyTargets[GetPickerTAxis(index)] = ResolvePickerZoneT(positionArrayName, index);
+            xyTargets[PickerAxis.PickerX] = zoneTarget.X;
+            xyTargets[PickerAxis.PickerY] = zoneTarget.Y;
+            xyTargets[zoneTarget.PickerTAxis] = zoneTarget.T;
 
             result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             return await MovePickerAxisAndVerifyAsync(
-                GetPickerZAxis(index),
-                ResolveZPosition(positionArrayName),
+                zoneTarget.PickerZAxis,
+                zoneTarget.Z,
                 description + " Z",
                 ct,
                 targetName).ConfigureAwait(false);
         }
 
-        protected Task<int> MoveAllPickerZToAvoidAndVerifyAsync(string description, CancellationToken ct)
+        protected Task<int> MoveAllPickerZToAvoidAndVerifyAsync(string description, CancellationToken ct, bool forceMove = false)
         {
             var targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerZ0] = GetPickerTeachingPosition(PickerAxis.PickerZ0, "AvoidPosition");
             targets[PickerAxis.PickerZ1] = GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
             targets[PickerAxis.PickerZ2] = GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
             targets[PickerAxis.PickerZ3] = GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
-            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition");
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition", forceMove);
         }
 
         protected Task<int> MovePickerGroupAndVerifyAsync(string positionName, string description, CancellationToken ct)
@@ -1545,7 +1553,7 @@ namespace QMC.CDT320.Sequencing
                         out oppositeOwner);
 
                     if (oppositeWorkActive &&
-                        (oppositeZone == PickerWorkZone.Bottom || oppositeZone == PickerWorkZone.Side))
+                        PickerZoneInterlockRules.IsProcessZone(oppositeZone))
                     {
                         if (!loggedWait)
                         {
@@ -1878,12 +1886,12 @@ namespace QMC.CDT320.Sequencing
             return false;
         }
 
-        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
+        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false)
         {
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
-                return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName);
-            return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName);
+                return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
+            return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);
         }
 
         protected Task<int> MovePickerAxisCommandWithVelocityAsync(PickerAxis axis, double target, double velocity, string targetName = null)
@@ -2228,144 +2236,60 @@ namespace QMC.CDT320.Sequencing
             return ResolvePickerZoneTarget(positionArrayName, pickerIndex).T;
         }
 
-        protected PickerZoneCoordinateResult ResolvePickerZoneTarget(string positionArrayName, int pickerIndex)
+        protected PickerCalibratedZoneTarget ResolvePickerZoneTarget(string positionArrayName, int pickerIndex)
         {
-            string zonePositionName = ResolveZonePositionName(positionArrayName);
-            return DieCoordinateTransformService.CalculatePickerZoneTarget(
-                Name,
-                Side,
+            return CalibrationCoordinateService.ResolvePickerZoneTarget(
+                Context != null ? Context.Machine : null,
+                ResolvePickerSide(),
                 positionArrayName,
                 pickerIndex,
-                GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName),
-                GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName),
-                ResolveTPosition(positionArrayName),
-                ResolvePickerPitchXOffset(positionArrayName, pickerIndex),
-                ResolvePickerAlignOffsetX(pickerIndex),
-                ResolvePickerAlignOffsetY(pickerIndex),
-                ResolvePickerAlignOffsetT(pickerIndex));
+                ResolvePickerRuntimeOffset(pickerIndex),
+                true,
+                true);
         }
 
         protected string ResolveZonePositionName(string positionArrayName)
         {
-            if (string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase))
-                return "BottomPosition";
-            if (string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase))
-                return "SidePosition";
-            if (string.Equals(positionArrayName, "DiePlacePosition", StringComparison.OrdinalIgnoreCase))
-                return "PlacePosition";
-            return "PickPosition";
+            return CalibrationCoordinateService.ResolveZonePositionName(positionArrayName);
         }
 
         protected PickerAxis GetPickerZAxis(int index)
         {
-            if (index <= 0) return PickerAxis.PickerZ0;
-            if (index == 1) return PickerAxis.PickerZ1;
-            if (index == 2) return PickerAxis.PickerZ2;
-            return PickerAxis.PickerZ3;
+            return CalibrationCoordinateService.ResolvePickerZAxis(index);
         }
 
         protected PickerAxis GetPickerTAxis(int index)
         {
-            if (index <= 0) return PickerAxis.PickerT0;
-            if (index == 1) return PickerAxis.PickerT1;
-            if (index == 2) return PickerAxis.PickerT2;
-            return PickerAxis.PickerT3;
-        }
-
-        private double ResolveTPosition(string positionArrayName)
-        {
-            if (string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerT0, "BottomPosition");
-            if (string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerT0, "SidePosition");
-            if (string.Equals(positionArrayName, "DiePlacePosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerT0, "PlacePosition");
-            return GetPickerTeachingPosition(PickerAxis.PickerT0, "PickPosition");
-        }
-
-        private double ResolveZPosition(string positionArrayName)
-        {
-            if (string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerZ0, "BottomPosition");
-            if (string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerZ0, "SidePosition");
-            if (string.Equals(positionArrayName, "DiePlacePosition", StringComparison.OrdinalIgnoreCase))
-                return GetPickerTeachingPosition(PickerAxis.PickerZ0, "PlacePosition");
-            return GetPickerTeachingPosition(PickerAxis.PickerZ0, "PickPosition");
+            return CalibrationCoordinateService.ResolvePickerTAxis(index);
         }
 
         protected double ResolvePickerAlignOffsetX(int index)
         {
-            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return (offset != null ? offset.AlignOffsetX : 0.0) + ResolveColletCalibrationOffsetX(index);
-        }
-
-        protected double ResolvePickerPitchXOffset(string positionArrayName, int index)
-        {
-            if (index <= 0)
-            {
-                if (!IsReversePickerPitchZone(positionArrayName))
-                    return 0.0;
-            }
-
-            double pitch = 0.0;
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-                pitch = FrontPicker.Setup.PickerPitchX;
-            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-                pitch = RearPicker.Setup.PickerPitchX;
-
-            int pitchIndex = IsReversePickerPitchZone(positionArrayName)
-                ? Math.Max(0, 3 - index)
-                : index;
-
-            return Math.Abs(pitch) * pitchIndex;
-        }
-
-        protected static bool IsReversePickerPitchZone(string positionArrayName)
-        {
-            return string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase);
+            PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
+            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(index);
+            return (offset != null ? offset.AlignOffsetX : 0.0) + calibration.X;
         }
 
         protected double ResolvePickerAlignOffsetY(int index)
         {
-            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return (offset != null ? offset.AlignOffsetY : 0.0) + ResolveColletCalibrationOffsetY(index);
+            PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
+            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(index);
+            return (offset != null ? offset.AlignOffsetY : 0.0) + calibration.Y;
         }
 
         protected double ResolvePickerAlignOffsetT(int index)
         {
-            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return (offset != null ? offset.AlignOffsetT : 0.0) + ResolveColletCalibrationOffsetT(index);
+            PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
+            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(index);
+            return (offset != null ? offset.AlignOffsetT : 0.0) + calibration.T;
         }
 
-        private double ResolveColletCalibrationOffsetX(int index)
+        private PickerCalibrationOffset ResolvePickerCalibrationOffset(int index)
         {
-            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
-            return record != null ? record.OffsetX : 0.0;
-        }
-
-        private double ResolveColletCalibrationOffsetY(int index)
-        {
-            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
-            return record != null ? record.OffsetY : 0.0;
-        }
-
-        private double ResolveColletCalibrationOffsetT(int index)
-        {
-            ColletCalibrationRecord record = ResolveColletCalibrationRecord(index);
-            return record != null ? record.ThetaOffset : 0.0;
-        }
-
-        private ColletCalibrationRecord ResolveColletCalibrationRecord(int index)
-        {
-            if (Context == null || Context.Machine == null || index < 0)
-                return null;
-
-            VisionFocusPickerSide side = Side == PickerSequenceSide.Front
-                ? VisionFocusPickerSide.Front
-                : VisionFocusPickerSide.Rear;
-            return CalibrationCoordinateService.ResolveCollet(Context.Machine, side, index);
+            return CalibrationCoordinateService.ResolvePickerCalibrationOffset(
+                Context != null ? Context.Machine : null,
+                ResolvePickerSide(),
+                index);
         }
 
         protected double ResolveInputVisionToPickerXOffset(int index)
@@ -2458,7 +2382,7 @@ namespace QMC.CDT320.Sequencing
                 out reason);
         }
 
-        private PickerAlignOffset ResolvePickerAlignOffset(int index)
+        private PickerAlignOffset ResolvePickerRuntimeOffset(int index)
         {
             if (index < 0)
                 return null;
@@ -2470,6 +2394,13 @@ namespace QMC.CDT320.Sequencing
                 return RearPicker.GetRuntimePickerOffset(index);
 
             return null;
+        }
+
+        private VisionFocusPickerSide ResolvePickerSide()
+        {
+            return Side == PickerSequenceSide.Front
+                ? VisionFocusPickerSide.Front
+                : VisionFocusPickerSide.Rear;
         }
 
         protected InspectionAlignmentSnapshot BuildPickerAlignmentSnapshot(

@@ -44,7 +44,7 @@ namespace QMC.Vision.Sequencing
                 T("MATCH",   "ColletFinder"),
                 T("MATCH",   "DieFinder"),
                 T("INSPECT", "SurfaceInspector"),
-                T("MATCH",   "FocusFinder"),
+                // 포커스: 패턴 매칭(FocusFinder) 미사용 — 핸들러 Z스캔(FOCUS_START/VAL)이 오토포커스 ROI1~4 채점.
                 T("MATCH",   "ScaleFinder"),
                 T("MATCH",   "DistortionCompensation"),
             },

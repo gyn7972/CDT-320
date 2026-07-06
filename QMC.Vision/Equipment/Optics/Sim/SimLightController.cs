@@ -14,12 +14,16 @@ namespace QMC.Vision.Optics.Sim
         private readonly int[] _strobeUs;
         private readonly int[] _lastOnPower; // On/Off 복원용
         private int _lastPage;               // 마지막 SwitchPage (합성 응답용)
+        private readonly LightBatchCache _batchCache = new LightBatchCache();   // 마지막 송신값 — 동일 값 재송신 생략
 
         public bool   IsConnected  { get; private set; }
         public string PortName     => "Sim";
         public int    ChannelCount { get; }
 
-        /// <summary>Stage 79 — 배치 송신 횟수 (테스트 검증용). 항상 송신이므로 매 호출 증가.</summary>
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms) — Sim 도 실장비와 동일 계약(캐시 히트 시 대기 없음).</summary>
+        public int SettleDelayMs { get; set; }
+
+        /// <summary>배치 실제 송신 횟수 (테스트 검증용). 캐시 히트(동일 값)는 증가하지 않는다.</summary>
         public int BatchSendCount { get; private set; }
 
         /// <summary>마지막 SetHardwareModeAsync 값 (테스트 검증용). null = 미송신.</summary>
@@ -45,6 +49,7 @@ namespace QMC.Vision.Optics.Sim
             if (!IsValid(channel)) return Task.FromResult(false);
             _power[channel] = power;
             if (power > 0) _lastOnPower[channel] = power;
+            _batchCache.Clear();   // 개별 명령 → 배치 캐시 무효화
             Emit($"SetPower ch={channel} power={power}");
             return Task.FromResult(true);
         }
@@ -62,6 +67,7 @@ namespace QMC.Vision.Optics.Sim
             if (!IsValid(channel)) return Task.FromResult(false);
             int target = on ? (_lastOnPower[channel] > 0 ? _lastOnPower[channel] : 0) : 0;
             _power[channel] = target;
+            _batchCache.Clear();   // 개별 On/Off → 배치 캐시 무효화
             Emit($"SetOnOff ch={channel} on={on} → power={target}");
             return Task.FromResult(true);
         }
@@ -74,14 +80,18 @@ namespace QMC.Vision.Optics.Sim
 
         public Task<bool> SwitchPageAsync(int page) { _lastPage = page; Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
 
-        /// <summary>Stage 79 — 일괄 적용. 항상 송신(캐시 skip 잔재 제거) — 매 호출 BatchSendCount++.</summary>
-        public Task<bool> SetChannelBatchAsync(int page, int[] values)
+        /// <summary>일괄 적용 — 이전 송신값과 같으면(캐시 히트) 송신 생략(BatchSendCount 미증가).
+        /// 값이 달라진 경우에만 송신 + SettleDelayMs 대기(실장비와 동일 계약).</summary>
+        public async Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
-            if (values == null || values.Length != ChannelCount) return Task.FromResult(false);
+            if (values == null || values.Length != ChannelCount) return false;
+            if (_batchCache.IsHit(page, values)) { Emit($"BatchSkip(cache-hit) page={page}"); return true; }
             BatchSendCount++;
             for (int i = 0; i < values.Length; i++) { _power[i + 1] = values[i]; if (values[i] > 0) _lastOnPower[i + 1] = values[i]; }
+            _batchCache.Store(page, values);
             Emit($"BatchSend page={page} [{string.Join(",", values)}]");
-            return Task.FromResult(true);
+            if (SettleDelayMs > 0) await Task.Delay(SettleDelayMs).ConfigureAwait(false);
+            return true;
         }
 
         /// <summary>하드웨어 모드(SM) — Sim 은 기록만 (테스트 검증용).</summary>

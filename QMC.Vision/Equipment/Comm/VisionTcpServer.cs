@@ -210,9 +210,9 @@ namespace QMC.Vision.Comm
                     case "DISTORT": resp = DoDistort(m); break;
                     case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "CAM_SETTING":resp = DoCameraSetting(m); break;
-                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
-                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
+                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
                     default: resp = null; break;
                 }
 
@@ -236,10 +236,11 @@ namespace QMC.Vision.Comm
 
         // ── 명령 핸들러 ────────────────────────────
 
-        /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
+        /// <summary>RUN 게이트 면제 명령 — PING/그랩/캘리브레이션용 비전 명령은 수동 셋업에서도 허용한다.</summary>
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
             || cmd == "CAM_SETTING"
+            || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         /// <summary>응답 ACK 의 echo 토큰 선택.
@@ -282,9 +283,14 @@ namespace QMC.Vision.Comm
             if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
                 chipUid = newUid;
             if (string.IsNullOrEmpty(finder)) return "fail:no finder";
-            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
 
             AsyncMatchStore.Start(m.Name, finder, chipUid);   // 번호별 기존 결과 무효화 + Running 표시
+            if (!m.Finders.TryGetValue(finder, out var f))
+            {
+                AsyncMatchStore.Fail(m.Name, finder, chipUid, "finder not found: " + finder);
+                return "STARTED";
+            }
+
             var cfg = _cfg;
             System.Threading.Tasks.Task.Run(() =>
             {

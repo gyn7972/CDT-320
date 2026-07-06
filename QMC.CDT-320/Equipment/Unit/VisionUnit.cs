@@ -356,6 +356,25 @@ namespace QMC.CDT320
             double deceleration,
             string targetName)
         {
+            return await MoveVisionAxisCommandWithMotion(
+                axis,
+                targetPos,
+                velocity,
+                acceleration,
+                deceleration,
+                targetName,
+                false).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveVisionAxisCommandWithMotion(
+            VisionAxis axis,
+            double targetPos,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            string targetName,
+            bool forceMove)
+        {
             try
             {
                 BaseAxis item = ResolveVisionAxis(axis);
@@ -374,7 +393,8 @@ namespace QMC.CDT320
                     ", targetName=" + (targetName ?? string.Empty) +
                     ", velocity=" + moveVelocity +
                     ", acc=" + acceleration +
-                    ", dec=" + deceleration);
+                    ", dec=" + deceleration +
+                    ", forceMove=" + forceMove);
 
                 try
                 {
@@ -384,7 +404,7 @@ namespace QMC.CDT320
                         item.Config.Deceleration = deceleration;
                     }
 
-                    int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, moveVelocity).ConfigureAwait(false);
+                    int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, moveVelocity, forceMove).ConfigureAwait(false);
                     if (result != 0 || item.IsAlarm)
                         return RaiseVisionAlarm("VS-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
 
@@ -648,6 +668,13 @@ namespace QMC.CDT320
             if (IsName(positionName, "Process0Position") || IsName(positionName, "ProcessPos")) return positions.Process0Position;
             if (IsName(positionName, "Process90Position")) return positions.Process90Position;
             return 0.0;
+        }
+
+        public void SetVisionAxisTeachingPosition(VisionAxis axis, string positionName, double position)
+        {
+            SetVisionTeachingPosition(axis, positionName, position);
+            EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH",
+                axis + "." + positionName + "=" + position.ToString("0.######"));
         }
 
         public bool ValidateVisionTeachingComplete()

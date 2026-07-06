@@ -280,7 +280,10 @@ namespace QMC.CDT320.VisionComm
         public async Task<bool> MatchAsyncStartAsync(string finder, int index, int timeoutMs, CancellationToken ct)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, index).ConfigureAwait(false);
-            return response.IsAck && response.IsResult("STARTED");
+            bool started = response.IsAck && response.IsResult("STARTED");
+            if (!started)
+                LogMsg("MATCHASYNC START rejected: " + response.RawLine);
+            return started;
         }
 
         /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — 고정 8파트 "finder|fb|collet|die_index|channel|chip_uid" 전송.
@@ -289,7 +292,10 @@ namespace QMC.CDT320.VisionComm
         public async Task<bool> MatchAsyncStartAsync(string finder, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);
-            return response.IsAck && response.IsResult("STARTED");
+            bool started = response.IsAck && response.IsResult("STARTED");
+            if (!started)
+                LogMsg("MATCHASYNC START rejected: " + response.RawLine);
+            return started;
         }
 
         /// <summary>비동기 매칭 결과 폴링 — Done=false 면 아직 진행 중(반복 폴링), Done=true 면 Result 에 데이터.</summary>

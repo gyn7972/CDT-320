@@ -30,7 +30,10 @@
         private CalibrationDialogButton btnCheck;
         private CalibrationDialogButton btnUseCurrent;
         private CalibrationDialogButton btnMoveDefault;
+        private CalibrationDialogButton btnMoveZAvoid;
+        private CalibrationDialogButton btnMoveYAvoid;
         private CalibrationDialogButton btnStartScan;
+        private CalibrationDialogButton btnApplyBest;
         private CalibrationDialogButton btnReload;
         private CalibrationDialogButton btnSave;
         private CalibrationDialogButton btnClose;
@@ -71,7 +74,10 @@
             this.btnCheck = new CalibrationDialogButton();
             this.btnUseCurrent = new CalibrationDialogButton();
             this.btnMoveDefault = new CalibrationDialogButton();
+            this.btnMoveZAvoid = new CalibrationDialogButton();
+            this.btnMoveYAvoid = new CalibrationDialogButton();
             this.btnStartScan = new CalibrationDialogButton();
+            this.btnApplyBest = new CalibrationDialogButton();
             this.btnReload = new CalibrationDialogButton();
             this.btnSave = new CalibrationDialogButton();
             this.btnClose = new CalibrationDialogButton();
@@ -172,6 +178,7 @@
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.gridSettings.Size = new System.Drawing.Size(454, 324);
             this.gridSettings.TabIndex = 0;
+            this.gridSettings.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.gridSettings_CellBeginEdit);
             this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
             this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
             this.gridSettings.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellValueChanged);
@@ -374,21 +381,27 @@
             // 
             // buttonPanel
             // 
-            this.buttonPanel.ColumnCount = 7;
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.buttonPanel.ColumnCount = 10;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
             this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this.btnUseCurrent, 1, 0);
             this.buttonPanel.Controls.Add(this.btnMoveDefault, 2, 0);
-            this.buttonPanel.Controls.Add(this.btnStartScan, 3, 0);
-            this.buttonPanel.Controls.Add(this.btnReload, 4, 0);
-            this.buttonPanel.Controls.Add(this.btnSave, 5, 0);
-            this.buttonPanel.Controls.Add(this.btnClose, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveZAvoid, 3, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveYAvoid, 4, 0);
+            this.buttonPanel.Controls.Add(this.btnStartScan, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnApplyBest, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 7, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 8, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 9, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.Location = new System.Drawing.Point(10, 704);
             this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
@@ -410,7 +423,7 @@
             this.btnCheck.Location = new System.Drawing.Point(5, 6);
             this.btnCheck.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnCheck.Name = "btnCheck";
-            this.btnCheck.Size = new System.Drawing.Size(132, 29);
+            this.btnCheck.Size = new System.Drawing.Size(89, 29);
             this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK READY";
             this.btnCheck.UseVisualStyleBackColor = false;
@@ -426,10 +439,10 @@
             this.btnUseCurrent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnUseCurrent.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnUseCurrent.ForeColor = System.Drawing.Color.Black;
-            this.btnUseCurrent.Location = new System.Drawing.Point(147, 6);
+            this.btnUseCurrent.Location = new System.Drawing.Point(105, 6);
             this.btnUseCurrent.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnUseCurrent.Name = "btnUseCurrent";
-            this.btnUseCurrent.Size = new System.Drawing.Size(132, 29);
+            this.btnUseCurrent.Size = new System.Drawing.Size(89, 29);
             this.btnUseCurrent.TabIndex = 1;
             this.btnUseCurrent.Text = "USE CURRENT";
             this.btnUseCurrent.UseVisualStyleBackColor = false;
@@ -445,15 +458,53 @@
             this.btnMoveDefault.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnMoveDefault.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnMoveDefault.ForeColor = System.Drawing.Color.Black;
-            this.btnMoveDefault.Location = new System.Drawing.Point(289, 6);
+            this.btnMoveDefault.Location = new System.Drawing.Point(205, 6);
             this.btnMoveDefault.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnMoveDefault.Name = "btnMoveDefault";
-            this.btnMoveDefault.Size = new System.Drawing.Size(132, 29);
+            this.btnMoveDefault.Size = new System.Drawing.Size(89, 29);
             this.btnMoveDefault.TabIndex = 2;
-            this.btnMoveDefault.Text = "MOVE DEFAULT";
+            this.btnMoveDefault.Text = "MOVE";
             this.btnMoveDefault.UseVisualStyleBackColor = false;
             this.btnMoveDefault.Role = CalibrationDialogButtonRole.Normal;
             this.btnMoveDefault.Click += new System.EventHandler(this.btnMoveDefault_Click);
+            // 
+            // btnMoveZAvoid
+            // 
+            this.btnMoveZAvoid.BackColor = System.Drawing.Color.White;
+            this.btnMoveZAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMoveZAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMoveZAvoid.FlatAppearance.BorderSize = 0;
+            this.btnMoveZAvoid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMoveZAvoid.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnMoveZAvoid.ForeColor = System.Drawing.Color.Black;
+            this.btnMoveZAvoid.Location = new System.Drawing.Point(305, 6);
+            this.btnMoveZAvoid.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnMoveZAvoid.Name = "btnMoveZAvoid";
+            this.btnMoveZAvoid.Size = new System.Drawing.Size(89, 29);
+            this.btnMoveZAvoid.TabIndex = 3;
+            this.btnMoveZAvoid.Text = "Z AVOID";
+            this.btnMoveZAvoid.UseVisualStyleBackColor = false;
+            this.btnMoveZAvoid.Role = CalibrationDialogButtonRole.Normal;
+            this.btnMoveZAvoid.Click += new System.EventHandler(this.btnMoveZAvoid_Click);
+            // 
+            // btnMoveYAvoid
+            // 
+            this.btnMoveYAvoid.BackColor = System.Drawing.Color.White;
+            this.btnMoveYAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMoveYAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMoveYAvoid.FlatAppearance.BorderSize = 0;
+            this.btnMoveYAvoid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMoveYAvoid.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnMoveYAvoid.ForeColor = System.Drawing.Color.Black;
+            this.btnMoveYAvoid.Location = new System.Drawing.Point(405, 6);
+            this.btnMoveYAvoid.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnMoveYAvoid.Name = "btnMoveYAvoid";
+            this.btnMoveYAvoid.Size = new System.Drawing.Size(89, 29);
+            this.btnMoveYAvoid.TabIndex = 4;
+            this.btnMoveYAvoid.Text = "P-Y AVOID";
+            this.btnMoveYAvoid.UseVisualStyleBackColor = false;
+            this.btnMoveYAvoid.Role = CalibrationDialogButtonRole.Normal;
+            this.btnMoveYAvoid.Click += new System.EventHandler(this.btnMoveYAvoid_Click);
             // 
             // btnStartScan
             // 
@@ -464,15 +515,35 @@
             this.btnStartScan.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStartScan.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnStartScan.ForeColor = System.Drawing.Color.White;
-            this.btnStartScan.Location = new System.Drawing.Point(431, 6);
+            this.btnStartScan.Location = new System.Drawing.Point(505, 6);
             this.btnStartScan.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnStartScan.Name = "btnStartScan";
-            this.btnStartScan.Size = new System.Drawing.Size(132, 29);
-            this.btnStartScan.TabIndex = 3;
+            this.btnStartScan.Size = new System.Drawing.Size(89, 29);
+            this.btnStartScan.TabIndex = 5;
             this.btnStartScan.Text = "START SCAN";
             this.btnStartScan.UseVisualStyleBackColor = false;
             this.btnStartScan.Role = CalibrationDialogButtonRole.Primary;
             this.btnStartScan.Click += new System.EventHandler(this.btnStartScan_Click);
+            // 
+            // 
+            // btnApplyBest
+            // 
+            this.btnApplyBest.BackColor = System.Drawing.Color.White;
+            this.btnApplyBest.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnApplyBest.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnApplyBest.FlatAppearance.BorderSize = 0;
+            this.btnApplyBest.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnApplyBest.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnApplyBest.ForeColor = System.Drawing.Color.Black;
+            this.btnApplyBest.Location = new System.Drawing.Point(605, 6);
+            this.btnApplyBest.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
+            this.btnApplyBest.Name = "btnApplyBest";
+            this.btnApplyBest.Size = new System.Drawing.Size(89, 29);
+            this.btnApplyBest.TabIndex = 6;
+            this.btnApplyBest.Text = "APPLY BEST";
+            this.btnApplyBest.UseVisualStyleBackColor = false;
+            this.btnApplyBest.Role = CalibrationDialogButtonRole.Normal;
+            this.btnApplyBest.Click += new System.EventHandler(this.btnApplyBest_Click);
             // 
             // btnReload
             // 
@@ -483,11 +554,11 @@
             this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.Black;
-            this.btnReload.Location = new System.Drawing.Point(573, 6);
+            this.btnReload.Location = new System.Drawing.Point(705, 6);
             this.btnReload.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnReload.Name = "btnReload";
-            this.btnReload.Size = new System.Drawing.Size(132, 29);
-            this.btnReload.TabIndex = 4;
+            this.btnReload.Size = new System.Drawing.Size(89, 29);
+            this.btnReload.TabIndex = 7;
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Role = CalibrationDialogButtonRole.Normal;
@@ -502,11 +573,11 @@
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(715, 6);
+            this.btnSave.Location = new System.Drawing.Point(805, 6);
             this.btnSave.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(132, 29);
-            this.btnSave.TabIndex = 5;
+            this.btnSave.Size = new System.Drawing.Size(89, 29);
+            this.btnSave.TabIndex = 8;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Role = CalibrationDialogButtonRole.Dark;
@@ -521,11 +592,11 @@
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnClose.ForeColor = System.Drawing.Color.Black;
-            this.btnClose.Location = new System.Drawing.Point(857, 6);
+            this.btnClose.Location = new System.Drawing.Point(905, 6);
             this.btnClose.Margin = new System.Windows.Forms.Padding(5, 6, 5, 6);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(136, 29);
-            this.btnClose.TabIndex = 6;
+            this.btnClose.Size = new System.Drawing.Size(88, 29);
+            this.btnClose.TabIndex = 9;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Role = CalibrationDialogButtonRole.Normal;

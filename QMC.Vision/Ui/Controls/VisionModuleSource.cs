@@ -45,7 +45,9 @@ namespace QMC.Vision.Ui.Controls
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ToolbarGrab",
                     (_m?.Name ?? "?") + ": 툴바 Grab, ActiveToolId='" + (ActiveToolId ?? "(null)") + "', 시뮬저장이미지=" + useSaved); } catch { }
 
-                using (var g = useSaved ? _m.GrabForTool(ActiveToolId) : _m.Grab())
+                // 활성 도구가 있으면 GrabForTool 경유 — 도구 전용 노출/조명(PrepareToolAcquisition)이 적용된다.
+                //   (저장이미지 우선 순위는 GrabForTool 내부에서 동일하게 처리.)
+                using (var g = !string.IsNullOrEmpty(ActiveToolId) ? _m.GrabForTool(ActiveToolId) : _m.Grab())
                 {
                     if (g != null && g.IsSuccess && g.Image != null)
                         return (Bitmap)g.Image.Clone();
@@ -96,6 +98,9 @@ namespace QMC.Vision.Ui.Controls
         {
             var cam = _m?.Camera;
             if (cam == null) return;
+            // 라이브 시작 전 촬상 준비 — 활성 도구(없으면 모듈 기본)의 노출 + 조명 적용.
+            //   조명 컨트롤러는 동일 값이면(캐시 히트) 통신/안정화 대기를 생략한다.
+            try { _m.PrepareToolAcquisition(ActiveToolId); } catch { }
             _onFrame = onFrame;
             _handler = r =>
             {

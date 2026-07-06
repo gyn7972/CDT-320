@@ -49,15 +49,17 @@ namespace QMC.Vision.Comm
                     case "EXPOSE":
                     case "GRAB":       resp = VisionCommandCore.Grab(m); break;
                     case "MATCH":      resp = DoMatch(m, cfg, parts); break;
+                    case "MATCHASYNC": resp = DoMatchAsync(m, cfg, parts); break;
+                    case "MATCHRESULT":resp = DoMatchResult(m, parts); break;
                     case "INSPECT":    resp = DoInspect(m, cfg, parts); break;
                     case "TRAIN":      resp = DoTrain(m, parts);     break;
                     case "SCALE":      resp = DoScale(m, parts);     break;
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
                     case "DISTORT":    resp = DoDistort(m);          break;
                     case "CAM_SWITCH": resp = DoCamSwitch(parts);    break;
-                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(parts); break;
+                    case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
-                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(parts); break;
+                    case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
                     default:           resp = null;                  break;
                 }
                 if (resp == null) return $"ERR|{mod}|{cmd}|unknown command";
@@ -74,6 +76,7 @@ namespace QMC.Vision.Comm
         /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
+            || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
         private static string DoMatch(IVisionModule m, VisionSettings cfg, string[] parts)
@@ -84,6 +87,74 @@ namespace QMC.Vision.Comm
             if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
                 chipUid = newUid;
             return VisionCommandCore.Match(m, cfg, finder, chipUid);
+        }
+
+        /// <summary>비동기 매칭 시작 — 요청 즉시 STARTED를 돌려주고 그랩/알고리즘은 백그라운드에서 수행한다.</summary>
+        private static string DoMatchAsync(IVisionModule m, VisionSettings cfg, string[] parts)
+        {
+            string finder = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
+            if (ColletAddress.TryParseWire(parts, out _, out _, out _, out _, out string newUid))
+                chipUid = newUid;
+            if (string.IsNullOrEmpty(finder))
+                return "fail:no finder";
+
+            AsyncMatchStore.Start(m.Name, finder, chipUid);
+            if (!m.Finders.TryGetValue(finder, out var f))
+            {
+                AsyncMatchStore.Fail(m.Name, finder, chipUid, "finder not found: " + finder);
+                return "STARTED";
+            }
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    var g = m.GrabForTool(finder);
+                    if (g == null || !g.IsSuccess)
+                    {
+                        try { g?.Dispose(); } catch { }
+                        AsyncMatchStore.Fail(m.Name, finder, chipUid, g?.ErrorMessage ?? "grab");
+                        return;
+                    }
+
+                    try
+                    {
+                        string res = VisionCommandCore.MatchOnImage(m, cfg, finder, f, g.Image, chipUid);
+                        if (res != null && res.StartsWith("OK;"))
+                            AsyncMatchStore.Complete(m.Name, finder, chipUid, res.Substring(3));
+                        else
+                            AsyncMatchStore.Fail(m.Name, finder, chipUid, res ?? "no result");
+                    }
+                    finally
+                    {
+                        try { g.Dispose(); } catch { }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AsyncMatchStore.Fail(m.Name, finder, chipUid, ex.Message);
+                }
+            });
+            return "STARTED";
+        }
+
+        /// <summary>비동기 매칭 결과 폴링 — 0(진행), 1;payload(완료), ERR;reason(실패).</summary>
+        private static string DoMatchResult(IVisionModule m, string[] parts)
+        {
+            string finder = parts.Length > 2 ? parts[2] : "";
+            string chipUid = parts.Length > 3 ? parts[3] : "";
+            if (string.IsNullOrEmpty(finder))
+                return "fail:no finder";
+
+            var st = AsyncMatchStore.TryGet(m.Name, finder, chipUid, out string payload);
+            switch (st)
+            {
+                case AsyncMatchStore.State.Done: return "1;" + payload;
+                case AsyncMatchStore.State.Error: return "ERR;" + payload;
+                case AsyncMatchStore.State.Running: return "0";
+                default: return "0";
+            }
         }
 
         /// <summary>동기 검사. 신형 고정 8파트(inspector|fb|collet|die_index|channel|chip_uid)면
@@ -117,29 +188,49 @@ namespace QMC.Vision.Comm
             if (!double.TryParse(parts[2], out var wMm)) return "fail:bad width";
             if (!double.TryParse(parts[3], out var hMm)) return "fail:bad height";
             if (!m.Calibrate(wMm, hMm, out var sx, out var sy, out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "SCALE", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             // 모듈별 CameraConfig 스케일 갱신 + 영속(SSOT=모듈)
             var map = m.ExportCameraMapping();
             map.ScaleX = sx; map.ScaleY = sy;
             m.ImportCameraMapping(map);
             try { m.SaveSettings(); } catch { }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "SCALE", true, $"scaleX={sx:F6};scaleY={sy:F6}"); } catch { }
             return $"OK;scaleX={sx:F6};scaleY={sy:F6}";
         }
 
         private static string DoRotCenter(IVisionModule m)
         {
             if (!m.MeasureRotationalCenter(out var corners, out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "ROT_CENTER", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             var sb = new StringBuilder("OK");
+            var items = new StringBuilder();
             for (int i = 0; i < corners.Count; i++)
+            {
                 sb.Append($";x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+                if (items.Length > 0) items.Append(';');
+                items.Append($"x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+            }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "ROT_CENTER", true, items.ToString()); } catch { }
             return sb.ToString();
         }
 
         private static string DoDistort(IVisionModule m)
         {
             if (!m.LearnDistortion(out var err))
+            {
+                try { ModuleResultStore.Record(m.Name, "DISTORT", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
+            // 작업 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { ModuleResultStore.Record(m.Name, "DISTORT", true, "distortion=OK"); } catch { }
             return "OK";
         }
 

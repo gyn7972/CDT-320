@@ -34,8 +34,8 @@ namespace QMC.CDT320.Interlocks
         {
             get
             {
-                return CurrentZone == RequestedZone ||
-                       TargetZone == RequestedZone;
+                return PickerZoneInterlockRules.IsSameInterlockZone(CurrentZone, RequestedZone) ||
+                       PickerZoneInterlockRules.IsSameInterlockZone(TargetZone, RequestedZone);
             }
         }
 
@@ -43,7 +43,7 @@ namespace QMC.CDT320.Interlocks
         {
             get
             {
-                if (!HasWorkArea || WorkAreaZone != RequestedZone)
+                if (!HasWorkArea || !PickerZoneInterlockRules.IsSameInterlockZone(WorkAreaZone, RequestedZone))
                     return false;
 
                 return !IsWorkAreaPhysicallyClearForTransport;
@@ -56,8 +56,8 @@ namespace QMC.CDT320.Interlocks
             {
                 bool yClearForRequestedTransport = RequestedZone == PickerWorkZone.Input || YAvoid;
                 return yClearForRequestedTransport &&
-                       CurrentZone != RequestedZone &&
-                       TargetZone != RequestedZone &&
+                       !PickerZoneInterlockRules.IsSameInterlockZone(CurrentZone, RequestedZone) &&
+                       !PickerZoneInterlockRules.IsSameInterlockZone(TargetZone, RequestedZone) &&
                        !IsAxisMoving(PickerX) &&
                        !IsAxisMoving(PickerY);
             }
@@ -133,7 +133,8 @@ namespace QMC.CDT320.Interlocks
             if ((!isFront && !isRear) || axis != PickerAxis.PickerY)
                 return new ActiveZoneScope(false, PickerWorkZone.Unknown, false);
 
-            PickerWorkZone zone = ParseZone(targetName);
+            // 현재 기준: PickerY 활성 목표 존은 Bottom/Side를 하나의 Process 존으로 정규화해서 관리한다.
+            PickerWorkZone zone = NormalizeInterlockZone(ParseZone(targetName));
             lock (activeZoneLock)
             {
                 PickerWorkZone previous = isFront ? frontPickerYActiveTargetZone : rearPickerYActiveTargetZone;
@@ -153,6 +154,8 @@ namespace QMC.CDT320.Interlocks
 
         public static IDisposable BeginPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
         {
+            // 현재 기준: INSPECT_B/INSPECT_S 작업 점유는 같은 Process 존 점유로 관리한다.
+            zone = NormalizeInterlockZone(zone);
             lock (activeZoneLock)
             {
                 AddPickerWorkAreaUse(isFront, zone, owner);
@@ -176,6 +179,7 @@ namespace QMC.CDT320.Interlocks
                         return true;
                     }
 
+                    // 현재 기준: Bottom/Side 점유는 Process 점유 하나로 보고 Bottom을 대표값으로 반환한다.
                     if (IsPickerWorkAreaActive(isFront, PickerWorkZone.Bottom, out owner))
                     {
                         zone = PickerWorkZone.Bottom;
@@ -273,6 +277,25 @@ namespace QMC.CDT320.Interlocks
             return ResolveXZoneByPosition(machine, isFront, position);
         }
 
+        internal static bool IsProcessZone(PickerWorkZone zone)
+        {
+            return zone == PickerWorkZone.Bottom || zone == PickerWorkZone.Side;
+        }
+
+        internal static PickerWorkZone NormalizeInterlockZone(PickerWorkZone zone)
+        {
+            // 현재 기준: INSPECT_B/INSPECT_S는 인터락에서 하나의 Process 존으로 취급한다.
+            return IsProcessZone(zone) ? PickerWorkZone.Bottom : zone;
+        }
+
+        internal static bool IsSameInterlockZone(PickerWorkZone first, PickerWorkZone second)
+        {
+            if (first == PickerWorkZone.Unknown || second == PickerWorkZone.Unknown)
+                return false;
+
+            return NormalizeInterlockZone(first) == NormalizeInterlockZone(second);
+        }
+
         public static bool CanMovePickerAxisByFacingYInterlock(
             CDT320_Machine machine,
             bool isFront,
@@ -318,6 +341,102 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        public static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
+            CDT320_Machine machine,
+            PickerWorkZone zone,
+            string movingName,
+            bool movingTowardPicker,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            // 현재 기준: Stage Z가 안전 방향으로 내려가는 목표이면 PickerZ 0 이상 조건을 적용하지 않는다.
+            if (!movingTowardPicker)
+                return true;
+
+            if (!VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, true, zone, movingName, out reason))
+                return false;
+
+            return VerifyPickerZAtOrAboveZeroForZoneStageZMove(machine, false, zone, movingName, out reason);
+        }
+
+        private static bool VerifyPickerZAtOrAboveZeroForZoneStageZMove(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerWorkZone zone,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            PickerZoneTransportState state = ResolvePickerZoneTransportState(machine, isFront, zone, null, string.Empty);
+            if (state == null)
+                return true;
+
+            if (!state.IsRequestedZoneActive && !state.UnknownUnsafe)
+                return true;
+
+            string pickerName = isFront ? "FrontPicker" : "RearPicker";
+            if (state.UnknownUnsafe && !state.IsRequestedZoneActive)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: " + pickerName + " 존을 판단할 수 없고 PickerY가 안전 위치가 아닙니다. " + state.Describe(),
+                    out reason);
+            }
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = GetPickerZ(machine, isFront, zAxis);
+                if (axis == null)
+                    continue;
+
+                if (axis.IsMoving)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: " + pickerName + zAxis + "가 이동 중입니다. " + state.Describe(),
+                        out reason);
+                }
+
+                // 현재 기준: Picker가 해당 존에 있으면 Stage Z 상승/접근 이동 전 PickerZ는 0 이상 또는 AvoidPosition이어야 한다.
+                if (!IsPickerZAtOrAboveZeroOrAvoid(machine, isFront, zAxis, axis))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: " + pickerName + zAxis + "가 0 이상 또는 Avoid 위치가 아닙니다. actual=" +
+                        axis.ActualPosition.ToString("0.###") + ". " + state.Describe(),
+                        out reason);
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsPickerZAtOrAboveZeroOrAvoid(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerAxis zAxis,
+            BaseAxis axis)
+        {
+            if (axis == null)
+                return true;
+
+            if (axis.ActualPosition >= -ResolveTolerance(axis))
+                return true;
+
+            if (isFront)
+            {
+                PickerFrontUnit picker = machine != null ? machine.PickerFrontUnit : null;
+                return picker != null && picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
+            }
+
+            PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+            return rear != null && rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
         }
 
         public static bool IsPickerBlockingZoneTransport(
@@ -598,12 +717,13 @@ namespace QMC.CDT320.Interlocks
                 if (currentZone == PickerWorkZone.Unknown && targetZone != PickerWorkZone.Unknown)
                 {
                     PickerWorkZone currentYZone = ResolveCurrentYZone(request.Machine, isFront);
-                    if (currentYZone == targetZone)
+                    if (IsSameInterlockZone(currentYZone, targetZone))
                         currentZone = currentYZone;
                 }
 
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
+                    isFront,
                     movingName,
                     "X",
                     currentZone,
@@ -718,7 +838,7 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                if (currentZone != targetZone &&
+                if (!IsSameInterlockZone(currentZone, targetZone) &&
                     !pickerYAtAvoid &&
                     !autoProcessCorrectionXMove &&
                     !inspectionContinuousProcessMove)
@@ -791,7 +911,7 @@ namespace QMC.CDT320.Interlocks
                 return false;
             }
 
-            if (currentZone != targetZone && !IsAvoidZone(currentZone))
+            if (!IsSameInterlockZone(currentZone, targetZone) && !IsAvoidZone(currentZone))
             {
                 reason = "현재 존과 목표 존이 다릅니다. currentZone=" + currentZone + ", targetZone=" + targetZone;
                 return false;
@@ -889,7 +1009,7 @@ namespace QMC.CDT320.Interlocks
             PickerWorkZone declaredFrom;
             PickerWorkZone declaredTo;
             if (TryResolveInspectionContinuousTransition(request, out declaredFrom, out declaredTo) &&
-                declaredTo == targetZone &&
+                IsSameInterlockZone(declaredTo, targetZone) &&
                 IsAllowedInspectionContinuousTransition(declaredFrom, declaredTo))
                 return true;
 
@@ -897,13 +1017,10 @@ namespace QMC.CDT320.Interlocks
             // 메뉴얼/단독 이동은 InspectionContinuous 태그가 없으므로 기존 Y Avoid 조건을 그대로 탄다.
             bool allowedTransition =
                 (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Input) ||
-                (currentZone == PickerWorkZone.Input && targetZone == PickerWorkZone.Bottom) ||
-                (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Side) ||
-                (currentZone == PickerWorkZone.Bottom && targetZone == PickerWorkZone.Bottom) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Side) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Bottom) ||
-                (currentZone == PickerWorkZone.Side && targetZone == PickerWorkZone.Output) ||
-                (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Side) ||
+                (currentZone == PickerWorkZone.Input && IsProcessZone(targetZone)) ||
+                (IsProcessZone(currentZone) && IsProcessZone(targetZone)) ||
+                (IsProcessZone(currentZone) && targetZone == PickerWorkZone.Output) ||
+                (currentZone == PickerWorkZone.Output && IsProcessZone(targetZone)) ||
                 (currentZone == PickerWorkZone.Output && targetZone == PickerWorkZone.Output);
 
             if (!allowedTransition)
@@ -931,13 +1048,10 @@ namespace QMC.CDT320.Interlocks
         private static bool IsAllowedInspectionContinuousTransition(PickerWorkZone from, PickerWorkZone to)
         {
             return (from == PickerWorkZone.Input && to == PickerWorkZone.Input) ||
-                   (from == PickerWorkZone.Input && to == PickerWorkZone.Bottom) ||
-                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Bottom) ||
-                   (from == PickerWorkZone.Bottom && to == PickerWorkZone.Side) ||
-                   (from == PickerWorkZone.Side && to == PickerWorkZone.Side) ||
-                   (from == PickerWorkZone.Side && to == PickerWorkZone.Bottom) ||
-                   (from == PickerWorkZone.Side && to == PickerWorkZone.Output) ||
-                   (from == PickerWorkZone.Output && to == PickerWorkZone.Side) ||
+                   (from == PickerWorkZone.Input && IsProcessZone(to)) ||
+                   (IsProcessZone(from) && IsProcessZone(to)) ||
+                   (IsProcessZone(from) && to == PickerWorkZone.Output) ||
+                   (from == PickerWorkZone.Output && IsProcessZone(to)) ||
                    (from == PickerWorkZone.Output && to == PickerWorkZone.Output);
         }
 
@@ -977,6 +1091,10 @@ namespace QMC.CDT320.Interlocks
             string normalized = value.Trim();
             if (string.Equals(normalized, "Input", StringComparison.OrdinalIgnoreCase))
                 return PickerWorkZone.Input;
+            if (string.Equals(normalized, "Process", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "Inspect", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(normalized, "Inspection", StringComparison.OrdinalIgnoreCase))
+                return PickerWorkZone.Bottom;
             if (string.Equals(normalized, "Bottom", StringComparison.OrdinalIgnoreCase))
                 return PickerWorkZone.Bottom;
             if (string.Equals(normalized, "Side", StringComparison.OrdinalIgnoreCase))
@@ -1007,6 +1125,7 @@ namespace QMC.CDT320.Interlocks
                 PickerWorkZone currentXZone = ResolveCurrentXZoneWithContext(request.Machine, isFront);
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
+                    isFront,
                     movingName,
                     "Y",
                     currentXZone,
@@ -1167,11 +1286,13 @@ namespace QMC.CDT320.Interlocks
                 if (machine == null)
                     return true;
 
+                // 현재 기준: Y 목표가 Home(0) 또는 실제 Avoid이면 안전 복귀 이동이므로 허용한다.
                 bool ownTargetOut = IsPickerYOutByPosition(machine, isFront, targetY);
                 if (!ownTargetOut)
                     return true;
 
                 bool otherFront = !isFront;
+                // 현재 기준: 상대 PickerY가 실제/명령 기준 Home(0) 또는 Avoid가 아니면 X 안전거리 안에서 내 Y 전진을 차단한다.
                 bool otherOut = IsPickerYOutOrMovingOut(machine, otherFront, null);
                 if (!otherOut)
                     return true;
@@ -1189,6 +1310,7 @@ namespace QMC.CDT320.Interlocks
 
                 double ownXTarget = pairedXTarget.HasValue ? pairedXTarget.Value : ResolveAxisPathTarget(ownX);
                 double otherXTarget = ResolveAxisPathTarget(otherX);
+                // 현재 기준: 현재 X 엔코더 또는 이동 경로가 안전거리 안으로 들어올 때만 Y 상호 회피 조건을 적용한다.
                 if (!DoXMovePathsEnterFacingClearance(ownX.ActualPosition, ownXTarget, otherX.ActualPosition, otherXTarget, clearance))
                     return true;
 
@@ -1337,12 +1459,19 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsPickerYSafeByPosition(CDT320_Machine machine, bool isFront, double position, double outDistance)
         {
+            // 현재 기준: X 안전거리 안에서 PickerY 안전 위치는 Home(0) 또는 실제 AvoidPosition만 인정한다.
             if (Math.Abs(position) <= outDistance)
                 return true;
 
-            return IsNearPickerYTeachingPosition(machine, isFront, "AvoidPosition", position, outDistance) ||
-                   IsNearPickerYTeachingPosition(machine, isFront, "InputAvoidPosition", position, outDistance) ||
-                   IsNearPickerYTeachingPosition(machine, isFront, "OutputAvoidPosition", position, outDistance);
+            if (IsNearPickerYTeachingPosition(machine, isFront, "AvoidPosition", position, outDistance))
+                return true;
+
+            // 기존 조건: InputAvoidPosition/OutputAvoidPosition도 PickerY 안전 위치로 보았다.
+            // 현재 필요 여부: 사용 안 함. X 안전거리 안에서는 Input/OutputSideAvoid도 작업존 진입으로 보고 실제 Avoid만 안전 위치로 인정한다.
+            //return IsNearPickerYTeachingPosition(machine, isFront, "InputAvoidPosition", position, outDistance) ||
+            //       IsNearPickerYTeachingPosition(machine, isFront, "OutputAvoidPosition", position, outDistance);
+
+            return false;
         }
 
         private static bool IsNearPickerYTeachingPosition(CDT320_Machine machine, bool isFront, string positionName, double position, double tolerance)
@@ -1413,7 +1542,7 @@ namespace QMC.CDT320.Interlocks
 
             return moveName + " 불가: " + otherName +
                    "Y가 전진 상태이고 Front/Rear PickerX 엔코더 경로가 마주보는 안전거리 안에 있습니다. " +
-                   "한쪽 PickerY를 Avoid 또는 0 위치로 이동한 뒤 진행하세요. " +
+                   "한쪽 PickerY를 실제 Avoid 또는 0 위치로 이동한 뒤 진행하세요. " +
                    "xDistance=" + distance.ToString("0.###") +
                    ", requiredClearance=" + clearance.ToString("0.###") +
                    ", ownX=" + FormatAxis(ownX) +
@@ -1461,11 +1590,12 @@ namespace QMC.CDT320.Interlocks
             if (IsAvoidZone(targetZone) || IsAvoidZone(otherZone))
                 return true;
 
-            return targetZone != otherZone;
+            return !IsSameInterlockZone(targetZone, otherZone);
         }
 
         private static bool VerifyInputStageZSafeForInputZone(
             CDT320_Machine machine,
+            bool isFront,
             string movingName,
             string moveAxisName,
             PickerWorkZone currentZone,
@@ -1479,17 +1609,22 @@ namespace QMC.CDT320.Interlocks
             if (currentZone != PickerWorkZone.Input && targetZone != PickerWorkZone.Input)
                 return true;
 
+            // 현재 기준: Picker가 Input 쪽으로 들어가거나 Input 존에 있으면 Picker Z0~Z3는 Avoid 또는 0 이상 위치여야 한다.
+            if (!VerifyPickerZHomeOrAvoidForInputZone(machine, isFront, movingName, out reason))
+                return false;
+
             InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
             if (stage == null)
                 return true;
 
-            if (IsInputStageZAtAvoidProcessOrReady(stage))
+            // 현재 기준: Picker가 Input 쪽으로 들어가거나 Input 존에 있으면 InputExpandingZ가 0 이하 위치여야 한다.
+            if (IsInputExpanderZAtOrBelowZero(stage))
                 return true;
 
             return MotionGuardRuleHelpers.Block(
                 movingName,
                 movingName + " " + moveAxisName +
-                " 이동 불가: Picker가 Input 존에 있거나 Input 존으로 이동하려는데 InputExpandingZ가 Avoid/Process 위치가 아닙니다. " +
+                " 이동 불가: Picker가 Input 존에 있거나 Input 존으로 이동하려는데 InputExpandingZ가 0 이하가 아닙니다. " +
                 "currentZone=" + currentZone +
                 ", targetZone=" + targetZone +
                 ", xActual=" + FormatAxis(ownX) +
@@ -1498,18 +1633,87 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
-        private static bool IsInputStageZAtAvoidProcessOrReady(InputStageUnit stage)
+        private static bool IsInputExpanderZAtOrBelowZero(InputStageUnit stage)
         {
-            if (stage == null || stage.ExpanderZ == null || stage.Recipe == null || stage.Recipe.WaferZ == null)
+            if (stage == null || stage.ExpanderZ == null)
                 return false;
 
             double tolerance = ResolveTolerance(stage.ExpanderZ);
             double actual = stage.ExpanderZ.ActualPosition;
-            StageAxisPositions waferZ = stage.Recipe.WaferZ;
+            return actual <= tolerance;
+        }
 
-            return Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
-                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
-                   Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
+        // 기존 조건: InputExpandingZ가 Avoid/Process/Ready 위치면 Picker Input 존 이동을 허용했다.
+        // 현재 필요 여부: 사용 안 함. 현재 기준은 InputExpandingZ actual <= 0 이다.
+        //private static bool IsInputStageZAtAvoidProcessOrReady(InputStageUnit stage)
+        //{
+        //    if (stage == null || stage.ExpanderZ == null || stage.Recipe == null || stage.Recipe.WaferZ == null)
+        //        return false;
+        //
+        //    double tolerance = ResolveTolerance(stage.ExpanderZ);
+        //    double actual = stage.ExpanderZ.ActualPosition;
+        //    StageAxisPositions waferZ = stage.Recipe.WaferZ;
+        //
+        //    return Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
+        //           Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
+        //           Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
+        //}
+
+        private static bool VerifyPickerZHomeOrAvoidForInputZone(
+            CDT320_Machine machine,
+            bool isFront,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = GetPickerZ(machine, isFront, zAxis);
+                if (axis == null)
+                    continue;
+
+                if (axis.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " Input 진입 불가: " + BuildPickerSideName(isFront) + zAxis + " 축이 이동 중입니다.",
+                        out reason);
+
+                if (!IsPickerZHomeOrAvoid(machine, isFront, zAxis, axis))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " Input 진입 불가: " + BuildPickerSideName(isFront) + zAxis + " 축이 Avoid 또는 0 이상 위치가 아닙니다. actual=" +
+                        axis.ActualPosition.ToString("0.###"),
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool IsPickerZHomeOrAvoid(CDT320_Machine machine, bool isFront, PickerAxis zAxis, BaseAxis axis)
+        {
+            if (axis == null)
+                return true;
+
+            double tolerance = ResolveTolerance(axis);
+            if (axis.ActualPosition >= -tolerance)
+                return true;
+
+            if (isFront)
+            {
+                PickerFrontUnit picker = machine != null ? machine.PickerFrontUnit : null;
+                return picker != null && picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
+            }
+
+            PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+            return rear != null && rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
+        }
+
+        private static string BuildPickerSideName(bool isFront)
+        {
+            return isFront ? "Front" : "Rear";
         }
 
         private static string BuildInputStageZState(InputStageUnit stage)
@@ -1564,14 +1768,193 @@ namespace QMC.CDT320.Interlocks
             double? targetX,
             string targetName)
         {
-            PickerWorkZone byName = ParseZone(targetName);
-            if (byName != PickerWorkZone.Unknown)
-                return byName;
-
             if (targetX.HasValue)
-                return ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
+            {
+                PickerWorkZone byPosition = ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
+                if (byPosition != PickerWorkZone.Unknown)
+                    return byPosition;
+
+                // 현재 기준: encoder zone 사용 중이면 X target 존은 설정 range만 믿고, range 밖이면 Unknown으로 차단 쪽에 맡긴다.
+                if (IsPickerXEncoderZoneConfigured(machine, isFront))
+                    return PickerWorkZone.Unknown;
+            }
+
+            return ParseZone(targetName);
+        }
+
+        private static PickerWorkZone ResolvePickerXZoneByNameOrPosition(
+            CDT320_Machine machine,
+            bool isFront,
+            double? position,
+            string targetName)
+        {
+            if (position.HasValue)
+            {
+                PickerWorkZone byPosition = ResolveXZoneByPosition(machine, isFront, position.Value);
+                if (byPosition != PickerWorkZone.Unknown)
+                    return byPosition;
+
+                // 현재 기준: encoder zone이 켜져 있으면 targetName fallback으로 X 존을 덮어쓰지 않는다.
+                if (IsPickerXEncoderZoneConfigured(machine, isFront))
+                    return PickerWorkZone.Unknown;
+            }
+
+            return ParseZone(targetName);
+        }
+
+        internal static PickerWorkZone ResolveManualPickerXTargetZone(MotionGuardRuleContext request, bool isFront)
+        {
+            return ResolveManualPickerXZone(
+                request != null ? request.Machine : null,
+                isFront,
+                request != null ? (double?)request.TargetValue : null,
+                request != null ? request.TargetName : string.Empty);
+        }
+
+        internal static PickerWorkZone ResolveManualPickerXCurrentZone(CDT320_Machine machine, bool isFront)
+        {
+            BaseAxis x = GetPickerX(machine, isFront);
+            return ResolveManualPickerXZone(
+                machine,
+                isFront,
+                x != null ? (double?)x.ActualPosition : null,
+                string.Empty);
+        }
+
+        internal static bool IsManualPickerXProcessZone(PickerWorkZone zone)
+        {
+            return zone == PickerWorkZone.Bottom || zone == PickerWorkZone.Side;
+        }
+
+        private static PickerWorkZone ResolveManualPickerXZone(
+            CDT320_Machine machine,
+            bool isFront,
+            double? position,
+            string targetName)
+        {
+            return ResolvePickerXZoneByNameOrPosition(machine, isFront, position, targetName);
+        }
+
+        private static PickerWorkZone ParseManualPickerXZone(string targetName)
+        {
+            string name = (targetName ?? string.Empty).Replace(" ", string.Empty);
+            if (name.Length == 0)
+                return PickerWorkZone.Unknown;
+
+            if (Contains(name, "PickerZone=Input") ||
+                Contains(name, "DiePick") ||
+                Contains(name, "InputAvoidPosition") ||
+                Contains(name, "PickPosition"))
+                return PickerWorkZone.Input;
+            if (Contains(name, "PickerZone=Output") ||
+                Contains(name, "DiePlace") ||
+                Contains(name, "OutputAvoidPosition") ||
+                Contains(name, "PlacePosition"))
+                return PickerWorkZone.Output;
+            if (Contains(name, "PickerZone=Process") ||
+                Contains(name, "PickerZone=Inspect") ||
+                Contains(name, "PickerZone=Inspection") ||
+                Contains(name, "PickerZone=Bottom") ||
+                Contains(name, "PickerZone=Side") ||
+                Contains(name, "DieBottom") ||
+                Contains(name, "DieSide") ||
+                Contains(name, "BottomPosition") ||
+                Contains(name, "SidePosition") ||
+                Contains(name, "INSPECT_B") ||
+                Contains(name, "INSPECT_S"))
+                return PickerWorkZone.Bottom;
+            if (Contains(name, "PickerZone=Avoid") ||
+                Contains(name, "AvoidPosition") ||
+                Contains(name, "SafeRetreat"))
+                return PickerWorkZone.Avoid;
 
             return PickerWorkZone.Unknown;
+        }
+
+        private static PickerWorkZone ResolveManualPickerXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
+        {
+            if (machine == null)
+                return PickerWorkZone.Unknown;
+
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "AvoidPosition", position))
+                return PickerWorkZone.Avoid;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "InputAvoidPosition", position))
+                return PickerWorkZone.Input;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "OutputAvoidPosition", position) ||
+                IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "PlacePosition", position))
+                return PickerWorkZone.Output;
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "BottomPosition", position) ||
+                IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "SidePosition", position) ||
+                IsManualPickerXInProcessRange(machine, isFront, position))
+                return PickerWorkZone.Bottom;
+            if (IsPickerTargetBelowAvoidPosition(machine, isFront, PickerAxis.PickerX, position))
+                return PickerWorkZone.Input;
+            if (IsManualPickerXOutputSide(machine, isFront, position))
+                return PickerWorkZone.Output;
+
+            return PickerWorkZone.Unknown;
+        }
+
+        private static bool IsManualPickerXInProcessRange(CDT320_Machine machine, bool isFront, double position)
+        {
+            BaseAxis x = GetPickerX(machine, isFront);
+            double tolerance = ResolveTolerance(x);
+            double min = double.MaxValue;
+            double max = double.MinValue;
+
+            AddManualPickerXProcessBoundary(machine, isFront, "BottomPosition", ref min, ref max);
+            AddManualPickerXProcessBoundary(machine, isFront, "SidePosition", ref min, ref max);
+            for (int i = 0; i < 4; i++)
+            {
+                AddManualPickerXProcessBoundary(machine, isFront, "BottomPosition", i, ref min, ref max);
+                AddManualPickerXProcessBoundary(machine, isFront, "SidePosition", i, ref min, ref max);
+            }
+
+            if (min == double.MaxValue || max == double.MinValue)
+                return false;
+
+            return position >= min - tolerance && position <= max + tolerance;
+        }
+
+        private static void AddManualPickerXProcessBoundary(
+            CDT320_Machine machine,
+            bool isFront,
+            string positionName,
+            ref double min,
+            ref double max)
+        {
+            double position = GetPickerTeachingPosition(machine, isFront, PickerAxis.PickerX, positionName);
+            min = Math.Min(min, position);
+            max = Math.Max(max, position);
+        }
+
+        private static void AddManualPickerXProcessBoundary(
+            CDT320_Machine machine,
+            bool isFront,
+            string positionName,
+            int pickerIndex,
+            ref double min,
+            ref double max)
+        {
+            double position = GetPickerTeachingPosition(machine, isFront, PickerAxis.PickerX, positionName) +
+                              GetRuntimePickerZoneOffset(machine, isFront, PickerAxis.PickerX, pickerIndex);
+            min = Math.Min(min, position);
+            max = Math.Max(max, position);
+        }
+
+        private static bool IsManualPickerXOutputSide(CDT320_Machine machine, bool isFront, double position)
+        {
+            BaseAxis x = GetPickerX(machine, isFront);
+            double tolerance = ResolveTolerance(x);
+            double sideMax = GetPickerTeachingPosition(machine, isFront, PickerAxis.PickerX, "SidePosition");
+            for (int i = 0; i < 4; i++)
+            {
+                double side = GetPickerTeachingPosition(machine, isFront, PickerAxis.PickerX, "SidePosition") +
+                              GetRuntimePickerZoneOffset(machine, isFront, PickerAxis.PickerX, i);
+                sideMax = Math.Max(sideMax, side);
+            }
+
+            return position > sideMax + tolerance;
         }
 
         private static PickerWorkZone ResolveTargetYZone(MotionGuardRuleContext request, bool isFront)
@@ -1689,12 +2072,28 @@ namespace QMC.CDT320.Interlocks
             if (TryResolveEncoderXZoneByPosition(machine, isFront, position, out byEncoder, out encoderConfigured))
                 return byEncoder;
             if (encoderConfigured)
-                return PickerWorkZone.Unknown;
+            {
+                // 현재 기준: encoder zone 사용 중에는 Picker X Zone Setup range가 유일한 X 존 기준이다.
+                // 기존 조건: range 미검출 시 티칭/avoid 기준으로 Input/Process/Output fallback을 적용했다.
+                // 현재 필요 여부: 사용 안 함. range 밖 또는 overlap은 Unknown으로 두어 상위 인터락이 보수적으로 차단한다.
+                //PickerWorkZone byTeaching = ResolvePickerXTeachingZoneByPosition(machine, isFront, position);
+                //if (byTeaching != PickerWorkZone.Unknown)
+                //    return byTeaching;
 
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "AvoidPosition", position) ||
-                IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "InputAvoidPosition", position) ||
-                IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "OutputAvoidPosition", position))
+                return PickerWorkZone.Unknown;
+            }
+
+            return ResolvePickerXTeachingZoneByPosition(machine, isFront, position);
+        }
+
+        private static PickerWorkZone ResolvePickerXTeachingZoneByPosition(CDT320_Machine machine, bool isFront, double position)
+        {
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "AvoidPosition", position))
                 return PickerWorkZone.Avoid;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "InputAvoidPosition", position))
+                return PickerWorkZone.Input;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "OutputAvoidPosition", position))
+                return PickerWorkZone.Output;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "PickPosition", position))
                 return PickerWorkZone.Input;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "BottomPosition", position))
@@ -1702,6 +2101,15 @@ namespace QMC.CDT320.Interlocks
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "SidePosition", position))
                 return PickerWorkZone.Side;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "PlacePosition", position))
+                return PickerWorkZone.Output;
+            // 현재 기준: Bottom 시작부터 Side 완료까지의 X 범위는 검사(Process) 존으로 본다.
+            if (IsManualPickerXInProcessRange(machine, isFront, position))
+                return PickerWorkZone.Bottom;
+            // 현재 기준: 정확한 티칭 존이 아닌 상태에서 AvoidPosition보다 작은 X 목표는 Input 쪽 진입으로 본다.
+            if (IsPickerTargetBelowAvoidPosition(machine, isFront, PickerAxis.PickerX, position))
+                return PickerWorkZone.Input;
+            // 현재 기준: Side 검사 완료 위치보다 큰 X 목표는 Output 쪽 진입으로 본다.
+            if (IsManualPickerXOutputSide(machine, isFront, position))
                 return PickerWorkZone.Output;
 
             return PickerWorkZone.Unknown;
@@ -1772,11 +2180,22 @@ namespace QMC.CDT320.Interlocks
 
         private static void SetEncoderZoneMatch(PickerWorkZone matchedZone, ref PickerWorkZone zone, ref int matchCount)
         {
-            matchCount++;
-            if (matchCount == 1)
+            if (matchCount == 0)
+            {
                 zone = matchedZone;
-            else
-                zone = PickerWorkZone.Unknown;
+                matchCount = 1;
+                return;
+            }
+
+            // 현재 기준: INSPECT_B/INSPECT_S range가 겹쳐도 인터락 존은 같은 Process로 본다.
+            if (IsSameInterlockZone(zone, matchedZone))
+            {
+                zone = NormalizeInterlockZone(zone);
+                return;
+            }
+
+            matchCount++;
+            zone = PickerWorkZone.Unknown;
         }
 
         private static void AppendEncoderZoneMatch(ref string matches, PickerWorkZone zone)
@@ -1888,6 +2307,22 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool IsPickerXEncoderZoneConfigured(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                PickerZoneXSetup setup = GetPickerZoneXSetup(machine, isFront);
+                return setup != null && setup.UseEncoderZone && IsZoneConfigured(setup);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static bool IsInZone(PickerZoneXRange range, double position, double tolerance)
         {
             return range != null && range.Enabled && range.Contains(position, tolerance);
@@ -1902,9 +2337,8 @@ namespace QMC.CDT320.Interlocks
                 case PickerWorkZone.Input:
                     return "PICKUP";
                 case PickerWorkZone.Bottom:
-                    return "INSPECT_B";
                 case PickerWorkZone.Side:
-                    return "INSPECT_S";
+                    return "PROCESS";
                 case PickerWorkZone.Output:
                     return "PLACE";
                 default:
@@ -1917,10 +2351,12 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return PickerWorkZone.Unknown;
 
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "AvoidPosition", position) ||
-                IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "InputAvoidPosition", position) ||
-                IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "OutputAvoidPosition", position))
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "AvoidPosition", position))
                 return PickerWorkZone.Avoid;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "InputAvoidPosition", position))
+                return PickerWorkZone.Input;
+            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "OutputAvoidPosition", position))
+                return PickerWorkZone.Output;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "PickPosition", position))
                 return PickerWorkZone.Input;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "BottomPosition", position))
@@ -1929,8 +2365,19 @@ namespace QMC.CDT320.Interlocks
                 return PickerWorkZone.Side;
             if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "PlacePosition", position))
                 return PickerWorkZone.Output;
+            // 현재 기준: 정확한 티칭 존이 아닌 상태에서 AvoidPosition보다 작은 Y 목표는 Input 쪽 진입으로 본다.
+            if (IsPickerTargetBelowAvoidPosition(machine, isFront, PickerAxis.PickerY, position))
+                return PickerWorkZone.Input;
 
             return PickerWorkZone.Unknown;
+        }
+
+        private static bool IsPickerTargetBelowAvoidPosition(CDT320_Machine machine, bool isFront, PickerAxis axis, double position)
+        {
+            BaseAxis baseAxis = axis == PickerAxis.PickerX ? GetPickerX(machine, isFront) : GetPickerY(machine, isFront);
+            double tolerance = ResolveTolerance(baseAxis);
+            double avoid = GetPickerTeachingPosition(machine, isFront, axis, "AvoidPosition");
+            return position < avoid - tolerance;
         }
 
         private static bool IsPickerYAtAvoid(CDT320_Machine machine, bool isFront)
@@ -1938,22 +2385,19 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return true;
 
+            // 현재 기준: 상대 PickerY 안전 판단은 Home(0) 또는 실제 AvoidPosition만 인정한다.
             if (isFront)
             {
                 PickerFrontUnit picker = machine.PickerFrontUnit;
                 return picker == null ||
                        IsAxisAtHomePosition(picker.PickerY) ||
-                       picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
-                       picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
-                       picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                       picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
             }
 
             PickerRearUnit rear = machine.PickerRearUnit;
             return rear == null ||
                    IsAxisAtHomePosition(rear.PickerY) ||
-                   rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
-                   rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
-                   rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+                   rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
         }
 
         private static bool IsAxisAtHomePosition(BaseAxis axis)
@@ -1970,8 +2414,12 @@ namespace QMC.CDT320.Interlocks
             if (request == null)
                 return false;
 
-            PickerWorkZone targetZone = ResolveYZoneByPosition(request.Machine, isFront, request.TargetValue);
-            return IsAvoidZone(targetZone);
+            // 현재 기준: Y 목표가 Home(0) 또는 실제 AvoidPosition이면 안전 복귀 이동으로 허용한다.
+            return IsPickerYSafeByPosition(
+                request.Machine,
+                isFront,
+                request.TargetValue,
+                ResolvePickerYOutDistance(request.Machine));
         }
 
         private static bool IsAtPickerPosition(
@@ -2086,6 +2534,41 @@ namespace QMC.CDT320.Interlocks
                 : (machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerY : null);
         }
 
+        private static BaseAxis GetPickerZ(CDT320_Machine machine, bool isFront, PickerAxis zAxis)
+        {
+            if (machine == null)
+                return null;
+
+            if (isFront)
+            {
+                PickerFrontUnit picker = machine.PickerFrontUnit;
+                if (picker == null)
+                    return null;
+
+                switch (zAxis)
+                {
+                    case PickerAxis.PickerZ0: return picker.PickerZ0;
+                    case PickerAxis.PickerZ1: return picker.PickerZ1;
+                    case PickerAxis.PickerZ2: return picker.PickerZ2;
+                    case PickerAxis.PickerZ3: return picker.PickerZ3;
+                    default: return null;
+                }
+            }
+
+            PickerRearUnit rear = machine.PickerRearUnit;
+            if (rear == null)
+                return null;
+
+            switch (zAxis)
+            {
+                case PickerAxis.PickerZ0: return rear.PickerZ0;
+                case PickerAxis.PickerZ1: return rear.PickerZ1;
+                case PickerAxis.PickerZ2: return rear.PickerZ2;
+                case PickerAxis.PickerZ3: return rear.PickerZ3;
+                default: return null;
+            }
+        }
+
         private static double ResolveTolerance(BaseAxis axis)
         {
             if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
@@ -2102,24 +2585,32 @@ namespace QMC.CDT320.Interlocks
 
             if (Contains(name, "PickerZone=Input") ||
                 Contains(name, "DiePick") ||
+                Contains(name, "InputAvoidPosition") ||
                 Contains(name, "PickPosition"))
                 return PickerWorkZone.Input;
+            if (Contains(name, "PickerZone=Process") ||
+                Contains(name, "PickerZone=Inspect") ||
+                Contains(name, "PickerZone=Inspection"))
+                return PickerWorkZone.Bottom;
             if (Contains(name, "PickerZone=Bottom") ||
                 Contains(name, "DieBottom") ||
-                Contains(name, "BottomPosition"))
+                Contains(name, "BottomPosition") ||
+                Contains(name, "INSPECT_B"))
                 return PickerWorkZone.Bottom;
             if (Contains(name, "PickerZone=Side") ||
                 Contains(name, "DieSide") ||
-                Contains(name, "SidePosition"))
+                Contains(name, "SidePosition") ||
+                Contains(name, "INSPECT_S"))
                 return PickerWorkZone.Side;
             if (Contains(name, "PickerZone=Output") ||
                 Contains(name, "DiePlace") ||
+                Contains(name, "OutputAvoidPosition") ||
                 Contains(name, "PlacePosition"))
                 return PickerWorkZone.Output;
+            // 기존 조건: InputAvoidPosition도 Avoid로 보았다.
+            // 현재 필요 여부: 사용 안 함. Input side avoid는 Input, Output side avoid는 Output 진입으로 본다.
             if (Contains(name, "PickerZone=Avoid") ||
                 Contains(name, "AvoidPosition") ||
-                Contains(name, "InputAvoidPosition") ||
-                Contains(name, "OutputAvoidPosition") ||
                 Contains(name, "SafeRetreat"))
                 return PickerWorkZone.Avoid;
 
@@ -2150,6 +2641,7 @@ namespace QMC.CDT320.Interlocks
         private static bool IsPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
         {
             owner = string.Empty;
+            zone = NormalizeInterlockZone(zone);
 
             switch (zone)
             {
@@ -2157,11 +2649,16 @@ namespace QMC.CDT320.Interlocks
                     owner = isFront ? frontInputPickAreaOwner : rearInputPickAreaOwner;
                     return isFront ? frontInputPickAreaUseCount > 0 : rearInputPickAreaUseCount > 0;
                 case PickerWorkZone.Bottom:
-                    owner = isFront ? frontBottomAreaOwner : rearBottomAreaOwner;
-                    return isFront ? frontBottomAreaUseCount > 0 : rearBottomAreaUseCount > 0;
-                case PickerWorkZone.Side:
-                    owner = isFront ? frontSideAreaOwner : rearSideAreaOwner;
-                    return isFront ? frontSideAreaUseCount > 0 : rearSideAreaUseCount > 0;
+                    // 현재 기준: Bottom/Side는 하나의 Process 작업 영역으로 점유 여부를 합산한다.
+                    int bottomCount = isFront ? frontBottomAreaUseCount : rearBottomAreaUseCount;
+                    int sideCount = isFront ? frontSideAreaUseCount : rearSideAreaUseCount;
+                    string bottomOwner = isFront ? frontBottomAreaOwner : rearBottomAreaOwner;
+                    string sideOwner = isFront ? frontSideAreaOwner : rearSideAreaOwner;
+                    if (bottomCount > 0 && sideCount > 0)
+                        owner = bottomOwner + "|" + sideOwner;
+                    else
+                        owner = bottomCount > 0 ? bottomOwner : sideOwner;
+                    return bottomCount > 0 || sideCount > 0;
                 case PickerWorkZone.Output:
                     owner = isFront ? frontOutputAreaOwner : rearOutputAreaOwner;
                     return isFront ? frontOutputAreaUseCount > 0 : rearOutputAreaUseCount > 0;
@@ -2322,6 +2819,7 @@ namespace QMC.CDT320.Interlocks
         private static void AddPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
         {
             string safeOwner = owner ?? string.Empty;
+            zone = NormalizeInterlockZone(zone);
 
             switch (zone)
             {
@@ -2338,6 +2836,7 @@ namespace QMC.CDT320.Interlocks
                     }
                     break;
                 case PickerWorkZone.Bottom:
+                    // 현재 기준: Side 검사도 Process 대표 카운터(Bottom)에 점유한다.
                     if (isFront)
                     {
                         frontBottomAreaUseCount++;
@@ -2350,6 +2849,8 @@ namespace QMC.CDT320.Interlocks
                     }
                     break;
                 case PickerWorkZone.Side:
+                    // 기존 조건: Bottom/Side 작업 영역을 별도 카운터로 관리했다.
+                    // 현재 필요 여부: 사용 안 함. NormalizeInterlockZone에서 Process 대표값(Bottom)으로 합쳐진다.
                     if (isFront)
                     {
                         frontSideAreaUseCount++;
@@ -2378,6 +2879,7 @@ namespace QMC.CDT320.Interlocks
 
         private static void RemovePickerWorkAreaUse(bool isFront, PickerWorkZone zone)
         {
+            zone = NormalizeInterlockZone(zone);
             switch (zone)
             {
                 case PickerWorkZone.Input:
@@ -2397,6 +2899,7 @@ namespace QMC.CDT320.Interlocks
                     }
                     break;
                 case PickerWorkZone.Bottom:
+                    // 현재 기준: Process 점유 해제는 대표 카운터(Bottom)를 해제한다.
                     if (isFront)
                     {
                         if (frontBottomAreaUseCount > 0)
@@ -2413,6 +2916,8 @@ namespace QMC.CDT320.Interlocks
                     }
                     break;
                 case PickerWorkZone.Side:
+                    // 기존 조건: Bottom/Side 작업 영역을 별도 카운터로 해제했다.
+                    // 현재 필요 여부: 사용 안 함. NormalizeInterlockZone에서 Process 대표값(Bottom)으로 합쳐진다.
                     if (isFront)
                     {
                         if (frontSideAreaUseCount > 0)

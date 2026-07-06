@@ -23,10 +23,14 @@ namespace QMC.Vision.Optics.Leesos
 
         private readonly int[]  _power;     // 1-기반 — 채널별 마지막 Volume
         private readonly bool[] _onState;   // 1-기반 — 채널별 On/Off
+        private readonly LightBatchCache _batchCache = new LightBatchCache();   // 마지막 송신값 — 동일 값 재송신/대기 생략
 
         public bool   IsConnected { get; private set; }
         public string PortName    => _cfg.PortName;
         public int    ChannelCount => _cfg.ChannelCount;
+
+        /// <summary>조명 값 변경 송신 후 안정화 대기(ms) — LightControllerEntry.SettleDelayMs 주입. 캐시 히트 시 대기 없음.</summary>
+        public int SettleDelayMs { get; set; }
 
         public LeesosLightController(LeesosLightConfig cfg)
         {
@@ -50,6 +54,7 @@ namespace QMC.Vision.Optics.Leesos
                 };
                 _port.Open();
                 IsConnected = true;
+                _batchCache.Clear();   // 재연결 — 장비 상태 미지수 → 다음 배치는 반드시 송신
                 return Task.FromResult(true);
             }
             catch (Exception ex)
@@ -83,6 +88,7 @@ namespace QMC.Vision.Optics.Leesos
             if (LeesosProtocol.IsErrorResponse(resp)) { RaiseNak(resp);   return false; }
             if (!LeesosProtocol.ValidateEcho(resp, channel, power)) { RaiseInvalid(resp, "LC"); return false; }
             _power[channel] = power;
+            _batchCache.Clear();   // 개별 명령 → 배치 캐시 무효화(배치 경로는 완료 후 Store 로 재설정)
             return true;
         }
 
@@ -96,6 +102,7 @@ namespace QMC.Vision.Optics.Leesos
             if (resp == null)                       { RaiseTimeout("LH"); return false; }
             if (LeesosProtocol.IsErrorResponse(resp)) { RaiseNak(resp);   return false; }   // R{n1}ER
             _onState[channel] = on;
+            _batchCache.Clear();   // 개별 On/Off → 배치 캐시 무효화
             return true;
         }
 
@@ -114,10 +121,13 @@ namespace QMC.Vision.Optics.Leesos
         /// <summary>LeesOS 는 Page 미지원 — no-op + true.</summary>
         public Task<bool> SwitchPageAsync(int page) => Task.FromResult(true);
 
-        /// <summary>Stage 79 — 일괄 적용. 전체 동일값이면 LCT 1프레임, 그 외 전 채널 LC loop(항상 송신 — 캐시 skip 잔재 제거).</summary>
+        /// <summary>일괄 적용. 전체 동일값이면 LCT 1프레임, 그 외 전 채널 LC loop.
+        /// 이전 송신값과 같으면(캐시 히트) 통신·안정화 대기 모두 생략하고, 값이 달라진 경우에만
+        /// 송신 후 SettleDelayMs 만큼 대기한다(조명 안정화 — 그랩 직전 매번 호출해도 비용 없음).</summary>
         public async Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
             if (values == null || values.Length != ChannelCount) return false;
+            if (_batchCache.IsHit(page, values)) return true;   // 캐시 히트 — 송신/대기 생략
 
             if (AllSame(values))
             {
@@ -127,14 +137,18 @@ namespace QMC.Vision.Optics.Leesos
                 if (LeesosProtocol.IsErrorResponse(resp)) { RaiseNak(resp);     return false; }
                 if (!LeesosProtocol.ValidateAllEcho(resp, v)) { RaiseInvalid(resp, "LCT"); return false; }
                 for (int i = 1; i <= ChannelCount; i++) _power[i] = v;
-                return true;
+            }
+            else
+            {
+                // 전 채널 LC (SetPowerAsync 가 송신 + 에코 검증)
+                for (int i = 0; i < values.Length; i++)
+                {
+                    if (!await SetPowerAsync(i + 1, Clamp(values[i])).ConfigureAwait(false)) return false;
+                }
             }
 
-            // 그 외: 전 채널 LC (SetPowerAsync 가 송신 + 에코 검증)
-            for (int i = 0; i < values.Length; i++)
-            {
-                if (!await SetPowerAsync(i + 1, Clamp(values[i])).ConfigureAwait(false)) return false;
-            }
+            _batchCache.Store(page, values);
+            if (SettleDelayMs > 0) await Task.Delay(SettleDelayMs).ConfigureAwait(false);   // 조명 안정화 대기
             return true;
         }
 

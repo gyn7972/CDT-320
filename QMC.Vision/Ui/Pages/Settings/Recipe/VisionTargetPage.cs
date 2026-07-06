@@ -134,6 +134,7 @@ namespace QMC.Vision.Ui.Pages
         private void BuildChildPanels()
         {
             _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true, RecipeName = RecipeName };
+            // 바텀 검사 채널 정책(리스광 ch2 + 엘파인 P08 ch6~8)은 패널이 SelectInspection 에서 자동 적용.
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _finder?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
@@ -216,6 +217,15 @@ namespace QMC.Vision.Ui.Pages
         private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
         {
             if (_node == null) return;
+
+            // 도구 전용 카메라 노출(µs) — 0 = 모듈 기본(카메라 매핑 레시피 노출) 사용.
+            // GrabForTool(MATCH/툴바 그랩)이 그랩 직전에 적용한다.
+            if (_node.Recipe is QMC.Vision.Modules.AlgoRecipeBase)
+            {
+                items.Add(ParameterGridItem.Double("노출 (µs, 0=모듈 기본)", "µs", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.AlgoRecipeBase)?.ExposureUs ?? 0,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.AlgoRecipeBase r) { r.ExposureUs = v > 0 ? v : 0; MarkDirty(); } }));
+            }
 
             // 도구별 시뮬 저장이미지 — 웨이퍼 2점 정렬의 이미지1/이미지2처럼 Finder 마다 다른 이미지 지정.
             // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
@@ -884,6 +894,44 @@ namespace QMC.Vision.Ui.Pages
             }
 
             if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label + summary;
+
+            // 작업뷰(운영 모니터/핸들러 뷰어) 동기화 — 수동 MATCH 도 통신 MATCH 와 동일하게
+            // 마크/검색 ROI(MatchOverlayStore) + 판정/결과값(ModuleResultStore)을 발행한다.
+            try
+            {
+                string modName = _module?.Name;
+                string key = ResolveToolId() ?? _finder?.Id ?? tag;
+                if (!string.IsNullOrEmpty(modName))
+                {
+                    if (found)
+                    {
+                        double bw = _finder?.TrainRoi?.Width ?? 0.0, bh = _finder?.TrainRoi?.Height ?? 0.0;
+                        var marks = new System.Collections.Generic.List<QMC.Vision.Core.MatchOverlayStore.Mark>();
+                        if (r.Instances != null)
+                            foreach (var inst in r.Instances)
+                                marks.Add(new QMC.Vision.Core.MatchOverlayStore.Mark
+                                {
+                                    X = inst.CenterX, Y = inst.CenterY, Angle = inst.AngleDeg, Score = inst.Score,
+                                    BoxW = inst.BoxW > 0 ? inst.BoxW : bw, BoxH = inst.BoxH > 0 ? inst.BoxH : bh
+                                });
+                        double rx = 0, ry = 0, rw = 0, rh = 0;
+                        var sr = _finder?.SearchRoi;
+                        if (sr != null && sr.Width > 0 && sr.Height > 0)
+                        { rw = sr.Width; rh = sr.Height; rx = sr.CenterX - rw / 2.0; ry = sr.CenterY - rh / 2.0; }
+                        QMC.Vision.Core.MatchOverlayStore.Record(modName, marks.ToArray(), rx, ry, rw, rh);
+                        QMC.Vision.Core.ModuleResultStore.RecordMark(modName, key, bestInst.CenterX, bestInst.CenterY, bestInst.Score);
+                        QMC.Vision.Core.ModuleResultStore.Record(modName, key, ok,
+                            "x=" + bestInst.CenterX.ToString("F1") + ";y=" + bestInst.CenterY.ToString("F1")
+                            + ";r=" + bestInst.AngleDeg.ToString("F2") + ";score=" + score.ToString("F3"));
+                    }
+                    else
+                    {
+                        QMC.Vision.Core.ModuleResultStore.Record(modName, key, false, "match=fail");
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 결과 스토어 발행 실패: " + ex.Message); }
+
             Status("[" + tag + "] " + label);
             // NG 사유(크기 등)를 Log 탭(EventLogger)에도 남겨 진단 용이.
             if (!ok)

@@ -27,6 +27,7 @@
         private System.Windows.Forms.TableLayoutPanel buttonPanel;
         private CalibrationDialogButton btnCheck;
         private CalibrationDialogButton btnStart;
+        private CalibrationDialogButton btnSaveBottomTeaching;
         private CalibrationDialogButton btnApplyHomeOffset;
         private CalibrationDialogButton btnReload;
         private CalibrationDialogButton btnSave;
@@ -63,12 +64,13 @@
             this.colValid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.lblStatus = new System.Windows.Forms.Label();
             this.buttonPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.btnCheck = new CalibrationDialogButton();
-            this.btnStart = new CalibrationDialogButton();
-            this.btnApplyHomeOffset = new CalibrationDialogButton();
-            this.btnReload = new CalibrationDialogButton();
-            this.btnSave = new CalibrationDialogButton();
-            this.btnClose = new CalibrationDialogButton();
+            this.btnCheck = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnStart = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnSaveBottomTeaching = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnApplyHomeOffset = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnReload = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnClose = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.rootLayout.SuspendLayout();
             this.mainLayout.SuspendLayout();
             this.groupSettings.SuspendLayout();
@@ -90,11 +92,11 @@
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 4;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 56F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
-            this.rootLayout.Size = new System.Drawing.Size(1161, 680);
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 67F));
+            this.rootLayout.Size = new System.Drawing.Size(1134, 737);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -106,8 +108,8 @@
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1161, 52);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(15, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(1134, 56);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "COLLET CALIBRATION";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -115,17 +117,17 @@
             // mainLayout
             // 
             this.mainLayout.ColumnCount = 2;
-            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 360F));
+            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 338F));
             this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.mainLayout.Controls.Add(this.groupSettings, 0, 0);
             this.mainLayout.Controls.Add(this.groupResults, 1, 0);
             this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mainLayout.Location = new System.Drawing.Point(12, 64);
-            this.mainLayout.Margin = new System.Windows.Forms.Padding(12);
+            this.mainLayout.Location = new System.Drawing.Point(10, 69);
+            this.mainLayout.Margin = new System.Windows.Forms.Padding(10, 13, 10, 13);
             this.mainLayout.Name = "mainLayout";
             this.mainLayout.RowCount = 1;
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mainLayout.Size = new System.Drawing.Size(1137, 496);
+            this.mainLayout.Size = new System.Drawing.Size(1114, 538);
             this.mainLayout.TabIndex = 1;
             // 
             // groupSettings
@@ -134,9 +136,9 @@
             this.groupSettings.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupSettings.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.groupSettings.Location = new System.Drawing.Point(0, 0);
-            this.groupSettings.Margin = new System.Windows.Forms.Padding(0, 0, 10, 0);
+            this.groupSettings.Margin = new System.Windows.Forms.Padding(0, 0, 9, 0);
             this.groupSettings.Name = "groupSettings";
-            this.groupSettings.Size = new System.Drawing.Size(350, 496);
+            this.groupSettings.Size = new System.Drawing.Size(329, 538);
             this.groupSettings.TabIndex = 0;
             this.groupSettings.TabStop = false;
             this.groupSettings.Text = "SETTING";
@@ -159,9 +161,11 @@
             this.gridSettings.Name = "gridSettings";
             this.gridSettings.RowHeadersVisible = false;
             this.gridSettings.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridSettings.Size = new System.Drawing.Size(344, 472);
+            this.gridSettings.Size = new System.Drawing.Size(323, 514);
             this.gridSettings.TabIndex = 0;
+            this.gridSettings.CellBeginEdit += new System.Windows.Forms.DataGridViewCellCancelEventHandler(this.gridSettings_CellBeginEdit);
             this.gridSettings.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellDoubleClick);
+            this.gridSettings.CellToolTipTextNeeded += new System.Windows.Forms.DataGridViewCellToolTipTextNeededEventHandler(this.gridSettings_CellToolTipTextNeeded);
             this.gridSettings.CellValueChanged += new System.Windows.Forms.DataGridViewCellEventHandler(this.gridSettings_CellValueChanged);
             this.gridSettings.CurrentCellDirtyStateChanged += new System.EventHandler(this.gridSettings_CurrentCellDirtyStateChanged);
             // 
@@ -193,10 +197,10 @@
             this.groupResults.Controls.Add(this.gridResults);
             this.groupResults.Dock = System.Windows.Forms.DockStyle.Fill;
             this.groupResults.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.groupResults.Location = new System.Drawing.Point(360, 0);
+            this.groupResults.Location = new System.Drawing.Point(338, 0);
             this.groupResults.Margin = new System.Windows.Forms.Padding(0);
             this.groupResults.Name = "groupResults";
-            this.groupResults.Size = new System.Drawing.Size(777, 496);
+            this.groupResults.Size = new System.Drawing.Size(776, 538);
             this.groupResults.TabIndex = 1;
             this.groupResults.TabStop = false;
             this.groupResults.Text = "SAVED COLLET OFFSET";
@@ -225,7 +229,7 @@
             this.gridResults.ReadOnly = true;
             this.gridResults.RowHeadersVisible = false;
             this.gridResults.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridResults.Size = new System.Drawing.Size(771, 472);
+            this.gridResults.Size = new System.Drawing.Size(770, 514);
             this.gridResults.TabIndex = 0;
             // 
             // colItem
@@ -233,6 +237,7 @@
             this.colItem.HeaderText = "ITEM";
             this.colItem.Name = "colItem";
             this.colItem.ReadOnly = true;
+            this.colItem.ToolTipText = "저장된 Collet Calibration 항목입니다.";
             this.colItem.Width = 80;
             // 
             // colSide
@@ -240,6 +245,7 @@
             this.colSide.HeaderText = "SIDE";
             this.colSide.Name = "colSide";
             this.colSide.ReadOnly = true;
+            this.colSide.ToolTipText = "Front 또는 Rear Picker Side입니다.";
             this.colSide.Width = 60;
             // 
             // colCollet
@@ -247,6 +253,7 @@
             this.colCollet.HeaderText = "COLLET";
             this.colCollet.Name = "colCollet";
             this.colCollet.ReadOnly = true;
+            this.colCollet.ToolTipText = "Collet 번호입니다. #4는 Bottom 기준 Collet로 사용합니다.";
             this.colCollet.Width = 60;
             // 
             // colOffsetX
@@ -254,6 +261,7 @@
             this.colOffsetX.HeaderText = "OFFSET X";
             this.colOffsetX.Name = "colOffsetX";
             this.colOffsetX.ReadOnly = true;
+            this.colOffsetX.ToolTipText = "#3/#2/#1은 #4 Bottom 기준 피치 위치에서 최종 OK 위치까지의 X 보정량입니다. #4는 기준이므로 0으로 저장합니다.";
             this.colOffsetX.Width = 85;
             // 
             // colOffsetY
@@ -261,6 +269,7 @@
             this.colOffsetY.HeaderText = "OFFSET Y";
             this.colOffsetY.Name = "colOffsetY";
             this.colOffsetY.ReadOnly = true;
+            this.colOffsetY.ToolTipText = "#3/#2/#1은 #4 Bottom 기준 위치에서 최종 OK 위치까지의 Y 보정량입니다. #4는 기준이므로 0으로 저장합니다.";
             this.colOffsetY.Width = 85;
             // 
             // colTheta
@@ -268,6 +277,7 @@
             this.colTheta.HeaderText = "THETA";
             this.colTheta.Name = "colTheta";
             this.colTheta.ReadOnly = true;
+            this.colTheta.ToolTipText = "최종 Vision 결과의 T/Theta 보정값입니다.";
             this.colTheta.Width = 80;
             // 
             // colTZero
@@ -275,6 +285,7 @@
             this.colTZero.HeaderText = "T ZERO";
             this.colTZero.Name = "colTZero";
             this.colTZero.ReadOnly = true;
+            this.colTZero.ToolTipText = "Bottom T 기준 위치와 캘리브레이션 완료 T 위치의 차이입니다. APPLY T HOME 시 Picker T HomeOffset으로 사용합니다.";
             this.colTZero.Width = 80;
             // 
             // colFinalX
@@ -282,6 +293,7 @@
             this.colFinalX.HeaderText = "FINAL X";
             this.colFinalX.Name = "colFinalX";
             this.colFinalX.ReadOnly = true;
+            this.colFinalX.ToolTipText = "캘리브레이션이 OK로 끝난 최종 Picker X 실제 위치입니다.";
             this.colFinalX.Width = 85;
             // 
             // colFinalY
@@ -289,6 +301,7 @@
             this.colFinalY.HeaderText = "FINAL Y";
             this.colFinalY.Name = "colFinalY";
             this.colFinalY.ReadOnly = true;
+            this.colFinalY.ToolTipText = "캘리브레이션이 OK로 끝난 최종 Picker Y 실제 위치입니다.";
             this.colFinalY.Width = 85;
             // 
             // colValid
@@ -297,116 +310,186 @@
             this.colValid.HeaderText = "VALID";
             this.colValid.Name = "colValid";
             this.colValid.ReadOnly = true;
+            this.colValid.ToolTipText = "이 Collet Calibration 결과가 검사 이동 보정에 사용 가능한 상태인지 표시합니다.";
             // 
             // lblStatus
             // 
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.lblStatus.Location = new System.Drawing.Point(12, 572);
-            this.lblStatus.Margin = new System.Windows.Forms.Padding(12, 0, 12, 0);
+            this.lblStatus.Location = new System.Drawing.Point(10, 620);
+            this.lblStatus.Margin = new System.Windows.Forms.Padding(10, 0, 10, 0);
             this.lblStatus.Name = "lblStatus";
-            this.lblStatus.Size = new System.Drawing.Size(1137, 46);
+            this.lblStatus.Size = new System.Drawing.Size(1114, 50);
             this.lblStatus.TabIndex = 2;
             this.lblStatus.Text = "대기 중입니다.";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // buttonPanel
             // 
-            this.buttonPanel.ColumnCount = 6;
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 16.66667F));
+            this.buttonPanel.ColumnCount = 7;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
             this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this.btnStart, 1, 0);
-            this.buttonPanel.Controls.Add(this.btnApplyHomeOffset, 2, 0);
-            this.buttonPanel.Controls.Add(this.btnReload, 3, 0);
-            this.buttonPanel.Controls.Add(this.btnSave, 4, 0);
-            this.buttonPanel.Controls.Add(this.btnClose, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnSaveBottomTeaching, 2, 0);
+            this.buttonPanel.Controls.Add(this.btnApplyHomeOffset, 3, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 4, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 6, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonPanel.Location = new System.Drawing.Point(12, 618);
-            this.buttonPanel.Margin = new System.Windows.Forms.Padding(12, 0, 12, 12);
+            this.buttonPanel.Location = new System.Drawing.Point(10, 670);
+            this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 0, 10, 13);
             this.buttonPanel.Name = "buttonPanel";
             this.buttonPanel.RowCount = 1;
             this.buttonPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.buttonPanel.Size = new System.Drawing.Size(1137, 50);
+            this.buttonPanel.Size = new System.Drawing.Size(1114, 54);
             this.buttonPanel.TabIndex = 3;
             // 
             // btnCheck
             // 
+            this.btnCheck.BackColor = System.Drawing.Color.White;
+            this.btnCheck.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCheck.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnCheck.Location = new System.Drawing.Point(3, 3);
+            this.btnCheck.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnCheck.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCheck.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnCheck.ForeColor = System.Drawing.Color.Black;
+            this.btnCheck.Location = new System.Drawing.Point(6, 4);
+            this.btnCheck.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnCheck.Name = "btnCheck";
-            this.btnCheck.Size = new System.Drawing.Size(183, 44);
+            this.btnCheck.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnCheck.Size = new System.Drawing.Size(147, 46);
             this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK";
-            this.btnCheck.Role = CalibrationDialogButtonRole.Normal;
+            this.btnCheck.UseVisualStyleBackColor = false;
             this.btnCheck.Click += new System.EventHandler(this.btnCheck_Click);
             // 
             // btnStart
             // 
+            this.btnStart.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(126)))), ((int)(((byte)(0)))));
+            this.btnStart.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStart.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnStart.Location = new System.Drawing.Point(192, 3);
+            this.btnStart.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnStart.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnStart.ForeColor = System.Drawing.Color.White;
+            this.btnStart.Location = new System.Drawing.Point(165, 4);
+            this.btnStart.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnStart.Name = "btnStart";
-            this.btnStart.Size = new System.Drawing.Size(183, 44);
+            this.btnStart.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Primary;
+            this.btnStart.Size = new System.Drawing.Size(147, 46);
             this.btnStart.TabIndex = 1;
             this.btnStart.Text = "START";
-            this.btnStart.Role = CalibrationDialogButtonRole.Primary;
+            this.btnStart.UseVisualStyleBackColor = false;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
+            // 
+            // btnSaveBottomTeaching
+            // 
+            this.btnSaveBottomTeaching.BackColor = System.Drawing.Color.White;
+            this.btnSaveBottomTeaching.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSaveBottomTeaching.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSaveBottomTeaching.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnSaveBottomTeaching.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSaveBottomTeaching.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnSaveBottomTeaching.ForeColor = System.Drawing.Color.Black;
+            this.btnSaveBottomTeaching.Location = new System.Drawing.Point(324, 4);
+            this.btnSaveBottomTeaching.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.btnSaveBottomTeaching.Name = "btnSaveBottomTeaching";
+            this.btnSaveBottomTeaching.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnSaveBottomTeaching.Size = new System.Drawing.Size(147, 46);
+            this.btnSaveBottomTeaching.TabIndex = 2;
+            this.btnSaveBottomTeaching.Text = "SAVE BOTTOM POS";
+            this.btnSaveBottomTeaching.UseVisualStyleBackColor = false;
+            this.btnSaveBottomTeaching.Click += new System.EventHandler(this.btnSaveBottomTeaching_Click);
             // 
             // btnApplyHomeOffset
             // 
+            this.btnApplyHomeOffset.BackColor = System.Drawing.Color.White;
+            this.btnApplyHomeOffset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnApplyHomeOffset.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnApplyHomeOffset.Location = new System.Drawing.Point(381, 3);
+            this.btnApplyHomeOffset.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnApplyHomeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnApplyHomeOffset.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnApplyHomeOffset.ForeColor = System.Drawing.Color.Black;
+            this.btnApplyHomeOffset.Location = new System.Drawing.Point(483, 4);
+            this.btnApplyHomeOffset.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnApplyHomeOffset.Name = "btnApplyHomeOffset";
-            this.btnApplyHomeOffset.Size = new System.Drawing.Size(183, 44);
-            this.btnApplyHomeOffset.TabIndex = 2;
+            this.btnApplyHomeOffset.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnApplyHomeOffset.Size = new System.Drawing.Size(147, 46);
+            this.btnApplyHomeOffset.TabIndex = 3;
             this.btnApplyHomeOffset.Text = "APPLY T HOME";
-            this.btnApplyHomeOffset.Role = CalibrationDialogButtonRole.Normal;
+            this.btnApplyHomeOffset.UseVisualStyleBackColor = false;
             this.btnApplyHomeOffset.Click += new System.EventHandler(this.btnApplyHomeOffset_Click);
             // 
             // btnReload
             // 
+            this.btnReload.BackColor = System.Drawing.Color.White;
+            this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReload.Location = new System.Drawing.Point(570, 3);
+            this.btnReload.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnReload.ForeColor = System.Drawing.Color.Black;
+            this.btnReload.Location = new System.Drawing.Point(642, 4);
+            this.btnReload.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnReload.Name = "btnReload";
-            this.btnReload.Size = new System.Drawing.Size(183, 44);
-            this.btnReload.TabIndex = 3;
+            this.btnReload.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnReload.Size = new System.Drawing.Size(147, 46);
+            this.btnReload.TabIndex = 4;
             this.btnReload.Text = "RELOAD";
-            this.btnReload.Role = CalibrationDialogButtonRole.Normal;
+            this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
             // 
             // btnSave
             // 
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSave.Location = new System.Drawing.Point(759, 3);
+            this.btnSave.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnSave.ForeColor = System.Drawing.Color.White;
+            this.btnSave.Location = new System.Drawing.Point(801, 4);
+            this.btnSave.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(183, 44);
-            this.btnSave.TabIndex = 4;
+            this.btnSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
+            this.btnSave.Size = new System.Drawing.Size(147, 46);
+            this.btnSave.TabIndex = 5;
             this.btnSave.Text = "SAVE";
-            this.btnSave.Role = CalibrationDialogButtonRole.Dark;
+            this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
             // 
             // btnClose
             // 
+            this.btnClose.BackColor = System.Drawing.Color.White;
+            this.btnClose.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnClose.Location = new System.Drawing.Point(948, 3);
+            this.btnClose.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnClose.ForeColor = System.Drawing.Color.Black;
+            this.btnClose.Location = new System.Drawing.Point(960, 4);
+            this.btnClose.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(186, 44);
-            this.btnClose.TabIndex = 5;
+            this.btnClose.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnClose.Size = new System.Drawing.Size(148, 46);
+            this.btnClose.TabIndex = 6;
             this.btnClose.Text = "CLOSE";
-            this.btnClose.Role = CalibrationDialogButtonRole.Normal;
+            this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
             // ColletCalibrationDialog
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1161, 680);
+            this.ClientSize = new System.Drawing.Size(1134, 737);
             this.Controls.Add(this.rootLayout);
-            this.MinimumSize = new System.Drawing.Size(980, 600);
+            this.MinimumSize = new System.Drawing.Size(842, 647);
             this.Name = "ColletCalibrationDialog";
             this.Text = "COLLET CALIBRATION";
             this.rootLayout.ResumeLayout(false);

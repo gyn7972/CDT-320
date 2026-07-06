@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace QMC.Vision.Modules
 {
@@ -41,6 +42,8 @@ namespace QMC.Vision.Modules
         public event Action<string, string> Alarmed;
 
         private volatile bool _exposureEndFired;
+        private volatile bool _grabInProgress;     // 모듈 Grab 진행 중 — 카메라 노출 이벤트→ExposureDone 승격 허용 창(라이브 발화 스팸 방지)
+        private volatile bool _relayExposureEnd;   // 이 그랩에서 카메라 이벤트를 ExposureDone 으로 승격할지(EPD 억제 플래그를 그랩 시작 시 캡처)
 
         private readonly object _tapLock = new object();
         private Bitmap _lastFrame;
@@ -250,9 +253,14 @@ namespace QMC.Vision.Modules
             Camera.FrameReceived += OnCameraFrameReceived;
         }
 
+        /// <summary>카메라 HW 노출 종료 이벤트(SDK 콜백 스레드) — 모듈 Grab 진행 중에만 ExposureDone(EPD)으로 승격.
+        /// 라이브 중 발화(Mil FRAME_START 폴백은 매 프레임 발화)는 EPD 로 승격하지 않는다.</summary>
         private void OnCameraExposureEnded()
         {
+            if (!_grabInProgress) return;
             _exposureEndFired = true;
+            // EPD 억제 플래그(ThreadStatic)는 SDK 콜백 스레드에서 보이지 않으므로 Grab 시작 시 캡처한 값으로 판단.
+            if (!_relayExposureEnd) return;
             try { ExposureDone?.Invoke(Name); } catch { }
         }
 
@@ -324,11 +332,20 @@ namespace QMC.Vision.Modules
             if (Camera == null) return GrabResult.Fail("camera not assigned", Name);
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
+
+            // 실카메라 노출 종료(ExposureEnded) → ExposureDone(EPD) 승격 — 그랩 진행 중에만 허용.
+            // 노출 이벤트는 전송 완료보다 먼저 도착하므로 핸들러가 EPD 수신 즉시 기구 동작을 앞당길 수 있다.
             _exposureEndFired = false;
-            
+            _relayExposureEnd = !VisionCommandCore.SuppressExposurePush;
+            _grabInProgress = true;
+
+            GrabResult g;
+            try { g = Camera.Grab(timeoutMs); }
+            finally { _grabInProgress = false; }
+
+            // 폴백 — 노출 이벤트 미지원 카메라(Sim 등)는 그랩 완료 시점에 발화(핸들러 EPD 대기 멈춤 방지).
+            // 명령 스레드 동기 발화라 Comm 링크의 ThreadStatic EPD 억제가 그대로 동작한다.
             if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
-            
-            var g = Camera.Grab(timeoutMs);
             if (g != null && g.IsSuccess)
             {
                 // 합성 OFF 빈 프레임(sim-blank)은 뷰어(_lastFrame)에 반영하지 않고 이전 화면 유지.
@@ -342,7 +359,9 @@ namespace QMC.Vision.Modules
             return g;
         }
 
-        /// <summary>도구(Finder/Inspector) 단위 그랩 — 도구 전용 저장이미지가 있으면 우선, 없으면 <see cref="Grab(int)"/> 위임.</summary>
+        /// <summary>도구(Finder/Inspector) 단위 그랩 — 도구 전용 저장이미지가 있으면 우선, 없으면 <see cref="Grab(int)"/> 위임.
+        /// 카메라 그랩 시 도구 전용 노출(Recipe.ExposureUs&gt;0)이 있으면 적용하고, 없으면 모듈 레시피 노출로
+        /// 되돌려 도구 간 노출이 결정적으로 유지되게 한다.</summary>
         public GrabResult GrabForTool(string toolId, int timeoutMs = 3000)
         {
             var saved = TryGrabSavedImageForTool(toolId);
@@ -354,7 +373,86 @@ namespace QMC.Vision.Modules
                 return saved;
             }
             LogGrab("저장이미지 미사용 → 카메라 그랩 (toolId='" + (toolId ?? "(null)") + "')");
+            PrepareToolAcquisition(toolId);
             return Grab(timeoutMs);
+        }
+
+        /// <summary>도구 촬상 준비 — 노출(도구 전용 or 모듈 기본) + 조명(도구 Recipe.LightSettings) 적용.
+        /// 조명은 컨트롤러 배치 캐시가 동일 값이면 통신/안정화 대기를 생략하므로 그랩마다 호출해도 비용이 없다.
+        /// GrabForTool(MATCH/INSPECT/툴바 그랩)과 라이브 시작(VisionModuleSource)이 호출한다.</summary>
+        public void PrepareToolAcquisition(string toolId)
+        {
+            ApplyToolExposure(toolId);
+            ApplyToolLights(toolId);
+        }
+
+        /// <summary>도구 조명 적용 — 노드 Recipe.LightSettings 를 컨트롤러별 페이지 배치로 송신.
+        /// 미지정(빈 목록) 도구는 조명을 건드리지 않는다. 송신/대기는 컨트롤러 캐시가 관리(동일 값 = 생략).</summary>
+        private void ApplyToolLights(string toolId)
+        {
+            try
+            {
+                var recipe = GetAlgorithm(toolId)?.Recipe as AlgoRecipeBase;
+                var settings = recipe?.LightSettings;
+                if (settings == null || settings.Count == 0) return;   // 조명 미지정 도구 — 현재 상태 유지
+
+                var tasks = new List<Task<bool>>();
+                foreach (var grp in settings.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).GroupBy(s => s.ControllerPort))
+                {
+                    var ctrl = QMC.Vision.Comm.LightHub.Get(grp.Key);
+                    if (ctrl == null)
+                    {
+                        LogGrab("조명 포트 '" + grp.Key + "' LightHub 미등록 → 건너뜀 (toolId='" + toolId + "')");
+                        continue;
+                    }
+                    var list = grp.ToList();
+                    string port = grp.Key;
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        bool allOk = true;
+                        foreach (var pgrp in list.GroupBy(s => s.Page).OrderBy(g => g.Key))
+                        {
+                            await ctrl.SwitchPageAsync(pgrp.Key).ConfigureAwait(false);
+                            int[] values = new int[ctrl.ChannelCount];   // 0 = OFF(미사용)
+                            foreach (var s in pgrp)
+                                if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
+                                    values[s.Channel - 1] = s.On ? s.Level : 0;
+                            // 컨트롤러가 캐시 히트면 송신/대기 생략, 미스면 송신 + SettleDelayMs 대기.
+                            bool ok2 = await ctrl.SetChannelBatchAsync(pgrp.Key, values).ConfigureAwait(false);
+                            LogGrab("도구 조명 " + port + " P" + pgrp.Key.ToString("00") +
+                                    " [" + string.Join(",", values) + "] 결과=" + ok2 + " (toolId='" + toolId + "')");
+                            allOk &= ok2;
+                        }
+                        return allOk;
+                    }));
+                }
+                if (tasks.Count == 0) return;
+                // 그랩 전에 조명 안정화까지 완료되어야 하므로 동기 대기(캐시 히트 시 즉시 반환).
+                bool ok = Task.WhenAll(tasks).GetAwaiter().GetResult().All(r => r);
+                if (!ok) LogGrab("조명 적용 일부 실패 (toolId='" + toolId + "') — 시리얼 연결/NAK 확인");
+            }
+            catch (Exception ex) { LogGrab("조명 적용 실패: " + ex.Message + " (toolId='" + (toolId ?? "") + "')"); }
+        }
+
+        /// <summary>도구 전용 노출 적용 — 도구 Recipe.ExposureUs&gt;0 이면 그 값, 아니면 모듈 레시피 노출.
+        /// 현재 카메라 캐시값과 다를 때만 feature 를 쓴다(연속 그랩 시 카메라 왕복 최소화).</summary>
+        private void ApplyToolExposure(string toolId)
+        {
+            try
+            {
+                if (Camera == null) return;
+                double us = 0;
+                var r = GetAlgorithm(toolId)?.Recipe as AlgoRecipeBase;
+                if (r != null && r.ExposureUs > 0) us = r.ExposureUs;
+                if (us <= 0) us = CameraNode?.Recipe?.Exposure ?? 0;   // 도구 미지정 → 모듈 기본으로 복원
+                if (us <= 0) return;
+                if (Math.Abs(Camera.ExposureUs - us) > 0.01)
+                {
+                    Camera.ExposureUs = us;
+                    LogGrab("도구 노출 적용 " + us.ToString("F0") + "µs (toolId='" + (toolId ?? "") + "')");
+                }
+            }
+            catch (Exception ex) { LogGrab("도구 노출 적용 실패: " + ex.Message); }
         }
 
         /// <summary>모듈(카메라) 레벨 SimUseSavedImage=true 면 저장 이미지를 로드. 아니면 null(카메라 그랩으로 위임).</summary>
@@ -576,7 +674,7 @@ namespace QMC.Vision.Modules
 
         public void Dispose()
         {
-            try { if (Camera != null) Camera.FrameReceived -= OnCameraFrameReceived; } catch { }
+            try { if (Camera != null) { Camera.ExposureEnded -= OnCameraExposureEnded; Camera.FrameReceived -= OnCameraFrameReceived; } } catch { }
             try { Camera?.Dispose(); } catch { }
             lock (_tapLock) { _lastFrame?.Dispose(); _lastFrame = null; }
         }

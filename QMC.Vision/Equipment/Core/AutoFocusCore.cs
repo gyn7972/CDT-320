@@ -9,11 +9,12 @@ namespace QMC.Vision.Core
     /// <summary>초점 점수 계산 백엔드.</summary>
     public enum FocusBackend { Cpu, Cuda }
     /// <summary>
-    /// 오토포커스 선명도(Score) 측정 코어. CDT-310 <c>AutoFocuser.ScoreFocus</c> 이식.
+    /// 오토포커스 선명도(Score) 측정 코어. CDT-310 <c>AutoFocuser.ScoreFocus</c> 기반.
     /// <para>
-    /// 알고리즘: 중앙 영역(좌우상하 1/3 제외)에서 8-이웃 라플라시안 응답을 구하고,
-    /// 오브젝트 임계값(<paramref name="objThreshold"/>) 위 픽셀만 채점한 뒤
-    /// 응답 상위 200픽셀 평균을 Score 로 반환한다. Score 가 클수록 초점이 맞은 상태.
+    /// 알고리즘: 오브젝트 임계값(<paramref name="objThreshold"/>) 초과 밝기 픽셀에서
+    /// 8-이웃 라플라시안(스텝 3) |응답|의 RMS ÷ 8 을 Score 로 반환한다(0~255 스케일).
+    /// Score 가 클수록 초점이 맞은 상태. 전체 프레임 채점 시 가장자리 1/3 은 제외.
+    /// (구 310 방식 '255 클립 응답의 상위 200픽셀 평균'은 포화로 값이 255 에 고정되는 결함이 있어 교체.)
     /// </para>
     /// <para>
     /// QMC.Vision 은 <see cref="GrabResult.Image"/> 가 <see cref="Bitmap"/> 이므로
@@ -25,9 +26,6 @@ namespace QMC.Vision.Core
     {
         /// <summary>라플라시안 커널 반경(310 동일). 중앙 ±nStep 이웃 사용.</summary>
         private const int FocusStep = 3;
-
-        /// <summary>채점에 사용하는 상위 응답 픽셀 수(310 동일).</summary>
-        private const int TopPixelCount = 200;
 
         // ── CUDA 백엔드 (장비 PC에서 GPU 가속, 없으면 CPU 폴백) ──
         // 콜렛(ColletStdDevFilter)과 동일 패턴: 기동 시 자동 감지, DLL/커널/디바이스 부재 시 CPU.
@@ -109,7 +107,12 @@ namespace QMC.Vision.Core
         {
             if (gray == null) return 0;
 
-            if (CudaAvailable && _focusKernelAvailable && UseCudaPreferred)
+            // CUDA 커널(af_focus_score_cuda)은 구 알고리즘(255 클립 + 상위 200픽셀 평균) 구현이라
+            // 새 채점(비클립 |라플라시안| RMS)과 결과가 달라진다. 커널을 새 알고리즘으로 재빌드해
+            // CPU 와 결과 일치를 확인하기 전까지 채점은 CPU 로 고정한다(정확성 우선).
+            const bool cudaKernelMatchesRmsScore = false;
+#pragma warning disable 162
+            if (cudaKernelMatchesRmsScore && CudaAvailable && _focusKernelAvailable && UseCudaPreferred)
             {
                 try
                 {
@@ -123,6 +126,7 @@ namespace QMC.Vision.Core
                 }
                 catch { /* 런타임 예외 → CPU 폴백 */ }
             }
+#pragma warning restore 162
 
             LastBackend = FocusBackend.Cpu;
             return ScoreFocus(gray, w, h, bgThreshold, objThreshold, marginFraction, out _);
@@ -346,6 +350,13 @@ namespace QMC.Vision.Core
         /// <summary>
         /// ScoreFocus 본체. <paramref name="marginFraction"/> 만큼 가장자리를 제외하고 채점
         /// (전체프레임=1/3, ROI=0). <paramref name="respMap"/> 에 엣지 응답 맵(처리이미지)을 반환.
+        /// <para>
+        /// Score = 게이트(objThreshold 초과 밝기) 픽셀의 8-이웃 라플라시안 |응답| RMS ÷ 8 (0~255 스케일).
+        /// 구 알고리즘(255 클립 응답의 상위 200픽셀 평균)은 두 가지 결함으로 값이 뭉개졌다:
+        /// ① 강한 엣지/노이즈에서 응답이 255 로 포화 → 상위 200개가 전부 255 = Z 를 바꿔도 점수가 255 로 고정,
+        /// ② 양(+) 응답만 채점하고 음(−) 응답(어두운 중심 엣지)은 버림 → 엣지 절반 무시.
+        /// RMS 는 게이트 픽셀 전체를 반영하므로 포화/노이즈 꼬리에 좌우되지 않고 초점 곡선이 매끄럽게 나온다.
+        /// </para>
         /// </summary>
         public static double ScoreFocus(byte[] buffer, int w, int h, int bgThreshold, int objThreshold,
                                         double marginFraction, out byte[] respMap)
@@ -356,7 +367,7 @@ namespace QMC.Vision.Core
             int nStep = FocusStep;
             byte[] src = buffer;                 // 원본(응답 계산용)
             byte[] gate = (byte[])buffer.Clone();// 게이트 판정용(310 buffer2)
-            byte[] resp = new byte[w * h];       // 응답 맵(310 buffer3)
+            byte[] resp = new byte[w * h];       // 응답 맵(처리이미지 표시용 — 255 클립)
 
             int mx = (int)(w * marginFraction);
             int my = (int)(h * marginFraction);
@@ -366,6 +377,9 @@ namespace QMC.Vision.Core
             int endY = Math.Min(h - nStep - 1 - my, h);
 
             int w2 = w * nStep;
+
+            long sumSq = 0;   // |응답|² 누적(비클립) — RMS 채점용
+            long gated = 0;   // 게이트 통과 픽셀 수
 
             for (int y = startY; y < endY; y++)
             {
@@ -388,23 +402,16 @@ namespace QMC.Vision.Core
                     sum -= src[x + nY - w2];
                     sum -= src[x + nY + w2];
 
-                    resp[x + nY] = sum > 0 ? (byte)Math.Min(255, Math.Abs(sum)) : (byte)0;
+                    int a = Math.Abs(sum);                      // 음(−) 응답도 엣지 — 부호 무시
+                    resp[x + nY] = (byte)Math.Min(255, a);      // 표시용 맵만 클립
+                    sumSq += (long)a * a;
+                    gated++;
                 }
             }
 
             respMap = resp;
-            // 응답 상위 200픽셀 평균 — 히스토그램으로 O(N)(대형 이미지 정렬 멈춤 방지, 결과 동일).
-            int[] hist = new int[256];
-            for (int i = 0; i < resp.Length; i++) hist[resp[i]]++;
-            long sumTop = 0; int need = TopPixelCount, taken = 0;
-            for (int v = 255; v >= 0 && need > 0; v--)
-            {
-                int take = Math.Min(hist[v], need);
-                sumTop += (long)v * take;
-                taken += take;
-                need -= take;
-            }
-            return taken > 0 ? (double)sumTop / taken : 0.0;
+            // RMS ÷ 8 — 라플라시안 최대치(8×255)를 0~255 로 정규화해 구 점수와 비슷한 자릿수 유지.
+            return gated > 0 ? Math.Sqrt((double)sumSq / gated) / 8.0 : 0.0;
         }
 
         /// <summary>

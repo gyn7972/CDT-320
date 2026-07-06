@@ -125,6 +125,21 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
+                string pickerDetail;
+                // 현재 기준: Manual InputFeederY 이동 전 FrontPicker가 Input 존에 있으면 차단한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        out reason);
+
+                // 현재 기준: Manual InputFeederY 이동 전 RearPicker가 Input 존에 있으면 차단한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY 이동 차단. RearPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        out reason);
+
                 string axisReason;
 
                 if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
@@ -209,6 +224,21 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 // 아래 조건이 어떻게 되지? 지금 Home Step에서 피더가 먼저 잡고 픽커가 홈 잡는데?
+
+                string pickerDetail;
+                // 현재 기준: Home InputFeederY 이동 전 FrontPicker가 Input 존에 있으면 차단한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        out reason);
+
+                // 현재 기준: Home InputFeederY 이동 전 RearPicker가 Input 존에 있으면 차단한다.
+                if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY 이동 차단. RearPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
+                        out reason);
 
                 //string axisReason;
 
