@@ -171,7 +171,7 @@
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "DIE MAP CREATE";
@@ -188,7 +188,6 @@
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 870);
@@ -201,13 +200,13 @@
             this.mapSection.Controls.Add(this.lblMapTitle, 0, 0);
             this.mapSection.Controls.Add(this.mapPanel, 0, 1);
             this.mapSection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapSection.Location = new System.Drawing.Point(8, 8);
-            this.mapSection.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
+            this.mapSection.Location = new System.Drawing.Point(0, 0);
+            this.mapSection.Margin = new System.Windows.Forms.Padding(0, 0, 1, 0);
             this.mapSection.Name = "mapSection";
             this.mapSection.RowCount = 2;
             this.mapSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.mapSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapSection.Size = new System.Drawing.Size(1234, 854);
+            this.mapSection.Size = new System.Drawing.Size(1257, 870);
             this.mapSection.TabIndex = 0;
             // 
             // lblMapTitle
@@ -220,7 +219,7 @@
             this.lblMapTitle.Margin = new System.Windows.Forms.Padding(0);
             this.lblMapTitle.Name = "lblMapTitle";
             this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapTitle.Size = new System.Drawing.Size(1234, 26);
+            this.lblMapTitle.Size = new System.Drawing.Size(1257, 26);
             this.lblMapTitle.TabIndex = 0;
             this.lblMapTitle.Text = "DIE MAP";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -231,10 +230,10 @@
             this.mapPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.mapPanel.Controls.Add(this.mapEditorLayout);
             this.mapPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapPanel.Location = new System.Drawing.Point(0, 30);
-            this.mapPanel.Margin = new System.Windows.Forms.Padding(0, 4, 0, 0);
+            this.mapPanel.Location = new System.Drawing.Point(0, 27);
+            this.mapPanel.Margin = new System.Windows.Forms.Padding(0, 1, 0, 0);
             this.mapPanel.Name = "mapPanel";
-            this.mapPanel.Size = new System.Drawing.Size(1234, 824);
+            this.mapPanel.Size = new System.Drawing.Size(1257, 843);
             this.mapPanel.TabIndex = 1;
             // 
             // mapEditorLayout
@@ -250,7 +249,7 @@
             this.mapEditorLayout.RowCount = 2;
             this.mapEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.mapEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapEditorLayout.Size = new System.Drawing.Size(1232, 822);
+            this.mapEditorLayout.Size = new System.Drawing.Size(1255, 841);
             this.mapEditorLayout.TabIndex = 0;
             // 
             // mapLibraryBar
@@ -268,7 +267,7 @@
             this.mapLibraryBar.Padding = new System.Windows.Forms.Padding(4);
             this.mapLibraryBar.RowCount = 1;
             this.mapLibraryBar.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLibraryBar.Size = new System.Drawing.Size(1232, 34);
+            this.mapLibraryBar.Size = new System.Drawing.Size(1255, 34);
             this.mapLibraryBar.TabIndex = 0;
             // 
             // _cbMapLibrary
@@ -280,7 +279,7 @@
             this._cbMapLibrary.Location = new System.Drawing.Point(4, 5);
             this._cbMapLibrary.Margin = new System.Windows.Forms.Padding(0, 1, 4, 1);
             this._cbMapLibrary.Name = "_cbMapLibrary";
-            this._cbMapLibrary.Size = new System.Drawing.Size(1100, 23);
+            this._cbMapLibrary.Size = new System.Drawing.Size(1123, 23);
             this._cbMapLibrary.TabIndex = 0;
             // 
             // _btnMapLoad
@@ -290,7 +289,7 @@
             this._btnMapLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnMapLoad.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
             this._btnMapLoad.ForeColor = System.Drawing.Color.Black;
-            this._btnMapLoad.Location = new System.Drawing.Point(1110, 4);
+            this._btnMapLoad.Location = new System.Drawing.Point(1133, 4);
             this._btnMapLoad.Margin = new System.Windows.Forms.Padding(2, 0, 0, 0);
             this._btnMapLoad.Name = "_btnMapLoad";
             this._btnMapLoad.Size = new System.Drawing.Size(118, 26);
@@ -306,7 +305,7 @@
             this.mapViewPanel.Location = new System.Drawing.Point(0, 34);
             this.mapViewPanel.Margin = new System.Windows.Forms.Padding(0);
             this.mapViewPanel.Name = "mapViewPanel";
-            this.mapViewPanel.Size = new System.Drawing.Size(1232, 788);
+            this.mapViewPanel.Size = new System.Drawing.Size(1255, 807);
             this.mapViewPanel.TabIndex = 1;
             // 
             // _mapView
@@ -316,14 +315,16 @@
             this._mapView.CellColorResolver = null;
             this._mapView.CellStatusResolver = null;
             this._mapView.CellTextResolver = null;
+            this._mapView.CompactUsedBounds = false;
             this._mapView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._mapView.EntryVisibilityPredicate = null;
             this._mapView.LegendItemsResolver = null;
             this._mapView.Location = new System.Drawing.Point(0, 0);
             this._mapView.Map = null;
             this._mapView.Name = "_mapView";
             this._mapView.SelectedEntry = null;
             this._mapView.ShowWaferOutline = false;
-            this._mapView.Size = new System.Drawing.Size(1232, 788);
+            this._mapView.Size = new System.Drawing.Size(1255, 807);
             this._mapView.TabIndex = 0;
             // 
             // rightLayout
@@ -334,14 +335,14 @@
             this.rightLayout.Controls.Add(this.modeSection, 0, 1);
             this.rightLayout.Controls.Add(this.actionSection, 0, 2);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(1250, 8);
+            this.rightLayout.Location = new System.Drawing.Point(1258, 0);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 248F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 323F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(420, 854);
+            this.rightLayout.Size = new System.Drawing.Size(420, 870);
             this.rightLayout.TabIndex = 1;
             // 
             // settingSection
@@ -367,9 +368,9 @@
             this.settingSection.Controls.Add(this.edgeSkipPanel, 1, 7);
             this.settingSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.settingSection.Location = new System.Drawing.Point(0, 0);
-            this.settingSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.settingSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.settingSection.Name = "settingSection";
-            this.settingSection.Padding = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.settingSection.Padding = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.settingSection.RowCount = 8;
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -379,7 +380,7 @@
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.settingSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.settingSection.Size = new System.Drawing.Size(420, 240);
+            this.settingSection.Size = new System.Drawing.Size(420, 247);
             this.settingSection.TabIndex = 0;
             // 
             // lblSettingTitle
@@ -390,10 +391,10 @@
             this.lblSettingTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblSettingTitle.ForeColor = System.Drawing.Color.White;
             this.lblSettingTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblSettingTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblSettingTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblSettingTitle.Name = "lblSettingTitle";
             this.lblSettingTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblSettingTitle.Size = new System.Drawing.Size(420, 22);
+            this.lblSettingTitle.Size = new System.Drawing.Size(420, 25);
             this.lblSettingTitle.TabIndex = 0;
             this.lblSettingTitle.Text = "DIE MAP SETTING";
             this.lblSettingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -663,7 +664,7 @@
             this.lblAxisYKey.Margin = new System.Windows.Forms.Padding(1);
             this.lblAxisYKey.Name = "lblAxisYKey";
             this.lblAxisYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblAxisYKey.Size = new System.Drawing.Size(174, 28);
+            this.lblAxisYKey.Size = new System.Drawing.Size(174, 38);
             this.lblAxisYKey.TabIndex = 13;
             this.lblAxisYKey.Text = "EDGE SKIP L/R, T/B";
             this.lblAxisYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -681,7 +682,7 @@
             this.edgeSkipPanel.Name = "edgeSkipPanel";
             this.edgeSkipPanel.RowCount = 1;
             this.edgeSkipPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.edgeSkipPanel.Size = new System.Drawing.Size(244, 30);
+            this.edgeSkipPanel.Size = new System.Drawing.Size(244, 40);
             this.edgeSkipPanel.TabIndex = 14;
             // 
             // _nSideEdgeSkip
@@ -741,7 +742,7 @@
             this.modeSection.Controls.Add(this.binSidePanel, 0, 9);
             this.modeSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeSection.Location = new System.Drawing.Point(0, 248);
-            this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.modeSection.Name = "modeSection";
             this.modeSection.RowCount = 10;
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
@@ -754,7 +755,7 @@
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
-            this.modeSection.Size = new System.Drawing.Size(420, 315);
+            this.modeSection.Size = new System.Drawing.Size(420, 322);
             this.modeSection.TabIndex = 1;
             // 
             // lblModeTitle
@@ -764,10 +765,10 @@
             this.lblModeTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblModeTitle.ForeColor = System.Drawing.Color.White;
             this.lblModeTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblModeTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblModeTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblModeTitle.Name = "lblModeTitle";
             this.lblModeTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblModeTitle.Size = new System.Drawing.Size(420, 22);
+            this.lblModeTitle.Size = new System.Drawing.Size(420, 25);
             this.lblModeTitle.TabIndex = 0;
             this.lblModeTitle.Text = "MODE";
             this.lblModeTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -872,7 +873,7 @@
             this.binSidePanel.Location = new System.Drawing.Point(12, 282);
             this.binSidePanel.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.binSidePanel.Name = "binSidePanel";
-            this.binSidePanel.Size = new System.Drawing.Size(408, 33);
+            this.binSidePanel.Size = new System.Drawing.Size(408, 40);
             this.binSidePanel.TabIndex = 9;
             this.binSidePanel.Visible = false;
             // 
@@ -882,7 +883,7 @@
             this.rbBinGood.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.rbBinGood.Location = new System.Drawing.Point(0, 0);
             this.rbBinGood.Name = "rbBinGood";
-            this.rbBinGood.Size = new System.Drawing.Size(204, 33);
+            this.rbBinGood.Size = new System.Drawing.Size(204, 40);
             this.rbBinGood.TabIndex = 0;
             this.rbBinGood.TabStop = true;
             this.rbBinGood.Text = "GOOD BIN MAP";
@@ -893,7 +894,7 @@
             this.rbBinNg.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.rbBinNg.Location = new System.Drawing.Point(204, 0);
             this.rbBinNg.Name = "rbBinNg";
-            this.rbBinNg.Size = new System.Drawing.Size(204, 33);
+            this.rbBinNg.Size = new System.Drawing.Size(204, 40);
             this.rbBinNg.TabIndex = 1;
             this.rbBinNg.TabStop = true;
             this.rbBinNg.Text = "NG BIN MAP";
@@ -913,14 +914,14 @@
             this.actionSection.Controls.Add(this.btnXyMatchMove, 1, 3);
             this.actionSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionSection.Location = new System.Drawing.Point(0, 571);
-            this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.actionSection.Name = "actionSection";
             this.actionSection.RowCount = 4;
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
             this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.actionSection.Size = new System.Drawing.Size(420, 275);
+            this.actionSection.Size = new System.Drawing.Size(420, 298);
             this.actionSection.TabIndex = 2;
             // 
             // lblActionTitle
@@ -931,10 +932,10 @@
             this.lblActionTitle.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblActionTitle.ForeColor = System.Drawing.Color.White;
             this.lblActionTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
+            this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblActionTitle.Name = "lblActionTitle";
             this.lblActionTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblActionTitle.Size = new System.Drawing.Size(420, 22);
+            this.lblActionTitle.Size = new System.Drawing.Size(420, 25);
             this.lblActionTitle.TabIndex = 0;
             this.lblActionTitle.Text = "ACTION";
             this.lblActionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -949,7 +950,7 @@
             this.btnCreate.Location = new System.Drawing.Point(4, 30);
             this.btnCreate.Margin = new System.Windows.Forms.Padding(4);
             this.btnCreate.Name = "btnCreate";
-            this.btnCreate.Size = new System.Drawing.Size(202, 74);
+            this.btnCreate.Size = new System.Drawing.Size(202, 82);
             this.btnCreate.TabIndex = 1;
             this.btnCreate.Text = "CREATE";
             // 
@@ -963,7 +964,7 @@
             this.btnSave.Location = new System.Drawing.Point(214, 30);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4);
             this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(202, 74);
+            this.btnSave.Size = new System.Drawing.Size(202, 82);
             this.btnSave.TabIndex = 2;
             this.btnSave.Text = "SAVE";
             // 
@@ -974,10 +975,10 @@
             this.btnFirstDieMoveComplete.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnFirstDieMoveComplete.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnFirstDieMoveComplete.ForeColor = System.Drawing.Color.White;
-            this.btnFirstDieMoveComplete.Location = new System.Drawing.Point(4, 112);
+            this.btnFirstDieMoveComplete.Location = new System.Drawing.Point(4, 120);
             this.btnFirstDieMoveComplete.Margin = new System.Windows.Forms.Padding(4);
             this.btnFirstDieMoveComplete.Name = "btnFirstDieMoveComplete";
-            this.btnFirstDieMoveComplete.Size = new System.Drawing.Size(202, 75);
+            this.btnFirstDieMoveComplete.Size = new System.Drawing.Size(202, 82);
             this.btnFirstDieMoveComplete.TabIndex = 3;
             this.btnFirstDieMoveComplete.Text = "FIRST DIE MOVE COMPLETE";
             // 
@@ -988,10 +989,10 @@
             this.btnAutoMatch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAutoMatch.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnAutoMatch.ForeColor = System.Drawing.Color.White;
-            this.btnAutoMatch.Location = new System.Drawing.Point(214, 112);
+            this.btnAutoMatch.Location = new System.Drawing.Point(214, 120);
             this.btnAutoMatch.Margin = new System.Windows.Forms.Padding(4);
             this.btnAutoMatch.Name = "btnAutoMatch";
-            this.btnAutoMatch.Size = new System.Drawing.Size(202, 75);
+            this.btnAutoMatch.Size = new System.Drawing.Size(202, 82);
             this.btnAutoMatch.TabIndex = 4;
             this.btnAutoMatch.Text = "AUTO MATCH";
             // 
@@ -1002,10 +1003,10 @@
             this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnThetaMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnThetaMatchMove.Location = new System.Drawing.Point(4, 195);
+            this.btnThetaMatchMove.Location = new System.Drawing.Point(4, 210);
             this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";
-            this.btnThetaMatchMove.Size = new System.Drawing.Size(202, 76);
+            this.btnThetaMatchMove.Size = new System.Drawing.Size(202, 84);
             this.btnThetaMatchMove.TabIndex = 5;
             this.btnThetaMatchMove.Text = "THETA MATCH MOVE";
             // 
@@ -1016,10 +1017,10 @@
             this.btnXyMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnXyMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnXyMatchMove.Location = new System.Drawing.Point(214, 195);
+            this.btnXyMatchMove.Location = new System.Drawing.Point(214, 210);
             this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnXyMatchMove.Name = "btnXyMatchMove";
-            this.btnXyMatchMove.Size = new System.Drawing.Size(202, 76);
+            this.btnXyMatchMove.Size = new System.Drawing.Size(202, 84);
             this.btnXyMatchMove.TabIndex = 6;
             this.btnXyMatchMove.Text = "X/Y MATCH MOVE";
             // 
@@ -1071,7 +1072,7 @@
             // MapCreatePage
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.mainLayout);
             this.Name = "MapCreatePage";
             this.Size = new System.Drawing.Size(1678, 900);

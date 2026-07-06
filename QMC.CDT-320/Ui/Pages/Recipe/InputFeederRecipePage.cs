@@ -49,10 +49,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Timer _refreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip();
         private string _titleI18n = "recipe.inputFeeder";
-        /// <summary>InputFeederRecipePage를 생성합니다.</summary>
-        public InputFeederRecipePage() : this("recipe.inputFeeder")
-        {
-        }
 
         /// <summary>제목 i18n 키를 지정하여 InputFeederRecipePage를 생성합니다.</summary>
         public InputFeederRecipePage(string titleI18n)

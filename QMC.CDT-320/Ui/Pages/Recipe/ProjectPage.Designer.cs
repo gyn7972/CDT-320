@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class ProjectPage
     {
@@ -135,7 +135,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:recipe.project";
@@ -151,11 +151,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.contentLayout.Controls.Add(this.grpProjects, 0, 0);
             this.contentLayout.Controls.Add(this.centerLayout, 1, 0);
             this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.contentLayout.Padding = new System.Windows.Forms.Padding(1);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 812);
@@ -164,10 +165,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpProjects
             // 
             this.grpProjects.Controls.Add(this.leftLayout);
+            this.grpProjects.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpProjects.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpProjects.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpProjects.Location = new System.Drawing.Point(12, 12);
-            this.grpProjects.Margin = new System.Windows.Forms.Padding(4);
+            this.grpProjects.Margin = new System.Windows.Forms.Padding(1);
             this.grpProjects.Name = "grpProjects";
             this.grpProjects.Size = new System.Drawing.Size(332, 788);
             this.grpProjects.TabIndex = 0;
@@ -180,6 +182,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Controls.Add(this.listProjects, 0, 0);
             this.leftLayout.Controls.Add(this.listButtonLayout, 0, 1);
+            this.leftLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.leftLayout.Location = new System.Drawing.Point(3, 21);
             this.leftLayout.Name = "leftLayout";
@@ -289,9 +292,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.centerLayout.Controls.Add(this.grpSummary, 0, 0);
             this.centerLayout.Controls.Add(this.grpGlobal, 0, 1);
             this.centerLayout.Controls.Add(this.grpProjectOption, 0, 2);
+            this.centerLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.centerLayout.Location = new System.Drawing.Point(352, 8);
-            this.centerLayout.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.centerLayout.Margin = new System.Windows.Forms.Padding(1, 0, 1, 0);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.RowCount = 3;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 28F));
@@ -303,10 +307,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpSummary
             // 
             this.grpSummary.Controls.Add(this.gridSummary);
+            this.grpSummary.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpSummary.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpSummary.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpSummary.Location = new System.Drawing.Point(4, 4);
-            this.grpSummary.Margin = new System.Windows.Forms.Padding(4);
+            this.grpSummary.Margin = new System.Windows.Forms.Padding(1);
             this.grpSummary.Name = "grpSummary";
             this.grpSummary.Size = new System.Drawing.Size(617, 214);
             this.grpSummary.TabIndex = 0;
@@ -332,10 +337,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpGlobal
             // 
             this.grpGlobal.Controls.Add(this.gridGlobal);
+            this.grpGlobal.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpGlobal.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpGlobal.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpGlobal.Location = new System.Drawing.Point(4, 226);
-            this.grpGlobal.Margin = new System.Windows.Forms.Padding(4);
+            this.grpGlobal.Margin = new System.Windows.Forms.Padding(1);
             this.grpGlobal.Name = "grpGlobal";
             this.grpGlobal.Size = new System.Drawing.Size(617, 286);
             this.grpGlobal.TabIndex = 1;
@@ -361,10 +367,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpProjectOption
             // 
             this.grpProjectOption.Controls.Add(this.gridProject);
+            this.grpProjectOption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpProjectOption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpProjectOption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpProjectOption.Location = new System.Drawing.Point(4, 520);
-            this.grpProjectOption.Margin = new System.Windows.Forms.Padding(4);
+            this.grpProjectOption.Margin = new System.Windows.Forms.Padding(1);
             this.grpProjectOption.Name = "grpProjectOption";
             this.grpProjectOption.Size = new System.Drawing.Size(617, 272);
             this.grpProjectOption.TabIndex = 2;
@@ -394,9 +401,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.rightLayout.Controls.Add(this.grpMap, 0, 0);
             this.rightLayout.Controls.Add(this.grpXml, 0, 1);
             this.rightLayout.Controls.Add(this.grpStatus, 0, 2);
+            this.rightLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(985, 8);
-            this.rightLayout.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            this.rightLayout.Margin = new System.Windows.Forms.Padding(1, 0, 1, 0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 34F));
@@ -408,10 +416,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpMap
             // 
             this.grpMap.Controls.Add(this.gridMap);
+            this.grpMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMap.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpMap.Location = new System.Drawing.Point(4, 4);
-            this.grpMap.Margin = new System.Windows.Forms.Padding(4);
+            this.grpMap.Margin = new System.Windows.Forms.Padding(1);
             this.grpMap.Name = "grpMap";
             this.grpMap.Size = new System.Drawing.Size(673, 262);
             this.grpMap.TabIndex = 0;
@@ -437,10 +446,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpXml
             // 
             this.grpXml.Controls.Add(this.gridXml);
+            this.grpXml.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpXml.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpXml.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpXml.Location = new System.Drawing.Point(4, 274);
-            this.grpXml.Margin = new System.Windows.Forms.Padding(4);
+            this.grpXml.Margin = new System.Windows.Forms.Padding(1);
             this.grpXml.Name = "grpXml";
             this.grpXml.Size = new System.Drawing.Size(673, 214);
             this.grpXml.TabIndex = 1;
@@ -466,10 +476,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // grpStatus
             // 
             this.grpStatus.Controls.Add(this.gridStatus);
+            this.grpStatus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpStatus.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpStatus.Location = new System.Drawing.Point(4, 496);
-            this.grpStatus.Margin = new System.Windows.Forms.Padding(4);
+            this.grpStatus.Margin = new System.Windows.Forms.Padding(1);
             this.grpStatus.Name = "grpStatus";
             this.grpStatus.Size = new System.Drawing.Size(673, 296);
             this.grpStatus.TabIndex = 2;
@@ -514,6 +525,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.footerLayout.Controls.Add(this.btnApplyCurrent, 6, 0);
             this.footerLayout.Controls.Add(this.btnSaveRecipe, 7, 0);
             this.footerLayout.Controls.Add(this.btnSaveAs, 8, 0);
+            this.footerLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.footerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.footerLayout.Location = new System.Drawing.Point(0, 842);
             this.footerLayout.Margin = new System.Windows.Forms.Padding(0);

@@ -14,7 +14,17 @@ namespace QMC.CDT_320.Ui.Pages.Material
         {
             InitializeComponent();
             WireEvents();
+            DisableColumnSorting();
             if (!IsDesignerMode()) LoadGrids();
+        }
+
+        /// <summary>모든 열의 헤더 클릭 정렬(오름/내림차순) 기능을 끈다.</summary>
+        private void DisableColumnSorting()
+        {
+            foreach (DataGridViewColumn col in _gridCodes.Columns)
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+            foreach (DataGridViewColumn col in _gridColors.Columns)
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
         }
 
         private void WireEvents()

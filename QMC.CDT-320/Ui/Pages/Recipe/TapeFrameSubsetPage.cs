@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -18,25 +18,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private const string EdgeSkipMmText = "MM";
         private const string EdgeSkipExternalMapText = "EXTERNAL MAP";
 
-        private ComboBox _cbWaferRole;
-        private Button _btnImportWaferMap;
-        private Label _lblMapFileValue;
-        private NumericUpDown _nDieSizeX;
-        private NumericUpDown _nDieSizeY;
-        private ComboBox _cbEdgeSkipMode;
-        private NumericUpDown _nSideEdgeSkip;
-        private NumericUpDown _nTopBottomEdgeSkip;
         private bool _loadingRole;
         private bool _currentRoleIsOutput;
 
         public TapeFrameSubsetPage() : base("recipe.tapeFrameSubset")
         {
             InitializeComponent();
-            InitializeWaferSpecEditor();
+            _nGridX.Maximum = 9999;
+            _nGridY.Maximum = 9999;
+            UpdateEdgeSkipModeUi();
+        }
+
+        private void _cbEdgeSkipMode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            UpdateEdgeSkipModeUi();
         }
 
         protected override void BuildEditor(Panel c)
         {
+            // 편집영역 배경 흰색 통일 (그룹박스 배치는 Designer)
+            if (c != null)
+                c.BackColor = System.Drawing.Color.White;
         }
 
         protected override void LoadFromRecipe()
@@ -65,150 +67,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             MaterialStateService.SyncRecipeTapeFrameSpec(_project);
             RefreshSpecList(ResolveRoleFrame(_currentRoleIsOutput)?.FrameSpecName);
             UpdateMapFileLabel();
-        }
-
-        private void InitializeWaferSpecEditor()
-        {
-            _nGridX.Maximum = 9999;
-            _nGridY.Maximum = 9999;
-
-            InsertEditorRows(1, 2);
-            InsertEditorRows(editorLayout.GetRow(_nPitchY) + 1, 2);
-            int edgeRow = editorLayout.GetRow(_cbRotate);
-            InsertEditorRows(edgeRow, 3);
-
-            Label lblRole = CreateFieldLabel("Wafer role");
-            _cbWaferRole = CreateComboBox();
-            _cbWaferRole.Items.Add(InputWaferText);
-            _cbWaferRole.Items.Add(OutputWaferText);
-            _cbWaferRole.SelectedIndex = 0;
-            _cbWaferRole.SelectedIndexChanged += OnWaferRoleChanged;
-
-            _btnImportWaferMap = CreateButton("LOAD WAFER MAP", false);
-            _btnImportWaferMap.Click += btnImportWaferMap_Click;
-
-            Label lblMapFile = CreateFieldLabel("Recipe map file");
-            _lblMapFileValue = new Label
-            {
-                AutoEllipsis = true,
-                BorderStyle = BorderStyle.FixedSingle,
-                Dock = DockStyle.Fill,
-                Font = new Font("Consolas", 9F),
-                Padding = new Padding(6, 0, 6, 0),
-                Text = "-",
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            editorLayout.Controls.Add(lblRole, 0, 1);
-            editorLayout.Controls.Add(_cbWaferRole, 1, 1);
-            editorLayout.Controls.Add(_btnImportWaferMap, 2, 1);
-            editorLayout.SetColumnSpan(_btnImportWaferMap, 2);
-            editorLayout.Controls.Add(lblMapFile, 0, 2);
-            editorLayout.Controls.Add(_lblMapFileValue, 1, 2);
-            editorLayout.SetColumnSpan(_lblMapFileValue, 3);
-
-            int dieSizeRow = editorLayout.GetRow(_nPitchY) + 1;
-            _nDieSizeX = CreateNumeric("_nDieSizeX", 0.001M, 1000M, 1M, 3);
-            _nDieSizeY = CreateNumeric("_nDieSizeY", 0.001M, 1000M, 1M, 3);
-            editorLayout.Controls.Add(CreateFieldLabel("Die size X (mm)"), 0, dieSizeRow);
-            editorLayout.Controls.Add(_nDieSizeX, 1, dieSizeRow);
-            editorLayout.SetColumnSpan(_nDieSizeX, 3);
-            editorLayout.Controls.Add(CreateFieldLabel("Die size Y (mm)"), 0, dieSizeRow + 1);
-            editorLayout.Controls.Add(_nDieSizeY, 1, dieSizeRow + 1);
-            editorLayout.SetColumnSpan(_nDieSizeY, 3);
-
-            _cbEdgeSkipMode = CreateComboBox();
-            _cbEdgeSkipMode.Items.Add(EdgeSkipGridText);
-            _cbEdgeSkipMode.Items.Add(EdgeSkipMmText);
-            _cbEdgeSkipMode.Items.Add(EdgeSkipExternalMapText);
-            _cbEdgeSkipMode.SelectedIndex = 0;
-            _cbEdgeSkipMode.SelectedIndexChanged += (s, e) => UpdateEdgeSkipModeUi();
-            _nSideEdgeSkip = CreateNumeric("_nSideEdgeSkip", 0M, 500M, 0M, 0);
-            _nTopBottomEdgeSkip = CreateNumeric("_nTopBottomEdgeSkip", 0M, 500M, 0M, 0);
-
-            editorLayout.Controls.Add(CreateFieldLabel("Edge skip mode"), 0, edgeRow);
-            editorLayout.Controls.Add(_cbEdgeSkipMode, 1, edgeRow);
-            editorLayout.SetColumnSpan(_cbEdgeSkipMode, 3);
-            editorLayout.Controls.Add(CreateFieldLabel("Edge skip L/R"), 0, edgeRow + 1);
-            editorLayout.Controls.Add(_nSideEdgeSkip, 1, edgeRow + 1);
-            editorLayout.SetColumnSpan(_nSideEdgeSkip, 3);
-            editorLayout.Controls.Add(CreateFieldLabel("Edge skip T/B"), 0, edgeRow + 2);
-            editorLayout.Controls.Add(_nTopBottomEdgeSkip, 1, edgeRow + 2);
-            editorLayout.SetColumnSpan(_nTopBottomEdgeSkip, 3);
-            UpdateEdgeSkipModeUi();
-        }
-
-        private void InsertEditorRows(int rowIndex, int count)
-        {
-            List<Control> children = new List<Control>();
-            foreach (Control child in editorLayout.Controls)
-                children.Add(child);
-
-            foreach (Control child in children)
-            {
-                int row = editorLayout.GetRow(child);
-                if (row >= rowIndex)
-                    editorLayout.SetRow(child, row + count);
-            }
-
-            editorLayout.RowCount += count;
-            for (int i = 0; i < count; i++)
-                editorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-            editorLayout.Height += 34 * count;
-        }
-
-        private static Label CreateFieldLabel(string text)
-        {
-            return new Label
-            {
-                Dock = DockStyle.Fill,
-                Font = new Font("맑은 고딕", 11F),
-                Text = text,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-        }
-
-        private static ComboBox CreateComboBox()
-        {
-            return new ComboBox
-            {
-                Dock = DockStyle.Fill,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Consolas", 10F)
-            };
-        }
-
-        private static Button CreateButton(string text, bool primary)
-        {
-            var button = new Button
-            {
-                Dock = DockStyle.Fill,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("맑은 고딕", 9F),
-                Text = text,
-                UseVisualStyleBackColor = !primary
-            };
-            if (primary)
-            {
-                button.BackColor = Color.FromArgb(230, 88, 31);
-                button.ForeColor = Color.White;
-            }
-            return button;
-        }
-
-        private static NumericUpDown CreateNumeric(string name, decimal minimum, decimal maximum, decimal value, int decimals)
-        {
-            return new NumericUpDown
-            {
-                DecimalPlaces = decimals,
-                Dock = DockStyle.Fill,
-                Font = new Font("Consolas", 10F),
-                Maximum = maximum,
-                Minimum = minimum,
-                Name = name,
-                TextAlign = HorizontalAlignment.Right,
-                Value = value
-            };
         }
 
         private void OnWaferRoleChanged(object sender, EventArgs e)
