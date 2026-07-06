@@ -149,6 +149,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             _settingsGrid = CreateGrid();
             _settingsGrid.CellDoubleClick += SettingsGrid_CellDoubleClick;
+            _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
             body.Controls.Add(Wrap("CAL SETTING", _settingsGrid), 0, 0);
 
             _resultGrid = CreateResultGrid();
@@ -386,6 +387,58 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = _settingsGrid.Rows.Add(name, value ?? string.Empty, unit ?? string.Empty);
             _settingsGrid.Rows[row].Tag = name;
+            ApplySettingToolTip(_settingsGrid.Rows[row], GetSettingToolTip(name));
+        }
+
+        private void SettingsGrid_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            string name = Convert.ToString(_settingsGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
+            e.ToolTipText = GetSettingToolTip(name);
+        }
+
+        private static void ApplySettingToolTip(DataGridViewRow row, string toolTip)
+        {
+            if (row == null || string.IsNullOrWhiteSpace(toolTip))
+                return;
+
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = toolTip;
+        }
+
+        private static string GetSettingToolTip(string name)
+        {
+            switch (name)
+            {
+                case MoveSpeedKey:
+                    return "PlaceZ Calibration에서 Picker Z를 탐색 시작 위치와 접촉 위치로 이동할 때 사용하는 속도입니다.";
+                case MoveAccKey:
+                    return "PlaceZ Calibration 전용 이동 가속도입니다. 값이 너무 크면 Place 접촉 탐색 중 충격이 커질 수 있습니다.";
+                case MoveDecKey:
+                    return "PlaceZ Calibration 전용 이동 감속도입니다. 접촉 감지 후 정지 안정성에 영향을 줍니다.";
+                case MoveTimeoutKey:
+                    return "각 Z 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다. 초과하면 캘리브레이션을 실패 처리합니다.";
+                case SearchStartOffsetKey:
+                    return "현재 Place 위치보다 이 거리만큼 위쪽 안전 위치에서 탐색을 시작합니다. 대상면에 바로 닿지 않도록 여유를 둡니다.";
+                case SearchMaxDistanceKey:
+                    return "Vacuum/Flow 접촉 신호를 찾기 위해 Z를 내릴 수 있는 최대 거리입니다. 이 거리 안에 신호가 없으면 실패합니다.";
+                case ContactOffsetKey:
+                    return "접촉 감지 위치에서 최종 Place Z로 저장할 때 더하거나 뺄 보정량입니다. 내려놓는 높이 보정에 사용합니다.";
+                case VacuumOnDelayKey:
+                    return "탐색 시작 전 Vacuum을 켠 뒤 Flow 신호가 안정될 때까지 기다리는 시간입니다.";
+                case FlowStableKey:
+                    return "Flow 접촉 신호가 이 시간 동안 유지되어야 접촉으로 인정합니다.";
+                case FlowPollIntervalKey:
+                    return "접촉 탐색 중 Flow 신호를 다시 확인하는 주기입니다.";
+                case MoveAvoidAfterScanKey:
+                    return "캘리브레이션 완료 또는 실패 후 Picker Z를 Avoid 위치로 복귀할지 선택합니다.";
+                case FailIfFlowAlreadyOnKey:
+                    return "탐색 시작 전에 Flow가 이미 ON이면 시작 상태 이상으로 보고 즉시 실패 처리할지 선택합니다.";
+                default:
+                    return string.Empty;
+            }
         }
 
         private void SettingsGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)

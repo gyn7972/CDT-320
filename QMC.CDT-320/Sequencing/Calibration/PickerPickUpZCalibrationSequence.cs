@@ -91,7 +91,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUpZCalibration");
 
                 CurrentStep = PickUpZCalibrationStep.MoveZSafe;
-                result = await MoveAllPickerZToAvoidAndVerifyAsync("PickUpZ Calibration 시작 전 PickerZ Avoid", ct).ConfigureAwait(false);
+                result = await PrepareSafeStartPositionAsync("PickUpZ Calibration 시작 전 안전 위치 이동", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 CurrentStep = PickUpZCalibrationStep.MoveScanStart;
@@ -193,7 +193,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUpZCalibrationMoveStart");
 
                     CurrentStep = PickUpZCalibrationStep.MoveZSafe;
-                    result = await MoveAllPickerZToAvoidAndVerifyAsync("PickUpZ Calibration Start 이동 전 PickerZ Avoid", ct).ConfigureAwait(false);
+                    result = await PrepareSafeStartPositionAsync("PickUpZ Calibration Start 이동 전 안전 위치 이동", ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     CurrentStep = PickUpZCalibrationStep.MoveScanStart;
@@ -350,6 +350,20 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        private async Task<int> PrepareSafeStartPositionAsync(string description, CancellationToken ct)
+        {
+            // PickUpZ Cal 시작 전 모든 Picker Z축을 Avoid로 올려 이후 Scan/Search 이동 인터락 조건을 만든다.
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " - PickerZ 전체 Avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            WriteLog("PickUpZCalibration",
+                Name + " 안전 시작 위치 확인 완료. side=" + Side +
+                ", pickerNo=" + _pickerNo +
+                ", targetPickerZ=" + _pickerZAxis + " - Ok");
+            return 0;
+        }
+
         private async Task<int> SearchFlowPositionAsync(CancellationToken ct)
         {
             BaseAxis axis = GetPickerAxis(_pickerZAxis);
@@ -375,6 +389,17 @@ namespace QMC.CDT320.Sequencing.Calibration
             Stopwatch watch = Stopwatch.StartNew();
             DateTime? stableSinceUtc = null;
             bool detected = false;
+
+            string interlockReason;
+            if (!MotionGuardRuntime.VerifyAxisTeachingMove(axis, _searchLimitPosition, SearchTargetName, out interlockReason))
+            {
+                return Fail("PICKUP-Z-CAL-SEARCH-INTERLOCK", Name,
+                    "PickUpZ Calibration 검색 이동 인터락 차단. " +
+                    "side=" + Side +
+                    ", pickerNo=" + _pickerNo +
+                    ", target=" + _searchLimitPosition.ToString("F6") +
+                    ". " + interlockReason);
+            }
 
             Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
                 _pickerZAxis,

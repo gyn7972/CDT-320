@@ -48,6 +48,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 InitializeComponent();
                 ApplyText();
                 gridAppliedValues.CellDoubleClick += gridAppliedValues_CellDoubleClick;
+                gridAppliedValues.CellToolTipTextNeeded += gridAppliedValues_CellToolTipTextNeeded;
                 RefreshData();
             }
             catch (Exception ex)
@@ -809,6 +810,56 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = gridAppliedValues.Rows.Add(item, string.Empty, string.Empty, value);
             gridAppliedValues.Rows[row].Tag = tag;
+            ApplyAppliedValueToolTip(gridAppliedValues.Rows[row], GetAppliedValueToolTip(item));
+        }
+
+        private void gridAppliedValues_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            string item = Convert.ToString(gridAppliedValues.Rows[e.RowIndex].Cells[colValueName.Index].Value, CultureInfo.InvariantCulture);
+            e.ToolTipText = GetAppliedValueToolTip(item);
+        }
+
+        private static void ApplyAppliedValueToolTip(DataGridViewRow row, string toolTipText)
+        {
+            if (row == null || string.IsNullOrWhiteSpace(toolTipText))
+                return;
+
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = toolTipText;
+        }
+
+        private static string GetAppliedValueToolTip(string item)
+        {
+            switch (item)
+            {
+                case "Bottom Pixel X/Y":
+                    return "Bottom 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. 카메라 간 Offset 계산의 기준이 됩니다.";
+                case "Input Pixel X/Y":
+                    return "Input 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Input Camera Offset 계산에 사용합니다.";
+                case "Output Pixel X/Y":
+                    return "Output 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Output Camera Offset 계산에 사용합니다.";
+                case "Input VisionX Encoder":
+                    return "Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
+                case "Output VisionX Encoder":
+                    return "Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
+                case "Bottom-Input Offset":
+                    return "Bottom 카메라 좌표계를 기준으로 계산된 Input 카메라 X/Y 보정값입니다.";
+                case "Bottom-Output Offset":
+                    return "Bottom 카메라 좌표계를 기준으로 계산된 Output 카메라 X/Y 보정값입니다.";
+                case MotionSpeedRow:
+                    return "Vision Camera Calibration에서 Reticle 촬영 위치로 이동할 때 사용하는 전용 속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                case MotionAccRow:
+                    return "Vision Camera Calibration 전용 이동 가속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                case MotionDecRow:
+                    return "Vision Camera Calibration 전용 이동 감속도입니다. 더블클릭하면 키패드로 수정합니다.";
+                case MotionTimeoutRow:
+                    return "Reticle 촬영 위치 이동 완료를 기다리는 최대 시간입니다. 더블클릭하면 키패드로 수정합니다.";
+                default:
+                    return string.Empty;
+            }
         }
 
         private void gridAppliedValues_CellDoubleClick(object sender, DataGridViewCellEventArgs e)

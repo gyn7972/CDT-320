@@ -15,6 +15,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     {
         None,
         CheckUnit,
+        MoveSafeStartPosition,
         MoveNeedleXToTouchTeachingPosition,
         SearchNeedleCapBy100um,
         BackOffNeedleCap100um,
@@ -102,6 +103,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     result = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
+                    CurrentStep = NeedleCalibrationStep.MoveSafeStartPosition;
+                    result = await PrepareSafeStartPositionAsync(ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
                     CurrentStep = NeedleCalibrationStep.MoveNeedleXToTouchTeachingPosition;
                     result = await MoveNeedleXToTouchTeachingPositionAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
@@ -186,6 +191,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     if (result != 0) return result;
 
                     result = await AcquireInputStageAreaAsync(ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    CurrentStep = NeedleCalibrationStep.MoveSafeStartPosition;
+                    result = await PrepareSafeStartPositionAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     CurrentStep = NeedleCalibrationStep.MoveNeedleXToTouchTeachingPosition;
@@ -461,12 +470,9 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> MoveNeedleXToTouchTeachingPositionAsync(CancellationToken ct)
         {
-            int result = await MoveNeedleAxesToAvoidAsync(ct).ConfigureAwait(false);
-            if (result != 0) return result;
-
             ct.ThrowIfCancellationRequested();
             _context.StopIfCycleStopRequested("NeedleCalibration.MoveTouchTeaching");
-            result = await _stage.MoveNeedleWorkPointSafelyAsync(
+            int result = await _stage.MoveNeedleWorkPointSafelyAsync(
                 _settings.TouchNeedleXPosition,
                 _settings.TouchStageYPosition,
                 _settings.Motion.MoveVelocity,
@@ -483,6 +489,25 @@ namespace QMC.CDT320.Sequencing.Calibration
             result = CheckAxisInPosition(WaferStageAxis.NeedleX, _stage.NeedleBlockX, _settings.TouchNeedleXPosition, "NeedleX touch teaching");
             if (result != 0) return result;
             return CheckAxisInPosition(WaferStageAxis.WaferY, _stage.StageY, _settings.TouchStageYPosition, "StageY touch teaching");
+        }
+
+        private async Task<int> PrepareSafeStartPositionAsync(CancellationToken ct)
+        {
+            // 캘리브레이션 시작 전 NeedleZ/EjectPinZ를 먼저 Avoid로 복귀시켜 StageY/NeedleX 이동 인터락 조건을 만족시킨다.
+            int result = await MoveNeedleAxesToAvoidAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (!IsSimulationOrDryRun() && IsTouchSensorOn())
+            {
+                return Fail("NEEDLE-CAL-SAFE-TOUCH-ON", "WaferStageTouchSensor",
+                    "Needle Calibration 안전 시작 위치 정렬 후에도 Touch Sensor가 ON입니다. 센서/축 접촉 상태를 확인하세요.");
+            }
+
+            EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-CAL-SAFE-START",
+                "Needle Calibration 안전 시작 위치 정렬 완료. needleZ=" + _stage.NeedleZ.ActualPosition.ToString("F6") +
+                ", ejectPinZ=" + _stage.EjectPinZ.ActualPosition.ToString("F6"));
+            return 0;
         }
 
         private async Task<int> MoveNeedleAxesToAvoidAsync(CancellationToken ct)
@@ -776,7 +801,8 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
-                _needlePinReadyPosition = _needlePinFlushPosition - (_pinApproachSign * Math.Abs(_settings.NeedlePinReadyBelowFlushMm));
+                // Ready 위치는 Flush 위치에서 NeedlePin 접촉 탐색 방향으로 더 내려간 위치를 사용한다.
+                _needlePinReadyPosition = _needlePinFlushPosition + (_pinApproachSign * Math.Abs(_settings.NeedlePinReadyBelowFlushMm));
                 Result.NeedlePinReadyPosition = _needlePinReadyPosition;
 
                 CalibrationData data = _context.Machine.VisionUnit.Config.CalibrationData;

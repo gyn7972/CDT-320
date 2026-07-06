@@ -31,6 +31,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             InitializeComponent();
             ApplyButtonStyle();
+            _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
 
 #if false
             Text = "Needle Pin Calibration";
@@ -368,16 +369,19 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void AddSetting(string name, double value, string unit)
         {
             AddRow(_settingsGrid, name, value.ToString("0.######", CultureInfo.InvariantCulture), unit);
+            ApplySettingToolTip(_settingsGrid.Rows[_settingsGrid.Rows.Count - 1], GetSettingToolTip(name));
         }
 
         private void AddSetting(string name, int value, string unit)
         {
             AddRow(_settingsGrid, name, value.ToString(CultureInfo.InvariantCulture), unit);
+            ApplySettingToolTip(_settingsGrid.Rows[_settingsGrid.Rows.Count - 1], GetSettingToolTip(name));
         }
 
         private void AddSetting(string name, string value, string unit)
         {
             AddRow(_settingsGrid, name, value ?? string.Empty, unit);
+            ApplySettingToolTip(_settingsGrid.Rows[_settingsGrid.Rows.Count - 1], GetSettingToolTip(name));
         }
 
         private void AddResult(string name, double value, string unit)
@@ -409,6 +413,55 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = grid.Rows.Add(name, value, unit);
             grid.Rows[row].Tag = name;
+        }
+
+        private void SettingsGrid_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            string name = Convert.ToString(_settingsGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
+            e.ToolTipText = GetSettingToolTip(name);
+        }
+
+        private static void ApplySettingToolTip(DataGridViewRow row, string toolTip)
+        {
+            if (row == null || string.IsNullOrWhiteSpace(toolTip))
+                return;
+
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = toolTip;
+        }
+
+        private static string GetSettingToolTip(string name)
+        {
+            switch (name)
+            {
+                case "Vision Target":
+                    return "Vision PC에 요청할 Needle Pin Calibration Finder 이름입니다. Vision PC에 등록된 Target 이름과 일치해야 합니다.";
+                case "Vision Timeout":
+                    return "Vision PC Needle Pin Calibration 응답을 기다리는 시간입니다. 초과하면 시퀀스를 실패 처리합니다.";
+                case "Move Speed":
+                    return "Needle Pin Calibration에서 StageY, VisionX, NeedleX/Z, EjectPinZ 이동에 사용할 전용 속도입니다.";
+                case "Move Acc":
+                    return "Needle Pin Calibration 전용 이동 가속도입니다.";
+                case "Move Dec":
+                    return "Needle Pin Calibration 전용 이동 감속도입니다.";
+                case "Move Timeout":
+                    return "각 축 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다.";
+                case "VisionX Cal Position":
+                    return "Needle Pin 검출 시 카메라 X축을 이동할 캘리브레이션 촬영 위치입니다.";
+                case "StageY Process Position":
+                    return "Needle Pin Calibration 중 StageY를 공정/촬영 기준으로 맞출 위치입니다.";
+                case "NeedleX Cal Position":
+                    return "Needle Pin Calibration 중 NeedleX를 Vision 시야에 맞출 기준 위치입니다.";
+                case "NeedleZ Cal Position":
+                    return "Needle Pin Calibration 중 NeedleZ를 촬영/검출 높이로 맞출 기준 위치입니다.";
+                case "EjectPinZ Cal Position":
+                    return "Needle Pin Calibration 중 EjectPinZ를 촬영/검출 높이로 맞출 기준 위치입니다.";
+                default:
+                    return string.Empty;
+            }
         }
 
         private void SettingsGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)

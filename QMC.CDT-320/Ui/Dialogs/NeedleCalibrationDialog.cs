@@ -116,6 +116,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             _settingsGrid = CreateGrid();
             _settingsGrid.CellDoubleClick += SettingsGrid_CellDoubleClick;
+            _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
             left.Controls.Add(Wrap("CAL SETTING", _settingsGrid), 0, 0);
 
             _resultGrid = CreateGrid();
@@ -368,6 +369,70 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = _settingsGrid.Rows.Add(name, value ?? string.Empty, unit ?? string.Empty);
             _settingsGrid.Rows[row].Tag = name;
+            ApplySettingToolTip(_settingsGrid.Rows[row], GetSettingToolTip(name));
+        }
+
+        private void SettingsGrid_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            string name = Convert.ToString(_settingsGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
+            e.ToolTipText = GetSettingToolTip(name);
+        }
+
+        private static void ApplySettingToolTip(DataGridViewRow row, string toolTip)
+        {
+            if (row == null || string.IsNullOrWhiteSpace(toolTip))
+                return;
+
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = toolTip;
+        }
+
+        private static string GetSettingToolTip(string name)
+        {
+            switch (name)
+            {
+                case MoveSpeedKey:
+                    return "Needle Z Calibration에서 StageY, NeedleX, NeedleZ, EjectPinZ를 티칭/탐색 위치로 이동할 때 사용하는 전용 속도입니다.";
+                case MoveAccKey:
+                    return "Needle Z Calibration 전용 이동 가속도입니다. 접촉 탐색 중 충격을 줄이려면 과도하게 크게 넣지 않습니다.";
+                case MoveDecKey:
+                    return "Needle Z Calibration 전용 이동 감속도입니다. 접촉 감지 후 정지 안정성에 영향을 줍니다.";
+                case MoveTimeoutKey:
+                    return "각 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다. 초과하면 캘리브레이션을 실패 처리합니다.";
+                case TouchStageYKey:
+                    return "WaferStageTouchSensor가 있는 StageY 위치입니다. NeedleX가 센서 위로 이동할 때 함께 사용하는 기준 Y 위치입니다.";
+                case TouchNeedleXKey:
+                    return "NeedleX를 WaferStageTouchSensor 위로 맞추는 X 위치입니다. MOVE TOUCH와 Cap/Pin 접촉 탐색의 기준입니다.";
+                case NeedleCapTeachKey:
+                    return "NeedleCap 역할의 EjectPinZ 탐색 시작 기준 위치입니다. USE CURRENT로 현재 EjectPinZ 위치를 넣을 수 있습니다.";
+                case NeedlePinTeachKey:
+                    return "NeedlePinZ 탐색 시작 기준 위치입니다. NeedlePin과 NeedleCap Flush 위치를 찾기 전 NeedleZ를 이 위치로 이동합니다.";
+                case CapNearTouchOffsetKey:
+                    return "저장된 NeedleCapTouchPosition 근처로 이동할 때 접촉점에서 떨어져 둘 여유 거리입니다. Pin 탐색 전 Cap을 터치 근처에 배치합니다.";
+                case PinReadyBelowFlushKey:
+                    return "NeedlePinFlushPosition에서 아래로 내릴 거리입니다. 최종 NeedlePinReadyPosition은 Flush 위치에서 NeedlePin 접촉 탐색 방향으로 이 값만큼 더 이동한 위치입니다.";
+                case CapSearch100MaxKey:
+                    return "NeedleCap을 100um 단위로 내리며 터치 센서를 찾을 수 있는 최대 거리입니다. 미감지 시 즉시 실패합니다.";
+                case CapSearch10MaxKey:
+                    return "100um 탐색 후 BackOff한 위치에서 NeedleCap을 10um 단위로 재탐색할 최대 거리입니다.";
+                case CapSearch1MaxKey:
+                    return "10um 탐색 후 BackOff한 위치에서 NeedleCap을 1um 단위로 정밀 탐색할 최대 거리입니다.";
+                case PinSearch10MaxKey:
+                    return "NeedlePinZ와 NeedleCap Flush 위치를 찾기 위해 NeedlePin을 10um 단위로 탐색할 최대 거리입니다.";
+                case PinSearch1MaxKey:
+                    return "NeedlePin 10um 탐색 후 BackOff한 위치에서 1um 단위로 정밀 탐색할 최대 거리입니다.";
+                case TouchStableKey:
+                    return "터치 센서 ON 상태가 이 시간 동안 유지되어야 접촉으로 인정합니다.";
+                case TouchPollKey:
+                    return "접촉 탐색 중 터치 센서 상태를 다시 확인하는 주기입니다.";
+                case MoveAvoidAfterKey:
+                    return "캘리브레이션 완료 또는 실패 후 NeedleZ/EjectPinZ를 Avoid 위치로 복귀할지 선택합니다.";
+                default:
+                    return string.Empty;
+            }
         }
 
         private void SettingsGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
