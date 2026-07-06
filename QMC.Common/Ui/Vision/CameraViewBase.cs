@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -863,8 +863,9 @@ namespace QMC.Common.Ui.Controls
         private void DrawOverlays(Graphics g, Rectangle dst)
         {
             if (ShowCrosshair)
-                using (var p = new Pen(Color.FromArgb(120, 255, 255, 255), 1f) { DashStyle = DashStyle.Dash })
+                using (var p = new Pen(Color.Red, 1f) { DashStyle = DashStyle.Dash })
                 {
+                    //Color.FromArgb(120, 255, 0, 0) 반투명 레드
                     int top = TopInset;
                     int cx = ClientSize.Width / 2;
                     int cy = top + (ClientSize.Height - top) / 2;
