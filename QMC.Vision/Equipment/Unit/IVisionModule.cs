@@ -61,8 +61,12 @@ namespace QMC.Vision.Modules
 
         GrabResult Grab(int timeoutMs = 3000);
 
-        /// <summary>도구(Finder/Inspector) 단위 그랩 — 그 도구에 전용 시뮬 저장이미지가 지정되어 있으면 그것을 우선 로드,
-        /// 없으면 <see cref="Grab(int)"/>(모듈 저장이미지→실제 카메라)로 위임한다.</summary>
+        /// <summary>카메라 시뮬레이션 여부 — 저장이미지/오버라이드 그랩은 이 경우에만 허용.
+        /// 실카메라가 붙어 있으면 모든 그랩/검사는 항상 실제 촬상을 사용한다(디스크 이미지 금지).</summary>
+        bool IsSimCameraMode { get; }
+
+        /// <summary>도구(Finder/Inspector) 단위 그랩 — 카메라가 시뮬레이션이고 그 도구에 전용 저장이미지가
+        /// 지정되어 있으면 그것을 우선 로드, 아니면 <see cref="Grab(int)"/>(실제 카메라)로 위임한다.</summary>
         GrabResult GrabForTool(string toolId, int timeoutMs = 3000);
 
         /// <summary>도구 촬상 준비 — 노출(도구 전용 or 모듈 기본) + 조명(도구 Recipe.LightSettings) 적용.

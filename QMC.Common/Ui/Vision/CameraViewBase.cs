@@ -256,6 +256,20 @@ namespace QMC.Common.Ui.Controls
             Controls.Add(_tools);
         }
 
+        /// <summary>단발(툴바) 그랩으로 새 프레임을 표시하기 직전 호출 — 직전 검출 표시(판정/결과라인/마크/전용 오버레이)를
+        /// 지운다. 검사·매치가 끝나면 각 페이지가 새 결과를 다시 그린다. 파생 뷰는 검출 박스/콜렛 오버레이 등을 추가로 지운다.</summary>
+        protected virtual void ClearDetectionForNewFrame()
+        {
+            try
+            {
+                ClearResultOverlay();                              // 우상단 OK/NG + 우하단 결과 라인
+                CustomOverlayPaint = null;                         // 검사기 전용 오버레이(다이박스/프로파일 등)
+                _overlayMarks = null;                              // 매치 마크만 제거(ROI 사각형 표시는 유지)
+                Invalidate();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 검출 표시 초기화 실패: " + ex.Message); }
+        }
+
         private void DoToolbarGrab()
         {
             if (_source == null) return;
@@ -279,6 +293,9 @@ namespace QMC.Common.Ui.Controls
                             {
                                 if (b != null)
                                 {
+                                    // 새 프레임 표시 전 — 직전 검출 표시를 지운다(옛 결과가 새 프레임에 겹쳐
+                                    // '업데이트 안 되는 것처럼' 보이지 않게). 검사/매치 완료 시 새로 그린다.
+                                    ClearDetectionForNewFrame();
                                     SetImage(b); b.Dispose();
                                     _showGrabCount = true;          // 단발 그랩 = 프레임 1장 표시
                                     _liveFrameTotal = 0; _fpsValue = 0; _fpsWindowCount = 0;

@@ -277,25 +277,52 @@ namespace QMC.Vision.Core.Collet
             if (bestRoot < 0) return result; // 전경 없음
 
             sw.Restart();
-            // 4) 가장 큰 블랍의 행별 좌/우 극점 수집(볼록껍질 후보)
-            //    행끼리 독립이므로 병렬로 각 행의 min/max x 를 구한 뒤 순서대로 모은다.
+            // 4) 가장 큰 블랍의 행별 좌/우 극점 + 열별 상/하 극점 수집.
+            //    행 극점 = 볼록껍질 후보(껍질 꼭짓점은 반드시 그 행의 min/max x). 열 극점은
+            //    수평에 가까운 변(상/하)의 경계점 — 라인 피팅 입력으로 함께 쓴다.
+            //    행끼리 독립이라 병렬. 열 극점은 스레드 로컬 버퍼로 모아 마지막에 병합(경합 없음).
             int[] rowMin = new int[h];
             int[] rowMax = new int[h];
-            Parallel.For(0, h, po, y =>
-            {
-                int row = y * w;
-                int minx = int.MaxValue, maxx = -1;
-                for (int x = 0; x < w; x++)
+            int[] colMin = new int[w];
+            int[] colMax = new int[w];
+            for (int x = 0; x < w; x++) { colMin[x] = int.MaxValue; colMax[x] = -1; }
+            object colLock = new object();
+            Parallel.For(0, h, po,
+                () =>
                 {
-                    if (parent[row + x] == bestRoot)
+                    var loc = new int[2][] { new int[w], new int[w] };
+                    for (int x = 0; x < w; x++) { loc[0][x] = int.MaxValue; loc[1][x] = -1; }
+                    return loc;
+                },
+                (y, state, loc) =>
+                {
+                    int row = y * w;
+                    int minx = int.MaxValue, maxx = -1;
+                    for (int x = 0; x < w; x++)
                     {
-                        if (x < minx) minx = x;
-                        if (x > maxx) maxx = x;
+                        if (parent[row + x] == bestRoot)
+                        {
+                            if (x < minx) minx = x;
+                            if (x > maxx) maxx = x;
+                            if (y < loc[0][x]) loc[0][x] = y;
+                            if (y > loc[1][x]) loc[1][x] = y;
+                        }
                     }
-                }
-                rowMin[y] = minx;
-                rowMax[y] = maxx;
-            });
+                    rowMin[y] = minx;
+                    rowMax[y] = maxx;
+                    return loc;
+                },
+                loc =>
+                {
+                    lock (colLock)
+                    {
+                        for (int x = 0; x < w; x++)
+                        {
+                            if (loc[0][x] < colMin[x]) colMin[x] = loc[0][x];
+                            if (loc[1][x] > colMax[x]) colMax[x] = loc[1][x];
+                        }
+                    }
+                });
 
             var pts = new List<PointF>();
             for (int y = 0; y < h; y++)
@@ -313,12 +340,172 @@ namespace QMC.Vision.Core.Collet
             var hull = ConvexHull(pts);
             if (hull.Count < 2) { LastRectMs = sw.ElapsedMilliseconds; return result; }
 
-            // 4) 최소면적 사각형
-            result = MinAreaRect(hull);
+            // 4) 최소면적 사각형(회전 캘리퍼스) — 초기 방향/범위 추정.
+            RectFrame frame;
+            result = MinAreaRect(hull, out frame);
             result.Area = bestArea;
             result.Found = true;
-            LastRectMs = sw.ElapsedMilliseconds;   // 2~4) 극점·볼록껍질·각도 계산 종료
+
+            // 5) 외곽 라인 피팅 정련 — 최소면적 사각형은 가장 삐져나온 점(스파이크)에 '접해' 외곽이
+            //    지저분하면 변/각도가 끌려간다. 변마다 경계점 '전체'를 최소제곱 직선으로 피팅해
+            //    평균 외곽 라인으로 사각형을 다시 구한다(점 부족/퇴화 시 초기 사각형 유지).
+            var edgePts = new List<PointF>(pts);
+            for (int x = 0; x < w; x++)
+            {
+                int maxy = colMax[x];
+                if (maxy >= 0)
+                {
+                    int miny = colMin[x];
+                    edgePts.Add(new PointF(x, miny));
+                    if (maxy != miny) edgePts.Add(new PointF(x, maxy));
+                }
+            }
+            try
+            {
+                DetectedRect fitted = RefineByEdgeLineFit(edgePts, frame);
+                if (fitted.Found)
+                {
+                    fitted.Area = bestArea;
+                    result = fitted;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[BlobRectFinder] 외곽 라인 피팅 실패 → min-area rect 유지: " + ex.Message);
+            }
+
+            LastRectMs = sw.ElapsedMilliseconds;   // 2~5) 극점·볼록껍질·각도·라인피팅 계산 종료
             return result;
+        }
+
+        /// <summary>초기 최소면적 사각형의 방향/범위(u=변 방향 단위벡터, v=u 수직). 라인 피팅의 기준 좌표계.</summary>
+        private struct RectFrame
+        {
+            public double Ux, Uy;                  // u축 단위벡터(v축 = (-Uy, Ux))
+            public double MinU, MaxU, MinV, MaxV;  // u/v 투영 범위
+        }
+
+        /// <summary>변별 외곽 라인 피팅 — 경계점을 초기 사각형의 4변에 귀속시키고(코너 부근 제외),
+        /// 각 변을 점 '전체'의 최소제곱 직선으로 피팅한 뒤 인접 변 교점으로 코너/중심/각도를 재계산한다.
+        /// 스파이크(삐죽 튀어나온 점)는 다수 점 평균에 희석되어 외곽 라인이 본체 에지를 따른다.
+        /// 변 점 부족/기울기 폭주/교점 퇴화 시 Found=false(호출측이 초기 사각형 유지).</summary>
+        private static DetectedRect RefineByEdgeLineFit(List<PointF> edgePts, RectFrame f)
+        {
+            var rect = new DetectedRect { Found = false };
+            if (edgePts == null || edgePts.Count < 16) return rect;
+
+            double ux = f.Ux, uy = f.Uy;
+            double vx = -f.Uy, vy = f.Ux;
+            double rw = f.MaxU - f.MinU;
+            double rh = f.MaxV - f.MinV;
+            if (rw < 8 || rh < 8) return rect;
+
+            double bandU = 0.25 * rw;      // 변 소속 최대 거리 — 스파이크 깊이(안쪽 진짜 에지까지) 흡수
+            double bandV = 0.25 * rh;
+            double endCutU = 0.10 * rw;    // 코너 부근(양끝 10%) 제외 — 인접 변 점 오염 방지
+            double endCutV = 0.10 * rh;
+
+            // 변별 최소제곱 누적: [n, Σx, Σy, Σx², Σxy]. 독립변수 = 변 방향, 종속변수 = 수직 방향.
+            //   side 0=V-(pv=min쪽), 1=V+, 2=U-, 3=U+
+            var acc = new double[4][];
+            for (int i = 0; i < 4; i++) acc[i] = new double[5];
+
+            for (int k = 0; k < edgePts.Count; k++)
+            {
+                PointF p = edgePts[k];
+                double pu = p.X * ux + p.Y * uy;
+                double pv = p.X * vx + p.Y * vy;
+                double dVm = pv - f.MinV, dVp = f.MaxV - pv;
+                double dUm = pu - f.MinU, dUp = f.MaxU - pu;
+
+                double dV = Math.Min(dVm, dVp);
+                double dU = Math.Min(dUm, dUp);
+                if (dV <= dU)
+                {
+                    if (dV > bandV) continue;
+                    if (pu < f.MinU + endCutU || pu > f.MaxU - endCutU) continue;
+                    Accumulate(acc[dVm <= dVp ? 0 : 1], pu, pv);
+                }
+                else
+                {
+                    if (dU > bandU) continue;
+                    if (pv < f.MinV + endCutV || pv > f.MaxV - endCutV) continue;
+                    Accumulate(acc[dUm <= dUp ? 2 : 3], pv, pu);
+                }
+            }
+
+            // 각 변 직선: (종속) = slope×(독립) + icept. 점 부족/퇴화 시 초기 사각형의 변으로 폴백(slope=0).
+            double[] slope = new double[4];
+            double[] icept = new double[4];
+            double[] fallback = { f.MinV, f.MaxV, f.MinU, f.MaxU };
+            for (int i = 0; i < 4; i++)
+                if (!FitLine(acc[i], out slope[i], out icept[i])) { slope[i] = 0; icept[i] = fallback[i]; }
+
+            // 코너 = U변(pu = c·pv + d) ↔ V변(pv = a·pu + b) 교점 → 이미지 좌표 복원(P = pu·u + pv·v).
+            PointF c00, c10, c11, c01;
+            if (!IntersectUV(slope[2], icept[2], slope[0], icept[0], ux, uy, vx, vy, out c00)) return rect;
+            if (!IntersectUV(slope[3], icept[3], slope[0], icept[0], ux, uy, vx, vy, out c10)) return rect;
+            if (!IntersectUV(slope[3], icept[3], slope[1], icept[1], ux, uy, vx, vy, out c11)) return rect;
+            if (!IntersectUV(slope[2], icept[2], slope[1], icept[1], ux, uy, vx, vy, out c01)) return rect;
+
+            rect.Corners = new PointF[] { c00, c10, c11, c01 };
+            rect.Center = new PointF((c00.X + c10.X + c11.X + c01.X) / 4f,
+                                     (c00.Y + c10.Y + c11.Y + c01.Y) / 4f);
+
+            double wLen = (Dist(c00, c10) + Dist(c01, c11)) / 2.0;   // u 방향 변 길이(마주보는 변 평균)
+            double hLen = (Dist(c00, c01) + Dist(c10, c11)) / 2.0;   // v 방향 변 길이
+            rect.Width = wLen;
+            rect.Height = hLen;
+
+            // 긴 변 기준 각도 (-90, 90] — 기존 표기와 동일.
+            PointF e0, e1;
+            if (wLen >= hLen) { e0 = c00; e1 = c10; } else { e0 = c00; e1 = c01; }
+            double deg = Math.Atan2(e1.Y - e0.Y, e1.X - e0.X) * 180.0 / Math.PI;
+            while (deg <= -90) deg += 180;
+            while (deg > 90) deg -= 180;
+            rect.AngleDeg = deg;
+
+            rect.Found = true;
+            return rect;
+        }
+
+        private static void Accumulate(double[] s, double x, double y)
+        {
+            s[0] += 1; s[1] += x; s[2] += y; s[3] += x * x; s[4] += x * y;
+        }
+
+        /// <summary>최소제곱 직선 y = slope·x + icept. 점 8개 미만/x 분산 퇴화/기울기 폭주(초기 방향 대비
+        /// 약 ±10° 초과 — 스파이크가 아니라 방향 추정 자체가 틀린 경우)면 false.</summary>
+        private static bool FitLine(double[] s, out double slope, out double icept)
+        {
+            slope = 0; icept = 0;
+            double n = s[0];
+            if (n < 8) return false;
+            double den = n * s[3] - s[1] * s[1];
+            if (Math.Abs(den) < 1e-9) return false;
+            slope = (n * s[4] - s[1] * s[2]) / den;
+            icept = (s[2] - slope * s[1]) / n;
+            if (Math.Abs(slope) > 0.18) return false;   // tan(10°) ≈ 0.176
+            return true;
+        }
+
+        /// <summary>u/v 평면에서 U변(pu = c·pv + d)과 V변(pv = a·pu + b)의 교점 → 이미지 좌표.</summary>
+        private static bool IntersectUV(double c, double d, double a, double b,
+                                        double ux, double uy, double vx, double vy, out PointF p)
+        {
+            p = PointF.Empty;
+            double den = 1.0 - a * c;
+            if (Math.Abs(den) < 1e-6) return false;
+            double pv = (a * d + b) / den;
+            double pu = c * pv + d;
+            p = new PointF((float)(pu * ux + pv * vx), (float)(pu * uy + pv * vy));
+            return true;
+        }
+
+        private static double Dist(PointF a, PointF b)
+        {
+            double dx = a.X - b.X, dy = a.Y - b.Y;
+            return Math.Sqrt(dx * dx + dy * dy);
         }
 
         /// <summary>Andrew's monotone chain. 결과는 반시계 방향 껍질(중복 끝점 제외).</summary>
@@ -350,8 +537,9 @@ namespace QMC.Vision.Core.Collet
             return (a.X - o.X) * (double)(b.Y - o.Y) - (a.Y - o.Y) * (double)(b.X - o.X);
         }
 
-        /// <summary>볼록껍질에 대한 최소면적 외접 사각형(회전 캘리퍼스).</summary>
-        private static DetectedRect MinAreaRect(List<PointF> hull)
+        /// <summary>볼록껍질에 대한 최소면적 외접 사각형(회전 캘리퍼스).
+        /// frame = 선택된 방향/투영 범위 — 외곽 라인 피팅(RefineByEdgeLineFit)의 기준 좌표계.</summary>
+        private static DetectedRect MinAreaRect(List<PointF> hull, out RectFrame frame)
         {
             int m = hull.Count;
             double bestArea = double.MaxValue;
@@ -389,6 +577,8 @@ namespace QMC.Vision.Core.Collet
                     bMinU = minU; bMaxU = maxU; bMinV = minV; bMaxV = maxV;
                 }
             }
+
+            frame = new RectFrame { Ux = bUx, Uy = bUy, MinU = bMinU, MaxU = bMaxU, MinV = bMinV, MaxV = bMaxV };
 
             double Vx = -bUy, Vy = bUx;
             Func<double, double, PointF> corner = (cu, cv) => new PointF(

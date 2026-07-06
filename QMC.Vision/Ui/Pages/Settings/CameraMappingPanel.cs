@@ -576,10 +576,10 @@ namespace QMC.Vision.Ui.Pages
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
 
-                // 모듈 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 이 이미지를 그랩(테스트용)
-                ParameterGridItem.Bool("GRAB 소스: 저장 이미지 사용", ParameterGridScope.Config,
+                // 모듈 시뮬 이미지 — 카메라가 '시뮬레이션'일 때만 GRAB 에 사용(실카메라=항상 실제 촬상).
+                ParameterGridItem.Bool("GRAB 소스: 시뮬 저장 이미지 사용 (시뮬 카메라 전용)", ParameterGridScope.Config,
                     () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
-                ParameterGridItem.FilePath("GRAB 저장 이미지 경로", ParameterGridScope.Config,
+                ParameterGridItem.FilePath("GRAB 시뮬 저장 이미지 경로", ParameterGridScope.Config,
                     () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
             };
@@ -794,9 +794,10 @@ namespace QMC.Vision.Ui.Pages
                 if (string.IsNullOrEmpty(port)) continue;
                 int page = 0;
                 int.TryParse(r.Cells["Page"].Value?.ToString(), out page);
-                var ce = LightSystemSetupStore.Current?.GetController(port);
                 if (page < 0) page = 0;
-                if (ce != null && ce.PageCount > 0 && page > ce.PageCount - 1) page = ce.PageCount - 1;
+                // 주의: PageCount 상한 클램프 금지 — 컨트롤러 설정의 PageCount 가 실제 장비보다 작게
+                // 등록돼 있으면(예: LFine 12페이지인데 8) 사용자가 지정한 페이지(P08 등)를 저장할 때마다
+                // 몰래 깎아(8→7, 1→0) 조명이 꺼지는 사고가 났다. 지정 값은 그대로 저장한다.
                 if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
                     list.Add(new LightPageRef { ControllerPort = port, Page = page });
             }

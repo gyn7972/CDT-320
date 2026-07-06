@@ -34,9 +34,6 @@ namespace QMC.CDT320.Sequencing.Calibration
         public double MinusRange { get; set; } = 0.2;
         public double PlusRange { get; set; } = 0.2;
         public double Step { get; set; } = 0.02;
-        public double FineMinusRange { get; set; } = 0.05;
-        public double FinePlusRange { get; set; } = 0.05;
-        public double FineStep { get; set; } = 0.01;
         public int RepeatCount { get; set; } = 1;
         public double MoveVelocity { get; set; } = 30.0;
         public double MoveAcceleration { get; set; } = 300.0;
@@ -44,7 +41,6 @@ namespace QMC.CDT320.Sequencing.Calibration
         public int SettleDelayMs { get; set; } = 50;
         public int MotionTimeoutMs { get; set; } = 5000;
         public int VisionTimeoutMs { get; set; } = 5000;
-        public int VisionBestTimeoutMs { get; set; } = 120000;
         public bool ReturnToDefaultAfterScan { get; set; } = true;
         public string UpdatedBy { get; set; }
     }
@@ -71,7 +67,6 @@ namespace QMC.CDT320.Sequencing.Calibration
     public sealed class VisionFocusScanSequence
     {
         private const int MaxSampleCount = 1000;
-        private const double ExactMoveSkipToleranceMm = 0.000001;
 
         private readonly CDT320_Machine _machine;
         private readonly VisionFocusScanRequest _request;
@@ -79,10 +74,6 @@ namespace QMC.CDT320.Sequencing.Calibration
         private readonly Random _simRandom = new Random();
         private IDisposable _focusWorkAreaScope;
         private bool _useSimulatedVisionFocus;
-        private int _scanPass;
-        private int _currentPassStartSampleIndex;
-        private double _roughBestPosition;
-        private double _roughBestScore;
 
         public VisionFocusScanSequence(CDT320_Machine machine, VisionFocusScanRequest request)
         {
@@ -96,22 +87,13 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> RunAsync(CancellationToken ct)
         {
-            return await RunAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
-        }
-
-        public async Task<int> RunAsync(CancellationToken ct, SequenceRunMode runMode)
-        {
-            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionFocusScanSequence.RunAsync:" + runMode))
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.RunAsync"))
             {
             try
             {
                 ct.ThrowIfCancellationRequested();
                 CurrentStep = VisionFocusScanStep.CheckUnit;
                 _useSimulatedVisionFocus = false;
-                _scanPass = 0;
-                _currentPassStartSampleIndex = 0;
-                _roughBestPosition = 0.0;
-                _roughBestScore = 0.0;
 
                 while (CurrentStep != VisionFocusScanStep.Complete &&
                        CurrentStep != VisionFocusScanStep.Error)
@@ -155,12 +137,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct)
         {
-            return await MoveDefaultOnlyAsync(ct, SequenceRunMode.Manual).ConfigureAwait(false);
-        }
-
-        public async Task<int> MoveDefaultOnlyAsync(CancellationToken ct, SequenceRunMode runMode)
-        {
-            using (MotionGuardRuntime.BeginSequenceProcessMove(runMode == SequenceRunMode.Auto, "VisionFocusScanSequence.MoveDefaultOnlyAsync:" + runMode))
+            using (MotionGuardRuntime.BeginManualSequenceProcessMove("VisionFocusScanSequence.MoveDefaultOnlyAsync"))
             {
             try
             {
@@ -254,9 +231,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (checkResult != 0)
                     return checkResult;
 
-                Result.Samples.Clear();
-                _scanPass = 0;
-                BuildRoughScanPositions();
+                BuildScanPositions();
                 if (_scanPositions.Count == 0)
                     return Fail("VISION-FOCUS-CAL-NO-SAMPLE", "VisionFocusScanSequence", "Vision Focus Cal 스캔 위치가 없습니다.");
 
@@ -287,12 +262,8 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 if (_request.Step <= 0)
                     return Fail("VISION-FOCUS-CAL-BAD-STEP", "VisionFocusScanSequence", "Vision Focus Cal Step 값은 0보다 커야 합니다. step=" + _request.Step);
-                if (_request.FineStep <= 0)
-                    return Fail("VISION-FOCUS-CAL-BAD-FINE-STEP", "VisionFocusScanSequence", "Vision Focus Cal Fine Step 값은 0보다 커야 합니다. fineStep=" + _request.FineStep);
                 if (_request.MinusRange < 0 || _request.PlusRange < 0)
                     return Fail("VISION-FOCUS-CAL-BAD-RANGE", "VisionFocusScanSequence", "Vision Focus Cal 스캔 범위가 올바르지 않습니다. minus=" + _request.MinusRange + ", plus=" + _request.PlusRange);
-                if (_request.FineMinusRange < 0 || _request.FinePlusRange < 0)
-                    return Fail("VISION-FOCUS-CAL-BAD-FINE-RANGE", "VisionFocusScanSequence", "Vision Focus Cal Fine 스캔 범위가 올바르지 않습니다. minus=" + _request.FineMinusRange + ", plus=" + _request.FinePlusRange);
                 if (_request.RepeatCount <= 0)
                     return Fail("VISION-FOCUS-CAL-BAD-REPEAT", "VisionFocusScanSequence", "Vision Focus Cal 반복 횟수는 1 이상이어야 합니다. repeat=" + _request.RepeatCount);
                 if (_request.MoveVelocity <= 0)
@@ -352,9 +323,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                if (IsBottomFocusKind())
+                if (_request.Kind == VisionFocusScanKind.BottomCollet)
                 {
-                    result = await PrepareBottomFocusPickerPositionAsync(ct).ConfigureAwait(false);
+                    result = await PrepareBottomColletFocusPickerPositionAsync(ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -384,7 +355,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> PrepareBottomFocusPickerPositionAsync(CancellationToken ct)
+        private async Task<int> PrepareBottomColletFocusPickerPositionAsync(CancellationToken ct)
         {
             try
             {
@@ -422,7 +393,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("VISION-FOCUS-CAL-BOTTOM-PICKER-PREPARE-EX", "VisionFocusScanSequence",
-                    "Bottom Focus Picker 위치 준비 중 예외 발생: " + ex.Message);
+                    "Bottom Collet Focus Picker 위치 준비 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -441,10 +412,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                if (!IsBottomFocusKind())
+                if (_request.Kind != VisionFocusScanKind.BottomCollet)
                     return 0;
 
-                result = await PrepareBottomFocusPickerPositionAsync(ct).ConfigureAwait(false);
+                result = await PrepareBottomColletFocusPickerPositionAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -833,12 +804,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return result;
 
                 int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+                PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
+                PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
                 var offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
-                PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
-                    bottomTarget.X,
+                    ResolveFrontBottomX(pickerIndex, offset),
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeX",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -846,24 +818,24 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
-                    bottomTarget.Y,
+                    _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeY",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveFrontPickerAxisAndVerifyAsync(
-                    bottomTarget.PickerTAxis,
-                    bottomTarget.T,
+                    tAxis,
+                    _machine.PickerFrontUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeT",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 return await MoveFrontPickerAxisAndVerifyAsync(
-                    bottomTarget.PickerZAxis,
-                    ResolveBottomFocusStartZ(),
-                    ResolveBottomMotionCommandTag() + ";PickerPhase=StartZ",
+                    zAxis,
+                    _machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, "BottomPosition"),
+                    "VisionFocusCal;DieBottomPosition;PickerPhase=SafeZ",
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -897,12 +869,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return result;
 
                 int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+                PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
+                PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
                 var offset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
-                PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, offset);
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
-                    bottomTarget.X,
+                    ResolveRearBottomX(pickerIndex, offset),
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeX",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -910,24 +883,24 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
                     PickerAxis.PickerY,
-                    bottomTarget.Y,
+                    _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeY",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await MoveRearPickerAxisAndVerifyAsync(
-                    bottomTarget.PickerTAxis,
-                    bottomTarget.T,
+                    tAxis,
+                    _machine.PickerRearUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT,
                     "VisionFocusCal;DieBottomPosition;PickerPhase=SafeT",
                     ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 return await MoveRearPickerAxisAndVerifyAsync(
-                    bottomTarget.PickerZAxis,
-                    ResolveBottomFocusStartZ(),
-                    ResolveBottomMotionCommandTag() + ";PickerPhase=StartZ",
+                    zAxis,
+                    _machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, "BottomPosition"),
+                    "VisionFocusCal;DieBottomPosition;PickerPhase=SafeZ",
                     ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -1014,21 +987,15 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveFrontPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            BaseAxis item = ResolveFrontPickerAxis(axis);
-            if (IsAxisIdleAtExactPosition(item, target))
-            {
-                LogSkipMove("Picker", "Front", axis.ToString(), target, ExactMoveSkipToleranceMm);
-                return 0;
-            }
-
-            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
+            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await _machine.PickerFrontUnit.WaitPickerAxisMoveDoneInPosition(axis, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-FRONT-AXIS-WAIT", "PickerFrontUnit", "FrontPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
 
+            BaseAxis item = ResolveFrontPickerAxis(axis);
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerFrontUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-FRONT-AXIS-FINAL", "PickerFrontUnit",
@@ -1043,21 +1010,15 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveRearPickerAxisAndVerifyAsync(PickerAxis axis, double target, string targetName, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            BaseAxis item = ResolveRearPickerAxis(axis);
-            if (IsAxisIdleAtExactPosition(item, target))
-            {
-                LogSkipMove("Picker", "Rear", axis.ToString(), target, ExactMoveSkipToleranceMm);
-                return 0;
-            }
-
-            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
+            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(item, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await _machine.PickerRearUnit.WaitPickerAxisMoveDoneInPosition(axis, target, ResolveMotionTimeoutMs(), ct).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-REAR-AXIS-WAIT", "PickerRearUnit", "RearPicker 축 이동 완료 확인 실패. axis=" + axis + ", target=" + target.ToString("F3") + ", reason=" + wait.Reason);
 
+            BaseAxis item = ResolveRearPickerAxis(axis);
             double tolerance = ResolveAxisInPositionTolerance(item);
             if (!_machine.PickerRearUnit.IsPickerAxisInPosition(axis, target, tolerance))
                 return Fail("VISION-FOCUS-CAL-REAR-AXIS-FINAL", "PickerRearUnit",
@@ -1112,28 +1073,6 @@ namespace QMC.CDT320.Sequencing.Calibration
             return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
-        }
-
-        private static bool IsAxisIdleAtExactPosition(BaseAxis axis, double target)
-        {
-            return axis != null &&
-                   !axis.IsMoving &&
-                   Math.Abs(axis.ActualPosition - target) <= ExactMoveSkipToleranceMm;
-        }
-
-        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(
-            BaseAxis axis,
-            double target,
-            int timeoutMs,
-            CancellationToken ct)
-        {
-            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                axis,
-                target,
-                ResolveAxisInPositionTolerance(axis),
-                timeoutMs,
-                0,
-                ct);
         }
 
         private static string FormatAxisActual(BaseAxis axis)
@@ -1279,15 +1218,19 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+            PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
+            PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
             PickerAlignOffset offset = _machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
-            PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Front, pickerIndex, offset);
 
-            double zTarget = ResolveBottomFocusStartZ();
+            double xTarget = ResolveFrontBottomX(pickerIndex, offset);
+            double yTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY;
+            double tTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT;
+            double zTarget = _machine.PickerFrontUnit.GetPickerTeachingPosition(zAxis, "BottomPosition");
 
-            bool xOk = IsFrontPickerAxisInPosition(PickerAxis.PickerX, bottomTarget.X, out string xDetail);
-            bool yOk = IsFrontPickerAxisInPosition(PickerAxis.PickerY, bottomTarget.Y, out string yDetail);
-            bool tOk = IsFrontPickerAxisInPosition(bottomTarget.PickerTAxis, bottomTarget.T, out string tDetail);
-            bool zOk = IsFrontPickerAxisInPosition(bottomTarget.PickerZAxis, zTarget, out string zDetail);
+            bool xOk = IsFrontPickerAxisInPosition(PickerAxis.PickerX, xTarget, out string xDetail);
+            bool yOk = IsFrontPickerAxisInPosition(PickerAxis.PickerY, yTarget, out string yDetail);
+            bool tOk = IsFrontPickerAxisInPosition(tAxis, tTarget, out string tDetail);
+            bool zOk = IsFrontPickerAxisInPosition(zAxis, zTarget, out string zDetail);
 
             detail = xDetail + ", " + yDetail + ", " + tDetail + ", " + zDetail;
             return xOk && yOk && tOk && zOk;
@@ -1303,15 +1246,19 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
 
             int pickerIndex = NormalizePickerIndex(_request.PickerNo);
+            PickerAxis tAxis = ResolvePickerTAxis(_request.PickerNo);
+            PickerAxis zAxis = ResolvePickerZAxis(_request.PickerNo);
             PickerAlignOffset offset = _machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) ?? new PickerAlignOffset();
-            PickerCalibratedZoneTarget bottomTarget = ResolveBottomZoneTarget(VisionFocusPickerSide.Rear, pickerIndex, offset);
 
-            double zTarget = ResolveBottomFocusStartZ();
+            double xTarget = ResolveRearBottomX(pickerIndex, offset);
+            double yTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition") + offset.AlignOffsetY;
+            double tTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(tAxis, "BottomPosition") + offset.AlignOffsetT;
+            double zTarget = _machine.PickerRearUnit.GetPickerTeachingPosition(zAxis, "BottomPosition");
 
-            bool xOk = IsRearPickerAxisInPosition(PickerAxis.PickerX, bottomTarget.X, out string xDetail);
-            bool yOk = IsRearPickerAxisInPosition(PickerAxis.PickerY, bottomTarget.Y, out string yDetail);
-            bool tOk = IsRearPickerAxisInPosition(bottomTarget.PickerTAxis, bottomTarget.T, out string tDetail);
-            bool zOk = IsRearPickerAxisInPosition(bottomTarget.PickerZAxis, zTarget, out string zDetail);
+            bool xOk = IsRearPickerAxisInPosition(PickerAxis.PickerX, xTarget, out string xDetail);
+            bool yOk = IsRearPickerAxisInPosition(PickerAxis.PickerY, yTarget, out string yDetail);
+            bool tOk = IsRearPickerAxisInPosition(tAxis, tTarget, out string tDetail);
+            bool zOk = IsRearPickerAxisInPosition(zAxis, zTarget, out string zDetail);
 
             detail = xDetail + ", " + yDetail + ", " + tDetail + ", " + zDetail;
             return xOk && yOk && tOk && zOk;
@@ -1435,25 +1382,60 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             try
             {
-                _currentPassStartSampleIndex = Result.Samples.Count;
+                Result.Samples.Clear();
+
+                // 첫 스캔 위치로 이동 + 안정화(측정 파이프라인 진입 전 1회).
+                int moveResult = await MoveToScanPositionAsync(_scanPositions[0], ct).ConfigureAwait(false);
+                if (moveResult != 0)
+                    return moveResult;
+
                 for (int i = 0; i < _scanPositions.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
                     double position = _scanPositions[i];
-                    int moveResult = await MoveScanAxisAndVerifyAsync(position, ct).ConfigureAwait(false);
-                    if (moveResult != 0)
-                        return moveResult;
 
-                    if (_request.SettleDelayMs > 0)
-                        await Task.Delay(_request.SettleDelayMs, ct).ConfigureAwait(false);
+                    // EPD(노출 종료) 파이프라인 — Vision 은 FOCUS_VAL 노출이 끝나면 즉시 EPD 를 푸시한다.
+                    // EPD 를 받으면 결과(ACK, 채점 후 도착)를 기다리는 동안 다음 위치 이동을 병렬로 시작해
+                    // '이동 ↔ 채점' 이 겹치도록 한다. (경합 방지: EPD 대기 Task 는 명령 전송 '전'에 생성)
+                    Task<bool> epdTask = _useSimulatedVisionFocus
+                        ? null
+                        : VisionCommandService.WaitExposureDoneAsync(ResolveChannel(), _request.VisionTimeoutMs);
 
-                    VisionFocusScanSample sample = await MeasureFocusValueAsync(Result.Samples.Count + 1, position, i == 0, ct).ConfigureAwait(false);
+                    Task<VisionFocusScanSample> ackTask = MeasureFocusValueAsync(i + 1, position, i == 0, ct);
+
+                    // EPD 와 ACK 중 먼저 오는 쪽까지만 대기 — EPD 를 안 보내는 구버전 Vision 이어도
+                    // ACK 도착 즉시 진행되므로 타임아웃만큼 늘어지지 않는다.
+                    Task<int> moveNextTask = null;
+                    if (epdTask != null)
+                    {
+                        await Task.WhenAny(epdTask, ackTask).ConfigureAwait(false);
+                        bool epdReceived = epdTask.Status == TaskStatus.RanToCompletion && epdTask.Result;
+                        if (epdReceived && i + 1 < _scanPositions.Count)
+                            moveNextTask = MoveToScanPositionAsync(_scanPositions[i + 1], ct);
+                    }
+
+                    VisionFocusScanSample sample = await ackTask.ConfigureAwait(false);
                     Result.Samples.Add(sample);
                     if (!sample.Success)
+                    {
+                        if (moveNextTask != null)
+                            try { await moveNextTask.ConfigureAwait(false); } catch { /* 실패 보고는 FOCUS_VAL 기준 */ }
                         return Fail("VISION-FOCUS-CAL-FOCUS-VAL", "VisionFocusScanSequence",
                             "FOCUS_VAL 응답 실패. 대상=" + BuildTargetLabel() +
                             ", position=" + position.ToString("F3") +
                             ", raw=" + sample.Raw);
+                    }
+
+                    // EPD 미수신(타임아웃/미연결/시뮬) 폴백 — 기존과 동일하게 ACK(그랩 완료) 후 순차 이동.
+                    if (moveNextTask == null && i + 1 < _scanPositions.Count)
+                        moveNextTask = MoveToScanPositionAsync(_scanPositions[i + 1], ct);
+
+                    if (moveNextTask != null)
+                    {
+                        moveResult = await moveNextTask.ConfigureAwait(false);
+                        if (moveResult != 0)
+                            return moveResult;
+                    }
                 }
 
                 CurrentStep = VisionFocusScanStep.FocusBest;
@@ -1472,6 +1454,34 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
+        /// <summary>스캔 위치 이동 + 완료 확인 + 안정화 대기(SettleDelayMs). 성공 0, 실패 결과코드.</summary>
+        private async Task<int> MoveToScanPositionAsync(double position, CancellationToken ct)
+        {
+            try
+            {
+                int result = await MoveScanAxisAndVerifyAsync(position, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (_request.SettleDelayMs > 0)
+                    await Task.Delay(_request.SettleDelayMs, ct).ConfigureAwait(false);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("VISION-FOCUS-CAL-SCAN-MOVE-EX", "VisionFocusScanSequence",
+                    "Focus 스캔 위치 이동 예외 발생. position=" + position.ToString("F3") + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> FocusBestStepAsync(CancellationToken ct)
         {
             try
@@ -1479,8 +1489,9 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ct.ThrowIfCancellationRequested();
                 if (_useSimulatedVisionFocus)
                 {
-                    ApplyBestFromSamples(_currentPassStartSampleIndex);
-                    return MoveNextAfterBest();
+                    ApplyBestFromSamples();
+                    CurrentStep = VisionFocusScanStep.SaveBest;
+                    return 0;
                 }
 
                 VisionFocusBestResult best = await VisionCommandService.FocusBestAsync(
@@ -1488,7 +1499,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ResolveCameraName(),
                     ResolveTargetName(),
                     ResolvePickupNoForVision(),
-                    ResolveVisionBestTimeoutMs(),
+                    _request.VisionTimeoutMs,
                     ct).ConfigureAwait(false);
 
                 if (best == null || !best.Success)
@@ -1498,7 +1509,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 Result.BestPosition = best.BestZ;
                 Result.BestScore = best.BestScore;
                 Result.SampleCount = Result.Samples.Count;
-                return MoveNextAfterBest();
+                CurrentStep = VisionFocusScanStep.SaveBest;
+                return 0;
             }
             catch (OperationCanceledException)
             {
@@ -1507,45 +1519,6 @@ namespace QMC.CDT320.Sequencing.Calibration
             catch (Exception ex)
             {
                 return Fail("VISION-FOCUS-CAL-FOCUS-BEST-EX", "VisionFocusScanSequence", "FOCUS_BEST 예외 발생: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        private int MoveNextAfterBest()
-        {
-            try
-            {
-                if (_scanPass == 0 && IsFineScanEnabled())
-                {
-                    _roughBestPosition = Result.BestPosition;
-                    _roughBestScore = Result.BestScore;
-                    _scanPass = 1;
-                    BuildFineScanPositions(_roughBestPosition);
-                    if (_scanPositions.Count == 0)
-                        return Fail("VISION-FOCUS-CAL-NO-FINE-SAMPLE", "VisionFocusScanSequence",
-                            "Vision Focus Cal Fine 스캔 위치가 없습니다. roughBest=" + _roughBestPosition.ToString("F3"));
-
-                    EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-FINE-START",
-                        "Rough Best Focus 기준으로 Fine Scan을 시작합니다. 대상=" + BuildTargetLabel() +
-                        ", roughBest=" + _roughBestPosition.ToString("F3") +
-                        ", roughScore=" + _roughBestScore.ToString("F4") +
-                        ", fineMinus=" + _request.FineMinusRange +
-                        ", finePlus=" + _request.FinePlusRange +
-                        ", fineStep=" + _request.FineStep);
-
-                    CurrentStep = VisionFocusScanStep.FocusStart;
-                    return 0;
-                }
-
-                Result.SampleCount = Result.Samples.Count;
-                CurrentStep = VisionFocusScanStep.SaveBest;
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return Fail("VISION-FOCUS-CAL-NEXT-BEST-EX", "VisionFocusScanSequence", "Vision Focus Cal Best 후 다음 단계 결정 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1610,7 +1583,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (IsBottomFocusKind())
+                if (_request.Kind == VisionFocusScanKind.BottomCollet)
                     return await MovePickerZAndVerifyAsync(position, ct).ConfigureAwait(false);
 
                 return await MoveSideVisionYAndVerifyAsync(position, ct).ConfigureAwait(false);
@@ -1636,57 +1609,43 @@ namespace QMC.CDT320.Sequencing.Calibration
             AxisMoveWaitResult wait;
             if (_request.PickerSide == VisionFocusPickerSide.Front)
             {
-                BaseAxis pickerZ = ResolveFrontPickerAxis(axis);
-                double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleAtExactPosition(pickerZ, position))
-                {
-                    LogSkipMove("PickerZ", "Front", axis.ToString(), position, ExactMoveSkipToleranceMm);
-                    return 0;
-                }
-
                 result = await _machine.PickerFrontUnit.MovePickerAxisCommandWithMotion(
                     axis,
                     position,
                     _request.MoveVelocity,
                     _request.MoveAcceleration,
                     _request.MoveDeceleration,
-                    ResolveBottomMotionCommandTag(),
-                    true).ConfigureAwait(false);
+                    "VisionFocusCal;BottomCollet").ConfigureAwait(false);
                 if (result != 0)
                     return FailPickerZCommand("Front", position, result);
 
-                wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+                wait = await _machine.PickerFrontUnit.WaitPickerAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
                 if (!wait.Success)
                     return FailPickerZWait("Front", position, wait);
 
+                BaseAxis pickerZ = ResolveFrontPickerAxis(axis);
+                double tolerance = ResolveAxisInPositionTolerance(pickerZ);
                 if (!_machine.PickerFrontUnit.IsPickerAxisInPosition(axis, position, tolerance))
                     return FailPickerZFinal("Front", position);
             }
             else
             {
-                BaseAxis pickerZ = ResolveRearPickerAxis(axis);
-                double tolerance = ResolveAxisInPositionTolerance(pickerZ);
-                if (IsAxisIdleAtExactPosition(pickerZ, position))
-                {
-                    LogSkipMove("PickerZ", "Rear", axis.ToString(), position, ExactMoveSkipToleranceMm);
-                    return 0;
-                }
-
                 result = await _machine.PickerRearUnit.MovePickerAxisCommandWithMotion(
                     axis,
                     position,
                     _request.MoveVelocity,
                     _request.MoveAcceleration,
                     _request.MoveDeceleration,
-                    ResolveBottomMotionCommandTag(),
-                    true).ConfigureAwait(false);
+                    "VisionFocusCal;BottomCollet").ConfigureAwait(false);
                 if (result != 0)
                     return FailPickerZCommand("Rear", position, result);
 
-                wait = await WaitAxisMoveDoneInPositionAsync(pickerZ, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+                wait = await _machine.PickerRearUnit.WaitPickerAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
                 if (!wait.Success)
                     return FailPickerZWait("Rear", position, wait);
 
+                BaseAxis pickerZ = ResolveRearPickerAxis(axis);
+                double tolerance = ResolveAxisInPositionTolerance(pickerZ);
                 if (!_machine.PickerRearUnit.IsPickerAxisInPosition(axis, position, tolerance))
                     return FailPickerZFinal("Rear", position);
             }
@@ -1697,22 +1656,13 @@ namespace QMC.CDT320.Sequencing.Calibration
         private async Task<int> MoveSideVisionYAndVerifyAsync(double position, CancellationToken ct)
         {
             VisionAxis axis = ResolveSideVisionAxis();
-            BaseAxis visionAxis = _machine.VisionUnit.ResolveVisionAxis(axis);
-            double tolerance = ResolveAxisInPositionTolerance(visionAxis);
-            if (IsAxisIdleAtExactPosition(visionAxis, position))
-            {
-                LogSkipMove("SideVisionY", ResolveCameraName(), axis.ToString(), position, ExactMoveSkipToleranceMm);
-                return 0;
-            }
-
             int result = await _machine.VisionUnit.MoveVisionAxisCommandWithMotion(
                 axis,
                 position,
                 _request.MoveVelocity,
                 _request.MoveAcceleration,
                 _request.MoveDeceleration,
-                "VisionFocusCal;Side",
-                true).ConfigureAwait(false);
+                "VisionFocusCal;Side").ConfigureAwait(false);
             if (result != 0)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-MOVE", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 명령 실패. axis=" + axis +
@@ -1722,12 +1672,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", dec=" + _request.MoveDeceleration +
                     ", result=" + result);
 
-            AxisMoveWaitResult wait = await WaitAxisMoveDoneInPositionAsync(visionAxis, position, _request.MotionTimeoutMs, ct).ConfigureAwait(false);
+            AxisMoveWaitResult wait = await _machine.VisionUnit.WaitVisionAxisMoveDoneInPosition(axis, position, _request.MotionTimeoutMs).ConfigureAwait(false);
             if (!wait.Success)
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-WAIT", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 이동 완료 확인 실패. axis=" + axis +
                     ", position=" + position + ", reason=" + wait.Reason);
 
+            BaseAxis visionAxis = _machine.VisionUnit.ResolveVisionAxis(axis);
+            double tolerance = ResolveAxisInPositionTolerance(visionAxis);
             if (!_machine.VisionUnit.IsVisionAxisInPosition(axis, position, tolerance))
                 return Fail("VISION-FOCUS-CAL-SIDE-Y-FINAL", "VisionFocusScanSequence",
                     "Focus 스캔 SideVisionY 최종 위치 확인 실패. axis=" + axis +
@@ -1735,22 +1687,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", tolerance=" + tolerance);
 
             return 0;
-        }
-
-        private static bool IsAxisIdleInPosition(BaseAxis axis)
-        {
-            return axis != null && !axis.IsMoving;
-        }
-
-        private void LogSkipMove(string motionKind, string side, string axisName, double position, double tolerance)
-        {
-            EventLogger.Write(EventKind.Event, "CAL", "VISION-FOCUS-CAL-MOVE-SKIP",
-                "Focus 스캔 축이 이미 목표 위치에 있어 이동 명령을 생략합니다. kind=" + motionKind +
-                ", side=" + side +
-                ", axis=" + axisName +
-                ", position=" + position.ToString("F6") +
-                ", tolerance=" + tolerance.ToString("0.######") +
-                ", 대상=" + BuildTargetLabel());
         }
 
         private int FailPickerZCommand(string side, double position, int result)
@@ -1786,8 +1722,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         {
             if (_useSimulatedVisionFocus)
             {
-                double center = _scanPass == 0 ? _request.DefaultPosition : _roughBestPosition;
-                double distance = position - center;
+                double distance = position - _request.DefaultPosition;
                 double score = Math.Max(0.0, 1.0 - Math.Abs(distance) * 1.0 + _simRandom.NextDouble() * 0.01);
                 score = Math.Min(1.0, score);
                 return new VisionFocusScanSample
@@ -1820,22 +1755,12 @@ namespace QMC.CDT320.Sequencing.Calibration
             };
         }
 
-        private void BuildRoughScanPositions()
-        {
-            BuildScanPositions(_request.DefaultPosition, _request.MinusRange, _request.PlusRange, _request.Step);
-        }
-
-        private void BuildFineScanPositions(double centerPosition)
-        {
-            BuildScanPositions(centerPosition, _request.FineMinusRange, _request.FinePlusRange, _request.FineStep);
-        }
-
-        private void BuildScanPositions(double centerPosition, double minusRange, double plusRange, double stepValue)
+        private void BuildScanPositions()
         {
             _scanPositions.Clear();
-            double start = centerPosition - minusRange;
-            double end = centerPosition + plusRange;
-            double step = Math.Abs(stepValue);
+            double start = _request.DefaultPosition - _request.MinusRange;
+            double end = _request.DefaultPosition + _request.PlusRange;
+            double step = Math.Abs(_request.Step);
             int repeatCount = _request.RepeatCount <= 0 ? 1 : Math.Min(_request.RepeatCount, 100);
             int count = 0;
 
@@ -1849,20 +1774,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private bool IsFineScanEnabled()
-        {
-            return _request != null &&
-                   (_request.FineMinusRange > 0.0 || _request.FinePlusRange > 0.0) &&
-                   _request.FineStep > 0.0;
-        }
-
-        private void ApplyBestFromSamples(int startIndex)
+        private void ApplyBestFromSamples()
         {
             VisionFocusScanSample best = null;
-            int safeStartIndex = Math.Max(0, startIndex);
-            for (int i = safeStartIndex; i < Result.Samples.Count; i++)
+            foreach (VisionFocusScanSample sample in Result.Samples)
             {
-                VisionFocusScanSample sample = Result.Samples[i];
                 if (best == null || sample.Score > best.Score)
                     best = sample;
             }
@@ -1877,15 +1793,15 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private VisionFocusPositionRecord ResolveSaveRecord(VisionFocusCalibrationData data)
         {
-            if (IsBottomFocusKind())
-                return data.GetBottomRecord(_request.Kind, _request.PickerSide, _request.PickerNo);
+            if (_request.Kind == VisionFocusScanKind.BottomCollet)
+                return data.GetColletRecord(_request.PickerSide, _request.PickerNo);
 
             return data.GetSideRecord(_request.Kind);
         }
 
         private AutoVisionChannel ResolveChannel()
         {
-            if (IsBottomFocusKind())
+            if (_request.Kind == VisionFocusScanKind.BottomCollet)
                 return AutoVisionChannel.BottomInspection;
             if (_request.Kind == VisionFocusScanKind.FrontSide0 || _request.Kind == VisionFocusScanKind.FrontSide90)
                 return AutoVisionChannel.FrontSide;
@@ -1894,7 +1810,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private string ResolveCameraName()
         {
-            if (IsBottomFocusKind())
+            if (_request.Kind == VisionFocusScanKind.BottomCollet)
                 return "BOTTOM";
             if (_request.Kind == VisionFocusScanKind.FrontSide0 || _request.Kind == VisionFocusScanKind.FrontSide90)
                 return "FRONT";
@@ -1903,30 +1819,12 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private string ResolveTargetName()
         {
-            if (_request.Kind == VisionFocusScanKind.BottomCollet)
-                return "COLLET";
-            if (_request.Kind == VisionFocusScanKind.BottomDie)
-                return "DIE";
-            return "SIDE";
+            return _request.Kind == VisionFocusScanKind.BottomCollet ? "COLLET" : "SIDE";
         }
 
         private int ResolvePickupNoForVision()
         {
-            return IsBottomFocusKind() ? _request.PickerNo : 0;
-        }
-
-        private string ResolveBottomMotionCommandTag()
-        {
-            return _request.Kind == VisionFocusScanKind.BottomDie
-                ? "VisionFocusCal;BottomDie"
-                : "VisionFocusCal;BottomCollet";
-        }
-
-        private double ResolveBottomFocusStartZ()
-        {
-            return _request != null
-                ? _request.DefaultPosition
-                : 0.0;
+            return _request.Kind == VisionFocusScanKind.BottomCollet ? _request.PickerNo : 0;
         }
 
         private PickerAxis ResolvePickerZAxis()
@@ -1965,19 +1863,20 @@ namespace QMC.CDT320.Sequencing.Calibration
             return pickerNo - 1;
         }
 
-        private PickerCalibratedZoneTarget ResolveBottomZoneTarget(
-            VisionFocusPickerSide side,
-            int pickerIndex,
-            PickerAlignOffset offset)
+        private double ResolveFrontBottomX(int pickerIndex, PickerAlignOffset offset)
         {
-            return CalibrationCoordinateService.ResolvePickerZoneTarget(
-                _machine,
-                side,
-                "DieBottomPosition",
-                pickerIndex,
-                offset,
-                true,
-                true);
+            double baseX = _machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
+            double pitch = _machine.PickerFrontUnit.Setup != null ? Math.Abs(_machine.PickerFrontUnit.Setup.PickerPitchX) : 0.0;
+            double offsetX = offset != null ? offset.AlignOffsetX : 0.0;
+            return baseX + pitch * Math.Max(0, 3 - pickerIndex) + offsetX;
+        }
+
+        private double ResolveRearBottomX(int pickerIndex, PickerAlignOffset offset)
+        {
+            double baseX = _machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
+            double pitch = _machine.PickerRearUnit.Setup != null ? Math.Abs(_machine.PickerRearUnit.Setup.PickerPitchX) : 0.0;
+            double offsetX = offset != null ? offset.AlignOffsetX : 0.0;
+            return baseX + pitch * Math.Max(0, 3 - pickerIndex) + offsetX;
         }
 
         private int ResolveMotionTimeoutMs()
@@ -1985,21 +1884,9 @@ namespace QMC.CDT320.Sequencing.Calibration
             return _request != null && _request.MotionTimeoutMs > 0 ? _request.MotionTimeoutMs : 5000;
         }
 
-        private int ResolveVisionBestTimeoutMs()
-        {
-            return _request != null && _request.VisionBestTimeoutMs > 0 ? _request.VisionBestTimeoutMs : 120000;
-        }
-
         private bool IsSelectedFront()
         {
             return _request == null || _request.PickerSide == VisionFocusPickerSide.Front;
-        }
-
-        private bool IsBottomFocusKind()
-        {
-            return _request != null &&
-                   (_request.Kind == VisionFocusScanKind.BottomCollet ||
-                    _request.Kind == VisionFocusScanKind.BottomDie);
         }
 
         private VisionAxis ResolveSideVisionAxis()
@@ -2015,8 +1902,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return "-";
             if (_request.Kind == VisionFocusScanKind.BottomCollet)
                 return _request.PickerSide + " Collet #" + _request.PickerNo;
-            if (_request.Kind == VisionFocusScanKind.BottomDie)
-                return _request.PickerSide + " Die #" + _request.PickerNo;
             return _request.Kind.ToString();
         }
 
