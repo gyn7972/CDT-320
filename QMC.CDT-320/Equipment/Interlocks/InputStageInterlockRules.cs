@@ -1164,44 +1164,9 @@ namespace QMC.CDT320.Interlocks
             if (axis == WaferStageAxis.WaferY &&
                 TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
             {
-                double targetY = request != null ? request.TargetValue : 0.0;
-                // NeedleZ 상승 상태의 StageY 이동은 오버라이드 X 조건보다 먼저 니들 작업 영역 연동을 확인한다.
-                if (!stage.IsInputStageAxisTargetAllowedInWorkArea(axis, targetY, out areaReason))
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        movingName + " 이동 불가: NeedleZ/NeedleX/StageY 작업 영역 연동 조건을 만족하지 않습니다. " +
-                        areaReason +
-                        ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
-                        out reason);
-                }
-
-                if (!stage.VerifyNeedleZSafeForWaferYNonProcessTravel(targetY, out areaReason))
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        movingName,
-                        movingName + " 이동 불가: InputStageY 비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
-                        areaReason +
-                        ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
-                        out reason);
-                }
-
-                if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason))
-                {
-                    if (stage.IsNeedleZInSafePosition())
-                        return true;
-
-                    double needleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition :
-                        stage.Recipe != null && stage.Recipe.NeedleX != null ? stage.Recipe.NeedleX.ProcessPosition : 0.0;
-                    if (stage.IsNeedleWorkPointInArea(needleX, targetY, out areaReason))
-                        return true;
-                }
-
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " blocked by InputStage work area. " + areaReason +
-                    ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
-                    out reason);
+                // 기존 조건: InputStageWorkAreaX는 Camera/VisionX 기준 힌트라 StageY 작업반경 차단에 사용하지 않는다.
+                // if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason)) ...
+                // 현재 기준: WaferStageY 작업반경은 아래 공통 경로에서 NeedleX/StageY 실축 좌표로만 판단한다.
             }
 
             if (stage.IsInputStageAxisTargetAllowedInWorkArea(axis, request != null ? request.TargetValue : 0.0, out areaReason))
