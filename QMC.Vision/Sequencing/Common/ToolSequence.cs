@@ -164,7 +164,7 @@ namespace QMC.Vision.Sequencing
         }
 
         /// <summary>
-        /// 콜렛 배치 실행 — 신형 고정 인자([tool, fb, collet, die_index, channel, chip_uid])로
+        /// 콜렛 배치 실행 — 신형 고정 인자([tool, fb, collet, die_index, channel, "gridx;gridy"])로
         /// INSPECTASYNC 를 그룹(콜렛 4)씩 보내고, 그룹 결과 회수 후 다음 그룹으로 넘어간다(F→B 순차).
         /// 반환은 마지막 다이 결과(공통 Judge 가 로그).
         /// </summary>
@@ -193,16 +193,14 @@ namespace QMC.Vision.Sequencing
                         int seq = GlobalDieSeq(local, fb);
                         MaybeClearForNewWafer(seq);
                         int ix, iy; NextPickupCell(seq, out ix, out iy);
-                        pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = seq;
-                        string uid = ResolveChipUid(ix, iy);    // 다이 기준 chipUid(검사기 간 집계 → 데이터로그 완결)
-                        if (string.IsNullOrEmpty(uid))
-                            uid = BuildSimDieUid(seq);   // 실기 DieId(12자) 형태 모사 — die_index 와 같은 숫자 중복 표기 방지(Sim==Real)
-                        cu[i] = uid;
+                        int dieNo = WaferDieNo(seq);   // 레시피(웨이퍼 사양) 기준 1~Count 순환 — 실기 InputSequenceNo 와 동일 규약(Sim==Real)
+                        pk[i] = ColletAddress.ToGlobalPicker(fb, collet); dq[i] = dieNo;
+                        cu[i] = dieNo.ToString();   // 결과 매칭 키 = die_index(chip_uid 폐기, 2026-07-06)
                         foreach (int ch in chs)
                         {
-                            // 신형 고정 8파트 와이어와 동일 인자 순서(chip_uid 맨 뒤).
+                            // 신형 고정 8파트 와이어와 동일 인자 순서(맨 뒤 = "gridx;gridy").
                             Context.Dispatch(Module, "INSPECTASYNC",
-                                new[] { ToolId, fb.ToString(), collet.ToString(), seq.ToString(), ch.ToString(), uid });
+                                new[] { ToolId, fb.ToString(), collet.ToString(), dieNo.ToString(), ch.ToString(), ix + ";" + iy });
                         }
                     }
                     // 백엔드는 요청마다 그랩 즉시 검사(즉시 처리 — 배치 대기 없음, 콜렛별 인스턴스).
@@ -224,11 +222,6 @@ namespace QMC.Vision.Sequencing
             }
             return last;
         }
-
-        /// <summary>Sim 폴백 chipUid — 실기 자재 ID(Die.Uid 12자) 형태를 모사한 "SIM"+9자리 순번.
-        /// 같은 다이(전역 seq)는 Bottom/Side/Bin 모듈 간 동일 값이 되어 다이 단위 집계가 유지된다.
-        /// (구형처럼 순번 숫자를 그대로 쓰면 신형 와이어에서 die_index 와 중복 표기되어 실기와 달라 보임.)</summary>
-        private static string BuildSimDieUid(int seq) => "SIM" + seq.ToString("D9");
 
         /// <summary>모듈 자체 다이 카운트(local) → 웨이퍼 전역 픽업 순번.
         /// Bottom/Bin(두 그룹 모두 담당)은 local 그대로, Side(자기 그룹만)는 8콜렛 블록 기준으로 환산해
@@ -352,6 +345,14 @@ namespace QMC.Vision.Sequencing
             if (PickupOrderResolver.TryGetCell(seq, out ix, out iy)) return;
             ix = DieIndexX;   // 폴백(구 동작)
             iy = seq;
+        }
+
+        /// <summary>누적 픽업 순번(seq) → 레시피 웨이퍼 사양 기준 웨이퍼-로컬 다이 번호(1~Count).
+        /// 실기 die_index(InputSequenceNo, 웨이퍼당 1-base)와 동일 규약 — 레시피 미확정(Count=0)이면 누적값 그대로.</summary>
+        private static int WaferDieNo(int seq)
+        {
+            int count = PickupOrderResolver.Count;
+            return count > 0 ? ((seq - 1) % count) + 1 : seq;
         }
 
         /// <summary>

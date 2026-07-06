@@ -3650,7 +3650,13 @@ namespace QMC.CDT320.Sequencing
 
                 if (visionXInPosition && !stageYInPosition)
                 {
-                    int result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    int result = await MoveInputStageYAndVerifyAsync(
+                        stage,
+                        targetX,
+                        targetY,
+                        description + " StageY",
+                        ct,
+                        targetNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -3679,7 +3685,13 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                         return result;
 
-                    result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    result = await MoveInputStageYAndVerifyAsync(
+                        stage,
+                        targetX,
+                        targetY,
+                        description + " StageY",
+                        ct,
+                        targetNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -3690,7 +3702,13 @@ namespace QMC.CDT320.Sequencing
                 bool canMoveYFirst = stage.IsNeedleWorkPointInArea(currentNeedleX, targetY, out yFirstReason);
                 if (canMoveYFirst)
                 {
-                    int result = await MoveInputStageYAndVerifyAsync(stage, currentX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    int result = await MoveInputStageYAndVerifyAsync(
+                        stage,
+                        currentX,
+                        targetY,
+                        description + " StageY",
+                        ct,
+                        currentNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -3714,7 +3732,8 @@ namespace QMC.CDT320.Sequencing
                         targetX,
                         targetY,
                         description + " StageY 안전 진입",
-                        ct).ConfigureAwait(false);
+                        ct,
+                        targetNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 

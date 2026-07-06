@@ -258,7 +258,10 @@ namespace QMC.Vision.Cameras.Mil
                 changed = true;
             }
             if (changed && AcquisitionFrameRate > 0)
+            {
+                TryFeatureB("AcquisitionFrameRateEnable", true);
                 TryFeatureD("AcquisitionFrameRate", ClampFeatureRangeD("AcquisitionFrameRate", AcquisitionFrameRate));
+            }
             return true;
         }
 
@@ -526,7 +529,13 @@ namespace QMC.Vision.Cameras.Mil
         // 쓰기를 거부해 카메라에 남아있던 이전 값으로 동작한다(예: FrameRate 30 요청 → 거부 → 1fps 잔존).
         protected override void OnExposureChanged (double us)     => TryFeatureD("ExposureTime", ClampFeatureRangeD("ExposureTime", us));
         protected override void OnGainChanged     (double gainDb) => TryFeatureD("Gain", ClampFeatureRangeD("Gain", gainDb));
-        protected override void OnFrameRateChanged(double fps)    => TryFeatureD("AcquisitionFrameRate", ClampFeatureRangeD("AcquisitionFrameRate", fps));
+        protected override void OnFrameRateChanged(double fps)
+        {
+            // AcquisitionFrameRateEnable 이 꺼져 있으면 설정값이 무시되고 free-run 으로 돈다
+            // (Hik MVS "Acquisition Frame Rate Control Enable" 체크와 동일 개념) — 값 적용 전에 항상 켠다.
+            TryFeatureB("AcquisitionFrameRateEnable", true);
+            TryFeatureD("AcquisitionFrameRate", ClampFeatureRangeD("AcquisitionFrameRate", fps));
+        }
 
         /// <summary>GenICam float feature 값을 카메라 유효 범위(M_FEATURE_MIN/MAX)로 클램프.
         /// 범위 조회 실패(미지원 feature 등) 시 원값 그대로 반환. 클램프 발생 시 진단 로그를 남긴다.</summary>
@@ -577,9 +586,12 @@ namespace QMC.Vision.Cameras.Mil
                     break;
             }
             // 트리거 모드 전환은 카메라가 종속 feature(AcquisitionFrameRate 등)를 재계산/초기화할 수 있으므로
-            // 캐시된 프레임레이트를 재적용해 원복한다(값은 유효 범위로 클램프).
+            // 캐시된 프레임레이트를 재적용해 원복한다(값은 유효 범위로 클램프, Enable 선행).
             if (AcquisitionFrameRate > 0)
+            {
+                TryFeatureB("AcquisitionFrameRateEnable", true);
                 TryFeatureD("AcquisitionFrameRate", ClampFeatureRangeD("AcquisitionFrameRate", AcquisitionFrameRate));
+            }
         }
 
         protected override void OnPixelFormatChanged(CameraPixelFormat fmt)
@@ -666,6 +678,22 @@ namespace QMC.Vision.Cameras.Mil
         {
             if (IsNull(_dig)) return;
             try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
+        }
+
+        /// <summary>GenICam boolean feature 설정 — M_TYPE_BOOLEAN 우선, 실패 시 문자열("1"/"0") 폴백.
+        /// 미지원 feature(카메라별 상이)는 조용히 무시.</summary>
+        private void TryFeatureB(string feature, bool val)
+        {
+            if (IsNull(_dig)) return;
+            try
+            {
+                MIL_INT v = (MIL_INT)(val ? 1 : 0);
+                MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_BOOLEAN, ref v);
+            }
+            catch
+            {
+                try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_STRING, val ? "1" : "0"); } catch { }
+            }
         }
 
         /// <summary>GenICam command feature 실행(예: AcquisitionStop). 미지원/실패는 조용히 무시.</summary>

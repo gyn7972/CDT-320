@@ -337,8 +337,13 @@ namespace QMC.Vision.Ui.Pages
                     foreach (var kv in VendorChannelFilter)
                         if (string.Equals(kv.Key, ce.Vendor, StringComparison.OrdinalIgnoreCase)) { allowCh = kv.Value; break; }
 
+                // 지정 채널 필터(2026-07-06) — 설정의 조명 지정에 채널을 명시한 경우 그 채널만 행 생성
+                // (같은 컨트롤러를 여러 모듈이 나눠 쓰는 결선에서 이 모듈과 무관한 채널 숨김). 빈 지정=전 채널(구버전 호환).
+                int[] assignedCh = pr.ParseChannels();
+
                 for (int ch = 1; ch <= channelCount; ch++)
                 {
+                    if (assignedCh != null && System.Array.IndexOf(assignedCh, ch) < 0) continue;
                     if (allowCh != null && System.Array.IndexOf(allowCh, ch) < 0) continue;
                     string key = Key(pr.ControllerPort, pr.Page, ch);
                     saved.TryGetValue(key, out var s);

@@ -227,7 +227,12 @@ namespace QMC.Vision.Cameras.Hik
             => TrySetFloat("Gain", (float)gainDb);
 
         protected override void OnFrameRateChanged(double fps)
-            => TrySetFloat("AcquisitionFrameRate", (float)fps);
+        {
+            // AcquisitionFrameRateEnable 이 꺼져 있으면 설정값이 무시되고 free-run(최대 fps)으로 돈다
+            // (MVS 의 "Acquisition Frame Rate Control Enable" 체크와 동일) — 값 적용 전에 항상 켠다.
+            TrySetBool("AcquisitionFrameRateEnable", true);
+            TrySetFloat("AcquisitionFrameRate", (float)fps);
+        }
 
         protected override void OnTriggerModeChanged(CameraTriggerMode mode)
         {

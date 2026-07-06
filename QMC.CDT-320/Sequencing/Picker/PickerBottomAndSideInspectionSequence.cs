@@ -663,6 +663,8 @@ namespace QMC.CDT320.Sequencing
         {
             await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
+            RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
+
             int timeoutMs = ResolveTimeout();
             bool triggered = Side == PickerSequenceSide.Front
                 ? await FrontPicker.TriggerBottomInspectionExposeAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
@@ -1218,6 +1220,8 @@ namespace QMC.CDT320.Sequencing
         {
             await DelayBeforeVisionInspectionAsync(ct).ConfigureAwait(false);
 
+            RegisterVisionDieAddress(target);   // 신형 와이어(die_index/gridx;gridy) 구성용 — 어댑터가 조회
+
             int timeoutMs = ResolveTimeout();
             bool triggered = Side == PickerSequenceSide.Front
                 ? await FrontPicker.TriggerSideInspectionExposeAsync(target.PickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false)
@@ -1229,6 +1233,36 @@ namespace QMC.CDT320.Sequencing
             return Side == PickerSequenceSide.Front
                 ? await FrontPicker.GetSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false)
                 : await RearPicker.GetSideInspectionResultAsync(target.PickerNo, timeoutMs, ct).ConfigureAwait(false);
+        }
+
+        /// <summary>현재 콜렛의 다이 주소(die_index=InputSequenceNo, grid=Wafer_IndexX/Y)를
+        /// <see cref="QMC.CDT320.VisionComm.VisionDieAddressStore"/> 에 기록 — 어댑터가 신형 와이어
+        /// "tool|fb|collet|die_index|channel|gridx;gridy"(chip_uid 폐기, 2026-07-06)를 구성할 때 사용.
+        /// 다이 정보가 없으면 기록 생략(어댑터가 콜렛별 음수 합성키로 대체).</summary>
+        private void RegisterVisionDieAddress(InspectionTarget target)
+        {
+            try
+            {
+                if (target == null || target.Die == null)
+                    return;
+
+                int fb = Side == PickerSequenceSide.Front ? 0 : 1;
+                QMC.CDT320.VisionComm.VisionDieAddressStore.Set(
+                    fb,
+                    target.PickerNo,
+                    target.Die.InputSequenceNo,
+                    target.Die.Wafer_IndexX,
+                    target.Die.Wafer_IndexY,
+                    target.Die.DieId);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomAndSideInspectionSequence",
+                    Name + " 비전 다이 주소 기록 실패(진행에는 영향 없음). error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>Side 진입 시 Bottom XYT 푸시 가용성 확인 — (fb=자기 그룹, collet=pickerNo) 최신값 로그.
@@ -1248,7 +1282,7 @@ namespace QMC.CDT320.Sequencing
                         Name + " Side 진입 — Bottom XYT 푸시 확인. die=" + (target.Die != null ? target.Die.DieId : "-") +
                         ", fb=" + fb +
                         ", collet=" + target.PickerNo +
-                        ", uid=" + xyt.ChipUid +
+                        ", dieIndex=" + xyt.DieIndex +
                         ", x=" + xyt.X.ToString("F3") +
                         ", y=" + xyt.Y.ToString("F3") +
                         ", t=" + xyt.T.ToString("F4") +

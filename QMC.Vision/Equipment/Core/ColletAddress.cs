@@ -47,14 +47,15 @@ namespace QMC.Vision.Core
         public static bool IsFrontPicker(int globalPicker) => FbOf(globalPicker) == Front;
 
         /// <summary>
-        /// 신형 고정 8파트 와이어 파싱 — <c>MODULE|CMD|tool|fb|collet|die_index|channel|chip_uid</c>.
+        /// 신형 고정 8파트 와이어 파싱 — <c>MODULE|CMD|tool|fb|collet|die_index|channel|gridx;gridy</c>.
         /// 파트 수가 8이고 fb(0/1)/collet(1~4)이 유효할 때만 true(구형은 false → 기존 파서 사용).
-        /// die_index=-1 은 다이 없는 메뉴얼 테스트 — 호출부는 uid 숫자 폴백을 적용하지 않는다.
+        /// die_index=-1 은 다이 없는 메뉴얼 테스트 — 결과 매칭 키는 die_index(chip_uid 파트 폐기, 2026-07-06).
+        /// 맨 뒤 파트 = "gridx;gridy"(웨이퍼 격자 인덱스) — 파싱 실패 항목은 -1(맵 표시 생략).
         /// </summary>
         public static bool TryParseWire(string[] parts,
-            out int fb, out int collet, out int dieIndex, out int channel, out string chipUid)
+            out int fb, out int collet, out int dieIndex, out int channel, out int gridX, out int gridY)
         {
-            fb = -1; collet = 0; dieIndex = 0; channel = -1; chipUid = string.Empty;
+            fb = -1; collet = 0; dieIndex = 0; channel = -1; gridX = -1; gridY = -1;
             try
             {
                 if (parts == null || parts.Length != 8) return false;
@@ -62,12 +63,12 @@ namespace QMC.Vision.Core
                 if (!int.TryParse(parts[4], out collet) || collet < 1 || collet > ColletsPerGroup) { collet = 0; return false; }
                 if (!int.TryParse(parts[5], out dieIndex)) dieIndex = 0;
                 if (!int.TryParse(parts[6], out channel)) channel = -1;
-                chipUid = parts[7] ?? string.Empty;
+                ParseGrid(parts[7], out gridX, out gridY);
                 return true;
             }
             catch
             {
-                fb = -1; collet = 0; dieIndex = 0; channel = -1; chipUid = string.Empty;
+                fb = -1; collet = 0; dieIndex = 0; channel = -1; gridX = -1; gridY = -1;
                 return false;
             }
             finally
@@ -75,14 +76,35 @@ namespace QMC.Vision.Core
             }
         }
 
+        /// <summary>"gridx;gridy" 파싱 — 항목 누락/비숫자는 -1(맵 표시 생략, 검사는 정상 진행).</summary>
+        public static void ParseGrid(string token, out int gridX, out int gridY)
+        {
+            gridX = -1; gridY = -1;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(token)) return;
+                string[] g = token.Split(';');
+                if (g.Length > 0 && !int.TryParse(g[0], out gridX)) gridX = -1;
+                if (g.Length > 1 && !int.TryParse(g[1], out gridY)) gridY = -1;
+            }
+            catch
+            {
+                gridX = -1; gridY = -1;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>
-        /// 디스패처 인자 배열(신형 6인자: [tool, fb, collet, die_index, channel, chip_uid]) 파싱.
+        /// 디스패처 인자 배열(신형 6인자: [tool, fb, collet, die_index, channel, "gridx;gridy"]) 파싱.
         /// TCP 파트 배열과 동일 규칙(자리 고정, 생략 없음). 구형(≤5인자)은 false.
+        /// 결과 매칭 키는 die_index(chip_uid 인자 폐기, 2026-07-06).
         /// </summary>
         public static bool TryParseArgs(string[] args,
-            out int fb, out int collet, out int dieIndex, out int channel, out string chipUid)
+            out int fb, out int collet, out int dieIndex, out int channel, out int gridX, out int gridY)
         {
-            fb = -1; collet = 0; dieIndex = 0; channel = -1; chipUid = string.Empty;
+            fb = -1; collet = 0; dieIndex = 0; channel = -1; gridX = -1; gridY = -1;
             try
             {
                 if (args == null || args.Length != 6) return false;
@@ -90,12 +112,12 @@ namespace QMC.Vision.Core
                 if (!int.TryParse(args[2], out collet) || collet < 1 || collet > ColletsPerGroup) { collet = 0; return false; }
                 if (!int.TryParse(args[3], out dieIndex)) dieIndex = 0;
                 if (!int.TryParse(args[4], out channel)) channel = -1;
-                chipUid = args[5] ?? string.Empty;
+                ParseGrid(args[5], out gridX, out gridY);
                 return true;
             }
             catch
             {
-                fb = -1; collet = 0; dieIndex = 0; channel = -1; chipUid = string.Empty;
+                fb = -1; collet = 0; dieIndex = 0; channel = -1; gridX = -1; gridY = -1;
                 return false;
             }
             finally

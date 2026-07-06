@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace QMC.Common.Recipes
@@ -42,6 +43,21 @@ namespace QMC.Common.Recipes
         [DataMember] public string ControllerPort { get; set; }   // LightControllerEntry.PortName FK
         [DataMember] public int    Page           { get; set; }   // 0 ~ controller.PageCount-1
 
-        public LightPageRef Clone() => new LightPageRef { ControllerPort = ControllerPort, Page = Page };
+        /// <summary>이 지정이 사용하는 채널 목록(쉼표 구분, 예 "1,2"). 비우면 컨트롤러 전 채널(구버전 호환, 2026-07-06).
+        /// 레시피 조명 그리드는 이 채널만 행 생성한다(모듈과 무관한 채널 숨김).</summary>
+        [DataMember(EmitDefaultValue = false)] public string Channels { get; set; }
+
+        /// <summary>Channels 파싱 — 유효 채널(1 이상) 오름차순 중복 제거. 비면 null(전체).</summary>
+        public int[] ParseChannels()
+        {
+            if (string.IsNullOrWhiteSpace(Channels)) return null;
+            var set = new System.Collections.Generic.SortedSet<int>();
+            foreach (var tok in Channels.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                if (int.TryParse(tok.Trim(), out int ch) && ch >= 1) set.Add(ch);
+            if (set.Count == 0) return null;
+            var arr = new int[set.Count]; set.CopyTo(arr); return arr;
+        }
+
+        public LightPageRef Clone() => new LightPageRef { ControllerPort = ControllerPort, Page = Page, Channels = Channels };
     }
 }

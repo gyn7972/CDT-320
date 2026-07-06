@@ -1287,6 +1287,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
+                double pickerYTeaching = ResolvePickerYPickTeaching(host, side);
                 PickerCalibratedManualInputTarget target =
                     CalibrationCoordinateService.ResolveManualInputMapTarget(
                         host.Machine,
@@ -1295,15 +1296,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         entry.PosX,
                         entry.PosY,
                         offsetX,
-                        offsetY);
+                        offsetY,
+                        pickerYTeaching);
                 double targetPickerX = target.PickerX;
                 double targetStageY = target.StageY;
+                double targetNeedleX = ResolveInputNeedleXForVisionX(host, entry.PosX);
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     ResolvePickerMoveTitle(side, pickerNo) + "를 선택 다이 위치로 이동하시겠습니까?\r\n" +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
                     "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
+                    "NeedleX=" + targetNeedleX.ToString("F3") + " mm\r\n" +
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
+                    " PickerY Forward=" + target.PickerYForward.ToString("F3") + " mm\r\n" +
                     " ColletCal Offset X=" + target.ColletOffsetX.ToString("F3") + " mm, Y=" + target.ColletOffsetY.ToString("F3") + " mm)",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
@@ -1316,7 +1321,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY),
+                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY, targetNeedleX),
                     ResolveManualMoveTimeoutMs(host),
                     ResolvePickerMoveTitle(side, pickerNo) + " 선택 다이 좌표 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " die move timeout")).ConfigureAwait(true);
@@ -1362,23 +1367,64 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private static double ResolvePickerYPickTeaching(Form1 host, PickerSequenceSide side)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return 0.0;
+
+                if (side == PickerSequenceSide.Front && host.Machine.PickerFrontUnit != null)
+                    return host.Machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+
+                if (side == PickerSequenceSide.Rear && host.Machine.PickerRearUnit != null)
+                    return host.Machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "PickerY pick teaching resolve failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return 0.0;
+        }
+
+        private static double ResolveInputNeedleXForVisionX(Form1 host, double visionX)
+        {
+            NeedleCalibrationData needle = host != null && host.Machine != null
+                ? CalibrationCoordinateService.ResolveNeedle(host.Machine)
+                : null;
+            double offset = needle != null ? needle.NeedleXToVisionXOffset : 0.0;
+            // 현재 기준: Input DieMap X는 InputVisionX 기준 좌표이고 NeedleX는 캘리브레이션 offset을 빼서 계산한다.
+            return visionX - offset;
+        }
+
         private async Task<int> MoveSelectedDieByPickerCoreAsync(
             Form1 host,
             PickerSequenceSide side,
             int pickerNo,
             DieMapEntry entry,
             double targetPickerX,
-            double targetStageY)
+            double targetStageY,
+            double targetNeedleX)
         {
             try
             {
                 InputStageUnit stage = host.Machine.InputStageUnit;
                 string areaReason;
-                if (!stage.IsInputStageWorkPointInArea(entry.PosX, targetStageY, out areaReason))
+                // 기존 조건: VisionX/StageY 원형 작업영역은 실제 간섭축 기준이 아니라서 수동 픽커 이동 차단 조건으로 쓰지 않는다.
+                // if (!stage.IsInputStageWorkPointInArea(entry.PosX, targetStageY, out areaReason)) ...
+                // 현재 기준: 선택 Die의 VisionX를 NeedleX 좌표로 변환한 뒤 NeedleX/StageY 작업영역을 확인한다.
+                if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetStageY, out areaReason))
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                         ResolvePickerMoveTitle(side, pickerNo) +
-                        " blocked: target is outside work area. dieX=" + entry.PosX.ToString("F3") +
+                        " blocked: target is outside needle work area. dieX=" + entry.PosX.ToString("F3") +
+                        ", needleX=" + targetNeedleX.ToString("F3") +
                         ", stageY=" + targetStageY.ToString("F3") +
                         ", reason=" + areaReason + " - Check");
                     return -1;
@@ -1398,7 +1444,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     targetStageY,
                     JogSpeedType.Fine,
                     0.0,
-                    "InputStageMapTransferPickerMove");
+                    "InputStageMapTransferPickerMove",
+                    targetNeedleX);
                 string pickerTargetName = "DiePickPosition[" + (pickerNo - 1) + "];ManualInputDieMapMove";
                 Task<int> movePickerX = side == PickerSequenceSide.Front
                     ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, JogSpeedType.Fine, 0.0, pickerTargetName)

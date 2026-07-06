@@ -335,7 +335,14 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
-        private void OnClearClick(object sender, EventArgs e) => _log.Clear();
+        private void OnClearClick(object sender, EventArgs e)
+        {
+            _log.Clear();
+            // 통신 로그(핸들러↔비전 TCP RX/TX)도 함께 클리어 — 소스(VisionCommLog)와 표시 텍스트박스 모두.
+            //   (VisionCommLog 는 CommLink 페이지와 공유 소스라 그쪽 표시도 함께 비워진다.)
+            try { QMC.Vision.Comm.VisionCommLog.Clear(); } catch { }
+            try { if (_commLog != null && !_commLog.IsDisposed) _commLog.Clear(); } catch { }
+        }
 
         // ── CPU/메모리 부하 체크(누적) ──
         private void OnMetricTick()

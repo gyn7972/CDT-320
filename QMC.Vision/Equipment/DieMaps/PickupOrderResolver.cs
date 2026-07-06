@@ -62,7 +62,11 @@ namespace QMC.Vision.DieMaps
             string map = r.InputDieMap != null && r.InputDieMap.Entries != null
                 ? "M" + r.InputDieMap.Entries.Count + "_" + r.InputDieMap.CreatedAt.Ticks
                 : "G" + r.WaferGridX + "x" + r.WaferGridY + "_" + r.WaferPitchX + "_" + r.WaferPitchY
-                  + "_" + r.WaferOuterDiameterMm + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip;
+                  + "_" + r.WaferOuterDiameterMm
+                  + "_" + r.WaferDieSizeX + "_" + r.WaferDieSizeY
+                  + "_" + (r.WaferEdgeSkipMode ?? "Grid")
+                  + "_" + r.WaferSideEdgeSkip + "_" + r.WaferTopBottomEdgeSkip
+                  + "_" + r.WaferSideEdgeSkipMm + "_" + r.WaferTopBottomEdgeSkipMm;
             var p = r.Pickup ?? new PickupSubset();
             return map + "|" + (int)p.StartCorner + (int)p.Direction + (int)p.Pattern;
         }
@@ -71,13 +75,23 @@ namespace QMC.Vision.DieMaps
         {
             var list = new List<int[]>();
             if (r == null) return list;
-            DieMap map = (r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0)
+            bool fromInputMap = r.InputDieMap != null && r.InputDieMap.Entries != null && r.InputDieMap.Entries.Count > 0;
+            DieMap map = fromInputMap
                 ? r.InputDieMap
-                : DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                    r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip, "WAFER");
+                : DieMapBuilder.GenerateWaferSpecMap(r, "WAFER");   // 핸들러 DieMapGenerator 동일 기하(2026-07-06)
             var ordered = PickupSequenceGenerator.Build(map, r.Pickup);
             foreach (var e in ordered)
                 if (e != null) list.Add(new[] { e.DieMapX, e.DieMapY });
+            // 진단(MapTrace): 어떤 소스로 몇 칸짜리 순서가 만들어졌는지 — 맵 미표시 원인 추적용.
+            try
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "MapTrace",
+                    "PickupOrder 재생성 — source=" + (fromInputMap ? "INPUT_DIE_MAP" : "WAFER_SPEC(자동생성)") +
+                    ", grid=" + (map != null ? map.DieMapX + "x" + map.DieMapY : "null") +
+                    ", order=" + list.Count +
+                    ", recipe=" + (r.RecipeName ?? ""));
+            }
+            catch { }
             return list;
         }
     }

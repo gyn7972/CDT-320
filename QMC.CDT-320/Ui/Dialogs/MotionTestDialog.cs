@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
@@ -100,6 +101,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 gridProfile.Rows.Add("Acceleration", "0", "");
                 gridProfile.Rows.Add("Deceleration", "0", "");
                 gridProfile.ClearSelection();
+                lstMotionLog.Items.Clear();
                 lblStatus.Text = "Ready";
                 UpdateRunButtons();
             }
@@ -158,12 +160,29 @@ namespace QMC.CDT_320.Ui.Dialogs
                 btnStop.Click += (s, e) => RequestStop(true);
                 btnStartRepeat.Click += (s, e) => StartRepeat();
                 btnClose.Click += (s, e) => Close();
+                btnMotionLogClear.Click += btnMotionLogClear_Click;
                 gridProfile.CellEndEdit += (s, e) => ValidateProfileGrid();
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", "Event bind failed: " + ex.Message);
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void btnMotionLogClear_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                lstMotionLog.Items.Clear();
+                lblStatus.Text = "Motion log cleared.";
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "MOTION-TEST", "Motion log clear failed: " + ex.Message);
             }
             finally
             {
@@ -504,6 +523,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             CancellationToken ct)
         {
             MotionProfileSnapshot snapshot = null;
+            Stopwatch moveWatch = null;
             try
             {
                 ct.ThrowIfCancellationRequested();
@@ -518,13 +538,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                 snapshot = MotionProfileSnapshot.Capture(axis);
                 ApplyProfile(axis, profile);
 
+                string targetText = nativeTarget.ToString("0.###", CultureInfo.InvariantCulture);
+                string startMessage =
+                    source + " move start. axis=" + axis.Name +
+                    ", target=" + targetText +
+                    ", velocity=" + profile.Velocity.ToString("0.###", CultureInfo.InvariantCulture);
+                AddMotionLog(startMessage);
+                EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST", startMessage);
+
                 lblStatus.Text = source + " moving...";
+                moveWatch = Stopwatch.StartNew();
                 int result = await axis.MoveAbsoluteAsync(nativeTarget, profile.Velocity).ConfigureAwait(true);
                 if (result != 0)
                 {
-                    EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST",
-                        source + " command failed. axis=" + axis.Name + ", result=" + result +
-                        ", message=" + axis.LastMotionFailureMessage);
+                    moveWatch.Stop();
+                    string failMessage =
+                        source + " command failed. axis=" + axis.Name +
+                        ", result=" + result +
+                        ", elapsedMs=" + moveWatch.ElapsedMilliseconds +
+                        ", message=" + axis.LastMotionFailureMessage;
+                    AddMotionLog(failMessage);
+                    EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", failMessage);
                     return result;
                 }
 
@@ -537,36 +571,59 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ct).ConfigureAwait(true);
                 if (wait == null || !wait.Success)
                 {
-                    EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST",
-                        source + " final wait failed. " +
-                        AxisMoveWaiter.FormatResult(wait, AxisMoveWaiter.BuildAxisState(axis, nativeTarget, ResolveTolerance(axis))));
+                    moveWatch.Stop();
+                    string waitFailMessage =
+                        source + " final wait failed. axis=" + axis.Name +
+                        ", elapsedMs=" + moveWatch.ElapsedMilliseconds +
+                        ". " + AxisMoveWaiter.FormatResult(wait, AxisMoveWaiter.BuildAxisState(axis, nativeTarget, ResolveTolerance(axis)));
+                    AddMotionLog(waitFailMessage);
+                    EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", waitFailMessage);
                     return wait != null ? wait.Code : -1;
                 }
 
-                EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST",
+                moveWatch.Stop();
+                string okMessage =
                     source + " ok. axis=" + axis.Name +
-                    ", target=" + nativeTarget.ToString("0.###", CultureInfo.InvariantCulture) +
+                    ", target=" + targetText +
                     ", velocity=" + profile.Velocity.ToString("0.###", CultureInfo.InvariantCulture) +
                     ", acc=" + profile.Acceleration.ToString("0.###", CultureInfo.InvariantCulture) +
-                    ", dec=" + profile.Deceleration.ToString("0.###", CultureInfo.InvariantCulture));
+                    ", dec=" + profile.Deceleration.ToString("0.###", CultureInfo.InvariantCulture) +
+                    ", elapsedMs=" + moveWatch.ElapsedMilliseconds;
+                AddMotionLog(okMessage);
+                EventLogger.Write(EventKind.Event, "UI", "MOTION-TEST", okMessage);
                 return 0;
             }
             catch (OperationCanceledException)
             {
                 try
                 {
+                    if (moveWatch != null && moveWatch.IsRunning)
+                        moveWatch.Stop();
+
                     if (axis != null)
+                    {
+                        AddMotionLog(source + " canceled. axis=" + axis.Name + ", elapsedMs=" +
+                                     (moveWatch != null ? moveWatch.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) : "0"));
                         axis.Stop();
+                    }
                 }
-                catch
+                catch (Exception stopEx)
                 {
+                    EventLogger.Write(EventKind.Warning, "UI", "MOTION-TEST", source + " cancel stop failed: " + stopEx.Message);
                 }
 
                 throw;
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", source + " exception: " + ex.Message);
+                if (moveWatch != null && moveWatch.IsRunning)
+                    moveWatch.Stop();
+
+                string exceptionMessage =
+                    source + " exception: " + ex.Message +
+                    ", elapsedMs=" + (moveWatch != null ? moveWatch.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) : "0");
+                AddMotionLog(exceptionMessage);
+                EventLogger.Write(EventKind.Alarm, "UI", "MOTION-TEST", exceptionMessage);
                 return -1;
             }
             finally
@@ -574,6 +631,34 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (snapshot != null)
                     snapshot.Restore();
                 RefreshAxisState();
+            }
+        }
+
+        private void AddMotionLog(string message)
+        {
+            try
+            {
+                if (IsDisposed || lstMotionLog == null)
+                    return;
+
+                if (InvokeRequired)
+                {
+                    BeginInvoke(new Action<string>(AddMotionLog), message);
+                    return;
+                }
+
+                string line = DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture) + "  " + message;
+                lstMotionLog.Items.Add(line);
+                if (lstMotionLog.Items.Count > 200)
+                    lstMotionLog.Items.RemoveAt(0);
+                lstMotionLog.TopIndex = lstMotionLog.Items.Count - 1;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "MOTION-TEST", "Motion log append failed: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 

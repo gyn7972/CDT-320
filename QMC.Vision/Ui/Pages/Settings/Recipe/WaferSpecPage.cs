@@ -231,7 +231,15 @@ namespace QMC.Vision.Ui.Pages
                 double pitchY = (double)_nPitchY.Value;
                 double diameter = (double)_nDiameter.Value;
 
-                _preview = DieMapBuilder.GenerateCircleDieMap(gridX, gridY, pitchX, pitchY, diameter, 0, 0, "WAFER");
+                // 규칙(2026-07-06): Grid 명시(>0)=격자 수 기준(격자 내접 원, 45x45→2025칸) /
+                // Grid=0 일 때만 외경/피치/다이크기 자동 계산(핸들러 현행 생성식).
+                var r = GetRecipe();
+                _preview = gridX > 0 && gridY > 0
+                    ? DieMapBuilder.GenerateCircleDieMap(gridX, gridY, pitchX, pitchY, diameter, 0, 0, "WAFER")
+                    : DieMapBuilder.GenerateCircularWafer(
+                        diameter, pitchX, pitchY,
+                        r != null ? r.WaferDieSizeX : 0, r != null ? r.WaferDieSizeY : 0,
+                        WaferEdgeSkipMode.Grid, 0, 0, "WAFER");
                 _mapView.ShowWaferOutline = true;
                 _mapView.Caption = "Wafer Spec Preview";
                 _mapView.Map = _preview;

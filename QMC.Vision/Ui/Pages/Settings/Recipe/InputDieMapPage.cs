@@ -142,10 +142,21 @@ namespace QMC.Vision.Ui.Pages
         // ── Private Methods ──
         private DieMap BuildFromSpec(VisionMachineRecipe r)
         {
-            int sideSkip = (int)_nSideSkip.Value;
-            int tbSkip = (int)_nTbSkip.Value;
-            return DieMapBuilder.GenerateCircleDieMap(r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
-                r.WaferOuterDiameterMm, sideSkip, tbSkip, "INPUT");
+            // 규칙(2026-07-06): Grid 명시(>0)=격자 수 기준(격자 내접 원) / 0=외경 등 자동 계산.
+            if (r.WaferGridX > 0 && r.WaferGridY > 0)
+            {
+                return DieMapBuilder.GenerateCircleDieMap(
+                    r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
+                    r.WaferOuterDiameterMm, (int)_nSideSkip.Value, (int)_nTbSkip.Value, "INPUT");
+            }
+            var mode = DieMapBuilder.IsMillimeterEdgeSkipMode(r.WaferEdgeSkipMode)
+                ? WaferEdgeSkipMode.Millimeter
+                : WaferEdgeSkipMode.Grid;
+            double sideSkip = (double)_nSideSkip.Value;
+            double tbSkip = (double)_nTbSkip.Value;
+            return DieMapBuilder.GenerateCircularWafer(
+                r.WaferOuterDiameterMm, r.WaferPitchX, r.WaferPitchY,
+                r.WaferDieSizeX, r.WaferDieSizeY, mode, sideSkip, tbSkip, "INPUT");
         }
 
         private void GenerateFromSpec()
@@ -215,12 +226,13 @@ namespace QMC.Vision.Ui.Pages
             {
                 using (var dlg = new OpenFileDialog
                 {
-                    Filter = "DieMap JSON (*.json)|*.json",
+                    Filter = "DieMap (*.json;*.csv)|*.json;*.csv|DieMap JSON (*.json)|*.json|DieMap CSV (*.csv)|*.csv",
                     CheckFileExists = true
                 })
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK) return;
-                    var loaded = DieMapBuilder.LoadJson(dlg.FileName);
+                    // 핸들러 EXPORT CSV 도 그대로 수입(확장자 자동 감지, 2026-07-06).
+                    var loaded = DieMapBuilder.Load(dlg.FileName);
                     if (loaded == null)
                     {
                         MessageBox.Show("다이맵을 불러오지 못했습니다(형식 확인).", "INPUT DIE",

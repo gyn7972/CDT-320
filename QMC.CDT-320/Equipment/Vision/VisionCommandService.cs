@@ -69,15 +69,6 @@ namespace QMC.CDT320.VisionComm
             return await client.MatchAsyncStartAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
         }
 
-        public static async Task<AsyncMatchPoll> GetMatchResultAsync(AutoVisionChannel channel, string finder, int index, int timeoutMs, CancellationToken ct)
-        {
-            VisionTcpClient client = ResolveClient(channel);
-            if (client == null)
-                return new AsyncMatchPoll { Error = true, Raw = "Vision client is null." };
-
-            return await client.PollMatchResultAsync(finder, index, timeoutMs, ct).ConfigureAwait(false);
-        }
-
         public static async Task<InspectionResultDto> InspectAsync(AutoVisionChannel channel, string inspector, int index, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
@@ -87,54 +78,47 @@ namespace QMC.CDT320.VisionComm
             return await client.InspectAsync(inspector, index, timeoutMs, ct).ConfigureAwait(false);
         }
 
-        /// <summary>동기 검사(8콜렛 신형 규약) — "inspector|fb|collet|die_index|channel|chip_uid" 고정 8파트.</summary>
-        public static async Task<InspectionResultDto> InspectAsync(AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel, string chipUid, int timeoutMs, CancellationToken ct)
-        {
-            VisionTcpClient client = ResolveClient(channel);
-            if (client == null)
-                return new InspectionResultDto { IsPass = false, Raw = "Vision client is null." };
+        // (제거됨 2026-07-06) 동기 INSPECT 8파트 — 비동기 전용 프로토콜 개편으로
+        // InspectAsyncStartAsync(신형 8파트) + PollInspectResultAsync(die_index) 조합을 사용한다.
 
-            return await client.InspectAsync(inspector, fb, collet, dieIndex, visionChannel, chipUid, timeoutMs, ct).ConfigureAwait(false);
-        }
-
-        /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — "finder|fb|collet|die_index|channel|chip_uid" 고정 8파트.</summary>
-        public static async Task<bool> StartMatchAsync(AutoVisionChannel channel, string finder, int fb, int collet, int dieIndex, int visionChannel, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — "finder|fb|collet|die_index|channel|gridx;gridy" 고정 8파트(2026-07-06).</summary>
+        public static async Task<bool> StartMatchAsync(AutoVisionChannel channel, string finder, int fb, int collet, int dieIndex, int visionChannel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
             if (client == null)
                 return false;
 
-            return await client.MatchAsyncStartAsync(finder, fb, collet, dieIndex, visionChannel, chipUid, timeoutMs, ct).ConfigureAwait(false);
+            return await client.MatchAsyncStartAsync(finder, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
         }
 
-        /// <summary>비동기 매칭 결과 폴링(신형) — MATCHASYNC 에 사용한 chip_uid 로 회수.</summary>
-        public static async Task<AsyncMatchPoll> GetMatchResultAsync(AutoVisionChannel channel, string finder, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 매칭 결과 폴링(신형) — MATCHASYNC 에 사용한 die_index 로 회수(2026-07-06).</summary>
+        public static async Task<AsyncMatchPoll> GetMatchResultAsync(AutoVisionChannel channel, string finder, int dieIndex, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
             if (client == null)
                 return new AsyncMatchPoll { Error = true, Raw = "Vision client is null." };
 
-            return await client.PollMatchResultAsync(finder, chipUid, timeoutMs, ct).ConfigureAwait(false);
+            return await client.PollMatchResultAsync(finder, dieIndex, timeoutMs, ct).ConfigureAwait(false);
         }
 
-        /// <summary>비동기 검사 시작(8콜렛 신형 규약) — "inspector|fb|collet|die_index|channel|chip_uid" 고정 8파트.</summary>
-        public static async Task<bool> InspectAsyncStartAsync(AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 검사 시작(8콜렛 신형 규약) — "inspector|fb|collet|die_index|channel|gridx;gridy" 고정 8파트(2026-07-06).</summary>
+        public static async Task<bool> InspectAsyncStartAsync(AutoVisionChannel channel, string inspector, int fb, int collet, int dieIndex, int visionChannel, int gridX, int gridY, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
             if (client == null)
                 return false;
 
-            return await client.InspectAsyncStartAsync(inspector, fb, collet, dieIndex, visionChannel, chipUid, timeoutMs, ct).ConfigureAwait(false);
+            return await client.InspectAsyncStartAsync(inspector, fb, collet, dieIndex, visionChannel, gridX, gridY, timeoutMs, ct).ConfigureAwait(false);
         }
 
-        /// <summary>비동기 검사 결과 폴링(신형) — INSPECTASYNC 에 사용한 chip_uid 로 회수.</summary>
-        public static async Task<AsyncInspectPoll> PollInspectResultAsync(AutoVisionChannel channel, string inspector, string chipUid, int timeoutMs, CancellationToken ct)
+        /// <summary>비동기 검사 결과 폴링(신형) — INSPECTASYNC 에 사용한 die_index 로 회수(2026-07-06).</summary>
+        public static async Task<AsyncInspectPoll> PollInspectResultAsync(AutoVisionChannel channel, string inspector, int dieIndex, int timeoutMs, CancellationToken ct)
         {
             VisionTcpClient client = ResolveClient(channel);
             if (client == null)
                 return new AsyncInspectPoll { Error = true, Raw = "Vision client is null." };
 
-            return await client.PollInspectResultAsync(inspector, chipUid, timeoutMs, ct).ConfigureAwait(false);
+            return await client.PollInspectResultAsync(inspector, dieIndex, timeoutMs, ct).ConfigureAwait(false);
         }
 
         public static async Task<bool> MatchAsyncStartAsync(AutoVisionChannel channel, string finder, int index, int timeoutMs, CancellationToken ct)

@@ -52,7 +52,11 @@
         private System.Windows.Forms.Button btnStop;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Label lblCounter;
+        private System.Windows.Forms.TableLayoutPanel statusLogLayout;
         private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.TableLayoutPanel motionLogLayout;
+        private System.Windows.Forms.ListBox lstMotionLog;
+        private System.Windows.Forms.Button btnMotionLogClear;
 
         private void InitializeComponent()
         {
@@ -105,7 +109,11 @@
             this.btnStop = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.lblCounter = new System.Windows.Forms.Label();
+            this.statusLogLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblStatus = new System.Windows.Forms.Label();
+            this.motionLogLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lstMotionLog = new System.Windows.Forms.ListBox();
+            this.btnMotionLogClear = new System.Windows.Forms.Button();
             this.rootLayout.SuspendLayout();
             this.grpAxis.SuspendLayout();
             this.rightLayout.SuspendLayout();
@@ -124,6 +132,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.nudDwellMs)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudTimeoutMs)).BeginInit();
             this.commandLayout.SuspendLayout();
+            this.statusLogLayout.SuspendLayout();
+            this.motionLogLayout.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -139,7 +149,7 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 1;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(820, 560);
+            this.rootLayout.Size = new System.Drawing.Size(1040, 702);
             this.rootLayout.TabIndex = 0;
             // 
             // grpAxis
@@ -148,7 +158,7 @@
             this.grpAxis.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAxis.Location = new System.Drawing.Point(11, 11);
             this.grpAxis.Name = "grpAxis";
-            this.grpAxis.Size = new System.Drawing.Size(274, 538);
+            this.grpAxis.Size = new System.Drawing.Size(274, 680);
             this.grpAxis.TabIndex = 0;
             this.grpAxis.TabStop = false;
             this.grpAxis.Text = "Axis";
@@ -165,7 +175,7 @@
             this.lstAxes.ItemHeight = 15;
             this.lstAxes.Location = new System.Drawing.Point(3, 19);
             this.lstAxes.Name = "lstAxes";
-            this.lstAxes.Size = new System.Drawing.Size(268, 516);
+            this.lstAxes.Size = new System.Drawing.Size(268, 658);
             this.lstAxes.TabIndex = 0;
             // 
             // rightLayout
@@ -178,19 +188,19 @@
             this.rightLayout.Controls.Add(this.grpRepeat, 0, 3);
             this.rightLayout.Controls.Add(this.commandLayout, 0, 4);
             this.rightLayout.Controls.Add(this.lblCounter, 0, 5);
-            this.rightLayout.Controls.Add(this.lblStatus, 0, 6);
+            this.rightLayout.Controls.Add(this.statusLogLayout, 0, 6);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rightLayout.Location = new System.Drawing.Point(291, 11);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 7;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 106F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 112F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 142F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 130F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 124F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 92F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(518, 538);
+            this.rightLayout.Size = new System.Drawing.Size(738, 680);
             this.rightLayout.TabIndex = 1;
             // 
             // grpStatus
@@ -199,7 +209,7 @@
             this.grpStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpStatus.Location = new System.Drawing.Point(3, 3);
             this.grpStatus.Name = "grpStatus";
-            this.grpStatus.Size = new System.Drawing.Size(512, 100);
+            this.grpStatus.Size = new System.Drawing.Size(732, 100);
             this.grpStatus.TabIndex = 0;
             this.grpStatus.TabStop = false;
             this.grpStatus.Text = "Axis Status";
@@ -227,7 +237,7 @@
             this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
             this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
             this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.Size = new System.Drawing.Size(506, 78);
+            this.statusLayout.Size = new System.Drawing.Size(726, 78);
             this.statusLayout.TabIndex = 0;
             // 
             // lblAxisNameCaption
@@ -334,7 +344,7 @@
             this.grpPosition.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPosition.Location = new System.Drawing.Point(3, 109);
             this.grpPosition.Name = "grpPosition";
-            this.grpPosition.Size = new System.Drawing.Size(512, 106);
+            this.grpPosition.Size = new System.Drawing.Size(512, 124);
             this.grpPosition.TabIndex = 1;
             this.grpPosition.TabStop = false;
             this.grpPosition.Text = "Repeat Position";
@@ -363,7 +373,7 @@
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.positionLayout.Size = new System.Drawing.Size(506, 84);
+            this.positionLayout.Size = new System.Drawing.Size(506, 102);
             this.positionLayout.TabIndex = 0;
             // 
             // lblStartCaption
@@ -466,7 +476,7 @@
             this.btnSwap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSwap.Location = new System.Drawing.Point(333, 63);
             this.btnSwap.Name = "btnSwap";
-            this.btnSwap.Size = new System.Drawing.Size(166, 14);
+            this.btnSwap.Size = new System.Drawing.Size(166, 32);
             this.btnSwap.TabIndex = 8;
             this.btnSwap.Text = "Swap";
             // 
@@ -474,9 +484,9 @@
             // 
             this.grpProfile.Controls.Add(this.profileLayout);
             this.grpProfile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpProfile.Location = new System.Drawing.Point(3, 221);
+            this.grpProfile.Location = new System.Drawing.Point(3, 239);
             this.grpProfile.Name = "grpProfile";
-            this.grpProfile.Size = new System.Drawing.Size(512, 136);
+            this.grpProfile.Size = new System.Drawing.Size(512, 118);
             this.grpProfile.TabIndex = 2;
             this.grpProfile.TabStop = false;
             this.grpProfile.Text = "Motion Profile";
@@ -493,7 +503,7 @@
             this.profileLayout.Name = "profileLayout";
             this.profileLayout.RowCount = 1;
             this.profileLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.profileLayout.Size = new System.Drawing.Size(506, 114);
+            this.profileLayout.Size = new System.Drawing.Size(506, 96);
             this.profileLayout.TabIndex = 0;
             // 
             // gridProfile
@@ -514,7 +524,7 @@
             this.gridProfile.RowHeadersVisible = false;
             this.gridProfile.RowTemplate.Height = 24;
             this.gridProfile.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this.gridProfile.Size = new System.Drawing.Size(370, 108);
+            this.gridProfile.Size = new System.Drawing.Size(370, 90);
             this.gridProfile.TabIndex = 0;
             // 
             // colProfileName
@@ -542,7 +552,7 @@
             this.btnReloadDefault.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReloadDefault.Location = new System.Drawing.Point(379, 3);
             this.btnReloadDefault.Name = "btnReloadDefault";
-            this.btnReloadDefault.Size = new System.Drawing.Size(124, 108);
+            this.btnReloadDefault.Size = new System.Drawing.Size(124, 90);
             this.btnReloadDefault.TabIndex = 1;
             this.btnReloadDefault.Text = "Reload\r\nDefault";
             this.btnReloadDefault.UseVisualStyleBackColor = true;
@@ -767,27 +777,82 @@
             this.lblCounter.Text = "Cycle 0 / 0  Legs 0";
             this.lblCounter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // statusLogLayout
+            // 
+            this.statusLogLayout.ColumnCount = 2;
+            this.statusLogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 48F));
+            this.statusLogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 52F));
+            this.statusLogLayout.Controls.Add(this.lblStatus, 0, 0);
+            this.statusLogLayout.Controls.Add(this.motionLogLayout, 1, 0);
+            this.statusLogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.statusLogLayout.Location = new System.Drawing.Point(3, 525);
+            this.statusLogLayout.Name = "statusLogLayout";
+            this.statusLogLayout.RowCount = 1;
+            this.statusLogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.statusLogLayout.Size = new System.Drawing.Size(732, 152);
+            this.statusLogLayout.TabIndex = 6;
+            // 
             // lblStatus
             // 
             this.lblStatus.BackColor = System.Drawing.Color.Black;
             this.lblStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStatus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblStatus.ForeColor = System.Drawing.Color.Lime;
-            this.lblStatus.Location = new System.Drawing.Point(3, 522);
+            this.lblStatus.Location = new System.Drawing.Point(3, 0);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.lblStatus.Size = new System.Drawing.Size(512, 16);
-            this.lblStatus.TabIndex = 6;
+            this.lblStatus.Size = new System.Drawing.Size(345, 152);
+            this.lblStatus.TabIndex = 0;
             this.lblStatus.Text = "Ready";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // motionLogLayout
+            // 
+            this.motionLogLayout.ColumnCount = 1;
+            this.motionLogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.motionLogLayout.Controls.Add(this.lstMotionLog, 0, 0);
+            this.motionLogLayout.Controls.Add(this.btnMotionLogClear, 0, 1);
+            this.motionLogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.motionLogLayout.Location = new System.Drawing.Point(354, 3);
+            this.motionLogLayout.Name = "motionLogLayout";
+            this.motionLogLayout.RowCount = 2;
+            this.motionLogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.motionLogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.motionLogLayout.Size = new System.Drawing.Size(375, 146);
+            this.motionLogLayout.TabIndex = 1;
+            // 
+            // lstMotionLog
+            // 
+            this.lstMotionLog.BackColor = System.Drawing.Color.Black;
+            this.lstMotionLog.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lstMotionLog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lstMotionLog.Font = new System.Drawing.Font("Consolas", 8F);
+            this.lstMotionLog.ForeColor = System.Drawing.Color.Lime;
+            this.lstMotionLog.FormattingEnabled = true;
+            this.lstMotionLog.HorizontalScrollbar = true;
+            this.lstMotionLog.IntegralHeight = false;
+            this.lstMotionLog.Location = new System.Drawing.Point(3, 3);
+            this.lstMotionLog.Name = "lstMotionLog";
+            this.lstMotionLog.Size = new System.Drawing.Size(369, 110);
+            this.lstMotionLog.TabIndex = 0;
+            // 
+            // btnMotionLogClear
+            // 
+            this.btnMotionLogClear.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMotionLogClear.Location = new System.Drawing.Point(3, 119);
+            this.btnMotionLogClear.Name = "btnMotionLogClear";
+            this.btnMotionLogClear.Size = new System.Drawing.Size(369, 24);
+            this.btnMotionLogClear.TabIndex = 1;
+            this.btnMotionLogClear.Text = "Clear";
+            this.btnMotionLogClear.UseVisualStyleBackColor = true;
             // 
             // MotionTestDialog
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(820, 560);
+            this.ClientSize = new System.Drawing.Size(1040, 702);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.MinimumSize = new System.Drawing.Size(836, 599);
+            this.MinimumSize = new System.Drawing.Size(1056, 699);
             this.Name = "MotionTestDialog";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Motion Test";
@@ -809,6 +874,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.nudDwellMs)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudTimeoutMs)).EndInit();
             this.commandLayout.ResumeLayout(false);
+            this.statusLogLayout.ResumeLayout(false);
+            this.motionLogLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

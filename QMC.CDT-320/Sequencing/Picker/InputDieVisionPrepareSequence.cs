@@ -1733,7 +1733,8 @@ namespace QMC.CDT320.Sequencing
                             workAreaVisionX,
                             stageYTarget,
                             description + " StageY",
-                            ct).ConfigureAwait(false);
+                            ct,
+                            needleTarget).ConfigureAwait(false);
                         if (result != 0)
                             return result;
                     }
@@ -1747,7 +1748,8 @@ namespace QMC.CDT320.Sequencing
                             workAreaVisionX,
                             stageYTarget,
                             description + " StageY",
-                            ct).ConfigureAwait(false);
+                            ct,
+                            needleTarget).ConfigureAwait(false);
                         if (result != 0)
                             return result;
                     }

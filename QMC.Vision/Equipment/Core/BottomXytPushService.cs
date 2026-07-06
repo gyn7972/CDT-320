@@ -6,9 +6,10 @@ namespace QMC.Vision.Core
     /// <summary>
     /// Bottom 외곽 종료(EventSearchDieEnd) → 핸들러 XYT 비동기 푸시 브리지.
     /// <para>흐름: <c>CDTInspector.BottomInspect</c> 가 외곽(패턴) 확정 즉시 <c>SearchDieEnd</c> 를
-    /// '검사 스레드에서 동기' 발화 → 이 서비스가 스레드 로컬 컨텍스트(모듈/전역픽커/uid — 검사 직전
+    /// '검사 스레드에서 동기' 발화 → 이 서비스가 스레드 로컬 컨텍스트(모듈/전역픽커/키 — 검사 직전
     /// <see cref="SetContext"/> 로 주입)와 결합해 백그라운드로
-    /// "XYT|MODULE|fb|collet|chip_uid|x=..;y=..;t=..;ix=..;iy=.." 를 푸시한다.</para>
+    /// "XYT|MODULE|fb|collet|die_index|x=..;y=..;t=..;ix=..;iy=..;valid=0|1" 를 푸시한다.
+    /// (결과 매칭 키 = die_index — 구 chip_uid 자리, 2026-07-06 프로토콜 개편.)</para>
     /// <para>목적: Side 공정이 Bottom 검사(칩핑/이물 CUDA 포함) 완료를 기다리지 않고
     /// 해당 콜렛 다이의 X/Y/T 를 즉시 사용. t=NaN 이면 외곽 미검출(수신측 판단).</para>
     /// <para>컨텍스트가 없거나 전역 픽커(1~8)가 아니면(식별 불가 수동 테스트 등) 푸시하지 않는다.

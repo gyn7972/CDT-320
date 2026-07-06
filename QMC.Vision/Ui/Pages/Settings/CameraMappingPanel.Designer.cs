@@ -79,6 +79,8 @@ namespace QMC.Vision.Ui.Pages
             this.ControllerPort = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.LightName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Page = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.LightChannels = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.LightDelete = new System.Windows.Forms.DataGridViewButtonColumn();
             this._lblLightStatus = new System.Windows.Forms.Label();
             this._rightPanel = new System.Windows.Forms.Panel();
             this._camPreview = new QMC.Vision.Ui.Controls.CameraView();
@@ -413,7 +415,9 @@ namespace QMC.Vision.Ui.Pages
             this._gridLightAssign.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.ControllerPort,
             this.LightName,
-            this.Page});
+            this.Page,
+            this.LightChannels,
+            this.LightDelete});
             this._gridLightAssign.Dock = System.Windows.Forms.DockStyle.Fill;
             this._gridLightAssign.Font = new System.Drawing.Font("맑은 고딕", 10F);
             this._gridLightAssign.Location = new System.Drawing.Point(0, 396);
@@ -445,6 +449,20 @@ namespace QMC.Vision.Ui.Pages
             this.Page.FillWeight = 25F;
             this.Page.HeaderText = "페이지";
             this.Page.Name = "Page";
+            //
+            // LightChannels
+            //
+            this.LightChannels.FillWeight = 28F;
+            this.LightChannels.HeaderText = "채널(빈=전체)";
+            this.LightChannels.Name = "LightChannels";
+            //
+            // LightDelete
+            //
+            this.LightDelete.FillWeight = 16F;
+            this.LightDelete.HeaderText = "";
+            this.LightDelete.Name = "LightDelete";
+            this.LightDelete.Text = "해제";
+            this.LightDelete.UseColumnTextForButtonValue = true;
             // 
             // _lblLightStatus
             // 
@@ -673,5 +691,7 @@ namespace QMC.Vision.Ui.Pages
         private DataGridViewComboBoxColumn ControllerPort;
         private DataGridViewTextBoxColumn  LightName;
         private DataGridViewComboBoxColumn Page;
+        private DataGridViewTextBoxColumn  LightChannels;
+        private DataGridViewButtonColumn   LightDelete;
     }
 }
