@@ -81,6 +81,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblHeader.Text = Lang.T(_i18nTitle);
             lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
             mapView.Caption = "OUTPUT STAGE DIE MAP";
+            // 현재 기준: 출력 전환 화면도 공통 DieMapView 표시 옵션으로 맞춘다.
+            mapView.BackColor = System.Drawing.Color.FromArgb(0xDD, 0xDD, 0xDD);
+            mapView.ShowWaferOutline = true;
+            mapView.CompactUsedBounds = true;
+            mapView.EntryVisibilityPredicate = IsVisibleOutputMapEntry;
 
             rbStandard.Text = "GOOD STAGE";
             rbStartIndex.Text = "NG STAGE";
@@ -387,11 +392,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return null;
 
                 RecipeMapKind kind = side == BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
-                string path = RecipeMapPaths.ResolveConfigured(project, kind);
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                string path;
+                string reason;
+                // 현재 기준: Output 전환 화면도 Good/NG 모두 원본 wafer map index 기준으로 로드한다.
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out path, out reason);
+                if (map == null || map.Entries == null || map.Entries.Count == 0)
                     return CreateOutputCircleMapFromRecipe(project, side);
 
-                return DieMapGenerator.Load(path);
+                return DieMapGenerator.Normalize(map);
             }
             catch (Exception ex)
             {
@@ -437,6 +445,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DieMap BuildDisplayMap(DieMap sourceMap, WaferMaterial outputWafer)
         {
             DieMap display = CloneMap(sourceMap);
+            display.Entries = display.Entries.Where(IsVisibleOutputMapEntry).ToList();
+            DieMapGenerator.Normalize(display);
+
             double processX = ResolveOutputVisionProcessX();
             double processY = ResolveOutputStageProcessY(_selectedSide);
             List<DieMapEntry> ordered = BuildReceiveOrder(display);
@@ -521,6 +532,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMapY = source.DieMapY,
                 PitchX = source.PitchX,
                 PitchY = source.PitchY,
+                DieSizeX = source.DieSizeX,
+                DieSizeY = source.DieSizeY,
+                OuterDiameterMm = source.OuterDiameterMm,
+                EdgeSkipMode = source.EdgeSkipMode,
+                SideEdgeSkip = source.SideEdgeSkip,
+                TopBottomEdgeSkip = source.TopBottomEdgeSkip,
                 OriginX = source.OriginX,
                 OriginY = source.OriginY,
                 CreatedAt = source.CreatedAt
@@ -536,6 +553,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     SequenceNo = entry.SequenceNo,
                     DieMapX = entry.DieMapX,
                     DieMapY = entry.DieMapY,
+                    OriginalMapX = entry.OriginalMapX,
+                    OriginalMapY = entry.OriginalMapY,
                     IsTarget = entry.IsTarget,
                     Result = entry.Result,
                     BinCode = entry.BinCode,
@@ -546,6 +565,27 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return DieMapGenerator.Normalize(clone);
+        }
+
+        private static bool IsVisibleOutputMapEntry(DieMapEntry entry)
+        {
+            // 현재 기준: 전환 화면은 실제 받을 대상 slot만 표시하고, 빈 grid SKIP 셀은 숨긴다.
+            return entry != null && entry.IsTarget;
+        }
+
+        private static int ResolveEntryMapX(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexX(entry);
+        }
+
+        private static int ResolveEntryMapY(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexY(entry);
+        }
+
+        private static string BuildEntryMapText(DieMapEntry entry)
+        {
+            return "[" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + "]";
         }
 
         private static List<DieMapEntry> BuildReceiveOrder(DieMap map)
@@ -565,7 +605,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return map != null && map.Entries != null
-                ? map.Entries.Where(e => e != null && e.IsTarget).OrderBy(e => e.DieMapY).ThenBy(e => e.DieMapX).ToList()
+                ? map.Entries.Where(e => e != null && e.IsTarget).OrderBy(e => ResolveEntryMapY(e)).ThenBy(e => ResolveEntryMapX(e)).ToList()
                 : new List<DieMapEntry>();
         }
 
@@ -654,7 +694,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return "COMPLETE";
 
             DieMapEntry next = ordered[index];
-            return string.Format("[{0},{1}] / {2}", next.DieMapX, next.DieMapY, ordered.Count);
+            return string.Format("[{0},{1}] / {2}", ResolveEntryMapX(next), ResolveEntryMapY(next), ordered.Count);
         }
 
         private void RefreshDieGrid()
@@ -678,8 +718,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         : (entry.BinCode != 0 && entry.IsTarget ? "NEXT" : "WAIT");
                     int rowIndex = gridDieList.Rows.Add(
                         i,
-                        entry.DieMapX,
-                        entry.DieMapY,
+                        ResolveEntryMapX(entry),
+                        ResolveEntryMapY(entry),
                         status,
                         entry.Result,
                         entry.BinCode,
@@ -733,8 +773,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblAxisX.Text = entry.PosX.ToString("F3");
                 lblAxisY.Text = entry.PosY.ToString("F3");
                 lblBinRank.Text = entry.BinCode.ToString();
-                lblDieNum.Text = string.Format("[{0},{1}] / {2}", entry.DieMapX, entry.DieMapY,
-                    mapView.Map != null ? mapView.Map.TotalCells : 0);
+                lblDieNum.Text = string.Format("[{0},{1}] / {2}", ResolveEntryMapX(entry), ResolveEntryMapY(entry),
+                    mapView.Map != null ? BuildReceiveOrder(mapView.Map).Count : 0);
                 SelectGridRow(entry);
             }
             catch
@@ -786,8 +826,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     DieMapEntry rowEntry = row.Tag as DieMapEntry;
                     if (rowEntry != null &&
-                        rowEntry.DieMapX == entry.DieMapX &&
-                        rowEntry.DieMapY == entry.DieMapY &&
+                        ResolveEntryMapX(rowEntry) == ResolveEntryMapX(entry) &&
+                        ResolveEntryMapY(rowEntry) == ResolveEntryMapY(entry) &&
                         string.Equals(rowEntry.DieUid ?? "", entry.DieUid ?? "", StringComparison.OrdinalIgnoreCase))
                     {
                         gridDieList.ClearSelection();
@@ -845,14 +885,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     double x = originX + col * pitchX;
                     double y = originY + row * pitchY;
                     bool target = IsInsideOutputCircle(col, row, gridX, gridY, sideEdgeSkip, topBottomEdgeSkip, x, y, pitchX, pitchY, diameterMm);
+                    if (!target)
+                        continue;
+
                     map.Entries.Add(new DieMapEntry
                     {
                         Index = index++,
                         DieMapX = col,
                         DieMapY = row,
-                        IsTarget = target,
-                        Result = target ? DieResult.Unknown : DieResult.NG,
-                        BinCode = target ? binCode : 255,
+                        IsTarget = true,
+                        Result = DieResult.Unknown,
+                        BinCode = binCode,
                         PosX = x,
                         PosY = y,
                         DieUid = (side == BinSide.Ng ? "NG" : "GOOD") + "-D" + row.ToString("000") + "-" + col.ToString("000")
@@ -1023,7 +1066,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double absY = entry.PosY;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "빈 슬롯 [" + entry.DieMapX + "," + entry.DieMapY + "]의 좌표로 이동하시겠습니까?\r\n" +
+                    "빈 슬롯 " + BuildEntryMapText(entry) + "의 좌표로 이동하시겠습니까?\r\n" +
                     "X(VisionX)=" + absX.ToString("F3") + " mm, Y(StageY)=" + absY.ToString("F3") + " mm",
                     "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
@@ -1158,7 +1201,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     ResolvePickerMoveTitle(side, pickerNo) + "를 선택 빈 슬롯 Place 위치로 이동하시겠습니까?\r\n" +
-                    "Slot=[" + entry.DieMapX + "," + entry.DieMapY + "]\r\n" +
+                    "Slot=" + BuildEntryMapText(entry) + "\r\n" +
                     "StageY=" + targets.OutputStageY.ToString("F3") + " mm\r\n" +
                     "PickerX=" + targets.PickerX.ToString("F3") + " mm\r\n" +
                     "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
@@ -1287,7 +1330,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
-                    " output place view move complete. slot=[" + entry.DieMapX + "," + entry.DieMapY + "]" +
+                    " output place view move complete. slot=" + BuildEntryMapText(entry) +
                     ", stageY=" + targets.OutputStageY.ToString("F3") +
                     ", pickerX=" + targets.PickerX.ToString("F3") +
                     ", pickerY=" + targets.PickerY.ToString("F3") +
@@ -2002,8 +2045,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     {
                         OrderIndex = i,
                         SequenceNo = entry.SequenceNo,
-                        DieMapX = entry.DieMapX,
-                        DieMapY = entry.DieMapY,
+                        // 현재 기준: OutputReceiveSlot도 웨이퍼맵 원본 X/Y 인덱스를 저장한다.
+                        DieMapX = ResolveEntryMapX(entry),
+                        DieMapY = ResolveEntryMapY(entry),
                         IsTarget = entry.IsTarget,
                         Result = entry.Result,
                         BinCode = entry.BinCode,

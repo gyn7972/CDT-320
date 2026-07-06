@@ -34,7 +34,15 @@ namespace QMC.CDT320.Materials
         [DataMember] public int    DieMapY   { get; set; } = 1;
         [DataMember] public double PitchX  { get; set; } = 1.0;
         [DataMember] public double PitchY  { get; set; } = 1.0;
+        [DataMember] public double DieSizeX { get; set; } = 1.0;
+        [DataMember] public double DieSizeY { get; set; } = 1.0;
         [DataMember] public double OuterDiameterMm { get; set; } = 200; // 8inch=200, 12inch=300
+        [DataMember] public string EdgeSkipMode { get; set; } = "Grid";
+        [DataMember] public int    SideEdgeSkip { get; set; } = 0;
+        [DataMember] public int    TopBottomEdgeSkip { get; set; } = 0;
+        [DataMember] public double SideEdgeSkipMm { get; set; } = 0.0;
+        [DataMember] public double TopBottomEdgeSkipMm { get; set; } = 0.0;
+        [DataMember] public string MapFileName { get; set; } = "";
         [DataMember] public string DieSpecName { get; set; } = "";       // 참조할 DieSpec.Name
     }
 
@@ -155,6 +163,41 @@ namespace QMC.CDT320.Materials
 
         public static TapeFrameSpec UpsertFrame(string name, int dieMapX, int dieMapY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
         {
+            return UpsertFrame(
+                name,
+                dieMapX,
+                dieMapY,
+                pitchX,
+                pitchY,
+                pitchX,
+                pitchY,
+                outerDiameterMm,
+                "Grid",
+                0,
+                0,
+                0.0,
+                0.0,
+                "",
+                dieSpecName);
+        }
+
+        public static TapeFrameSpec UpsertFrame(
+            string name,
+            int dieMapX,
+            int dieMapY,
+            double pitchX,
+            double pitchY,
+            double dieSizeX,
+            double dieSizeY,
+            double outerDiameterMm,
+            string edgeSkipMode,
+            int sideEdgeSkip,
+            int topBottomEdgeSkip,
+            double sideEdgeSkipMm,
+            double topBottomEdgeSkipMm,
+            string mapFileName,
+            string dieSpecName)
+        {
             if (string.IsNullOrWhiteSpace(name))
                 name = "Frame_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
@@ -173,7 +216,15 @@ namespace QMC.CDT320.Materials
             spec.DieMapY = Math.Max(1, dieMapY);
             spec.PitchX = pitchX > 0.0 ? pitchX : 1.0;
             spec.PitchY = pitchY > 0.0 ? pitchY : 1.0;
+            spec.DieSizeX = dieSizeX > 0.0 ? dieSizeX : spec.PitchX;
+            spec.DieSizeY = dieSizeY > 0.0 ? dieSizeY : spec.PitchY;
             spec.OuterDiameterMm = outerDiameterMm > 0.0 ? outerDiameterMm : 200.0;
+            spec.EdgeSkipMode = string.IsNullOrWhiteSpace(edgeSkipMode) ? "Grid" : edgeSkipMode.Trim();
+            spec.SideEdgeSkip = Math.Max(0, sideEdgeSkip);
+            spec.TopBottomEdgeSkip = Math.Max(0, topBottomEdgeSkip);
+            spec.SideEdgeSkipMm = Math.Max(0.0, sideEdgeSkipMm);
+            spec.TopBottomEdgeSkipMm = Math.Max(0.0, topBottomEdgeSkipMm);
+            spec.MapFileName = mapFileName ?? "";
             spec.DieSpecName = dieSpecName ?? "";
             Save();
             return spec;

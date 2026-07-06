@@ -13,14 +13,15 @@ namespace QMC.CDT320.Sequencing
             double workAreaVisionX,
             double targetStageY,
             bool fineMove,
-            string owner)
+            string owner,
+            double? workAreaNeedleX = null)
         {
             try
             {
                 if (stage == null || stage.StageY == null)
                     return -1;
 
-                string targetName = BuildWorkPointTargetName(owner, workAreaVisionX);
+                string targetName = BuildWorkPointTargetName(owner, workAreaVisionX, workAreaNeedleX);
                 using (MotionGuardRuntime.BeginAxisTeachingMove(stage.StageY, targetStageY, targetName))
                 {
                     return await stage.MoveInputStageAxis(
@@ -35,6 +36,7 @@ namespace QMC.CDT320.Sequencing
                     "InputStageY picker work point move command exception. owner=" +
                     owner + ", targetY=" + targetStageY.ToString("F3") +
                     ", workAreaVisionX=" + workAreaVisionX.ToString("F3") +
+                    (workAreaNeedleX.HasValue ? ", workAreaNeedleX=" + workAreaNeedleX.Value.ToString("F3") : "") +
                     ", error=" + ex.Message + " - Failed");
                 return -1;
             }
@@ -49,14 +51,15 @@ namespace QMC.CDT320.Sequencing
             double targetStageY,
             JogSpeedType speedType,
             double customSpeed,
-            string owner)
+            string owner,
+            double? workAreaNeedleX = null)
         {
             try
             {
                 if (stage == null || stage.StageY == null)
                     return -1;
 
-                string targetName = BuildWorkPointTargetName(owner, workAreaVisionX);
+                string targetName = BuildWorkPointTargetName(owner, workAreaVisionX, workAreaNeedleX);
                 using (MotionGuardRuntime.BeginAxisTeachingMove(stage.StageY, targetStageY, targetName))
                 {
                     return await stage.MoveInputStageAxis(
@@ -72,6 +75,7 @@ namespace QMC.CDT320.Sequencing
                     "InputStageY Picker 작업 위치 조그 프로파일 이동 중 예외가 발생했습니다. owner=" +
                     owner + ", targetY=" + targetStageY.ToString("F3") +
                     ", workAreaVisionX=" + workAreaVisionX.ToString("F3") +
+                    (workAreaNeedleX.HasValue ? ", workAreaNeedleX=" + workAreaNeedleX.Value.ToString("F3") : "") +
                     ", error=" + ex.Message + " - Failed");
                 return -1;
             }
@@ -88,11 +92,19 @@ namespace QMC.CDT320.Sequencing
             return ", stageMoveFailure=" + stage.LastStageMoveFailureMessage;
         }
 
-        private static string BuildWorkPointTargetName(string owner, double workAreaVisionX)
+        private static string BuildWorkPointTargetName(string owner, double workAreaVisionX, double? workAreaNeedleX)
         {
             string prefix = string.IsNullOrWhiteSpace(owner) ? "PickerInputStageWorkPoint" : owner;
-            return prefix + ";InputStageWorkAreaX=" +
+            string targetName = prefix + ";InputStageWorkAreaX=" +
                 workAreaVisionX.ToString("R", CultureInfo.InvariantCulture);
+            if (workAreaNeedleX.HasValue)
+            {
+                // 현재 기준: StageY 실제 간섭 반경은 CameraX가 아니라 NeedleX/StageY 좌표로 계산한다.
+                targetName += ";InputStageWorkAreaNeedleX=" +
+                    workAreaNeedleX.Value.ToString("R", CultureInfo.InvariantCulture);
+            }
+
+            return targetName;
         }
     }
 }

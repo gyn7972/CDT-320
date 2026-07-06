@@ -69,6 +69,14 @@ namespace QMC.CDT_320.Ui.Localization
             return key;
         }
 
+        /// <summary>키의 영어(en) 문자열. 메뉴 버튼 라벨 등 로케일과 무관하게 영어로 표시할 때 사용.</summary>
+        public static string TEn(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return "";
+            if (_map.TryGetValue(key, out var d) && d.TryGetValue(En, out var s)) return s;
+            return key;
+        }
+
         /// <summary>
         /// 컨트롤 트리를 순회하며 Tag 가 "i18n:KEY" 로 시작하면 해당 키의 번역문을 Text 에 반영.
         /// BottomMenuButton 은 Label 프로퍼티를, Form/Label/Button/그 외는 Text 를 갱신.
@@ -154,7 +162,7 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 사이드바 (레시피 - 320: FRONT/REAR Head)
             A("recipe.section",       "레시피",            "Recipe");
-            A("recipe.project",       "프로젝트",          "Project");
+            A("recipe.project",       "프로젝트",           "Project");
             A("recipe.inputCassette", "INPUT CASSETTE",   "INPUT CASSETTE");
             A("recipe.inputFeeder",   "INPUT FEEDER",     "INPUT FEEDER");
             A("recipe.inputStage",    "INPUT STAGE",      "INPUT STAGE");
@@ -257,9 +265,9 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.moduleSubset",  "모듈 옵션",           "Module Options");
             A("recipe.outputSubset",  "출력 옵션",           "Output Options");
             A("recipe.pickupSubset",  "픽업 순서",           "Pickup Sequence");
-            A("recipe.tapeFrameSubset","웨이퍼 사양",         "Wafer (Tape Frame) Spec");
-            A("recipe.loadFrame",     "로드 웨이퍼",          "Load Frame");
-            A("recipe.unloadFrame",   "언로드 웨이퍼",         "Unload Frame");
+            A("recipe.tapeFrameSubset","웨이퍼 사양",         "Wafer Spec");
+            A("recipe.loadFrame",     "로드 웨이퍼",          "Load Wafer");
+            A("recipe.unloadFrame",   "언로드 웨이퍼",         "Unload Wafer");
             A("material.bin",         "BIN CODE MAP",         "BIN CODE MAP");
             A("material.diemap",      "DIE MAP",             "DIE MAP");
 

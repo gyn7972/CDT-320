@@ -353,6 +353,9 @@ namespace QMC.CDT320.Interlocks
             if (intent.InputStageWorkAreaX.HasValue)
                 message += ", inputStageWorkAreaX=" + intent.InputStageWorkAreaX.Value.ToString("F3");
 
+            if (intent.InputStageWorkAreaNeedleX.HasValue)
+                message += ", inputStageWorkAreaNeedleX=" + intent.InputStageWorkAreaNeedleX.Value.ToString("F3");
+
             if (intent.AutoProcessCorrectionMax.HasValue)
                 message += ", autoProcessCorrectionMax=" + intent.AutoProcessCorrectionMax.Value.ToString("F3");
 

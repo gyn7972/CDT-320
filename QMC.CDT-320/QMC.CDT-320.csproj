@@ -211,6 +211,7 @@
       <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\Common\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\ManualActionItem.cs" />
     <Compile Include="Ui\Controls\ManualActionPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -364,6 +365,9 @@
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\Calibration\VisionCameraCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\NeedlePinCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\NeedleCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\PickerPickUpZCalibrationSequence.cs" />
+    <Compile Include="Sequencing\Calibration\PickerPlaceZCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationSequence.cs" />
     <Compile Include="Sequencing\Calibration\ColletCalibrationStep.cs" />
     <Compile Include="Sequencing\Calibration\VisionFocusScanSequence.cs" />
@@ -430,6 +434,7 @@
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
+    <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />
@@ -724,6 +729,15 @@
       <DependentUpon>ColletCalibrationDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\NeedleCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PickUpZCalibrationDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\PlaceZCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Dialogs\NeedlePinCalibrationDialog.Designer.cs">
@@ -1227,6 +1241,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Material\MaterialBinPage.resx">
       <DependentUpon>MaterialBinPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\CalibrationPage.resx">
+      <DependentUpon>CalibrationPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>

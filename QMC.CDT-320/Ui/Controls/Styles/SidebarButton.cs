@@ -40,6 +40,9 @@ namespace QMC.CDT_320.Ui.Controls
                      ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw |
                      ControlStyles.UserPaint, true);
+            // 포커스를 잡지 않도록: 스크롤된 사이드바에서 버튼 클릭 시 ScrollControlIntoView로 스크롤이 튀는 것 방지
+            SetStyle(ControlStyles.Selectable, false);
+            TabStop = false;
             Size   = new Size(180, 46);
             Cursor = Cursors.Hand;
             Font   = UiTheme.ButtonFont;

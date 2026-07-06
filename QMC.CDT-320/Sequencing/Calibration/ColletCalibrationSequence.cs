@@ -58,6 +58,23 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         public ColletCalibrationRecord ResultRecord { get; private set; }
 
+        private CalibrationMotionSettings ResolveCalibrationMotion()
+        {
+            if (CalibrationMotion != null)
+                return CalibrationMotion;
+
+            if (_settings != null)
+            {
+                _settings.EnsureDefaults();
+                SetCalibrationMotion(_settings.Motion);
+                return CalibrationMotion;
+            }
+
+            var motion = new CalibrationMotionSettings();
+            motion.EnsureDefaults();
+            return motion;
+        }
+
         private sealed class MatchStepResult
         {
             public int Result;
@@ -155,6 +172,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 Context.Machine.VisionUnit.Config.CalibrationData.Collet.EnsureObjects();
                 _settings = Context.Machine.VisionUnit.Config.CalibrationData.Collet.Settings;
                 _settings.EnsureDefaults();
+                SetCalibrationMotion(_settings.Motion);
                 string referenceReason;
                 if (!IsReferenceCollet() && !IsReferenceColletCalibrationReady(out referenceReason))
                     return Fail("COLLET-CAL-REFERENCE-NOT-READY", Name,
@@ -179,7 +197,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", fineAlignMaxMm=" + _settings.FineAlignMaxXyMoveMm.ToString("F6") +
                     ", scoreMin=" + _settings.ScoreThreshold.ToString("F6") +
                     ", visionTimeoutMs=" + _settings.VisionTimeoutMs +
-                    ", autoFocus=" + _settings.RunAutoFocusAfterTheta);
+                    ", autoFocus=" + _settings.RunAutoFocusAfterTheta +
+                    ", moveVelocity=" + _settings.Motion.MoveVelocity.ToString("F6") +
+                    ", moveAcceleration=" + _settings.Motion.MoveAcceleration.ToString("F6") +
+                    ", moveDeceleration=" + _settings.Motion.MoveDeceleration.ToString("F6") +
+                    ", moveTimeoutMs=" + _settings.Motion.MoveTimeoutMs);
 
                 CurrentStep = ColletCalibrationStep.MoveColletToBottomView;
                 return 0;
@@ -459,13 +481,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", actual=" + stage.CameraX.ActualPosition.ToString("F6") +
                     ", target=" + target.ToString("F6"));
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                int result = await stage.MoveInputStageAxisCommandWithMotion(
+                    WaferStageAxis.VisionX,
+                    target,
+                    motion.MoveVelocity,
+                    motion.MoveAcceleration,
+                    motion.MoveDeceleration).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-INPUT-CAMERA-MOVE", "InputStageUnit",
                         "Collet Calibration 시작 전 InputVisionX Avoid 이동 명령이 실패했습니다. result=" + result +
                         ", target=" + target.ToString("F3"));
 
-                result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                result = await stage.WaitInputStageAxisInPosition(WaferStageAxis.VisionX, target, ResolveMoveTimeout(), ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-INPUT-CAMERA-WAIT", "InputStageUnit",
                         "Collet Calibration 시작 전 InputVisionX Avoid 위치 대기가 실패했습니다. result=" + result +
@@ -511,7 +539,13 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", colletNo=" + _colletNo +
                     ", actual=" + stage.OutputCameraX.ActualPosition.ToString("F6"));
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(
+                    ResolveMoveTimeout(),
+                    motion.MoveVelocity,
+                    motion.MoveAcceleration,
+                    motion.MoveDeceleration,
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit",
                         "Collet Calibration 시작 전 OutputVisionX Avoid 이동이 실패했습니다. result=" + result);
@@ -542,12 +576,10 @@ namespace QMC.CDT320.Sequencing.Calibration
             try
             {
                 ct.ThrowIfCancellationRequested();
-                bool fine = Options != null && Options.FineMove;
-
                 if (Side == PickerSequenceSide.Front)
-                    return await MoveRearPickerToOutsideForStartAsync(fine, ct).ConfigureAwait(false);
+                    return await MoveRearPickerToOutsideForStartAsync(ct).ConfigureAwait(false);
 
-                return await MoveFrontPickerToOutsideForStartAsync(fine, ct).ConfigureAwait(false);
+                return await MoveFrontPickerToOutsideForStartAsync(ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -564,7 +596,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> MoveFrontPickerToOutsideForStartAsync(bool fine, CancellationToken ct)
+        private async Task<int> MoveFrontPickerToOutsideForStartAsync(CancellationToken ct)
         {
             try
             {
@@ -579,7 +611,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo);
 
-                int result = await FrontPicker.MoveToOutputSideAvoidPosition(fine).ConfigureAwait(false);
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                int result = await FrontPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-FRONT-OUTSIDE", "PickerFrontUnit",
                         "Collet Calibration start FrontPicker Outside(Output-side Avoid) move failed. result=" + result);
@@ -604,7 +637,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             }
         }
 
-        private async Task<int> MoveRearPickerToOutsideForStartAsync(bool fine, CancellationToken ct)
+        private async Task<int> MoveRearPickerToOutsideForStartAsync(CancellationToken ct)
         {
             try
             {
@@ -619,7 +652,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                     "Collet Calibration start RearPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo);
 
-                int result = await RearPicker.MoveToOutputSideAvoidPosition(fine).ConfigureAwait(false);
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
+                int result = await RearPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-REAR-OUTSIDE", "PickerRearUnit",
                         "Collet Calibration start RearPicker Outside(Output-side Avoid) move failed. result=" + result);

@@ -117,4 +117,15 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="lblGuide.Text" xml:space="preserve">
+    <value>캘리브레이션 허브 화면입니다.
+
+- 각 버튼은 별도 모달리스 설정창을 엽니다.
+- BOTTOM COLLET 1:1 CAL은 Bottom Camera 기준으로 Front/Rear Picker 1~4번 콜렛의 T 성분을 0으로 보정합니다.
+- PICKUP Z CAL은 웨이퍼 필름 위에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PickPosition으로 저장합니다.
+- PLACE Z CAL은 Output Place 위치에서 PickerZ를 하강시키며 Vacuum/Flow 신호가 들어온 위치를 PlacePosition으로 저장합니다.
+- NEEDLE Z CAL은 WaferStageTouchSensor 기준으로 NeedleCap Touch, NeedlePin Flush, NeedlePin Ready 위치를 계산합니다.
+- VISION CAMERA CAL / VISION FOCUS CAL은 별도 전용 설정창에서 실행합니다.
+- 실장비 안전 인터락, phase gate, resource gate는 우회하지 않습니다.</value>
+  </data>
 </root>

@@ -614,15 +614,18 @@ namespace QMC.CDT320.Materials
         public static string ResolveRecipeTapeFrameSpecName(int inchSelect)
         {
             var project = RecipeStore.LoadLastOrDefault();
-            if (project == null || project.Frame == null)
+            if (project == null)
                 return ResolveDefaultTapeFrameSpecName(inchSelect);
 
-            var frame = project.Frame;
+            var frame = project.InputFrame ?? project.Frame;
+            if (frame == null)
+                return ResolveDefaultTapeFrameSpecName(inchSelect);
+
             string specName = string.IsNullOrWhiteSpace(frame.FrameSpecName)
                 ? ResolveDefaultTapeFrameSpecName(inchSelect)
                 : frame.FrameSpecName.Trim();
 
-            EnsureTapeFrameSpecFromRecipe(project, specName);
+            EnsureTapeFrameSpecFromFrame(project, frame, specName, "");
             return specName;
         }
 
@@ -647,14 +650,23 @@ namespace QMC.CDT320.Materials
         {
             try
             {
-                if (project == null || project.Frame == null)
+                if (project == null)
                     return "";
 
-                string specName = string.IsNullOrWhiteSpace(project.Frame.FrameSpecName)
-                    ? ResolveDefaultTapeFrameSpecName(0)
-                    : project.Frame.FrameSpecName.Trim();
+                TapeFrameSubset frame = project.InputFrame ?? project.Frame;
+                if (frame == null)
+                    return "";
 
-                EnsureTapeFrameSpecFromRecipe(project, specName);
+                string specName = string.IsNullOrWhiteSpace(frame.FrameSpecName)
+                    ? ResolveDefaultTapeFrameSpecName(0)
+                    : frame.FrameSpecName.Trim();
+
+                // 현재 기준: Input/Output wafer spec을 각각 MaterialSpecs에 동기화한다.
+                EnsureTapeFrameSpecFromFrame(project, frame, specName, project.InputDieMapFileName);
+                if (project.OutputFrame != null && !string.IsNullOrWhiteSpace(project.OutputFrame.FrameSpecName))
+                    EnsureTapeFrameSpecFromFrame(project, project.OutputFrame, project.OutputFrame.FrameSpecName.Trim(), project.GoodBinDieMapFileName);
+                if (project.Frame != null && !ReferenceEquals(project.Frame, frame) && !string.IsNullOrWhiteSpace(project.Frame.FrameSpecName))
+                    EnsureTapeFrameSpecFromFrame(project, project.Frame, project.Frame.FrameSpecName.Trim(), "");
                 return specName;
             }
             catch (Exception ex)
@@ -1257,8 +1269,8 @@ namespace QMC.CDT320.Materials
                         OutputWaferId = outputWafer.WaferId,
                         SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
                         OrderIndex = index,
-                        DieMapX = entry.DieMapX,
-                        DieMapY = entry.DieMapY,
+                        DieMapX = ResolveEntryMapX(entry),
+                        DieMapY = ResolveEntryMapY(entry),
                         OffsetX = entry.PosX,
                         OffsetY = entry.PosY
                     };
@@ -1274,8 +1286,8 @@ namespace QMC.CDT320.Materials
                         "state=" + outputWafer.State,
                         "side=" + side,
                         "order=" + index,
-                        "mapX=" + entry.DieMapX,
-                        "mapY=" + entry.DieMapY);
+                        "mapX=" + target.DieMapX,
+                        "mapY=" + target.DieMapY);
                     NotifyAndSave("OutputStageReceiveTargetReserve");
                     return target;
                 }
@@ -1668,18 +1680,26 @@ namespace QMC.CDT320.Materials
         {
             try
             {
-                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                if (project == null)
                     return null;
 
-                string path = project.InputDieMapFileName;
-                if (!Path.IsPathRooted(path))
-                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
-                if (!File.Exists(path))
-                    return null;
-
-                DieMap map = DieMapGenerator.Load(path);
+                string path;
+                string reason;
+                // 현재 기준: Process Test도 실제 Die Mapping과 같은 레시피/외부맵 로더를 사용한다.
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, RecipeMapKind.Input, out path, out reason);
                 if (map != null)
+                {
                     PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(project));
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "공정 테스트 입력 DieMap 로드 완료. path=" + path +
+                        ", dieMap=" + map.DieMapX + "x" + map.DieMapY +
+                        ", target=" + map.Entries.Count(e => e != null && e.IsTarget) + " - Ok");
+                }
+                else if (!string.IsNullOrWhiteSpace(reason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "공정 테스트 입력 DieMap 로드 보류: " + reason + " - Check");
+                }
                 return DieMapGenerator.Normalize(map);
             }
             catch (Exception ex)
@@ -1774,8 +1794,24 @@ namespace QMC.CDT320.Materials
                 if (pitchY <= 0.0)
                     pitchY = 1.0;
 
-                double originX = targetCenterX - (pitchX * Math.Max(0, map.DieMapX - 1) / 2.0);
-                double originY = targetCenterY - (pitchY * Math.Max(0, map.DieMapY - 1) / 2.0);
+                bool externalMap = IsExternalDieMap(map);
+                double originX;
+                double originY;
+                if (externalMap)
+                {
+                    // 현재 기준: 외부맵은 파일에 있는 원본 index 범위 중심을 공정 중심에 맞춘다.
+                    double minIndexX = entries.Min(e => ResolveEntryMapX(e));
+                    double maxIndexX = entries.Max(e => ResolveEntryMapX(e));
+                    double minIndexY = entries.Min(e => ResolveEntryMapY(e));
+                    double maxIndexY = entries.Max(e => ResolveEntryMapY(e));
+                    originX = targetCenterX - (((minIndexX + maxIndexX) / 2.0) * pitchX);
+                    originY = targetCenterY - (((minIndexY + maxIndexY) / 2.0) * pitchY);
+                }
+                else
+                {
+                    originX = targetCenterX - (pitchX * Math.Max(0, map.DieMapX - 1) / 2.0);
+                    originY = targetCenterY - (pitchY * Math.Max(0, map.DieMapY - 1) / 2.0);
+                }
 
                 map.PitchX = pitchX;
                 map.PitchY = pitchY;
@@ -1786,8 +1822,8 @@ namespace QMC.CDT320.Materials
                     if (entry == null)
                         continue;
 
-                    entry.PosX = originX + pitchX * entry.DieMapX;
-                    entry.PosY = originY + pitchY * entry.DieMapY;
+                    entry.PosX = originX + pitchX * ResolveEntryMapX(entry);
+                    entry.PosY = originY + pitchY * ResolveEntryMapY(entry);
                 }
 
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
@@ -1810,6 +1846,13 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static bool IsExternalDieMap(DieMap map)
+        {
+            return map != null &&
+                   !string.IsNullOrWhiteSpace(map.EdgeSkipMode) &&
+                   string.Equals(map.EdgeSkipMode, "ExternalMap", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static double ResolveDieMapPitch(List<DieMapEntry> entries, bool xAxis)
         {
             try
@@ -1819,15 +1862,15 @@ namespace QMC.CDT320.Materials
 
                 List<DieMapEntry> ordered = entries
                     .Where(e => e != null)
-                    .OrderBy(e => xAxis ? e.DieMapX : e.DieMapY)
-                    .ThenBy(e => xAxis ? e.DieMapY : e.DieMapX)
+                    .OrderBy(e => xAxis ? ResolveEntryMapX(e) : ResolveEntryMapY(e))
+                    .ThenBy(e => xAxis ? ResolveEntryMapY(e) : ResolveEntryMapX(e))
                     .ToList();
 
                 for (int i = 1; i < ordered.Count; i++)
                 {
                     int indexDelta = xAxis
-                        ? ordered[i].DieMapX - ordered[i - 1].DieMapX
-                        : ordered[i].DieMapY - ordered[i - 1].DieMapY;
+                        ? ResolveEntryMapX(ordered[i]) - ResolveEntryMapX(ordered[i - 1])
+                        : ResolveEntryMapY(ordered[i]) - ResolveEntryMapY(ordered[i - 1]);
                     if (indexDelta == 0)
                         continue;
 
@@ -1864,16 +1907,18 @@ namespace QMC.CDT320.Materials
                 if (entry == null)
                     continue;
 
+                int mapX = ResolveEntryMapX(entry);
+                int mapY = ResolveEntryMapY(entry);
                 string dieId = string.IsNullOrWhiteSpace(entry.DieUid)
-                    ? BuildProcessTestDieId(wafer, entry.DieMapY, entry.DieMapX)
+                    ? BuildProcessTestDieId(wafer, mapY, mapX)
                     : entry.DieUid;
                 entry.DieUid = dieId;
 
                 DieMaterial die = GetOrCreateDieMaterial(dieId);
                 die.WaferID_Input = wafer.WaferId;
                 die.WaferID_Output = "";
-                die.Wafer_IndexX = entry.DieMapX;
-                die.Wafer_IndexY = entry.DieMapY;
+                die.Wafer_IndexX = mapX;
+                die.Wafer_IndexY = mapY;
                 die.InputSequenceNo = entry.SequenceNo;
                 die.Input_BinCode = entry.BinCode;
                 die.IsInputTarget = entry.IsTarget;
@@ -2067,9 +2112,19 @@ namespace QMC.CDT320.Materials
 
             return sourceMap.Entries
                 .Where(e => e != null && e.IsTarget && e.DieMapX >= 0 && e.DieMapY >= 0)
-                .OrderBy(e => e.DieMapY)
-                .ThenBy(e => e.DieMapX)
+                .OrderBy(e => ResolveEntryMapY(e))
+                .ThenBy(e => ResolveEntryMapX(e))
                 .ToList();
+        }
+
+        private static int ResolveEntryMapX(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexX(entry);
+        }
+
+        private static int ResolveEntryMapY(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexY(entry);
         }
 
         private static List<OutputReceiveSlotMaterial> BuildOutputReceiveSlots(
@@ -2093,13 +2148,13 @@ namespace QMC.CDT320.Materials
                 {
                     OrderIndex = i,
                     SequenceNo = entry.SequenceNo,
-                    DieMapX = entry.DieMapX,
-                    DieMapY = entry.DieMapY,
+                    DieMapX = ResolveEntryMapX(entry),
+                    DieMapY = ResolveEntryMapY(entry),
                     IsTarget = true,
                     Result = DieResult.Unknown,
                     BinCode = binCode,
-                    PosX = ResolveEntryPositionOrIndexFallback(entry.PosX, pitchX, entry.DieMapX),
-                    PosY = ResolveEntryPositionOrIndexFallback(entry.PosY, pitchY, entry.DieMapY),
+                    PosX = ResolveEntryPositionOrIndexFallback(entry.PosX, pitchX, ResolveEntryMapX(entry)),
+                    PosY = ResolveEntryPositionOrIndexFallback(entry.PosY, pitchY, ResolveEntryMapY(entry)),
                     DieUid = ""
                 });
             }
@@ -2185,11 +2240,19 @@ namespace QMC.CDT320.Materials
                     return null;
 
                 RecipeMapKind kind = side == QMC.CDT320.BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
-                string path = RecipeMapPaths.ResolveConfigured(project, kind);
-                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    return null;
+                string path;
+                string reason;
+                // 현재 기준: 출력 Good/NG 빈맵도 Input과 같은 원본 wafer map index 기준을 사용한다.
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, kind, out path, out reason);
+                if (map != null)
+                    return DieMapGenerator.Normalize(map);
 
-                return DieMapGenerator.Load(path);
+                if (!string.IsNullOrWhiteSpace(reason))
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Recipe bin map load skipped: side=" + side + ", " + reason + " - Check");
+                }
+                return null;
             }
             catch (Exception ex)
             {
@@ -2284,8 +2347,8 @@ namespace QMC.CDT320.Materials
                             WaferId = wafer.WaferId,
                             DieId = die.DieId,
                             OrderIndex = i,
-                            DieMapX = entry.DieMapX,
-                            DieMapY = entry.DieMapY,
+                            DieMapX = ResolveEntryMapX(entry),
+                            DieMapY = ResolveEntryMapY(entry),
                             OffsetX = entry.PosX,
                             OffsetY = entry.PosY,
                             TargetX = entry.PosX,
@@ -2371,15 +2434,15 @@ namespace QMC.CDT320.Materials
                         ", pickerLocation=" + pickerLocation +
                         ", pickerNo=" + pickerNo +
                         ", orderIndex=" + i +
-                        ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ") - Ok");
+                        ", grid=(" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + ") - Ok");
 
                     return new InputStagePickTarget
                     {
                         WaferId = wafer.WaferId,
                         DieId = die.DieId,
                         OrderIndex = i,
-                        DieMapX = entry.DieMapX,
-                        DieMapY = entry.DieMapY,
+                        DieMapX = ResolveEntryMapX(entry),
+                        DieMapY = ResolveEntryMapY(entry),
                         OffsetX = entry.PosX,
                         OffsetY = entry.PosY,
                         TargetX = entry.PosX,
@@ -2454,12 +2517,12 @@ namespace QMC.CDT320.Materials
                             WaferId = wafer.WaferId,
                             DieId = die.DieId,
                             OrderIndex = i,
-                            DieMapX = entry.DieMapX,
-                            DieMapY = entry.DieMapY,
+                            DieMapX = ResolveEntryMapX(entry),
+                            DieMapY = ResolveEntryMapY(entry),
                             TargetX = entry.PosX,
                             TargetY = entry.PosY,
                             DisplayText = "#" + (i + 1) +
-                                          " [" + entry.DieMapX + "," + entry.DieMapY + "] " +
+                                          " [" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + "] " +
                                           die.DieId +
                                           " X=" + entry.PosX.ToString("0.###", CultureInfo.InvariantCulture) +
                                           " Y=" + entry.PosY.ToString("0.###", CultureInfo.InvariantCulture)
@@ -2574,8 +2637,8 @@ namespace QMC.CDT320.Materials
                             WaferId = wafer.WaferId,
                             DieId = die.DieId,
                             OrderIndex = i,
-                            DieMapX = entry.DieMapX,
-                            DieMapY = entry.DieMapY,
+                            DieMapX = ResolveEntryMapX(entry),
+                            DieMapY = ResolveEntryMapY(entry),
                             OffsetX = entry.PosX,
                             OffsetY = entry.PosY,
                             TargetX = entry.PosX,
@@ -2654,8 +2717,8 @@ namespace QMC.CDT320.Materials
                             WaferId = wafer.WaferId,
                             DieId = die.DieId,
                             OrderIndex = i,
-                            DieMapX = entry.DieMapX,
-                            DieMapY = entry.DieMapY,
+                            DieMapX = ResolveEntryMapX(entry),
+                            DieMapY = ResolveEntryMapY(entry),
                             OffsetX = entry.PosX,
                             OffsetY = entry.PosY,
                             TargetX = entry.PosX,
@@ -3252,6 +3315,8 @@ namespace QMC.CDT320.Materials
                         SequenceNo = die.InputSequenceNo,
                         DieMapX = die.Wafer_IndexX,
                         DieMapY = die.Wafer_IndexY,
+                        OriginalMapX = die.Wafer_IndexX,
+                        OriginalMapY = die.Wafer_IndexY,
                         IsTarget = die.IsInputTarget,
                         Result = die.Result,
                         BinCode = die.Input_BinCode,
@@ -3311,6 +3376,8 @@ namespace QMC.CDT320.Materials
                         SequenceNo = slot.SequenceNo,
                         DieMapX = slot.DieMapX,
                         DieMapY = slot.DieMapY,
+                        OriginalMapX = slot.DieMapX,
+                        OriginalMapY = slot.DieMapY,
                         IsTarget = slot.IsTarget,
                         Result = slot.Result,
                         BinCode = slot.BinCode,
@@ -3386,9 +3453,11 @@ namespace QMC.CDT320.Materials
 
                 foreach (DieMapEntry entry in dieMap.Entries)
                 {
-                    if (entry == null || entry.DieMapX < 0 || entry.DieMapY < 0 || entry.DieMapX >= map.ColumnCount || entry.DieMapY >= map.RowCount)
+                    int mapX = ResolveEntryMapX(entry);
+                    int mapY = ResolveEntryMapY(entry);
+                    if (entry == null || mapX < 0 || mapY < 0 || mapX >= map.ColumnCount || mapY >= map.RowCount)
                         continue;
-                    map.DieMap[entry.DieMapY, entry.DieMapX] = entry.IsTarget;
+                    map.DieMap[mapY, mapX] = entry.IsTarget;
                 }
 
                 return map;
@@ -3731,7 +3800,7 @@ namespace QMC.CDT320.Materials
                 {
                     reason = "die map target is disabled. die=" + entry.DieUid +
                              ", sequence=" + entry.SequenceNo +
-                             ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")";
+                             ", grid=(" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + ")";
                     return false;
                 }
 
@@ -3739,7 +3808,7 @@ namespace QMC.CDT320.Materials
                 {
                     reason = "die map result is NG. die=" + entry.DieUid +
                              ", sequence=" + entry.SequenceNo +
-                             ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")";
+                             ", grid=(" + ResolveEntryMapX(entry) + "," + ResolveEntryMapY(entry) + ")";
                     return false;
                 }
             }
@@ -4239,19 +4308,34 @@ namespace QMC.CDT320.Materials
             if (project == null || project.Frame == null || string.IsNullOrWhiteSpace(specName))
                 return;
 
+            EnsureTapeFrameSpecFromFrame(project, project.Frame, specName, "");
+        }
+
+        private static void EnsureTapeFrameSpecFromFrame(RecipeProject project, TapeFrameSubset frame, string specName, string mapFileName)
+        {
+            if (project == null || frame == null || string.IsNullOrWhiteSpace(specName))
+                return;
+
             if (MaterialSpecs.Data == null)
                 return;
 
             EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
 
-            var frame = project.Frame;
             MaterialSpecs.UpsertFrame(
                 specName,
                 frame.DieMapX,
                 frame.DieMapY,
                 frame.PitchX,
                 frame.PitchY,
+                frame.DieSizeX,
+                frame.DieSizeY,
                 frame.OuterDiameterMm,
+                frame.EdgeSkipMode,
+                frame.SideEdgeSkip,
+                frame.TopBottomEdgeSkip,
+                frame.SideEdgeSkipMm,
+                frame.TopBottomEdgeSkipMm,
+                mapFileName,
                 project.Die != null ? project.Die.DieSpecName ?? "" : "");
         }
 

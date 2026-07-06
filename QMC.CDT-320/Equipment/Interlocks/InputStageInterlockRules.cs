@@ -6,6 +6,7 @@ namespace QMC.CDT320.Interlocks
     public static class InputStageInterlockRules
     {
         // 현재 기준: InputStage 축별 홈/수동/자동 인터락을 이 파일에서 분기한다.
+        // 인터락 항목: InputStage의 Y/T/Z/VisionX/Needle/EjectPinZ 이동 요청을 해당 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -36,6 +37,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: WaferStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -57,13 +59,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 WaferStageY 이동은 EjectPinZ 안전 위치, Feeder 준비, 작업영역 조건을 확인한다.
         private static bool CanAutoWaferStageY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "WaferStageY", out reason))
                 return false;
 
-            if (!VerifyEjectPinZAtAvoid(machine, "WaferStageY", out reason))
+            if (!VerifyEjectPinZAtZeroOrAvoid(machine, "WaferStageY", out reason))
                 return false;
 
             if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageY", out reason))
@@ -77,6 +80,7 @@ namespace QMC.CDT320.Interlocks
 
         // WaferStageY 이동 전제(Wafer Feeder): Ring Check==true, Unclamp==true, Overload==false.
         // 세 조건 중 하나라도 아니면 차단/알람.
+        // 인터락 항목: StageY 이동 전 InputFeederY가 Stage 간섭 없는 준비 위치인지 확인한다.
         private static bool VerifyWaferFeederReadyForStageY(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -122,8 +126,9 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        // WaferStageY/NeedleX 이동 전제: EjectPinZ가 반드시 Avoid 위치여야 한다(아니면 차단/알람).
-        private static bool VerifyEjectPinZAtAvoid(CDT320_Machine machine, string movingName, out string reason)
+        // WaferStageY/NeedleX 이동 전제: NeedlePinZ(EjectPinZ)는 0 이하 또는 Avoid 위치여야 한다.
+        // 인터락 항목: StageY/NeedleX 이동 전 EjectPinZ가 0 이하 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyEjectPinZAtZeroOrAvoid(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
 
@@ -145,20 +150,21 @@ namespace QMC.CDT320.Interlocks
                     : 0.05;
 
                 double actual = stage.EjectPinZ.ActualPosition;
-                if (System.Math.Abs(actual - pos.AvoidPosition) <= tolerance)
+                if (actual <= 0.0 + tolerance ||
+                    System.Math.Abs(actual - pos.AvoidPosition) <= tolerance)
                     return true;
 
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " 이동 불가: EjectPinZ(NeedlePinZ)가 Avoid 위치가 아닙니다. actual=" + actual.ToString("F3") +
-                    ", avoid=" + pos.AvoidPosition.ToString("F3"),
+                    movingName + " 이동 불가: EjectPinZ(NeedlePinZ)는 0 이하 또는 Avoid 위치여야 합니다. actual=" + actual.ToString("F3") +
+                    ", zero=0.000, avoid=" + pos.AvoidPosition.ToString("F3"),
                     out reason);
             }
             catch (System.Exception ex)
             {
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    "Exception occurred while verifying EjectPinZ Avoid for " + movingName + ": " + ex.Message,
+                    "Exception occurred while verifying EjectPinZ zero/avoid for " + movingName + ": " + ex.Message,
                     out reason);
             }
             finally
@@ -166,6 +172,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: WaferStageT 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferStageT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -186,6 +193,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 WaferStageT 이동은 Feeder Avoid, EjectPinZ, 작업영역 조건을 확인한다.
         private static bool CanAutoWaferStageT(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -210,6 +218,7 @@ namespace QMC.CDT320.Interlocks
         // WaferStageT 이동 전제: EjectPinZ가 Process 위치이면 차단/알람.
         // 이동 전제: EjectPinZ Actual이 Process 위치보다 (허용오차 초과) 크면 차단/알람.
         // Process 오차 이내(|actual-process| <= tol) 또는 그 이하면 통과.
+        // 인터락 항목: StageT 이동 전 EjectPinZ가 Process 위치보다 올라와 있지 않은지 확인한다.
         private static bool VerifyEjectPinZNotAboveProcess(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -256,6 +265,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -280,6 +290,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 홈은 현재 별도 차단 조건 없이 허용한다.
         private static bool CanHomeWaferExpandingZ(CDT320_Machine machine, out string reason)
         {
             // 현재 기준: ExpanderZ Home은 어느 위치에서도 허용하며 실제 홈 방향은 축 설정의 NEG를 따른다.
@@ -287,6 +298,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 수동 ExpanderZ 이동은 StageT/Feeder/PickerZ/InputVisionX 안전 위치를 확인한다.
         private static bool CanManualWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -328,6 +340,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
         }
 
+        // 인터락 항목: 자동 ExpanderZ 이동은 StageT/Feeder/PickerZ/InputVisionX 안전 위치를 확인한다.
         private static bool CanAutoWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             // 현재 기준: Auto ExpanderZ는 우선 Manual ExpanderZ와 동일 조건으로 검사한다.
@@ -337,6 +350,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // ExpanderZ 이동 전제 ①: StageT가 Home(0), Avoid, Process 위치 중 하나여야 한다.
+        // 인터락 항목: ExpanderZ 이동 전 StageT가 Home/Avoid/Process 중 하나인지 확인한다.
         private static bool VerifyStageTZeroAvoidOrProcessForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -383,6 +397,7 @@ namespace QMC.CDT320.Interlocks
         // ExpanderZ 이동 전제 ②: InputFeederY가 Home(0) 또는 안전 위치(Avoid/Unload)여야 한다.
         // 기존 조건: InputFeederY는 Avoid 또는 StageUnload만 허용했다.
         // 현재 필요 여부: Home(0)도 안전 위치로 포함해야 하므로 현재 함수로 대체한다.
+        // 인터락 항목: ExpanderZ 이동 전 InputFeederY가 Home 또는 안전 위치인지 확인한다.
         private static bool VerifyFeederYHomeOrSafeForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -414,6 +429,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // ExpanderZ 이동 전제 ③: Front/Rear Picker Z0~Z3가 모두 Avoid 위치여야 한다(아니면 차단/알람).
+        // 인터락 항목: ExpanderZ 이동 전 Front/Rear PickerZ가 모두 Avoid 위치인지 확인한다.
         private static bool VerifyFrontRearPickerZAvoidForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -440,6 +456,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 이동 전 Front PickerZ 개별 축이 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZAvoidForExpanderZ(PickerFrontUnit picker, string prefix, out string reason)
         {
             reason = string.Empty;
@@ -460,6 +477,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: ExpanderZ 이동 전 Rear PickerZ 개별 축이 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZAvoidForExpanderZ(PickerRearUnit picker, string prefix, out string reason)
         {
             reason = string.Empty;
@@ -480,6 +498,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputVisionX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyWaferVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -500,6 +519,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 InputVisionX 이동은 FeederY Down/Avoid와 Picker Input 존 간섭을 확인한다.
         private static bool CanAutoInputVisionX(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -521,6 +541,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // InputVisionX 이동 전제 ①: InputFeederY가 Avoid 위치 + Wafer Feeder Down 센서 감지. (둘 다 만족해야 함)
+        // 인터락 항목: InputVisionX 이동 전 InputFeederY Avoid와 Feeder Down 센서를 확인한다.
         private static bool VerifyFeederYAvoidAndDownForInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -558,6 +579,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // InputVisionX 이동 전제 ②: Front/Rear Picker가 실제 Input 영역을 점유하거나 간섭하면 안 된다.
+        // 인터락 항목: InputVisionX 이동 전 Front/Rear Picker가 Input 존을 점유하지 않는지 확인한다.
         private static bool VerifyFrontRearPickerInputZoneClearForInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -584,6 +606,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: InputVisionX 이동 전 지정 Picker의 Input 존 X/Y 이동 위험을 확인한다.
         private static bool VerifyPickerInputZoneClearForInputVisionX(CDT320_Machine machine, bool isFront, string prefix, out string reason)
         {
             reason = string.Empty;
@@ -616,6 +639,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 기준: Picker가 Input 존에 머물거나 진입/이탈 중인지 판단한다.
         private static bool IsPickerInputZoneMotionRisk(PickerZoneTransportState state, bool xMoving, bool yMoving)
         {
             if (!xMoving && !yMoving)
@@ -631,6 +655,7 @@ namespace QMC.CDT320.Interlocks
                    state.UnknownUnsafe;
         }
 
+        // 인터락 항목: NeedleX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -651,13 +676,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 NeedleX 이동은 EjectPinZ 0/Avoid와 Needle 작업영역 조건을 확인한다.
         private static bool CanAutoNeedleX(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             if (!VerifyInputFeederClear(machine, "NeedleX", out reason))
                 return false;
 
-            if (!VerifyEjectPinZAtAvoid(machine, "NeedleX", out reason))
+            if (!VerifyEjectPinZAtZeroOrAvoid(machine, "NeedleX", out reason))
                 return false;
 
             if (!VerifyInputStageWorkArea(request, WaferStageAxis.NeedleX, "NeedleX", out reason))
@@ -666,6 +692,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleX", out reason);
         }
 
+        // 인터락 항목: 수동 InputVisionX 이동은 FeederY Avoid, Picker Input 존 간섭, Feeder Down 상태를 확인한다.
         private static bool CanManualInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -704,6 +731,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: InputVisionX 홈은 FeederY Avoid와 Picker Input 존 간섭을 확인한다.
         private static bool CanHomeInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -738,6 +766,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 WaferStageY 이동은 EjectPinZ 0/Avoid, Feeder/Pickers 안전 위치, 작업영역 조건을 확인한다.
         private static bool CanManualWaferStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -747,7 +776,7 @@ namespace QMC.CDT320.Interlocks
                 CDT320_Machine machine = request != null ? request.Machine : null;
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
 
-                if (!VerifyEjectPinZAtAvoid(machine, "WaferStageY", out reason))
+                if (!VerifyEjectPinZAtZeroOrAvoid(machine, "WaferStageY", out reason))
                     return false;
 
                 InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
@@ -784,6 +813,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 WaferStageT 이동은 NeedleZ, Feeder, EjectPinZ, PickerZ 안전 위치를 확인한다.
         private static bool CanManualWaferStageT(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -827,6 +857,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: WaferStageY 홈은 NeedleZ Home/Avoid와 PickerZ 안전 위치를 확인한다.
         private static bool CanHomeWaferStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -834,10 +865,10 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                if (stage != null && !stage.IsNeedleZInSafePosition())
+                if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "InputStageY",
-                        "InputStageY HOME blocked. NeedleZ must be at Avoid position.",
+                        "InputStageY HOME blocked. NeedleZ must be at 0 or below, or Avoid position.",
                         out reason);
 
                 //여기 조건에 따라 다르다.
@@ -872,6 +903,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: WaferStageT 홈은 NeedleZ, Feeder, EjectPinZ, PickerZ 안전 위치를 확인한다.
         private static bool CanHomeWaferStageT(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -915,6 +947,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 NeedleX 이동은 EjectPinZ 0/Avoid와 Needle 작업영역 조건을 확인한다.
         private static bool CanManualNeedleX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -923,7 +956,7 @@ namespace QMC.CDT320.Interlocks
             {
                 CDT320_Machine machine = request != null ? request.Machine : null;
 
-                if (!VerifyEjectPinZAtAvoid(machine, "NeedleX", out reason))
+                if (!VerifyEjectPinZAtZeroOrAvoid(machine, "NeedleX", out reason))
                     return false;
 
                 if (!VerifyInputStageWorkArea(request, WaferStageAxis.NeedleX, "NeedleX", out reason))
@@ -944,6 +977,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: NeedleX 홈은 EjectPinZ 0/Avoid와 NeedleZ Home/Avoid 조건을 확인한다.
         private static bool CanHomeNeedleX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -951,13 +985,13 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                if (!VerifyEjectPinZAtAvoid(machine, "NeedleX", out reason))
+                if (!VerifyEjectPinZAtZeroOrAvoid(machine, "NeedleX", out reason))
                     return false;
 
-                if (stage != null && !stage.IsNeedleZInSafePosition())
+                if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "NeedleX",
-                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        "NeedleX HOME blocked. NeedleZ must be at 0 or below, or Avoid position.",
                         out reason);
 
                 return true;
@@ -975,6 +1009,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: NeedleZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyNeedleZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -995,12 +1030,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: NeedleZ 홈은 현재 별도 차단 조건 없이 허용한다.
         private static bool CanHomeNeedleZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             return true;
         }
 
+        // 인터락 항목: 수동 NeedleZ 이동은 Needle 작업영역 조건과 InputStage Busy 여부를 확인한다.
         private static bool CanManualNeedleZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -1011,6 +1048,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleZ", out reason);
         }
 
+        // 인터락 항목: 자동 NeedleZ 이동은 InputFeeder Clear, Needle 작업영역 조건, InputStage Busy 여부를 확인한다.
         private static bool CanAutoNeedleZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -1023,6 +1061,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleZ", out reason);
         }
 
+        // 인터락 항목: EjectPinZ 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyEjectPinZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -1043,18 +1082,21 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: EjectPinZ 홈은 현재 별도 차단 조건 없이 허용한다.
         private static bool CanHomeEjectPinZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             return true;
         }
 
+        // 인터락 항목: 수동 EjectPinZ 이동은 Avoid 위치에서만 이동 가능한 조건을 확인한다.
         private static bool CanManualEjectPinZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             return VerifyEjectPinZManualMoveSafe(request, "EjectPinZ", out reason);
         }
 
+        // 인터락 항목: 자동 EjectPinZ 이동은 InputFeeder Clear, 작업영역 조건, InputStage Busy 여부를 확인한다.
         private static bool CanAutoEjectPinZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -1072,6 +1114,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "EjectPinZ", out reason);
         }
 
+        // 인터락 항목: EjectPinZ 수동/조그 이동은 현재 EjectPinZ가 Avoid 위치일 때만 허용한다.
         private static bool VerifyEjectPinZManualMoveSafe(MotionGuardRuleContext request, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1117,6 +1160,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 현재 요청이 연속 조그 이동인지 판단한다.
         private static bool IsContinuousJogMove(MotionGuardRuleContext request)
         {
             if (request == null)
@@ -1125,6 +1169,7 @@ namespace QMC.CDT320.Interlocks
             return request.Intent != null && request.Intent.ContinuousJog;
         }
 
+        // 인터락 항목: InputStage 축 목표가 Needle 작업영역/원형 작업영역/비공정 안전 조건을 만족하는지 확인한다.
         private static bool VerifyInputStageWorkArea(MotionGuardRuleContext request, WaferStageAxis axis, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1133,9 +1178,9 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             string areaReason;
-            double overrideWorkAreaX;
+            double overrideWorkAreaNeedleX;
             if (axis == WaferStageAxis.WaferY &&
-                TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
+                TryResolveInputStageWorkAreaNeedleX(request, out overrideWorkAreaNeedleX))
             {
                 double targetY = request != null ? request.TargetValue : 0.0;
                 if (!stage.VerifyNeedleZSafeForWaferYNonProcessTravel(targetY, out areaReason))
@@ -1144,26 +1189,28 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         movingName + " 이동 불가: InputStageY 비공정 위치 이동 전 NeedleZ가 반드시 Avoid 위치에 있어야 합니다. " +
                         areaReason +
-                        ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
+                        ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
                         out reason);
                 }
 
-                if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason))
-                {
-                    if (stage.IsNeedleZInSafePosition())
-                        return true;
-
-                    double needleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition :
-                        stage.Recipe != null && stage.Recipe.NeedleX != null ? stage.Recipe.NeedleX.ProcessPosition : 0.0;
-                    if (stage.IsNeedleWorkPointInArea(needleX, targetY, out areaReason))
-                        return true;
-                }
+                // 현재 기준: StageY 이동 작업 반경은 CameraX가 아니라 NeedleX/StageY 실축 좌표로 확인한다.
+                if (stage.IsNeedleWorkPointInArea(overrideWorkAreaNeedleX, targetY, out areaReason))
+                    return true;
 
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " blocked by InputStage work area. " + areaReason +
-                    ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
+                    movingName + " blocked by InputStage needle work area. " + areaReason +
+                    ", overrideWorkAreaNeedleX=" + overrideWorkAreaNeedleX.ToString("F3"),
                     out reason);
+            }
+
+            double overrideWorkAreaX;
+            if (axis == WaferStageAxis.WaferY &&
+                TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
+            {
+                // 기존 조건: InputStageWorkAreaX는 Camera/VisionX 기준 힌트라 StageY 작업반경 차단에 사용하지 않는다.
+                // if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason)) ...
+                // 현재 기준: WaferStageY 작업반경은 아래 공통 경로에서 NeedleX/StageY 실축 좌표로만 판단한다.
             }
 
             if (stage.IsInputStageAxisTargetAllowedInWorkArea(axis, request != null ? request.TargetValue : 0.0, out areaReason))
@@ -1196,6 +1243,27 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool TryResolveInputStageWorkAreaNeedleX(MotionGuardRuleContext request, out double workAreaNeedleX)
+        {
+            workAreaNeedleX = 0.0;
+            try
+            {
+                if (request == null || request.Intent == null || !request.Intent.InputStageWorkAreaNeedleX.HasValue)
+                    return false;
+
+                workAreaNeedleX = request.Intent.InputStageWorkAreaNeedleX.Value;
+                return true;
+            }
+            catch
+            {
+                workAreaNeedleX = 0.0;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static bool VerifyInputFeederClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1210,6 +1278,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // 이동 전제: InputFeederY가 Avoid 위치여야 한다(아니면 차단/알람).
+        // 인터락 항목: InputStage 이동 전 InputFeederY가 Avoid 위치인지 확인한다.
         private static bool VerifyInputFeederYAvoid(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1227,6 +1296,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputStage 내부 다른 축이 이동 중인지 확인한다.
         private static bool VerifyInputStageNotBusy(InputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -1258,18 +1328,21 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 현재 이동 대상이 InputVisionX인지 판단한다.
         private static bool IsInputVisionXMove(string movingName)
         {
             return string.Equals(movingName, "InputVisionX", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "CameraX", System.StringComparison.OrdinalIgnoreCase);
         }
 
+        // 인터락 기준: 현재 이동 대상이 NeedleX인지 판단한다.
         private static bool IsNeedleXMove(string movingName)
         {
             return string.Equals(movingName, "NeedleX", System.StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(movingName, "NeedleBlockX", System.StringComparison.OrdinalIgnoreCase);
         }
 
+        // 인터락 기준: 현재 이동 대상이 WaferStageY인지 판단한다.
         private static bool IsWaferStageYMove(string movingName)
         {
             return string.Equals(movingName, "WaferStageY", System.StringComparison.OrdinalIgnoreCase) ||
@@ -1277,6 +1350,7 @@ namespace QMC.CDT320.Interlocks
                    string.Equals(movingName, "WaferY", System.StringComparison.OrdinalIgnoreCase);
         }
 
+        // 인터락 기준: ExpanderZ가 플러스 방향으로 상승 이동하는지 판단한다.
         private static bool IsExpanderZMovingPositive(MotionGuardRuleContext request)
         {
             try
@@ -1314,6 +1388,7 @@ namespace QMC.CDT320.Interlocks
             return 0.05;
         }
 
+        // 인터락 항목: ExpanderZ 상승 전 InputVisionX가 Avoid 위치인지 확인한다.
         private static bool VerifyInputVisionXClearForExpanderZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -1354,6 +1429,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 상승 전 FrontPicker가 Input 존 간섭 없는 상태인지 확인한다.
         private static bool VerifyFrontPickerClearForExpanderZ(CDT320_Machine machine, PickerFrontUnit picker, bool targetAtOrAboveZero, out string reason)
         {
             reason = string.Empty;
@@ -1388,6 +1464,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 상승 전 RearPicker가 Input 존 간섭 없는 상태인지 확인한다.
         private static bool VerifyRearPickerClearForExpanderZ(CDT320_Machine machine, PickerRearUnit picker, bool targetAtOrAboveZero, out string reason)
         {
             reason = string.Empty;
@@ -1422,6 +1499,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ExpanderZ 상승 전 지정 Picker의 X/Y/Z 위치와 Input 존 간섭을 확인한다.
         private static bool VerifyPickerClearForExpanderZ(
             string pickerName,
             PickerZoneTransportState state,
@@ -1545,6 +1623,7 @@ namespace QMC.CDT320.Interlocks
                    ", alarm=" + axis.IsAlarm;
         }
 
+        // 인터락 기준: 지정 축이 현재 이동 대상이 아닌데 이동 중인지 판단한다.
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)
         {
             if (!MotionGuardRuleHelpers.IsAxisMoving(axis))
@@ -1559,6 +1638,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputStage 홈/이동 전 Front PickerZ 전체가 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZAxesAvoid(PickerFrontUnit picker, string movingName, string prefix, out string reason)
         {
             reason = string.Empty;
@@ -1579,6 +1659,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputStage 홈/이동 전 Rear PickerZ 전체가 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZAxesAvoid(PickerRearUnit picker, string movingName, string prefix, out string reason)
         {
             reason = string.Empty;

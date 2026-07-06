@@ -421,10 +421,20 @@ namespace QMC.CDT320.Motion.SharedRailX
             IReadOnlyList<SharedRailXAxisSetting> settings)
         {
             if (IsInputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
-                return IsInputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true);
+            {
+                // 현재 기준: InputVisionX-FrontPickerX는 Process zone이어도 SharedRailX 거리 검사를 항상 적용한다.
+                return true;
+                // 기존 조건 필요 여부: 사용하지 않음. Bottom/Side workArea에서 우회하면 실제 X 겹침을 놓칠 수 있다.
+                // return IsInputVisionPickerPairRequired(SharedRailXAxis.FrontPickerX, true);
+            }
 
             if (IsInputVisionPickerPair(pair, SharedRailXAxis.RearPickerX))
-                return IsInputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false);
+            {
+                // 현재 기준: InputVisionX-RearPickerX는 Process zone이어도 SharedRailX 거리 검사를 항상 적용한다.
+                return true;
+                // 기존 조건 필요 여부: 사용하지 않음. Bottom/Side workArea에서 우회하면 실제 X 겹침을 놓칠 수 있다.
+                // return IsInputVisionPickerPairRequired(SharedRailXAxis.RearPickerX, false);
+            }
 
             if (IsOutputVisionPickerPair(pair, SharedRailXAxis.FrontPickerX))
                 return true;
@@ -442,27 +452,27 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         private bool IsInputVisionPickerPairRequired(SharedRailXAxis pickerAxis, bool isFront)
         {
-            try
-            {
-                PickerWorkZone workZone;
-                string owner;
-                bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
-                // 현재 기준: INSPECT_B/INSPECT_S는 공유레일 판단에서 같은 Process 영역으로 본다.
-                if (workAreaActive && PickerZoneInterlockRules.IsProcessZone(workZone))
-                {
-                    WriteBottomBypassLogThrottled(pickerAxis, isFront, owner);
-                    return false;
-                }
+            // 현재 기준: InputVisionX-PickerX pair는 어떤 zone에서도 SharedRailX 거리 검사가 필요하다.
+            return true;
 
-                return true;
-            }
-            catch
-            {
-                return true;
-            }
-            finally
-            {
-            }
+            // 기존 조건 필요 여부: 사용하지 않음. Process workArea라는 논리 zone으로 물리 X 거리 검사를 우회하면 안 된다.
+            // try
+            // {
+            //     PickerWorkZone workZone;
+            //     string owner;
+            //     bool workAreaActive = PickerZoneInterlockRules.TryGetPickerWorkArea(isFront, out workZone, out owner);
+            //     if (workAreaActive && PickerZoneInterlockRules.IsProcessZone(workZone))
+            //     {
+            //         WriteBottomBypassLogThrottled(pickerAxis, isFront, owner);
+            //         return false;
+            //     }
+            //
+            //     return true;
+            // }
+            // catch
+            // {
+            //     return true;
+            // }
         }
 
         private static void WriteBottomBypassLogThrottled(SharedRailXAxis pickerAxis, bool isFront, string owner)

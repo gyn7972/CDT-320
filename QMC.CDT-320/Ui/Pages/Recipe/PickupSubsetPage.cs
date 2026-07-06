@@ -6,7 +6,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class PickupSubsetPage : SubsetPageBase
     {
-        private static readonly Color RbUnchecked = Color.FromArgb(0xF7, 0xFA, 0xFD);
+        private static readonly Color RbUnchecked = Color.FromArgb(0xE4, 0xE9, 0xEF);
         private static readonly Color RbChecked = Color.FromArgb(0x2E, 0x86, 0xDE);
         private static readonly Color RbCheckedFg = Color.White;
         private static readonly Color RbUncheckedFg = Color.FromArgb(0x33, 0x33, 0x33);
@@ -71,8 +71,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 rb.BackColor = RbUnchecked;
                 rb.ForeColor = RbUncheckedFg;
-                rb.FlatAppearance.BorderSize = 1;
-                rb.FlatAppearance.BorderColor = Color.LightGray;
+                rb.FlatAppearance.BorderSize = 2;
+                rb.FlatAppearance.BorderColor = Color.FromArgb(0x8A, 0x97, 0xA6);
             }
         }
 

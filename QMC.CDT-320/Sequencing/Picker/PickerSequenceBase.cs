@@ -9,6 +9,7 @@ using QMC.Common.Motion;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -32,6 +33,7 @@ namespace QMC.CDT320.Sequencing
         protected PickerSequenceKind Kind { get; private set; }
         protected string Name { get; private set; }
         protected PickerSequenceOptions Options { get; private set; }
+        protected CalibrationMotionSettings CalibrationMotion { get; private set; }
         protected TStep CurrentStep { get; set; }
         private IDisposable pickerWorkAreaScope;
         private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
@@ -114,9 +116,25 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
         }
 
+        protected int ResolveMoveTimeout()
+        {
+            if (CalibrationMotion != null)
+            {
+                CalibrationMotion.EnsureDefaults();
+                return CalibrationMotion.MoveTimeoutMs;
+            }
+
+            return ResolveTimeout();
+        }
+
         protected int ResolveResourceTimeout()
         {
             return Options != null && Options.ResourceTimeoutMs > 0 ? Options.ResourceTimeoutMs : 30000;
+        }
+
+        protected void SetCalibrationMotion(CalibrationMotionSettings motion)
+        {
+            CalibrationMotion = motion != null ? motion.Clone() : null;
         }
 
         protected void SetOptionsForManualOperation(PickerSequenceOptions options)
@@ -394,6 +412,16 @@ namespace QMC.CDT320.Sequencing
                     "targetName=" + targetName,
                     "forceMove=" + forceMove);
 
+                int sharedRailReadyResult = await WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
+                    axis,
+                    target,
+                    targetName,
+                    description,
+                    ct,
+                    forceMove).ConfigureAwait(false);
+                if (sharedRailReadyResult != 0)
+                    return sharedRailReadyResult;
+
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     axis,
                     target,
@@ -435,7 +463,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 Stopwatch waitWatch = Stopwatch.StartNew();
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                int moveTimeout = ResolveMoveTimeout();
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, moveTimeout, ct).ConfigureAwait(false);
                 waitMs = waitWatch.ElapsedMilliseconds;
                 if (waitResult == null || !waitResult.Success)
                 {
@@ -445,7 +474,7 @@ namespace QMC.CDT320.Sequencing
                         "target=" + target,
                         "description=" + description,
                         "status=WaitFailed",
-                        "timeoutMs=" + ResolveTimeout(),
+                        "timeoutMs=" + moveTimeout,
                         "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
@@ -514,6 +543,16 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (IsAlarmStopActive())
                     return StopPickerMoveBecauseAlarmActive(description);
+
+                int sharedRailReadyResult = await WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
+                    targets,
+                    targetName,
+                    description,
+                    ct,
+                    forceMove).ConfigureAwait(false);
+                if (sharedRailReadyResult != 0)
+                    return sharedRailReadyResult;
+
                 int yReadyResult = await WaitOppositePickerYAvoidBeforeAutoForwardMoveAsync(
                     targets,
                     targetName,
@@ -588,7 +627,7 @@ namespace QMC.CDT320.Sequencing
 
                     var waitTasks = new List<Task<AxisMoveWaitResult>>();
                     foreach (KeyValuePair<PickerAxis, double> pair in commandTargets)
-                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
+                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveMoveTimeout(), ct));
 
                     Stopwatch waitWatch = Stopwatch.StartNew();
                     AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
@@ -632,6 +671,150 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-MOVE-EX", Name, description + " parallel move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private Task<int> WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
+            IDictionary<PickerAxis, double> targets,
+            string targetName,
+            string description,
+            CancellationToken ct,
+            bool forceMove)
+        {
+            if (targets == null)
+                return Task.FromResult(0);
+
+            double pickerXTarget;
+            if (!targets.TryGetValue(PickerAxis.PickerX, out pickerXTarget))
+                return Task.FromResult(0);
+
+            return WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
+                PickerAxis.PickerX,
+                pickerXTarget,
+                targetName,
+                description,
+                ct,
+                forceMove);
+        }
+
+        private async Task<int> WaitPickerXSharedRailDistanceBeforeAutoMoveAsync(
+            PickerAxis axis,
+            double target,
+            string targetName,
+            string description,
+            CancellationToken ct,
+            bool forceMove)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (axis != PickerAxis.PickerX)
+                    return 0;
+
+                if (!forceMove && IsPickerAxisAlreadyInPosition(axis, target))
+                    return 0;
+
+                BaseAxis pickerX = GetPickerAxis(axis);
+                if (pickerX == null)
+                    return Fail("PICKER-SHARED-RAIL-X-AXIS-MISSING", Name,
+                        description + " PickerX SharedRailX 거리 확인 실패. PickerX 축을 찾을 수 없습니다.");
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context != null ? Context.Machine : null);
+                if (service == null || !service.IsSharedRailAxis(pickerX))
+                    return 0;
+
+                // 현재 기준: PickerX 이동은 명령 전 SharedRailX 거리 검사를 1순위로 확인한다.
+                int timeoutMs = ResolveMoveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                string reason = string.Empty;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".PickerXSharedRailDistanceWait");
+
+                    if (IsAlarmStopActive())
+                        return StopPickerMoveBecauseAlarmActive(description);
+
+                    if (service.VerifySingleAxisMove(pickerX, target, out reason))
+                        break;
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        return Fail("PICKER-SHARED-RAIL-X-DISTANCE-TIMEOUT", Name,
+                            description + " PickerX 이동 전 SharedRailX 거리 대기 시간 초과. " +
+                            "side=" + Side +
+                            ", target=" + target.ToString("F6") +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", reason=" + reason +
+                            ", " + BuildPickerAxisState(axis, target));
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("PickerSharedRailXGate",
+                            Name + " Auto PickerX 이동 전 SharedRailX 거리 대기. " +
+                            "side=" + Side +
+                            ", target=" + target.ToString("F6") +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", description=" + description +
+                            ", reason=" + reason + " - Wait");
+                        WriteSharedRailXLog(
+                            Name + " PickerSharedRailXGate wait. side=" + Side +
+                            ", target=" + target.ToString("F6") +
+                            ", targetName=" + (targetName ?? "-") +
+                            ", reason=" + reason +
+                            ", pickerState=" + BuildPickerAxisState(axis, target));
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    WriteLog("PickerSharedRailXGate",
+                        Name + " Auto PickerX 이동 전 SharedRailX 거리 대기 완료. " +
+                        "side=" + Side +
+                        ", target=" + target.ToString("F6") +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
+                    WriteSharedRailXLog(
+                        Name + " PickerSharedRailXGate wait complete. side=" + Side +
+                        ", target=" + target.ToString("F6") +
+                        ", targetName=" + (targetName ?? "-") +
+                        ", elapsedMs=" + elapsedMs.ToString("0"));
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SHARED-RAIL-X-GATE-EX", Name,
+                    description + " PickerX SharedRailX 거리 대기 중 예외가 발생했습니다. " +
+                    "side=" + Side +
+                    ", target=" + target.ToString("F6") +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", error=" + ex.Message);
             }
             finally
             {
@@ -1913,6 +2096,29 @@ namespace QMC.CDT320.Sequencing
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false)
         {
+            if (CalibrationMotion != null)
+            {
+                CalibrationMotion.EnsureDefaults();
+                if (Side == PickerSequenceSide.Front)
+                    return FrontPicker.MovePickerAxisCommandWithMotion(
+                        axis,
+                        target,
+                        CalibrationMotion.MoveVelocity,
+                        CalibrationMotion.MoveAcceleration,
+                        CalibrationMotion.MoveDeceleration,
+                        targetName,
+                        forceMove);
+
+                return RearPicker.MovePickerAxisCommandWithMotion(
+                    axis,
+                    target,
+                    CalibrationMotion.MoveVelocity,
+                    CalibrationMotion.MoveAcceleration,
+                    CalibrationMotion.MoveDeceleration,
+                    targetName,
+                    forceMove);
+            }
+
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);

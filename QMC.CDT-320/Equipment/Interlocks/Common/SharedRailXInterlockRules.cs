@@ -4,6 +4,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class SharedRailXInterlockRules
     {
+        // 인터락 항목: 공유 X 레일 축 이동은 SharedRailXMotionService의 단축 충돌 검사를 통과해야 한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;

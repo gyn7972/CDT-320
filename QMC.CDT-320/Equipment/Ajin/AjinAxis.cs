@@ -364,9 +364,20 @@ namespace QMC.CDT320.Ajin
                     return await base.HomeSearchAsync();
                 }
 
+                _isHomeSearching = true;
+                sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
+                ClearHomeSearchLimitAlarmState();
+                UpdateStatus();
+
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
                     return FailMotion(-11, "HOME", interlockReason, AxisHomeTarget(), true);
+
+                if (IsHomeSearchLimitAlarmActive())
+                {
+                    ClearHomeSearchLimitAlarmState();
+                    UpdateStatus();
+                }
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return FailAjinAxisNotReady("HOME", AxisHomeTarget(), true);
@@ -375,8 +386,6 @@ namespace QMC.CDT320.Ajin
                 IsMoving = true;
                 IsInPosition = false;
                 _motionDirection = 0;
-                _isHomeSearching = true;
-                sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
                 int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
                 int ret;
@@ -1129,6 +1138,34 @@ namespace QMC.CDT320.Ajin
         private bool IsRecoverableLimitAlarmActive()
         {
             return IsPositiveLimitActive() || IsNegativeLimitActive();
+        }
+
+        private bool IsHomeSearchLimitAlarmActive()
+        {
+            return IsRecoverableLimitAlarmActive() || IsLimitAlarmCode(AlarmCode);
+        }
+
+        private static bool IsLimitAlarmCode(uint alarmCode)
+        {
+            return alarmCode == 10 || alarmCode == 11 || alarmCode == 20 || alarmCode == 21;
+        }
+
+        private void ClearHomeSearchLimitAlarmState()
+        {
+            if (!IsHomeSearchLimitAlarmActive() && !_softLimitAlarmLatched)
+                return;
+
+            _softLimitAlarmLatched = false;
+            _softLimitAlarmLatchedCode = 0;
+            _limitRecoveryActive = false;
+            _limitRecoveryDirection = 0;
+
+            if (IsLimitAlarmCode(AlarmCode))
+            {
+                IsAlarm = false;
+                AlarmCode = 0;
+                ClearMotionFailure();
+            }
         }
 
         public bool CanRecoverLimitByJogDirection(int direction)

@@ -7,6 +7,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class OutputStageInterlockRules
     {
+        // 인터락 항목: OutputStage의 Good/NG/VisionX/실린더 이동 요청을 해당 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -46,6 +47,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: OutputGoodStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinGoodY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -66,6 +68,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 GoodStageY 이동은 Feeder/NG Clamp/기구 간섭/Stage Busy 조건을 확인한다.
         private static bool CanAutoOutputGoodStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -99,6 +102,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // OutputGoodStageY 이동 전제: OutputFeederY가 Avoid 위치가 아니면 차단/알람.
+        // 인터락 항목: GoodStageY 이동 전 OutputFeederY가 Avoid 또는 안전 위치인지 확인한다.
         private static bool VerifyOutputFeederYAvoidForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -130,6 +134,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // OutputGoodStageY 이동 전제 ①: OutputFeeder Ring Check 센서가 감지되면 차단/알람.
+        // 인터락 항목: GoodStageY 이동 전 OutputFeeder Ring 감지 상태가 해제되어 있는지 확인한다.
         private static bool VerifyOutputFeederRingClearForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -164,6 +169,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // OutputGoodStageY 이동 전제 ②: OutputFeeder가 Unclamp 상태가 아니면 차단/알람.
+        // 인터락 항목: GoodStageY 이동 전 OutputFeeder Clamp가 Unclamp 상태인지 확인한다.
         private static bool VerifyOutputFeederUnclampForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -195,6 +201,7 @@ namespace QMC.CDT320.Interlocks
         }
 
         // OutputGoodStageY 이동 전제 ③: OutputFeeder Overload 센서가 감지되면 차단/알람.
+        // 인터락 항목: GoodStageY 이동 전 OutputFeeder Overload 감지 상태를 확인한다.
         private static bool VerifyOutputFeederOverloadClearForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -225,6 +232,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputGoodStageZ 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyBinGoodZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -245,6 +253,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: GoodStageZ 홈은 OutputStage Busy 여부를 확인한다.
         private static bool CanHomeOutputGoodStageZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -264,6 +273,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 수동 GoodStageZ 이동은 OutputStage Busy와 NG StageY 기구 간섭을 확인한다.
         private static bool CanManualOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -300,6 +310,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 자동 GoodStageZ 이동은 OutputStage Busy와 NG StageY 기구 간섭을 확인한다.
         private static bool CanAutoOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -318,6 +329,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason);
         }
 
+        // 인터락 항목: OutputNGStageY 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinNgY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -338,6 +350,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 NGStageY 이동은 GoodStageZ/GoodStageY 기구 간섭과 OutputStage Busy를 확인한다.
         private static bool CanAutoOutputNgStageY(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
@@ -371,6 +384,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyOutputStageNotBusy(stage, "OutputNGStageY", out reason);
         }
 
+        // 인터락 항목: OutputVisionX 이동 종류별로 자동/수동/홈 조건을 선택한다.
         private static bool VerifyBinVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -391,6 +405,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 자동 OutputVisionX 이동은 OutputStage Busy 여부를 확인한다.
         private static bool CanAutoOutputVisionX(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeOutputVisionX(machine, out reason))
@@ -402,6 +417,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputVisionX", out reason);
         }
 
+        // 인터락 항목: 수동 OutputVisionX 이동은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
         private static bool CanManualOutputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -438,6 +454,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputVisionX 홈은 OutputStage Busy와 Good/NG Stage 안전 위치를 확인한다.
         private static bool CanHomeOutputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -474,6 +491,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 GoodStageY 이동은 Feeder/NG Clamp/기구 간섭/Stage Busy 조건을 확인한다.
         private static bool CanManualOutputGoodStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -517,6 +535,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: GoodStageY 홈은 Feeder/NG Clamp/기구 간섭/Stage Busy 조건을 확인한다.
         private static bool CanHomeOutputGoodStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -560,6 +579,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 수동 NGStageY 이동은 GoodStageZ/GoodStageY 기구 간섭과 OutputStage Busy를 확인한다.
         private static bool CanManualOutputNgStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -625,6 +645,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: NGStageY 홈은 GoodStageZ/GoodStageY 기구 간섭과 OutputStage Busy를 확인한다.
         private static bool CanHomeOutputNgStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
@@ -690,6 +711,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputStage 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyOutputStageCylinder(MotionGuardRuleContext request, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -719,6 +741,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: OutputStage 실린더 초기화는 OutputStage 이송부 안전 상태를 확인한다.
         private static bool CanInitializeOutputStageCylinder(
             CDT320_Machine machine,
             string movingName,
@@ -740,6 +763,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: OutputStage 실린더 이동은 OutputStage 이송부 안전 상태를 확인한다.
         private static bool CanMoveOutputStageCylinder(
             CDT320_Machine machine,
             string movingName,
@@ -761,6 +785,7 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: OutputStage 이동 전 OutputFeederY 이송부가 안전 위치인지 확인한다.
         private static bool VerifyOutputTransportClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -783,6 +808,7 @@ namespace QMC.CDT320.Interlocks
             return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
+        // 인터락 항목: GoodStageY 이동 전 NG Clamp Lift가 Up 상태인지 확인한다.
         private static bool VerifyNgClampLiftUpForGoodStageMove(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -801,6 +827,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: GoodStageY 이동 전 GoodStageZ 하강/NGStageY 위치에 따른 기구 간섭을 확인한다.
         private static bool VerifyGoodStageYMechanicalClear(MotionGuardRuleContext request, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -833,6 +860,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: GoodStageY 홈 전 GoodStageZ와 NGStageY 기구 간섭을 확인한다.
         private static bool VerifyGoodStageYHomeMechanicalClear(OutputStageUnit outputStage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -848,6 +876,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: GoodStageY 목표가 GoodStageZ Avoid를 요구하는 위치인지 판단한다.
         private static bool IsGoodStageYTargetRequiringGoodZAvoid(OutputStageUnit outputStage, double target)
         {
             if (outputStage == null || outputStage.Recipe == null || outputStage.Recipe.GoodStageY == null)
@@ -861,6 +890,7 @@ namespace QMC.CDT320.Interlocks
                    IsTargetPosition(axis, target, y.UnloadPosition);
         }
 
+        // 인터락 항목: GoodStageZ가 Avoid 외 위치로 움직일 때 NGStageY 간섭을 확인한다.
         private static bool VerifyGoodStageZNonAvoidMoveClear(MotionGuardRuleContext request, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -881,6 +911,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: NGStageY 이동 전 GoodStageY/GoodStageZ 기구 간섭을 확인한다.
         private static bool VerifyOutputNgStageYMechanicalClear(MotionGuardRuleContext request, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -911,6 +942,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: NGStageY 목표가 Avoid 위치인지 판단한다.
         private static bool IsNgStageYAvoidTarget(OutputStageUnit outputStage, double target)
         {
             if (outputStage == null || outputStage.Recipe == null || outputStage.Recipe.NGStageY == null)
@@ -919,6 +951,7 @@ namespace QMC.CDT320.Interlocks
             return System.Math.Abs(target - outputStage.Recipe.NGStageY.AvoidPosition) <= 0.001;
         }
 
+        // 인터락 기준: GoodStageZ 목표가 Avoid 위치인지 판단한다.
         private static bool IsGoodStageZAvoidTarget(OutputStageUnit stage, double target)
         {
             if (stage == null || stage.Recipe == null || stage.Recipe.GoodStageZ == null)
@@ -928,6 +961,7 @@ namespace QMC.CDT320.Interlocks
             return IsTargetPosition(axis, target, stage.Recipe.GoodStageZ.AvoidPosition);
         }
 
+        // 인터락 기준: GoodStageZ가 양방향 상승 이동 중인지 판단한다.
         private static bool IsGoodStageZMovingPositive(MotionGuardRuleContext request)
         {
             try
@@ -948,6 +982,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: GoodStageZ 목표가 Load 또는 Unload 위치인지 판단한다.
         private static bool IsGoodStageZLoadOrUnloadTarget(OutputStageUnit stage, double target)
         {
             if (stage == null || stage.Recipe == null || stage.GoodStage == null || stage.GoodStage.StageZ == null)
@@ -957,6 +992,7 @@ namespace QMC.CDT320.Interlocks
                    IsTargetPosition(stage.GoodStage.StageZ, target, stage.Recipe.GoodStageZ.UnloadPosition);
         }
 
+        // 인터락 기준: 목표 위치가 지정 위치 허용오차 안인지 판단한다.
         private static bool IsTargetPosition(BaseAxis axis, double target, double position)
         {
             double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
@@ -966,6 +1002,7 @@ namespace QMC.CDT320.Interlocks
             return System.Math.Abs(target - position) <= tolerance;
         }
 
+        // 인터락 항목: OutputStage 내부 다른 축/실린더가 이동 중인지 확인한다.
         private static bool VerifyOutputStageNotBusy(OutputStageUnit stage, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -984,6 +1021,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: DryRun 입력은 실제 센서가 없어도 안전 상태로 인정한다.
         private static bool IsDryRunInput(BaseDigitalInput input)
         {
             return input != null && input.Config != null &&
@@ -1020,6 +1058,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 실제 하드웨어 센서를 엄격하게 볼 모드인지 판단한다.
         private static bool IsStrictHardwareMode()
         {
             try
@@ -1039,6 +1078,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 기준: 지정 축이 현재 이동 대상이 아닌데 이동 중인지 판단한다.
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)
         {
             if (!MotionGuardRuleHelpers.IsAxisMoving(axis))

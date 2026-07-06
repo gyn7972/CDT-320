@@ -6,6 +6,7 @@ namespace QMC.CDT320.Interlocks
 {
     public static class VisionInterlockRules
     {
+        // 인터락 항목: SideVisionY와 Reticle 실린더 이동 요청을 Vision 인터락으로 라우팅한다.
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -30,6 +31,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: FrontSideVisionY 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyFrontSideVisionY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -50,12 +52,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: FrontSideVisionY 홈은 Vision 장치 Busy 여부를 확인한다.
         private static bool CanHomeFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             return true;
         }
 
+        // 인터락 항목: 수동 FrontSideVisionY 이동은 Vision 장치 Busy 여부를 확인한다.
         private static bool CanManualFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeFrontSideVisionY(machine, out reason))
@@ -64,6 +68,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "FrontSideVisionY", out reason);
         }
 
+        // 인터락 항목: 자동 FrontSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanAutoFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeFrontSideVisionY(machine, out reason))
@@ -75,6 +80,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "FrontSideVisionY", out reason);
         }
 
+        // 인터락 항목: RearSideVisionY 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyRearSideVisionY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -95,12 +101,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: RearSideVisionY 홈은 Vision 장치 Busy 여부를 확인한다.
         private static bool CanHomeRearSideVisionY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
             return true;
         }
 
+        // 인터락 항목: 수동 RearSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanManualRearSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeRearSideVisionY(machine, out reason))
@@ -112,6 +120,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
         }
 
+        // 인터락 항목: 자동 RearSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanAutoRearSideVisionY(CDT320_Machine machine, out string reason)
         {
             if (!CanHomeRearSideVisionY(machine, out reason))
@@ -123,6 +132,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
         }
         
+        // 인터락 항목: ReticleLift 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyReticleLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -152,6 +162,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ReticleLift 초기화는 Vision 장치 Busy 여부를 확인한다.
         private static bool CanInitializeReticleLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -175,6 +186,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }
 
+        // 인터락 항목: ReticleLift 이동은 Vision 장치 Busy 여부를 확인한다.
         private static bool CanMoveReticleLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -198,6 +210,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }
 
+        // 인터락 항목: ReticleFrontSlide 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyReticleFrontSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -227,12 +240,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ReticleFrontSlide 초기화는 ReticleLift/Vision Busy 조건을 확인한다.
         private static bool CanInitializeReticleFrontSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideFront", out reason);
         }
 
+        // 인터락 항목: ReticleFrontSlide 이동은 ReticleLift/Vision Busy 조건을 확인한다.
         private static bool CanMoveReticleFrontSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -240,6 +255,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideFront", out reason);
         }
 
+        // 인터락 항목: ReticleRearSlide 실린더 이동 종류별로 초기화/일반 이동 조건을 선택한다.
         private static bool VerifyReticleRearSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
@@ -269,12 +285,14 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: ReticleRearSlide 초기화는 ReticleLift/Vision Busy 조건을 확인한다.
         private static bool CanInitializeReticleRearSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideRear", out reason);
         }
 
+        // 인터락 항목: ReticleRearSlide 이동은 ReticleLift/Vision Busy 조건을 확인한다.
         private static bool CanMoveReticleRearSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
@@ -282,6 +300,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideRear", out reason);
         }
 
+        // 인터락 항목: SideVision 이동 전 InputStage 축 이동 중 여부를 확인한다.
         private static bool VerifyInputStageClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -299,6 +318,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: Vision 축/Reticle 이동 전 VisionUnit 내부 축 또는 실린더 Busy 여부를 확인한다.
         private static bool VerifyVisionNotBusy(VisionUnit vision, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -323,6 +343,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 지정 축이 현재 이동 대상이 아닌데 이동 중인지 판단한다.
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)
         {
             if (!MotionGuardRuleHelpers.IsAxisMoving(axis))
@@ -337,6 +358,7 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 지정 실린더가 현재 이동 대상이 아닌데 이동 중인지 판단한다.
         private static bool IsCylinderMovingExcept(BaseCylinder cylinder, string movingName, params string[] names)
         {
             if (!MotionGuardRuleHelpers.IsCylinderMoving(cylinder))

@@ -288,6 +288,9 @@ namespace QMC.CDT320.Recipes
         // ── 310 Union Recipe 이식 — SubsetRecipe 4 종 ──
         [DataMember] public DieSubset             Die           { get; set; } = new DieSubset();
         [DataMember] public TapeFrameSubset       Frame         { get; set; } = new TapeFrameSubset();
+        // DieMap 생성 기준은 Input/Output(Bin)을 분리하고 Frame은 기존 레시피 호환 폴백으로 유지한다.
+        [DataMember] public TapeFrameSubset       InputFrame    { get; set; }
+        [DataMember] public TapeFrameSubset       OutputFrame   { get; set; }
         [DataMember] public LoadTapeFrameSubset   LoadFrame     { get; set; } = new LoadTapeFrameSubset();
         [DataMember] public UnloadTapeFrameSubset UnloadFrame   { get; set; } = new UnloadTapeFrameSubset();
         [DataMember] public ModuleSubset          Module        { get; set; } = new ModuleSubset();
@@ -376,10 +379,15 @@ namespace QMC.CDT320.Recipes
         [DataMember] public int    DieMapY  { get; set; } = 5;
         [DataMember] public double PitchX { get; set; } = 1.0;
         [DataMember] public double PitchY { get; set; } = 1.0;
+        [DataMember] public double DieSizeX { get; set; } = 1.0;
+        [DataMember] public double DieSizeY { get; set; } = 1.0;
         [DataMember] public string Rotate { get; set; } = "None";
         [DataMember] public double OuterDiameterMm { get; set; } = 200;
+        [DataMember] public string EdgeSkipMode { get; set; } = "Grid";
         [DataMember] public int    SideEdgeSkip { get; set; } = 0;
         [DataMember] public int    TopBottomEdgeSkip { get; set; } = 0;
+        [DataMember] public double SideEdgeSkipMm { get; set; } = 0.0;
+        [DataMember] public double TopBottomEdgeSkipMm { get; set; } = 0.0;
     }
 
     /// <summary>로드 웨이퍼 (310 의 LoadDieTapeFrameSubsetRecipe).</summary>

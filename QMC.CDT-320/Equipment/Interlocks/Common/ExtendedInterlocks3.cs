@@ -9,6 +9,7 @@ namespace QMC.CDT320.Interlocks
     {
         public BaseDigitalInput DoorClosed { get; }
         public DoorVsAllInterlock(string name, BaseDigitalInput doorClosed) : base(name) { DoorClosed = doorClosed; }
+        // 인터락 항목: Door가 열린 상태에서 모든 축 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -37,6 +38,7 @@ namespace QMC.CDT320.Interlocks
             VisionDownThreshold = visionDown; LifterUpThreshold = lifterUp;
         }
 
+        // 인터락 항목: WaferVisionZ 하강과 StageLifter 상승이 겹치는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -75,6 +77,7 @@ namespace QMC.CDT320.Interlocks
             VacuumOn = vacOn; PickerZ = pickerZ; PickerDownThreshold = pickerDown;
         }
 
+        // 인터락 항목: Vacuum이 On인 상태에서 PickerZ가 추가 하강하는 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -99,6 +102,7 @@ namespace QMC.CDT320.Interlocks
         public BinLidVsBinVisionInterlock(string name, BaseDigitalInput lidOpen, BaseAxis visionAxis)
             : base(name) { BinLidOpen = lidOpen; BinVisionAxis = visionAxis; }
 
+        // 인터락 항목: Bin Lid가 열린 상태에서 Bin Vision 축 이동을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
@@ -119,6 +123,7 @@ namespace QMC.CDT320.Interlocks
         public BaseAxis Axis { get; }
         public ServoOffInterlock(string name, BaseAxis axis) : base(name) { Axis = axis; }
 
+        // 인터락 항목: Servo Off 상태인 축에 대한 이동 명령을 차단한다.
         public override bool VerifyMove(string axisName, double targetPos, out string reason)
         {
             reason = null;
