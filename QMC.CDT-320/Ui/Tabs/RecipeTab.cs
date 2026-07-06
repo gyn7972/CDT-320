@@ -47,6 +47,48 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnPickupSubset,     "recipe.pickupSubset",    en, () => new PickupSubsetPage());
             RegisterSidebarButton(BtnForceControl,     "recipe.forceControl",    UserLevel.Maintenance, () => new ForceControlPage());
             RegisterSidebarButton(BtnCalibration,      "recipe.calibration",     UserLevel.Maintenance, () => new CalibrationPage());
+
+            // 레시피 사이드바 메뉴는 로케일과 무관하게 대문자 영어로 표시한다.
+            // (번역 데이터/권한 Tag는 그대로 두고 표시 텍스트만 영어로 오버라이드)
+            ApplyEnglishMenuLabels();
+            Lang.LanguageChanged += OnLanguageChangedMenu;
+        }
+
+        /// <summary>사이드바 메뉴 버튼 텍스트를 영어(대문자)로 강제한다. Tag(i18n/권한)는 유지.</summary>
+        private void ApplyEnglishMenuLabels()
+        {
+            try
+            {
+                foreach (var kv in SidebarButtons)
+                {
+                    if (kv.Value == null) continue;
+                    string en = Lang.TEn(kv.Key);
+                    if (!string.IsNullOrEmpty(en)) kv.Value.Text = en.ToUpperInvariant();
+                }
+                if (BtnDieMapSetup != null)
+                {
+                    string en = Lang.TEn("recipe.dieMapSetup");
+                    if (!string.IsNullOrEmpty(en)) BtnDieMapSetup.Text = en.ToUpperInvariant();
+                }
+            }
+            catch { }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) Lang.LanguageChanged -= OnLanguageChangedMenu;
+            base.Dispose(disposing);
+        }
+
+        private void OnLanguageChangedMenu()
+        {
+            // Lang.Apply 가 동기적으로 Text 를 되돌린 뒤에 다시 영어로 덮어쓰도록 지연 실행.
+            try
+            {
+                if (IsDisposed || !IsHandleCreated) { ApplyEnglishMenuLabels(); return; }
+                BeginInvoke((Action)ApplyEnglishMenuLabels);
+            }
+            catch { }
         }
 
         private void RegisterSidebarActionButton(SidebarButton button, string i18nKey, UserLevel minLevel, Action onClick)

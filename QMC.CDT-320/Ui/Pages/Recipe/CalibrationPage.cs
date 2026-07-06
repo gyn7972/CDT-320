@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Dialogs;
@@ -41,12 +41,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                BackColor = Color.FromArgb(207, 210, 214);
-                rootLayout.BackColor = BackColor;
+                BackColor = Color.White;
+                rootLayout.BackColor = Color.White;
                 headerPanel.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.BackColor = Color.FromArgb(64, 64, 64);
                 lblHeader.ForeColor = Color.White;
-                lblHeader.Font = new Font("Malgun Gothic", 13F, FontStyle.Bold);
+                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
                 lblStatus.ForeColor = Color.FromArgb(40, 40, 40);
             }
             catch (Exception ex)

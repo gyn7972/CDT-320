@@ -407,15 +407,17 @@ namespace QMC.CDT320.Sequencing
 
                 double targetY = _pickTarget.TargetY;
                 double targetX = _pickTarget.TargetX;
+                double targetNeedleX = ResolveNeedleXForVisionX(stage, targetX);
 
                 string areaReason;
                 if (IsPickerMotionOnlyTestMode())
                 {
-                    if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out areaReason))
                     {
                         return Fail("INPUT-DIE-VISION-PREPARE-STAGE-WORK-AREA", stage.Name,
                             "Picker Motion Only Test 목표 위치가 InputStage 작업 가능 영역을 벗어났습니다. die=" + _currentDieId +
                             ", pickerNo=" + _currentPickerNo +
+                            ", needleX=" + targetNeedleX.ToString("F6") +
                             ", reason=" + areaReason);
                     }
 
@@ -435,11 +437,12 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                if (!stage.IsNeedleWorkPointInArea(targetNeedleX, targetY, out areaReason))
                     return Fail("INPUT-DIE-VISION-PREPARE-STAGE-WORK-AREA", stage.Name,
                         "Input die vision 목표 위치가 InputStage 작업 가능 영역을 벗어났습니다. " +
                         "die=" + _currentDieId +
                         ", pickerNo=" + _currentPickerNo +
+                        ", needleX=" + targetNeedleX.ToString("F6") +
                         ", reason=" + areaReason);
 
                 int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
@@ -1157,10 +1160,11 @@ namespace QMC.CDT320.Sequencing
                     return Fail("INPUT-DIE-VISION-PREPARE-NEEDLEZ-RECIPE", stage.Name,
                         description + " 전 NeedleZ Avoid 위치 정보가 없습니다.");
 
-                double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : stage.ResolveWorkAreaCenterX();
+                double currentX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : stage.ResolveNeedleWorkAreaCenterX();
                 double currentY = stage.StageY != null ? stage.StageY.ActualPosition : stage.ResolveWorkAreaCenterY();
                 string areaReason;
-                if (stage.IsInputStageWorkPointInArea(currentX, currentY, out areaReason))
+                // 현재 기준: NeedleZ 하강 가능 여부는 CameraX가 아니라 NeedleX/StageY 실축 작업 원으로 확인한다.
+                if (stage.IsNeedleWorkPointInArea(currentX, currentY, out areaReason))
                     return 0;
                 if (stage.IsNeedleZInSafePosition())
                     return 0;
@@ -1375,6 +1379,7 @@ namespace QMC.CDT320.Sequencing
 
                 double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : targetX;
                 double currentY = stage.StageY != null ? stage.StageY.ActualPosition : targetY;
+                double currentNeedleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition : ResolveNeedleXForVisionX(stage, currentX);
                 double targetNeedleX = ResolveNeedleXForVisionX(stage, targetX);
 
                 string needleAreaReason;
@@ -1434,7 +1439,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string xFirstReason;
-                bool canMoveXFirst = stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason);
+                // 현재 기준: 경로 판단은 CameraX가 아니라 NeedleX/StageY 실축 조합으로 확인한다.
+                bool canMoveXFirst = stage.IsNeedleWorkPointInArea(targetNeedleX, currentY, out xFirstReason);
                 if (canMoveXFirst)
                 {
                     int result = await MoveInputVisionXAndVerifyAsync(
@@ -1459,7 +1465,7 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string yFirstReason;
-                bool canMoveYFirst = stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason);
+                bool canMoveYFirst = stage.IsNeedleWorkPointInArea(currentNeedleX, targetY, out yFirstReason);
                 if (canMoveYFirst)
                 {
                     int result = await MoveNeedleXAndStageYForVisionPrepareAsync(
@@ -1625,7 +1631,7 @@ namespace QMC.CDT320.Sequencing
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, stageYTarget))
                 {
                     commandAxes.Add(Tuple.Create(WaferStageAxis.WaferY, stageYTarget, description + " StageY"));
-                    commandTasks.Add(MoveInputStageYForPickerWorkPointCommandAsync(stage, visionTarget, stageYTarget, description + " StageY", ct));
+                    commandTasks.Add(MoveInputStageYForPickerWorkPointCommandAsync(stage, visionTarget, stageYTarget, description + " StageY", ct, needleTarget));
                 }
 
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleX, needleTarget))
@@ -1926,7 +1932,8 @@ namespace QMC.CDT320.Sequencing
             double workAreaVisionX,
             double target,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            double? workAreaNeedleX = null)
         {
             try
             {
@@ -1939,7 +1946,8 @@ namespace QMC.CDT320.Sequencing
                         workAreaVisionX,
                         target,
                         description,
-                        ct).ConfigureAwait(false);
+                        ct,
+                        workAreaNeedleX).ConfigureAwait(false);
                     if (result != 0)
                         return result;
 
@@ -1974,7 +1982,8 @@ namespace QMC.CDT320.Sequencing
             double workAreaVisionX,
             double target,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            double? workAreaNeedleX = null)
         {
             try
             {
@@ -1986,7 +1995,8 @@ namespace QMC.CDT320.Sequencing
                         workAreaVisionX,
                         target,
                         Options != null && Options.FineMove,
-                        "InputDieVisionPrepare"),
+                        "InputDieVisionPrepare",
+                        workAreaNeedleX),
                     ct).ConfigureAwait(false);
 
                 if (result != 0)
@@ -2029,14 +2039,12 @@ namespace QMC.CDT320.Sequencing
                 if (axis == WaferStageAxis.VisionX)
                 {
                     bool preInspection = IsInputCameraPreInspectionMode();
-                    int interlockRetryTimeoutMs = ResolveTimeout();
-                    DateTime interlockRetryStart = DateTime.UtcNow;
 
                     while (true)
                     {
                         ct.ThrowIfCancellationRequested();
 
-                        // FIX-A: 대기 조건 = 실제 이동에 적용될 MotionGuard 전체 판정(SharedRailX + PickerZone Input 점유)과 동일 소스.
+                        // 현재 기준: InputVisionX 이동 전 SharedRailX 거리와 MotionGuard 조건을 먼저 확인한다.
                         int sharedRailWait = await WaitInputVisionXSharedRailClearAsync(
                             stage,
                             item,
@@ -2054,26 +2062,23 @@ namespace QMC.CDT320.Sequencing
                                 ct).ConfigureAwait(false);
                         }
 
-                        // FIX-C: 대기 통과와 이동 발행 사이의 레이스로 인터락(-11)에 막히면 곧바로 Fail하지 않고
-                        //        대기 조건으로 되돌아가 재확인 후 재시도한다. 그 외 결과는 그대로 아래에서 처리.
+                        // 현재 기준: SharedRailX/인터락 차단(-11)은 대기 조건이 아니므로 즉시 알람 처리한다.
                         if (result != -11)
                             break;
 
-                        // FIX-B: 선행검사(비침습 부가작업)의 협조적 인터락 차단은 본 공정을 죽이지 않는다.
-                        //        선행검사 모드는 인터락이 풀릴 때까지 계속 양보/재시도(취소로만 종료),
-                        //        일반검사 모드는 재시도 시간 초과 시 기존 Fail 처리로 진행한다.
-                        double interlockElapsedMs = (DateTime.UtcNow - interlockRetryStart).TotalMilliseconds;
-                        if (!preInspection && interlockElapsedMs >= interlockRetryTimeoutMs)
-                            break;
-
-                        WriteLog("InputDieVisionPrepareSequence",
-                            Name + " InputVisionX 이동이 인터락(-11)에 막혀 대기 후 재시도합니다. " +
+                        return Fail("INPUT-DIE-VISION-PREPARE-STAGE-MOVE-INTERLOCK", stage.Name,
+                            description + " 이동 명령이 인터락(-11)에 차단되었습니다. 대기 조건이 아니므로 알람 처리합니다. " +
                             "target=" + target.ToString("F6") +
                             ", description=" + description +
                             ", preInspection=" + preInspection +
-                            ", elapsedMs=" + interlockElapsedMs.ToString("0") + " - Wait");
+                            ", " + BuildInputStageAxisState(stage, axis, target) +
+                            PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
 
-                        await Task.Delay(20, ct).ConfigureAwait(false);
+                        // 기존 조건 필요 여부: 사용하지 않음. 인터락(-11)을 재시도 대기로 처리하면 위험 명령이 알람 없이 반복될 수 있다.
+                        // double interlockElapsedMs = (DateTime.UtcNow - interlockRetryStart).TotalMilliseconds;
+                        // if (!preInspection && interlockElapsedMs >= interlockRetryTimeoutMs)
+                        //     break;
+                        // await Task.Delay(20, ct).ConfigureAwait(false);
                     }
                 }
                 else
@@ -2142,14 +2147,14 @@ namespace QMC.CDT320.Sequencing
                     if (Context != null)
                         Context.StopIfCycleStopRequested(Name + ".InputVisionXSharedRailClear");
 
-                    // FIX-A: 대기 조건을 실제 이동 인터락 전체와 동일 소스로 통일한다.
-                    // 1) SharedRailX 거리 clearance, 2) MotionGuard 전체 dry-run(PickerZone Input 점유 포함).
+                    // 현재 기준: SharedRailX 거리 검사를 1순위로 보고, 명령 전 clear 될 때까지 대기한다.
                     string sharedRailReason = "";
                     bool sharedRailClear = !sharedRailApplicable ||
                         service.VerifySingleAxisMove(stage.CameraX, target, out sharedRailReason);
 
                     string guardReason = "";
-                    bool guardClear = MotionGuardRuntime.CanAxisTeachingMove(guardAxis, target, guardTargetName, out guardReason);
+                    bool guardClear = sharedRailClear &&
+                        MotionGuardRuntime.CanAxisTeachingMove(guardAxis, target, guardTargetName, out guardReason);
 
                     if (sharedRailClear && guardClear)
                         break;
@@ -2161,12 +2166,11 @@ namespace QMC.CDT320.Sequencing
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     if (elapsedMs >= timeoutMs)
                     {
-                        // FIX-B: 선행검사(비침습 부가작업)는 본 공정을 죽이지 않는다.
-                        // 상대 Picker가 공용 레일을 점유하는 협조적 경합이므로 인터락이 풀릴 때까지 계속 양보/대기한다(취소로만 종료).
+                        // 현재 기준: 선행검사는 SharedRailX 거리와 MotionGuard 협조 조건이 clear 될 때까지 대기한다.
                         if (preInspection)
                         {
                             WriteLog("InputDieVisionPrepareSequence",
-                                Name + " InputCamera 선행검사 모드: InputVisionX 이동을 본 공정에 양보하고 인터락이 풀릴 때까지 계속 대기합니다. " +
+                                Name + " InputCamera 선행검사 모드: SharedRailX/MotionGuard 대기 조건이 풀릴 때까지 계속 대기합니다. " +
                                 "target=" + target.ToString("F6") +
                                 ", description=" + description +
                                 ", elapsedMs=" + elapsedMs.ToString("0") +
@@ -2184,8 +2188,11 @@ namespace QMC.CDT320.Sequencing
                             "elapsedMs=" + elapsedMs.ToString("0"),
                             "timeoutMs=" + timeoutMs,
                             "reason=" + reason);
-                        return Fail("INPUT-DIE-VISION-PREPARE-SHARED-RAIL-X-TIMEOUT", stage.Name,
-                            description + " InputVisionX 이동 인터락 clearance 대기 시간 초과. " +
+                        string timeoutAlarmCode = !sharedRailClear
+                            ? "INPUT-DIE-VISION-PREPARE-SHARED-RAIL-X-TIMEOUT"
+                            : "INPUT-DIE-VISION-PREPARE-MOTION-GUARD-TIMEOUT";
+                        return Fail(timeoutAlarmCode, stage.Name,
+                            description + " InputVisionX 이동 전 SharedRailX/MotionGuard 대기 시간 초과. " +
                             "target=" + target.ToString("F6") +
                             ", elapsedMs=" + elapsedMs.ToString("0") +
                             ", timeoutMs=" + timeoutMs +
@@ -2195,7 +2202,7 @@ namespace QMC.CDT320.Sequencing
                     if (!waitLogged)
                     {
                         WriteLog("InputDieVisionPrepareSequence",
-                            Name + " InputVisionX 이동 인터락 clearance 대기. " +
+                            Name + " InputVisionX 이동 전 SharedRailX/MotionGuard 대기. " +
                             "target=" + target.ToString("F6") +
                             ", description=" + description +
                             ", reason=" + reason + " - Wait");
@@ -2209,7 +2216,7 @@ namespace QMC.CDT320.Sequencing
                 {
                     double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
                     WriteLog("InputDieVisionPrepareSequence",
-                        Name + " InputVisionX 이동 인터락 clearance 대기 완료. " +
+                        Name + " InputVisionX 이동 전 SharedRailX/MotionGuard 대기 완료. " +
                         "target=" + target.ToString("F6") +
                         ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
                 }

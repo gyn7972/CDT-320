@@ -5,16 +5,210 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using System.Text.RegularExpressions;
 using QMC.CDT320.Materials;
 using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.DieMaps
 {
+    public enum WaferEdgeSkipMode
+    {
+        Grid = 0,
+        Millimeter = 1
+    }
+
     /// <summary>
     /// DieMap 생성/저장/로드. 310 의 DieMapGenerateServiceExecutor 와 동등 기능.
     /// </summary>
     public static class DieMapGenerator
     {
+        private sealed class ExternalMapPoint
+        {
+            public int X;
+            public int Y;
+            public int Bin;
+        }
+
+        public static int CalculateWaferGridCount(double outerDiameterMm, double pitchMm, double dieSizeMm)
+        {
+            if (outerDiameterMm <= 0.0)
+                return 1;
+
+            double pitch = pitchMm > 0.0 ? pitchMm : 1.0;
+            double dieSize = dieSizeMm > 0.0 ? dieSizeMm : pitch;
+            int count = (int)Math.Floor(Math.Max(0.0, outerDiameterMm - dieSize) / pitch) + 1;
+            return Math.Max(1, count);
+        }
+
+        public static DieMap GenerateCircularWafer(
+            double outerDiameterMm,
+            double pitchX,
+            double pitchY,
+            double dieSizeX,
+            double dieSizeY,
+            WaferEdgeSkipMode edgeSkipMode,
+            double sideEdgeSkip,
+            double topBottomEdgeSkip,
+            string frameObjId = "WAFER")
+        {
+            double diameter = outerDiameterMm > 0.0 ? outerDiameterMm : 1.0;
+            double resolvedPitchX = pitchX > 0.0 ? pitchX : 1.0;
+            double resolvedPitchY = pitchY > 0.0 ? pitchY : 1.0;
+            double resolvedDieSizeX = dieSizeX > 0.0 ? dieSizeX : resolvedPitchX;
+            double resolvedDieSizeY = dieSizeY > 0.0 ? dieSizeY : resolvedPitchY;
+
+            // 현재 기준: 외경/피치/다이 크기로 실제 들어갈 Grid 수를 자동 계산한다.
+            int gridX = CalculateWaferGridCount(diameter, resolvedPitchX, resolvedDieSizeX);
+            int gridY = CalculateWaferGridCount(diameter, resolvedPitchY, resolvedDieSizeY);
+            double originX = -Math.Max(0, gridX - 1) * resolvedPitchX / 2.0;
+            double originY = -Math.Max(0, gridY - 1) * resolvedPitchY / 2.0;
+            double radius = diameter / 2.0;
+
+            int sideGridSkip = 0;
+            int topBottomGridSkip = 0;
+            double sideMmSkip = 0.0;
+            double topBottomMmSkip = 0.0;
+
+            if (edgeSkipMode == WaferEdgeSkipMode.Grid)
+            {
+                sideGridSkip = ClampEdgeGridSkip(sideEdgeSkip, gridX);
+                topBottomGridSkip = ClampEdgeGridSkip(topBottomEdgeSkip, gridY);
+            }
+            else
+            {
+                sideMmSkip = Math.Max(0.0, sideEdgeSkip);
+                topBottomMmSkip = Math.Max(0.0, topBottomEdgeSkip);
+            }
+
+            var map = new DieMap
+            {
+                FrameObjId = frameObjId,
+                DieMapX = gridX,
+                DieMapY = gridY,
+                PitchX = resolvedPitchX,
+                PitchY = resolvedPitchY,
+                DieSizeX = resolvedDieSizeX,
+                DieSizeY = resolvedDieSizeY,
+                OuterDiameterMm = diameter,
+                EdgeSkipMode = edgeSkipMode.ToString(),
+                SideEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Grid ? sideGridSkip : sideMmSkip,
+                TopBottomEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Grid ? topBottomGridSkip : topBottomMmSkip,
+                OriginX = originX,
+                OriginY = originY,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            for (int row = 0; row < gridY; row++)
+            {
+                for (int col = 0; col < gridX; col++)
+                {
+                    double x = originX + col * resolvedPitchX;
+                    double y = originY + row * resolvedPitchY;
+                    bool target = IsInsideCircularWaferTarget(
+                        col,
+                        row,
+                        gridX,
+                        gridY,
+                        x,
+                        y,
+                        radius,
+                        resolvedDieSizeX / 2.0,
+                        resolvedDieSizeY / 2.0,
+                        edgeSkipMode,
+                        sideGridSkip,
+                        topBottomGridSkip,
+                        sideMmSkip,
+                        topBottomMmSkip);
+
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        DieMapX = col,
+                        DieMapY = row,
+                        IsTarget = target,
+                        Result = target ? DieResult.Unknown : DieResult.NG,
+                        BinCode = target ? 0 : 255,
+                        PosX = x,
+                        PosY = y
+                    });
+                }
+            }
+
+            return map;
+        }
+
+        private static int ClampEdgeGridSkip(double value, int gridCount)
+        {
+            int skip = (int)Math.Floor(Math.Max(0.0, value));
+            int max = Math.Max(0, (gridCount - 1) / 2);
+            return skip > max ? max : skip;
+        }
+
+        private static bool IsInsideCircularWaferTarget(
+            int col,
+            int row,
+            int gridX,
+            int gridY,
+            double centerX,
+            double centerY,
+            double radius,
+            double dieHalfX,
+            double dieHalfY,
+            WaferEdgeSkipMode edgeSkipMode,
+            int sideGridSkip,
+            int topBottomGridSkip,
+            double sideMmSkip,
+            double topBottomMmSkip)
+        {
+            if (gridX <= 0 || gridY <= 0 || radius <= 0.0)
+                return false;
+
+            // 현재 기준: GRID 모드는 행/열 개수, MM 모드는 외곽 물리 거리로 Target 제외한다.
+            if (edgeSkipMode == WaferEdgeSkipMode.Grid)
+            {
+                if (col < sideGridSkip || col >= gridX - sideGridSkip)
+                    return false;
+                if (row < topBottomGridSkip || row >= gridY - topBottomGridSkip)
+                    return false;
+            }
+            else
+            {
+                double usableHalfX = Math.Max(0.0, radius - sideMmSkip);
+                double usableHalfY = Math.Max(0.0, radius - topBottomMmSkip);
+                if (Math.Abs(centerX) + dieHalfX > usableHalfX)
+                    return false;
+                if (Math.Abs(centerY) + dieHalfY > usableHalfY)
+                    return false;
+            }
+
+            double usableRadius = edgeSkipMode == WaferEdgeSkipMode.Millimeter
+                ? Math.Max(0.0, radius - Math.Max(sideMmSkip, topBottomMmSkip))
+                : radius;
+            if (usableRadius <= 0.0)
+                return false;
+
+            return IsDieRectangleInsideCircle(centerX, centerY, dieHalfX, dieHalfY, usableRadius);
+        }
+
+        private static bool IsDieRectangleInsideCircle(double centerX, double centerY, double halfX, double halfY, double radius)
+        {
+            double radiusSq = radius * radius;
+            double[] xs = { centerX - halfX, centerX + halfX };
+            double[] ys = { centerY - halfY, centerY + halfY };
+            for (int ix = 0; ix < xs.Length; ix++)
+            {
+                for (int iy = 0; iy < ys.Length; iy++)
+                {
+                    double x = xs[ix];
+                    double y = ys[iy];
+                    if ((x * x) + (y * y) > radiusSq)
+                        return false;
+                }
+            }
+            return true;
+        }
+
         /// <summary>
         /// 300mm 웨이퍼(또는 임의 직경) 모양의 원형 다이맵 생성.
         /// 다이 크기 + 간격(gap) 으로 pitch 계산 후 격자 생성, 원 밖 다이는 IsTarget=false 로 비활성화.
@@ -32,55 +226,16 @@ namespace QMC.CDT320.DieMaps
         {
             double pitchX = dieSizeXMm + gapXMm;
             double pitchY = dieSizeYMm + gapYMm;
-            double radius = waferDiameterMm / 2.0;
-            // 사각 외접 격자 셀 수 (원 직경을 pitch 로 나눔)
-            int gx = (int)Math.Floor(waferDiameterMm / pitchX);
-            int gy = (int)Math.Floor(waferDiameterMm / pitchY);
-            if (gx < 1) gx = 1;
-            if (gy < 1) gy = 1;
-
-            // 격자 index 기준 중심 좌표를 (0,0)으로 둔다.
-            // 예: 45x45, pitch=1이면 [22,22]가 0, [44,22]가 +22가 된다.
-            double originX = -Math.Max(0, gx - 1) * pitchX / 2.0;
-            double originY = -Math.Max(0, gy - 1) * pitchY / 2.0;
-
-            var map = new DieMap
-            {
-                FrameObjId = frameObjId,
-                DieMapX  = gx,
-                DieMapY  = gy,
-                PitchX = pitchX,
-                PitchY = pitchY,
-                OriginX = originX,
-                OriginY = originY,
-            };
-
-            int idx = 0;
-            for (int y = 0; y < gy; y++)
-            {
-                for (int x = 0; x < gx; x++)
-                {
-                    // index 중심 좌표 (원 중심 기준)
-                    double cx = originX + x * pitchX;
-                    double cy = originY + y * pitchY;
-                    // 원 안 판정: 셀 중심이 반지름 안에 있어야 활성
-                    double distSq = cx * cx + cy * cy;
-                    bool isTarget = distSq <= radius * radius;
-
-                    map.Entries.Add(new DieMapEntry
-                    {
-                        Index    = idx++,
-                        DieMapX    = x,
-                        DieMapY    = y,
-                        IsTarget = isTarget,
-                        Result   = DieResult.Unknown,
-                        BinCode  = 0,
-                        PosX        = cx,
-                        PosY        = cy
-                    });
-                }
-            }
-            return map;
+            return GenerateCircularWafer(
+                waferDiameterMm,
+                pitchX,
+                pitchY,
+                dieSizeXMm,
+                dieSizeYMm,
+                WaferEdgeSkipMode.Grid,
+                0,
+                0,
+                frameObjId);
         }
 
         /// <summary>
@@ -241,6 +396,9 @@ namespace QMC.CDT320.DieMaps
                     continue;
 
                 entry.Index = i;
+                // 현재 기준: 외부 웨이퍼맵 원본 인덱스가 있으면 DieMapX/Y도 그 값으로 통일한다.
+                if (entry.OriginalMapX >= 0) entry.DieMapX = entry.OriginalMapX;
+                if (entry.OriginalMapY >= 0) entry.DieMapY = entry.OriginalMapY;
                 if (entry.DieMapX < 0) entry.DieMapX = 0;
                 if (entry.DieMapY < 0) entry.DieMapY = 0;
 
@@ -265,14 +423,22 @@ namespace QMC.CDT320.DieMaps
                 }
             }
 
+            if (map.Entries.Count > 0)
+            {
+                int maxX = map.Entries.Where(e => e != null).Select(e => e.DieMapX).DefaultIfEmpty(0).Max();
+                int maxY = map.Entries.Where(e => e != null).Select(e => e.DieMapY).DefaultIfEmpty(0).Max();
+                if (map.DieMapX <= maxX) map.DieMapX = Math.Max(1, maxX + 1);
+                if (map.DieMapY <= maxY) map.DieMapY = Math.Max(1, maxY + 1);
+            }
+
             return map;
         }
 
         private static string BuildDefaultDieUid(DieMap map, DieMapEntry entry)
         {
             string frameId = SanitizeId(map != null ? map.FrameObjId : "DIEMAP");
-            int row = entry != null ? entry.DieMapY : 0;
-            int col = entry != null ? entry.DieMapX : 0;
+            int row = ResolveMapIndexY(entry);
+            int col = ResolveMapIndexX(entry);
             return frameId + "-D" + row.ToString("000", CultureInfo.InvariantCulture) + "-" + col.ToString("000", CultureInfo.InvariantCulture);
         }
 
@@ -320,6 +486,106 @@ namespace QMC.CDT320.DieMaps
             catch { }
         }
 
+        /// <summary>RAD 계열 TXT로 저장. X/Y는 원본 grid index, B는 Bin label로 기록한다.</summary>
+        public static void SaveWaferMapText(DieMap map, string path)
+        {
+            if (map == null) return;
+            try
+            {
+                Normalize(map);
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+                List<DieMapEntry> targets = map.Entries
+                    .Where(e => e != null && e.IsTarget)
+                    .OrderBy(e => ResolveMapIndexY(e))
+                    .ThenBy(e => ResolveMapIndexX(e))
+                    .ToList();
+
+                int count = targets.Count;
+                int pitchXum = Math.Max(1, (int)Math.Round((map.PitchX > 0.0 ? map.PitchX : 1.0) * 1000.0));
+                int pitchYum = Math.Max(1, (int)Math.Round((map.PitchY > 0.0 ? map.PitchY : 1.0) * 1000.0));
+                string frameId = string.IsNullOrWhiteSpace(map.FrameObjId)
+                    ? Path.GetFileNameWithoutExtension(path)
+                    : map.FrameObjId;
+                if (string.IsNullOrWhiteSpace(frameId))
+                    frameId = "CDT320";
+
+                using (var sw = new StreamWriter(path, false, new UTF8Encoding(false)))
+                {
+                    sw.WriteLine("[" + frameId.PadRight(80).Substring(0, 80) + "]");
+                    sw.WriteLine("[CDT320/00/CDT320-WAFERMAP/CDT320/" +
+                                 pitchXum.ToString("00000", CultureInfo.InvariantCulture) + "/" +
+                                 pitchYum.ToString("00000", CultureInfo.InvariantCulture) + "/%" +
+                                 count.ToString(CultureInfo.InvariantCulture) + "/&" +
+                                 count.ToString(CultureInfo.InvariantCulture) + "/    /00]");
+                    sw.WriteLine("[Y=0000 G=#00000001 1=#00000001 2=#00000000 P=#00000000 F=#FFFFFFFF       I=S]");
+                    sw.WriteLine("[S=" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss", CultureInfo.InvariantCulture) +
+                                 " E=" + DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss", CultureInfo.InvariantCulture) +
+                                 " R=000.00NS 0100(0028) 0.00(0.00)]");
+                    sw.WriteLine("\"[NORMAL         /000,000,000,                                                ]\"");
+                    sw.WriteLine("[FIRST_X= " + ResolveFirstIndex(targets, true).ToString("000", CultureInfo.InvariantCulture) +
+                                 " FIRST_Y= " + ResolveFirstIndex(targets, false).ToString("000", CultureInfo.InvariantCulture) +
+                                 " TEMP: +0000.0 /CDT320                                ]");
+                    sw.WriteLine("\"BO=1\"");
+                    sw.WriteLine("\"BN=Good\"");
+
+                    foreach (DieMapEntry entry in targets)
+                    {
+                        int x = ResolveMapIndexX(entry);
+                        int y = ResolveMapIndexY(entry);
+                        int bin = entry.BinCode > 0 && entry.BinCode < 1000 ? entry.BinCode : 1;
+                        // 현재 기준: 저장 TXT도 X/Y는 좌표가 아니라 map index 그대로 쓴다.
+                        sw.WriteLine("X= " + x.ToString("0000", CultureInfo.InvariantCulture) +
+                                     " Y= " + y.ToString("0000", CultureInfo.InvariantCulture) +
+                                     " B= " + bin.ToString("000", CultureInfo.InvariantCulture));
+                    }
+
+                    sw.WriteLine("E= EOW");
+                    sw.WriteLine("E= EOW");
+                }
+            }
+            catch { }
+        }
+
+        public static void Save(DieMap map, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            if (ext == ".csv")
+                SaveCsv(map, path);
+            else if (ext == ".txt")
+                SaveWaferMapText(map, path);
+            else
+                SaveJson(map, path);
+        }
+
+        public static int ResolveMapIndexX(DieMapEntry entry)
+        {
+            if (entry == null)
+                return 0;
+            return entry.OriginalMapX >= 0 ? entry.OriginalMapX : entry.DieMapX;
+        }
+
+        public static int ResolveMapIndexY(DieMapEntry entry)
+        {
+            if (entry == null)
+                return 0;
+            return entry.OriginalMapY >= 0 ? entry.OriginalMapY : entry.DieMapY;
+        }
+
+        private static int ResolveFirstIndex(List<DieMapEntry> entries, bool xAxis)
+        {
+            if (entries == null || entries.Count == 0)
+                return 0;
+
+            return xAxis
+                ? ResolveMapIndexX(entries[0])
+                : ResolveMapIndexY(entries[0]);
+        }
+
         /// <summary>JSON 직렬화 저장 (raw).</summary>
         public static void SaveJson(DieMap map, string path)
         {
@@ -349,6 +615,131 @@ namespace QMC.CDT320.DieMaps
                 }
             }
             catch { return null; }
+        }
+
+        /// <summary>프로버 웨이퍼맵 TXT(RAD 계열) 로드. X/Y는 원본 인덱스, B는 Bin label로 사용한다.</summary>
+        public static DieMap LoadWaferMapText(string path)
+        {
+            if (!File.Exists(path)) return null;
+            try
+            {
+                List<ExternalMapPoint> points = new List<ExternalMapPoint>();
+                double pitchX = 1.0;
+                double pitchY = 1.0;
+                TryReadPitchFromWaferMapText(path, out pitchX, out pitchY);
+
+                Regex pointRegex = new Regex(@"^X=\s*(?<x>[-+]?\d+)\s+Y=\s*(?<y>[-+]?\d+)\s+B=\s*(?<b>[-+]?\d+)", RegexOptions.Compiled);
+                foreach (string line in File.ReadLines(path))
+                {
+                    Match match = pointRegex.Match(line ?? "");
+                    if (!match.Success)
+                        continue;
+
+                    points.Add(new ExternalMapPoint
+                    {
+                        X = int.Parse(match.Groups["x"].Value, CultureInfo.InvariantCulture),
+                        Y = int.Parse(match.Groups["y"].Value, CultureInfo.InvariantCulture),
+                        Bin = int.Parse(match.Groups["b"].Value, CultureInfo.InvariantCulture)
+                    });
+                }
+
+                if (points.Count == 0)
+                    return null;
+
+                int minX = points.Min(p => p.X);
+                int maxX = points.Max(p => p.X);
+                int minY = points.Min(p => p.Y);
+                int maxY = points.Max(p => p.Y);
+                int gridX = Math.Max(1, maxX + 1);
+                int gridY = Math.Max(1, maxY + 1);
+                double centerIndexX = (minX + maxX) / 2.0;
+                double centerIndexY = (minY + maxY) / 2.0;
+                double originX = -centerIndexX * pitchX;
+                double originY = -centerIndexY * pitchY;
+                string frameId = Path.GetFileNameWithoutExtension(path);
+
+                var map = new DieMap
+                {
+                    FrameObjId = string.IsNullOrWhiteSpace(frameId) ? "WAFER-TXT" : frameId,
+                    DieMapX = gridX,
+                    DieMapY = gridY,
+                    PitchX = pitchX,
+                    PitchY = pitchY,
+                    DieSizeX = pitchX,
+                    DieSizeY = pitchY,
+                    OuterDiameterMm = Math.Max((maxX - minX + 1) * pitchX, (maxY - minY + 1) * pitchY),
+                    EdgeSkipMode = "ExternalMap",
+                    OriginX = originX,
+                    OriginY = originY,
+                    CreatedAt = DateTime.Now
+                };
+
+                int index = 0;
+                foreach (ExternalMapPoint point in points
+                    .GroupBy(p => p.X.ToString(CultureInfo.InvariantCulture) + "," + p.Y.ToString(CultureInfo.InvariantCulture))
+                    .Select(g => g.First())
+                    .OrderBy(p => p.Y)
+                    .ThenBy(p => p.X))
+                {
+                    int binCode = point.Bin;
+                    bool target = binCode > 0;
+
+                    // 현재 기준: TXT X/Y는 맵 좌표가 아니라 원본 grid index 그대로 사용한다.
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        DieMapX = point.X,
+                        DieMapY = point.Y,
+                        OriginalMapX = point.X,
+                        OriginalMapY = point.Y,
+                        IsTarget = target,
+                        Result = target ? DieResult.Unknown : DieResult.NG,
+                        BinCode = target ? binCode : 255,
+                        PosX = originX + point.X * pitchX,
+                        PosY = originY + point.Y * pitchY,
+                        DieUid = BuildExternalMapDieUid(frameId, point.X, point.Y)
+                    });
+                }
+
+                return Normalize(map);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void TryReadPitchFromWaferMapText(string path, out double pitchX, out double pitchY)
+        {
+            pitchX = 1.0;
+            pitchY = 1.0;
+            try
+            {
+                Regex pitchRegex = new Regex(@"/(?<x>\d{5})/(?<y>\d{5})/", RegexOptions.Compiled);
+                foreach (string line in File.ReadLines(path).Take(20))
+                {
+                    Match match = pitchRegex.Match(line ?? "");
+                    if (!match.Success)
+                        continue;
+
+                    // 현재 기준: RAD 헤더의 08120/06120 값은 um 단위 die pitch로 보고 mm로 변환한다.
+                    pitchX = Math.Max(0.001, double.Parse(match.Groups["x"].Value, CultureInfo.InvariantCulture) / 1000.0);
+                    pitchY = Math.Max(0.001, double.Parse(match.Groups["y"].Value, CultureInfo.InvariantCulture) / 1000.0);
+                    return;
+                }
+            }
+            catch
+            {
+                pitchX = 1.0;
+                pitchY = 1.0;
+            }
+        }
+
+        private static string BuildExternalMapDieUid(string frameId, int originalX, int originalY)
+        {
+            string safeFrame = SanitizeId(frameId);
+            return safeFrame + "-X" + originalX.ToString("0000", CultureInfo.InvariantCulture) +
+                   "-Y" + originalY.ToString("0000", CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -418,6 +809,8 @@ namespace QMC.CDT320.DieMaps
                         PosY        = double.TryParse(p[7 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var y) ? y : 0,
                         DieUid   = p.Length >= 9 + offset ? p[8 + offset] : ""
                     };
+                    entry.OriginalMapX = entry.DieMapX;
+                    entry.OriginalMapY = entry.DieMapY;
                     map.Entries.Add(entry);
                 }
                 return Normalize(map);
@@ -431,6 +824,7 @@ namespace QMC.CDT320.DieMaps
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
             string ext = Path.GetExtension(path).ToLowerInvariant();
             if (ext == ".csv") return LoadCsv(path);
+            if (ext == ".txt") return LoadWaferMapText(path);
             return LoadJson(path);
         }
 
@@ -441,11 +835,13 @@ namespace QMC.CDT320.DieMaps
                                         DateTime.Now.ToString("yyyy-MM-dd"));
             Directory.CreateDirectory(root);
             string baseName = $"{(string.IsNullOrEmpty(lotId) ? "lot" : lotId)}_{(map.FrameObjId ?? "frame")}_{DateTime.Now:HHmmss}";
+            string txt  = Path.Combine(root, baseName + ".txt");
             string csv  = Path.Combine(root, baseName + ".csv");
             string json = Path.Combine(root, baseName + ".json");
+            SaveWaferMapText(map, txt);
             SaveCsv(map, csv);
             SaveJson(map, json);
-            return csv;
+            return txt;
         }
     }
 }

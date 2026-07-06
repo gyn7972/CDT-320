@@ -211,6 +211,7 @@
       <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\Common\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\ManualActionItem.cs" />
     <Compile Include="Ui\Controls\ManualActionPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -433,6 +434,7 @@
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
+    <Compile Include="Equipment\Recipes\RecipeDieMapResolver.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />
@@ -1238,6 +1240,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Material\MaterialBinPage.resx">
       <DependentUpon>MaterialBinPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\CalibrationPage.resx">
+      <DependentUpon>CalibrationPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>

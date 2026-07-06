@@ -14,6 +14,10 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public int       SequenceNo { get; set; }
         [DataMember] public int       DieMapX    { get; set; }
         [DataMember] public int       DieMapY    { get; set; }
+        /// <summary>외부 웨이퍼맵 원본 X 인덱스. 없으면 DieMapX와 동일하게 취급.</summary>
+        [DataMember] public int       OriginalMapX { get; set; } = -1;
+        /// <summary>외부 웨이퍼맵 원본 Y 인덱스. 없으면 DieMapY와 동일하게 취급.</summary>
+        [DataMember] public int       OriginalMapY { get; set; } = -1;
         /// <summary>true 면 이 위치는 처리 대상 (good die candidate).</summary>
         [DataMember] public bool      IsTarget { get; set; } = true;
         [DataMember] public DieResult Result   { get; set; } = DieResult.Unknown;
@@ -34,6 +38,12 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public int    DieMapY      { get; set; }
         [DataMember] public double PitchX     { get; set; }
         [DataMember] public double PitchY     { get; set; }
+        [DataMember] public double DieSizeX   { get; set; }
+        [DataMember] public double DieSizeY   { get; set; }
+        [DataMember] public double OuterDiameterMm { get; set; }
+        [DataMember] public string EdgeSkipMode { get; set; } = "";
+        [DataMember] public double SideEdgeSkip { get; set; }
+        [DataMember] public double TopBottomEdgeSkip { get; set; }
         [DataMember] public double OriginX    { get; set; }
         [DataMember] public double OriginY    { get; set; }
         [DataMember] public List<DieMapEntry> Entries { get; set; } = new List<DieMapEntry>();

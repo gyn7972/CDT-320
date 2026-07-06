@@ -17,7 +17,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblInfoHeader;
         private Label lblTimeHeader;
         private Panel visionPanel;
+        private TabControl mapTabControl;
+        private TabPage tabInputMap;
+        private TabPage tabOutputGoodMap;
+        private TabPage tabOutputNgMap;
         private LiveLotMapView lotMapView;
+        private LiveLotMapView outputGoodLotMapView;
+        private LiveLotMapView outputNgLotMapView;
         private TableLayoutPanel mapHeaderLayout;
         private Label lblTotalChipCaption;
         private Label lblTotalChip;
@@ -93,7 +99,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblVisionCaption = new System.Windows.Forms.Label();
             this.lblPickCaption = new System.Windows.Forms.Label();
             this.lblPlaceCaption = new System.Windows.Forms.Label();
+            this.mapTabControl = new System.Windows.Forms.TabControl();
+            this.tabInputMap = new System.Windows.Forms.TabPage();
+            this.tabOutputGoodMap = new System.Windows.Forms.TabPage();
+            this.tabOutputNgMap = new System.Windows.Forms.TabPage();
             this.lotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
+            this.outputGoodLotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
+            this.outputNgLotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
             this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblInfoHeader = new System.Windows.Forms.Label();
             this.workInfoBody = new System.Windows.Forms.TableLayoutPanel();
@@ -149,6 +161,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionPanel.SuspendLayout();
             this.mapLayout.SuspendLayout();
             this.mapHeaderLayout.SuspendLayout();
+            this.mapTabControl.SuspendLayout();
+            this.tabInputMap.SuspendLayout();
+            this.tabOutputGoodMap.SuspendLayout();
+            this.tabOutputNgMap.SuspendLayout();
             this.infoLayout.SuspendLayout();
             this.workInfoBody.SuspendLayout();
             this.timeLayout.SuspendLayout();
@@ -250,7 +266,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.mapLayout.Controls.Add(this.lblMapHeader, 0, 0);
             this.mapLayout.Controls.Add(this.mapHeaderLayout, 0, 1);
-            this.mapLayout.Controls.Add(this.lotMapView, 0, 2);
+            this.mapLayout.Controls.Add(this.mapTabControl, 0, 2);
             this.mapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapLayout.Location = new System.Drawing.Point(842, 4);
             this.mapLayout.Name = "mapLayout";
@@ -386,17 +402,94 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPlaceCaption.TabIndex = 6;
             this.lblPlaceCaption.Text = "PLACE";
             this.lblPlaceCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            //
+            // mapTabControl
+            //
+            this.mapTabControl.Controls.Add(this.tabInputMap);
+            this.mapTabControl.Controls.Add(this.tabOutputGoodMap);
+            this.mapTabControl.Controls.Add(this.tabOutputNgMap);
+            this.mapTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapTabControl.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.mapTabControl.ItemSize = new System.Drawing.Size(145, 24);
+            this.mapTabControl.Location = new System.Drawing.Point(3, 57);
+            this.mapTabControl.Name = "mapTabControl";
+            this.mapTabControl.Padding = new System.Drawing.Point(12, 4);
+            this.mapTabControl.SelectedIndex = 0;
+            this.mapTabControl.Size = new System.Drawing.Size(826, 427);
+            this.mapTabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
+            this.mapTabControl.TabIndex = 2;
+            //
+            // tabInputMap
+            //
+            this.tabInputMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.tabInputMap.Controls.Add(this.lotMapView);
+            this.tabInputMap.Location = new System.Drawing.Point(4, 28);
+            this.tabInputMap.Margin = new System.Windows.Forms.Padding(0);
+            this.tabInputMap.Name = "tabInputMap";
+            this.tabInputMap.Size = new System.Drawing.Size(818, 395);
+            this.tabInputMap.TabIndex = 0;
+            this.tabInputMap.Text = "INPUT MAP";
+            //
+            // tabOutputGoodMap
+            //
+            this.tabOutputGoodMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.tabOutputGoodMap.Controls.Add(this.outputGoodLotMapView);
+            this.tabOutputGoodMap.Location = new System.Drawing.Point(4, 28);
+            this.tabOutputGoodMap.Margin = new System.Windows.Forms.Padding(0);
+            this.tabOutputGoodMap.Name = "tabOutputGoodMap";
+            this.tabOutputGoodMap.Size = new System.Drawing.Size(818, 395);
+            this.tabOutputGoodMap.TabIndex = 1;
+            this.tabOutputGoodMap.Text = "OUTPUT GOOD";
+            //
+            // tabOutputNgMap
+            //
+            this.tabOutputNgMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.tabOutputNgMap.Controls.Add(this.outputNgLotMapView);
+            this.tabOutputNgMap.Location = new System.Drawing.Point(4, 28);
+            this.tabOutputNgMap.Margin = new System.Windows.Forms.Padding(0);
+            this.tabOutputNgMap.Name = "tabOutputNgMap";
+            this.tabOutputNgMap.Size = new System.Drawing.Size(818, 395);
+            this.tabOutputNgMap.TabIndex = 2;
+            this.tabOutputNgMap.Text = "OUTPUT NG";
+            //
             // lotMapView
-            // 
+            //
             this.lotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.lotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lotMapView.GridX = 5;
             this.lotMapView.GridY = 5;
-            this.lotMapView.Location = new System.Drawing.Point(3, 57);
+            this.lotMapView.Location = new System.Drawing.Point(0, 0);
+            this.lotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.lotMapView.Name = "lotMapView";
-            this.lotMapView.Size = new System.Drawing.Size(826, 427);
-            this.lotMapView.TabIndex = 2;
+            this.lotMapView.Size = new System.Drawing.Size(818, 395);
+            this.lotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.Input;
+            this.lotMapView.TabIndex = 0;
+            //
+            // outputGoodLotMapView
+            //
+            this.outputGoodLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.outputGoodLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.outputGoodLotMapView.GridX = 5;
+            this.outputGoodLotMapView.GridY = 5;
+            this.outputGoodLotMapView.Location = new System.Drawing.Point(0, 0);
+            this.outputGoodLotMapView.Margin = new System.Windows.Forms.Padding(0);
+            this.outputGoodLotMapView.Name = "outputGoodLotMapView";
+            this.outputGoodLotMapView.Size = new System.Drawing.Size(818, 395);
+            this.outputGoodLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputGood;
+            this.outputGoodLotMapView.TabIndex = 0;
+            //
+            // outputNgLotMapView
+            //
+            this.outputNgLotMapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.outputNgLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.outputNgLotMapView.GridX = 5;
+            this.outputNgLotMapView.GridY = 5;
+            this.outputNgLotMapView.Location = new System.Drawing.Point(0, 0);
+            this.outputNgLotMapView.Margin = new System.Windows.Forms.Padding(0);
+            this.outputNgLotMapView.Name = "outputNgLotMapView";
+            this.outputNgLotMapView.Size = new System.Drawing.Size(818, 395);
+            this.outputNgLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputNg;
+            this.outputNgLotMapView.TabIndex = 0;
             // 
             // infoLayout
             // 
@@ -1199,6 +1292,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.visionPanel.PerformLayout();
             this.mapLayout.ResumeLayout(false);
             this.mapHeaderLayout.ResumeLayout(false);
+            this.mapTabControl.ResumeLayout(false);
+            this.tabInputMap.ResumeLayout(false);
+            this.tabOutputGoodMap.ResumeLayout(false);
+            this.tabOutputNgMap.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
             this.workInfoBody.ResumeLayout(false);
             this.timeLayout.ResumeLayout(false);

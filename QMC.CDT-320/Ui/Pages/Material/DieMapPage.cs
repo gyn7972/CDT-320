@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -210,8 +211,8 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
                     _gridEntries.Rows.Add(
                         entry.Index,
-                        entry.DieMapX,
-                        entry.DieMapY,
+                        ResolveEntryMapX(entry),
+                        ResolveEntryMapY(entry),
                         entry.IsTarget ? "Y" : "N",
                         entry.Result,
                         entry.BinCode,
@@ -232,8 +233,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
         {
             using (var dlg = new OpenFileDialog
             {
-                Title = "Load DieMap (JSON or CSV)",
-                Filter = "DieMap files|*.json;*.csv|JSON|*.json|CSV|*.csv|All|*.*"
+                Title = "Load DieMap (JSON, CSV or TXT)",
+                Filter = "DieMap files|*.json;*.csv;*.txt|JSON|*.json|CSV|*.csv|WaferMap TXT|*.txt|All|*.*",
+                InitialDirectory = ResolveMapLoadInitialDirectory()
             })
             {
                 if (dlg.ShowDialog() != DialogResult.OK) return;
@@ -248,6 +250,12 @@ namespace QMC.CDT_320.Ui.Pages.Material
                 _map = loaded;
                 ApplyMapToView(_map, "Loaded Die Map");
             }
+        }
+
+        private static string ResolveMapLoadInitialDirectory()
+        {
+            string waferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
+            return Directory.Exists(waferMapDir) ? waferMapDir : AppDomain.CurrentDomain.BaseDirectory;
         }
 
         private static double Clamp(double v, double lo, double hi)
@@ -289,8 +297,18 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
         private void OnCellClick(DieMapEntry e)
         {
-            _lblCellInfo.Text = $"[{e.DieMapX},{e.DieMapY}]  pos=({e.PosX:F2},{e.PosY:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
+            _lblCellInfo.Text = $"[{ResolveEntryMapX(e)},{ResolveEntryMapY(e)}]  pos=({e.PosX:F2},{e.PosY:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
             SelectEntryRow(e);
+        }
+
+        private static int ResolveEntryMapX(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexX(entry);
+        }
+
+        private static int ResolveEntryMapY(DieMapEntry entry)
+        {
+            return DieMapGenerator.ResolveMapIndexY(entry);
         }
 
         private void SelectEntryRow(DieMapEntry entry)

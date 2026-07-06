@@ -1,3 +1,7 @@
+﻿using System.Threading.Tasks;
+using System.Windows.Forms;
+using QMC.CDT_320.Ui.Controls;
+
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class ForceControlPage : PageBase
@@ -5,7 +9,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         public ForceControlPage()
         {
             InitializeComponent();
+            BuildActions();
+            DisableColumnSorting();
             LoadSampleRows();
+        }
+
+        /// <summary>모든 열의 헤더 클릭 정렬(오름/내림차순) 기능을 끈다.</summary>
+        private void DisableColumnSorting()
+        {
+            foreach (DataGridViewColumn col in gridDo.Columns)
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+            foreach (DataGridViewColumn col in gridDi.Columns)
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+        }
+
+        private void BuildActions()
+        {
+            manualActionPanel.ColumnCount = 3;
+            manualActionPanel.RowHeight = 45;
+            manualActionPanel.SetItems(new[]
+            {
+                ManualActionItem.Create("FORCE ON", () => Task.CompletedTask),
+                ManualActionItem.Create("FORCE OFF", () => Task.CompletedTask),
+                ManualActionItem.Create("ALL OFF", () => Task.CompletedTask)
+            });
         }
 
         private void LoadSampleRows()

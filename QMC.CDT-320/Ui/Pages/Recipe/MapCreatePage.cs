@@ -40,11 +40,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
         private ContextMenuStrip _mapMenu;
         private string _currentMapPath;
+        private DateTime _currentMapWriteUtc;
         private string _currentFrameSpecName;
         private string _currentLibraryKey;
+        private const string EdgeSkipGridText = "GRID COUNT";
+        private const string EdgeSkipMmText = "MM";
+        private const string EdgeSkipExternalMapText = "EXTERNAL MAP";
         private readonly Dictionary<string, string> _mapLibraryPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DieMap> _mapLibraryMemoryMaps = new Dictionary<string, DieMap>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TapeFrameSpec> _mapLibraryFrameSpecs = new Dictionary<string, TapeFrameSpec>(StringComparer.OrdinalIgnoreCase);
+        private Label _lblDieSizeXKey;
+        private Label _lblDieSizeYKey;
+        private Label _lblEdgeSkipModeKey;
+        private NumericUpDown _nDieSizeX;
+        private NumericUpDown _nDieSizeY;
+        private ComboBox _cbEdgeSkipMode;
+        private bool _suppressMapSpecEvents;
+        private bool _mapSpecDirty;
 
         public MapCreatePage() : this("recipe.inputMapCreate")
         {
@@ -79,14 +91,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             LoadRecipeMapOrCreatePreview();
         }
 
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (!Visible || IsDesignerMode())
+                return;
+
+            ReloadRecipeMapIfChanged();
+        }
+
         private void InitializeMapEditor()
         {
             _mapView.Caption = "Recipe Die Map";
             _mapMenu = null;
             _mapView.ContextMenuStrip = null;
+            EnsurePhysicalMapSpecControls();
 
             lblHeader.Text = _isOutputMap ? "BIN MAP GENERATOR" : "INPUT MAP GENERATOR";
-            lblSettingTitle.Text = "SPEC PREVIEW";
+            lblSettingTitle.Text = "DIE MAP SETTING";
             lblActionTitle.Text = "APPLY";
             _btnMapLoad.Text = "LOAD SPEC";
             btnSave.Text = "APPLY TO RECIPE";
@@ -155,6 +177,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 rightLayout.RowStyles[1].SizeType = SizeType.Absolute;
                 rightLayout.RowStyles[1].Height = _isOutputMap ? 70F : 0F;
+                rightLayout.RowStyles[0].SizeType = SizeType.Absolute;
+                rightLayout.RowStyles[0].Height = 340F;
                 rightLayout.RowStyles[2].SizeType = SizeType.Absolute;
                 rightLayout.RowStyles[2].Height = 90F;
             }
@@ -166,6 +190,212 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void EnsurePhysicalMapSpecControls()
+        {
+            if (_nDieSizeX != null)
+                return;
+
+            _lblDieSizeXKey = CreateSettingLabel("lblDieSizeXKey", "DIE SIZE X (mm)");
+            _lblDieSizeYKey = CreateSettingLabel("lblDieSizeYKey", "DIE SIZE Y (mm)");
+            _lblEdgeSkipModeKey = CreateSettingLabel("lblEdgeSkipModeKey", "EDGE SKIP MODE");
+            _nDieSizeX = CreateSpecNumeric("_nDieSizeX", 0.001M, 1000M, 1M, 3);
+            _nDieSizeY = CreateSpecNumeric("_nDieSizeY", 0.001M, 1000M, 1M, 3);
+            _cbEdgeSkipMode = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Consolas", 10F),
+                Margin = new Padding(1)
+            };
+            _cbEdgeSkipMode.Items.Add(EdgeSkipGridText);
+            _cbEdgeSkipMode.Items.Add(EdgeSkipMmText);
+            _cbEdgeSkipMode.Items.Add(EdgeSkipExternalMapText);
+            _cbEdgeSkipMode.SelectedIndex = 0;
+
+            RebuildSettingSectionLayout();
+            HookMapSpecControlEvents();
+            EnableBinAuthoringControls();
+            UpdateEdgeSkipModeUi();
+        }
+
+        private static Label CreateSettingLabel(string name, string text)
+        {
+            return new Label
+            {
+                BackColor = Color.Gainsboro,
+                BorderStyle = BorderStyle.FixedSingle,
+                Dock = DockStyle.Fill,
+                Font = new Font("맑은 고딕", 9F),
+                Margin = new Padding(1),
+                Name = name,
+                Padding = new Padding(6, 0, 6, 0),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+        }
+
+        private static NumericUpDown CreateSpecNumeric(string name, decimal minimum, decimal maximum, decimal value, int decimals)
+        {
+            var control = new NumericUpDown
+            {
+                DecimalPlaces = decimals,
+                Dock = DockStyle.Fill,
+                Font = new Font("Consolas", 10F),
+                InterceptArrowKeys = false,
+                Margin = new Padding(1),
+                Maximum = maximum,
+                Minimum = minimum,
+                Name = name,
+                TextAlign = HorizontalAlignment.Right,
+                Value = value
+            };
+            return control;
+        }
+
+        private void RebuildSettingSectionLayout()
+        {
+            if (settingSection == null)
+                return;
+
+            settingSection.SuspendLayout();
+            try
+            {
+                settingSection.Controls.Clear();
+                settingSection.RowStyles.Clear();
+                settingSection.RowCount = 11;
+                settingSection.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+                for (int i = 1; i < settingSection.RowCount; i++)
+                    settingSection.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+
+                lblSettingTitle.Text = "DIE MAP SETTING";
+                settingSection.Controls.Add(lblSettingTitle, 0, 0);
+                settingSection.SetColumnSpan(lblSettingTitle, 2);
+
+                AddSettingRow(1, lblChipCountXKey, _tbFrameSpecName, "FRAME SPEC NAME");
+                AddSettingRow(2, lblChipCountYKey, _nGridX, "GRID X (AUTO)");
+                AddSettingRow(3, lblChipPitchXKey, _nGridY, "GRID Y (AUTO)");
+                AddSettingRow(4, lblChipPitchYKey, _nPitchX, "PITCH X (mm)");
+                AddSettingRow(5, lblWaferDiameterKey, _nPitchY, "PITCH Y (mm)");
+                AddSettingRow(6, _lblDieSizeXKey, _nDieSizeX, "DIE SIZE X (mm)");
+                AddSettingRow(7, _lblDieSizeYKey, _nDieSizeY, "DIE SIZE Y (mm)");
+                AddSettingRow(8, lblAxisXKey, _nDiameter, "OUTER DIAMETER (mm)");
+                AddSettingRow(9, _lblEdgeSkipModeKey, _cbEdgeSkipMode, "EDGE SKIP MODE");
+                AddSettingRow(10, lblAxisYKey, edgeSkipPanel, "EDGE SKIP L/R, T/B");
+            }
+            finally
+            {
+                settingSection.ResumeLayout(false);
+                settingSection.PerformLayout();
+            }
+        }
+
+        private void AddSettingRow(int row, Label label, Control valueControl, string text)
+        {
+            if (label == null || valueControl == null)
+                return;
+
+            label.Text = text;
+            settingSection.Controls.Add(label, 0, row);
+            settingSection.Controls.Add(valueControl, 1, row);
+        }
+
+        private void HookMapSpecControlEvents()
+        {
+            _nPitchX.ValueChanged += OnMapSpecControlChanged;
+            _nPitchY.ValueChanged += OnMapSpecControlChanged;
+            _nDieSizeX.ValueChanged += OnMapSpecControlChanged;
+            _nDieSizeY.ValueChanged += OnMapSpecControlChanged;
+            _nDiameter.ValueChanged += OnMapSpecControlChanged;
+            _nSideEdgeSkip.ValueChanged += OnMapSpecControlChanged;
+            _nTopBottomEdgeSkip.ValueChanged += OnMapSpecControlChanged;
+            _cbEdgeSkipMode.SelectedIndexChanged += OnMapSpecControlChanged;
+        }
+
+        private void OnMapSpecControlChanged(object sender, EventArgs e)
+        {
+            if (_suppressMapSpecEvents)
+                return;
+
+            UpdateEdgeSkipModeUi();
+            RecalculateGridPreviewFromControls();
+            _mapSpecDirty = true;
+        }
+
+        private void RecalculateGridPreviewFromControls()
+        {
+            if (_nDieSizeX == null)
+                return;
+
+            try
+            {
+                int gridX = DieMapGenerator.CalculateWaferGridCount((double)_nDiameter.Value, (double)_nPitchX.Value, (double)_nDieSizeX.Value);
+                int gridY = DieMapGenerator.CalculateWaferGridCount((double)_nDiameter.Value, (double)_nPitchY.Value, (double)_nDieSizeY.Value);
+                _suppressMapSpecEvents = true;
+                _nGridX.Value = ClampDecimal(gridX, _nGridX.Minimum, _nGridX.Maximum);
+                _nGridY.Value = ClampDecimal(gridY, _nGridY.Minimum, _nGridY.Maximum);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _suppressMapSpecEvents = false;
+            }
+        }
+
+        private void UpdateEdgeSkipModeUi()
+        {
+            if (_cbEdgeSkipMode == null || _nSideEdgeSkip == null || _nTopBottomEdgeSkip == null)
+                return;
+
+            string modeName = GetSelectedEdgeSkipModeName();
+            bool mmMode = string.Equals(modeName, WaferEdgeSkipMode.Millimeter.ToString(), StringComparison.OrdinalIgnoreCase);
+            bool externalMap = string.Equals(modeName, "ExternalMap", StringComparison.OrdinalIgnoreCase);
+            decimal max = mmMode ? Math.Max(0.001M, _nDiameter.Value / 2M) : 500M;
+            _nSideEdgeSkip.Maximum = max;
+            _nTopBottomEdgeSkip.Maximum = max;
+            _nSideEdgeSkip.DecimalPlaces = mmMode ? 3 : 0;
+            _nTopBottomEdgeSkip.DecimalPlaces = mmMode ? 3 : 0;
+            _nSideEdgeSkip.Increment = mmMode ? 0.1M : 1M;
+            _nTopBottomEdgeSkip.Increment = mmMode ? 0.1M : 1M;
+            lblAxisYKey.Text = externalMap
+                ? "EDGE SKIP L/R, T/B (external)"
+                : (mmMode ? "EDGE SKIP L/R, T/B (mm)" : "EDGE SKIP L/R, T/B (grid)");
+        }
+
+        private WaferEdgeSkipMode GetSelectedEdgeSkipMode()
+        {
+            string text = _cbEdgeSkipMode != null && _cbEdgeSkipMode.SelectedItem != null
+                ? _cbEdgeSkipMode.SelectedItem.ToString()
+                : "";
+            return text.IndexOf("MM", StringComparison.OrdinalIgnoreCase) >= 0
+                ? WaferEdgeSkipMode.Millimeter
+                : WaferEdgeSkipMode.Grid;
+        }
+
+        private void SetSelectedEdgeSkipMode(string mode)
+        {
+            if (_cbEdgeSkipMode == null)
+                return;
+
+            bool externalMap = !string.IsNullOrWhiteSpace(mode) &&
+                               mode.IndexOf("EXTERNAL", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool mm = IsMillimeterEdgeSkipMode(mode);
+            _cbEdgeSkipMode.SelectedItem = externalMap ? EdgeSkipExternalMapText : (mm ? EdgeSkipMmText : EdgeSkipGridText);
+            if (_cbEdgeSkipMode.SelectedIndex < 0)
+                _cbEdgeSkipMode.SelectedIndex = externalMap ? 2 : (mm ? 1 : 0);
+        }
+
+        private string GetSelectedEdgeSkipModeName()
+        {
+            string text = _cbEdgeSkipMode != null && _cbEdgeSkipMode.SelectedItem != null
+                ? _cbEdgeSkipMode.SelectedItem.ToString()
+                : "";
+            if (text.IndexOf("EXTERNAL", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "ExternalMap";
+            return GetSelectedEdgeSkipMode().ToString();
         }
 
         /// <summary>빈 맵 모드에서만 GOOD/NG 토글을 노출하고 형상 파라미터 편집을 허용한다.</summary>
@@ -272,13 +502,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void EnableBinAuthoringControls()
         {
-            SetNumericEditable(_nGridX);
-            SetNumericEditable(_nGridY);
+            SetNumericReadOnly(_nGridX);
+            SetNumericReadOnly(_nGridY);
             SetNumericEditable(_nPitchX);
             SetNumericEditable(_nPitchY);
+            SetNumericEditable(_nDieSizeX);
+            SetNumericEditable(_nDieSizeY);
             SetNumericEditable(_nDiameter);
             SetNumericEditable(_nSideEdgeSkip);
             SetNumericEditable(_nTopBottomEdgeSkip);
+            if (_cbEdgeSkipMode != null)
+                _cbEdgeSkipMode.Enabled = true;
         }
 
         private static void SetNumericEditable(NumericUpDown control)
@@ -290,30 +524,97 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             control.TabStop = true;
         }
 
+        private static void SetNumericReadOnly(NumericUpDown control)
+        {
+            if (control == null)
+                return;
+            control.Enabled = false;
+            control.ReadOnly = true;
+            control.TabStop = false;
+        }
+
         private void LoadEdgeSkipFromRecipe()
         {
             try
             {
-                TapeFrameSubset frame = _project != null ? _project.Frame : null;
+                TapeFrameSubset frame = ResolveCurrentFrameFromRecipe();
                 if (frame == null)
                     return;
 
+                _suppressMapSpecEvents = true;
                 _tbFrameSpecName.Text = frame.FrameSpecName ?? "";
                 _currentFrameSpecName = MaterialSpecs.FindFrame(frame.FrameSpecName) != null ? frame.FrameSpecName : "";
-                _nGridX.Value = ClampDecimal(frame.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-                _nGridY.Value = ClampDecimal(frame.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
                 _nPitchX.Value = ClampDecimal(frame.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
                 _nPitchY.Value = ClampDecimal(frame.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
+                _nDieSizeX.Value = ClampDecimal(ResolveFrameDieSizeX(frame), _nDieSizeX.Minimum, _nDieSizeX.Maximum);
+                _nDieSizeY.Value = ClampDecimal(ResolveFrameDieSizeY(frame), _nDieSizeY.Minimum, _nDieSizeY.Maximum);
                 _nDiameter.Value = ClampDecimal(frame.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
-                _nSideEdgeSkip.Value = ClampDecimal(frame.SideEdgeSkip, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
-                _nTopBottomEdgeSkip.Value = ClampDecimal(frame.TopBottomEdgeSkip, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                SetSelectedEdgeSkipMode(frame.EdgeSkipMode);
+                UpdateEdgeSkipModeUi();
+                if (GetSelectedEdgeSkipMode() == WaferEdgeSkipMode.Millimeter)
+                {
+                    _nSideEdgeSkip.Value = ClampDecimal(frame.SideEdgeSkipMm, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                    _nTopBottomEdgeSkip.Value = ClampDecimal(frame.TopBottomEdgeSkipMm, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                }
+                else
+                {
+                    _nSideEdgeSkip.Value = ClampDecimal(frame.SideEdgeSkip, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                    _nTopBottomEdgeSkip.Value = ClampDecimal(frame.TopBottomEdgeSkip, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                }
+                RecalculateGridPreviewFromControls();
+                _mapSpecDirty = false;
             }
             catch
             {
             }
             finally
             {
+                _suppressMapSpecEvents = false;
             }
+        }
+
+        private TapeFrameSubset ResolveCurrentFrameFromRecipe()
+        {
+            if (_project == null)
+                return null;
+
+            TapeFrameSubset roleFrame = _isOutputMap ? _project.OutputFrame : _project.InputFrame;
+            return roleFrame ?? _project.Frame;
+        }
+
+        private double ResolveFrameDieSizeX(TapeFrameSubset frame)
+        {
+            if (frame != null && frame.DieSizeX > 0.0)
+                return frame.DieSizeX;
+            return ResolveRecipeDieSizeX();
+        }
+
+        private double ResolveFrameDieSizeY(TapeFrameSubset frame)
+        {
+            if (frame != null && frame.DieSizeY > 0.0)
+                return frame.DieSizeY;
+            return ResolveRecipeDieSizeY();
+        }
+
+        private double ResolveRecipeDieSizeX()
+        {
+            if (_project != null && _project.Die != null && _project.Die.WidthMm > 0.0)
+                return _project.Die.WidthMm;
+            return 1.0;
+        }
+
+        private double ResolveRecipeDieSizeY()
+        {
+            if (_project != null && _project.Die != null && _project.Die.HeightMm > 0.0)
+                return _project.Die.HeightMm;
+            return 1.0;
+        }
+
+        private static bool IsMillimeterEdgeSkipMode(string mode)
+        {
+            return !string.IsNullOrWhiteSpace(mode) &&
+                   (mode.IndexOf("MM", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    mode.IndexOf("MILLI", StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private ContextMenuStrip BuildMapContextMenu()
@@ -443,6 +744,38 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void ReloadRecipeMapIfChanged()
+        {
+            try
+            {
+                RecipeProject latest = RecipeStore.LoadLastOrDefault();
+                if (latest == null)
+                    return;
+
+                _project = latest;
+                string path = ResolveRecipeMapPath(_project, _isOutputMap);
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return;
+
+                DateTime writeUtc = File.GetLastWriteTimeUtc(path);
+                bool pathChanged = string.IsNullOrWhiteSpace(_currentMapPath) ||
+                                   !string.Equals(Path.GetFullPath(_currentMapPath), Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase);
+                if (!pathChanged && writeUtc == _currentMapWriteUtc)
+                    return;
+
+                // 현재 기준: Wafer Spec 화면에서 연결한 최신 recipe map은 Map Create 재진입 시 다시 읽는다.
+                LoadEdgeSkipFromRecipe();
+                RefreshMapLibraryList();
+                LoadSavedRecipeMap(false);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private void CreateMapFromRecipeSpec(bool confirm)
         {
             try
@@ -498,117 +831,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private DieMap CreateCircleDieMapFromRecipe(RecipeProject project, bool outputMap)
         {
             TapeFrameSubset frame = BuildFrameFromControls();
+            WaferEdgeSkipMode edgeSkipMode = IsMillimeterEdgeSkipMode(frame.EdgeSkipMode)
+                ? WaferEdgeSkipMode.Millimeter
+                : WaferEdgeSkipMode.Grid;
+            double sideEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? frame.SideEdgeSkipMm : frame.SideEdgeSkip;
+            double topBottomEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? frame.TopBottomEdgeSkipMm : frame.TopBottomEdgeSkip;
 
-            int gridX = Math.Max(1, frame.DieMapX);
-            int gridY = Math.Max(1, frame.DieMapY);
-            double pitchX = frame.PitchX > 0.0 ? frame.PitchX : 1.0;
-            double pitchY = frame.PitchY > 0.0 ? frame.PitchY : 1.0;
-            double originX = -((gridX - 1) * pitchX) / 2.0;
-            double originY = -((gridY - 1) * pitchY) / 2.0;
-            int sideEdgeSkip = ResolveEdgeSkip(_nSideEdgeSkip, gridX);
-            int topBottomEdgeSkip = ResolveEdgeSkip(_nTopBottomEdgeSkip, gridY);
-            double diameterMm = frame.OuterDiameterMm > 0.0 ? frame.OuterDiameterMm : 0.0;
+            // 현재 기준: Input/Bin 모두 외경, 피치, 다이 크기, Edge Skip 모드만으로 원형 맵을 생성한다.
+            DieMap map = DieMapGenerator.GenerateCircularWafer(
+                frame.OuterDiameterMm,
+                frame.PitchX,
+                frame.PitchY,
+                frame.DieSizeX,
+                frame.DieSizeY,
+                edgeSkipMode,
+                sideEdgeSkip,
+                topBottomEdgeSkip,
+                BuildRecipeMapId(project, outputMap));
 
-            var map = new DieMap
+            if (map.Entries != null)
             {
-                FrameObjId = BuildRecipeMapId(project, outputMap),
-                DieMapX = gridX,
-                DieMapY = gridY,
-                PitchX = pitchX,
-                PitchY = pitchY,
-                OriginX = originX,
-                OriginY = originY,
-                CreatedAt = DateTime.Now
-            };
-
-            int index = 0;
-            for (int row = 0; row < gridY; row++)
-            {
-                for (int col = 0; col < gridX; col++)
+                foreach (DieMapEntry entry in map.Entries)
                 {
-                    double x = originX + col * pitchX;
-                    double y = originY + row * pitchY;
-                    bool target = IsInsideWaferCircle(
-                        col,
-                        row,
-                        gridX,
-                        gridY,
-                        sideEdgeSkip,
-                        topBottomEdgeSkip,
-                        x,
-                        y,
-                        pitchX,
-                        pitchY,
-                        diameterMm);
-                    map.Entries.Add(new DieMapEntry
-                    {
-                        Index = index++,
-                        DieMapX = col,
-                        DieMapY = row,
-                        IsTarget = target,
-                        Result = target ? DieResult.Unknown : DieResult.NG,
-                        BinCode = target ? 0 : 255,
-                        PosX = x,
-                        PosY = y,
-                        DieUid = BuildDieId(project, row, col)
-                    });
+                    if (entry != null)
+                        entry.DieUid = BuildDieId(project, entry.DieMapY, entry.DieMapX);
                 }
             }
 
             return ApplyPickupSequence(map, outputMap);
-        }
-
-        private static int ResolveEdgeSkip(NumericUpDown control, int gridCount)
-        {
-            int value = control != null ? (int)control.Value : 0;
-            int max = Math.Max(0, (gridCount - 1) / 2);
-            if (value < 0) return 0;
-            if (value > max) return max;
-            return value;
-        }
-
-        private static bool IsInsideWaferCircle(
-            int col,
-            int row,
-            int gridX,
-            int gridY,
-            int sideEdgeSkip,
-            int topBottomEdgeSkip,
-            double x,
-            double y,
-            double pitchX,
-            double pitchY,
-            double diameterMm)
-        {
-            if (gridX <= 0 || gridY <= 0)
-                return false;
-
-            if (col < sideEdgeSkip || col >= gridX - sideEdgeSkip)
-                return false;
-            if (row < topBottomEdgeSkip || row >= gridY - topBottomEdgeSkip)
-                return false;
-
-            double centerX = (gridX - 1) / 2.0;
-            double centerY = (gridY - 1) / 2.0;
-            double radiusX = Math.Max(0.5, (gridX - 1 - (sideEdgeSkip * 2)) / 2.0);
-            double radiusY = Math.Max(0.5, (gridY - 1 - (topBottomEdgeSkip * 2)) / 2.0);
-            double nx = (col - centerX) / radiusX;
-            double ny = (row - centerY) / radiusY;
-            bool insideGridCircle = (nx * nx) + (ny * ny) <= 1.0;
-            if (!insideGridCircle)
-                return false;
-
-            if (diameterMm <= 0.0)
-                return true;
-
-            double activeSpanX = Math.Max(pitchX, (gridX - 1 - (sideEdgeSkip * 2)) * pitchX);
-            double activeSpanY = Math.Max(pitchY, (gridY - 1 - (topBottomEdgeSkip * 2)) * pitchY);
-            double activeDiameter = Math.Min(activeSpanX, activeSpanY);
-            if (diameterMm >= activeDiameter)
-                return true;
-
-            double radiusMm = diameterMm / 2.0;
-            return (x * x) + (y * y) <= radiusMm * radiusMm;
         }
 
         private DieMap ApplyPickupSequence(DieMap map, bool outputMap)
@@ -689,16 +939,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private TapeFrameSubset BuildFrameFromControls()
         {
+            double diameter = (double)_nDiameter.Value > 0.0 ? (double)_nDiameter.Value : 0.0;
+            double pitchX = (double)_nPitchX.Value > 0.0 ? (double)_nPitchX.Value : 1.0;
+            double pitchY = (double)_nPitchY.Value > 0.0 ? (double)_nPitchY.Value : 1.0;
+            double dieSizeX = _nDieSizeX != null && (double)_nDieSizeX.Value > 0.0 ? (double)_nDieSizeX.Value : pitchX;
+            double dieSizeY = _nDieSizeY != null && (double)_nDieSizeY.Value > 0.0 ? (double)_nDieSizeY.Value : pitchY;
+            WaferEdgeSkipMode edgeSkipMode = GetSelectedEdgeSkipMode();
+            string edgeSkipModeName = GetSelectedEdgeSkipModeName();
+            bool externalMapMode = string.Equals(edgeSkipModeName, "ExternalMap", StringComparison.OrdinalIgnoreCase);
+            double edgeSideValue = _nSideEdgeSkip != null ? (double)_nSideEdgeSkip.Value : 0.0;
+            double edgeTopBottomValue = _nTopBottomEdgeSkip != null ? (double)_nTopBottomEdgeSkip.Value : 0.0;
+
             return new TapeFrameSubset
             {
                 FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim(),
-                DieMapX = Math.Max(1, (int)_nGridX.Value),
-                DieMapY = Math.Max(1, (int)_nGridY.Value),
-                PitchX = (double)_nPitchX.Value > 0.0 ? (double)_nPitchX.Value : 1.0,
-                PitchY = (double)_nPitchY.Value > 0.0 ? (double)_nPitchY.Value : 1.0,
-                OuterDiameterMm = (double)_nDiameter.Value > 0.0 ? (double)_nDiameter.Value : 0.0,
-                SideEdgeSkip = (int)_nSideEdgeSkip.Value,
-                TopBottomEdgeSkip = (int)_nTopBottomEdgeSkip.Value
+                DieMapX = DieMapGenerator.CalculateWaferGridCount(diameter, pitchX, dieSizeX),
+                DieMapY = DieMapGenerator.CalculateWaferGridCount(diameter, pitchY, dieSizeY),
+                PitchX = pitchX,
+                PitchY = pitchY,
+                DieSizeX = dieSizeX,
+                DieSizeY = dieSizeY,
+                OuterDiameterMm = diameter,
+                EdgeSkipMode = edgeSkipModeName,
+                SideEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Grid && !externalMapMode ? Math.Max(0, (int)Math.Floor(edgeSideValue)) : 0,
+                TopBottomEdgeSkip = edgeSkipMode == WaferEdgeSkipMode.Grid && !externalMapMode ? Math.Max(0, (int)Math.Floor(edgeTopBottomValue)) : 0,
+                SideEdgeSkipMm = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? Math.Max(0.0, edgeSideValue) : 0.0,
+                TopBottomEdgeSkipMm = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? Math.Max(0.0, edgeTopBottomValue) : 0.0
             };
         }
 
@@ -707,10 +973,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (map == null)
                 return;
 
-            _nGridX.Value = ClampDecimal(map.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(map.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-            _nPitchX.Value = ClampDecimal(map.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
-            _nPitchY.Value = ClampDecimal(map.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
+            try
+            {
+                _suppressMapSpecEvents = true;
+                _nGridX.Value = ClampDecimal(map.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+                _nGridY.Value = ClampDecimal(map.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
+                _nPitchX.Value = ClampDecimal(map.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
+                _nPitchY.Value = ClampDecimal(map.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
+                if (map.DieSizeX > 0.0)
+                    _nDieSizeX.Value = ClampDecimal(map.DieSizeX, _nDieSizeX.Minimum, _nDieSizeX.Maximum);
+                if (map.DieSizeY > 0.0)
+                    _nDieSizeY.Value = ClampDecimal(map.DieSizeY, _nDieSizeY.Minimum, _nDieSizeY.Maximum);
+                if (map.OuterDiameterMm > 0.0)
+                    _nDiameter.Value = ClampDecimal(map.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
+                if (!string.IsNullOrWhiteSpace(map.EdgeSkipMode))
+                    SetSelectedEdgeSkipMode(map.EdgeSkipMode);
+                UpdateEdgeSkipModeUi();
+                _nSideEdgeSkip.Value = ClampDecimal(map.SideEdgeSkip, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                _nTopBottomEdgeSkip.Value = ClampDecimal(map.TopBottomEdgeSkip, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                _mapSpecDirty = false;
+            }
+            finally
+            {
+                _suppressMapSpecEvents = false;
+            }
         }
 
         private void RefreshSettingLabels()
@@ -828,6 +1114,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ApplyMap(loaded, "Recipe Die Map: " + Path.GetFileName(path));
                 _currentMapPath = path;
+                _currentMapWriteUtc = File.GetLastWriteTimeUtc(path);
                 _currentFrameSpecName = "";
                 SelectLibraryPath(path);
                 return true;
@@ -949,15 +1236,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
                 return Enumerable.Empty<string>();
 
+            string[] txtFiles = Directory.GetFiles(dir, "*.txt");
             string[] jsonFiles = Directory.GetFiles(dir, "*.json");
+            var txtBaseNames = new HashSet<string>(
+                txtFiles.Select(path => Path.GetFileNameWithoutExtension(path) ?? ""),
+                StringComparer.OrdinalIgnoreCase);
             var jsonBaseNames = new HashSet<string>(
                 jsonFiles.Select(path => Path.GetFileNameWithoutExtension(path) ?? ""),
                 StringComparer.OrdinalIgnoreCase);
 
-            IEnumerable<string> standaloneCsvFiles = Directory.GetFiles(dir, "*.csv")
-                .Where(path => !jsonBaseNames.Contains(Path.GetFileNameWithoutExtension(path) ?? ""));
+            IEnumerable<string> standaloneJsonFiles = jsonFiles
+                .Where(path => !txtBaseNames.Contains(Path.GetFileNameWithoutExtension(path) ?? ""));
 
-            return jsonFiles
+            IEnumerable<string> standaloneCsvFiles = Directory.GetFiles(dir, "*.csv")
+                .Where(path =>
+                {
+                    string baseName = Path.GetFileNameWithoutExtension(path) ?? "";
+                    return !txtBaseNames.Contains(baseName) && !jsonBaseNames.Contains(baseName);
+                });
+
+            return txtFiles
+                .Concat(standaloneJsonFiles)
                 .Concat(standaloneCsvFiles)
                 .OrderBy(Path.GetFileName);
         }
@@ -1061,13 +1360,51 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (spec == null)
                 return;
 
-            _tbFrameSpecName.Text = spec.Name ?? "";
-            _currentFrameSpecName = spec.Name ?? "";
-            _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(spec.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
-            _nPitchX.Value = ClampDecimal(spec.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
-            _nPitchY.Value = ClampDecimal(spec.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
-            _nDiameter.Value = ClampDecimal(spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
+            try
+            {
+                _suppressMapSpecEvents = true;
+                _tbFrameSpecName.Text = spec.Name ?? "";
+                _currentFrameSpecName = spec.Name ?? "";
+                _nPitchX.Value = ClampDecimal(spec.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
+                _nPitchY.Value = ClampDecimal(spec.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
+                if (spec.DieSizeX > 0.0 && spec.DieSizeY > 0.0)
+                {
+                    _nDieSizeX.Value = ClampDecimal(spec.DieSizeX, _nDieSizeX.Minimum, _nDieSizeX.Maximum);
+                    _nDieSizeY.Value = ClampDecimal(spec.DieSizeY, _nDieSizeY.Minimum, _nDieSizeY.Maximum);
+                }
+                else
+                {
+                    ApplyDieSpecToControls(spec.DieSpecName);
+                }
+                _nDiameter.Value = ClampDecimal(spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
+                SetSelectedEdgeSkipMode(spec.EdgeSkipMode);
+                UpdateEdgeSkipModeUi();
+                if (GetSelectedEdgeSkipMode() == WaferEdgeSkipMode.Millimeter)
+                {
+                    _nSideEdgeSkip.Value = ClampDecimal(spec.SideEdgeSkipMm, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                    _nTopBottomEdgeSkip.Value = ClampDecimal(spec.TopBottomEdgeSkipMm, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                }
+                else
+                {
+                    _nSideEdgeSkip.Value = ClampDecimal(spec.SideEdgeSkip, _nSideEdgeSkip.Minimum, _nSideEdgeSkip.Maximum);
+                    _nTopBottomEdgeSkip.Value = ClampDecimal(spec.TopBottomEdgeSkip, _nTopBottomEdgeSkip.Minimum, _nTopBottomEdgeSkip.Maximum);
+                }
+                RecalculateGridPreviewFromControls();
+                _mapSpecDirty = true;
+            }
+            finally
+            {
+                _suppressMapSpecEvents = false;
+            }
+        }
+
+        private void ApplyDieSpecToControls(string dieSpecName)
+        {
+            DieSpec dieSpec = !string.IsNullOrWhiteSpace(dieSpecName) ? MaterialSpecs.FindDie(dieSpecName) : null;
+            double dieSizeX = dieSpec != null && dieSpec.WidthMm > 0.0 ? dieSpec.WidthMm : ResolveRecipeDieSizeX();
+            double dieSizeY = dieSpec != null && dieSpec.HeightMm > 0.0 ? dieSpec.HeightMm : ResolveRecipeDieSizeY();
+            _nDieSizeX.Value = ClampDecimal(dieSizeX, _nDieSizeX.Minimum, _nDieSizeX.Maximum);
+            _nDieSizeY.Value = ClampDecimal(dieSizeY, _nDieSizeY.Minimum, _nDieSizeY.Maximum);
         }
 
         private void SelectFrameSpecName(string specName)
@@ -1248,7 +1585,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 using (var dlg = new OpenFileDialog
                 {
                     Title = "Import DieMap",
-                    Filter = "DieMap files|*.json;*.csv|JSON|*.json|CSV|*.csv|All files|*.*"
+                    Filter = "DieMap files|*.json;*.csv;*.txt|JSON|*.json|CSV|*.csv|WaferMap TXT|*.txt|All files|*.*",
+                    InitialDirectory = ResolveMapImportInitialDirectory()
                 })
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK)
@@ -1278,6 +1616,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private static string ResolveMapImportInitialDirectory()
+        {
+            string waferMapDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "WaferMap");
+            return Directory.Exists(waferMapDir) ? waferMapDir : RecipeMapPaths.GetDieMapDirectory();
+        }
+
         private void ExportMapCsv()
         {
             try
@@ -1290,18 +1634,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 using (var dlg = new SaveFileDialog
                 {
-                    Title = "Export DieMap CSV",
-                    Filter = "CSV|*.csv|JSON|*.json",
-                    FileName = (_map.FrameObjId ?? "DieMap") + ".csv"
+                    Title = "Export DieMap",
+                    Filter = "WaferMap TXT|*.txt|CSV|*.csv|JSON|*.json",
+                    FileName = (_map.FrameObjId ?? "DieMap") + ".txt"
                 })
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK)
                         return;
 
-                    if (string.Equals(Path.GetExtension(dlg.FileName), ".json", StringComparison.OrdinalIgnoreCase))
-                        DieMapGenerator.SaveJson(_map, dlg.FileName);
-                    else
-                        DieMapGenerator.SaveCsv(_map, dlg.FileName);
+                    DieMapGenerator.Save(_map, dlg.FileName);
 
                     QMC.Common.MessageDialog.Show(this, "Die Map export 완료.\r\n" + dlg.FileName, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -1325,22 +1666,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 if (_map == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "저장할 Die Map이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                    CreateMapFromRecipeSpec(false);
+                    if (_map == null)
+                    {
+                        QMC.Common.MessageDialog.Show(this, "저장할 Die Map이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                else if (_mapSpecDirty)
+                {
+                    CreateMapFromRecipeSpec(false);
+                    if (_map == null)
+                        return;
                 }
 
+                SaveCurrentFrameSpecToRecipe();
                 ApplyPickupSequence(_map, _isOutputMap);
                 string path = !string.IsNullOrWhiteSpace(explicitPath)
                     ? explicitPath
                     : ResolveSaveMapPath();
                 _map.FrameObjId = Path.GetFileNameWithoutExtension(path);
-                DieMapGenerator.SaveJson(_map, path);
-                DieMapGenerator.SaveCsv(_map, Path.ChangeExtension(path, ".csv"));
+                DieMapGenerator.Save(_map, path);
+                if (!string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase))
+                    DieMapGenerator.SaveCsv(_map, Path.ChangeExtension(path, ".csv"));
 
                 UpdateRecipeMapFileName(path);
                 RecipeStore.Save(_project);
                 RecipeStore.SaveLastProjectName(_project.FileName);
                 _currentMapPath = path;
+                _currentMapWriteUtc = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
                 RefreshMapLibraryList();
                 SelectLibraryPath(path);
 
@@ -1358,6 +1712,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void SaveCurrentFrameSpecToRecipe()
+        {
+            if (_project == null)
+                return;
+
+            TapeFrameSubset frame = BuildFrameFromControls();
+            if (_isOutputMap)
+                _project.OutputFrame = frame;
+            else
+                _project.InputFrame = frame;
         }
 
         private void ApplySelectedFrameSpecToControlsIfNeeded()

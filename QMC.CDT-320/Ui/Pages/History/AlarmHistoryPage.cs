@@ -29,6 +29,12 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 첫 컬럼(시간)은 행 헤더처럼 동작한다. Shift 범위 선택의 기준이 되는 직전 클릭 행(-1 이면 없음).
         private int _lastRowClicked = -1;
 
+        // Clear 버튼 상태 표시 색 — 지울(미해제) 알람이 있으면 빨강(알람 행과 동일 계열), 없으면 회색(비활성).
+        private static readonly Color ClearActiveBack  = Color.FromArgb(192, 57, 43);
+        private static readonly Color ClearActiveHover = Color.FromArgb(214, 89, 76);
+        private static readonly Color ClearActiveDown  = Color.FromArgb(158, 42, 30);
+        private static readonly Color ClearIdleBack    = Color.FromArgb(189, 195, 199);
+
         public AlarmHistoryPage()
         {
             InitializeComponent();
@@ -49,7 +55,8 @@ namespace QMC.CDT_320.Ui.Pages.History
             _tbFilter.TextChanged += (s, e) => LoadGrid();
             btnClear.Click += (s, e) => { AlarmManager.ClearAll(); LoadGrid(); };
             _liveFlushTimer.Interval = LiveFlushIntervalMs;
-            _liveFlushTimer.Tick += (s, e) => FlushPendingAlarmRows();
+            // 주기 갱신에 Clear 버튼 상태도 편승 — 다른 화면/시퀀스에서 알람이 해제돼도 곧 반영된다.
+            _liveFlushTimer.Tick += (s, e) => { FlushPendingAlarmRows(); UpdateClearButtonState(); };
             // 행 헤더가 숨겨져 있으므로 첫 컬럼(시간)을 행 헤더처럼 써서 행 전체를 선택한다.
             _grid.CellClick += Grid_CellClick;
             // Message/Cause/Action 셀을 더블클릭하면 전체 내용을 큰 창(읽기 전용)으로 보여준다.
@@ -306,6 +313,50 @@ namespace QMC.CDT_320.Ui.Pages.History
         private void UpdateCount()
         {
             if (_lblCount != null) _lblCount.Text = "(" + _grid.Rows.Count + ")";
+            UpdateClearButtonState();
+        }
+
+        // 미해제 알람 유무/개수를 Clear 버튼의 색·문구·활성화에 반영한다.
+        // 판정은 복원된(이전 세션) 알람 포함 — 이 버튼의 ClearAll 이 지우는 대상과 같은 기준이라
+        // "그리드엔 활성 행이 보이는데 버튼은 회색"인 모순이 생기지 않는다.
+        private void UpdateClearButtonState()
+        {
+            try
+            {
+                if (btnClear == null)
+                    return;
+
+                int active = 0;
+                foreach (var a in AlarmManager.History)
+                {
+                    if (a != null && a.IsActive)
+                        active++;
+                }
+
+                if (active > 0)
+                {
+                    btnClear.Enabled = true;
+                    btnClear.BackColor = ClearActiveBack;
+                    btnClear.ForeColor = Color.White;
+                    btnClear.FlatAppearance.MouseOverBackColor = ClearActiveHover;
+                    btnClear.FlatAppearance.MouseDownBackColor = ClearActiveDown;
+                    btnClear.Text = "Clear active alarms (" + active + ")";
+                }
+                else
+                {
+                    // 지울 알람이 없으면 회색 + 비활성화.
+                    btnClear.Enabled = false;
+                    btnClear.BackColor = ClearIdleBack;
+                    btnClear.ForeColor = Color.White;
+                    btnClear.Text = "Clear active alarms";
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         // 새 알람은 전체 재생성 없이 맨 위에 1행만 끼워넣는다 → 사용자의 선택이 유지된다.

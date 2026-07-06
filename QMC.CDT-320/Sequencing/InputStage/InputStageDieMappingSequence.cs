@@ -633,6 +633,8 @@ namespace QMC.CDT320.Sequencing
                 int dieMapY = sourceMap != null && sourceMap.DieMapY > 0 ? sourceMap.DieMapY : Math.Max(1, _frameSpec.DieMapY);
                 double pitchX = sourceMap != null && sourceMap.PitchX > 0.0 ? sourceMap.PitchX : ResolvePitchX();
                 double pitchY = sourceMap != null && sourceMap.PitchY > 0.0 ? sourceMap.PitchY : ResolvePitchY();
+                bool sourceMapIsExternal = IsExternalInputDieMap(sourceMap);
+                Dictionary<string, DieMapEntry> sourceCellMap = BuildSourceCellMap(sourceMap);
                 if (pitchX <= 0.0 && _frameSpec != null)
                     pitchX = _frameSpec.PitchX;
                 if (pitchY <= 0.0 && _frameSpec != null)
@@ -657,8 +659,12 @@ namespace QMC.CDT320.Sequencing
                     centerY = (top.Y + bottom.Y) / 2.0;
                     centerSource = "DieMappingMarks";
                 }
-                double originX = centerX - (signX * pitchX * Math.Max(0, dieMapX - 1) / 2.0);
-                double originY = centerY - (signY * pitchY * Math.Max(0, dieMapY - 1) / 2.0);
+                double originX = sourceMapIsExternal
+                    ? centerX + (signX * sourceMap.OriginX)
+                    : centerX - (signX * pitchX * Math.Max(0, dieMapX - 1) / 2.0);
+                double originY = sourceMapIsExternal
+                    ? centerY + (signY * sourceMap.OriginY)
+                    : centerY - (signY * pitchY * Math.Max(0, dieMapY - 1) / 2.0);
                 double waferRadius = ResolveWaferRadiusFromSpecOrMarks(_frameSpec, left, right, top, bottom);
 
                 _dieMap = new DieMap
@@ -668,6 +674,12 @@ namespace QMC.CDT320.Sequencing
                     DieMapY = dieMapY,
                     PitchX = pitchX,
                     PitchY = pitchY,
+                    DieSizeX = sourceMap != null && sourceMap.DieSizeX > 0.0 ? sourceMap.DieSizeX : pitchX,
+                    DieSizeY = sourceMap != null && sourceMap.DieSizeY > 0.0 ? sourceMap.DieSizeY : pitchY,
+                    OuterDiameterMm = sourceMap != null ? sourceMap.OuterDiameterMm : 0.0,
+                    EdgeSkipMode = sourceMapIsExternal ? sourceMap.EdgeSkipMode : "",
+                    SideEdgeSkip = sourceMap != null ? sourceMap.SideEdgeSkip : 0.0,
+                    TopBottomEdgeSkip = sourceMap != null ? sourceMap.TopBottomEdgeSkip : 0.0,
                     OriginX = originX,
                     OriginY = originY,
                     CreatedAt = DateTime.Now
@@ -691,30 +703,45 @@ namespace QMC.CDT320.Sequencing
                 {
                     for (int col = 0; col < dieMapX; col++)
                     {
-                        double x = originX + signX * pitchX * col;
-                        double y = originY + signY * pitchY * row;
-                        DieMapEntry sourceEntry = sourceMap != null ? sourceMap.GetCell(col, row) : null;
+                        DieMapEntry sourceEntry = FindSourceCell(sourceCellMap, col, row);
+                        if (sourceMapIsExternal && sourceEntry == null)
+                        {
+                            _waferMap.DieMap[row, col] = false;
+                            continue;
+                        }
+
+                        double x = sourceMapIsExternal && sourceEntry != null
+                            ? centerX + signX * sourceEntry.PosX
+                            : originX + signX * pitchX * col;
+                        double y = sourceMapIsExternal && sourceEntry != null
+                            ? centerY + signY * sourceEntry.PosY
+                            : originY + signY * pitchY * row;
                         bool target = sourceEntry != null
                             ? sourceEntry.IsTarget
-                            : IsInsideWaferCircle(x, y, centerX, centerY, waferRadius);
+                            : (!sourceMapIsExternal && IsInsideWaferCircle(x, y, centerX, centerY, waferRadius));
                         if (target)
                             targetCount++;
 
+                        // 현재 기준: 외부 웨이퍼맵 X/Y 인덱스는 표시/제어/MaterialState까지 그대로 유지한다.
+                        int mapX = sourceEntry != null ? DieMapGenerator.ResolveMapIndexX(sourceEntry) : col;
+                        int mapY = sourceEntry != null ? DieMapGenerator.ResolveMapIndexY(sourceEntry) : row;
                         _waferMap.DieMap[row, col] = target;
                         _dieMap.Entries.Add(new DieMapEntry
                         {
                             Index = index++,
                             SequenceNo = sourceEntry != null ? sourceEntry.SequenceNo : 0,
-                            DieMapX = col,
-                            DieMapY = row,
+                            DieMapX = mapX,
+                            DieMapY = mapY,
+                            OriginalMapX = mapX,
+                            OriginalMapY = mapY,
                             IsTarget = target,
                             Result = target ? DieResult.Unknown : DieResult.NG,
-                            BinCode = target ? 0 : 255,
+                            BinCode = target ? (sourceEntry != null ? sourceEntry.BinCode : 0) : 255,
                             PosX = x,
                             PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
                                 ? sourceEntry.DieUid
-                                : BuildDieId(_wafer, row, col)
+                                : BuildDieId(_wafer, mapY, mapX)
                         });
                     }
                 }
@@ -922,21 +949,24 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 RecipeProject project = RecipeStore.LoadLastOrDefault();
-                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                if (project == null)
                     return null;
 
-                string path = project.InputDieMapFileName;
-                if (!System.IO.Path.IsPathRooted(path))
-                    path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
-
-                DieMap map = DieMapGenerator.Load(path);
+                string path;
+                string reason;
+                // 현재 기준: 실제 Die Mapping도 Process Test와 같은 레시피/외부맵 로더를 사용한다.
+                DieMap map = RecipeDieMapResolver.LoadCompatibleMap(project, RecipeMapKind.Input, out path, out reason);
                 if (map != null)
                 {
-                    if (!IsRecipeInputDieMapMatchedToFrame(frameSpec, project, map, path))
-                        return null;
-
                     ApplyInputPickupSequence(map);
-                    WriteLog("InputStageDieMappingSequence", "Recipe input die map loaded. path=" + path + " - Ok");
+                    WriteLog("InputStageDieMappingSequence",
+                        "Recipe input die map loaded. path=" + path +
+                        ", dieMap=" + map.DieMapX + "x" + map.DieMapY + " - Ok");
+                }
+                else if (!string.IsNullOrWhiteSpace(reason))
+                {
+                    LastSourceInputDieMapFailure = reason;
+                    WriteLog("InputStageDieMappingSequence", "Recipe input die map load skipped: " + reason + " - Check");
                 }
                 return map;
             }
@@ -1036,6 +1066,49 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private static bool IsExternalInputDieMap(DieMap map)
+        {
+            return map != null &&
+                   !string.IsNullOrWhiteSpace(map.EdgeSkipMode) &&
+                   string.Equals(map.EdgeSkipMode, "ExternalMap", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static Dictionary<string, DieMapEntry> BuildSourceCellMap(DieMap map)
+        {
+            var lookup = new Dictionary<string, DieMapEntry>(StringComparer.Ordinal);
+            if (map == null || map.Entries == null)
+                return lookup;
+
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                // 현재 기준: 소스맵 조회 키도 외부 웨이퍼맵 원본 인덱스로 맞춘다.
+                string key = BuildSourceCellKey(
+                    DieMapGenerator.ResolveMapIndexX(entry),
+                    DieMapGenerator.ResolveMapIndexY(entry));
+                if (!lookup.ContainsKey(key))
+                    lookup.Add(key, entry);
+            }
+
+            return lookup;
+        }
+
+        private static DieMapEntry FindSourceCell(Dictionary<string, DieMapEntry> lookup, int x, int y)
+        {
+            if (lookup == null)
+                return null;
+
+            DieMapEntry entry;
+            return lookup.TryGetValue(BuildSourceCellKey(x, y), out entry) ? entry : null;
+        }
+
+        private static string BuildSourceCellKey(int x, int y)
+        {
+            return x.ToString() + "," + y.ToString();
+        }
+
         private int ResolveMaterialStateWaferForDieMapApply()
         {
             try
@@ -1099,13 +1172,20 @@ namespace QMC.CDT320.Sequencing
                     if (entry == null)
                         continue;
 
-                    string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, entry.DieMapY, entry.DieMapX) : entry.DieUid;
+                    // 현재 기준: DieMaterial의 Wafer_IndexX/Y는 웨이퍼맵 원본 인덱스이다.
+                    int mapX = DieMapGenerator.ResolveMapIndexX(entry);
+                    int mapY = DieMapGenerator.ResolveMapIndexY(entry);
+                    string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, mapY, mapX) : entry.DieUid;
                     entry.DieUid = dieId;
+                    entry.DieMapX = mapX;
+                    entry.DieMapY = mapY;
+                    entry.OriginalMapX = mapX;
+                    entry.OriginalMapY = mapY;
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                     die.WaferID_Input = wafer.WaferId;
                     die.WaferID_Output = "";
-                    die.Wafer_IndexX = entry.DieMapX;
-                    die.Wafer_IndexY = entry.DieMapY;
+                    die.Wafer_IndexX = mapX;
+                    die.Wafer_IndexY = mapY;
                     die.InputSequenceNo = entry.SequenceNo;
                     die.Input_BinCode = entry.BinCode;
                     die.IsInputTarget = entry.IsTarget;
@@ -1391,13 +1471,29 @@ namespace QMC.CDT320.Sequencing
                 if (map == null)
                     return true;
 
+                if (IsExternalInputDieMap(map))
+                {
+                    // 현재 기준: 외부 웨이퍼맵 TXT는 파일 인덱스를 기준으로 사용하므로 Frame grid 검증을 건너뛴다.
+                    return true;
+                }
+
                 int frameDieMapX = 0;
                 int frameDieMapY = 0;
                 double framePitchX = 0.0;
                 double framePitchY = 0.0;
                 string frameName = "";
 
-                if (frameSpec != null)
+                TapeFrameSubset inputFrame = project != null ? project.InputFrame : null;
+                if (inputFrame != null)
+                {
+                    // 현재 기준: Recipe Input DieMap은 분리 저장된 InputFrame 기준으로 먼저 검증한다.
+                    frameDieMapX = Math.Max(1, inputFrame.DieMapX);
+                    frameDieMapY = Math.Max(1, inputFrame.DieMapY);
+                    framePitchX = inputFrame.PitchX;
+                    framePitchY = inputFrame.PitchY;
+                    frameName = inputFrame.FrameSpecName ?? "";
+                }
+                else if (frameSpec != null)
                 {
                     frameDieMapX = Math.Max(1, frameSpec.DieMapX);
                     frameDieMapY = Math.Max(1, frameSpec.DieMapY);

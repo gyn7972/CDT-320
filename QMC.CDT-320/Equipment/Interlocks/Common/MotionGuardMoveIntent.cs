@@ -23,6 +23,7 @@ namespace QMC.CDT320.Interlocks
             InspectionFromZone = ResolveZoneValue("From");
             InspectionToZone = ResolveZoneValue("To");
             InputStageWorkAreaX = ResolveDoubleValue("InputStageWorkAreaX");
+            InputStageWorkAreaNeedleX = ResolveDoubleValue("InputStageWorkAreaNeedleX");
             AutoProcessCorrectionMax = ResolveDoubleValue("AutoProcessCorrectionMax");
         }
 
@@ -38,6 +39,7 @@ namespace QMC.CDT320.Interlocks
         internal PickerWorkZone InspectionFromZone { get; private set; }
         internal PickerWorkZone InspectionToZone { get; private set; }
         public double? InputStageWorkAreaX { get; private set; }
+        public double? InputStageWorkAreaNeedleX { get; private set; }
         public double? AutoProcessCorrectionMax { get; private set; }
 
         public static MotionGuardMoveIntent Parse(string targetName)
