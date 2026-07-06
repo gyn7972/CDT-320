@@ -41,11 +41,41 @@ namespace QMC.Vision.Ui.Dialogs
             ((ISupportInitialize)(this.numTh)).BeginInit();
             this.SuspendLayout();
 
-            Tab(this.btnAll, "전체", 8, Color.Black);
-            Tab(this.btnP0, "ROI1", 82, Color.Red);
-            Tab(this.btnP1, "ROI2", 156, Color.Goldenrod);
-            Tab(this.btnP2, "ROI3", 230, Color.RoyalBlue);
-            Tab(this.btnP3, "ROI4", 304, Color.ForestGreen);
+            this.btnAll.Text = "전체";
+            this.btnAll.Location = new Point(8, 8);
+            this.btnAll.Size = new Size(72, 28);
+            this.btnAll.FlatStyle = FlatStyle.Flat;
+            this.btnAll.ForeColor = Color.Black;
+            this.btnAll.BackColor = Color.White;
+            this.btnAll.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this.btnP0.Text = "ROI1";
+            this.btnP0.Location = new Point(82, 8);
+            this.btnP0.Size = new Size(72, 28);
+            this.btnP0.FlatStyle = FlatStyle.Flat;
+            this.btnP0.ForeColor = Color.Red;
+            this.btnP0.BackColor = Color.White;
+            this.btnP0.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this.btnP1.Text = "ROI2";
+            this.btnP1.Location = new Point(156, 8);
+            this.btnP1.Size = new Size(72, 28);
+            this.btnP1.FlatStyle = FlatStyle.Flat;
+            this.btnP1.ForeColor = Color.Goldenrod;
+            this.btnP1.BackColor = Color.White;
+            this.btnP1.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this.btnP2.Text = "ROI3";
+            this.btnP2.Location = new Point(230, 8);
+            this.btnP2.Size = new Size(72, 28);
+            this.btnP2.FlatStyle = FlatStyle.Flat;
+            this.btnP2.ForeColor = Color.RoyalBlue;
+            this.btnP2.BackColor = Color.White;
+            this.btnP2.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+            this.btnP3.Text = "ROI4";
+            this.btnP3.Location = new Point(304, 8);
+            this.btnP3.Size = new Size(72, 28);
+            this.btnP3.FlatStyle = FlatStyle.Flat;
+            this.btnP3.ForeColor = Color.ForestGreen;
+            this.btnP3.BackColor = Color.White;
+            this.btnP3.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
 
             this.btnRefresh.Location = new Point(382, 8);
             this.btnRefresh.Size = new Size(140, 28);
@@ -100,11 +130,5 @@ namespace QMC.Vision.Ui.Dialogs
             this.ResumeLayout(false);
         }
 
-        private static void Tab(Button b, string text, int x, Color fg)
-        {
-            b.Text = text; b.Location = new Point(x, 8); b.Size = new Size(72, 28);
-            b.FlatStyle = FlatStyle.Flat; b.ForeColor = fg; b.BackColor = Color.White;
-            b.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
-        }
     }
 }
