@@ -288,7 +288,7 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>비동기 매칭 시작(8콜렛 신형 규약) — 고정 8파트 "finder|fb|collet|die_index|channel|chip_uid" 전송.
         /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트),
-        /// channel=Side 0(0°)/1(90°)·그 외 -1, chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
+        /// channel=항상 0/1(Side 0°/90°, Bottom/Bin=0), chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
         public async Task<bool> MatchAsyncStartAsync(string finder, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.MatchAsync, timeoutMs, ct, finder, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);
@@ -344,7 +344,7 @@ namespace QMC.CDT320.VisionComm
 
         /// <summary>비동기 검사 시작(8콜렛 신형 규약) — 고정 8파트 "inspector|fb|collet|die_index|channel|chip_uid" 전송.
         /// fb=0(Front)/1(Back), collet=1~4, die_index=픽업 순서 1-base(-1=다이 없는 메뉴얼 테스트 — Vision 이 맵 매칭/집계 생략),
-        /// channel=Side 0(0°)/1(90°)·Bottom/Bin -1, chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
+        /// channel=항상 0/1(Side 0°/90°, Bottom/Bin 은 0°로 간주해 0), chip_uid=자재 고유 ID(결과 매칭 키, 맨 뒤).</summary>
         public async Task<bool> InspectAsyncStartAsync(string inspector, int fb, int collet, int dieIndex, int channel, string chipUid, int timeoutMs, CancellationToken ct)
         {
             VisionProtocolResponse response = await SendCommandAsync(VisionProtocolCommand.InspectAsync, timeoutMs, ct, inspector, fb, collet, dieIndex, channel, chipUid).ConfigureAwait(false);

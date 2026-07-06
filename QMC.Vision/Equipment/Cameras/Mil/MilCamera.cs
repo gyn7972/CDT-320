@@ -318,9 +318,22 @@ namespace QMC.Vision.Cameras.Mil
 
                 if (_continuousOn)
                 {
+                    // MdigHalt 는 진행 중 그랩이 프레임 경계에 도달하길 기다린다. 카메라가 프레임을 안 보내는
+                    // 상태(트리거 잔존/AcquisitionMode 미전환)면 무한 대기 → 호출 스레드(UI Stop/폼 종료)가
+                    // 통째로 멈춘다 → 백그라운드 스레드에서 halt 하고 3초만 대기. 타임아웃이면 로그 남기고
+                    // 진행(프로세스 종료는 Form1 종료 워치독이 보장).
                     LiveLog("before MdigHalt");
-                    try { MIL.MdigHalt(_dig); } catch (Exception ex) { LiveLog("MdigHalt 예외: " + ex.Message); }
-                    LiveLog("after MdigHalt");
+                    var haltDone = new ManualResetEventSlim(false);
+                    var haltThread = new Thread(() =>
+                    {
+                        try { MIL.MdigHalt(_dig); } catch (Exception ex) { LiveLog("MdigHalt 예외: " + ex.Message); }
+                        try { haltDone.Set(); } catch { }
+                    }) { IsBackground = true, Name = "MilHalt-dig" + _digNum };
+                    haltThread.Start();
+                    if (haltDone.Wait(3000))
+                        LiveLog("after MdigHalt");
+                    else
+                        LiveLog("MdigHalt 타임아웃(3s) — 카메라가 프레임을 보내지 않는 상태로 추정, 강제 진행 (트리거/AcquisitionMode 미전환 여부 확인 필요)");
                     _continuousOn = false;
                 }
 

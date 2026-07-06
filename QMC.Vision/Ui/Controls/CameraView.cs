@@ -182,6 +182,14 @@ namespace QMC.Vision.Ui.Controls
         /// <summary>검출 오버레이 제거.</summary>
         public void ClearDetectOverlay() { _detShow = false; Invalidate(); }
 
+        /// <summary>단발(툴바) 그랩 새 프레임 표시 직전 — 공용(판정/결과라인/마크)에 더해
+        /// 안착 검출/콜렛 오버레이도 지운다(직전 결과가 새 프레임에 겹쳐 보이지 않게).</summary>
+        protected override void ClearDetectionForNewFrame()
+        {
+            base.ClearDetectionForNewFrame();
+            try { ClearDetectOverlay(); ClearColletOverlay(); } catch { }
+        }
+
         private void DrawDetectOverlay(PaintEventArgs e)
         {
             if (!_detShow || CurrentFrame == null) return;

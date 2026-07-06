@@ -143,6 +143,27 @@ namespace QMC.Common.Ui.Controls
         private int  _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(백그라운드 그랩 중 재클릭 무시)
         private int  _liveBusy;   // 0/1 — Live 시작 재진입 가드
 
+        // ── 소스 작업 직렬 큐 ──
+        // Grab/StartLive/StopLive 를 각각 Task.Run 으로 던지면 스레드풀에서 실행 순서가 보장되지 않아
+        // Stop(MdigHalt) 완료 전에 다음 Grab 이 진입 → MIL 모드 캐시가 실제 카메라 상태와 어긋나
+        // 이후 그랩이 계속 실패하는 문제가 있었다. 클릭 순서 그대로 순차 실행(FIFO)해 UI 스레드에서
+        // 동기 실행하던 때와 동일한 순서 보장을 유지한다(UI 는 비블록).
+        private readonly object _srcOpLock = new object();
+        private System.Threading.Tasks.Task _srcOps = System.Threading.Tasks.Task.CompletedTask;
+
+        /// <summary>소스 작업을 직렬 큐에 추가 — 이전 작업 완료 후 워커에서 실행.</summary>
+        private void EnqueueSourceOp(Action op)
+        {
+            lock (_srcOpLock)
+            {
+                _srcOps = _srcOps.ContinueWith(_ =>
+                {
+                    try { op(); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 소스 작업 실패: " + ex.Message); }
+                }, System.Threading.Tasks.TaskScheduler.Default);
+            }
+        }
+
         // ── 프레임 카운터/FPS (툴바 Live/Grab 전용 표시) ──
         private long   _liveFrameTotal;    // 라이브 시작 후 누적 수신 프레임 수
         private int    _fpsWindowCount;    // 현재 1초 창 프레임 수
@@ -235,6 +256,20 @@ namespace QMC.Common.Ui.Controls
             Controls.Add(_tools);
         }
 
+        /// <summary>단발(툴바) 그랩으로 새 프레임을 표시하기 직전 호출 — 직전 검출 표시(판정/결과라인/마크/전용 오버레이)를
+        /// 지운다. 검사·매치가 끝나면 각 페이지가 새 결과를 다시 그린다. 파생 뷰는 검출 박스/콜렛 오버레이 등을 추가로 지운다.</summary>
+        protected virtual void ClearDetectionForNewFrame()
+        {
+            try
+            {
+                ClearResultOverlay();                              // 우상단 OK/NG + 우하단 결과 라인
+                CustomOverlayPaint = null;                         // 검사기 전용 오버레이(다이박스/프로파일 등)
+                _overlayMarks = null;                              // 매치 마크만 제거(ROI 사각형 표시는 유지)
+                Invalidate();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 검출 표시 초기화 실패: " + ex.Message); }
+        }
+
         private void DoToolbarGrab()
         {
             if (_source == null) return;
@@ -243,7 +278,7 @@ namespace QMC.Common.Ui.Controls
             if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1) return;
             if (_tbGrab != null) _tbGrab.Enabled = false;
             var src = _source;
-            System.Threading.Tasks.Task.Run(() =>
+            EnqueueSourceOp(() =>
             {
                 Bitmap b = null;
                 try { b = src.GrabFrame(); }
@@ -258,6 +293,9 @@ namespace QMC.Common.Ui.Controls
                             {
                                 if (b != null)
                                 {
+                                    // 새 프레임 표시 전 — 직전 검출 표시를 지운다(옛 결과가 새 프레임에 겹쳐
+                                    // '업데이트 안 되는 것처럼' 보이지 않게). 검사/매치 완료 시 새로 그린다.
+                                    ClearDetectionForNewFrame();
                                     SetImage(b); b.Dispose();
                                     _showGrabCount = true;          // 단발 그랩 = 프레임 1장 표시
                                     _liveFrameTotal = 0; _fpsValue = 0; _fpsWindowCount = 0;
@@ -299,7 +337,7 @@ namespace QMC.Common.Ui.Controls
 
             // StartLive 는 카메라 feature 쓰기/스트림 개시로 블록될 수 있어 워커에서 수행(QMC.MilCameraTest 검증 패턴).
             var src = _source;
-            System.Threading.Tasks.Task.Run(() =>
+            EnqueueSourceOp(() =>
             {
                 bool ok = false;
                 try
@@ -347,7 +385,7 @@ namespace QMC.Common.Ui.Controls
             if (_tbLive != null) _tbLive.Checked = false;   // 라이브 종료 → 활성 표시 해제
             var src = _source;
             if (src != null)
-                System.Threading.Tasks.Task.Run(() =>
+                EnqueueSourceOp(() =>
                 {
                     try { src.StopLive(); }
                     catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Live 정지 실패: " + ex.Message); }

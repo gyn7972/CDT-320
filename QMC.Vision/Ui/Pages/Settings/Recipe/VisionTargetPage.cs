@@ -228,14 +228,14 @@ namespace QMC.Vision.Ui.Pages
             }
 
             // 도구별 시뮬 저장이미지 — 웨이퍼 2점 정렬의 이미지1/이미지2처럼 Finder 마다 다른 이미지 지정.
-            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
+            // 카메라가 '시뮬레이션'일 때만 사용된다 — 실카메라 장착 시 설정과 무관하게 항상 실제 촬상.
             // 로드 시 Setup/Recipe POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
-                items.Add(ParameterGridItem.Bool("저장 이미지 사용 (이 도구 전용·모듈보다 우선)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.Bool("시뮬 저장 이미지 사용 (카메라 시뮬레이션 전용)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
-                items.Add(ParameterGridItem.FilePath("저장 이미지 경로", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("시뮬 저장 이미지 경로", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
@@ -476,6 +476,17 @@ namespace QMC.Vision.Ui.Pages
             _lastGrab = _module.GrabForTool(ResolveToolId());
             if (_lastGrab.IsSuccess)
             {
+                // 새 그랩 — 직전 검출 오버레이(매칭 박스/콜렛 사각/판정 표시)를 먼저 지운다.
+                // 새 프레임에 옛 결과가 겹쳐 '업데이트 안 되는 것처럼' 보이지 않게. MATCH 완료 시 새로 그린다.
+                try
+                {
+                    _cam.ClearDetectOverlay();
+                    _cam.ClearColletOverlay();
+                    _cam.ClearResultOverlay();
+                    _cam.SetOverlay(ActiveRoi(), (MatchResult)null);   // ROI 표시만 유지
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 그랩 오버레이 초기화 실패: " + ex.Message); }
+
                 _cam.SetFrame(_lastGrab);
                 OnImageReady(_lastGrab.Image);
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
@@ -722,8 +733,20 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_matchBusy) { Status("MATCH 진행 중…"); return; }   // 연타 재진입 무시(프리즈/중복 방지)
             if (_finder == null) { Status("ERR: finder not bound"); return; }
-            var img = CurrentImage;
-            if (img == null) { DoGrab(); img = CurrentImage; }
+            // '그랩 → 찾기' — 통신 MATCH(GrabForTool→Match)와 동일하게 항상 새로 촬상해,
+            // 화면 표시/검출 오버레이/콜렛 결과 팝업이 전부 같은 프레임을 쓰게 한다.
+            // (기존: 이미 표시 중인 이미지로 매치 → 라이브 중이면 화면과 매치 입력이 달라 보였음)
+            // 단, [Load]로 불러온 테스트 이미지가 있으면 그 이미지로 매치(오프라인 튜닝 보존).
+            Bitmap img;
+            if (_loadedImage != null)
+            {
+                img = _loadedImage;
+            }
+            else
+            {
+                DoGrab();
+                img = (_lastGrab != null && _lastGrab.IsSuccess) ? _lastGrab.Image : null;
+            }
             if (img == null) { Status("MATCH: no image"); return; }
             _matchBusy = true;
             try

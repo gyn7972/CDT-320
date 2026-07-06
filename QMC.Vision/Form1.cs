@@ -51,19 +51,36 @@ namespace QMC.Vision
         // ── 수명주기: Load 는 조립만, 세부는 Initialize* 헬퍼로 분리(핸들러 정렬) ──
         private void Form1_Load(object sender, EventArgs e)
         {
+            // 기동 구간별 소요 시간 로그(Startup) — 실장비에서 초기 연결이 느린 구간 특정용.
+            var swTotal = System.Diagnostics.Stopwatch.StartNew();
+            var swStep  = System.Diagnostics.Stopwatch.StartNew();
+            Action<string> lap = step =>
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Startup",
+                    step + " " + swStep.ElapsedMilliseconds + "ms (누적 " + swTotal.ElapsedMilliseconds + "ms)"); } catch { }
+                swStep.Restart();
+            };
+
             var cfg = VisionConfigStore.Load();
             // 데이터 저장 루트 적용 — 레시피/설비데이터 Store 사용 전에 반드시 먼저 설정.
             QMC.Common.Data.Store.DataPaths.Root = cfg.EffectiveDataRoot;
             QMC.Common.Data.Store.DataPaths.EnsureRoot();
+            lap("config/dataroot");
             InitializeLighting(cfg);
+            lap("lighting");
             InitializeBackend(cfg);
+            lap("backend");
             InitializeModulesAndMachine();
+            lap("modules+cameras");
             EnsureDataStores(cfg);             // 기본 데이터 폴더 + default 레시피 보장(없으면 생성)
             RestoreLastRecipe(cfg);            // 마지막 적용 레시피 복원(+상단 Recipe 표시)
+            lap("datastores+recipe");
             InitializeServers(cfg);
+            lap("tcp servers");
             InitializeTabs();
             InitializeLocalization(cfg);
             UpdateCameraStatusDot();
+            lap("tabs/ui");
 
             timerClock.Start();
             UpdateClock();
@@ -599,7 +616,9 @@ namespace QMC.Vision
 
             // 카메라 생성(CameraId=생성 트리거) → SetCamera → Open → Config/Recipe 적용
             string camId = !string.IsNullOrEmpty(mod.CameraId) ? mod.CameraId : fallbackId;
+            var swCam = System.Diagnostics.Stopwatch.StartNew();
             var cam = CameraFactory.CreateById(camId);
+            long createMs = swCam.ElapsedMilliseconds;
             mod.SetCamera(cam);
             try { cam.Open(); }
             catch (Exception ex)
@@ -609,6 +628,8 @@ namespace QMC.Vision
             }
             // .mfs 전체 로드는 자동으로 하지 않는다 — 사용자가 설정 화면 [불러오기] 버튼을 누를 때만 적용.
             mod.ApplyCameraSettings();
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Startup",
+                "camera [" + algorithm + "/" + camId + "] create=" + createMs + "ms, open+apply=" + (swCam.ElapsedMilliseconds - createMs) + "ms"); } catch { }
         }
 
         /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>
@@ -871,6 +892,22 @@ namespace QMC.Vision
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            // 종료 워치독 — 디바이스 해제(MdigHalt/MdigFree/시리얼 Close/MsysFree)가 행 걸려도 프로세스는
+            // 반드시 내려가게 한다(실장비에서 Grab/Live 후 종료 안 되는 문제). 정상 종료 시엔 백그라운드
+            // 스레드라 함께 소멸. 마지막 Shutdown 단계 로그가 행 지점.
+            try
+            {
+                var wd = new System.Threading.Thread(() =>
+                {
+                    System.Threading.Thread.Sleep(10000);
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Shutdown",
+                        "종료 워치독: 10초 내 정상 종료 실패 — 프로세스 강제 종료 (직전 Shutdown 단계 로그가 행 지점)"); } catch { }
+                    try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { Environment.Exit(0); }
+                }) { IsBackground = true, Name = "ExitWatchdog" };
+                wd.Start();
+            }
+            catch { }
+            ShutdownLog("begin");
             try { QMC.Vision.Ui.Windows.BottomInspectionWindow.CloseInstance(); } catch { }
             try { _resTimer?.Dispose(); _resTimer = null; } catch { }
             try { _autoSeqHost?.Stop(); }      catch { }
@@ -888,6 +925,7 @@ namespace QMC.Vision
 
             // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
             //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
+            ShutdownLog("tcp/viewer done -> cameras");
             try { WaferMod    ?.Camera?.StopLive(); } catch { }
             try { BinMod      ?.Camera?.StopLive(); } catch { }
             try { BottomMod   ?.Camera?.StopLive(); } catch { }
@@ -899,11 +937,21 @@ namespace QMC.Vision
             try { FrontSideVisionMod?.Dispose(); } catch { }
             try { RearSideVisionMod ?.Dispose(); } catch { }
 
+            ShutdownLog("cameras done -> lights");
             try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
+            ShutdownLog("lights done -> backend");
             try { Backend?.Dispose(); }        catch { }
             // 카메라(digitizer) 정리 후 MIL System/App 완전 해제 — 그래버 점유 해제(다음 실행/Intellicam 즉시 사용 가능).
+            ShutdownLog("backend done -> MIL shutdown");
             try { QMC.Vision.Cameras.Mil.MilSystem.Shutdown(); } catch { }
+            ShutdownLog("done");
             base.OnFormClosing(e);
+        }
+
+        /// <summary>종료 단계 로그 — 실장비에서 종료가 행 걸릴 때 마지막으로 찍힌 단계가 행 지점.</summary>
+        private static void ShutdownLog(string step)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Shutdown", step); } catch { }
         }
     }
 }

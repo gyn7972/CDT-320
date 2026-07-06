@@ -46,6 +46,27 @@ namespace QMC.Vision.Ui.Pages
         private int _expEndCount;   // 카메라 ExposureEnded 수신 횟수(HW 노출 종료 이벤트 동작 확인용)
         private SynchronizationContext _uiCtx;
 
+        // ── 카메라 작업 직렬 큐 ──
+        // LiveStart/LiveStop/TestGrab 을 각각 Task.Run 으로 던지면 실행 순서가 보장되지 않아
+        // Stop(MdigHalt) 완료 전에 다음 그랩이 진입 → MIL 모드 캐시 어긋남 → 이후 그랩 연속 실패.
+        // 클릭 순서 그대로 순차 실행(FIFO)한다(UI 는 비블록).
+        private readonly object _camOpLock = new object();
+        private System.Threading.Tasks.Task _camOps = System.Threading.Tasks.Task.CompletedTask;
+        private int _grabOpBusy;   // 0/1 — 테스트 그랩 재진입 가드
+
+        /// <summary>카메라 작업을 직렬 큐에 추가 — 이전 작업 완료 후 워커에서 실행.</summary>
+        private void EnqueueCamOp(Action op)
+        {
+            lock (_camOpLock)
+            {
+                _camOps = _camOps.ContinueWith(_ =>
+                {
+                    try { op(); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 카메라 작업 실패: " + ex.Message); }
+                }, System.Threading.Tasks.TaskScheduler.Default);
+            }
+        }
+
         // MVS 확장 파라미터 — 그룹별 접이식 그리드(런타임 생성, 기본 접힘). 코어 파라미터 그리드와 분리.
         private ParameterGridControl _mfsGrid;   // .mfs 파일 경로 + 불러오기/저장(Hik 전용, 기본 펼침)
         private ParameterGridControl _dcfGrid;   // DCF 파일 경로 + 적용(MIL 전용, 그리드 형식)
@@ -555,10 +576,10 @@ namespace QMC.Vision.Ui.Pages
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
 
-                // 모듈 시뮬 이미지 — 핸들러 GRAB 시 카메라 대신 이 이미지를 그랩(테스트용)
-                ParameterGridItem.Bool("GRAB 소스: 저장 이미지 사용", ParameterGridScope.Config,
+                // 모듈 시뮬 이미지 — 카메라가 '시뮬레이션'일 때만 GRAB 에 사용(실카메라=항상 실제 촬상).
+                ParameterGridItem.Bool("GRAB 소스: 시뮬 저장 이미지 사용 (시뮬 카메라 전용)", ParameterGridScope.Config,
                     () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
-                ParameterGridItem.FilePath("GRAB 저장 이미지 경로", ParameterGridScope.Config,
+                ParameterGridItem.FilePath("GRAB 시뮬 저장 이미지 경로", ParameterGridScope.Config,
                     () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
             };
@@ -773,9 +794,10 @@ namespace QMC.Vision.Ui.Pages
                 if (string.IsNullOrEmpty(port)) continue;
                 int page = 0;
                 int.TryParse(r.Cells["Page"].Value?.ToString(), out page);
-                var ce = LightSystemSetupStore.Current?.GetController(port);
                 if (page < 0) page = 0;
-                if (ce != null && ce.PageCount > 0 && page > ce.PageCount - 1) page = ce.PageCount - 1;
+                // 주의: PageCount 상한 클램프 금지 — 컨트롤러 설정의 PageCount 가 실제 장비보다 작게
+                // 등록돼 있으면(예: LFine 12페이지인데 8) 사용자가 지정한 페이지(P08 등)를 저장할 때마다
+                // 몰래 깎아(8→7, 1→0) 조명이 꺼지는 사고가 났다. 지정 값은 그대로 저장한다.
                 if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
                     list.Add(new LightPageRef { ControllerPort = port, Page = page });
             }
@@ -1301,31 +1323,53 @@ namespace QMC.Vision.Ui.Pages
                 _lblStatus.ForeColor = Color.Firebrick;
                 return;
             }
+            // 재진입 가드 — 진행 중이면 무시(연속 클릭 방지).
+            if (System.Threading.Interlocked.Exchange(ref _grabOpBusy, 1) == 1) return;
             _lblStatus.Text = "테스트 그랩 중..."; _lblStatus.Refresh();
 
-            ICamera cam = _activeCam;
-            bool ownCam = false;
-            try
+            // 그랩(블록 가능)은 직렬 큐 워커에서 — 직전 Live Stop 이 큐에 있으면 완료 후 실행된다.
+            var active = _activeCam;
+            EnqueueCamOp(() =>
             {
-                if (cam == null)
+                ICamera cam = active;
+                bool ownCam = false;
+                GrabResult g = null;
+                string err = null;
+                try
                 {
-                    cam = AlgorithmCameraBinder.CreateAndApply(m);
-                    ownCam = true;
-                }
-                cam.TriggerMode = CameraTriggerMode.Software;
-                using (var g = cam.Grab(3000))
-                {
-                    if (g.IsSuccess && g.Image != null)
+                    if (cam == null)
                     {
-                        _camPreview.SetFrame(g);   // 공용 CameraView (SetFrame 이 내부 복제)
-                        _lblStatus.ForeColor = Color.DarkSlateGray;
-                        _lblStatus.Text = $"그랩 OK — {g.Width}x{g.Height}  Exposure={m.ExposureUs}μs  Gain={m.Gain}dB";
+                        cam = AlgorithmCameraBinder.CreateAndApply(m);
+                        ownCam = true;
                     }
-                    else { _lblStatus.Text = "그랩 실패: " + (g.ErrorMessage ?? "-"); _lblStatus.ForeColor = Color.Firebrick; }
+                    cam.TriggerMode = CameraTriggerMode.Software;
+                    g = cam.Grab(3000);
                 }
-            }
-            catch (Exception ex) { _lblStatus.Text = "예외: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
-            finally { if (ownCam) { try { cam?.Dispose(); } catch { } } }
+                catch (Exception ex) { err = ex.Message; }
+                finally { if (ownCam) { try { cam?.Dispose(); } catch { } } }
+
+                _uiCtx.Post(_ =>
+                {
+                    try
+                    {
+                        if (err != null)
+                        { _lblStatus.Text = "예외: " + err; _lblStatus.ForeColor = Color.Firebrick; }
+                        else if (g != null && g.IsSuccess && g.Image != null)
+                        {
+                            _camPreview.SetFrame(g);   // 공용 CameraView (SetFrame 이 내부 복제)
+                            _lblStatus.ForeColor = Color.DarkSlateGray;
+                            _lblStatus.Text = $"그랩 OK — {g.Width}x{g.Height}  Exposure={m.ExposureUs}μs  Gain={m.Gain}dB";
+                        }
+                        else { _lblStatus.Text = "그랩 실패: " + (g?.ErrorMessage ?? "-"); _lblStatus.ForeColor = Color.Firebrick; }
+                    }
+                    catch (Exception ex2) { System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 그랩 UI 갱신 실패: " + ex2.Message); }
+                    finally
+                    {
+                        try { g?.Dispose(); } catch { }
+                        System.Threading.Interlocked.Exchange(ref _grabOpBusy, 0);
+                    }
+                }, null);
+            });
         }
 
         // ──────────────────────────────────────────
@@ -1442,7 +1486,7 @@ namespace QMC.Vision.Ui.Pages
             UpdateConnectButtons();
 
             var cam = _activeCam;
-            System.Threading.Tasks.Task.Run(() =>
+            EnqueueCamOp(() =>
             {
                 string err = null;
                 try
@@ -1484,7 +1528,7 @@ namespace QMC.Vision.Ui.Pages
             UpdateConnectButtons();
 
             var cam = _activeCam;
-            System.Threading.Tasks.Task.Run(() =>
+            EnqueueCamOp(() =>
             {
                 string err = null;
                 try { cam.StopLive(); }

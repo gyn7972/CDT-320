@@ -102,6 +102,41 @@ namespace QMC.Vision.Core
             }
         }
 
+        /// <summary>동기 채점 — FOCUS_VAL 이 grab 직후 read loop 스레드에서 호출한다.
+        /// crop + 채점 + 세션 누적(AddSample)까지 수행한 뒤 시리즈별 점수를 반환하고 <paramref name="grab"/> 을 Dispose 한다.
+        /// (EPD 를 노출 종료 시점에 먼저 푸시하고, 이 채점 결과를 FOCUS_VAL 응답(score)에 담아 보내는 흐름용 —
+        ///  핸들러는 EPD 로 이미 다음 위치로 이동 중이므로 응답 지연이 모션을 막지 않는다.)</summary>
+        public static System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, double>> ScoreNow(
+            string module, FocusCamera camera, FocusTarget target,
+            double motorZ, bool isInitial, long grabMs,
+            GrabResult grab, Rectangle[] rects, int[] series, int imgW, int imgH)
+        {
+            var scores = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, double>>();
+            if (grab == null) return scores;
+            try
+            {
+                if (rects != null && rects.Length > 0)
+                {
+                    var job = new Job
+                    {
+                        Module = module, Camera = camera, Target = target,
+                        MotorZ = motorZ, IsInitial = isInitial, GrabMs = grabMs,
+                        Grab = grab, Rects = rects, Series = series, ImgW = imgW, ImgH = imgH
+                    };
+                    ProcessOne(job, scores);
+                }
+            }
+            catch (Exception ex)
+            {
+                try { VisionCommLog.Add("[AutoFocusProcessor] 동기 채점 오류: " + ex.Message); } catch { }
+            }
+            finally
+            {
+                try { grab.Dispose(); } catch { }
+            }
+            return scores;
+        }
+
         /// <summary>큐의 모든 작업이 처리될 때까지 대기. 완료 시 true, 타임아웃 시 false. timeoutMs&lt;0 이면 무한 대기.</summary>
         public static bool WaitForDrain(int timeoutMs)
         {
@@ -146,7 +181,7 @@ namespace QMC.Vision.Core
 
         // ── Private Methods ──
 
-        private static void ProcessOne(Job job)
+        private static void ProcessOne(Job job, System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, double>> outScores = null)
         {
             if (job == null || job.Grab == null || !job.Grab.IsSuccess || job.Grab.Image == null) return;
 
@@ -164,23 +199,51 @@ namespace QMC.Vision.Core
             var rd = new StringBuilder();
             if (raws != null && bpp > 0)
             {
+                // ROI 채점을 병렬로 — 대형 ROI 4개의 CPU 라플라시안이 직렬로는 수 초 걸려
+                // FOCUS_VAL 응답(동기 채점)이 늦어진다. 점수/진단만 병렬 계산, 누적/로그는 순서대로.
+                var scoresArr = new double[raws.Length];
+                var rawMaxArr = new byte[raws.Length];
+                System.Threading.Tasks.Parallel.For(0, raws.Length, i =>
+                {
+                    if (raws[i] == null) return;
+                    Rectangle bb2 = job.Rects[i];
+                    scoresArr[i] = AutoFocusCore.ScoreRawBuffer(raws[i], bb2.Width, bb2.Height, bpp, afTh);
+                    // 진단: 입력 raw 버퍼의 최대 픽셀값(0이면 검정/빈 버퍼 → 추출/조명 문제, >0이면 내용 있음).
+                    byte mx = 0;
+                    byte[] rb = raws[i];
+                    for (int k = 0; k < rb.Length; k++) if (rb[k] > mx) mx = rb[k];
+                    rawMaxArr[i] = mx;
+                });
+
                 for (int i = 0; i < raws.Length; i++)
                 {
                     if (raws[i] == null) continue;
                     Rectangle bb = job.Rects[i];
                     int seriesNo = (job.Series != null && i < job.Series.Length) ? job.Series[i] : (i + 1);
-                    double s = AutoFocusCore.ScoreRawBuffer(raws[i], bb.Width, bb.Height, bpp, afTh);
+                    double s = scoresArr[i];
                     AutoFocusStore.AddSample(job.Camera, job.Target, seriesNo, job.MotorZ, s, job.IsInitial);
+                    outScores?.Add(new System.Collections.Generic.KeyValuePair<int, double>(seriesNo, s));
                     sum += s; cnt++;
-                    // 진단: 입력 raw 버퍼의 최대 픽셀값(0이면 검정/빈 버퍼 → 추출/조명 문제, >0이면 내용 있음).
-                    byte rawMax = 0;
-                    byte[] rb = raws[i];
-                    for (int k = 0; k < rb.Length; k++) if (rb[k] > rawMax) rawMax = rb[k];
                     rd.Append(" roi" + seriesNo + "=" + s.ToString("F0", inv) +
-                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + " max=" + rawMax + "]");
+                              "[" + bb.X + "," + bb.Y + " " + bb.Width + "x" + bb.Height + " max=" + rawMaxArr[i] + "]");
                 }
             }
             swAlgo.Stop();
+
+            // 메인 모니터링 UI(작업 페이지 타일) 라이브 스코어 — 채점 완료 시점에 각 Z 의 스코어를 반영.
+            // (스캔 종료 FOCUS_BEST 가 best 요약으로 덮어쓴다.)
+            try
+            {
+                if (cnt > 0 && !string.IsNullOrEmpty(job.Module))
+                {
+                    var live = new StringBuilder();
+                    live.Append("z=").Append(job.MotorZ.ToString("F3", inv));
+                    live.Append(";avgScore=").Append((sum / cnt).ToString("F1", inv));
+                    // rd 에는 진단 문자열이 있으므로 outScores 대신 시리즈별 점수를 다시 붙인다.
+                    ModuleResultStore.Record(job.Module, "FOCUS", true, live.ToString());
+                }
+            }
+            catch { /* UI 스토어 기록 실패는 채점에 영향 없음 */ }
 
             try
             {

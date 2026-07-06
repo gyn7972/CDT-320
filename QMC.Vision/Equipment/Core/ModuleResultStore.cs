@@ -110,6 +110,16 @@ namespace QMC.Vision.Core
             }
         }
 
+        /// <summary>모듈의 검출 마크만 초기화(결과 라인/판정은 유지) — 새 그랩 시작 시 이전 검출 표시 제거용.</summary>
+        public static void ClearMarks(string module)
+        {
+            if (string.IsNullOrEmpty(module)) return;
+            lock (_lock)
+            {
+                if (_marks.Remove(module)) Bump(module);
+            }
+        }
+
         /// <summary>모듈 결과 초기화.</summary>
         public static void Clear(string module)
         {

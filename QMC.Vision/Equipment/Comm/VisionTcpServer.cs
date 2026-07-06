@@ -359,7 +359,7 @@ namespace QMC.Vision.Comm
         /// <para>신형(고정 8파트): MODULE|INSPECTASYNC|inspector|fb|collet|die_index|channel|chip_uid
         ///  • fb=0(Front)/1(Back), collet=1~4 → 전역 픽커 1~8(<see cref="ColletAddress"/>).
         ///  • die_index = 픽업 순서 1-base, -1=다이 없음(메뉴얼 — 맵 매칭/uid 숫자 폴백 미적용).
-        ///  • channel   = Side 0(0°)/1(90°), Bottom/Bin=-1. chip_uid 는 맨 뒤(결과 매칭 키).</para>
+        ///  • channel   = 항상 0/1 — Side 0(0°)/1(90°), Bottom/Bin 은 0°로 간주해 0. chip_uid 는 맨 뒤(결과 매칭 키).</para>
         /// <para>구형(≤7파트, 하위호환): inspector|picker_id|chip_uid[|die_index[|channel]] —
         /// die_index 생략 시 chip_uid 가 숫자면 그 값.</para></summary>
         private string DoInspectAsync(IVisionModule m, string[] parts)
@@ -472,9 +472,13 @@ namespace QMC.Vision.Comm
 
         private void OnExposureDone(string moduleName)
         {
-            // 오토포커스 등 내부 grab 중에는 EPD 푸시 안 함(ACK 응답 스트림 오염 방지).
             if (QMC.Vision.Core.VisionCommandCore.SuppressExposurePush) return;
-            Broadcast($"EPD|{moduleName}");
+            // 카메라 노출종료 훅(MIL 내부 스레드)을 TCP write 로 블록시키지 않는다 —
+            // EPD 송신은 스레드풀로 비동기 큐잉하고 콜백은 즉시 반환(이미지 전송/카피 파이프라인 지연 0).
+            System.Threading.ThreadPool.QueueUserWorkItem(_s =>
+            {
+                try { Broadcast($"EPD|{moduleName}"); } catch { /* 송신 실패는 Broadcast 내부 처리 */ }
+            });
         }
 
         private void OnAlarmed(string moduleName, string reason)
