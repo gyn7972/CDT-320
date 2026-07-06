@@ -1208,9 +1208,9 @@ namespace QMC.CDT320.Interlocks
             if (axis == WaferStageAxis.WaferY &&
                 TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
             {
-                // 기존 조건: InputStageWorkAreaX는 Camera/VisionX 기준 힌트라 StageY 작업반경 차단에 사용하지 않는다.
+                // 기존 조건: InputStageWorkAreaX를 Camera/VisionX 원형 작업영역에 직접 대입하는 방식은 사용하지 않는다.
                 // if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason)) ...
-                // 현재 기준: WaferStageY 작업반경은 아래 공통 경로에서 NeedleX/StageY 실축 좌표로만 판단한다.
+                // 현재 기준: InputStageWorkAreaX는 위 TryResolveInputStageWorkAreaNeedleX에서 NeedleX 좌표로 변환해 먼저 판단한다.
             }
 
             if (stage.IsInputStageAxisTargetAllowedInWorkArea(axis, request != null ? request.TargetValue : 0.0, out areaReason))
@@ -1248,16 +1248,53 @@ namespace QMC.CDT320.Interlocks
             workAreaNeedleX = 0.0;
             try
             {
-                if (request == null || request.Intent == null || !request.Intent.InputStageWorkAreaNeedleX.HasValue)
+                if (request == null || request.Intent == null)
                     return false;
 
-                workAreaNeedleX = request.Intent.InputStageWorkAreaNeedleX.Value;
+                if (request.Intent.InputStageWorkAreaNeedleX.HasValue)
+                {
+                    workAreaNeedleX = request.Intent.InputStageWorkAreaNeedleX.Value;
+                    return true;
+                }
+
+                double workAreaVisionX;
+                if (!TryResolveInputStageWorkAreaX(request, out workAreaVisionX))
+                    return false;
+
+                // 현재 기준: VisionX 기준 Die 목표는 NeedleXToVisionX 캘리브레이션 offset을 빼서 NeedleX 작업 좌표로 변환한다.
+                workAreaNeedleX = workAreaVisionX - ResolveNeedleXToVisionXOffset(request.Machine);
                 return true;
             }
             catch
             {
                 workAreaNeedleX = 0.0;
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveNeedleXToVisionXOffset(CDT320_Machine machine)
+        {
+            try
+            {
+                if (machine == null ||
+                    machine.VisionUnit == null ||
+                    machine.VisionUnit.Config == null)
+                    return 0.0;
+
+                machine.VisionUnit.Config.EnsureCalibrationObjects();
+                if (machine.VisionUnit.Config.CalibrationData == null ||
+                    machine.VisionUnit.Config.CalibrationData.Needle == null ||
+                    !machine.VisionUnit.Config.CalibrationData.Needle.Valid)
+                    return 0.0;
+
+                return machine.VisionUnit.Config.CalibrationData.Needle.NeedleXToVisionXOffset;
+            }
+            catch
+            {
+                return 0.0;
             }
             finally
             {

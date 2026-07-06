@@ -1959,11 +1959,13 @@ namespace QMC.CDT320
             string interlockReason;
             if (!TryResolveInputStageContinuousJogTarget(axis, dir, out target, out interlockReason))
             {
-                if (IsJogBoundaryNoMoveReason(interlockReason))
-                {
-                    LastStageMoveFailureMessage = string.Empty;
-                    return 0;
-                }
+                // 기존 조건: 작업영역 경계에 걸린 조그 no-move는 알람 없이 정상 처리했다.
+                // 현재 기준: 모터가 안 가고 멈추는 상태도 운전자가 원인을 알아야 하므로 인터락 알람으로 처리한다.
+                // if (IsJogBoundaryNoMoveReason(interlockReason))
+                // {
+                //     LastStageMoveFailureMessage = string.Empty;
+                //     return 0;
+                // }
 
                 string message = axis + " jog blocked by work area interlock. direction=" + dir + ". " + interlockReason;
                 LastStageMoveFailureMessage = message;

@@ -139,7 +139,7 @@
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 1;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(820, 560);
+            this.rootLayout.Size = new System.Drawing.Size(820, 602);
             this.rootLayout.TabIndex = 0;
             // 
             // grpAxis
@@ -148,7 +148,7 @@
             this.grpAxis.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAxis.Location = new System.Drawing.Point(11, 11);
             this.grpAxis.Name = "grpAxis";
-            this.grpAxis.Size = new System.Drawing.Size(274, 538);
+            this.grpAxis.Size = new System.Drawing.Size(274, 580);
             this.grpAxis.TabIndex = 0;
             this.grpAxis.TabStop = false;
             this.grpAxis.Text = "Axis";
@@ -165,7 +165,7 @@
             this.lstAxes.ItemHeight = 15;
             this.lstAxes.Location = new System.Drawing.Point(3, 19);
             this.lstAxes.Name = "lstAxes";
-            this.lstAxes.Size = new System.Drawing.Size(268, 516);
+            this.lstAxes.Size = new System.Drawing.Size(268, 558);
             this.lstAxes.TabIndex = 0;
             // 
             // rightLayout
@@ -184,13 +184,13 @@
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 7;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 106F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 112F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 142F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 130F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 124F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 92F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(518, 538);
+            this.rightLayout.Size = new System.Drawing.Size(518, 580);
             this.rightLayout.TabIndex = 1;
             // 
             // grpStatus
@@ -334,7 +334,7 @@
             this.grpPosition.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPosition.Location = new System.Drawing.Point(3, 109);
             this.grpPosition.Name = "grpPosition";
-            this.grpPosition.Size = new System.Drawing.Size(512, 106);
+            this.grpPosition.Size = new System.Drawing.Size(512, 124);
             this.grpPosition.TabIndex = 1;
             this.grpPosition.TabStop = false;
             this.grpPosition.Text = "Repeat Position";
@@ -363,7 +363,7 @@
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.positionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.positionLayout.Size = new System.Drawing.Size(506, 84);
+            this.positionLayout.Size = new System.Drawing.Size(506, 102);
             this.positionLayout.TabIndex = 0;
             // 
             // lblStartCaption
@@ -466,7 +466,7 @@
             this.btnSwap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSwap.Location = new System.Drawing.Point(333, 63);
             this.btnSwap.Name = "btnSwap";
-            this.btnSwap.Size = new System.Drawing.Size(166, 14);
+            this.btnSwap.Size = new System.Drawing.Size(166, 32);
             this.btnSwap.TabIndex = 8;
             this.btnSwap.Text = "Swap";
             // 
@@ -474,9 +474,9 @@
             // 
             this.grpProfile.Controls.Add(this.profileLayout);
             this.grpProfile.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpProfile.Location = new System.Drawing.Point(3, 221);
+            this.grpProfile.Location = new System.Drawing.Point(3, 239);
             this.grpProfile.Name = "grpProfile";
-            this.grpProfile.Size = new System.Drawing.Size(512, 136);
+            this.grpProfile.Size = new System.Drawing.Size(512, 118);
             this.grpProfile.TabIndex = 2;
             this.grpProfile.TabStop = false;
             this.grpProfile.Text = "Motion Profile";
@@ -493,7 +493,7 @@
             this.profileLayout.Name = "profileLayout";
             this.profileLayout.RowCount = 1;
             this.profileLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.profileLayout.Size = new System.Drawing.Size(506, 114);
+            this.profileLayout.Size = new System.Drawing.Size(506, 96);
             this.profileLayout.TabIndex = 0;
             // 
             // gridProfile
@@ -514,7 +514,7 @@
             this.gridProfile.RowHeadersVisible = false;
             this.gridProfile.RowTemplate.Height = 24;
             this.gridProfile.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this.gridProfile.Size = new System.Drawing.Size(370, 108);
+            this.gridProfile.Size = new System.Drawing.Size(370, 90);
             this.gridProfile.TabIndex = 0;
             // 
             // colProfileName
@@ -542,7 +542,7 @@
             this.btnReloadDefault.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReloadDefault.Location = new System.Drawing.Point(379, 3);
             this.btnReloadDefault.Name = "btnReloadDefault";
-            this.btnReloadDefault.Size = new System.Drawing.Size(124, 108);
+            this.btnReloadDefault.Size = new System.Drawing.Size(124, 90);
             this.btnReloadDefault.TabIndex = 1;
             this.btnReloadDefault.Text = "Reload\r\nDefault";
             this.btnReloadDefault.UseVisualStyleBackColor = true;
@@ -776,7 +776,7 @@
             this.lblStatus.Location = new System.Drawing.Point(3, 522);
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
-            this.lblStatus.Size = new System.Drawing.Size(512, 16);
+            this.lblStatus.Size = new System.Drawing.Size(512, 58);
             this.lblStatus.TabIndex = 6;
             this.lblStatus.Text = "Ready";
             this.lblStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -784,7 +784,7 @@
             // MotionTestDialog
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(820, 560);
+            this.ClientSize = new System.Drawing.Size(820, 602);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MinimumSize = new System.Drawing.Size(836, 599);
