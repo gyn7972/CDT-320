@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Drawing;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Sequencing.Calibration;
+using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Security;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -15,6 +17,10 @@ namespace QMC.CDT_320.Ui.Dialogs
     public partial class VisionCameraCalibrationDialog : Form
     {
         private const double CameraReticlePositionToleranceMm = 0.05;
+        private const string MotionSpeedRow = "Move Speed";
+        private const string MotionAccRow = "Move Acc";
+        private const string MotionDecRow = "Move Dec";
+        private const string MotionTimeoutRow = "Move Timeout";
         private VisionCameraCalibrationSequence _sequence;
         private CancellationTokenSource _cts;
         private bool _busy;
@@ -41,6 +47,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 InitializeComponent();
                 ApplyText();
+                gridAppliedValues.CellDoubleClick += gridAppliedValues_CellDoubleClick;
                 RefreshData();
             }
             catch (Exception ex)
@@ -779,6 +786,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddAppliedValueRow("Output VisionX Encoder", FormatVisionXPosition(data.OutputReticle));
                 AddAppliedValueRow("Bottom-Input Offset", FormatOffset(data.InputToBottomOffsetX, data.InputToBottomOffsetY));
                 AddAppliedValueRow("Bottom-Output Offset", FormatOffset(data.OutputToBottomOffsetX, data.OutputToBottomOffsetY));
+                AddAppliedValueRow(MotionSpeedRow, data.Motion.MoveVelocity.ToString("F6") + " mm/s", MotionSpeedRow);
+                AddAppliedValueRow(MotionAccRow, data.Motion.MoveAcceleration.ToString("F6") + " mm/s2", MotionAccRow);
+                AddAppliedValueRow(MotionDecRow, data.Motion.MoveDeceleration.ToString("F6") + " mm/s2", MotionDecRow);
+                AddAppliedValueRow(MotionTimeoutRow, data.Motion.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms", MotionTimeoutRow);
             }
             catch (Exception ex)
             {
@@ -791,7 +802,87 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void AddAppliedValueRow(string item, string value)
         {
-            gridAppliedValues.Rows.Add(item, string.Empty, string.Empty, value);
+            AddAppliedValueRow(item, value, null);
+        }
+
+        private void AddAppliedValueRow(string item, string value, string tag)
+        {
+            int row = gridAppliedValues.Rows.Add(item, string.Empty, string.Empty, value);
+            gridAppliedValues.Rows[row].Tag = tag;
+        }
+
+        private void gridAppliedValues_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0)
+                return;
+
+            DataGridViewRow row = gridAppliedValues.Rows[e.RowIndex];
+            string key = row != null ? row.Tag as string : null;
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            try
+            {
+                VisionCameraCalibrationData data = Sequence.CalibrationData;
+                if (data == null)
+                    return;
+
+                data.EnsureObjects();
+                string unit = key == MotionTimeoutRow ? "ms" : key == MotionSpeedRow ? "mm/s" : "mm/s2";
+                string current;
+                if (key == MotionSpeedRow)
+                    current = data.Motion.MoveVelocity.ToString("F6");
+                else if (key == MotionAccRow)
+                    current = data.Motion.MoveAcceleration.ToString("F6");
+                else if (key == MotionDecRow)
+                    current = data.Motion.MoveDeceleration.ToString("F6");
+                else if (key == MotionTimeoutRow)
+                    current = data.Motion.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture);
+                else
+                    return;
+
+                using (NumericKeypadDialog dialog = new NumericKeypadDialog(key, current, unit))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    double value;
+                    if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+                        !double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                    {
+                        lblStatus.Text = key + " 값이 숫자가 아닙니다. value=" + dialog.ValueText;
+                        return;
+                    }
+
+                    if (key == MotionSpeedRow)
+                        data.Motion.MoveVelocity = Math.Max(0.001, value);
+                    else if (key == MotionAccRow)
+                        data.Motion.MoveAcceleration = Math.Max(0.001, value);
+                    else if (key == MotionDecRow)
+                        data.Motion.MoveDeceleration = Math.Max(0.001, value);
+                    else if (key == MotionTimeoutRow)
+                        data.Motion.MoveTimeoutMs = Math.Max(100, (int)Math.Round(value));
+
+                    data.Motion.EnsureDefaults();
+                    Form1 host = FindHostForm();
+                    if (host != null && host.Machine != null && host.Machine.VisionUnit != null)
+                    {
+                        host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
+                        host.Machine.SaveSettings();
+                    }
+
+                    RefreshAppliedValueGrid();
+                    lblStatus.Text = "Vision Camera Calibration " + key + " 값을 저장했습니다.";
+                }
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Vision Camera Calibration 모션 설정 저장 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-MOTION-SAVE", lblStatus.Text);
+            }
+            finally
+            {
+            }
         }
 
         private string FormatPixel(VisionReticleMeasurement measurement)

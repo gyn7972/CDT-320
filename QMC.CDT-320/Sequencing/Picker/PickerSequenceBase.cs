@@ -32,6 +32,7 @@ namespace QMC.CDT320.Sequencing
         protected PickerSequenceKind Kind { get; private set; }
         protected string Name { get; private set; }
         protected PickerSequenceOptions Options { get; private set; }
+        protected CalibrationMotionSettings CalibrationMotion { get; private set; }
         protected TStep CurrentStep { get; set; }
         private IDisposable pickerWorkAreaScope;
         private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
@@ -114,9 +115,25 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 30000;
         }
 
+        protected int ResolveMoveTimeout()
+        {
+            if (CalibrationMotion != null)
+            {
+                CalibrationMotion.EnsureDefaults();
+                return CalibrationMotion.MoveTimeoutMs;
+            }
+
+            return ResolveTimeout();
+        }
+
         protected int ResolveResourceTimeout()
         {
             return Options != null && Options.ResourceTimeoutMs > 0 ? Options.ResourceTimeoutMs : 30000;
+        }
+
+        protected void SetCalibrationMotion(CalibrationMotionSettings motion)
+        {
+            CalibrationMotion = motion != null ? motion.Clone() : null;
         }
 
         protected void SetOptionsForManualOperation(PickerSequenceOptions options)
@@ -435,7 +452,8 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 Stopwatch waitWatch = Stopwatch.StartNew();
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                int moveTimeout = ResolveMoveTimeout();
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, moveTimeout, ct).ConfigureAwait(false);
                 waitMs = waitWatch.ElapsedMilliseconds;
                 if (waitResult == null || !waitResult.Success)
                 {
@@ -445,7 +463,7 @@ namespace QMC.CDT320.Sequencing
                         "target=" + target,
                         "description=" + description,
                         "status=WaitFailed",
-                        "timeoutMs=" + ResolveTimeout(),
+                        "timeoutMs=" + moveTimeout,
                         "wait=" + (waitResult != null ? waitResult.Code.ToString() : "null"));
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
@@ -588,7 +606,7 @@ namespace QMC.CDT320.Sequencing
 
                     var waitTasks = new List<Task<AxisMoveWaitResult>>();
                     foreach (KeyValuePair<PickerAxis, double> pair in commandTargets)
-                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
+                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveMoveTimeout(), ct));
 
                     Stopwatch waitWatch = Stopwatch.StartNew();
                     AxisMoveWaitResult[] waitResults = await SequenceAwaiter.AwaitAsync(
@@ -1913,6 +1931,29 @@ namespace QMC.CDT320.Sequencing
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null, bool forceMove = false)
         {
+            if (CalibrationMotion != null)
+            {
+                CalibrationMotion.EnsureDefaults();
+                if (Side == PickerSequenceSide.Front)
+                    return FrontPicker.MovePickerAxisCommandWithMotion(
+                        axis,
+                        target,
+                        CalibrationMotion.MoveVelocity,
+                        CalibrationMotion.MoveAcceleration,
+                        CalibrationMotion.MoveDeceleration,
+                        targetName,
+                        forceMove);
+
+                return RearPicker.MovePickerAxisCommandWithMotion(
+                    axis,
+                    target,
+                    CalibrationMotion.MoveVelocity,
+                    CalibrationMotion.MoveAcceleration,
+                    CalibrationMotion.MoveDeceleration,
+                    targetName,
+                    forceMove);
+            }
+
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName, forceMove);

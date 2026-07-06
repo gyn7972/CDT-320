@@ -34,6 +34,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             XyToleranceMode,
             ScoreThreshold,
             VisionTimeout,
+            MoveVelocity,
+            MoveAcceleration,
+            MoveDeceleration,
+            MoveTimeout,
             AutoFocus
         }
 
@@ -69,6 +73,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _useDiagonalXyTolerance = true;
         private double _scoreThreshold = 0.0;
         private int _visionTimeoutMs = 5000;
+        private double _moveVelocity = CalibrationMotionSettings.DefaultMoveVelocity;
+        private double _moveAcceleration = CalibrationMotionSettings.DefaultMoveAcceleration;
+        private double _moveDeceleration = CalibrationMotionSettings.DefaultMoveDeceleration;
+        private int _moveTimeoutMs = CalibrationMotionSettings.DefaultMoveTimeoutMs;
         private bool _autoFocus = true;
         private CancellationTokenSource _runCts;
 
@@ -395,6 +403,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _useDiagonalXyTolerance = settings.UseDiagonalXyTolerance;
                 _scoreThreshold = settings.ScoreThreshold;
                 _visionTimeoutMs = settings.VisionTimeoutMs;
+                _moveVelocity = settings.Motion.MoveVelocity;
+                _moveAcceleration = settings.Motion.MoveAcceleration;
+                _moveDeceleration = settings.Motion.MoveDeceleration;
+                _moveTimeoutMs = settings.Motion.MoveTimeoutMs;
                 _autoFocus = settings.RunAutoFocusAfterTheta;
             }
             catch (Exception ex)
@@ -442,9 +454,19 @@ namespace QMC.CDT_320.Ui.Dialogs
                 data.Settings.UseDiagonalXyTolerance = _useDiagonalXyTolerance;
                 data.Settings.ScoreThreshold = _scoreThreshold;
                 data.Settings.VisionTimeoutMs = _visionTimeoutMs;
+                if (data.Settings.Motion == null)
+                    data.Settings.Motion = new CalibrationMotionSettings();
+                data.Settings.Motion.MoveVelocity = _moveVelocity;
+                data.Settings.Motion.MoveAcceleration = _moveAcceleration;
+                data.Settings.Motion.MoveDeceleration = _moveDeceleration;
+                data.Settings.Motion.MoveTimeoutMs = _moveTimeoutMs;
                 data.Settings.RunAutoFocusAfterTheta = _autoFocus;
                 data.Settings.EnsureDefaults();
                 _finder = data.Settings.BottomFinderName;
+                _moveVelocity = data.Settings.Motion.MoveVelocity;
+                _moveAcceleration = data.Settings.Motion.MoveAcceleration;
+                _moveDeceleration = data.Settings.Motion.MoveDeceleration;
+                _moveTimeoutMs = data.Settings.Motion.MoveTimeoutMs;
                 host.SaveMachineSettings();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
                     "Collet Calibration 설정 저장. side=" + _side +
@@ -461,6 +483,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", xyTolMode=" + (data.Settings.UseDiagonalXyTolerance ? "Diagonal" : "Axis") +
                     ", scoreMin=" + data.Settings.ScoreThreshold.ToString("F6") +
                     ", visionTimeoutMs=" + data.Settings.VisionTimeoutMs +
+                    ", moveVelocity=" + data.Settings.Motion.MoveVelocity.ToString("F6") +
+                    ", moveAcceleration=" + data.Settings.Motion.MoveAcceleration.ToString("F6") +
+                    ", moveDeceleration=" + data.Settings.Motion.MoveDeceleration.ToString("F6") +
+                    ", moveTimeoutMs=" + data.Settings.Motion.MoveTimeoutMs +
                     ", autoFocus=" + data.Settings.RunAutoFocusAfterTheta);
                 RefreshSettingGrid();
                 RefreshResultGrid();
@@ -559,6 +585,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateOption(SettingKey.XyToleranceMode, "XY Tol Mode", "XY Tol 판정 방식입니다. Diagonal은 sqrt(X^2+Y^2) 거리로 보고, Axis는 |X|와 |Y|가 각각 Tol 이하인지 봅니다.", XyToleranceModeOptions), _useDiagonalXyTolerance ? "Diagonal" : "Axis");
                 AddSettingRow(CreateNumber(SettingKey.ScoreThreshold, "Score Min", "score", "Vision 검출 Score 최소값입니다. 0이면 Score 기준을 사용하지 않고, 0보다 크면 Score가 이 값보다 낮을 때 NG 처리합니다.", false), _scoreThreshold.ToString("F3"));
                 AddSettingRow(CreateNumber(SettingKey.VisionTimeout, "Vision Timeout", "ms", "Vision PC Collet Finder 응답을 기다리는 시간입니다. 이 시간 안에 응답이 없으면 Timeout NG 처리합니다.", true), _visionTimeoutMs.ToString(CultureInfo.InvariantCulture));
+                AddSettingRow(CreateNumber(SettingKey.MoveVelocity, "Move Speed", "mm/s", "Collet Calibration에서 XY/T/Z 및 시작 안전 위치 이동에 사용할 전용 속도입니다. AutoFocus 스캔 속도는 Vision Focus Cal 설정을 따로 사용합니다.", false), _moveVelocity.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveAcceleration, "Move Acc", "mm/s2", "Collet Calibration 전용 이동 가속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveAcceleration.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveDeceleration, "Move Dec", "mm/s2", "Collet Calibration 전용 이동 감속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveDeceleration.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "Collet Calibration 전용 이동 완료/인포지션 대기 시간입니다.", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "True이면 Bottom 위치 진입 후 저장된 Focus Cal 기준에서 AutoFocus를 수행하고 Best Z로 이동한 뒤 Collet 검출을 시작합니다. False이면 저장된 Focus Cal Default Z만 사용합니다.", BoolOptions), _autoFocus ? "True" : "False");
                 _loading = oldLoading;
             }
@@ -668,6 +698,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.VisionTimeout:
                     _visionTimeoutMs = Math.Max(100, (int)Math.Round(value));
+                    break;
+                case SettingKey.MoveVelocity:
+                    _moveVelocity = Math.Max(0.001, value);
+                    break;
+                case SettingKey.MoveAcceleration:
+                    _moveAcceleration = Math.Max(0.001, value);
+                    break;
+                case SettingKey.MoveDeceleration:
+                    _moveDeceleration = Math.Max(0.001, value);
+                    break;
+                case SettingKey.MoveTimeout:
+                    _moveTimeoutMs = Math.Max(100, (int)Math.Round(value));
                     break;
             }
         }

@@ -706,6 +706,28 @@ namespace QMC.CDT320
                 source);
         }
 
+        public Task<int> MoveNeedleWorkPointSafelyAsync(
+            double targetNeedleX,
+            double targetStageY,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            int timeoutMs,
+            string source = null)
+        {
+            return MoveNeedleWorkPointSafelyAsync(
+                targetNeedleX,
+                targetStageY,
+                (axis, target) => MoveInputStageAxisWithMotionAndVerifyAsync(
+                    axis,
+                    target,
+                    velocity,
+                    acceleration,
+                    deceleration,
+                    timeoutMs),
+                source);
+        }
+
         private async Task<int> MoveNeedleWorkPointSafelyAsync(
             double targetNeedleX,
             double targetStageY,
@@ -1850,6 +1872,42 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        public async Task<int> MoveInputStageAxisWithMotionAndVerifyAsync(
+            WaferStageAxis axis,
+            double targetPos,
+            double velocity,
+            double acceleration,
+            double deceleration,
+            int timeoutMs)
+        {
+            int result = await MoveInputStageAxisCommandWithMotion(
+                axis,
+                targetPos,
+                velocity,
+                acceleration,
+                deceleration).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
+                axis,
+                targetPos,
+                timeoutMs > 0 ? timeoutMs : ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                LastStageMoveFailureMessage = axis + " calibration motion wait failed. target=" + targetPos + ". " +
+                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
+                return RaiseStageAlarm(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
+                    Name,
+                    LastStageMoveFailureMessage);
+            }
+
+            LastStageMoveFailureMessage = string.Empty;
+            return 0;
         }
 
         public async Task<int> WaitInputStageAxisInPosition(WaferStageAxis axis, double targetPos, int timeoutMs)

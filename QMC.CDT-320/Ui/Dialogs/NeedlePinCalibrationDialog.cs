@@ -301,6 +301,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _settingsGrid.Rows.Clear();
                 AddSetting("Vision Target", stage.Setup.NeedlePinCalVisionTargetId, "");
                 AddSetting("Vision Timeout", stage.Setup.NeedlePinCalVisionTimeoutMs, "ms");
+                NeedleCalibrationData needleData = ResolveNeedleCalibrationData();
+                CalibrationMotionSettings motion = needleData != null ? needleData.Motion : new CalibrationMotionSettings();
+                motion.EnsureDefaults();
+                AddSetting("Move Speed", motion.MoveVelocity, "mm/s");
+                AddSetting("Move Acc", motion.MoveAcceleration, "mm/s2");
+                AddSetting("Move Dec", motion.MoveDeceleration, "mm/s2");
+                AddSetting("Move Timeout", motion.MoveTimeoutMs, "ms");
                 AddSetting("VisionX Cal Position", stage.Recipe.VisionX.NeedlePinCalPosition, "mm");
                 AddSetting("StageY Process Position", stage.Recipe.WaferY.ProcessPosition, "mm");
                 AddSetting("NeedleX Cal Position", stage.Recipe.NeedleX.NeedlePinCalPosition, "mm");
@@ -338,6 +345,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return null;
 
             host.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+            host.Machine.VisionUnit.Config.CalibrationData.EnsureObjects();
+            host.Machine.VisionUnit.Config.CalibrationData.Needle.EnsureObjects();
             return host.Machine.VisionUnit.Config.CalibrationData.Needle;
         }
 
@@ -487,6 +496,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 stage.Recipe.EnsurePositionObjects();
                 stage.Setup.NeedlePinCalVisionTargetId = ReadString("Vision Target", "NeedlePinCal");
                 stage.Setup.NeedlePinCalVisionTimeoutMs = Math.Max(1000, ReadInt("Vision Timeout", 5000));
+                NeedleCalibrationData needleData = ResolveNeedleCalibrationData();
+                if (needleData != null)
+                {
+                    if (needleData.Motion == null)
+                        needleData.Motion = new CalibrationMotionSettings();
+                    needleData.Motion.MoveVelocity = Math.Max(0.001, ReadDouble("Move Speed"));
+                    needleData.Motion.MoveAcceleration = Math.Max(0.001, ReadDouble("Move Acc"));
+                    needleData.Motion.MoveDeceleration = Math.Max(0.001, ReadDouble("Move Dec"));
+                    needleData.Motion.MoveTimeoutMs = Math.Max(100, ReadInt("Move Timeout", CalibrationMotionSettings.DefaultMoveTimeoutMs));
+                    needleData.Motion.EnsureDefaults();
+                }
                 stage.Recipe.VisionX.NeedlePinCalPosition = ReadDouble("VisionX Cal Position");
                 stage.Recipe.WaferY.ProcessPosition = ReadDouble("StageY Process Position");
                 stage.Recipe.NeedleX.NeedlePinCalPosition = ReadDouble("NeedleX Cal Position");
@@ -581,7 +601,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "MoveReady", out actionScope, out stopHandler);
-                var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()), false);
+                var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()));
                 _status.Text = "Ready 위치로 이동 중입니다. OutputCamera/Picker는 Avoid, InputStage는 Process로 이동합니다.";
                 int result = await sequence.MoveReadyPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
@@ -625,7 +645,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "MoveTeach", out actionScope, out stopHandler);
-                var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()), false);
+                var sequence = new NeedlePinCalibrationSequence(new MachineSequenceContext(host.Controller, new SequenceSignalBus()));
                 _status.Text = "티칭 위치로 이동 중입니다.";
                 int result = await sequence.MoveTeachingPositionOnlyAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
@@ -670,7 +690,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, "StartCal", out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
-                var sequence = new NeedlePinCalibrationSequence(context, false);
+                var sequence = new NeedlePinCalibrationSequence(context);
                 _status.Text = "Needle Pin Calibration 실행 중입니다.";
                 int result = await sequence.RunAsync(runCts.Token, SequenceRunMode.Manual).ConfigureAwait(true);
                 LoadFromMachine();
