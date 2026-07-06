@@ -63,6 +63,9 @@ namespace QMC.Common.Ui.Controls
         }
         public bool ShowLiveLabel { get; set; } = true;
         public string InfoText    { get; set; } = "STAGE\r\nW:640 H:480";
+        /// <summary>설정 시 좌측상단 정보 오버레이를 "StageName + 실제 그랩 이미지 W/H(_frame 기준)"로 자동 구성(InfoText 무시).
+        /// null/빈값이면 기존 InfoText 표시. 페이지는 카메라/스테이지 실제 명칭을 넣는다(하드코딩 "STAGE" 제거용).</summary>
+        public string StageName   { get; set; }
 
         /// <summary>STAGE/No image/Live 글자색(프로젝트별 테마). 기본 LightGreen.</summary>
         public Color InfoForeColor { get; set; } = Color.LightGreen;
@@ -254,6 +257,7 @@ namespace QMC.Common.Ui.Controls
                 _tbMeasure, _tbMeasClear, _tbFit, _tbCross, new ToolStripSeparator(), _tbMag
             });
             Controls.Add(_tools);
+            UpdateToolbarButtons();
         }
 
         /// <summary>단발(툴바) 그랩으로 새 프레임을 표시하기 직전 호출 — 직전 검출 표시(판정/결과라인/마크/전용 오버레이)를
@@ -270,13 +274,24 @@ namespace QMC.Common.Ui.Controls
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 검출 표시 초기화 실패: " + ex.Message); }
         }
 
+        /// <summary>Grab/Live/Stop 인터락 — Live 중이면 Live·Grab 비활성(Stop 만 가능), 정지 상태면 Stop 비활성.
+        /// 단발 그랩 진행 중엔 잠시 Grab/Live 를 함께 잠근다(연속 클릭에 의한 카메라 상태 꼬임 방지).</summary>
+        private void UpdateToolbarButtons()
+        {
+            bool live = _live;
+            bool grabbing = System.Threading.Interlocked.CompareExchange(ref _grabBusy, 0, 0) == 1;
+            if (_tbGrab != null) _tbGrab.Enabled = !live && !grabbing;
+            if (_tbLive != null) _tbLive.Enabled = !live && !grabbing;
+            if (_tbStop != null) _tbStop.Enabled = live;
+        }
+
         private void DoToolbarGrab()
         {
             if (_source == null) return;
             // 단발 그랩(MIL MdigGrab 등)은 완료까지 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
             //   워커에서 수행 후 UI 로 마샬링. 재진입 가드로 연속 클릭 겹침 방지(QMC.MilCameraTest 검증 패턴).
             if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1) return;
-            if (_tbGrab != null) _tbGrab.Enabled = false;
+            UpdateToolbarButtons();   // 그랩 시작 → Grab/Live 잠금
             var src = _source;
             EnqueueSourceOp(() =>
             {
@@ -303,8 +318,8 @@ namespace QMC.Common.Ui.Controls
                             }
                             finally
                             {
-                                if (_tbGrab != null) _tbGrab.Enabled = true;
                                 System.Threading.Interlocked.Exchange(ref _grabBusy, 0);
+                                UpdateToolbarButtons();   // 그랩 완료 → 상태 재평가(Live 아니면 Grab/Live 복귀)
                             }
                         }));
                     }
@@ -334,6 +349,7 @@ namespace QMC.Common.Ui.Controls
             // 선반영(재클릭 방지 + 즉시 피드백) — StartLive 실패 시 아래에서 롤백.
             _live = true;
             if (_tbLive != null) _tbLive.Checked = true;   // 라이브 중 버튼 활성(눌림) 표시
+            UpdateToolbarButtons();                        // Live 중 → Live·Grab 비활성, Stop 활성
 
             // StartLive 는 카메라 feature 쓰기/스트림 개시로 블록될 수 있어 워커에서 수행(QMC.MilCameraTest 검증 패턴).
             var src = _source;
@@ -372,6 +388,7 @@ namespace QMC.Common.Ui.Controls
                                 {
                                     _live = false;
                                     if (_tbLive != null) _tbLive.Checked = false;
+                                    UpdateToolbarButtons();
                                     Invalidate();
                                 }));
                         }
@@ -387,6 +404,7 @@ namespace QMC.Common.Ui.Controls
             //   StopLive 는 MdigHalt/수신스레드 Join 으로 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
             _live = false;
             if (_tbLive != null) _tbLive.Checked = false;   // 라이브 종료 → 활성 표시 해제
+            UpdateToolbarButtons();                          // 정지 → Stop 비활성, Live·Grab 활성
             var src = _source;
             if (src != null)
                 EnqueueSourceOp(() =>
@@ -739,10 +757,14 @@ namespace QMC.Common.Ui.Controls
                     g.DrawString("No image", f, br, ClientSize.Width - sz.Width - 12, 8 + TopInset);
                 }
             }
-            if (!string.IsNullOrEmpty(InfoText))
+            // StageName 이 설정된 페이지는 실제 그랩 이미지(_frame) 크기로 "명칭 + W/H" 를 자동 표시(하드코딩 STAGE/640 제거).
+            string stageInfo = !string.IsNullOrEmpty(StageName)
+                ? StageName + (_frame != null ? "\r\nW:" + _frame.Width + " H:" + _frame.Height : "\r\nW:- H:-")
+                : InfoText;
+            if (!string.IsNullOrEmpty(stageInfo))
                 using (var br = new SolidBrush(InfoForeColor))
                 using (var f  = new Font("Consolas", 9F))
-                    g.DrawString(InfoText, f, br, 8, 6 + TopInset);
+                    g.DrawString(stageInfo, f, br, 8, 6 + TopInset);
 
             if (ShowLiveLabel && _frame != null)
             {
@@ -924,27 +946,3 @@ namespace QMC.Common.Ui.Controls
 
                         // 인덱스 + 각도(°). 점수는 MATCH RESULT 그리드에서 확인. 컴팩트 라벨.
                         string txt = idx.ToString() + " " + m.AngleDeg.ToString("F1") + "°";
-                        var ts = g.MeasureString(txt, f);
-                        float tx = cx + 7, ty = cy - ts.Height - 1;
-                        if (tx + ts.Width + 2 > ClientSize.Width)  tx = cx - ts.Width - 7;
-                        if (ty < 0)                                ty = cy + 7;
-                        g.FillRectangle(bg, tx - 1, ty, ts.Width + 2, ts.Height);
-                        g.DrawString(txt, f, brT, tx, ty);
-                        }
-                        idx++;
-                    }
-                }
-            }
-        }
-
-        private static Rectangle FitRect(Size src, Size dst)
-        {
-            double rx = (double)dst.Width  / src.Width;
-            double ry = (double)dst.Height / src.Height;
-            double r  = Math.Min(rx, ry);
-            int w = (int)(src.Width  * r);
-            int h = (int)(src.Height * r);
-            return new Rectangle((dst.Width - w) / 2, (dst.Height - h) / 2, w, h);
-        }
-    }
-}

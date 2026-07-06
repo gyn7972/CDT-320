@@ -83,6 +83,7 @@ namespace QMC.Vision.Ui.Pages
             grid.Columns["n"].FillWeight = 40;
 
             camView.AttachModule(_module);
+            camView.StageName = _module?.Name;   // 좌측상단 명칭=실제 카메라(하드코딩 STAGE 제거), W/H 는 실그랩 크기 자동
             camView.SetActiveTool("FocusFinder");   // 툴바 Grab/Live 도 FocusFinder 조명/노출을 적용해 촬상
             camView.RoiEdited += camView_RoiEdited;
 

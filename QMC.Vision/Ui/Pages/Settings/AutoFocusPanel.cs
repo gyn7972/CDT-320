@@ -278,7 +278,7 @@ namespace QMC.Vision.Ui.Pages
             Form1 host = FindForm() as Form1;
             if (host == null) return;
             IVisionModule mod = ModuleFor(host, _camera);
-            if (mod != null) camView.AttachModule(mod);
+            if (mod != null) { camView.AttachModule(mod); camView.StageName = mod.Name; }   // 명칭=선택 카메라, W/H=실그랩 자동
             _module = mod;              // 뷰어 탭 대상 갱신
             _lastViewerSeq = -1;        // 새 모듈 → 다음 프레임을 반드시 한 번 표시
         }
