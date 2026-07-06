@@ -142,7 +142,13 @@ namespace QMC.Vision.Ui.Pages
         // ── Private Methods ──
         private DieMap BuildFromSpec(VisionMachineRecipe r)
         {
-            // 핸들러 DieMapGenerator 동일 기하(2026-07-06) — skip 숫자는 모드(Grid=개수/MM=mm)에 따라 해석.
+            // 규칙(2026-07-06): Grid 명시(>0)=격자 수 기준(격자 내접 원) / 0=외경 등 자동 계산.
+            if (r.WaferGridX > 0 && r.WaferGridY > 0)
+            {
+                return DieMapBuilder.GenerateCircleDieMap(
+                    r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
+                    r.WaferOuterDiameterMm, (int)_nSideSkip.Value, (int)_nTbSkip.Value, "INPUT");
+            }
             var mode = DieMapBuilder.IsMillimeterEdgeSkipMode(r.WaferEdgeSkipMode)
                 ? WaferEdgeSkipMode.Millimeter
                 : WaferEdgeSkipMode.Grid;
@@ -220,12 +226,13 @@ namespace QMC.Vision.Ui.Pages
             {
                 using (var dlg = new OpenFileDialog
                 {
-                    Filter = "DieMap JSON (*.json)|*.json",
+                    Filter = "DieMap (*.json;*.csv)|*.json;*.csv|DieMap JSON (*.json)|*.json|DieMap CSV (*.csv)|*.csv",
                     CheckFileExists = true
                 })
                 {
                     if (dlg.ShowDialog(this) != DialogResult.OK) return;
-                    var loaded = DieMapBuilder.LoadJson(dlg.FileName);
+                    // 핸들러 EXPORT CSV 도 그대로 수입(확장자 자동 감지, 2026-07-06).
+                    var loaded = DieMapBuilder.Load(dlg.FileName);
                     if (loaded == null)
                     {
                         MessageBox.Show("다이맵을 불러오지 못했습니다(형식 확인).", "INPUT DIE",

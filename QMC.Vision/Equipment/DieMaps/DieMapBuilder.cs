@@ -234,10 +234,22 @@ namespace QMC.Vision.DieMaps
             return map;
         }
 
-        /// <summary>레시피 웨이퍼 사양으로 원형 다이맵 생성 — Grid/MM 모드에 맞는 skip 값 선택(핸들러 CreateCircleDieMapFromRecipe 동등).</summary>
+        /// <summary>레시피 웨이퍼 사양으로 원형 다이맵 생성.
+        /// <para>규칙(2026-07-06 확정): Grid X/Y 가 명시(>0)돼 있으면 <b>격자 수 기준</b>(격자 내접 원 —
+        /// 핸들러의 저장 INPUT DIE 맵(45×45=2025 등)과 동일 기하, 외경은 보조 제한)으로 생성하고,
+        /// Grid 미지정(0)일 때만 외경/피치/다이크기 자동 계산(핸들러 현행 생성식)을 쓴다.</para></summary>
         public static DieMap GenerateWaferSpecMap(QMC.Vision.Modules.VisionMachineRecipe r, string frameObjId)
         {
             if (r == null) return null;
+
+            // Grid 명시 — 격자 수가 곧 웨이퍼 정의(45x45 → 2025칸). 사용자/핸들러 저장맵 기대와 일치.
+            if (r.WaferGridX > 0 && r.WaferGridY > 0)
+            {
+                return GenerateCircleDieMap(
+                    r.WaferGridX, r.WaferGridY, r.WaferPitchX, r.WaferPitchY,
+                    r.WaferOuterDiameterMm, r.WaferSideEdgeSkip, r.WaferTopBottomEdgeSkip, frameObjId);
+            }
+
             WaferEdgeSkipMode mode = IsMillimeterEdgeSkipMode(r.WaferEdgeSkipMode)
                 ? WaferEdgeSkipMode.Millimeter
                 : WaferEdgeSkipMode.Grid;
@@ -313,8 +325,8 @@ namespace QMC.Vision.DieMaps
         }
 
         /// <summary>
-        /// [구버전 — 2026-07-06 이후 미사용] 격자 내접 원형 다이맵 생성(구 MapCreatePage.IsInsideWaferCircle 이식).
-        /// 현행은 핸들러 DieMapGenerator 동일 기하인 <see cref="GenerateCircularWafer"/> 를 사용한다.
+        /// 격자 내접 원형 다이맵 생성(구 MapCreatePage.IsInsideWaferCircle 이식) — Grid X/Y 명시 시 표준 경로.
+        /// 핸들러의 저장 INPUT DIE 맵(예: 45×45=2025, 타겟 1517)과 동일 기하. 외경은 보조 직경 제한.
         /// </summary>
         public static DieMap GenerateCircleDieMap(int gridX, int gridY,
                                                   double pitchX, double pitchY,
@@ -530,6 +542,93 @@ namespace QMC.Vision.DieMaps
             {
                 return false;
             }
+        }
+
+        /// <summary>CSV 로드 — 핸들러 DieMapGenerator.SaveCsv/LoadCsv 와 동일 형식
+        /// (헤더 key,value 구간 + 빈 줄 + "Index,[SequenceNo,]DieMapX,DieMapY,IsTarget,Result,BinCode,X,Y,DieUid").
+        /// 핸들러에서 EXPORT 한 INPUT DIE 맵 CSV 를 그대로 수입할 수 있다(2026-07-06). 실패 시 null.</summary>
+        public static DieMap LoadCsv(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+            try
+            {
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                var lines = File.ReadAllLines(path);
+                var map = new DieMap();
+                int i = 0;
+                // 헤더 구간(key,value)
+                for (; i < lines.Length; i++)
+                {
+                    var line = lines[i].Trim();
+                    if (string.IsNullOrEmpty(line)) { i++; break; }
+                    var parts = line.Split(new[] { ',' }, 2);
+                    if (parts.Length < 2) continue;
+                    string k = parts[0].Trim(), v = parts[1].Trim();
+                    if (k.Equals("FrameObjId", StringComparison.OrdinalIgnoreCase)) map.FrameObjId = v;
+                    else if (k.Equals("DieMapX", StringComparison.OrdinalIgnoreCase)) { int t; if (int.TryParse(v, out t)) map.DieMapX = t; }
+                    else if (k.Equals("DieMapY", StringComparison.OrdinalIgnoreCase)) { int t; if (int.TryParse(v, out t)) map.DieMapY = t; }
+                    else if (k.Equals("PitchX", StringComparison.OrdinalIgnoreCase)) { double t; if (double.TryParse(v, System.Globalization.NumberStyles.Any, ci, out t)) map.PitchX = t; }
+                    else if (k.Equals("PitchY", StringComparison.OrdinalIgnoreCase)) { double t; if (double.TryParse(v, System.Globalization.NumberStyles.Any, ci, out t)) map.PitchY = t; }
+                    else if (k.Equals("OriginX", StringComparison.OrdinalIgnoreCase)) { double t; if (double.TryParse(v, System.Globalization.NumberStyles.Any, ci, out t)) map.OriginX = t; }
+                    else if (k.Equals("OriginY", StringComparison.OrdinalIgnoreCase)) { double t; if (double.TryParse(v, System.Globalization.NumberStyles.Any, ci, out t)) map.OriginY = t; }
+                }
+                // 컬럼 헤더(SequenceNo 유무 감지 — 구/신 형식 모두 지원)
+                bool hasSequenceNo = false;
+                if (i < lines.Length && lines[i].StartsWith("Index", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasSequenceNo = lines[i].IndexOf("SequenceNo", StringComparison.OrdinalIgnoreCase) >= 0;
+                    i++;
+                }
+                // 엔트리 구간
+                while (i < lines.Length)
+                {
+                    var line = lines[i++].Trim();
+                    if (string.IsNullOrEmpty(line)) continue;
+                    var p = line.Split(',');
+                    for (int j = 0; j < p.Length; j++)
+                        p[j] = p[j] != null ? p[j].Trim() : "";
+                    int need = hasSequenceNo ? 9 : 8;
+                    if (p.Length < need) continue;
+                    int off = hasSequenceNo ? 1 : 0;
+                    int idx, seq = 0, gx, gy, bc; bool isT; double x, y;
+                    int.TryParse(p[0], out idx);
+                    if (hasSequenceNo) int.TryParse(p[1], out seq);
+                    if (!int.TryParse(p[1 + off], out gx)) continue;
+                    if (!int.TryParse(p[2 + off], out gy)) continue;
+                    if (!bool.TryParse(p[3 + off], out isT)) isT = true;
+                    DieResult rr; if (!Enum.TryParse(p[4 + off], true, out rr)) rr = DieResult.Unknown;
+                    int.TryParse(p[5 + off], out bc);
+                    double.TryParse(p[6 + off], System.Globalization.NumberStyles.Any, ci, out x);
+                    double.TryParse(p[7 + off], System.Globalization.NumberStyles.Any, ci, out y);
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = idx,
+                        SequenceNo = seq,
+                        DieMapX = gx,
+                        DieMapY = gy,
+                        IsTarget = isT,
+                        Result = rr,
+                        BinCode = bc,
+                        PosX = x,
+                        PosY = y,
+                        DieUid = p.Length >= 9 + off ? p[8 + off] : ""
+                    });
+                }
+                if (map.Entries.Count == 0) return null;
+                return Normalize(map);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>확장자 자동 감지 로드 — .csv=핸들러 형식 CSV, 그 외=JSON.</summary>
+        public static DieMap Load(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext == ".csv" ? LoadCsv(path) : LoadJson(path);
         }
 
         /// <summary>JSON 직렬화 로드(실패 시 null).</summary>
