@@ -167,6 +167,11 @@ namespace QMC.CDT320.Sequencing
                 result = RestoreStageAlignRuntimeResultFromMaterial();
                 if (result != 0) return result;
 
+                string thetaReason;
+                if (!MaterialStateService.IsInputStageThetaAlignComplete(_wafer, out thetaReason))
+                    return Fail("IN-STAGE-DIEMAP-THETA-ALIGN", Stage.Name,
+                        "Die Mapping 전에 InputStage T 보정이 완료되어야 합니다. " + thetaReason);
+
                 if (Stage.PitchX == 0.0 || Stage.PitchY == 0.0)
                     return Fail("IN-STAGE-DIEMAP-ALIGN", Stage.Name,
                         BuildStageAlignMissingReason());
@@ -250,25 +255,29 @@ namespace QMC.CDT320.Sequencing
                 if (Stage == null)
                     return 0;
 
-                if (Stage.PitchX > 0.0 && Stage.PitchY > 0.0)
-                    return 0;
-
                 if (_wafer == null)
                     return 0;
 
-                if (!_wafer.HasInputStageAlignResult)
-                    return 0;
+                bool restoreAlign = Stage.PitchX <= 0.0 || Stage.PitchY <= 0.0;
+                if (restoreAlign &&
+                    _wafer.HasInputStageAlignResult &&
+                    _wafer.InputStageAlignPitchX > 0.0 &&
+                    _wafer.InputStageAlignPitchY > 0.0)
+                {
+                    Stage.ApplyWaferAlignResult(
+                        _wafer.InputStageAlignOriginX,
+                        _wafer.InputStageAlignOriginY,
+                        _wafer.InputStageAlignPitchX,
+                        _wafer.InputStageAlignPitchY,
+                        _wafer.InputStageAlignOffsetX,
+                        _wafer.InputStageAlignOffsetY);
+                }
 
-                if (_wafer.InputStageAlignPitchX <= 0.0 || _wafer.InputStageAlignPitchY <= 0.0)
-                    return 0;
-
-                Stage.ApplyWaferAlignResult(
-                    _wafer.InputStageAlignOriginX,
-                    _wafer.InputStageAlignOriginY,
-                    _wafer.InputStageAlignPitchX,
-                    _wafer.InputStageAlignPitchY,
-                    _wafer.InputStageAlignOffsetX,
-                    _wafer.InputStageAlignOffsetY);
+                if (_wafer.HasInputStageThetaAlignResult)
+                    Stage.ApplyWaferAlignThetaResult(
+                        _wafer.InputStageAlignReferenceT,
+                        _wafer.InputStageAlignCorrectedT,
+                        _wafer.InputStageAlignOffsetT);
 
                 WriteLog("InputStageDieMappingSequence",
                     "Die Mapping 시작 전 저장된 InputStage Align 결과를 Stage 런타임에 복구했습니다. waferId=" +
@@ -361,7 +370,15 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.Recipe.EnsurePositionObjects();
 
-                int result = await MoveAxisAndWaitAsync(
+                int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureWaferAlignThetaPositionAsync("Die Mapping 시작 전 StageT 보정 위치", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveAxisAndWaitAsync(
                     WaferStageAxis.WaferY,
                     Stage.Recipe.WaferY.ProcessPosition,
                     "Die Mapping 시작 전 StageY Process",
@@ -412,6 +429,40 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.NeedleZ,
+                Stage.Recipe.NeedleZ.AvoidPosition,
+                "Die Mapping 시작 전 NeedleZ Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.EjectPinZ,
+                Stage.Recipe.EjectPinZ.AvoidPosition,
+                "Die Mapping 시작 전 EjectPinZ Avoid",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "Die Mapping 시작 전 StageZ Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            return 0;
+        }
+
         private async Task<int> MoveMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)
         {
             try
@@ -422,6 +473,10 @@ namespace QMC.CDT320.Sequencing
 
                 if (Options.EnableMotion)
                 {
+                    int thetaResult = await EnsureWaferAlignThetaPositionAsync(point.Name + " mark 이동 전 StageT 보정 위치", ct).ConfigureAwait(false);
+                    if (thetaResult != 0)
+                        return thetaResult;
+
                     string areaReason;
                     if (!Stage.IsInputStageWorkPointInArea(point.VisionXPosition, point.StageYPosition, out areaReason))
                         return Fail("IN-STAGE-DIEMAP-WORK-AREA", Stage.Name,
@@ -557,6 +612,60 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> EnsureWaferAlignThetaPositionAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (Stage == null)
+                    return 0;
+
+                string readyReason;
+                if (!Stage.IsWaferAlignThetaResultReady(out readyReason))
+                    return Fail("IN-STAGE-DIEMAP-THETA-ALIGN", Stage.Name,
+                        description + " 실패. " + readyReason);
+
+                double targetT;
+                if (!Stage.TryResolveWaferAlignThetaTarget(out targetT))
+                    return Fail("IN-STAGE-DIEMAP-THETA-TARGET", Stage.Name,
+                        description + " 실패. StageT 보정 목표값을 찾을 수 없습니다.");
+
+                if (Stage.StageT == null)
+                    return Fail("IN-STAGE-DIEMAP-THETA-AXIS", "InputStageUnit",
+                        description + " 실패. StageT 축 정보가 없습니다.");
+
+                if (Stage.IsWaferAlignThetaInPosition())
+                    return 0;
+
+                int result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferT,
+                    targetT,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("InputStageDieMappingSequence",
+                    description + " 복귀 완료. targetT=" + targetT.ToString("F6") +
+                    ", actualT=" + Stage.StageT.ActualPosition.ToString("F6") +
+                    ", offsetT=" + Stage.WaferAlignOffsetT.ToString("F6") + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-DIEMAP-THETA-POS-EX", Stage != null ? Stage.Name : "InputStageUnit",
+                    description + " 확인/복귀 중 예외가 발생했습니다: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> FindMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)
@@ -788,39 +897,28 @@ namespace QMC.CDT320.Sequencing
                 int result = ResolveMaterialStateWaferForDieMapApply();
                 if (result != 0) return result;
 
-                ApplyInputPickupSequence(_dieMap);
-                double mappingOffsetX = _dieMap.OriginX - Stage.OriginX;
-                double mappingOffsetY = _dieMap.OriginY - Stage.OriginY;
-                Stage.ApplyDieMappingResult(_waferMap, _dieMap.OriginX, _dieMap.OriginY, _dieMap.PitchX, _dieMap.PitchY, mappingOffsetX, mappingOffsetY);
-                LotStorage.ActiveInputDieMap = _dieMap;
-                if (Context != null && Context.Controller != null)
-                {
-                    Context.Controller.PickupOptions = ResolveInputPickupSubset();
-                    Context.Controller.ApplyInputDieMap(_dieMap, "InputStageDieMappingSequence.ApplyDieMap");
-                }
+                InputStageDieMapApplyResult applyResult = InputStageDieMapApplyService.Apply(
+                    new InputStageDieMapApplyRequest
+                    {
+                        Stage = Stage,
+                        Controller = Context != null ? Context.Controller : null,
+                        Bus = Context != null ? Context.Bus : null,
+                        DieMap = _dieMap,
+                        WaferMap = _waferMap,
+                        ExpectedWafer = _wafer,
+                        PickupOptions = ResolveInputPickupSubset(),
+                        Source = "InputStageDieMappingSequence.ApplyDieMap",
+                        SaveReason = "InputStageDieMapping",
+                        PublishReadySignals = true
+                    });
+                if (applyResult == null || !applyResult.Success)
+                    return Fail("IN-STAGE-DIEMAP-APPLY-SERVICE", "InputStageDieMappingSequence",
+                        "Die map apply service failed: " + (applyResult != null ? applyResult.ErrorMessage : ""));
 
-                _createdDieCount = ApplyDieMaterials(_dieMap, _wafer);
-                if (_wafer != null)
-                {
-                    _wafer.DieMapFrameObjId = _dieMap.FrameObjId;
-                    _wafer.HasInputStageAlignResult = true;
-                    _wafer.InputStageAlignOriginX = _dieMap.OriginX;
-                    _wafer.InputStageAlignOriginY = _dieMap.OriginY;
-                    _wafer.InputStageAlignPitchX = _dieMap.PitchX;
-                    _wafer.InputStageAlignPitchY = _dieMap.PitchY;
-                    _wafer.InputStageAlignOffsetX = Stage.WaferAlignOffsetX;
-                    _wafer.InputStageAlignOffsetY = Stage.WaferAlignOffsetY;
-                    _wafer.HasInputStageDieMappingResult = true;
-                    _wafer.InputStageDieMappingOffsetX = mappingOffsetX;
-                    _wafer.InputStageDieMappingOffsetY = mappingOffsetY;
-                    _wafer.State = WaferMaterialState.Working;
-                    _wafer.UpdatedAt = DateTime.Now;
-                }
-
-                MaterialStateService.NotifyAndSave("InputStageDieMapping");
-                Context.Bus.Set("InputStageDieMapped");
-                Context.Bus.Set("InputStageFinishComplete");
-                Context.Bus.Set("InputStageReady");
+                _wafer = applyResult.Wafer;
+                _waferMap = applyResult.WaferMap;
+                _dieMap = applyResult.DieMap;
+                _createdDieCount = applyResult.CreatedDieCount;
                 WriteLog("InputStageDieMappingSequence",
                     "Input stage die mapping applied. wafer=" + (_wafer != null ? _wafer.WaferId : "") +
                     ", dieMapX=" + _dieMap.DieMapX +

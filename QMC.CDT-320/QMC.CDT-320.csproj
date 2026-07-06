@@ -395,6 +395,7 @@
     <Compile Include="Sequencing\InputStage\InputStageSequenceBase.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareLoadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageAlignSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageDieMapApplyService.cs" />
     <Compile Include="Sequencing\InputStage\InputStageDieMappingSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
@@ -802,6 +803,9 @@
     <Compile Include="Ui\Dialogs\PickerZoneSetupDialog.Designer.cs">
       <DependentUpon>PickerZoneSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\InputPickerOffsetSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -911,6 +915,7 @@
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
+    <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPrepareSequence.cs" />

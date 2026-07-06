@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
-using QMC.CDT320.Calibration;
 using System.Linq;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
@@ -12,6 +11,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
 using QMC.Common.Motion;
 
@@ -46,10 +46,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public int Ng;
         }
 
+        private struct DiePositionMoveDisplay
+        {
+            public double BaseX;
+            public double BaseY;
+            public double OffsetX;
+            public double OffsetY;
+            public double FinalX;
+            public double FinalY;
+        }
+
         private static readonly System.Drawing.Color InspectionWaitColor = System.Drawing.Color.FromArgb(0xCC, 0xDD, 0xEE);
         private static readonly System.Drawing.Color InspectionDoneColor = System.Drawing.Color.FromArgb(0xF2, 0xC1, 0x4E);
         private static readonly System.Drawing.Color PickCompleteColor = System.Drawing.Color.FromArgb(0x24, 0xB8, 0x6A);
         private static readonly System.Drawing.Color SkipColor = System.Drawing.Color.FromArgb(0x66, 0x66, 0x66);
+        private static readonly object ManualDieDetectSimVisionRandomLock = new object();
+        private static readonly Random ManualDieDetectSimVisionRandom = new Random();
 
         private Timer _refresh;
         private string _i18nTitle;
@@ -65,7 +77,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridMoveRearPickerMenuItems;
+        private ToolStripMenuItem[] _gridOffsetFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridOffsetRearPickerMenuItems;
         private bool _manualMoveBusy;
+        private bool _manualDieDetectOffsetPending;
+        private string _manualDieDetectMapSignature = "";
+        private string _manualDieDetectFrameObjId = "";
+        private string _manualDieDetectDieUid = "";
+        private int _manualDieDetectMapX;
+        private int _manualDieDetectMapY;
+        private double _manualDieDetectOffsetX;
+        private double _manualDieDetectOffsetY;
+        private double _manualDieDetectDetectedCenterX;
+        private double _manualDieDetectDetectedCenterY;
+        private double _manualDieDetectVisionDeltaX;
+        private double _manualDieDetectVisionDeltaY;
+        private double _manualDieDetectVisionDeltaT;
+        private double _manualDieDetectBaseOriginX;
+        private double _manualDieDetectBaseOriginY;
 
         public InputStageMapTransferPage() : this("work.page.inputMap")
         {
@@ -179,12 +208,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             btnApplyDieState.Click += (s, e) => ApplySelectedDieState();
             btnManualAlignComplete.Click += (s, e) => MarkManualAlignComplete();
             btnNeedleBlockDown.Click += (s, e) => ShowNotReadyAction("NEEDLE BLOCK DOWN", "Needle Block Down 단위동작 함수가 아직 연결되어 있지 않습니다.");
-            btnThetaMatchMove.Click += async (s, e) => await RunInputStageSequenceActionAsync(
-                "THETA MATCH MOVE",
-                host => CreateInputStageSequence(host).RunAlignAsync(host.Controller.ManualOperationToken, BuildInputStageOptions(host)));
-            btnXyMatchMove.Click += async (s, e) => await RunInputStageSequenceActionAsync(
-                "X/Y MATCH MOVE",
-                host => CreateInputStageSequence(host).RunDieMappingAsync(host.Controller.ManualOperationToken, BuildInputStageOptions(host)));
+            btnThetaMatchMove.Click += (s, e) => ApplyManualInputStageThetaCorrection();
+            btnXyMatchMove.Click += async (s, e) => await RunManualInputDieDetectAsync().ConfigureAwait(true);
+            btnManualDieMapOffsetApply.Click += (s, e) => ApplyPendingManualInputDieMapOffset();
         }
 
         private string GetCurrentProjectName()
@@ -215,6 +241,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(new ToolStripSeparator());
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE FRONT PICKER", PickerSequenceSide.Front, out _gridMoveFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE REAR PICKER", PickerSequenceSide.Rear, out _gridMoveRearPickerMenuItems));
+                _gridMenu.Items.Add(new ToolStripSeparator());
+                _gridMenu.Items.Add(BuildPickerOffsetMenu("SET FRONT PICKER OFFSET", PickerSequenceSide.Front, out _gridOffsetFrontPickerMenuItems));
+                _gridMenu.Items.Add(BuildPickerOffsetMenu("SET REAR PICKER OFFSET", PickerSequenceSide.Rear, out _gridOffsetRearPickerMenuItems));
                 _gridMenu.Opening += (s, e) =>
                 {
                     bool enabled = _selectedEntry != null && !_manualMoveBusy;
@@ -223,6 +252,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     SetPickerMoveMenuEnabled(_gridMoveFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridMoveRearPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridOffsetFrontPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridOffsetRearPickerMenuItems, enabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -245,6 +276,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
                 item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private ToolStripMenuItem BuildPickerOffsetMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += (s, e) => ShowInputPickerOffsetSetupDialog(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
             }
@@ -281,6 +329,71 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ShowInputPickerOffsetSetupDialog(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Offset을 설정할 다이가 선택되지 않았습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Machine == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "장비 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                using (var dialog = new InputPickerOffsetSetupDialog(
+                    host.Machine,
+                    side,
+                    pickerNo,
+                    entry.PosX,
+                    entry.PosY))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    host.SaveMachineSettings();
+
+                    double effectiveX;
+                    double effectiveY;
+                    string effectiveText = "";
+                    if (TryResolvePickerInputOffsets(host, side, pickerNo, out effectiveX, out effectiveY))
+                    {
+                        effectiveText =
+                            "\r\n실제 적용 Offset X=" + effectiveX.ToString("F3") +
+                            " mm, Y=" + effectiveY.ToString("F3") + " mm";
+                    }
+
+                    QMC.Common.MessageDialog.Show(this,
+                        ResolvePickerMoveTitle(side, pickerNo) + " InputVision -> Picker Offset 저장 완료\r\n" +
+                        "InputVisionToPicker X=" + dialog.SavedOffsetX.ToString("F3") +
+                        " mm, Y=" + dialog.SavedOffsetY.ToString("F3") + " mm" +
+                        effectiveText +
+                        "\r\n자동 PickUp과 수동 우클릭 이동은 같은 Setup 값을 사용합니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Input picker offset setup failed. side=" + side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Input Picker Offset 설정 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -562,6 +675,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         wafer.InputStageAlignOffsetY);
                 }
 
+                if (wafer.HasInputStageThetaAlignResult)
+                {
+                    stage.ApplyWaferAlignThetaResult(
+                        wafer.InputStageAlignReferenceT,
+                        wafer.InputStageAlignCorrectedT,
+                        wafer.InputStageAlignOffsetT);
+                }
+
                 WaferMapData waferMap = MaterialStateService.BuildWaferMapDataFromWafer(wafer);
                 DieMap dieMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (waferMap != null && dieMap != null)
@@ -673,6 +794,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _pickStatusDirty = false;
                 _suppressLotProgressOverlay = false;
                 _selectedEntry = FindEquivalentEntry(map, previousSelection);
+                ClearPendingManualInputDieDetectOffset();
 
                 lblMapTitle.Text = title;
                 lblProjectValue.Text = GetCurrentProjectName();
@@ -972,7 +1094,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void PersistPickStatusToMaterialState(DieMap map)
+        private void PersistPickStatusToMaterialState(
+            DieMap map,
+            double? mappingOffsetX = null,
+            double? mappingOffsetY = null,
+            string saveReason = "MapTransferPickStatusSave")
         {
             try
             {
@@ -990,6 +1116,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     wafer.InputStageAlignPitchX = map.PitchX;
                     wafer.InputStageAlignPitchY = map.PitchY;
                     wafer.HasInputStageDieMappingResult = true;
+                    if (mappingOffsetX.HasValue)
+                        wafer.InputStageDieMappingOffsetX = mappingOffsetX.Value;
+                    if (mappingOffsetY.HasValue)
+                        wafer.InputStageDieMappingOffsetY = mappingOffsetY.Value;
                     wafer.UpdatedAt = DateTime.Now;
                     if (wafer.DieIds == null)
                         wafer.DieIds = new System.Collections.Generic.List<string>();
@@ -1035,7 +1165,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.UpdatedAt = DateTime.Now;
                 }
 
-                MaterialStateService.NotifyAndSave("MapTransferPickStatusSave");
+                MaterialStateService.NotifyAndSave(string.IsNullOrWhiteSpace(saveReason)
+                    ? "MapTransferPickStatusSave"
+                    : saveReason);
             }
             catch (Exception ex)
             {
@@ -1089,6 +1221,795 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, actionName + " 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (actionScope != null)
+                    actionScope.Dispose();
+                SetActionButtonsEnabled(true);
+            }
+        }
+
+        private async Task RunManualInputDieDetectAsync()
+        {
+            IDisposable actionScope = null;
+            try
+            {
+                DieMap map = mapView != null ? mapView.Map : null;
+                if (map == null || map.Entries == null || map.Entries.Count == 0)
+                {
+                    QMC.Common.MessageDialog.Show(this, "수동 다이 검출을 적용할 Active Input Die Map 데이터가 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DieMapEntry entry = FindEquivalentEntry(map, _selectedEntry);
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "수동 다이 검출 기준 Die를 먼저 선택하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                InputStageUnit stage = host.Machine.InputStageUnit;
+                if (stage.Vision == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage Vision 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (stage.CameraX == null || stage.StageY == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage Vision X 또는 Stage Y 축 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                string materialReason;
+                if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out materialReason))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "T 보정 완료 상태가 아니라 다이 검출을 진행할 수 없습니다.\r\n" + materialReason,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "현재 Vision 화면에서 선택 Die 중심을 검출하시겠습니까?\r\n" +
+                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
+                    "현재 Map X=" + entry.PosX.ToString("F3") + " mm, Y=" + entry.PosY.ToString("F3") + " mm",
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                RestoreInputStageRuntimeFromSavedMaterial();
+
+                SetActionButtonsEnabled(false);
+                _manualMoveBusy = true;
+                actionScope = host.Controller.BeginManualActionScope(
+                    ManualMotionScopeKind.ProcessSequence,
+                    "InputStageMapTransferPage:ManualInputDieDetect");
+
+                int prepareResult = await AwaitManualMoveStepAsync(
+                    MovePickersToAvoidForVisionMoveAsync(host, JogSpeedType.Fine),
+                    ResolveManualMoveTimeoutMs(host),
+                    "다이 검출 전 Picker Avoid 준비",
+                    () => StopManualMapMove(host, "Manual die detect picker avoid timeout")).ConfigureAwait(true);
+                if (prepareResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "다이 검출 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int thetaPrepareResult = await EnsureEjectPinZAvoidForThetaMoveAsync(stage).ConfigureAwait(true);
+                if (thetaPrepareResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "다이 검출 전 EjectPinZ Avoid 준비 실패\r\nresult=" + thetaPrepareResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int thetaResult = await EnsureManualInputStageThetaPositionAsync(stage).ConfigureAwait(true);
+                if (thetaResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "다이 검출 전 StageT 보정 위치 확인/이동 실패\r\nresult=" + thetaResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                double baseOriginX = stage.OriginX;
+                double baseOriginY = stage.OriginY;
+                double currentVisionX = stage.CameraX.ActualPosition;
+                double currentStageY = stage.StageY.ActualPosition;
+
+                VisionAlignResult vision = await RequestManualInputDieDetectVisionAsync(
+                    stage,
+                    entry,
+                    currentVisionX,
+                    currentStageY).ConfigureAwait(true);
+                if (!IsValidVisionAlignResult(vision))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "InputPickDie 비전 검출 결과가 유효하지 않습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                double detectedCenterX = currentVisionX + vision.DeltaX;
+                double detectedCenterY = currentStageY + vision.DeltaY;
+                double offsetX = detectedCenterX - entry.PosX;
+                double offsetY = detectedCenterY - entry.PosY;
+
+                string limitReason;
+                if (!stage.IsManualDieDetectOffsetWithinLimit(offsetX, offsetY, out limitReason))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "다이 검출 Offset이 허용 Limit을 초과했습니다.\r\n" + limitReason,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int centerMoveResult = await AwaitManualMoveStepAsync(
+                    stage.MoveVisionPointSafelyAsync(
+                        detectedCenterX,
+                        detectedCenterY,
+                        JogSpeedType.Fine,
+                        0.0,
+                        "InputStageMapTransferPage.ManualInputDieDetectCenterMove"),
+                    ResolveManualMoveTimeoutMs(host),
+                    "검출 다이 중심 Vision 좌표 이동",
+                    () => StopManualMapMove(host, "Manual die detect center move timeout")).ConfigureAwait(true);
+                if (centerMoveResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "검출 다이 중심 좌표 이동 실패\r\nresult=" + centerMoveResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                StorePendingManualInputDieDetectOffset(
+                    map,
+                    entry,
+                    offsetX,
+                    offsetY,
+                    detectedCenterX,
+                    detectedCenterY,
+                    vision,
+                    baseOriginX,
+                    baseOriginY);
+
+                _selectedEntry = entry;
+                RefreshDieGrid();
+                SelectEntry(entry);
+                mapView.Invalidate();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die detect completed. die=" + (entry.DieUid ?? "") +
+                    ", visionDeltaX=" + vision.DeltaX.ToString("F6") +
+                    ", visionDeltaY=" + vision.DeltaY.ToString("F6") +
+                    ", offsetX=" + offsetX.ToString("F6") +
+                    ", offsetY=" + offsetY.ToString("F6") + " - Ok");
+
+                QMC.Common.MessageDialog.Show(this,
+                    "다이 검출 완료.\r\n" +
+                    "Vision Delta X=" + vision.DeltaX.ToString("F6") + " mm, Y=" + vision.DeltaY.ToString("F6") + " mm\r\n" +
+                    "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
+                    "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
+                    "Map Offset X=" + offsetX.ToString("F6") + " mm, Y=" + offsetY.ToString("F6") + " mm\r\n\r\n" +
+                    "[Offset 적용] 버튼을 누르면 전체 Die Map에 적용됩니다.",
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die detect failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "다이 검출 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                try
+                {
+                    if (actionScope != null)
+                        actionScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "다이 검출 스코프 정리 중 오류: " + ex.Message + " - Failed");
+                }
+                finally
+                {
+                    _manualMoveBusy = false;
+                    SetActionButtonsEnabled(true);
+                }
+            }
+        }
+
+        private async Task<int> EnsureEjectPinZAvoidForThetaMoveAsync(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage == null || stage.EjectPinZ == null)
+                    return 0;
+
+                stage.Recipe.EnsurePositionObjects();
+                double target = stage.Recipe.EjectPinZ.AvoidPosition;
+                if (IsAxisInPosition(stage.EjectPinZ, target))
+                    return 0;
+
+                int result = await stage.MoveInputStageAxis(
+                    WaferStageAxis.EjectPinZ,
+                    target,
+                    JogSpeedType.Fine,
+                    0.0).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                return await stage.WaitInputStageAxisInPosition(
+                    WaferStageAxis.EjectPinZ,
+                    target,
+                    ResolveStageMoveTimeoutMs(stage)).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "EjectPinZ avoid prepare for manual die detect failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureManualInputStageThetaPositionAsync(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage == null)
+                    return -1;
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                string materialReason;
+                if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out materialReason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual die detect theta align blocked. " + materialReason + " - Check");
+                    return -1;
+                }
+
+                stage.ApplyWaferAlignThetaResult(
+                    wafer.InputStageAlignReferenceT,
+                    wafer.InputStageAlignCorrectedT,
+                    wafer.InputStageAlignOffsetT);
+
+                string readyReason;
+                if (!stage.IsWaferAlignThetaResultReady(out readyReason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual die detect theta align not ready. " + readyReason + " - Check");
+                    return -1;
+                }
+
+                double targetT;
+                if (!stage.TryResolveWaferAlignThetaTarget(out targetT))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual die detect theta target resolve failed. - Check");
+                    return -1;
+                }
+
+                if (stage.IsWaferAlignThetaInPosition())
+                    return 0;
+
+                int result = await stage.MoveInputStageAxis(
+                    WaferStageAxis.WaferT,
+                    targetT,
+                    JogSpeedType.Fine,
+                    0.0).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                return await stage.WaitInputStageAxisInPosition(
+                    WaferStageAxis.WaferT,
+                    targetT,
+                    ResolveStageMoveTimeoutMs(stage)).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual die detect theta position check failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private void StorePendingManualInputDieDetectOffset(
+            DieMap map,
+            DieMapEntry entry,
+            double offsetX,
+            double offsetY,
+            double detectedCenterX,
+            double detectedCenterY,
+            VisionAlignResult vision,
+            double baseOriginX,
+            double baseOriginY)
+        {
+            _manualDieDetectOffsetPending = true;
+            _manualDieDetectMapSignature = BuildMapSignature(map);
+            _manualDieDetectFrameObjId = map != null ? map.FrameObjId ?? "" : "";
+            _manualDieDetectDieUid = entry != null ? entry.DieUid ?? "" : "";
+            _manualDieDetectMapX = ResolveEntryMapX(entry);
+            _manualDieDetectMapY = ResolveEntryMapY(entry);
+            _manualDieDetectOffsetX = offsetX;
+            _manualDieDetectOffsetY = offsetY;
+            _manualDieDetectDetectedCenterX = detectedCenterX;
+            _manualDieDetectDetectedCenterY = detectedCenterY;
+            _manualDieDetectVisionDeltaX = vision != null ? vision.DeltaX : 0.0;
+            _manualDieDetectVisionDeltaY = vision != null ? vision.DeltaY : 0.0;
+            _manualDieDetectVisionDeltaT = vision != null ? vision.DeltaTheta : 0.0;
+            _manualDieDetectBaseOriginX = baseOriginX;
+            _manualDieDetectBaseOriginY = baseOriginY;
+        }
+
+        private void ClearPendingManualInputDieDetectOffset()
+        {
+            _manualDieDetectOffsetPending = false;
+            _manualDieDetectMapSignature = "";
+            _manualDieDetectFrameObjId = "";
+            _manualDieDetectDieUid = "";
+            _manualDieDetectMapX = 0;
+            _manualDieDetectMapY = 0;
+            _manualDieDetectOffsetX = 0.0;
+            _manualDieDetectOffsetY = 0.0;
+            _manualDieDetectDetectedCenterX = 0.0;
+            _manualDieDetectDetectedCenterY = 0.0;
+            _manualDieDetectVisionDeltaX = 0.0;
+            _manualDieDetectVisionDeltaY = 0.0;
+            _manualDieDetectVisionDeltaT = 0.0;
+            _manualDieDetectBaseOriginX = 0.0;
+            _manualDieDetectBaseOriginY = 0.0;
+        }
+
+        private void ApplyPendingManualInputDieMapOffset()
+        {
+            DieMap map = null;
+            bool offsetApplied = false;
+            bool offsetCommitted = false;
+            try
+            {
+                if (!_manualDieDetectOffsetPending)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "적용할 다이 검출 Offset이 없습니다.\r\n먼저 [다이 검출]을 진행하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                map = mapView != null ? mapView.Map : null;
+                if (map == null || map.Entries == null || map.Entries.Count == 0)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Offset을 적용할 Active Input Die Map 데이터가 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string currentSignature = BuildMapSignature(map);
+                if (!string.Equals(currentSignature, _manualDieDetectMapSignature, StringComparison.Ordinal))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "다이 검출 이후 Die Map이 변경되어 Offset을 적용할 수 없습니다.\r\n다시 [다이 검출]을 진행하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ClearPendingManualInputDieDetectOffset();
+                    return;
+                }
+
+                DieMapEntry entry = FindPendingManualInputDieDetectEntry(map);
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "검출 기준 Die를 현재 Map에서 찾을 수 없습니다.\r\n다시 [다이 검출]을 진행하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    ClearPendingManualInputDieDetectOffset();
+                    return;
+                }
+
+                Form1 host = FindForm() as Form1;
+                InputStageUnit stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                if (host == null || host.Controller == null || stage == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (host.Controller.Status == EquipmentStatus.AutoRunning ||
+                    host.Controller.Status == EquipmentStatus.Initializing ||
+                    host.Controller.IsSequenceRunning ||
+                    host.Controller.IsManualBusy)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "장비 동작 중에는 Offset을 적용할 수 없습니다.\r\nAuto/Manual 동작을 정지한 뒤 다시 시도하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "검출된 Offset을 전체 Input Die Map에 적용하시겠습니까?\r\n" +
+                    "Die=" + BuildSelectedDieText(entry) + "\r\n" +
+                    "Vision Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
+                    "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
+                    "Map Offset X=" + _manualDieDetectOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectOffsetY.ToString("F6") + " mm",
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                SetActionButtonsEnabled(false);
+
+                ApplyManualInputDieMapOffset(map, _manualDieDetectOffsetX, _manualDieDetectOffsetY);
+                offsetApplied = true;
+                InputStageDieMapApplyResult applyResult = InputStageDieMapApplyService.Apply(
+                    new InputStageDieMapApplyRequest
+                    {
+                        Stage = stage,
+                        Controller = host.Controller,
+                        Bus = null,
+                        DieMap = map,
+                        WaferMap = null,
+                        ExpectedWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage),
+                        PickupOptions = ResolveInputPickupSubsetFromRecipe(),
+                        Source = "InputStageMapTransferPage.ManualInputDieMapOffsetApply",
+                        SaveReason = "InputStageManualDieDetectOffsetApply",
+                        PublishReadySignals = true
+                    });
+                if (applyResult == null || !applyResult.Success)
+                {
+                    ApplyManualInputDieMapOffset(map, -_manualDieDetectOffsetX, -_manualDieDetectOffsetY);
+                    offsetApplied = false;
+                    QMC.Common.MessageDialog.Show(this,
+                        "Offset 적용 실패:\r\n" + (applyResult != null ? applyResult.ErrorMessage : ""),
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+                offsetCommitted = true;
+
+                _selectedEntry = entry;
+                _pickStatusDirty = false;
+                _suppressLotProgressOverlay = true;
+                _lastMapSignature = BuildMapSignature(map);
+                _lastMapFrameObjId = map.FrameObjId ?? "";
+                RefreshDieGrid();
+                SelectEntry(entry);
+                mapView.Invalidate();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die map offset applied. die=" + (entry.DieUid ?? "") +
+                    ", offsetX=" + _manualDieDetectOffsetX.ToString("F6") +
+                    ", offsetY=" + _manualDieDetectOffsetY.ToString("F6") +
+                    ", mappingOffsetX=" + applyResult.MappingOffsetX.ToString("F6") +
+                    ", mappingOffsetY=" + applyResult.MappingOffsetY.ToString("F6") + " - Ok");
+
+                ClearPendingManualInputDieDetectOffset();
+
+                QMC.Common.MessageDialog.Show(this,
+                    "Offset 적용 완료.\r\n" +
+                    "Offset X=" + applyResult.MappingOffsetX.ToString("F6") + " mm, Y=" + applyResult.MappingOffsetY.ToString("F6") + " mm",
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                if (offsetApplied && !offsetCommitted && map != null)
+                {
+                    try
+                    {
+                        ApplyManualInputDieMapOffset(map, -_manualDieDetectOffsetX, -_manualDieDetectOffsetY);
+                    }
+                    catch (Exception rollbackEx)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            "Manual input die map offset rollback failed: " + rollbackEx.Message + " - Failed");
+                    }
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die map offset apply failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Offset 적용 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                SetActionButtonsEnabled(true);
+            }
+        }
+
+        private DieMapEntry FindPendingManualInputDieDetectEntry(DieMap map)
+        {
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return null;
+
+                if (!string.IsNullOrWhiteSpace(_manualDieDetectDieUid))
+                {
+                    foreach (DieMapEntry candidate in map.Entries)
+                    {
+                        if (candidate != null &&
+                            string.Equals(candidate.DieUid, _manualDieDetectDieUid, StringComparison.OrdinalIgnoreCase))
+                            return candidate;
+                    }
+                }
+
+                return map.GetCell(_manualDieDetectMapX, _manualDieDetectMapY);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> RequestManualInputDieDetectVisionAsync(
+            InputStageUnit stage,
+            DieMapEntry entry,
+            double currentVisionX,
+            double currentStageY)
+        {
+            try
+            {
+                if (stage == null)
+                    return null;
+
+                if (IsManualInputDieDetectSimulationOrDryRun(stage))
+                    return CreateManualInputDieDetectSimVisionOffset(entry, currentVisionX, currentStageY);
+
+                if (stage.Vision == null)
+                    return null;
+
+                return await stage.Vision.TriggerAlignAsync("InputPickDie").ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die detect vision request failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsManualInputDieDetectSimulationOrDryRun(InputStageUnit stage)
+        {
+            try
+            {
+                if (stage != null && stage.IsInputStageSimulationOrDryRun())
+                    return true;
+
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings != null && settings.DryRunMode)
+                    return true;
+
+                return settings != null && !settings.UseVision;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static VisionAlignResult CreateManualInputDieDetectSimVisionOffset(
+            DieMapEntry entry,
+            double currentVisionX,
+            double currentStageY)
+        {
+            lock (ManualDieDetectSimVisionRandomLock)
+            {
+                double randomOffsetX = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.002;
+                double randomOffsetY = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.002;
+                double targetCenterX = entry != null ? entry.PosX + randomOffsetX : currentVisionX + randomOffsetX;
+                double targetCenterY = entry != null ? entry.PosY + randomOffsetY : currentStageY + randomOffsetY;
+
+                return new VisionAlignResult
+                {
+                    DeltaX = targetCenterX - currentVisionX,
+                    DeltaY = targetCenterY - currentStageY,
+                    DeltaTheta = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.02
+                };
+            }
+        }
+
+        private static bool IsValidVisionAlignResult(VisionAlignResult result)
+        {
+            return result != null &&
+                   IsFinite(result.DeltaX) &&
+                   IsFinite(result.DeltaY) &&
+                   IsFinite(result.DeltaTheta);
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private void ApplyManualInputDieMapOffset(DieMap map, double offsetX, double offsetY)
+        {
+            if (map == null || map.Entries == null)
+                return;
+
+            map.OriginX += offsetX;
+            map.OriginY += offsetY;
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                entry.PosX += offsetX;
+                entry.PosY += offsetY;
+            }
+
+            PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubsetFromRecipe());
+            DieMapGenerator.Normalize(map);
+        }
+
+        private static WaferMapData BuildWaferMapDataFromDieMap(DieMap map, WaferMaterial wafer)
+        {
+            if (map == null || map.DieMapX <= 0 || map.DieMapY <= 0)
+                return null;
+
+            var waferMap = new WaferMapData
+            {
+                WaferId = wafer != null ? wafer.WaferId : (map.FrameObjId ?? ""),
+                ColumnCount = map.DieMapX,
+                RowCount = map.DieMapY,
+                DieMap = new bool[map.DieMapY, map.DieMapX],
+                Ref1Row = map.DieMapY / 2,
+                Ref1Col = Math.Max(0, map.DieMapX / 4),
+                Ref2Row = map.DieMapY / 2,
+                Ref2Col = map.DieMapX > 1 ? Math.Min(map.DieMapX - 1, (map.DieMapX * 3) / 4) : 0
+            };
+
+            if (map.Entries != null)
+            {
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    int mapX = ResolveEntryMapX(entry);
+                    int mapY = ResolveEntryMapY(entry);
+                    if (mapX < 0 || mapY < 0 || mapX >= waferMap.ColumnCount || mapY >= waferMap.RowCount)
+                        continue;
+
+                    waferMap.DieMap[mapY, mapX] = entry.IsTarget;
+                }
+            }
+
+            return waferMap;
+        }
+
+        private void ApplyManualInputStageThetaCorrection()
+        {
+            IDisposable actionScope = null;
+            try
+            {
+                var host = FindForm() as Form1;
+                if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var stage = host.Machine.InputStageUnit;
+                if (stage.StageT == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage StageT 축 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (stage.StageT.IsAlarm)
+                {
+                    QMC.Common.MessageDialog.Show(this, "StageT Alarm 상태에서는 T 보정을 저장할 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage 위에 wafer Data가 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                double referenceT = stage.ResolveWaferAlignReferenceT();
+                double correctedT = stage.StageT.ActualPosition;
+                double offsetT = correctedT - referenceT;
+                double thetaLimit = stage.ResolveWaferAlignThetaCorrectionLimit();
+                if (Math.Abs(offsetT) <= 0.000001)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "T 보정 Offset이 0입니다.\r\n현재 StageT 위치가 티칭 기준 T와 같아 보정 완료값으로 저장할 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string limitReason;
+                if (!stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out limitReason))
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "T 보정 Offset이 허용 Limit을 초과했습니다.\r\n" + limitReason,
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string message =
+                    "현재 StageT 위치를 InputStage 웨이퍼 T 보정값으로 저장하시겠습니까?\r\n\r\n" +
+                    "Reference T : " + referenceT.ToString("F6") + "\r\n" +
+                    "Current T   : " + correctedT.ToString("F6") + "\r\n" +
+                    "Offset T    : " + offsetT.ToString("F6") + "\r\n" +
+                    "Limit T     : " + thetaLimit.ToString("F6");
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    message,
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                SetActionButtonsEnabled(false);
+                actionScope = host.Controller.BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, "InputStageMapTransferPage:T_CORRECTION");
+
+                wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                stage.SetCurrentWaferMaterial(wafer);
+                stage.ApplyWaferAlignThetaResult(referenceT, correctedT, offsetT);
+                MaterialStateService.SaveInputStageThetaAlignResult(wafer, referenceT, correctedT, offsetT);
+
+                lblBarcodeValue.Text = wafer.WaferId;
+                RefreshActiveInputMapIfChanged();
+                RefreshDieGrid();
+                mapView.Invalidate();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input stage theta correction saved. wafer=" + wafer.WaferId +
+                    ", referenceT=" + referenceT.ToString("F6") +
+                    ", correctedT=" + correctedT.ToString("F6") +
+                    ", offsetT=" + offsetT.ToString("F6") + " - Ok");
+                QMC.Common.MessageDialog.Show(this,
+                    "T 보정 저장 완료.\r\nOffset T = " + offsetT.ToString("F6"),
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input stage theta correction failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "T 보정 저장 실패:\r\n" + ex.Message,
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -1168,16 +2089,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                string indexText = entry.SequenceNo > 0
-                    ? entry.SequenceNo.ToString()
-                    : BuildEntryMapText(entry);
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
-                    "Die " + indexText + "의 X,Y 좌표로 이동하시겠습니까?\r\n" +
-                    "X=" + entry.PosX.ToString("F3") + " mm, Y=" + entry.PosY.ToString("F3") + " mm",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
-                    return;
-
                 Form1 host = FindForm() as Form1;
                 if (host == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
@@ -1187,6 +2098,21 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 InputStageUnit stage = host.Machine.InputStageUnit;
+                string indexText = entry.SequenceNo > 0
+                    ? entry.SequenceNo.ToString()
+                    : BuildEntryMapText(entry);
+                DiePositionMoveDisplay diePosition = BuildDiePositionMoveDisplay(entry, host);
+                JogSpeedType speedType;
+                if (!ConfirmManualMapMoveSpeed(
+                    this,
+                    "Input Die Map",
+                    "Die " + indexText + "의 X,Y 좌표로 이동하시겠습니까?\r\n" +
+                    BuildDiePositionMoveText(diePosition, "최종 이동 위치"),
+                    out speedType))
+                {
+                    return;
+                }
+
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
                 actionScope = host.Controller.BeginManualActionScope(
@@ -1194,7 +2120,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:MoveSelectedDie");
 
                 int prepareResult = await AwaitManualMoveStepAsync(
-                    MovePickersToAvoidForVisionMoveAsync(host),
+                    MovePickersToAvoidForVisionMoveAsync(host, speedType),
                     ResolveManualMoveTimeoutMs(host),
                     "Vision 이동 전 Picker Avoid 준비",
                     () => StopManualMapMove(host, "Vision move prepare timeout")).ConfigureAwait(true);
@@ -1211,7 +2137,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     stage.MoveVisionPointSafelyAsync(
                         entry.PosX,
                         entry.PosY,
-                        JogSpeedType.Fine,
+                        speedType,
                         0.0,
                         "InputStageMapTransferPage.MoveSelectedDieAsync"),
                     ResolveManualMoveTimeoutMs(host),
@@ -1287,32 +2213,36 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                double pickerYTeaching = ResolvePickerYPickTeaching(host, side);
-                PickerCalibratedManualInputTarget target =
-                    CalibrationCoordinateService.ResolveManualInputMapTarget(
-                        host.Machine,
-                        ToVisionFocusPickerSide(side),
-                        pickerNo - 1,
-                        entry.PosX,
-                        entry.PosY,
-                        offsetX,
-                        offsetY,
-                        pickerYTeaching);
+                PickCoordinateResult target = InputPickerPickTargetResolver.CalculateManualInputMapTarget(
+                    host.Machine,
+                    side,
+                    pickerNo - 1,
+                    entry.DieUid ?? "",
+                    entry.PosX,
+                    entry.PosY,
+                    offsetX,
+                    offsetY);
                 double targetPickerX = target.PickerX;
                 double targetStageY = target.StageY;
-                double targetNeedleX = ResolveInputNeedleXForVisionX(host, entry.PosX);
-                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                double targetNeedleX = target.NeedleX;
+                DiePositionMoveDisplay diePosition = BuildDiePositionMoveDisplay(entry, host);
+                JogSpeedType speedType;
+                if (!ConfirmManualMapMoveSpeed(
+                    this,
+                    "Input Die Map",
                     ResolvePickerMoveTitle(side, pickerNo) + "를 선택 다이 위치로 이동하시겠습니까?\r\n" +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
+                    BuildDiePositionMoveText(diePosition, "최종 Die 위치") + "\r\n" +
                     "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
                     "NeedleX=" + targetNeedleX.ToString("F3") + " mm\r\n" +
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
-                    " PickerY Forward=" + target.PickerYForward.ToString("F3") + " mm\r\n" +
-                    " ColletCal Offset X=" + target.ColletOffsetX.ToString("F3") + " mm, Y=" + target.ColletOffsetY.ToString("F3") + " mm)",
-                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
+                    " Auto formula 기준, Vision Offset X/Y/T=0\r\n" +
+                    " " + target.Formula + ")",
+                    out speedType))
+                {
                     return;
+                }
 
                 SetActionButtonsEnabled(false);
                 _manualMoveBusy = true;
@@ -1321,7 +2251,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY, targetNeedleX),
+                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY, targetNeedleX, speedType),
                     ResolveManualMoveTimeoutMs(host),
                     ResolvePickerMoveTitle(side, pickerNo) + " 선택 다이 좌표 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " die move timeout")).ConfigureAwait(true);
@@ -1367,40 +2297,99 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static double ResolvePickerYPickTeaching(Form1 host, PickerSequenceSide side)
+        private DiePositionMoveDisplay BuildDiePositionMoveDisplay(DieMapEntry entry, Form1 host)
         {
+            var display = new DiePositionMoveDisplay();
             try
             {
-                if (host == null || host.Machine == null)
-                    return 0.0;
+                if (entry == null)
+                    return display;
 
-                if (side == PickerSequenceSide.Front && host.Machine.PickerFrontUnit != null)
-                    return host.Machine.PickerFrontUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+                display.FinalX = entry.PosX;
+                display.FinalY = entry.PosY;
 
-                if (side == PickerSequenceSide.Rear && host.Machine.PickerRearUnit != null)
-                    return host.Machine.PickerRearUnit.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
+                bool resolved = false;
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer != null && wafer.HasInputStageDieMappingResult)
+                {
+                    display.OffsetX = wafer.InputStageDieMappingOffsetX;
+                    display.OffsetY = wafer.InputStageDieMappingOffsetY;
+                    resolved = true;
+                }
+
+                if (!resolved)
+                {
+                    InputStageUnit stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                    if (stage != null)
+                    {
+                        display.OffsetX = stage.DieMappingOffsetX;
+                        display.OffsetY = stage.DieMappingOffsetY;
+                    }
+                }
+
+                display.BaseX = display.FinalX - display.OffsetX;
+                display.BaseY = display.FinalY - display.OffsetY;
+                return display;
             }
-            catch (Exception ex)
+            catch
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
-                    "PickerY pick teaching resolve failed. side=" + side +
-                    ", error=" + ex.Message + " - Failed");
+                display.FinalX = entry != null ? entry.PosX : 0.0;
+                display.FinalY = entry != null ? entry.PosY : 0.0;
+                display.BaseX = display.FinalX;
+                display.BaseY = display.FinalY;
+                display.OffsetX = 0.0;
+                display.OffsetY = 0.0;
+                return display;
             }
             finally
             {
             }
-
-            return 0.0;
         }
 
-        private static double ResolveInputNeedleXForVisionX(Form1 host, double visionX)
+        private static string BuildDiePositionMoveText(DiePositionMoveDisplay display, string finalLabel)
         {
-            NeedleCalibrationData needle = host != null && host.Machine != null
-                ? CalibrationCoordinateService.ResolveNeedle(host.Machine)
-                : null;
-            double offset = needle != null ? needle.NeedleXToVisionXOffset : 0.0;
-            // 현재 기준: Input DieMap X는 InputVisionX 기준 좌표이고 NeedleX는 캘리브레이션 offset을 빼서 계산한다.
-            return visionX - offset;
+            if (string.IsNullOrWhiteSpace(finalLabel))
+                finalLabel = "최종 이동 위치";
+
+            return "Die Position(Offset 전) X=" + display.BaseX.ToString("F3") +
+                   " mm, Y=" + display.BaseY.ToString("F3") + " mm\r\n" +
+                   "적용 Offset X=" + display.OffsetX.ToString("F3") +
+                   " mm, Y=" + display.OffsetY.ToString("F3") + " mm\r\n" +
+                   finalLabel + " X=" + display.FinalX.ToString("F3") +
+                   " mm, Y=" + display.FinalY.ToString("F3") + " mm";
+        }
+
+        private static bool ConfirmManualMapMoveSpeed(
+            IWin32Window owner,
+            string title,
+            string message,
+            out JogSpeedType speedType)
+        {
+            speedType = JogSpeedType.Fine;
+
+            using (var dialog = new QMC.Common.MessageBoxYesNo())
+            {
+                dialog.ButtonGroupLabel = "MOVE";
+                DialogResult result = dialog.ShowDialog(
+                    string.IsNullOrWhiteSpace(title) ? "Input Die Map" : title,
+                    message,
+                    owner,
+                    new[] { "Coarse 이동", "Fine 이동", "No" });
+
+                if (result == DialogResult.Yes)
+                {
+                    speedType = JogSpeedType.Coarse;
+                    return true;
+                }
+
+                if (result == DialogResult.No)
+                {
+                    speedType = JogSpeedType.Fine;
+                    return true;
+                }
+
+                return false;
+            }
         }
 
         private async Task<int> MoveSelectedDieByPickerCoreAsync(
@@ -1410,7 +2399,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             DieMapEntry entry,
             double targetPickerX,
             double targetStageY,
-            double targetNeedleX)
+            double targetNeedleX,
+            JogSpeedType speedType)
         {
             try
             {
@@ -1430,44 +2420,36 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
                 }
 
-                int result = await MoveInputVisionToAvoidForPickerMoveAsync(stage).ConfigureAwait(true);
+                int result = await MoveInputVisionToAvoidForPickerMoveAsync(stage, speedType).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
-                result = await MoveOppositePickerToAvoidForManualPickerMoveAsync(host, side).ConfigureAwait(true);
+                result = await MoveOppositePickerToAvoidForManualPickerMoveAsync(host, side, speedType).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
-                Task<int> moveStageY = PickerInputStageMoveHelper.MoveStageYForPickerWorkPointCommandAsync(
+                Task<int> moveNeedleStage = MoveNeedleXAndStageYForManualPickerMoveAsync(
                     stage,
-                    entry.PosX,
+                    targetNeedleX,
                     targetStageY,
-                    JogSpeedType.Fine,
-                    0.0,
-                    "InputStageMapTransferPickerMove",
-                    targetNeedleX);
+                    entry.PosX,
+                    speedType,
+                    ResolvePickerMoveTitle(side, pickerNo));
                 string pickerTargetName = "DiePickPosition[" + (pickerNo - 1) + "];ManualInputDieMapMove";
                 Task<int> movePickerX = side == PickerSequenceSide.Front
-                    ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, JogSpeedType.Fine, 0.0, pickerTargetName)
-                    : host.Machine.PickerRearUnit.MoveRearPickerAxis(PickerAxis.PickerX, targetPickerX, JogSpeedType.Fine, 0.0, pickerTargetName);
-                int[] moveResults = await Task.WhenAll(moveStageY, movePickerX).ConfigureAwait(true);
+                    ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, speedType, 0.0, pickerTargetName)
+                    : host.Machine.PickerRearUnit.MoveRearPickerAxis(PickerAxis.PickerX, targetPickerX, speedType, 0.0, pickerTargetName);
+                int[] moveResults = await Task.WhenAll(moveNeedleStage, movePickerX).ConfigureAwait(true);
 
                 if (moveResults[0] != 0)
                     return moveResults[0];
                 if (moveResults[1] != 0)
                     return moveResults[1];
 
-                Task<int> waitStageY = stage.WaitInputStageAxisInPosition(
-                    WaferStageAxis.WaferY,
-                    targetStageY,
-                    ResolveStageMoveTimeoutMs(stage));
                 Task<int> waitPickerX = WaitPickerXMoveDoneAsync(host, side, targetPickerX);
-                int[] waitResults = await Task.WhenAll(waitStageY, waitPickerX).ConfigureAwait(true);
-
-                if (waitResults[0] != 0)
-                    return waitResults[0];
-                if (waitResults[1] != 0)
-                    return waitResults[1];
+                int waitPickerResult = await waitPickerX.ConfigureAwait(true);
+                if (waitPickerResult != 0)
+                    return waitPickerResult;
 
                 if (!IsStageYInPosition(stage, targetStageY))
                 {
@@ -1475,6 +2457,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         ResolvePickerMoveTitle(side, pickerNo) +
                         " final check failed: StageY target=" + targetStageY.ToString("F3") +
                         ", actual=" + stage.StageY.ActualPosition.ToString("F3") + " - Failed");
+                    return -1;
+                }
+
+                if (!IsAxisInPosition(stage.NeedleBlockX, targetNeedleX))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " final check failed: NeedleX target=" + targetNeedleX.ToString("F3") +
+                        ", actual=" + (stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition.ToString("F3") : "-") +
+                        " - Failed");
                     return -1;
                 }
 
@@ -1490,6 +2482,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " move complete. die=" + BuildSelectedDieText(entry) +
                     ", pickerX=" + targetPickerX.ToString("F3") +
+                    ", needleX=" + targetNeedleX.ToString("F3") +
                     ", stageY=" + targetStageY.ToString("F3") + " - Ok");
                 return 0;
             }
@@ -1504,7 +2497,201 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MoveOppositePickerToAvoidForManualPickerMoveAsync(Form1 host, PickerSequenceSide movingSide)
+        private async Task<int> MoveNeedleXAndStageYForManualPickerMoveAsync(
+            InputStageUnit stage,
+            double targetNeedleX,
+            double targetStageY,
+            double workAreaVisionX,
+            JogSpeedType speedType,
+            string title)
+        {
+            try
+            {
+                if (stage == null)
+                    return -1;
+
+                bool needleInPosition = IsAxisInPosition(stage.NeedleBlockX, targetNeedleX);
+                bool stageYInPosition = IsStageYInPosition(stage, targetStageY);
+                if (needleInPosition && stageYInPosition)
+                    return 0;
+
+                bool moveNeedleXFirst;
+                string reason;
+                if (!stage.TryResolveNeedleWorkPointMoveOrder(targetNeedleX, targetStageY, out moveNeedleXFirst, out reason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        title + " safe move order resolve failed. needleX=" + targetNeedleX.ToString("F3") +
+                        ", stageY=" + targetStageY.ToString("F3") +
+                        ", reason=" + reason + " - Failed");
+                    RaiseManualMoveAlarm("IN-STAGE-MAP-NEEDLE-STAGE-PATH",
+                        title + " NeedleX/StageY 이동 가능한 안전 순서를 찾지 못했습니다. " + reason);
+                    return -1;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    title + " safe move order. first=" + (moveNeedleXFirst ? "NeedleX" : "StageY") +
+                    ", needleX=" + targetNeedleX.ToString("F3") +
+                    ", stageY=" + targetStageY.ToString("F3") + " - Check");
+
+                if (moveNeedleXFirst)
+                {
+                    if (!needleInPosition)
+                    {
+                        int result = await MoveNeedleXForManualPickerMoveAsync(
+                            stage,
+                            targetNeedleX,
+                            speedType,
+                            title).ConfigureAwait(true);
+                        if (result != 0)
+                            return result;
+                    }
+
+                    if (!stageYInPosition)
+                    {
+                        int result = await MoveStageYForManualPickerMoveAsync(
+                            stage,
+                            workAreaVisionX,
+                            targetStageY,
+                            targetNeedleX,
+                            speedType,
+                            title).ConfigureAwait(true);
+                        if (result != 0)
+                            return result;
+                    }
+                }
+                else
+                {
+                    if (!stageYInPosition)
+                    {
+                        int result = await MoveStageYForManualPickerMoveAsync(
+                            stage,
+                            workAreaVisionX,
+                            targetStageY,
+                            targetNeedleX,
+                            speedType,
+                            title).ConfigureAwait(true);
+                        if (result != 0)
+                            return result;
+                    }
+
+                    if (!needleInPosition)
+                    {
+                        int result = await MoveNeedleXForManualPickerMoveAsync(
+                            stage,
+                            targetNeedleX,
+                            speedType,
+                            title).ConfigureAwait(true);
+                        if (result != 0)
+                            return result;
+                    }
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    title + " NeedleX/StageY safe move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveNeedleXForManualPickerMoveAsync(
+            InputStageUnit stage,
+            double targetNeedleX,
+            JogSpeedType speedType,
+            string title)
+        {
+            try
+            {
+                if (stage == null || stage.NeedleBlockX == null)
+                    return -1;
+
+                if (IsAxisInPosition(stage.NeedleBlockX, targetNeedleX))
+                    return 0;
+
+                int result = await stage.MoveInputStageAxis(
+                    WaferStageAxis.NeedleX,
+                    targetNeedleX,
+                    speedType,
+                    0.0).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                result = await stage.WaitInputStageAxisInPosition(
+                    WaferStageAxis.NeedleX,
+                    targetNeedleX,
+                    ResolveStageMoveTimeoutMs(stage)).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                return IsAxisInPosition(stage.NeedleBlockX, targetNeedleX) ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    title + " NeedleX move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveStageYForManualPickerMoveAsync(
+            InputStageUnit stage,
+            double workAreaVisionX,
+            double targetStageY,
+            double targetNeedleX,
+            JogSpeedType speedType,
+            string title)
+        {
+            try
+            {
+                if (stage == null || stage.StageY == null)
+                    return -1;
+
+                if (IsStageYInPosition(stage, targetStageY))
+                    return 0;
+
+                int result = await PickerInputStageMoveHelper.MoveStageYForPickerWorkPointCommandAsync(
+                    stage,
+                    workAreaVisionX,
+                    targetStageY,
+                    speedType,
+                    0.0,
+                    "InputStageMapTransferPickerMove",
+                    targetNeedleX).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                result = await stage.WaitInputStageAxisInPosition(
+                    WaferStageAxis.WaferY,
+                    targetStageY,
+                    ResolveStageMoveTimeoutMs(stage)).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                return IsStageYInPosition(stage, targetStageY) ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    title + " StageY move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveOppositePickerToAvoidForManualPickerMoveAsync(
+            Form1 host,
+            PickerSequenceSide movingSide,
+            JogSpeedType speedType)
         {
             try
             {
@@ -1516,7 +2703,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ResolvePickerSideName(movingSide) + " picker manual move prepare. " +
                     ResolvePickerSideName(oppositeSide) + " picker moves to Avoid first. - Start");
 
-                int result = await MoveTargetPickerToAvoidAsync(host, oppositeSide).ConfigureAwait(true);
+                int result = await MoveTargetPickerToAvoidAsync(host, oppositeSide, speedType).ConfigureAwait(true);
                 if (result != 0)
                 {
                     string message = ResolvePickerSideName(movingSide) +
@@ -1557,15 +2744,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MovePickersToAvoidForVisionMoveAsync(Form1 host)
+        private async Task<int> MovePickersToAvoidForVisionMoveAsync(Form1 host, JogSpeedType speedType)
         {
             try
             {
-                int frontResult = await MoveTargetPickerToAvoidAsync(host, PickerSequenceSide.Front).ConfigureAwait(true);
+                int frontResult = await MoveTargetPickerToAvoidAsync(host, PickerSequenceSide.Front, speedType).ConfigureAwait(true);
                 if (frontResult != 0)
                     return frontResult;
 
-                int rearResult = await MoveTargetPickerToAvoidAsync(host, PickerSequenceSide.Rear).ConfigureAwait(true);
+                int rearResult = await MoveTargetPickerToAvoidAsync(host, PickerSequenceSide.Rear, speedType).ConfigureAwait(true);
                 if (rearResult != 0)
                     return rearResult;
 
@@ -1582,7 +2769,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MoveInputVisionToAvoidForPickerMoveAsync(InputStageUnit stage)
+        private async Task<int> MoveInputVisionToAvoidForPickerMoveAsync(InputStageUnit stage, JogSpeedType speedType)
         {
             try
             {
@@ -1594,7 +2781,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 stage.Recipe.EnsurePositionObjects();
                 double avoidTarget = stage.Recipe.VisionX.AvoidPosition;
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, avoidTarget, JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, avoidTarget, speedType, 0.0).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
@@ -1626,7 +2813,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task<int> MoveTargetPickerToAvoidAsync(Form1 host, PickerSequenceSide side)
+        private async Task<int> MoveTargetPickerToAvoidAsync(Form1 host, PickerSequenceSide side, JogSpeedType speedType)
         {
             try
             {
@@ -1650,7 +2837,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (front.IsFrontPickerInAvoidPosition())
                         return 0;
 
-                    int result = await front.MoveToFrontPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                    int result = await front.MoveToFrontPickerAvoidPosition(speedType, 0.0).ConfigureAwait(true);
                     if (result != 0)
                     {
                         QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
@@ -1679,7 +2866,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (rear.IsRearPickerInAvoidPosition())
                     return 0;
 
-                int rearResult = await rear.MoveToRearPickerAvoidPosition(JogSpeedType.Fine, 0.0).ConfigureAwait(true);
+                int rearResult = await rear.MoveToRearPickerAvoidPosition(speedType, 0.0).ConfigureAwait(true);
                 if (rearResult != 0)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
@@ -1897,6 +3084,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     stage.ManualStopInputStageAxis(WaferStageAxis.WaferY);
                     stage.ManualStopInputStageAxis(WaferStageAxis.VisionX);
+                    stage.ManualStopInputStageAxis(WaferStageAxis.NeedleX);
                 }
 
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
@@ -1974,13 +3162,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
-        }
-
-        private static VisionFocusPickerSide ToVisionFocusPickerSide(PickerSequenceSide side)
-        {
-            return side == PickerSequenceSide.Front
-                ? VisionFocusPickerSide.Front
-                : VisionFocusPickerSide.Rear;
         }
 
         private static string ResolvePickerMoveTitle(PickerSequenceSide side, int pickerNo)
@@ -2067,6 +3248,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
             return Math.Abs(stage.StageY.ActualPosition - targetStageY) <= tolerance && !stage.StageY.IsAlarm;
         }
 
+        private static bool IsAxisInPosition(BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+            return Math.Abs(axis.ActualPosition - target) <= tolerance && !axis.IsAlarm && !axis.IsMoving;
+        }
+
         private static bool IsPickerXInPosition(Form1 host, PickerSequenceSide side, double targetPickerX)
         {
             if (host == null || host.Machine == null)
@@ -2106,6 +3298,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 btnNeedleBlockDown.Enabled = enabled;
                 btnThetaMatchMove.Enabled = enabled;
                 btnXyMatchMove.Enabled = enabled;
+                btnManualDieMapOffsetApply.Enabled = enabled;
                 btnPickStatusSave.Enabled = enabled;
                 btnReloadActiveMap.Enabled = enabled;
                 btnApplyDieState.Enabled = enabled;

@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Calibration
 {
@@ -93,8 +92,6 @@ namespace QMC.CDT320.Calibration
 
             inputOffsets.EnsureArrays();
             outputOffsets.EnsureArrays();
-            double inputBridge = ResolveVisionToPickerHomeBridge(true, side);
-            double outputBridge = ResolveVisionToPickerHomeBridge(false, side);
 
             for (int i = 0; i < records.Length && i < 4; i++)
             {
@@ -102,10 +99,10 @@ namespace QMC.CDT320.Calibration
                 if (record == null || !record.Valid)
                     continue;
 
-                // 현재 기준: 저장 offset에는 VisionX encoder와 HomeClearance bridge를 뺀 순수 Picker 보정값을 저장한다.
-                double inputX = record.FinalPickerX - (camera.InputReticle.VisionXPosition + inputBridge);
+                // 저장 offset 자체를 자동/수동 Pick 계산식의 inputVisionToPickerX로 사용한다.
+                double inputX = record.FinalPickerX - camera.InputReticle.VisionXPosition;
                 double inputY = Math.Abs(record.FinalPickerY);
-                double outputX = record.FinalPickerX - (camera.OutputReticle.VisionXPosition + outputBridge);
+                double outputX = record.FinalPickerX - camera.OutputReticle.VisionXPosition;
                 double outputY = Math.Abs(record.FinalPickerY);
 
                 inputOffsets.OffsetX[i] = inputX;
@@ -114,7 +111,7 @@ namespace QMC.CDT320.Calibration
                 outputOffsets.OffsetY[i] = outputY;
                 count++;
 
-                LogAppliedOffset(side, i, record, camera, inputBridge, outputBridge, inputX, inputY, outputX, outputY);
+                LogAppliedOffset(side, i, record, camera, inputX, inputY, outputX, outputY);
                 if (summary != null)
                 {
                     summary.Append(side).Append(" C").Append(i + 1)
@@ -155,69 +152,11 @@ namespace QMC.CDT320.Calibration
             return false;
         }
 
-        private static double ResolveVisionToPickerHomeBridge(bool inputVision, VisionFocusPickerSide side)
-        {
-            try
-            {
-                SharedRailXConfig config = SharedRailXConfigStore.LoadOrCreateDefault();
-                if (config == null)
-                    return 0.0;
-
-                SharedRailXAxis visionAxis = inputVision
-                    ? SharedRailXAxis.InputVisionX
-                    : SharedRailXAxis.OutputVisionX;
-                SharedRailXAxis pickerAxis = side == VisionFocusPickerSide.Front
-                    ? SharedRailXAxis.FrontPickerX
-                    : SharedRailXAxis.RearPickerX;
-
-                SharedRailXAxisPair pair;
-                if (!config.TryGetCollisionPair(visionAxis, pickerAxis, out pair))
-                    return 0.0;
-
-                int visionSign;
-                int pickerSign;
-                ResolvePairSigns(visionAxis, pickerAxis, pair, out visionSign, out pickerSign);
-                if (pickerSign == 0)
-                    return 0.0;
-                if (-visionSign != pickerSign)
-                    return 0.0;
-
-                return pair.HomeClearance / pickerSign;
-            }
-            catch
-            {
-                return 0.0;
-            }
-            finally
-            {
-            }
-        }
-
-        private static void ResolvePairSigns(
-            SharedRailXAxis axisA,
-            SharedRailXAxis axisB,
-            SharedRailXAxisPair pair,
-            out int signA,
-            out int signB)
-        {
-            if (pair.AxisA == axisA && pair.AxisB == axisB)
-            {
-                signA = pair.AxisATowardSign;
-                signB = pair.AxisBTowardSign;
-                return;
-            }
-
-            signA = pair.AxisBTowardSign;
-            signB = pair.AxisATowardSign;
-        }
-
         private static void LogAppliedOffset(
             VisionFocusPickerSide side,
             int pickerIndex,
             ColletCalibrationRecord record,
             VisionCameraCalibrationData camera,
-            double inputBridge,
-            double outputBridge,
             double inputX,
             double inputY,
             double outputX,
@@ -229,17 +168,13 @@ namespace QMC.CDT320.Calibration
                 ", finalPicker=(" + record.FinalPickerX.ToString("F6") + "," + record.FinalPickerY.ToString("F6") + ")" +
                 ", inputReticleVisionX=" + camera.InputReticle.VisionXPosition.ToString("F6") +
                 ", outputReticleVisionX=" + camera.OutputReticle.VisionXPosition.ToString("F6") +
-                ", inputHomeBridge=" + inputBridge.ToString("F6") +
-                ", outputHomeBridge=" + outputBridge.ToString("F6") +
-                ", formulaInputX=finalPickerX-(inputVisionX+inputHomeBridge)=" +
-                record.FinalPickerX.ToString("F6") + "-(" +
-                camera.InputReticle.VisionXPosition.ToString("F6") + "+" +
-                inputBridge.ToString("F6") + ")=" + inputX.ToString("F6") +
+                ", formulaInputX=finalPickerX-inputVisionX=" +
+                record.FinalPickerX.ToString("F6") + "-" +
+                camera.InputReticle.VisionXPosition.ToString("F6") + "=" + inputX.ToString("F6") +
                 ", formulaInputY=abs(finalPickerY)=" + inputY.ToString("F6") +
-                ", formulaOutputX=finalPickerX-(outputVisionX+outputHomeBridge)=" +
-                record.FinalPickerX.ToString("F6") + "-(" +
-                camera.OutputReticle.VisionXPosition.ToString("F6") + "+" +
-                outputBridge.ToString("F6") + ")=" + outputX.ToString("F6") +
+                ", formulaOutputX=finalPickerX-outputVisionX=" +
+                record.FinalPickerX.ToString("F6") + "-" +
+                camera.OutputReticle.VisionXPosition.ToString("F6") + "=" + outputX.ToString("F6") +
                 ", formulaOutputY=abs(finalPickerY)=" + outputY.ToString("F6"));
         }
     }

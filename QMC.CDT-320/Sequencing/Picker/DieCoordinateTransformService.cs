@@ -82,7 +82,8 @@ namespace QMC.CDT320.Sequencing
             double pickerTTeaching,
             double pickerZTeaching,
             double needleZTeaching,
-            double ejectPinZTeaching)
+            double ejectPinZTeaching,
+            bool logFormula = true)
         {
             PickCoordinateResult result = new PickCoordinateResult();
             double pickerYForward = Math.Abs(pickerYTeaching);
@@ -104,7 +105,8 @@ namespace QMC.CDT320.Sequencing
                 " / pickerZ = " + F(result.PickerZ) +
                 " / needleZ = " + F(result.NeedleZ) +
                 " / ejectPinZ = " + F(result.EjectPinZ);
-            LogFormula(sequenceName, "PICK", side, pickerIndex, dieId, result.Formula);
+            if (logFormula)
+                LogFormula(sequenceName, "PICK", side, pickerIndex, dieId, result.Formula);
             return result;
         }
 

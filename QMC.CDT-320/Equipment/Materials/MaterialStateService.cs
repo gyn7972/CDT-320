@@ -24,6 +24,7 @@ namespace QMC.CDT320.Materials
         private const int MaterialSaveQuietMs = 1000;
         private const int MaterialSaveMinimumIntervalMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
+        private const double InputStageThetaOffsetReadyEpsilon = 0.000001;
         private static bool _saveWorkerRunning;
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
@@ -553,6 +554,13 @@ namespace QMC.CDT320.Materials
                     inputStageWafer.InputStageAlignPitchY = inputMap.PitchY;
                     inputStageWafer.InputStageAlignOffsetX = 0.0;
                     inputStageWafer.InputStageAlignOffsetY = 0.0;
+                    inputStageWafer.HasInputStageThetaAlignResult = true;
+                    inputStageWafer.InputStageAlignReferenceT =
+                        inputStage != null && inputStage.Recipe != null && inputStage.Recipe.WaferT != null
+                            ? inputStage.Recipe.WaferT.ProcessPosition
+                            : 0.0;
+                    inputStageWafer.InputStageAlignCorrectedT = inputStageWafer.InputStageAlignReferenceT;
+                    inputStageWafer.InputStageAlignOffsetT = 0.0;
                     inputStageWafer.HasInputStageDieMappingResult = true;
                     inputStageWafer.InputStageDieMappingOffsetX = 0.0;
                     inputStageWafer.InputStageDieMappingOffsetY = 0.0;
@@ -2977,6 +2985,9 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            if (!IsInputStageThetaAlignCompleteNoLock(wafer, out reason))
+                return false;
+
             if (!wafer.HasInputStageDieMappingResult)
             {
                 reason = "InputStage die mapping is not complete. waferId=" + wafer.WaferId;
@@ -2998,6 +3009,66 @@ namespace QMC.CDT320.Materials
 
             reason = "InputStage finish complete. waferId=" + wafer.WaferId +
                      ", dieCount=" + wafer.DieIds.Count;
+            return true;
+        }
+
+        public static bool IsInputStageThetaAlignComplete(WaferMaterial wafer, out string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    return IsInputStageThetaAlignCompleteNoLock(wafer, out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage theta align complete check failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInputStageThetaAlignCompleteNoLock(WaferMaterial wafer, out string reason)
+        {
+            reason = string.Empty;
+
+            if (wafer == null)
+            {
+                reason = "InputStage wafer material is not available.";
+                return false;
+            }
+
+            if (!wafer.HasInputStageThetaAlignResult)
+            {
+                reason = "InputStage theta align is not complete. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            if (double.IsNaN(wafer.InputStageAlignReferenceT) ||
+                double.IsInfinity(wafer.InputStageAlignReferenceT) ||
+                double.IsNaN(wafer.InputStageAlignCorrectedT) ||
+                double.IsInfinity(wafer.InputStageAlignCorrectedT) ||
+                double.IsNaN(wafer.InputStageAlignOffsetT) ||
+                double.IsInfinity(wafer.InputStageAlignOffsetT))
+            {
+                reason = "InputStage theta align value is invalid. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            if (Math.Abs(wafer.InputStageAlignOffsetT) <= InputStageThetaOffsetReadyEpsilon)
+            {
+                reason = "InputStage theta align offset is zero. waferId=" + wafer.WaferId +
+                         ", offsetT=" + wafer.InputStageAlignOffsetT.ToString("F6");
+                return false;
+            }
+
+            reason = "InputStage theta align complete. waferId=" + wafer.WaferId +
+                     ", referenceT=" + wafer.InputStageAlignReferenceT.ToString("F6") +
+                     ", correctedT=" + wafer.InputStageAlignCorrectedT.ToString("F6") +
+                     ", offsetT=" + wafer.InputStageAlignOffsetT.ToString("F6");
             return true;
         }
 
@@ -3224,6 +3295,22 @@ namespace QMC.CDT320.Materials
 
         public static void SaveInputStageAlignResult(WaferMaterial wafer, double originX, double originY, double pitchX, double pitchY, double offsetX, double offsetY)
         {
+            SaveInputStageAlignResult(wafer, originX, originY, pitchX, pitchY, offsetX, offsetY, false, 0.0, 0.0, 0.0);
+        }
+
+        public static void SaveInputStageAlignResult(
+            WaferMaterial wafer,
+            double originX,
+            double originY,
+            double pitchX,
+            double pitchY,
+            double offsetX,
+            double offsetY,
+            bool hasThetaAlign,
+            double referenceT,
+            double correctedT,
+            double offsetT)
+        {
             try
             {
                 if (wafer == null)
@@ -3236,6 +3323,13 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignPitchY = pitchY;
                 wafer.InputStageAlignOffsetX = offsetX;
                 wafer.InputStageAlignOffsetY = offsetY;
+                if (hasThetaAlign)
+                {
+                    wafer.HasInputStageThetaAlignResult = true;
+                    wafer.InputStageAlignReferenceT = referenceT;
+                    wafer.InputStageAlignCorrectedT = correctedT;
+                    wafer.InputStageAlignOffsetT = offsetT;
+                }
                 wafer.HasInputStageDieMappingResult = false;
                 wafer.InputStageDieMappingOffsetX = 0.0;
                 wafer.InputStageDieMappingOffsetY = 0.0;
@@ -3247,6 +3341,61 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input stage align result save failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public static void SaveInputStageThetaAlignResult(WaferMaterial wafer, double referenceT, double correctedT, double offsetT)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                wafer.HasInputStageThetaAlignResult = true;
+                wafer.InputStageAlignReferenceT = referenceT;
+                wafer.InputStageAlignCorrectedT = correctedT;
+                wafer.InputStageAlignOffsetT = offsetT;
+                wafer.HasInputStageDieMappingResult = false;
+                wafer.InputStageDieMappingOffsetX = 0.0;
+                wafer.InputStageDieMappingOffsetY = 0.0;
+                wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
+                wafer.UpdatedAt = DateTime.Now;
+                NotifyAndSave("InputStageThetaAlignResult");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input stage theta align result save failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public static void ResetInputStageThetaAlignResult(WaferMaterial wafer, string reason)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                wafer.HasInputStageThetaAlignResult = false;
+                wafer.InputStageAlignReferenceT = 0.0;
+                wafer.InputStageAlignCorrectedT = 0.0;
+                wafer.InputStageAlignOffsetT = 0.0;
+                wafer.HasInputStageDieMappingResult = false;
+                wafer.InputStageDieMappingOffsetX = 0.0;
+                wafer.InputStageDieMappingOffsetY = 0.0;
+                wafer.UpdatedAt = DateTime.Now;
+                NotifyAndSave(string.IsNullOrWhiteSpace(reason) ? "InputStageThetaAlignReset" : reason);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input stage theta align result reset failed: " + ex.Message + " - Failed");
             }
             finally
             {
