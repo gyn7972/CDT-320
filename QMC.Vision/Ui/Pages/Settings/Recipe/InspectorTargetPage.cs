@@ -497,19 +497,19 @@ namespace QMC.Vision.Ui.Pages
             }
 
             // 도구별 시뮬 저장이미지 — Inspector 마다 다른 시뮬 이미지를 사용/경로 지정(Finder 와 동일).
-            // 카메라가 '시뮬레이션'일 때만 사용된다 — 실카메라 장착 시 설정과 무관하게 항상 실제 촬상.
+            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
             // 로드 시 Setup POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
-                items.Add(ParameterGridItem.Bool("시뮬 저장 이미지 사용 (카메라 시뮬레이션 전용)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.Bool("저장 이미지 사용 (이 도구 전용·모듈보다 우선)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
                 string imgFilter = "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*";
-                items.Add(ParameterGridItem.FilePath("시뮬 저장 이미지 경로 Ch1(0°)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로 Ch1(0°)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     imgFilter));
-                items.Add(ParameterGridItem.FilePath("시뮬 저장 이미지 경로 Ch2(90°)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로 Ch2(90°)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePathCh2 ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePathCh2 = v?.Trim() ?? ""; MarkDirty(); } },
                     imgFilter));

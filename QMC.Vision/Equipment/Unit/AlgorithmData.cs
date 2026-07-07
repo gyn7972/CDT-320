@@ -121,8 +121,12 @@ namespace QMC.Vision.Modules
         /// (필드명은 호환 위해 AngleMode 유지. AlignDie 는 Multi 일 때 전체로 평균각 산출.)</summary>
         [DataMember] public DieAngleMode AngleMode { get; set; }
 
+        /// <summary>Cognex 전용 고급 패턴매칭 파라미터 그룹(별도 관리·Expert 노출). 백엔드=Cognex 일 때만 사용.
+        /// 구 JSON 에 키가 없으면 OnDeserializing 기본값으로 채워진다(비파괴).</summary>
+        [DataMember] public CognexPatternParams Cognex { get; set; } = new CognexPatternParams();
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { AcceptThreshold = 0.7; TrainModelPath = string.Empty; AngleMode = DieAngleMode.Single; }
+        private void SetDefaults() { AcceptThreshold = 0.7; TrainModelPath = string.Empty; AngleMode = DieAngleMode.Single; Cognex = new CognexPatternParams(); }
     }
 
     // ── Inspector ─────────────────────────────────────────────────

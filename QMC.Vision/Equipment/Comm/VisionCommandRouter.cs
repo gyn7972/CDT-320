@@ -40,6 +40,13 @@ namespace QMC.Vision.Comm
             if (!IsGateExemptCommand(cmd) && isCommandAllowed != null && !isCommandAllowed())
                 return $"ERR|{mod}|{cmd}|not running (press RUN)";
 
+            // 핸들러 Live(CAM_SWITCH liveOn=1) 는 셋업(비 READY)에서만 허용 — RUN/READY 중 시퀀스 그랩 충돌 방지.
+            if (cmd == "CAM_SWITCH" && parts.Length >= 4
+                && (parts[3] == "1" || parts[3].Equals("on", StringComparison.OrdinalIgnoreCase)
+                    || parts[3].Equals("true", StringComparison.OrdinalIgnoreCase))
+                && isCommandAllowed != null && isCommandAllowed())
+                return $"ERR|{mod}|{cmd}|busy: RUN/READY 중 Live 불가";
+
             try
             {
                 string resp;
@@ -54,7 +61,7 @@ namespace QMC.Vision.Comm
                     case "SCALE":      resp = DoScale(m, parts);     break;
                     case "ROT_CENTER": resp = DoRotCenter(m);        break;
                     case "DISTORT":    resp = DoDistort(m);          break;
-                    case "CAM_SWITCH": resp = DoCamSwitch(parts);    break;
+                    case "CAM_SWITCH": resp = DoCamSwitch(m, parts); break;
                     case "FOCUS_START":resp = VisionCommandCore.FocusStart(m, parts); break;
                     case "FOCUS_VAL":  resp = VisionCommandCore.FocusValue(m, parts); break;
                     case "FOCUS_BEST": resp = VisionCommandCore.FocusBest(m, parts); break;
@@ -73,7 +80,7 @@ namespace QMC.Vision.Comm
 
         /// <summary>RUN 게이트 면제 명령 — PING(상태확인)과 단발 그랩(EXPOSE/GRAB, 모션 없음·수동/셋업 테스트용).</summary>
         private static bool IsGateExemptCommand(string cmd)
-            => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
+            => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB" || cmd == "CAM_SWITCH"
             || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
@@ -204,12 +211,17 @@ namespace QMC.Vision.Comm
             return "OK";
         }
 
-        private static string DoCamSwitch(string[] parts)
+        private static string DoCamSwitch(IVisionModule m, string[] parts)
         {
             if (parts.Length < 4) return "fail:need toolName liveOn";
             string toolName = parts[2];
             string liveOn   = parts[3];
-            // 단일 카메라 모듈에서는 no-op.
+            bool on = liveOn == "1" || liveOn.Equals("on", StringComparison.OrdinalIgnoreCase)
+                                    || liveOn.Equals("true", StringComparison.OrdinalIgnoreCase);
+            // 핸들러 Live → Vision 카메라 연속 촬상 시작/정지(실제와 동일 경로).
+            if (m == null || m.Camera == null) return "fail:camera not assigned";
+            try { if (on) m.Camera.StartLive(); else m.Camera.StopLive(); }
+            catch (Exception ex) { return "fail:" + ex.Message; }
             return $"OK;tool={toolName};live={liveOn}";
         }
 

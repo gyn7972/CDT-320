@@ -3,7 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using QMC.Common;
 using QMC.Vision.Core;
+using QMC.Vision.Modules;
 
 namespace QMC.Vision.Backends.Cognex
 {
@@ -12,7 +14,7 @@ namespace QMC.Vision.Backends.Cognex
     /// 동적 reflection 으로 호출 — 빌드 시 Cognex 어셈블리 의존 없음.
     /// 미로드/실패 시 OpenCvPatternFinder(BasicSad) 로 자동 fallback.
     /// </summary>
-    public class CognexPatternFinder : IPatternFinder
+    public class CognexPatternFinder : IPatternFinder, IAlgoParamSync
     {
         public string Id { get; }
         public Roi SearchRoi { get; set; }
@@ -31,6 +33,9 @@ namespace QMC.Vision.Backends.Cognex
         // CogPMAlignTool 인스턴스 (dynamic). null = 미학습.
         private dynamic _pma;
         private bool    _trainSucceeded;
+
+        // ① Cognex 전용 고급 파라미터(레시피 FinderAlgoRecipe.Cognex 미러). Apply/Collect 로 POCO 와 동기화.
+        private readonly CognexPatternParams _cog = new CognexPatternParams();
 
         public CognexPatternFinder(string id, CognexBackend be)
         {
@@ -80,6 +85,7 @@ namespace QMC.Vision.Backends.Cognex
                     try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
                         Id + " Origin 설정 실패(좌표 절대화 불가): " + oex.Message); } catch { }
                 }
+                ApplyCognexAlgorithm(pattern, asms);
                 pattern.Train();
                 _trainSucceeded = true;
             }
@@ -123,6 +129,7 @@ namespace QMC.Vision.Backends.Cognex
                     try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
                         Id + " LoadTrainImage Origin 설정 실패: " + oex.Message); } catch { }
                 }
+                ApplyCognexAlgorithm(patt, asms);
                 patt.Train();
                 _trainSucceeded = true;
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
@@ -196,6 +203,31 @@ namespace QMC.Vision.Backends.Cognex
                     {
                         _pma.RunParams.AngleStart  = 0.0;
                         _pma.RunParams.AngleExtent = 0.0;
+                    }
+                }
+                catch { }
+
+                // ① Cognex 전용 그룹(FinderAlgoRecipe.Cognex) 오버라이드 — 값이 설정된 항목만 적용(0/미설정=공용/기본 유지).
+                try
+                {
+                    if (_cog.AcceptThreshold > 0.0) _pma.RunParams.AcceptThreshold = _cog.AcceptThreshold;
+                    if (_cog.ApproxNumToFind > 0) _pma.RunParams.ApproximateNumberToFind = _cog.ApproxNumToFind;
+                    if (_cog.AngleExtentDeg > 0.0)
+                    {
+                        _pma.RunParams.AngleStart  = _cog.AngleStartDeg  * Math.PI / 180.0;
+                        _pma.RunParams.AngleExtent = _cog.AngleExtentDeg * Math.PI / 180.0;
+                    }
+                    if (_cog.ContrastThreshold > 0.0) CognexInterop.TrySet(_pma.RunParams, "ContrastThreshold", _cog.ContrastThreshold);
+                    if (_cog.ScaleExtent > 0.0)
+                    {
+                        CognexInterop.TrySet(_pma.RunParams, "ScaleStart",  _cog.ScaleStart);
+                        CognexInterop.TrySet(_pma.RunParams, "ScaleExtent", _cog.ScaleExtent);
+                    }
+                    CognexInterop.TrySet(_pma.RunParams, "IgnorePolarity", _cog.IgnorePolarity);
+                    if (_cog.TimeoutMs > 0.0)
+                    {
+                        CognexInterop.TrySet(_pma.RunParams, "TimeoutEnabled", true);
+                        CognexInterop.TrySet(_pma.RunParams, "Timeout", _cog.TimeoutMs);
                     }
                 }
                 catch { }
@@ -286,6 +318,66 @@ namespace QMC.Vision.Backends.Cognex
                     Id + " MATCH Cognex 런타임 실패: " + ex.Message); } catch { }
                 return MatchResult.Fail(Id, "Cognex 실행 실패: " + ex.Message);
             }
+        }
+
+        // ── ① Cognex 전용 파라미터(IAlgoParamSync) — POCO(FinderAlgoRecipe.Cognex) ↔ 런타임 _cog 동기화 ──
+        public void ApplyParams(IRecipeData recipe, IConfigData config, ISetupData setup)
+        {
+            try
+            {
+                if (recipe is FinderAlgoRecipe r && r.Cognex != null) CopyCognex(r.Cognex, _cog);
+            }
+            catch (Exception ex)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex", Id + " ApplyParams 실패: " + ex.Message); } catch { }
+            }
+        }
+
+        public void CollectParams(IRecipeData recipe, IConfigData config, ISetupData setup)
+        {
+            try
+            {
+                if (recipe is FinderAlgoRecipe r)
+                {
+                    if (r.Cognex == null) r.Cognex = new CognexPatternParams();
+                    CopyCognex(_cog, r.Cognex);
+                }
+            }
+            catch (Exception ex)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex", Id + " CollectParams 실패: " + ex.Message); } catch { }
+            }
+        }
+
+        private static void CopyCognex(CognexPatternParams src, CognexPatternParams dst)
+        {
+            if (src == null || dst == null) return;
+            dst.Algorithm         = src.Algorithm;
+            dst.AcceptThreshold   = src.AcceptThreshold;
+            dst.ContrastThreshold = src.ContrastThreshold;
+            dst.ApproxNumToFind   = src.ApproxNumToFind;
+            dst.AngleStartDeg     = src.AngleStartDeg;
+            dst.AngleExtentDeg    = src.AngleExtentDeg;
+            dst.ScaleStart        = src.ScaleStart;
+            dst.ScaleExtent       = src.ScaleExtent;
+            dst.IgnorePolarity    = src.IgnorePolarity;
+            dst.TimeoutMs         = src.TimeoutMs;
+        }
+
+        /// <summary>학습(Train) 시 패턴 알고리즘(PatMax/PatQuick/PatFlex)을 Cognex 패턴에 반영. 미로드/미지원이면 no-op.</summary>
+        private void ApplyCognexAlgorithm(dynamic patt, System.Reflection.Assembly[] asms)
+        {
+            try
+            {
+                var enumType = CognexInterop.GetType("Cognex.VisionPro.PMAlign.CogPMAlignAlgorithmConstants", asms);
+                if (enumType == null) return;
+                string name = _cog.Algorithm == CognexPatternAlgorithm.PatQuick ? "PatQuick"
+                            : _cog.Algorithm == CognexPatternAlgorithm.PatFlex  ? "PatFlex"
+                            : "PatMax";
+                object val = System.Enum.Parse(enumType, name);
+                CognexInterop.TrySet(patt, "Algorithm", val);
+            }
+            catch { }
         }
 
     }

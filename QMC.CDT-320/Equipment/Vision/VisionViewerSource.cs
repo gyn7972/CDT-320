@@ -46,6 +46,9 @@ namespace QMC.CDT320.VisionComm
         public void StartLive(Action<Bitmap> onFrame)
         {
             if (_running) return;
+            // 핸들러 Live → Vision 카메라를 연속 촬상(Live)으로 전환. RUN/READY 중이면 Vision 이 거부(throw).
+            // 이 명령이 있어야 Vision 이 프레임을 내보내고, 아래 RecvLoop 가 그 프레임을 받는다.
+            RequestVisionLive(true);
             _onFrame = onFrame;
             _running = true;
             VisionViewerRegistry.StreamStarted(_port);   // 스트리밍 상태 등록(설정 페이지 표시용)
@@ -61,6 +64,38 @@ namespace QMC.CDT320.VisionComm
             try { _tcp?.Close(); } catch { }
             try { _thread?.Join(800); } catch { }
             _thread = null;
+            // 라이브였을 때만 Vision 카메라 Live 정지 요청(재구성 시 불필요한 명령 방지).
+            if (was) { try { RequestVisionLive(false); } catch { } }
+        }
+
+        /// <summary>Vision 카메라 Live(연속 촬상) 시작/정지를 CAM_SWITCH 로 요청.
+        /// 명령 채널이 없으면(수동 수신 전용) no-op. 시작 거부(RUN/READY 등) 시 예외로 던져
+        /// CameraView 툴바가 Live 버튼 상태를 롤백하게 한다.</summary>
+        private void RequestVisionLive(bool on, int timeoutMs = 3000)
+        {
+            if (_cmd == null) return;   // 명령 채널 없음 — 기존 수동 수신 동작 유지
+            if (!_cmd.IsConnected)
+            {
+                OnStatus("명령 미연결 — CONNECT 확인");
+                if (on) throw new InvalidOperationException("Vision 명령 미연결");
+                return;
+            }
+
+            VisionCameraSwitchResult res;
+            try { res = _cmd.SwitchCameraAsync(_cmd.ModuleName, on, timeoutMs).GetAwaiter().GetResult(); }
+            catch (Exception ex)
+            {
+                if (on) throw new InvalidOperationException("Live 명령 실패: " + ex.Message, ex);
+                return;   // 정지 실패는 조용히(스트림은 이미 끊음)
+            }
+
+            if (on && (res == null || !res.Success))
+            {
+                string reason = (res != null && !string.IsNullOrWhiteSpace(res.Raw)) ? res.Raw : "거부";
+                OnStatus("Live 시작 거부 — " + reason);
+                throw new InvalidOperationException(reason);
+            }
+            OnStatus(on ? "Vision Live 시작" : "Vision Live 정지");
         }
 
         public Bitmap GrabFrame()

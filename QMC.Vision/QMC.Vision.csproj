@@ -163,6 +163,7 @@
     <Compile Include="Equipment\Unit\AlgorithmNode.cs" />
     <Compile Include="Equipment\Unit\AlgorithmData.cs" />
     <Compile Include="Equipment\Unit\ColletAlgorithmData.cs" />
+    <Compile Include="Equipment\Unit\CognexPatternData.cs" />
     <Compile Include="Equipment\Unit\VisionMachineData.cs" />
     <Compile Include="Equipment\Unit\VisionMachine.cs" />
     <Compile Include="Equipment\Unit\CameraData.cs" />
