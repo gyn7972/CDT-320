@@ -520,4 +520,56 @@ namespace QMC.Vision.Comm
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             string line = "XYT|" + moduleName + "|" + fb + "|" + collet + "|" + (chipUid ?? "") + "|" +
                           "x=" + x.ToString("F3", inv) + ";y=" + y.ToString("F3", inv) +
-                          ";t=" + t.ToS
+                          ";t=" + t.ToString("F4", inv) + ";ix=" + ix + ";iy=" + iy +
+                          ";valid=" + (valid ? "1" : "0");
+            return TryBroadcast(moduleName, line);
+        }
+
+        /// <summary>모든 연결된 클라이언트에 1줄 송신.</summary>
+        public void Broadcast(string line)
+        {
+            byte[] data = Encoding.UTF8.GetBytes(line + "\n");
+            List<TcpClient> snapshot;
+            lock (_clients) snapshot = _clients.ToList();
+            LogMsg($"[{ModuleName}] PUSH: Before {line}");
+            foreach (var c in snapshot)
+            {
+                try
+                {
+                    var s = c.GetStream();
+                    s.Write(data, 0, data.Length);
+                }
+                catch { }
+            }
+            LogMsg($"[{ModuleName}] PUSH: {line}");
+        }
+
+        private void Send(NetworkStream stream, string line, bool quiet = false)
+        {
+            if (stream == null) { LogMsg($"[{ModuleName}] TX dropped (no stream): {line}"); return; }
+            try
+            {
+                var data = Encoding.UTF8.GetBytes(line + "\n");
+                stream.Write(data, 0, data.Length);
+                if (!quiet) LogMsg($"[{ModuleName}] TX: {line}");   // quiet=진행중 폴링 응답(로그 홍수 방지)
+            }
+            catch (Exception ex)
+            {
+                // 진단: 응답 전송 실패(소켓 닫힘 등).
+                LogMsg($"[{ModuleName}] TX error: {ex.Message}");
+            }
+        }
+
+        private void LogMsg(string s) { try { Log?.Invoke(s); } catch { } }
+
+        public void Dispose()
+        {
+            Stop();
+            if (Module != null)
+            {
+                Module.ExposureDone -= OnExposureDone;
+                Module.Alarmed      -= OnAlarmed;
+            }
+        }
+    }
+}

@@ -925,3 +925,41 @@ namespace QMC.Vision
             try { _viewFrontSide?.Dispose(); } catch { }
             try { _viewRearSide?.Dispose(); }  catch { }
             try { _svrMain?.Dispose(); }       catch { }
+            try { _svrWafer?.Dispose(); }      catch { }
+            try { _svrBin?.Dispose(); }        catch { }
+            try { _svrBottom?.Dispose(); }     catch { }
+            try { _svrFrontSideVision?.Dispose(); }    catch { }
+            try { _svrRearSideVision?.Dispose(); } catch { }
+
+            // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
+            //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
+            ShutdownLog("tcp/viewer done -> cameras");
+            try { WaferMod    ?.Camera?.StopLive(); } catch { }
+            try { BinMod      ?.Camera?.StopLive(); } catch { }
+            try { BottomMod   ?.Camera?.StopLive(); } catch { }
+            try { FrontSideVisionMod?.Camera?.StopLive(); } catch { }
+            try { RearSideVisionMod ?.Camera?.StopLive(); } catch { }
+            try { WaferMod    ?.Dispose(); } catch { }
+            try { BinMod      ?.Dispose(); } catch { }
+            try { BottomMod   ?.Dispose(); } catch { }
+            try { FrontSideVisionMod?.Dispose(); } catch { }
+            try { RearSideVisionMod ?.Dispose(); } catch { }
+
+            ShutdownLog("cameras done -> lights");
+            try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
+            ShutdownLog("lights done -> backend");
+            try { Backend?.Dispose(); }        catch { }
+            // 카메라(digitizer) 정리 후 MIL System/App 완전 해제 — 그래버 점유 해제(다음 실행/Intellicam 즉시 사용 가능).
+            ShutdownLog("backend done -> MIL shutdown");
+            try { QMC.Vision.Cameras.Mil.MilSystem.Shutdown(); } catch { }
+            ShutdownLog("done");
+            base.OnFormClosing(e);
+        }
+
+        /// <summary>종료 단계 로그 — 실장비에서 종료가 행 걸릴 때 마지막으로 찍힌 단계가 행 지점.</summary>
+        private static void ShutdownLog(string step)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Shutdown", step); } catch { }
+        }
+    }
+}
