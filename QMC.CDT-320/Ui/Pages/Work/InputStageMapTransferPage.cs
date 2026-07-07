@@ -62,6 +62,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private static readonly System.Drawing.Color SkipColor = System.Drawing.Color.FromArgb(0x66, 0x66, 0x66);
         private static readonly object ManualDieDetectSimVisionRandomLock = new object();
         private static readonly Random ManualDieDetectSimVisionRandom = new Random();
+        private const string ManualInputDieDetectFinderName = "DieFinder";
+        private const int ManualInputDieDetectVisionIndex = 0;
+        private const int ManualInputDieDetectVisionTimeoutMs = 5000;
+        private const double ManualInputDieDetectPitchMm = 0.15;
 
         private Timer _refresh;
         private string _i18nTitle;
@@ -1354,6 +1358,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 double detectedCenterX = currentVisionX + vision.DeltaX;
+                //double detectedCenterX = currentVisionX + (vision.DeltaX * -1);
                 double detectedCenterY = currentStageY + vision.DeltaY;
                 double offsetX = detectedCenterX - entry.PosX;
                 double offsetY = detectedCenterY - entry.PosY;
@@ -1789,7 +1794,43 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (stage.Vision == null)
                     return null;
 
-                return await stage.Vision.TriggerAlignAsync("InputPickDie").ConfigureAwait(true);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die detect Vision request. channel=Wafer" +
+                    ", finder=" + ManualInputDieDetectFinderName +
+                    ", index=" + ManualInputDieDetectVisionIndex +
+                    ", timeoutMs=" + ManualInputDieDetectVisionTimeoutMs + " - Start");
+
+                bool grabbed = await QMC.CDT320.VisionComm.AutoVisionRequestService.GrabAsync(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                    ManualInputDieDetectVisionIndex,
+                    ManualInputDieDetectVisionTimeoutMs,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (!grabbed)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual input die detect Vision GRAB failed. channel=Wafer" +
+                        ", finder=" + ManualInputDieDetectFinderName +
+                        ", index=" + ManualInputDieDetectVisionIndex + " - Failed");
+                    return null;
+                }
+
+                VisionAlignResult result = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAlignAsync(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                    ManualInputDieDetectFinderName,
+                    ManualInputDieDetectVisionIndex,
+                    ManualInputDieDetectPitchMm,
+                    ManualInputDieDetectVisionTimeoutMs,
+                    System.Threading.CancellationToken.None).ConfigureAwait(true);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Manual input die detect Vision result. channel=Wafer" +
+                    ", finder=" + ManualInputDieDetectFinderName +
+                    ", index=" + ManualInputDieDetectVisionIndex +
+                    ", dx=" + (result != null ? result.DeltaX.ToString("F6") : "null") +
+                    ", dy=" + (result != null ? result.DeltaY.ToString("F6") : "null") +
+                    ", dt=" + (result != null ? result.DeltaTheta.ToString("F6") : "null") +
+                    (result != null ? " - Ok" : " - Failed"));
+                return result;
             }
             catch (Exception ex)
             {
