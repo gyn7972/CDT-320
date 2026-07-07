@@ -63,6 +63,8 @@ namespace QMC.Common.Recipes
         [DataMember] public string TriggerMode       { get; set; } = "Software";
         [DataMember] public string PixelFormat       { get; set; } = "Mono8";
         [DataMember] public int    DelayBeforeGrabMs { get; set; } = 0;
+        /// <summary>프레임 평균화(Averaging) 매수. 1=미사용(단발), N&gt;1 이면 N장 촬상 후 픽셀평균으로 노이즈 저감.</summary>
+        [DataMember] public int    AverageCount      { get; set; } = 1;
 
         // Stage 62 — ROI (AOI). 0 = full sensor (Width 또는 Height 가 0 이하이면 미적용).
         [DataMember] public int RoiOffsetX { get; set; } = 0;
@@ -120,6 +122,7 @@ namespace QMC.Common.Recipes
                 ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
                 TriggerMode = TriggerMode, PixelFormat = PixelFormat,
                 DelayBeforeGrabMs = DelayBeforeGrabMs,
+                AverageCount = AverageCount,
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
                 RoiWidth = RoiWidth, RoiHeight = RoiHeight,
                 ScaleX = ScaleX, ScaleY = ScaleY,

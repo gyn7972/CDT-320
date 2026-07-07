@@ -308,6 +308,7 @@ namespace QMC.Vision.Ui.Localization
             A("set.cam.trigSrc",      "트리거 소스",        "Trigger Source");
             A("set.cam.pixFmt",       "픽셀 포맷",          "Pixel format");
             A("set.cam.delayGrab",    "그랩 전 지연",       "Delay before grab");
+            A("set.cam.avgCount",     "평균 매수",          "Average count");
             A("set.cam.roiOffX",      "ROI Offset X",       "ROI Offset X");
             A("set.cam.roiOffY",      "ROI Offset Y",       "ROI Offset Y");
             A("set.cam.roiW",         "ROI 너비",           "ROI Width");
