@@ -22,11 +22,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblStatus;
         private TableLayoutPanel stepLayout;
         private Label lblStep;
-        private ComboBox cmbPickZStep;
+        private DataGridView gridPickUpSteps;
+        private DataGridViewTextBoxColumn colStepNo;
+        private DataGridViewTextBoxColumn colStepName;
         private FlowLayoutPanel buttonPanel;
         private Button btnRunStep;
         private Button btnNextStep;
-        private Button btnPrepare;
         private Button btnPickZTest;
         private Button btnClose;
 
@@ -49,13 +50,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStatus = new System.Windows.Forms.Label();
             this.stepLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblStep = new System.Windows.Forms.Label();
-            this.cmbPickZStep = new System.Windows.Forms.ComboBox();
+            this.gridPickUpSteps = new System.Windows.Forms.DataGridView();
+            this.colStepNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colStepName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.buttonPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnClose = new System.Windows.Forms.Button();
             this.btnPickZTest = new System.Windows.Forms.Button();
             this.btnNextStep = new System.Windows.Forms.Button();
             this.btnRunStep = new System.Windows.Forms.Button();
-            this.btnPrepare = new System.Windows.Forms.Button();
             this.rootLayout.SuspendLayout();
             this.optionLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitTarget)).BeginInit();
@@ -64,6 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.splitTarget.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridTargets)).BeginInit();
             this.stepLayout.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.gridPickUpSteps)).BeginInit();
             this.buttonPanel.SuspendLayout();
             this.SuspendLayout();
             //
@@ -73,7 +76,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.optionLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.splitTarget, 0, 2);
             this.rootLayout.Controls.Add(this.lblPrepared, 0, 3);
             this.rootLayout.Controls.Add(this.lblStatus, 0, 4);
             this.rootLayout.Controls.Add(this.stepLayout, 0, 5);
@@ -84,12 +86,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.rootLayout.RowCount = 7;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 0F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 252F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.rootLayout.Size = new System.Drawing.Size(860, 560);
+            this.rootLayout.Size = new System.Drawing.Size(980, 480);
             this.rootLayout.TabIndex = 0;
             //
             // lblHeader
@@ -116,7 +118,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.optionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.optionLayout.Controls.Add(this.lblPickerNo, 0, 0);
             this.optionLayout.Controls.Add(this.cmbPickerNo, 1, 0);
-            this.optionLayout.Controls.Add(this.btnRefresh, 2, 0);
             this.optionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionLayout.Location = new System.Drawing.Point(8, 48);
             this.optionLayout.Margin = new System.Windows.Forms.Padding(8, 6, 8, 6);
@@ -281,19 +282,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             // stepLayout
             //
-            this.stepLayout.ColumnCount = 3;
-            this.stepLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.stepLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 320F));
+            this.stepLayout.ColumnCount = 1;
             this.stepLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.stepLayout.Controls.Add(this.lblStep, 0, 0);
-            this.stepLayout.Controls.Add(this.cmbPickZStep, 1, 0);
+            this.stepLayout.Controls.Add(this.gridPickUpSteps, 0, 1);
             this.stepLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.stepLayout.Location = new System.Drawing.Point(8, 532);
             this.stepLayout.Margin = new System.Windows.Forms.Padding(8, 0, 8, 0);
             this.stepLayout.Name = "stepLayout";
-            this.stepLayout.RowCount = 1;
+            this.stepLayout.RowCount = 2;
+            this.stepLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.stepLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.stepLayout.Size = new System.Drawing.Size(964, 42);
+            this.stepLayout.Size = new System.Drawing.Size(964, 252);
             this.stepLayout.TabIndex = 5;
             //
             // lblStep
@@ -302,22 +302,52 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStep.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.lblStep.Location = new System.Drawing.Point(3, 0);
             this.lblStep.Name = "lblStep";
-            this.lblStep.Size = new System.Drawing.Size(84, 42);
+            this.lblStep.Size = new System.Drawing.Size(958, 28);
             this.lblStep.TabIndex = 0;
-            this.lblStep.Text = "Pick Z Step";
+            this.lblStep.Text = "PickUp Step List";
             this.lblStep.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
-            // cmbPickZStep
+            // gridPickUpSteps
             //
-            this.cmbPickZStep.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.cmbPickZStep.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cmbPickZStep.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.cmbPickZStep.FormattingEnabled = true;
-            this.cmbPickZStep.Location = new System.Drawing.Point(93, 8);
-            this.cmbPickZStep.Margin = new System.Windows.Forms.Padding(3, 8, 3, 3);
-            this.cmbPickZStep.Name = "cmbPickZStep";
-            this.cmbPickZStep.Size = new System.Drawing.Size(314, 25);
-            this.cmbPickZStep.TabIndex = 1;
+            this.gridPickUpSteps.AllowUserToAddRows = false;
+            this.gridPickUpSteps.AllowUserToDeleteRows = false;
+            this.gridPickUpSteps.AllowUserToResizeRows = false;
+            this.gridPickUpSteps.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.gridPickUpSteps.BackgroundColor = System.Drawing.Color.White;
+            this.gridPickUpSteps.ColumnHeadersHeight = 26;
+            this.gridPickUpSteps.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this.gridPickUpSteps.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colStepNo,
+            this.colStepName});
+            this.gridPickUpSteps.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridPickUpSteps.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
+            this.gridPickUpSteps.EnableHeadersVisualStyles = false;
+            this.gridPickUpSteps.Location = new System.Drawing.Point(0, 28);
+            this.gridPickUpSteps.Margin = new System.Windows.Forms.Padding(0);
+            this.gridPickUpSteps.MultiSelect = false;
+            this.gridPickUpSteps.Name = "gridPickUpSteps";
+            this.gridPickUpSteps.ReadOnly = true;
+            this.gridPickUpSteps.RowHeadersVisible = false;
+            this.gridPickUpSteps.RowTemplate.Height = 21;
+            this.gridPickUpSteps.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this.gridPickUpSteps.Size = new System.Drawing.Size(964, 224);
+            this.gridPickUpSteps.TabIndex = 1;
+            //
+            // colStepNo
+            //
+            this.colStepNo.FillWeight = 45F;
+            this.colStepNo.HeaderText = "No";
+            this.colStepNo.Name = "colStepNo";
+            this.colStepNo.ReadOnly = true;
+            this.colStepNo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // colStepName
+            //
+            this.colStepName.FillWeight = 360F;
+            this.colStepName.HeaderText = "PickUp Step";
+            this.colStepName.Name = "colStepName";
+            this.colStepName.ReadOnly = true;
+            this.colStepName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // buttonPanel
             //
@@ -325,7 +355,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.buttonPanel.Controls.Add(this.btnPickZTest);
             this.buttonPanel.Controls.Add(this.btnNextStep);
             this.buttonPanel.Controls.Add(this.btnRunStep);
-            this.buttonPanel.Controls.Add(this.btnPrepare);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.buttonPanel.Location = new System.Drawing.Point(8, 578);
@@ -377,7 +406,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             // btnRunStep
             //
-            this.btnRunStep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(96)))), ((int)(((byte)(96)))), ((int)(((byte)(96)))));
+            this.btnRunStep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.btnRunStep.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnRunStep.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnRunStep.ForeColor = System.Drawing.Color.White;
@@ -389,25 +418,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnRunStep.UseVisualStyleBackColor = false;
             this.btnRunStep.Click += new System.EventHandler(this.btnRunStep_Click);
             //
-            // btnPrepare
-            //
-            this.btnPrepare.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.btnPrepare.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPrepare.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnPrepare.ForeColor = System.Drawing.Color.White;
-            this.btnPrepare.Location = new System.Drawing.Point(430, 11);
-            this.btnPrepare.Name = "btnPrepare";
-            this.btnPrepare.Size = new System.Drawing.Size(150, 34);
-            this.btnPrepare.TabIndex = 0;
-            this.btnPrepare.Text = "INSPECT / MOVE";
-            this.btnPrepare.UseVisualStyleBackColor = false;
-            this.btnPrepare.Click += new System.EventHandler(this.btnPrepare_Click);
-            //
             // InputPickTargetSelectDialog
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(980, 660);
+            this.ClientSize = new System.Drawing.Size(980, 480);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.MaximizeBox = false;
@@ -422,6 +437,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             ((System.ComponentModel.ISupportInitialize)(this.splitTarget)).EndInit();
             this.splitTarget.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridTargets)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.gridPickUpSteps)).EndInit();
             this.stepLayout.ResumeLayout(false);
             this.buttonPanel.ResumeLayout(false);
             this.ResumeLayout(false);
