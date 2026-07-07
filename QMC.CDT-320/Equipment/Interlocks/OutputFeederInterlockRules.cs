@@ -317,11 +317,11 @@ namespace QMC.CDT320.Interlocks
 
                 OutputStageUnit outputStage = machine.OutputStageUnit;
 
-                // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 OutputFeederY 홈 이동을 차단한다.
-                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                // 인터락 조건: GoodStageZ가 Home(0) 또는 Avoid 위치가 아니면 OutputFeederY 홈 이동을 차단한다.
+                if (outputStage != null && outputStage.GoodStage != null && !IsGoodStageZHomeOrAvoid(outputStage))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
-                        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Home(0) or Avoid position.",
                         out reason);
 
                 // 인터락 조건: Good Bin Guide가 Down 상태가 아니면 OutputFeederY 홈 이동을 차단한다.
@@ -686,6 +686,19 @@ namespace QMC.CDT320.Interlocks
         private static bool IsStageModuleAtAvoid(StageModule stage)
         {
             return stage == null || stage.IsAtAvoidPosition();
+        }
+
+        // 인터락 기준: OutputFeederY 홈 전 GoodStageZ가 Home(0) 또는 Avoid 위치인지 판단한다.
+        private static bool IsGoodStageZHomeOrAvoid(OutputStageUnit outputStage)
+        {
+            if (outputStage == null)
+                return true;
+
+            BaseAxis goodStageZ = outputStage.GoodStage != null ? outputStage.GoodStage.StageZ : null;
+            if (MotionGuardRuleHelpers.IsAt(goodStageZ, 0.0))
+                return true;
+
+            return outputStage.GoodStage == null || outputStage.GoodStage.IsAtAvoidPosition();
         }
 
         // 인터락 기준: OutputFeeder Lift가 Up 상태인지 센서/실린더 상태로 판단한다.

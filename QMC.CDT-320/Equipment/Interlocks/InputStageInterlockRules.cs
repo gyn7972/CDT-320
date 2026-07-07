@@ -294,6 +294,51 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: StageT 홈 전 NeedlePinZ(EjectPinZ)가 Home(0) 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyEjectPinZAtZeroOrAvoidForStageTHome(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null || stage.EjectPinZ == null)
+                    return true;
+
+                var pos = stage.Recipe != null ? stage.Recipe.EjectPinZ : null;
+                if (pos == null)
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME 이동 불가: EjectPinZ 레시피 위치가 없습니다.",
+                        out reason);
+
+                double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
+                    ? stage.EjectPinZ.Config.InPositionTolerance
+                    : 0.05;
+
+                double actual = stage.EjectPinZ.ActualPosition;
+                if (actual <= 0.0 + tolerance ||
+                    System.Math.Abs(actual - pos.AvoidPosition) <= tolerance)
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " HOME 이동 불가: StageT 홈 전 EjectPinZ(NeedlePinZ)가 0 이하 또는 Avoid 위치여야 합니다. actual=" +
+                    actual.ToString("F3") + ", zero=0.000, avoid=" + pos.AvoidPosition.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying EjectPinZ zero/avoid for " + movingName + " home: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
         // 인터락 항목: ExpanderZ 이동 종류별로 홈/수동/자동 조건을 선택한다.
         private static bool VerifyWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
@@ -776,12 +821,9 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                // 인터락 조건: InputFeederY가 Avoid 위치가 아니면 InputVisionX 홈 이동을 차단한다.
-                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputVisionX",
-                        "InputVisionX HOME blocked. InputFeederY must be at Avoid position.",
-                        out reason);
+                // 인터락 조건: InputVisionX 홈 전 InputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
+                if (!VerifyInputFeederYHomeOrAvoid(machine, "InputVisionX", out reason))
+                    return false;
 
                 // 인터락 조건: Feeder Lift가 Down 상태가 아니면 InputVisionX 홈 이동을 차단한다.
                 if (feeder != null && !feeder.IsWaferFeederDown())
@@ -916,11 +958,11 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                // 인터락 조건: NeedleZ가 안전 위치가 아니면 StageY 홈 이동을 차단한다.
-                if (stage != null && !stage.IsNeedleZInSafePosition())
+                // 인터락 조건: NeedleZ가 Home(0) 또는 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
+                if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "InputStageY",
-                        "InputStageY HOME blocked. NeedleZ must be at Avoid position.",
+                        "InputStageY HOME blocked. NeedleZ must be at Home(0) or Avoid position.",
                         out reason);
 
                 //여기 조건에 따라 다르다.
@@ -934,12 +976,12 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageY", out reason))
                     return false;
 
-                // 인터락 조건: FrontPicker Z축들이 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
+                // 인터락 조건: FrontPicker Z축들이 Home(0) 또는 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
+                if (!VerifyPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
                     return false;
 
-                // 인터락 조건: RearPicker Z축들이 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageY", "Rear", out reason))
+                // 인터락 조건: RearPicker Z축들이 Home(0) 또는 Avoid 위치가 아니면 StageY 홈 이동을 차단한다.
+                if (!VerifyPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageY", "Rear", out reason))
                     return false;
 
                 return true;
@@ -964,12 +1006,12 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
-                // 인터락 조건: InputFeederY가 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
-                if (!VerifyInputFeederYAvoid(machine, "WaferStageT", out reason))
+                // 인터락 조건: InputFeederY가 Home(0) 또는 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
+                if (!VerifyInputFeederYHomeOrAvoid(machine, "WaferStageT", out reason))
                     return false;
 
-                // 인터락 조건: StageT 홈 전 EjectPinZ가 Avoid 위치인지 확인한다.
-                if (!VerifyEjectPinZAtAvoidForStageT(machine, "WaferStageT", out reason))
+                // 인터락 조건: StageT 홈 전 EjectPinZ가 0 이하 또는 Avoid 위치인지 확인한다.
+                if (!VerifyEjectPinZAtZeroOrAvoidForStageTHome(machine, "WaferStageT", out reason))
                     return false;
 
                 // 인터락 조건: ExpanderZ가 Load/Unload 높이에 있으면 StageT 홈 이동을 차단한다.
@@ -980,12 +1022,12 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageT", out reason))
                     return false;
 
-                // 인터락 조건: FrontPicker Z축들이 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageT", "Front", out reason))
+                // 인터락 조건: FrontPicker Z축들이 Home(0) 또는 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
+                if (!VerifyPickerZAxesHomeOrAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageT", "Front", out reason))
                     return false;
 
-                // 인터락 조건: RearPicker Z축들이 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageT", "Rear", out reason))
+                // 인터락 조건: RearPicker Z축들이 Home(0) 또는 Avoid 위치가 아니면 StageT 홈 이동을 차단한다.
+                if (!VerifyPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageT", "Rear", out reason))
                     return false;
 
                 return true;
@@ -1051,11 +1093,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyEjectPinZAtZeroOrAvoid(machine, "NeedleX", out reason))
                     return false;
 
-                // 인터락 조건: NeedleZ가 안전 위치가 아니면 NeedleX 홈 이동을 차단한다.
-                if (stage != null && !stage.IsNeedleZInSafePosition())
+                // 인터락 조건: NeedleZ가 Home(0) 또는 Avoid 위치가 아니면 NeedleX 홈 이동을 차단한다.
+                if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
                     return MotionGuardRuleHelpers.Block(
                         "NeedleX",
-                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        "NeedleX HOME blocked. NeedleZ must be at Home(0) or Avoid position.",
                         out reason);
 
                 return true;
@@ -1476,6 +1518,25 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: 홈 이동 전 InputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyInputFeederYHomeOrAvoid(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+            if (feeder == null)
+                return true;
+
+            if (feeder.IsWaferFeederYInHomePosition() ||
+                feeder.IsWaferFeederYInAvoidPosition())
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                movingName,
+                movingName + " HOME 이동 불가: InputFeederY가 Home(0) 또는 Avoid 위치가 아닙니다.",
+                out reason);
+        }
+
         // 인터락 항목: InputStage 내부 다른 축이 이동 중인지 확인한다.
         private static bool VerifyInputStageNotBusy(InputStageUnit stage, string movingName, out string reason)
         {
@@ -1839,6 +1900,28 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 항목: InputStage 홈 전 Front PickerZ 전체가 Home(0) 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyPickerZAxesHomeOrAvoid(PickerFrontUnit picker, string movingName, string prefix, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = ResolvePickerZAxis(picker, zAxis);
+                if (!IsAxisAtHomeOrTeachingAvoid(axis, () => picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. " + prefix + zAxis + " must be at Home(0) or Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
         // 인터락 항목: InputStage 홈/이동 전 Rear PickerZ 전체가 Avoid 위치인지 확인한다.
         private static bool VerifyPickerZAxesAvoid(PickerRearUnit picker, string movingName, string prefix, out string reason)
         {
@@ -1858,6 +1941,72 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        // 인터락 항목: InputStage 홈 전 Rear PickerZ 전체가 Home(0) 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyPickerZAxesHomeOrAvoid(PickerRearUnit picker, string movingName, string prefix, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = ResolvePickerZAxis(picker, zAxis);
+                if (!IsAxisAtHomeOrTeachingAvoid(axis, () => picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. " + prefix + zAxis + " must be at Home(0) or Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        // 인터락 기준: Front PickerZ enum에 대응하는 실제 축을 가져온다.
+        private static BaseAxis ResolvePickerZAxis(PickerFrontUnit picker, PickerAxis axis)
+        {
+            if (picker == null)
+                return null;
+
+            switch (axis)
+            {
+                case PickerAxis.PickerZ0: return picker.PickerZ0;
+                case PickerAxis.PickerZ1: return picker.PickerZ1;
+                case PickerAxis.PickerZ2: return picker.PickerZ2;
+                case PickerAxis.PickerZ3: return picker.PickerZ3;
+                default: return null;
+            }
+        }
+
+        // 인터락 기준: Rear PickerZ enum에 대응하는 실제 축을 가져온다.
+        private static BaseAxis ResolvePickerZAxis(PickerRearUnit picker, PickerAxis axis)
+        {
+            if (picker == null)
+                return null;
+
+            switch (axis)
+            {
+                case PickerAxis.PickerZ0: return picker.PickerZ0;
+                case PickerAxis.PickerZ1: return picker.PickerZ1;
+                case PickerAxis.PickerZ2: return picker.PickerZ2;
+                case PickerAxis.PickerZ3: return picker.PickerZ3;
+                default: return null;
+            }
+        }
+
+        // 인터락 기준: 축이 Home(0) 위치이거나 티칭 Avoid 위치인지 판단한다.
+        private static bool IsAxisAtHomeOrTeachingAvoid(BaseAxis axis, System.Func<bool> isTeachingAvoid)
+        {
+            if (axis == null)
+                return true;
+
+            if (MotionGuardRuleHelpers.IsAt(axis, 0.0))
+                return true;
+
+            return isTeachingAvoid != null && isTeachingAvoid();
         }
 
         private static void LogBlockedReason(string reason)

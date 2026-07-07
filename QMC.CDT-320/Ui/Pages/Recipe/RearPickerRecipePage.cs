@@ -244,7 +244,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddPickerConfigItems(optionItems, pickerSettingGroup);
 
             const string pickUpSettingGroup = "K_PICKUP_SETTING";
-            optionItems.Add(ParameterGridItem.Header("PICKUP SETTING", pickUpSettingGroup));
+            optionItems.Add(Describe(ParameterGridItem.Header("PICKUP SETTING", pickUpSettingGroup),
+                "Picker가 Input Die를 집을 때 사용하는 PickUp Z 상세 동작 파라미터입니다.\r\nPickUp Test Step 02~10과 자동 PickUp 시퀀스에서 같이 사용됩니다.\r\nSync Lift 거리/속도/가감속은 InputStage의 NEEDLE PICKUP SETTING 공통값을 사용합니다."));
             AddPickUpSettingItems(optionItems, pickUpSettingGroup);
 
             const string bottomMotionSettingGroup = "K_BOTTOM_MOTION_SETTING";
@@ -275,9 +276,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             waitParameterGrid.AutoFitParentGroupHeight = true;   // WAIT 그룹 높이를 내용에 맞춰 자동 조정 (스크롤 없이 전 항목 표시)
                 waitParameterGrid.SetItems(new[]
             {
-                ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
-                ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
-                AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v)
+                Describe(ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
+                    "구 PickUp 경로에서 Needle/Picker가 PickLiftPosition만큼 들어 올린 뒤 진동 안정화를 위해 대기하는 시간입니다."),
+                Describe(ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
+                    "Place 동작 완료 후 다음 동작으로 넘어가기 전에 기다리는 시간입니다."),
+                Describe(AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v),
+                    "구 PickUp 경로에서 Die를 집은 뒤 Needle과 Picker를 동시에 위로 들어 올릴 상대 거리입니다.")
             });
         }
 
@@ -298,18 +302,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.Config.PickUp = pickUp = new PickerPickUpMotionConfig();
 
             pickUp.Ensure();
-            items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDistance, v => pickUp.PickerZSyncLiftDistance = Math.Max(0.0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT VELOCITY", AxisUnitConverter.Millimeter + "/s", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftVelocity, v => pickUp.PickerZSyncLiftVelocity = PickerPickUpMotionConfig.NormalizePositive(v, 5.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT ACC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftAcceleration, v => pickUp.PickerZSyncLiftAcceleration = PickerPickUpMotionConfig.NormalizePositive(v, 100.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SYNC LIFT DEC", AxisUnitConverter.Millimeter + "/s2", ParameterGridScope.Config, () => pickUp.PickerZSyncLiftDeceleration, v => pickUp.PickerZSyncLiftDeceleration = PickerPickUpMotionConfig.NormalizePositive(v, 100.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSeparateDistance, v => pickUp.PickerZSeparateDistance = Math.Max(0.0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v), groupKey));
-            items.Add(InGroup(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpZMotionMode>("PICKUP Z MOTION MODE", "mode", ParameterGridScope.Config, () => pickUp.MotionMode, v => pickUp.MotionMode = v),
+                "PickUp Z 동작 방식을 선택합니다.\r\nDetailed: Needle/Eject 준비, 진공, PrePick, 저속 접촉, 동기 상승, 안전 복귀 순서로 동작합니다.\r\nSimpleZDownVacuumUp: PickerZ 하강, 진공 ON, PickerZ 상승만 수행하는 단순 모드입니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z PRE PICK DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZPrePickDistance, v => pickUp.PickerZPrePickDistance = Math.Max(0.0, v)),
+                "PickerZ가 PickPosition으로 바로 내려가기 전에 멈추는 거리입니다.\r\nPickPosition에서 Avoid 방향으로 이 거리만큼 떨어진 위치까지 먼저 이동한 뒤 저속 접근합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
+                "PrePick 위치에서 실제 PickPosition까지 천천히 내려갈 때 사용하는 PickerZ 속도 비율입니다.\r\n축 기본 속도 대비 퍼센트로 적용됩니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSeparateDistance, v => pickUp.PickerZSeparateDistance = Math.Max(0.0, v)),
+                "구 분리 동작에서 Sync Lift 후 추가로 벌릴 거리입니다.\r\n현재 Step 07은 PickerZ를 바로 Avoid로 올리고 Needle/EjectPinZ도 Avoid로 보내는 고정 흐름이라 이 값은 현재 PickUp Step에서는 사용하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
+                "Step 07에서 Sync Lift 후 PickerZ를 Avoid 위치로 올릴 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),
+                "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Avoid 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
+                "Picker Vacuum을 ON 한 뒤 PickerZ를 PickPosition으로 내리기 전에 기다리는 시간입니다.\r\n기본 Vacuum settle 시간보다 크면 이 값만큼 대기합니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),
+                "PickUp Z 동작 후 흡착 확인/Material 갱신 전에 기다리는 안정화 시간입니다.\r\nDie가 흔들리거나 진공 응답이 늦을 때 늘립니다."), groupKey));
         }
 
         private void AddBottomMotionSettingItems(List<ParameterGridItem> items, string groupKey)

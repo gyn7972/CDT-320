@@ -46,7 +46,7 @@ namespace QMC.CDT320
         [DataMember] public PickerPickUpZMotionMode MotionMode { get; set; } = PickerPickUpZMotionMode.Detailed;
         [DataMember] public double PickerZPrePickDistance { get; set; } = 1.0;
         [DataMember] public double PickerZSlowApproachSpeedPercent { get; set; } = 1.0;
-        [DataMember] public double PickerZSyncLiftDistance { get; set; } = 0.5;
+        [DataMember] public double PickerZSyncLiftDistance { get; set; } = 2.0;
         [DataMember] public double PickerZSyncLiftVelocity { get; set; } = 5.0;
         [DataMember] public double PickerZSyncLiftAcceleration { get; set; } = 100.0;
         [DataMember] public double PickerZSyncLiftDeceleration { get; set; } = 100.0;

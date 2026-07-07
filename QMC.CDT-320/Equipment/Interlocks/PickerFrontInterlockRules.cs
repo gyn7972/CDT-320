@@ -887,23 +887,37 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                // 현재 기준: FrontPickerX Home 전 FrontPickerY는 Avoid 위치여야 한다.
-                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                // 현재 기준: FrontPickerX Home 전 FrontPickerY는 Home(0) 또는 Avoid 위치여야 한다.
+                if (front != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveFrontPickerAxis(front, PickerAxis.PickerY),
+                        () => front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerX",
-                        "FrontPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        "FrontPickerX HOME blocked. FrontPickerY must be at Home(0) or Avoid position.",
                         out reason);
 
-                // 현재 기준: FrontPickerX Home 전 FrontPickerZ0~Z3는 모두 Avoid 위치여야 한다.
-                if (!VerifyFrontPickerZAxesAvoid(front, "FrontPickerX", out reason))
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                // 현재 기준: FrontPickerX Home 전 RearPickerY도 Home(0) 또는 Avoid 위치여야 한다.
+                if (rear != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveRearPickerAxis(rear, PickerAxis.PickerY),
+                        () => rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. RearPickerY must be at Home(0) or Avoid position.",
+                        out reason);
+
+                // 현재 기준: FrontPickerX Home 전 FrontPickerZ0~Z3는 모두 Home(0) 또는 Avoid 위치여야 한다.
+                if (!VerifyFrontPickerZAxesHomeOrAvoid(front, "FrontPickerX", out reason))
                     return false;
 
                 InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                // 현재 기준: FrontPickerX Home 전 InputFeederY는 Avoid 위치여야 한다.
-                if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
+                // 현재 기준: FrontPickerX Home 전 InputFeederY는 Home(0) 또는 Avoid 위치여야 한다.
+                if (feeder != null && !IsInputFeederYHomeOrAvoid(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerX",
-                        "FrontPickerX HOME blocked. InputFeederY must be at Avoid position.",
+                        "FrontPickerX HOME blocked. InputFeederY must be at Home(0) or Avoid position.",
                         out reason);
 
                 // 현재 기준: FrontPickerX Home 전 InputFeeder Lift 실린더는 Down 상태여야 한다.
@@ -941,20 +955,20 @@ namespace QMC.CDT320.Interlocks
 
                 // InputExpandingZ가 Avoid/Process/Ready 위치여야 FrontPickerY 이동 가능.
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                // 현재 기준: FrontPickerY Home 전 InputExpandingZ는 Avoid, Process, Ready 중 하나여야 한다.
-                if (stage != null && !IsExpanderZAvoidProcessOrReady(stage))
+                // 현재 기준: FrontPickerY Home 전 InputExpandingZ는 Home(0), Avoid, Process, Ready 중 하나여야 한다.
+                if (stage != null && !IsExpanderZHomeAvoidProcessOrReady(stage))
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerY",
-                        "FrontPickerY 이동 불가: InputExpandingZ가 Avoid/Process/Ready 위치가 아닙니다.",
+                        "FrontPickerY 이동 불가: InputExpandingZ가 Home(0)/Avoid/Process/Ready 위치가 아닙니다.",
                         out reason);
 
                 // OutputStage GoodStageZ가 안전 위치(Avoid 또는 Process)여야 FrontPickerY 이동 가능.
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
-                // 현재 기준: FrontPickerY Home 전 OutputStage GoodStageZ는 Avoid 또는 Process 위치여야 한다.
-                if (outputStage != null && !outputStage.IsGoodStageZInAvoidOrProcessPosition())
+                // 현재 기준: FrontPickerY Home 전 OutputStage GoodStageZ는 Home(0), Avoid 또는 Process 위치여야 한다.
+                if (outputStage != null && !IsGoodStageZHomeAvoidOrProcess(outputStage))
                     return MotionGuardRuleHelpers.Block(
                         "FrontPickerY",
-                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Avoid 또는 Process 위치가 아닙니다.",
+                        "FrontPickerY 이동 불가: OutputStage GoodStageZ가 Home(0), Avoid 또는 Process 위치가 아닙니다.",
                         out reason);
 
                 return true;
@@ -985,11 +999,14 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                // 현재 기준: FrontPickerT Home 전 대응 FrontPickerZ축은 Avoid 위치여야 한다.
-                if (front != null && !front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                // 현재 기준: FrontPickerT Home 전 대응 FrontPickerZ축은 Home(0) 또는 Avoid 위치여야 한다.
+                if (front != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveFrontPickerAxis(front, zAxis),
+                        () => front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " HOME blocked. Front" + zAxis + " must be at Avoid position.",
+                        movingName + " HOME blocked. Front" + zAxis + " must be at Home(0) or Avoid position.",
                         out reason);
 
                 return true;
@@ -1295,6 +1312,29 @@ namespace QMC.CDT320.Interlocks
             return 0.05;
         }
 
+        // 인터락 기준: 홈 이동 전 InputFeederY가 Home(0) 또는 Avoid 위치인지 판단한다.
+        private static bool IsInputFeederYHomeOrAvoid(InputFeederUnit feeder)
+        {
+            if (feeder == null)
+                return true;
+
+            return feeder.IsWaferFeederYInHomePosition() ||
+                   feeder.IsWaferFeederYInAvoidPosition();
+        }
+
+        // 인터락 기준: 홈 이동 전 Output GoodStageZ가 Home(0), Avoid 또는 Process 위치인지 판단한다.
+        private static bool IsGoodStageZHomeAvoidOrProcess(OutputStageUnit outputStage)
+        {
+            if (outputStage == null)
+                return true;
+
+            BaseAxis goodStageZ = outputStage.GoodStage != null ? outputStage.GoodStage.StageZ : null;
+            if (MotionGuardRuleHelpers.IsAt(goodStageZ, 0.0))
+                return true;
+
+            return outputStage.IsGoodStageZInAvoidOrProcessPosition();
+        }
+
         // 인터락 기준: ExpanderZ가 Home/Avoid/Process/Ready 중 안전 위치인지 판단한다.
         private static bool IsExpanderZHomeAvoidProcessOrReady(InputStageUnit stage)
         {
@@ -1350,6 +1390,29 @@ namespace QMC.CDT320.Interlocks
         private static BaseAxis ResolveFrontPickerAxis(PickerFrontUnit picker, PickerAxis axis)
         {
             // 방어 조건: FrontPicker 참조가 없으면 축을 해석하지 않는다.
+            if (picker == null)
+                return null;
+
+            switch (axis)
+            {
+                case PickerAxis.PickerZ0: return picker.PickerZ0;
+                case PickerAxis.PickerZ1: return picker.PickerZ1;
+                case PickerAxis.PickerZ2: return picker.PickerZ2;
+                case PickerAxis.PickerZ3: return picker.PickerZ3;
+                case PickerAxis.PickerX: return picker.PickerX;
+                case PickerAxis.PickerY: return picker.PickerY;
+                case PickerAxis.PickerT0: return picker.PickerT0;
+                case PickerAxis.PickerT1: return picker.PickerT1;
+                case PickerAxis.PickerT2: return picker.PickerT2;
+                case PickerAxis.PickerT3: return picker.PickerT3;
+                default: return null;
+            }
+        }
+
+        // 인터락 기준: RearPicker 논리 축을 실제 Axis 객체로 변환한다.
+        private static BaseAxis ResolveRearPickerAxis(PickerRearUnit picker, PickerAxis axis)
+        {
+            // 방어 조건: RearPicker 참조가 없으면 축을 해석하지 않는다.
             if (picker == null)
                 return null;
 

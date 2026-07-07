@@ -78,7 +78,7 @@ namespace QMC.CDT320
 
         [DataMember] public double PickUpEjectPinDec { get; set; }
 
-        [DataMember] public double PickUpNeedleSyncLiftDistance { get; set; } = 0.5;
+        [DataMember] public double PickUpNeedleSyncLiftDistance { get; set; } = 2.0;
 
         [DataMember] public double PickUpNeedleSyncLiftVelocity { get; set; } = 5.0;
 
@@ -133,7 +133,7 @@ namespace QMC.CDT320
             if (ManualDieDetectOffsetLimitY <= 0.0)
                 ManualDieDetectOffsetLimitY = 5.0;
             if (PickUpNeedleSyncLiftDistance <= 0.0)
-                PickUpNeedleSyncLiftDistance = 0.5;
+                PickUpNeedleSyncLiftDistance = 2.0;
             if (PickUpNeedleSyncLiftVelocity <= 0.0)
                 PickUpNeedleSyncLiftVelocity = 5.0;
             if (PickUpNeedleSyncLiftAcc <= 0.0)

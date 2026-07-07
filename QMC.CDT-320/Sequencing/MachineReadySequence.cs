@@ -48,6 +48,8 @@ namespace QMC.CDT320.Sequencing
         {
             var steps = new List<ReadyStep>();
 
+            AddReadyStep(steps, ReadyStepId.InputStageNeedleEjectZAvoid, "InputStage Needle/Eject Z Avoid", MoveInputStageNeedleEjectZAvoidAsync);
+            AddReadyStep(steps, ReadyStepId.UpperHeadMoveSafetyCheck, "Upper Head Move Safety Check", CheckUpperHeadMoveSafetyAsync);
             AddReadyStep(steps, ReadyStepId.OutputVisionXAvoid, "Input/Output VisionX Avoid", MoveInputOutputVisionXOnlyAvoidAsync);
             AddReadyStep(steps, ReadyStepId.ReticleAvoid, "Reticle Avoid", MoveReticleAvoidAsync);
             AddReadyStep(steps, ReadyStepId.PickerZAvoid, "Front/Rear Picker Z Avoid", MoveFrontRearPickerZAxesAvoidAsync);
@@ -218,6 +220,8 @@ namespace QMC.CDT320.Sequencing
 
         private enum ReadyStepId
         {
+            InputStageNeedleEjectZAvoid,
+            UpperHeadMoveSafetyCheck,
             OutputVisionXAvoid,
             ReticleAvoid,
             PickerZAvoid,
@@ -812,6 +816,252 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("READY-SIDE-VISION-EX", "VisionUnit", "Side Vision Avoid 이동 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputStageNeedleEjectZAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                var unit = _machine != null ? _machine.InputStageUnit : null;
+                if (unit == null)
+                    return Skip("InputStageUnit");
+
+                LogStep("InputStage NeedleZ/EjectPinZ Ready 선행 Avoid 이동 시작.");
+
+                int result = await MoveInputStageEjectPinZAvoidAsync(unit, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageNeedleZAvoidAsync(unit, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                LogStep("InputStage NeedleZ/EjectPinZ Ready 선행 Avoid 이동 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-INPUT-STAGE-NEEDLE-EJECT-Z-EX", "InputStageUnit", "InputStage NeedleZ/EjectPinZ Ready 선행 Avoid 이동 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private Task<int> CheckUpperHeadMoveSafetyAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                LogStep("Ready 상부 헤드/비전/픽커 이동 전 안전 조건 확인 시작.");
+
+                int result = CheckInputFeederReadySafety();
+                if (result != 0)
+                    return Task.FromResult(result);
+
+                result = CheckOutputFeederReadySafety();
+                if (result != 0)
+                    return Task.FromResult(result);
+
+                result = CheckInputStageZReadySafety();
+                if (result != 0)
+                    return Task.FromResult(result);
+
+                result = CheckGoodStageZReadySafety();
+                if (result != 0)
+                    return Task.FromResult(result);
+
+                LogStep("Ready 상부 헤드/비전/픽커 이동 전 안전 조건 확인 완료.");
+                return Task.FromResult(0);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(Fail(
+                    "READY-UPPER-HEAD-SAFETY-EX",
+                    "MachineReadySequence",
+                    "Ready 상부 헤드/비전/픽커 이동 전 안전 조건 확인 예외: " + ex.Message));
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckInputFeederReadySafety()
+        {
+            try
+            {
+                InputFeederUnit unit = _machine != null ? _machine.InputFeederUnit : null;
+                if (unit == null)
+                    return Skip("InputFeederUnit");
+
+                if (unit.FeederY == null)
+                    return Fail("READY-SAFETY-INPUT-FEEDER-AXIS", "InputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputFeederY 축을 확인할 수 없습니다.");
+
+                if (unit.Recipe == null)
+                    return Fail("READY-SAFETY-INPUT-FEEDER-RECIPE", "InputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputFeeder Avoid 위치 레시피를 확인할 수 없습니다.");
+
+                double target = unit.Recipe.AvoidPosition;
+                if (!unit.IsWaferFeederInAvoidPosition())
+                {
+                    return Fail(
+                        "READY-SAFETY-INPUT-FEEDER-AVOID",
+                        "InputFeederUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 InputFeederY가 Avoid 위치가 아닙니다. " +
+                        BuildAxisState("InputFeederY", unit.FeederY, target) +
+                        BuildInputFeederFailure(unit));
+                }
+
+                if (!unit.IsWaferFeederClamp())
+                {
+                    return Fail(
+                        "READY-SAFETY-INPUT-FEEDER-CLAMP",
+                        "InputFeederUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 InputFeeder Clamp가 Down(Clamp) 상태가 아닙니다. " +
+                        BuildInputFeederFailure(unit));
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-SAFETY-INPUT-FEEDER-EX", "InputFeederUnit", "Ready InputFeeder 안전 조건 확인 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckOutputFeederReadySafety()
+        {
+            try
+            {
+                OutputFeederUnit unit = _machine != null ? _machine.OutputFeederUnit : null;
+                if (unit == null)
+                    return Skip("OutputFeederUnit");
+
+                if (unit.FeederY == null)
+                    return Fail("READY-SAFETY-OUTPUT-FEEDER-AXIS", "OutputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 OutputFeederY 축을 확인할 수 없습니다.");
+
+                if (unit.Recipe == null)
+                    return Fail("READY-SAFETY-OUTPUT-FEEDER-RECIPE", "OutputFeederUnit", "Ready 상부 헤드/비전/픽커 이동 전 OutputFeeder Avoid 위치 레시피를 확인할 수 없습니다.");
+
+                double target = unit.Recipe.AvoidPosition;
+                if (!unit.IsBinFeederInAvoidPosition())
+                {
+                    return Fail(
+                        "READY-SAFETY-OUTPUT-FEEDER-AVOID",
+                        "OutputFeederUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 OutputFeederY가 Avoid 위치가 아닙니다. " +
+                        BuildAxisState("OutputFeederY", unit.FeederY, target) +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                if (!unit.IsBinFeederClamp())
+                {
+                    return Fail(
+                        "READY-SAFETY-OUTPUT-FEEDER-CLAMP",
+                        "OutputFeederUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 OutputFeeder Clamp가 Down(Clamp) 상태가 아닙니다. " +
+                        BuildOutputFeederFailure(unit));
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-SAFETY-OUTPUT-FEEDER-EX", "OutputFeederUnit", "Ready OutputFeeder 안전 조건 확인 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckInputStageZReadySafety()
+        {
+            try
+            {
+                InputStageUnit unit = _machine != null ? _machine.InputStageUnit : null;
+                if (unit == null)
+                    return Skip("InputStageUnit");
+
+                BaseAxis axis = unit.ExpanderZ;
+                if (axis == null)
+                    return Fail("READY-SAFETY-INPUT-STAGE-Z-AXIS", "InputStageUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ) 축을 확인할 수 없습니다.");
+
+                if (axis.ActualPosition >= 0.0)
+                {
+                    return Fail(
+                        "READY-SAFETY-INPUT-STAGE-Z",
+                        "InputStageUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ)는 0 미만이어야 합니다. actual=" +
+                        axis.ActualPosition.ToString("0.###") +
+                        ", blockLimit=0.000, " +
+                        BuildAxisState("ExpanderZ", axis, 0.0) +
+                        BuildInputStageFailure(unit));
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-SAFETY-INPUT-STAGE-Z-EX", "InputStageUnit", "Ready InputStageZ 안전 조건 확인 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckGoodStageZReadySafety()
+        {
+            try
+            {
+                OutputStageUnit unit = _machine != null ? _machine.OutputStageUnit : null;
+                if (unit == null)
+                    return Skip("OutputStageUnit");
+
+                if (unit.GoodStage == null || unit.GoodStage.StageZ == null)
+                    return Fail("READY-SAFETY-GOOD-STAGE-Z-AXIS", "OutputStageUnit", "Ready 상부 헤드/비전/픽커 이동 전 GoodStageZ 축을 확인할 수 없습니다.");
+
+                if (unit.Recipe == null || unit.Recipe.GoodStageZ == null)
+                    return Fail("READY-SAFETY-GOOD-STAGE-Z-RECIPE", "OutputStageUnit", "Ready 상부 헤드/비전/픽커 이동 전 GoodStageZ Process 위치 레시피를 확인할 수 없습니다.");
+
+                BaseAxis axis = unit.GoodStage.StageZ;
+                double process = unit.Recipe.GoodStageZ.ProcessPosition;
+                double tolerance = ResolveAxisTolerance(axis);
+                double limit = process + tolerance;
+                if (axis.ActualPosition > limit)
+                {
+                    return Fail(
+                        "READY-SAFETY-GOOD-STAGE-Z",
+                        "OutputStageUnit",
+                        "Ready 상부 헤드/비전/픽커 이동 전 GoodStageZ가 Process 위치보다 높습니다. actual=" +
+                        axis.ActualPosition.ToString("0.###") +
+                        ", process=" + process.ToString("0.###") +
+                        ", plusTolerance=" + tolerance.ToString("0.###") +
+                        ", limit=" + limit.ToString("0.###") +
+                        ", " + BuildAxisState("GoodStageZ", axis, process, tolerance) +
+                        BuildOutputStageFailure(unit));
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-SAFETY-GOOD-STAGE-Z-EX", "OutputStageUnit", "Ready GoodStageZ 안전 조건 확인 예외: " + ex.Message);
             }
             finally
             {

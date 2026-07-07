@@ -98,4 +98,35 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
     }
+
+    internal static class CalibrationDialogGridBehavior
+    {
+        public static void Apply(params DataGridView[] grids)
+        {
+            if (grids == null)
+                return;
+
+            for (int i = 0; i < grids.Length; i++)
+                Apply(grids[i]);
+        }
+
+        public static void Apply(DataGridView grid)
+        {
+            if (grid == null)
+                return;
+
+            grid.ReadOnly = true;
+            grid.EditMode = DataGridViewEditMode.EditProgrammatically;
+            grid.AllowUserToResizeRows = false;
+            grid.AllowUserToResizeColumns = true;
+            grid.AllowUserToOrderColumns = false;
+            grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                column.ReadOnly = true;
+                column.SortMode = DataGridViewColumnSortMode.NotSortable;
+            }
+        }
+    }
 }

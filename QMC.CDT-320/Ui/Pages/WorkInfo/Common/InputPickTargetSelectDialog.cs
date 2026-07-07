@@ -78,6 +78,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             SetPreparedTarget(preparedDieId, defaultPickerNo, releasePreparedReservationOnClose);
         }
 
+        public InputPickTargetSelectDialog(
+            MachineController controller,
+            PickerSequenceSide side,
+            int defaultPickerNo,
+            string selectedDieId,
+            int dieMapX,
+            int dieMapY,
+            double targetX,
+            double targetY)
+            : this(controller, side, defaultPickerNo)
+        {
+            SetSelectedInputDieTarget(selectedDieId, dieMapX, dieMapY, targetX, targetY);
+        }
+
         private string SideName
         {
             get { return _side == PickerSequenceSide.Front ? "Front Picker" : "Rear Picker"; }
@@ -479,15 +493,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void InitializePickUpSteps()
         {
             gridPickUpSteps.Rows.Clear();
-            AddPickUpStepRow(new PickUpStepItem { No = 1, Step = PickerPickUpZManualStep.PrepareNeedlePinZ, Text = "Prepare Needle/EjectPin Z" });
-            AddPickUpStepRow(new PickUpStepItem { No = 2, Step = PickerPickUpZManualStep.VacuumOnBeforePick, Text = "Vacuum ON / Settle" });
-            AddPickUpStepRow(new PickUpStepItem { No = 3, Step = PickerPickUpZManualStep.MovePickerZPrePick, Text = "Move PickerZ PrePick" });
-            AddPickUpStepRow(new PickUpStepItem { No = 4, Step = PickerPickUpZManualStep.MovePickerZSlowToContact, Text = "Slow PickerZ To Contact" });
-            AddPickUpStepRow(new PickUpStepItem { No = 5, Step = PickerPickUpZManualStep.MoveNeedlePickerZSyncLift, Text = "Sync Lift Needle/PickerZ" });
-            AddPickUpStepRow(new PickUpStepItem { No = 6, Step = PickerPickUpZManualStep.SeparateNeedlePickerZ, Text = "Separate Needle/PickerZ" });
-            AddPickUpStepRow(new PickUpStepItem { No = 7, Step = PickerPickUpZManualStep.VerifyDiePicked, Text = "Verify Die Picked" });
-            AddPickUpStepRow(new PickUpStepItem { No = 8, Step = PickerPickUpZManualStep.MoveZToSafeAfterPick, Text = "Move Z To Safe" });
-            AddPickUpStepRow(new PickUpStepItem { No = 9, Step = PickerPickUpZManualStep.UpdateMaterialToPicker, Text = "Update Material Picked" });
+            AddPickUpStepRow(new PickUpStepItem { No = 1, IsPrepareTarget = true, Text = "Move Picker To Selected Die" });
+            AddPickUpStepRow(new PickUpStepItem { No = 2, Step = PickerPickUpZManualStep.PrepareNeedlePinZ, Text = "Prepare Needle/EjectPin Z" });
+            AddPickUpStepRow(new PickUpStepItem { No = 3, Step = PickerPickUpZManualStep.VacuumOnBeforePick, Text = "Vacuum ON / Settle" });
+            AddPickUpStepRow(new PickUpStepItem { No = 4, Step = PickerPickUpZManualStep.MovePickerZPrePick, Text = "Move PickerZ PrePick" });
+            AddPickUpStepRow(new PickUpStepItem { No = 5, Step = PickerPickUpZManualStep.MovePickerZSlowToContact, Text = "Slow PickerZ To Contact" });
+            AddPickUpStepRow(new PickUpStepItem { No = 6, Step = PickerPickUpZManualStep.MoveEjectPinPickerZSyncLift, Text = "Sync Lift EjectPinZ/PickerZ" });
+            AddPickUpStepRow(new PickUpStepItem { No = 7, Step = PickerPickUpZManualStep.SeparateNeedlePickerZ, Text = "PickerZ Avoid / NeedlePinZ Avoid" });
+            AddPickUpStepRow(new PickUpStepItem { No = 8, Step = PickerPickUpZManualStep.VerifyDiePicked, Text = "Verify Die Picked" });
+            AddPickUpStepRow(new PickUpStepItem { No = 9, Step = PickerPickUpZManualStep.MoveZToSafeAfterPick, Text = "Move Z To Safe" });
+            AddPickUpStepRow(new PickUpStepItem { No = 10, Step = PickerPickUpZManualStep.UpdateMaterialToPicker, Text = "Update Material Picked" });
 
             if (gridPickUpSteps.Rows.Count > 0)
             {
@@ -846,6 +861,52 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblStatus.Text = string.IsNullOrWhiteSpace(_preparedDieId)
                     ? "PickUp Step Test ready."
                     : "PickUp Step Test ready. Prepared die=" + _preparedDieId;
+            }
+            finally
+            {
+                UpdatePreparedState();
+            }
+        }
+
+        public void SetSelectedInputDieTarget(
+            string selectedDieId,
+            int dieMapX,
+            int dieMapY,
+            double targetX,
+            double targetY)
+        {
+            try
+            {
+                ReleasePreparedReservation();
+
+                _targets.Clear();
+                _targetByDieId.Clear();
+                _preparedDieId = "";
+                _releasePreparedReservationOnClose = false;
+
+                var target = new InputStagePickTargetCandidate
+                {
+                    DieId = selectedDieId ?? "",
+                    DieMapX = dieMapX,
+                    DieMapY = dieMapY,
+                    TargetX = targetX,
+                    TargetY = targetY
+                };
+
+                _selectedTarget = target;
+                if (!string.IsNullOrWhiteSpace(target.DieId))
+                {
+                    _targets.Add(target);
+                    _targetByDieId[target.DieId] = target;
+                }
+
+                lblStatus.Text = string.IsNullOrWhiteSpace(target.DieId)
+                    ? "PickUp Step Test ready."
+                    : "Selected Die: " + target.DieId +
+                      ", map=" + target.DieMapX + "/" + target.DieMapY +
+                      ", target=" + target.TargetX.ToString("0.###", CultureInfo.InvariantCulture) +
+                      "/" + target.TargetY.ToString("0.###", CultureInfo.InvariantCulture) +
+                      " - Run Step 01 first.";
             }
             finally
             {
