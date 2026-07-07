@@ -119,9 +119,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private double _manualDieDetectOffsetY;
         private double _manualDieDetectDetectedCenterX;
         private double _manualDieDetectDetectedCenterY;
+        private double _manualDieDetectBottomRefVisionDeltaX;
+        private double _manualDieDetectBottomRefVisionDeltaY;
         private double _manualDieDetectVisionDeltaX;
         private double _manualDieDetectVisionDeltaY;
         private double _manualDieDetectVisionDeltaT;
+        private double _manualDieDetectCameraOffsetX;
+        private double _manualDieDetectCameraOffsetY;
         private double _manualDieDetectBaseOriginX;
         private double _manualDieDetectBaseOriginY;
 
@@ -1425,6 +1429,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double currentStageY = stage.StageY.ActualPosition;
                 double jogDeltaX = currentVisionX - sentDieX;
                 double jogDeltaY = currentStageY - sentDieY;
+                bool simulationOrDryRun = IsManualInputDieDetectSimulationOrDryRun(stage);
 
                 VisionAlignResult vision = await RequestManualInputDieDetectVisionAsync(
                     stage,
@@ -1439,9 +1444,34 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
-                double detectedCenterX = currentVisionX + vision.DeltaX;
-                //double detectedCenterX = currentVisionX + (vision.DeltaX * -1);
-                double detectedCenterY = currentStageY + vision.DeltaY;
+                double bottomRefVisionDeltaX = vision.DeltaX;
+                double bottomRefVisionDeltaY = vision.DeltaY;
+                double cameraOffsetX = 0.0;
+                double cameraOffsetY = 0.0;
+                bool cameraOffsetExcluded = !simulationOrDryRun &&
+                    InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                        host.Machine,
+                        out cameraOffsetX,
+                        out cameraOffsetY);
+                double centerMoveDeltaX = bottomRefVisionDeltaX;
+                double centerMoveDeltaY = bottomRefVisionDeltaY;
+                if (cameraOffsetExcluded)
+                {
+                    centerMoveDeltaX -= cameraOffsetX;
+                    centerMoveDeltaY -= cameraOffsetY;
+                }
+
+                VisionAlignResult centerMoveVision = new VisionAlignResult
+                {
+                    DeltaX = centerMoveDeltaX,
+                    DeltaY = centerMoveDeltaY,
+                    DeltaTheta = vision.DeltaTheta,
+                    PitchX = vision.PitchX,
+                    PitchY = vision.PitchY
+                };
+
+                double detectedCenterX = currentVisionX + centerMoveDeltaX;
+                double detectedCenterY = currentStageY + centerMoveDeltaY;
                 double offsetX = detectedCenterX - sentDieX;
                 double offsetY = detectedCenterY - sentDieY;
 
@@ -1486,7 +1516,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     jogDeltaY,
                     detectedCenterX,
                     detectedCenterY,
-                    vision,
+                    centerMoveVision,
+                    bottomRefVisionDeltaX,
+                    bottomRefVisionDeltaY,
+                    cameraOffsetX,
+                    cameraOffsetY,
                     baseOriginX,
                     baseOriginY);
 
@@ -1503,8 +1537,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", currentY=" + currentStageY.ToString("F6") +
                     ", jogDeltaX=" + jogDeltaX.ToString("F6") +
                     ", jogDeltaY=" + jogDeltaY.ToString("F6") +
-                    ", visionDeltaX=" + vision.DeltaX.ToString("F6") +
-                    ", visionDeltaY=" + vision.DeltaY.ToString("F6") +
+                    ", bottomRefVisionDeltaX=" + bottomRefVisionDeltaX.ToString("F6") +
+                    ", bottomRefVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
+                    ", cameraOffsetExcluded=" + cameraOffsetExcluded +
+                    ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
+                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
+                    ", centerMoveDeltaX=" + centerMoveDeltaX.ToString("F6") +
+                    ", centerMoveDeltaY=" + centerMoveDeltaY.ToString("F6") +
                     ", offsetX=" + offsetX.ToString("F6") +
                     ", offsetY=" + offsetY.ToString("F6") + " - Ok");
 
@@ -1513,11 +1552,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X=" + vision.DeltaX.ToString("F6") + " mm, Y=" + vision.DeltaY.ToString("F6") + " mm\r\n" +
+                    "Vision Delta(보정 포함) X=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + " mm, Y=" + cameraOffsetY.ToString("F6") +
+                    (cameraOffsetExcluded ? " mm (센터 이동에서 제외)\r\n" : " mm (미적용)\r\n") +
+                    "Center Move Delta X=" + centerMoveDeltaX.ToString("F6") + " mm, Y=" + centerMoveDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
                     "Map Offset X=" + offsetX.ToString("F6") + " mm, Y=" + offsetY.ToString("F6") + " mm\r\n" +
-                    "(Map Offset = Jog 이동량 + Vision Delta)\r\n\r\n" +
+                    "(Map Offset = Jog 이동량 + Center Move Delta)\r\n\r\n" +
                     "[Offset 적용] 버튼을 누르면 전체 Die Map에 적용됩니다.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -1735,6 +1777,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double detectedCenterX,
             double detectedCenterY,
             VisionAlignResult vision,
+            double bottomRefVisionDeltaX,
+            double bottomRefVisionDeltaY,
+            double cameraOffsetX,
+            double cameraOffsetY,
             double baseOriginX,
             double baseOriginY)
         {
@@ -1754,9 +1800,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _manualDieDetectOffsetY = offsetY;
             _manualDieDetectDetectedCenterX = detectedCenterX;
             _manualDieDetectDetectedCenterY = detectedCenterY;
+            _manualDieDetectBottomRefVisionDeltaX = bottomRefVisionDeltaX;
+            _manualDieDetectBottomRefVisionDeltaY = bottomRefVisionDeltaY;
             _manualDieDetectVisionDeltaX = vision != null ? vision.DeltaX : 0.0;
             _manualDieDetectVisionDeltaY = vision != null ? vision.DeltaY : 0.0;
             _manualDieDetectVisionDeltaT = vision != null ? vision.DeltaTheta : 0.0;
+            _manualDieDetectCameraOffsetX = cameraOffsetX;
+            _manualDieDetectCameraOffsetY = cameraOffsetY;
             _manualDieDetectBaseOriginX = baseOriginX;
             _manualDieDetectBaseOriginY = baseOriginY;
         }
@@ -1779,9 +1829,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _manualDieDetectOffsetY = 0.0;
             _manualDieDetectDetectedCenterX = 0.0;
             _manualDieDetectDetectedCenterY = 0.0;
+            _manualDieDetectBottomRefVisionDeltaX = 0.0;
+            _manualDieDetectBottomRefVisionDeltaY = 0.0;
             _manualDieDetectVisionDeltaX = 0.0;
             _manualDieDetectVisionDeltaY = 0.0;
             _manualDieDetectVisionDeltaT = 0.0;
+            _manualDieDetectCameraOffsetX = 0.0;
+            _manualDieDetectCameraOffsetY = 0.0;
             _manualDieDetectBaseOriginX = 0.0;
             _manualDieDetectBaseOriginY = 0.0;
         }
@@ -1855,11 +1909,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Vision Delta(보정 포함) X=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (센터 이동에서 제외)\r\n" +
+                    "Center Move Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
                     "Map Offset X=" + _manualDieDetectOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectOffsetY.ToString("F6") + " mm\r\n" +
-                    "(Map Offset = Jog 이동량 + Vision Delta)",
+                    "(Map Offset = Jog 이동량 + Center Move Delta)",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;

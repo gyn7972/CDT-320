@@ -925,7 +925,7 @@ namespace QMC.CDT320.Sequencing
                         BuildInputFeederFailure(unit));
                 }
 
-                if (!unit.IsWaferFeederClamp())
+                if (!unit.IsWaferFeederDown())
                 {
                     return Fail(
                         "READY-SAFETY-INPUT-FEEDER-CLAMP",
@@ -970,7 +970,7 @@ namespace QMC.CDT320.Sequencing
                         BuildOutputFeederFailure(unit));
                 }
 
-                if (!unit.IsBinFeederClamp())
+                if (!unit.IsBinFeederDown())
                 {
                     return Fail(
                         "READY-SAFETY-OUTPUT-FEEDER-CLAMP",

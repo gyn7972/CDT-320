@@ -1045,10 +1045,9 @@ namespace QMC.CDT320.Sequencing
                     Context != null ? Context.Machine : null,
                     out cameraOffsetX,
                     out cameraOffsetY);
-                // Picker X 계산식에서 CameraOffsetX를 빼므로, 자동 비전 총 보정값은 최종적으로 한 번만 남도록 보정한다.
-                double alignOffsetX = _visionOffset.DeltaX + cameraOffsetX;
-                // PickerY 계산식에서 CameraOffsetY를 빼므로, 자동 비전 총 보정값은 최종적으로 한 번만 남도록 보정한다.
-                double alignOffsetY = _visionOffset.DeltaY + cameraOffsetY;
+                // 다이맵 좌표에는 Input Vision 얼라인 X/Y가 이미 반영되어 있으므로 Pick 이동에서 다시 더하지 않는다.
+                double alignOffsetX = 0.0;
+                double alignOffsetY = 0.0;
                 double alignOffsetT = _visionOffset.DeltaTheta;
 
                 PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(
@@ -1107,6 +1106,7 @@ namespace QMC.CDT320.Sequencing
                     ", alignOffsetY=" + alignOffsetY +
                     ", visionTotalOffsetX=" + _visionOffset.DeltaX +
                     ", visionTotalOffsetY=" + _visionOffset.DeltaY +
+                    ", visionOffsetXYAppliedToMove=False" +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", alignOffsetT=" + alignOffsetT + " - Ok");
 
@@ -2712,18 +2712,33 @@ namespace QMC.CDT320.Sequencing
                 stage.Config.EnsurePickUpMotionDefaults();
                 double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
-                double pickerVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, config.PickerZSeparateSpeedPercent);
-                double pickerAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSeparateSpeedPercent, true);
-                double pickerDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, config.PickerZSeparateSpeedPercent, false);
+
+                double pickerSeparateSpeedPercent = config != null ? config.PickerZSeparateSpeedPercent : 1.0;
+                double pickerSeparateDistance = config != null ? Math.Max(0.0, config.PickerZSeparateDistance) : 0.0;
+                double pickerSeparateStart = syncTargets != null ? syncTargets.PickerZ : GetPickerAxis(pickerZ).ActualPosition;
+                double pickerSeparateTarget = ResolveTargetToward(pickerSeparateStart, pickerZAvoid, pickerSeparateDistance);
+                double pickerVelocity = ResolvePickerAxisVelocityByPercent(pickerZ, pickerSeparateSpeedPercent);
+                double pickerAcceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, true);
+                double pickerDeceleration = ResolvePickerAxisAccelerationByPercent(pickerZ, pickerSeparateSpeedPercent, false);
+                WriteLog("PickerPickUpZ",
+                    "PickerZ separate speed resolved. axis=" + pickerZ +
+                    ", start=" + pickerSeparateStart.ToString("0.###") +
+                    ", target=" + pickerSeparateTarget.ToString("0.###") +
+                    ", avoid=" + pickerZAvoid.ToString("0.###") +
+                    ", distance=" + pickerSeparateDistance.ToString("0.###") +
+                    ", percent=" + pickerSeparateSpeedPercent.ToString("0.###") +
+                    ", velocity=" + pickerVelocity.ToString("0.###") +
+                    ", acceleration=" + pickerAcceleration.ToString("0.###") +
+                    ", deceleration=" + pickerDeceleration.ToString("0.###"));
 
                 int pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
                     pickerZ,
-                    pickerZAvoid,
+                    pickerSeparateTarget,
                     pickerVelocity,
                     pickerAcceleration,
                     pickerDeceleration,
-                    "PickUp Sync Lift 후 PickerZ Avoid 이동",
-                    "AvoidPosition",
+                    "PickUp Sync Lift 후 PickerZ Separate 이동",
+                    "PickUpSeparateDistance",
                     ct).ConfigureAwait(false);
                 if (pickerResult != 0)
                     return pickerResult;

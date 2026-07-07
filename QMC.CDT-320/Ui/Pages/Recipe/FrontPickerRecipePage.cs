@@ -312,11 +312,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
                 "PrePick 위치에서 실제 PickPosition까지 천천히 내려갈 때 사용하는 PickerZ 속도 비율입니다.\r\n축 기본 속도 대비 퍼센트로 적용됩니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSeparateDistance, v => pickUp.PickerZSeparateDistance = Math.Max(0.0, v)),
-                "구 분리 동작에서 Sync Lift 후 추가로 벌릴 거리입니다.\r\n현재 Step 07은 PickerZ를 바로 Avoid로 올리고 Needle/EjectPinZ도 Avoid로 보내는 고정 흐름이라 이 값은 현재 PickUp Step에서는 사용하지 않습니다."), groupKey));
+                "Sync Lift 후 PickerZ를 Needle/EjectPinZ와 먼저 벌리는 거리입니다.\r\n이 거리만큼 PICKER Z SEPARATE SPEED로 이동한 뒤 최종 안전 복귀 단계에서 Avoid 위치로 이동합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
-                "Step 07에서 Sync Lift 후 PickerZ를 Avoid 위치로 올릴 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
+                "Step 07에서 Sync Lift 후 PickerZ를 Separate Distance만큼 이동할 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),
-                "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Avoid 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
+                "구 분리 동작에서 Picker와 Needle을 어떤 순서로 벌릴지 정하던 옵션입니다.\r\n현재 Step 07은 PickerZ Separate 이동 후 EjectPinZ/NeedleZ Avoid 고정 순서라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("VACUUM BEFORE PICK DELAY", "ms", ParameterGridScope.Config, () => pickUp.VacuumOnBeforePickDelayMs, v => pickUp.VacuumOnBeforePickDelayMs = Math.Max(0, v)),
                 "Picker Vacuum을 ON 한 뒤 PickerZ를 PickPosition으로 내리기 전에 기다리는 시간입니다.\r\n기본 Vacuum settle 시간보다 크면 이 값만큼 대기합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Int("PICK SETTLE", "ms", ParameterGridScope.Config, () => pickUp.PickSettleMs, v => pickUp.PickSettleMs = Math.Max(0, v)),
