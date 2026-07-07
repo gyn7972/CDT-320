@@ -9,7 +9,7 @@ VIEWORKS VNP-576MX2-M15K
 [CONFIG_FILE]
 50CF
 RAPIXOCXP
-Tuesday, July 07, 2026 21:04:32
+Tuesday, July 07, 2026 22:45:57
 [INFO_FILE_REV]
 10.60.0776.10123
 RAPIXOCXP
@@ -35,5 +35,6 @@ ENUM_LineMode                                                         "Output"
 ENUM_LineSource                                                       "ExposureActive"
 BOOL_LineInverter                                                     "0"
 FLOAT_AcquisitionFrameRate                                            "3"
+BOOL_ReverseX                                                         "True"
 [STANDARD_FEATURES_DIGITIZER]
 [EOF]

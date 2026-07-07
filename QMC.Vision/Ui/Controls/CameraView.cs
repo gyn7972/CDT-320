@@ -289,9 +289,10 @@ namespace QMC.Vision.Ui.Controls
 
         // ── 오토포커스 ROI 오버레이: ROI1~4 를 각 색(빨·노·파·녹) 사각형 + 라벨로 표시 ──
         //    ([설정 > 오토 포커스] 에서 드래그로 지정한 4개 ROI 의 표시 전용. 채점/측정과 독립.)
-        private Roi[]   _afRois;
-        private Color[] _afColors;
-        private bool    _afShow;
+        private Roi[]    _afRois;
+        private Color[]  _afColors;
+        private bool     _afShow;
+        private string[] _afLabels;   // ROI 별 추가 라벨(상대 Z 등) — 이름 뒤에 붙여 표시. null/빈 항목=이름만
 
         /// <summary>오토포커스 ROI1~4 오버레이 지정. <paramref name="rois"/> 길이만큼 표시, 항목이 null/빈영역이면 생략.
         /// <paramref name="colors"/> 가 부족하면 노랑으로 대체.</summary>
@@ -301,6 +302,14 @@ namespace QMC.Vision.Ui.Controls
             _afColors = colors;
             _afShow = rois != null;
             Invalidate();
+        }
+
+        /// <summary>오토포커스 ROI 별 추가 라벨(예: 최대 Z 기준 상대 Z) — <see cref="SetAutoFocusRois"/> 와 같은 인덱스.
+        /// null 이거나 항목이 비면 ROI 이름만 표시.</summary>
+        public void SetAutoFocusRoiLabels(string[] labels)
+        {
+            _afLabels = labels;
+            if (_afShow) Invalidate();
         }
 
         /// <summary>오토포커스 ROI 오버레이 제거.</summary>
@@ -333,6 +342,8 @@ namespace QMC.Vision.Ui.Controls
                 using (var pen = new Pen(col, 2f)) g.DrawRectangle(pen, x, y, w, h);
 
                 string lbl = "ROI" + (i + 1);
+                if (_afLabels != null && i < _afLabels.Length && !string.IsNullOrEmpty(_afLabels[i]))
+                    lbl += "  " + _afLabels[i];
                 using (var f = new Font("맑은 고딕", 9f, FontStyle.Bold))
                 {
                     var sz = g.MeasureString(lbl, f);
