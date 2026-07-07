@@ -38,6 +38,10 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 인터락 항목: RearPickerX 조그는 Z 상승 조건을 확인한 뒤 목표 Zone 판정만 생략한다.
+            if (MotionGuardRuleHelpers.IsJogMove(request))
+                return CanJogRearPickerX(request, out reason);
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -51,6 +55,39 @@ namespace QMC.CDT320.Interlocks
                     return CanHomeRearPickerX(request.Machine, out reason);
                 default:
                     return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+            }
+        }
+
+        // 인터락 항목: 조그 RearPickerX는 Z Home/Avoid, Reticle, Busy 조건을 유지하고 Zone 판정만 생략한다.
+        private static bool CanJogRearPickerX(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                CDT320_Machine machine = request != null ? request.Machine : null;
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+
+                // 현재 기준: RearPickerX 조그 전 Z0~Z3는 모두 상승(Home 또는 Avoid) 상태여야 한다.
+                if (!VerifyRearPickerZAxesHomeOrAvoid(rear, "RearPickerX", out reason))
+                    return false;
+
+                // 현재 기준: RearPickerX 조그 전 Reticle 관련 실린더가 이동 중이면 차단한다.
+                if (!VerifyReticleCylinderClear(machine, "RearPickerX", out reason))
+                    return false;
+
+                return VerifyRearPickerNotBusy(rear, "RearPickerX", out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "RearPickerX Jog 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
             }
         }
 
@@ -698,6 +735,10 @@ namespace QMC.CDT320.Interlocks
                 // 현재 기준: Reticle 실린더가 이동 중이면 RearPickerY 수동 이동을 차단한다.
                 if (!VerifyReticleCylinderClear(machine, "RearPickerY", out reason))
                     return false;
+
+                // 인터락 항목: 조그 RearPickerY는 Z/Reticle 확인 후 목표 Zone 판정만 생략한다.
+                if (MotionGuardRuleHelpers.IsJogMove(request))
+                    return true;
 
                 PickerWorkZone targetZone = ResolvePickerZTargetZone(request);
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;

@@ -47,6 +47,25 @@ namespace QMC.CDT320.Interlocks
                 || moveKind == MotionGuardMoveKind.CylinderInitialize;
         }
 
+        // 인터락 기준: Step/Continuous Jog 요청은 MoveKind와 TargetName 힌트를 함께 보고 판정한다.
+        public static bool IsJogMove(MotionGuardRuleContext request)
+        {
+            if (request == null)
+                return false;
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisContinuousJog ||
+                request.MoveKind == MotionGuardMoveKind.AxisStepJog ||
+                request.OriginalMoveKind == MotionGuardMoveKind.AxisContinuousJog ||
+                request.OriginalMoveKind == MotionGuardMoveKind.AxisStepJog)
+                return true;
+
+            string targetName = request.TargetName ?? string.Empty;
+            return targetName.IndexOf("JogStep", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   targetName.IndexOf("StepJog", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   targetName.IndexOf("ContinuousJog", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   targetName.IndexOf("JogContinuous", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public static bool BlockUnsupportedMoveKind(MotionGuardRuleContext request, out string reason)
         {
             string movingName = request != null ? request.MovingName : string.Empty;

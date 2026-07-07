@@ -819,9 +819,13 @@ namespace QMC.CDT320
             if (!TryResolvePickerAxis(axis, out pickerAxis))
                 return -1;
 
-            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
-            double target = axis.ActualPosition + signedDistance;
-            return await MovePickerAxis(pickerAxis, target, speedType, customSpeed, "JogStep", true).ConfigureAwait(false);
+            // 조그 Step은 일반 위치 이동이 아니라 StepJog 전용 경로로 보내 완료 확인과 반복입력 처리를 분리한다.
+            return await SharedRailXMotionRuntime.MoveJogStepAsync(
+                axis,
+                direction,
+                speedType,
+                axisStepDistance,
+                customSpeed).ConfigureAwait(false);
         }
 
         public Task<int> JogContinuousAsync(

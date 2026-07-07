@@ -2197,18 +2197,23 @@ namespace QMC.CDT320.Interlocks
             double? targetX,
             string targetName)
         {
+            PickerWorkZone byName = ParseZone(targetName);
             if (targetX.HasValue)
             {
                 PickerWorkZone byPosition = ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
                 if (byPosition != PickerWorkZone.Unknown)
                     return byPosition;
 
-                // 현재 기준: encoder zone 사용 중이면 X target 존은 설정 range만 믿고, range 밖이면 Unknown으로 차단 쪽에 맡긴다.
+                // 현재 기준: Encoder Zone이 겹치거나 빈 구간이면 명시된 PickerZone 이동 의도를 존 판정에 사용한다.
+                if (HasExplicitPickerZoneIntent(targetName) && byName != PickerWorkZone.Unknown)
+                    return byName;
+
+                // 현재 기준: encoder zone 사용 중이고 명시 이동 의도가 없으면 X target 존은 설정 range만 믿고, range 밖이면 Unknown으로 차단 쪽에 맡긴다.
                 if (IsPickerXEncoderZoneConfigured(machine, isFront))
                     return PickerWorkZone.Unknown;
             }
 
-            return ParseZone(targetName);
+            return byName;
         }
 
         // 인터락 기준: PickerX 위치 또는 목표명으로 작업 존을 해석한다.
@@ -2218,18 +2223,23 @@ namespace QMC.CDT320.Interlocks
             double? position,
             string targetName)
         {
+            PickerWorkZone byName = ParseZone(targetName);
             if (position.HasValue)
             {
                 PickerWorkZone byPosition = ResolveXZoneByPosition(machine, isFront, position.Value);
                 if (byPosition != PickerWorkZone.Unknown)
                     return byPosition;
 
-                // 현재 기준: encoder zone이 켜져 있으면 targetName fallback으로 X 존을 덮어쓰지 않는다.
+                // 현재 기준: Encoder Zone이 겹치거나 빈 구간이면 명시된 PickerZone 이동 의도를 존 판정에 사용한다.
+                if (HasExplicitPickerZoneIntent(targetName) && byName != PickerWorkZone.Unknown)
+                    return byName;
+
+                // 현재 기준: encoder zone이 켜져 있고 명시 이동 의도가 없으면 targetName fallback으로 X 존을 덮어쓰지 않는다.
                 if (IsPickerXEncoderZoneConfigured(machine, isFront))
                     return PickerWorkZone.Unknown;
             }
 
-            return ParseZone(targetName);
+            return byName;
         }
 
         // 인터락 기준: 수동 PickerX 이동 목표 존을 해석한다.
@@ -3094,6 +3104,13 @@ namespace QMC.CDT320.Interlocks
         private static bool Contains(string value, string pattern)
         {
             return value.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // 인터락 기준: 내부 이동명이 명시적으로 PickerZone 의도를 지정했는지 판단한다.
+        private static bool HasExplicitPickerZoneIntent(string targetName)
+        {
+            string name = (targetName ?? string.Empty).Replace(" ", string.Empty);
+            return name.IndexOf("PickerZone=", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         // 인터락 기준: 현재 등록된 PickerY 활성 목표 존을 조회한다.
