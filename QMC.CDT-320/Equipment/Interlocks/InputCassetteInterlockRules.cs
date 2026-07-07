@@ -77,6 +77,7 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 인터락 조건: 카세트 돌출이 감지되면 리프터 수동 이동을 차단한다.
             if (Cassette != null && Cassette.IsWaferProtrusionDetected())
             {
                 return MotionGuardRuleHelpers.Block(
@@ -85,9 +86,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 방어 조건: Feeder 참조가 없으면 Feeder 연동 조건은 적용하지 않는다.
             if (feeder == null)
                 return true;
 
+            // 인터락 조건: InputFeederY가 이동 중이면 리프터 수동 이동을 차단한다.
             if (feeder.FeederY != null && feeder.FeederY.IsMoving)
             {
                 return MotionGuardRuleHelpers.Block(
@@ -104,6 +107,7 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 인터락 조건: 카세트 돌출이 감지되면 리프터 홈 이동을 차단한다.
             if (Cassette != null && Cassette.IsWaferProtrusionDetected())
             {
                 return MotionGuardRuleHelpers.Block(
@@ -112,9 +116,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 방어 조건: Feeder 참조가 없으면 Feeder 연동 조건은 적용하지 않는다.
             if (feeder == null)
                 return true;
 
+            // 인터락 조건: InputFeederY가 이동 중이면 리프터 홈 이동을 차단한다.
             if (feeder.FeederY != null && feeder.FeederY.IsMoving)
             {
                 return MotionGuardRuleHelpers.Block(
@@ -123,9 +129,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 인터락 조건: 카세트가 장착되어 있으면 FeederY가 리프터 간섭 없는 안전 위치여야 한다.
             if (Cassette != null &&
                 (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12)))
             {
+                // 인터락 조건: FeederY가 카세트 측 안전 위치가 아니면 리프터 홈 이동을 차단한다.
                 if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "InputLifterZ",
@@ -140,6 +148,7 @@ namespace QMC.CDT320.Interlocks
         private static bool CanAutoWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
+            // 인터락 조건: 카세트 돌출이 감지되면 리프터 자동 이동을 차단한다.
             if (Cassette != null && Cassette.IsWaferProtrusionDetected())
             {
                 return MotionGuardRuleHelpers.Block(
@@ -148,15 +157,18 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 방어 조건: Feeder 참조가 없으면 Feeder 연동 조건은 적용하지 않는다.
             if (feeder == null)
                 return true;
 
+            // 인터락 조건: InputFeederY가 이동 중이면 리프터 자동 이동을 차단한다.
             if (feeder.FeederY != null && feeder.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
                     "InputFeederY is moving. InputLifterZ move is blocked.",
                     out reason);
 
+            // 인터락 조건: FeederY가 카세트 측 안전 위치가 아니면 리프터 자동 이동을 차단한다.
             if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",

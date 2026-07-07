@@ -421,7 +421,15 @@ namespace QMC.CDT320.Sequencing
                             ", reason=" + areaReason);
                     }
 
-                    int stageOnlyResult = await MoveInputStageToDiePositionForPickerMotionOnlyAsync(
+                    int stageOnlyResult = await EnsureNeedleZSafeForCurrentStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
+                    if (stageOnlyResult != 0)
+                        return stageOnlyResult;
+
+                    stageOnlyResult = await EnsureWaferAlignThetaPositionAsync(stage, "Input die vision 준비 전 StageT 보정 위치", ct).ConfigureAwait(false);
+                    if (stageOnlyResult != 0)
+                        return stageOnlyResult;
+
+                    stageOnlyResult = await MoveInputStageToDiePositionForPickerMotionOnlyAsync(
                         stage,
                         targetX,
                         targetY,
@@ -446,6 +454,10 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + areaReason);
 
                 int result = await EnsureNeedleZSafeForCurrentStageTravelAsync(stage, "Input die vision 준비", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await EnsureWaferAlignThetaPositionAsync(stage, "Input die vision 준비 전 StageT 보정 위치", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1081,6 +1093,76 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private async Task<int> EnsureWaferAlignThetaPositionAsync(
+            InputStageUnit stage,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (stage == null)
+                    return Fail("INPUT-DIE-VISION-PREPARE-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit이 없습니다.");
+
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                string materialReason;
+                if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out materialReason))
+                    return Fail("INPUT-DIE-VISION-PREPARE-THETA-ALIGN", stage.Name,
+                        description + " 실패. " + materialReason);
+
+                stage.ApplyWaferAlignThetaResult(
+                    wafer.InputStageAlignReferenceT,
+                    wafer.InputStageAlignCorrectedT,
+                    wafer.InputStageAlignOffsetT);
+
+                string readyReason;
+                if (!stage.IsWaferAlignThetaResultReady(out readyReason))
+                    return Fail("INPUT-DIE-VISION-PREPARE-THETA-ALIGN", stage.Name,
+                        description + " 실패. " + readyReason);
+
+                double targetT;
+                if (!stage.TryResolveWaferAlignThetaTarget(out targetT))
+                    return Fail("INPUT-DIE-VISION-PREPARE-THETA-TARGET", stage.Name,
+                        description + " 실패. StageT 보정 목표값을 찾을 수 없습니다.");
+
+                if (stage.IsWaferAlignThetaInPosition())
+                    return 0;
+
+                int result = await MoveInputStageAxisCommandAsync(
+                    stage,
+                    WaferStageAxis.WaferT,
+                    targetT,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await WaitInputStageAxisInPositionResultAsync(
+                    stage,
+                    WaferStageAxis.WaferT,
+                    targetT,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferT, targetT, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("INPUT-DIE-VISION-PREPARE-THETA-POS-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " 확인/복귀 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> EnsureNeedleZProcessForVisionAsync(
             InputStageUnit stage,
             string description,
@@ -1619,53 +1701,38 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                var commandTasks = new List<Task<int>>();
-                var commandAxes = new List<Tuple<WaferStageAxis, double, string>>();
-
                 if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.VisionX, visionTarget))
                 {
-                    commandAxes.Add(Tuple.Create(WaferStageAxis.VisionX, visionTarget, description + " VisionX"));
-                    commandTasks.Add(MoveInputStageAxisCommandAsync(stage, WaferStageAxis.VisionX, visionTarget, description + " VisionX", ct));
+                    int visionResult = await MoveInputStageAxisCommandAsync(
+                        stage,
+                        WaferStageAxis.VisionX,
+                        visionTarget,
+                        description + " VisionX",
+                        ct).ConfigureAwait(false);
+                    if (visionResult != 0)
+                        return Fail("INPUT-DIE-VISION-PREPARE-STAGE-XY-VISION", stage != null ? stage.Name : "InputStageUnit",
+                            description + " VisionX 이동 명령 실패. result=" + visionResult +
+                            ", " + BuildInputStageAxisState(stage, WaferStageAxis.VisionX, visionTarget));
+
+                    visionResult = await WaitInputStageAxisInPositionResultAsync(
+                        stage,
+                        WaferStageAxis.VisionX,
+                        visionTarget,
+                        description + " VisionX",
+                        ct).ConfigureAwait(false);
+                    if (visionResult != 0)
+                        return visionResult;
                 }
 
-                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, stageYTarget))
-                {
-                    commandAxes.Add(Tuple.Create(WaferStageAxis.WaferY, stageYTarget, description + " StageY"));
-                    commandTasks.Add(MoveInputStageYForPickerWorkPointCommandAsync(stage, visionTarget, stageYTarget, description + " StageY", ct, needleTarget));
-                }
-
-                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.NeedleX, needleTarget))
-                {
-                    commandAxes.Add(Tuple.Create(WaferStageAxis.NeedleX, needleTarget, description + " NeedleX"));
-                    commandTasks.Add(MoveInputStageAxisCommandAsync(stage, WaferStageAxis.NeedleX, needleTarget, description + " NeedleX", ct));
-                }
-
-                if (commandTasks.Count > 0)
-                {
-                    int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
-                    for (int i = 0; i < commandResults.Length; i++)
-                    {
-                        if (commandResults[i] != 0)
-                        {
-                            Tuple<WaferStageAxis, double, string> axis = commandAxes[i];
-                            return Fail("INPUT-DIE-VISION-PREPARE-STAGE-XY-PARALLEL", stage != null ? stage.Name : "InputStageUnit",
-                                axis.Item3 + " 동시 이동 명령 실패. result=" + commandResults[i] +
-                                ", " + BuildInputStageAxisState(stage, axis.Item1, axis.Item2) +
-                                PickerInputStageMoveHelper.BuildLastStageMoveFailure(stage));
-                        }
-                    }
-
-                    var waitTasks = new List<Task<int>>();
-                    foreach (Tuple<WaferStageAxis, double, string> axis in commandAxes)
-                        waitTasks.Add(WaitInputStageAxisInPositionResultAsync(stage, axis.Item1, axis.Item2, axis.Item3, ct));
-
-                    int[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
-                    for (int i = 0; i < waitResults.Length; i++)
-                    {
-                        if (waitResults[i] != 0)
-                            return waitResults[i];
-                    }
-                }
+                int result = await MoveNeedleXAndStageYForVisionPrepareAsync(
+                    stage,
+                    needleTarget,
+                    stageYTarget,
+                    visionTarget,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -1676,8 +1743,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("INPUT-DIE-VISION-PREPARE-STAGE-XY-PARALLEL-EX", stage != null ? stage.Name : "InputStageUnit",
-                    description + " 동시 이동 중 예외가 발생했습니다. error=" + ex.Message);
+                return Fail("INPUT-DIE-VISION-PREPARE-STAGE-XY-ORDER-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " 순서 이동 중 예외가 발생했습니다. error=" + ex.Message);
             }
             finally
             {
@@ -2431,6 +2498,8 @@ namespace QMC.CDT320.Sequencing
             {
                 case WaferStageAxis.WaferY:
                     return stage.StageY;
+                case WaferStageAxis.WaferT:
+                    return stage.StageT;
                 case WaferStageAxis.WaferExpandingZ:
                     return stage.ExpanderZ;
                 case WaferStageAxis.VisionX:

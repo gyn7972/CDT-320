@@ -2,7 +2,9 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.CDT320.VisionComm;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -308,7 +310,11 @@ namespace QMC.CDT320.Sequencing
                     OutputPostPlaceInspectionRequest request;
                     if (_queue.TryDequeue(out request))
                     {
-                        int result = await InspectPlacedDieBatchAsync(request, ct).ConfigureAwait(false);
+                        int result;
+                        using (MotionGuardRuntime.BeginAutoSequenceProcessMove("OutputPostPlaceInspectionQueue"))
+                        {
+                            result = await InspectPlacedDieBatchAsync(request, ct).ConfigureAwait(false);
+                        }
                         if (result == StopRequestedResult)
                         {
                             DrainQueuedRequests("Cycle Stop/Alarm state. Output camera post-place inspection queue is drained.");
@@ -536,6 +542,18 @@ namespace QMC.CDT320.Sequencing
                     return result;
                 if (IsStopOrAlarmActive())
                     return StopRequestedResult;
+                int visionXClearResult = await WaitOutputVisionXSharedRailClearAsync(
+                    stage,
+                    stage.OutputCameraX,
+                    targetVisionX,
+                    BuildOutputPostPlaceTargetName(BinStageAxis.VisionX, "Output camera inspection VisionX", request),
+                    "Output camera inspection VisionX",
+                    request,
+                    timeout,
+                    ct).ConfigureAwait(false);
+                if (visionXClearResult != 0)
+                    return visionXClearResult;
+
                 result = await MoveStageAxisAndVerifyAsync(
                     stage,
                     BinStageAxis.VisionX,
@@ -598,6 +616,127 @@ namespace QMC.CDT320.Sequencing
                     stageLease.Dispose();
                 if (feederLease != null)
                     feederLease.Dispose();
+            }
+        }
+
+        private async Task<int> WaitOutputVisionXSharedRailClearAsync(
+            OutputStageUnit stage,
+            BaseAxis visionAxis,
+            double target,
+            string guardTargetName,
+            string description,
+            OutputPostPlaceInspectionRequest request,
+            int timeout,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (stage == null || stage.OutputCameraX == null)
+                    return 0;
+
+                BaseAxis guardAxis = visionAxis ?? stage.OutputCameraX;
+                if (IsAxisAlreadyInPosition(guardAxis, target))
+                    return 0;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    _context != null ? _context.Machine : null);
+                bool sharedRailApplicable = service != null && service.IsSharedRailAxis(stage.OutputCameraX);
+
+                int timeoutMs = timeout > 0 ? timeout : 10000;
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                string reason = string.Empty;
+                SequenceTrace.WaitStart("OutputVisionXSharedRailClear",
+                    "target=" + target.ToString("F3"),
+                    "description=" + description,
+                    "die=" + (request != null ? request.DieId : "-"),
+                    "side=" + (request != null ? request.OutputSide.ToString() : "-"));
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (IsStopOrAlarmActive())
+                        return StopRequestedResult;
+
+                    // Current rule: Output post-inspection VisionX waits until SharedRailX and MotionGuard are clear.
+                    string sharedRailReason = string.Empty;
+                    bool sharedRailClear = !sharedRailApplicable ||
+                        service.VerifySingleAxisMove(stage.OutputCameraX, target, out sharedRailReason);
+
+                    string guardReason = string.Empty;
+                    bool guardClear = sharedRailClear &&
+                        MotionGuardRuntime.CanAxisTeachingMove(guardAxis, target, guardTargetName, out guardReason);
+
+                    if (sharedRailClear && guardClear)
+                        break;
+
+                    reason = !sharedRailClear
+                        ? "SharedRailX: " + sharedRailReason
+                        : "MotionGuard: " + guardReason;
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        SequenceTrace.WaitEnd("OutputVisionXSharedRailClear",
+                            -1,
+                            "status=Timeout",
+                            "elapsedMs=" + elapsedMs.ToString("0"),
+                            "timeoutMs=" + timeoutMs,
+                            "reason=" + reason);
+                        string timeoutAlarmCode = !sharedRailClear
+                            ? "OUT-POST-INSPECT-SHARED-RAIL-X-TIMEOUT"
+                            : "OUT-POST-INSPECT-MOTION-GUARD-TIMEOUT";
+                        return RaiseFailure(timeoutAlarmCode, "OutputStage",
+                            description + " wait before move timed out. " +
+                            "target=" + target.ToString("F6") +
+                            ", die=" + (request != null ? request.DieId : "-") +
+                            ", side=" + (request != null ? request.OutputSide.ToString() : "-") +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", reason=" + reason);
+                    }
+
+                    if (!waitLogged)
+                    {
+                        Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                            description + " wait before move. " +
+                            "target=" + target.ToString("F6") +
+                            ", die=" + (request != null ? request.DieId : "-") +
+                            ", side=" + (request != null ? request.OutputSide.ToString() : "-") +
+                            ", reason=" + reason + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
+                        description + " wait before move complete. " +
+                        "target=" + target.ToString("F6") +
+                        ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
+                }
+
+                SequenceTrace.WaitEnd("OutputVisionXSharedRailClear",
+                    0,
+                    "status=Clear",
+                    "elapsedMs=" + ((DateTime.UtcNow - start).TotalMilliseconds).ToString("0"),
+                    "target=" + target.ToString("F3"));
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFailure("OUT-POST-INSPECT-SHARED-RAIL-X-WAIT-EX", "OutputStage",
+                    description + " wait before move exception. error=" + ex.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -816,8 +955,9 @@ namespace QMC.CDT320.Sequencing
                 return StopRequestedResult;
             }
 
+            string targetName = BuildOutputPostPlaceTargetName(axis, description, request);
             int result = await SequenceAwaiter.AwaitAsync(
-                stage.MoveStageAxis(axis, target, fineMove),
+                stage.MoveStageAxis(axis, target, fineMove, targetName),
                 -1,
                 ct).ConfigureAwait(false);
             if (result != 0)
@@ -850,6 +990,30 @@ namespace QMC.CDT320.Sequencing
             }
             return 0;
         }
+
+        private static string BuildOutputPostPlaceTargetName(
+            BinStageAxis axis,
+            string description,
+            OutputPostPlaceInspectionRequest request)
+        {
+            return "OutputPostPlaceInspection;" +
+                   "axis=" + axis +
+                   ";side=" + (request != null ? request.OutputSide.ToString() : "-") +
+                   ";die=" + (request != null ? request.DieId : "-") +
+                   ";desc=" + (description ?? "");
+        }
+
+        private static bool IsAxisAlreadyInPosition(BaseAxis axis, double target)
+        {
+            if (axis == null || axis.IsMoving || axis.IsAlarm)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return Math.Abs(axis.ActualPosition - target) <= tolerance;
+        }
+
         private int RaiseFailure(string alarmCode, string source, string message)
         {
             if (IsStopOrAlarmActive() && !IsAlarmStopActive())

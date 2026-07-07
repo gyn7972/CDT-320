@@ -8224,6 +8224,49 @@ namespace QMC.CDT320
             }
         }
 
+        private async Task<int> MoveNeedleWorkPointCommandAndWaitAsync(
+            InputStageUnit stage,
+            double targetNeedleX,
+            double targetStageY,
+            string source)
+        {
+            try
+            {
+                if (stage == null)
+                    return -1;
+
+                if (DryRun)
+                {
+                    Log("[DRYRUN] skip safe NeedleX/StageY move. needleX=" +
+                        targetNeedleX.ToString("F3") + ", stageY=" + targetStageY.ToString("F3"));
+                    return 0;
+                }
+
+                return await stage.MoveNeedleWorkPointSafelyAsync(
+                    targetNeedleX,
+                    targetStageY,
+                    false,
+                    source).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log("[MOVE] NeedleX/StageY 안전 순서 이동 중 예외가 발생했습니다. " +
+                    "needleX=" + targetNeedleX.ToString("F3") +
+                    ", stageY=" + targetStageY.ToString("F3") +
+                    ", error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                Log("[MOVE] MoveNeedleWorkPointCommandAndWaitAsync finished. needleX=" +
+                    targetNeedleX + ", stageY=" + targetStageY);
+            }
+        }
+
         private int CheckMoveResult(string description, int result)
         {
             try
@@ -8514,6 +8557,9 @@ namespace QMC.CDT320
             VisionFocusPickerSide pickerSide = useRearPicker
                 ? VisionFocusPickerSide.Rear
                 : VisionFocusPickerSide.Front;
+            QMC.CDT320.Sequencing.PickerSequenceSide pickerSequenceSide = useRearPicker
+                ? QMC.CDT320.Sequencing.PickerSequenceSide.Rear
+                : QMC.CDT320.Sequencing.PickerSequenceSide.Front;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();
@@ -8619,14 +8665,22 @@ namespace QMC.CDT320
                     stage.Recipe.EnsurePositionObjects();
                     double mappedCameraX = d.X + stage.WaferAlignOffsetX + vo.X;
                     double mappedStageY = d.Y + stage.WaferAlignOffsetY + vo.Y;
-                    object pickerUnit = (object)front;
-                    PickerVisionCoordinateOffsets inputVisionToPicker = ResolveInputVisionToPickerOffsets(pickerUnit);
-                    double inputVisionToPickerX = inputVisionToPicker != null
-                        ? inputVisionToPicker.GetOffsetX(p, ResolvePickerPitchX(pickerUnit))
-                        : 0.0;
-                    double inputVisionToPickerY = inputVisionToPicker != null
-                        ? inputVisionToPicker.GetOffsetY(p, ResolvePickerPitchY(pickerUnit))
-                        : 0.0;
+                    double inputVisionToPickerX = 0.0;
+                    double inputVisionToPickerY = 0.0;
+                    string inputVisionToPickerReason;
+                    if (!QMC.CDT320.Sequencing.PickerCoordinateTransformHelper.TryResolveInputVisionToPickerOffsets(
+                        _machine,
+                        pickerSequenceSide,
+                        p,
+                        out inputVisionToPickerX,
+                        out inputVisionToPickerY,
+                        out inputVisionToPickerReason))
+                    {
+                        Log("[INPUT-VISION-PICKER-OFFSET] resolve failed. side=" +
+                            pickerSequenceSide + ", pickerIndex=" + p +
+                            ", reason=" + inputVisionToPickerReason +
+                            ". fallback zero.");
+                    }
                     PickerCalibratedManualInputTarget inputTarget =
                         CalibrationCoordinateService.ResolveManualInputMapTarget(
                             _machine,
@@ -8636,19 +8690,22 @@ namespace QMC.CDT320
                             mappedStageY,
                             inputVisionToPickerX,
                             inputVisionToPickerY,
-                            ResolvePickerYPickTeaching(pickerUnit));
+                            ResolvePickerYPickTeaching((object)front));
 
-                    // 3축 동시 이동. DieMap 좌표를 실제 장비 좌표로 두고 축별 변환/보정만 더한다.
+                    // PickerX는 동시에 준비할 수 있지만 NeedleX/StageY는 작업영역 순서에 따라 하나씩 이동한다.
                     double armXTarget = inputTarget.PickerX + pickerOffset.AlignOffsetX;
                     double stageYTarget = inputTarget.StageY + pickerOffset.AlignOffsetY;
                     double needleXTarget = ResolveInputNeedleXTargetFromMappedCameraX(mappedCameraX);
 
                     int[] pickMoveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, ResolveAxisDefaultVelocity(front.ArmX), true),
-                        MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false),
-                        MoveAxisCommandAndWaitAsync(stage.NeedleBlockX, needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX), false)
+                        MoveNeedleWorkPointCommandAndWaitAsync(
+                            stage,
+                            needleXTarget,
+                            stageYTarget,
+                            "MachineController.PickPosition")
                     );
-                    ThrowIfMoveFailed("Pick position PickerX/StageY/NeedleX", pickMoveResults);
+                    ThrowIfMoveFailed("Pick position PickerX and safe NeedleX/StageY", pickMoveResults);
 
                     // Picker Z Down(PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON 동시 처리.
                     var pickerZTask = MoveAxisCommandAndWaitAsync(

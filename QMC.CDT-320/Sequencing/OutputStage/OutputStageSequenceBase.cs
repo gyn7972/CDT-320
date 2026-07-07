@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
@@ -426,6 +427,18 @@ namespace QMC.CDT320.Sequencing
                         return clearResult;
                 }
 
+                string targetName = "OutputStageSequence;" + Name + ";" + description;
+                if (axis == BinStageAxis.VisionX)
+                {
+                    int visionXClearResult = await WaitOutputVisionXSharedRailClearAsync(
+                        target,
+                        targetName,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (visionXClearResult != 0)
+                        return visionXClearResult;
+                }
+
                 SequenceTrace.MotionStart("OutputStageMove",
                     "axis=" + axis,
                     "target=" + target,
@@ -436,7 +449,7 @@ namespace QMC.CDT320.Sequencing
                         axis,
                         target,
                         Options.FineMove,
-                        "OutputStageSequence;" + Name + ";" + description),
+                        targetName),
                     ct).ConfigureAwait(false);
                 if (result != 0)
                 {
@@ -497,6 +510,134 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> WaitOutputVisionXSharedRailClearAsync(
+            double target,
+            string targetName,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Stage == null || Stage.OutputCameraX == null)
+                    return 0;
+
+                BaseAxis outputVisionX = Stage.OutputCameraX;
+                if (IsAxisAlreadyInPosition(outputVisionX, target))
+                    return 0;
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(
+                    Context != null ? Context.Machine : null);
+                bool sharedRailApplicable = service != null && service.IsSharedRailAxis(outputVisionX);
+
+                int timeoutMs = ResolveTimeout();
+                DateTime start = DateTime.UtcNow;
+                bool waitLogged = false;
+                string reason = string.Empty;
+                SequenceTrace.WaitStart("OutputVisionXSharedRailClear",
+                    "sequence=" + Name,
+                    "target=" + target.ToString("F3"),
+                    "side=" + Options.Side,
+                    "description=" + description);
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    // Current rule: OutputVisionX enters only after SharedRailX distance and MotionGuard are clear.
+                    string sharedRailReason = string.Empty;
+                    bool sharedRailClear = !sharedRailApplicable ||
+                        service.VerifySingleAxisMove(outputVisionX, target, out sharedRailReason);
+
+                    string guardReason = string.Empty;
+                    bool guardClear = sharedRailClear &&
+                        MotionGuardRuntime.CanAxisTeachingMove(outputVisionX, target, targetName, out guardReason);
+
+                    if (sharedRailClear && guardClear)
+                        break;
+
+                    reason = !sharedRailClear
+                        ? "SharedRailX: " + sharedRailReason
+                        : "MotionGuard: " + guardReason;
+
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    if (elapsedMs >= timeoutMs)
+                    {
+                        SequenceTrace.WaitEnd("OutputVisionXSharedRailClear",
+                            -1,
+                            "sequence=" + Name,
+                            "status=Timeout",
+                            "elapsedMs=" + elapsedMs.ToString("0"),
+                            "timeoutMs=" + timeoutMs,
+                            "reason=" + reason);
+                        string timeoutAlarmCode = !sharedRailClear
+                            ? "OUT-STAGE-VISION-X-SHARED-RAIL-X-TIMEOUT"
+                            : "OUT-STAGE-VISION-X-MOTION-GUARD-TIMEOUT";
+                        return Fail(timeoutAlarmCode, Stage.Name,
+                            description + " OutputVisionX wait before move timed out. " +
+                            "target=" + target.ToString("F6") +
+                            ", side=" + Options.Side +
+                            ", elapsedMs=" + elapsedMs.ToString("0") +
+                            ", timeoutMs=" + timeoutMs +
+                            ", reason=" + reason +
+                            ". " + BuildAxisState(BinStageAxis.VisionX, target));
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("OutputVisionXSharedRailClear",
+                            Name + " OutputVisionX wait before move. " +
+                            "target=" + target.ToString("F6") +
+                            ", side=" + Options.Side +
+                            ", description=" + description +
+                            ", reason=" + reason + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    double elapsedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                    WriteLog("OutputVisionXSharedRailClear",
+                        Name + " OutputVisionX wait before move complete. " +
+                        "target=" + target.ToString("F6") +
+                        ", elapsedMs=" + elapsedMs.ToString("0") + " - Ok");
+                }
+
+                SequenceTrace.WaitEnd("OutputVisionXSharedRailClear",
+                    0,
+                    "sequence=" + Name,
+                    "status=Clear",
+                    "elapsedMs=" + ((DateTime.UtcNow - start).TotalMilliseconds).ToString("0"),
+                    "target=" + target.ToString("F3"));
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-VISION-X-WAIT-EX", Stage != null ? Stage.Name : "OutputStage",
+                    description + " OutputVisionX wait before move exception. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisAlreadyInPosition(BaseAxis axis, double target)
+        {
+            if (axis == null || axis.IsMoving || axis.IsAlarm)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+            return Math.Abs(axis.ActualPosition - target) <= tolerance;
         }
 
         private async Task<int> EnsureNgStageYMoveClearAsync(string description, CancellationToken ct)

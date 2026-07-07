@@ -107,8 +107,14 @@ namespace QMC.CDT320
         /// <summary>얼라인 수렴 임계값 [deg]. 이 값 이하이면 반복을 종료한다.</summary>
         [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
 
-        /// <summary>얼라인 T 보정 1회 이동 허용 최대값 [deg].</summary>
+        /// <summary>얼라인 T 보정 허용 최대값 [deg].</summary>
         [DataMember] public double AlignThetaCorrectionLimitDeg { get; set; } = 1.0;
+
+        /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 X Offset 최대값 [mm].</summary>
+        [DataMember] public double ManualDieDetectOffsetLimitX { get; set; } = 5.0;
+
+        /// <summary>수동 Die 검출로 전체 Input Die Map에 적용할 수 있는 Y Offset 최대값 [mm].</summary>
+        [DataMember] public double ManualDieDetectOffsetLimitY { get; set; } = 5.0;
 
         [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
 
@@ -122,6 +128,10 @@ namespace QMC.CDT320
         {
             if (AlignThetaCorrectionLimitDeg <= 0.0)
                 AlignThetaCorrectionLimitDeg = 1.0;
+            if (ManualDieDetectOffsetLimitX <= 0.0)
+                ManualDieDetectOffsetLimitX = 5.0;
+            if (ManualDieDetectOffsetLimitY <= 0.0)
+                ManualDieDetectOffsetLimitY = 5.0;
             if (PickUpNeedleSyncLiftDistance <= 0.0)
                 PickUpNeedleSyncLiftDistance = 0.5;
             if (PickUpNeedleSyncLiftVelocity <= 0.0)
@@ -238,6 +248,7 @@ namespace QMC.CDT320
     {
         private const double DefaultEstimatedPitchX = 0.15;
         private const double DefaultEstimatedPitchY = 0.15;
+        private const double WaferAlignThetaOffsetReadyEpsilon = 0.000001;
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
@@ -499,6 +510,18 @@ namespace QMC.CDT320
         /// <summary>웨이퍼 로딩 후 얼라인 절차에서 산출되는 Y 보정 오프셋 [mm].
         /// PICK 시 StageY 절대 위치 계산에 사용.</summary>
         public double WaferAlignOffsetY { get; set; } = 0.0;
+
+        /// <summary>웨이퍼 로딩 후 얼라인 절차에서 확정된 StageT 보정 결과.</summary>
+        public bool HasWaferAlignThetaResult { get; set; } = false;
+
+        /// <summary>StageT 티칭 기준 위치 [deg]. 기본 기준은 WaferT.ProcessPosition.</summary>
+        public double WaferAlignReferenceT { get; set; } = 0.0;
+
+        /// <summary>얼라인 완료 후 사용해야 하는 StageT 절대 위치 [deg].</summary>
+        public double WaferAlignCorrectedT { get; set; } = 0.0;
+
+        /// <summary>StageT 티칭 기준 위치 대비 웨이퍼 단위 보정 오프셋 [deg].</summary>
+        public double WaferAlignOffsetT { get; set; } = 0.0;
 
         public double DieMappingOffsetX { get; set; } = 0.0;
 
@@ -800,9 +823,6 @@ namespace QMC.CDT320
             if (axis == WaferStageAxis.WaferY &&
                 IsStageTravelTeachingTarget(axis, target))
             {
-                if (IsProcessTeachingTarget(axis, target))
-                    return true;
-
                 if (!VerifyExpanderZSafeForStageYNonProcessTarget(axis, target, out reason))
                     return false;
 
@@ -826,7 +846,7 @@ namespace QMC.CDT320
 
             if (axis == WaferStageAxis.NeedleX)
             {
-                if (IsNeedleZInHomeOrSafePosition())
+                if (IsNeedleZInSafePosition())
                     return true;
 
                 double targetY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
@@ -2450,6 +2470,10 @@ namespace QMC.CDT320
             PitchY = 0.0;
             WaferAlignOffsetX = 0.0;
             WaferAlignOffsetY = 0.0;
+            HasWaferAlignThetaResult = false;
+            WaferAlignReferenceT = 0.0;
+            WaferAlignCorrectedT = 0.0;
+            WaferAlignOffsetT = 0.0;
             DieMappingOffsetX = 0.0;
             DieMappingOffsetY = 0.0;
         }
@@ -2527,6 +2551,280 @@ namespace QMC.CDT320
             {
                 RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-APPLY", "InputStageUnit.ApplyWaferAlignResult",
                     "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveWaferAlignReferenceT()
+        {
+            try
+            {
+                if (Recipe == null)
+                    return 0.0;
+
+                Recipe.EnsurePositionObjects();
+                return Recipe.WaferT != null ? Recipe.WaferT.ProcessPosition : 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveWaferAlignThetaCorrectionLimit()
+        {
+            try
+            {
+                return Config != null && Config.AlignThetaCorrectionLimitDeg > 0.0
+                    ? Config.AlignThetaCorrectionLimitDeg
+                    : 1.0;
+            }
+            catch
+            {
+                return 1.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsWaferAlignThetaOffsetWithinLimit(double offsetT, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (double.IsNaN(offsetT) || double.IsInfinity(offsetT))
+                {
+                    reason = "InputStage theta align offset is invalid.";
+                    return false;
+                }
+
+                double limit = ResolveWaferAlignThetaCorrectionLimit();
+                if (Math.Abs(offsetT) <= limit)
+                {
+                    reason = "InputStage theta align offset is within limit. offsetT=" + offsetT.ToString("F6") +
+                             ", limit=" + limit.ToString("F6");
+                    return true;
+                }
+
+                reason = "InputStage theta align offset exceeds limit. offsetT=" + offsetT.ToString("F6") +
+                         ", limit=" + limit.ToString("F6");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage theta align offset limit check failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveManualDieDetectOffsetLimitX()
+        {
+            try
+            {
+                return Config != null && Config.ManualDieDetectOffsetLimitX > 0.0
+                    ? Config.ManualDieDetectOffsetLimitX
+                    : 5.0;
+            }
+            catch
+            {
+                return 5.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveManualDieDetectOffsetLimitY()
+        {
+            try
+            {
+                return Config != null && Config.ManualDieDetectOffsetLimitY > 0.0
+                    ? Config.ManualDieDetectOffsetLimitY
+                    : 5.0;
+            }
+            catch
+            {
+                return 5.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsManualDieDetectOffsetWithinLimit(double offsetX, double offsetY, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (double.IsNaN(offsetX) || double.IsInfinity(offsetX) ||
+                    double.IsNaN(offsetY) || double.IsInfinity(offsetY))
+                {
+                    reason = "InputStage manual die detect offset is invalid.";
+                    return false;
+                }
+
+                double limitX = ResolveManualDieDetectOffsetLimitX();
+                double limitY = ResolveManualDieDetectOffsetLimitY();
+                if (Math.Abs(offsetX) <= limitX && Math.Abs(offsetY) <= limitY)
+                {
+                    reason = "InputStage manual die detect offset is within limit. offsetX=" + offsetX.ToString("F6") +
+                             ", offsetY=" + offsetY.ToString("F6") +
+                             ", limitX=" + limitX.ToString("F6") +
+                             ", limitY=" + limitY.ToString("F6");
+                    return true;
+                }
+
+                reason = "InputStage manual die detect offset exceeds limit. offsetX=" + offsetX.ToString("F6") +
+                         ", offsetY=" + offsetY.ToString("F6") +
+                         ", limitX=" + limitX.ToString("F6") +
+                         ", limitY=" + limitY.ToString("F6");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage manual die detect offset limit check failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void ApplyWaferAlignThetaResult(double referenceT, double correctedT, double alignOffsetT)
+        {
+            try
+            {
+                HasWaferAlignThetaResult = true;
+                WaferAlignReferenceT = referenceT;
+                WaferAlignCorrectedT = correctedT;
+                WaferAlignOffsetT = alignOffsetT;
+
+                EventLogger.Write(EventKind.Event, "QMC", "IS-ALIGN",
+                    "InputStage theta align result applied. referenceT=" + WaferAlignReferenceT.ToString("F6") +
+                    ", correctedT=" + WaferAlignCorrectedT.ToString("F6") +
+                    ", offsetT=" + WaferAlignOffsetT.ToString("F6"));
+            }
+            catch (Exception ex)
+            {
+                RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-T-APPLY", "InputStageUnit.ApplyWaferAlignThetaResult",
+                    "Theta align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public bool TryResolveWaferAlignThetaTarget(out double targetT)
+        {
+            targetT = 0.0;
+            try
+            {
+                if (!HasWaferAlignThetaResult)
+                    return false;
+
+                if (double.IsNaN(WaferAlignCorrectedT) || double.IsInfinity(WaferAlignCorrectedT))
+                    return false;
+
+                targetT = WaferAlignCorrectedT;
+                return true;
+            }
+            catch
+            {
+                targetT = 0.0;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsWaferAlignThetaResultReady(out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                if (!HasWaferAlignThetaResult)
+                {
+                    reason = "InputStage theta align result is not complete.";
+                    return false;
+                }
+
+                if (double.IsNaN(WaferAlignReferenceT) ||
+                    double.IsInfinity(WaferAlignReferenceT) ||
+                    double.IsNaN(WaferAlignCorrectedT) ||
+                    double.IsInfinity(WaferAlignCorrectedT) ||
+                    double.IsNaN(WaferAlignOffsetT) ||
+                    double.IsInfinity(WaferAlignOffsetT))
+                {
+                    reason = "InputStage theta align value is invalid.";
+                    return false;
+                }
+
+                if (Math.Abs(WaferAlignOffsetT) <= WaferAlignThetaOffsetReadyEpsilon)
+                {
+                    reason = "InputStage theta align offset is zero. offsetT=" + WaferAlignOffsetT.ToString("F6");
+                    return false;
+                }
+
+                string limitReason;
+                if (!IsWaferAlignThetaOffsetWithinLimit(WaferAlignOffsetT, out limitReason))
+                {
+                    reason = limitReason;
+                    return false;
+                }
+
+                reason = "InputStage theta align result ready. referenceT=" + WaferAlignReferenceT.ToString("F6") +
+                         ", correctedT=" + WaferAlignCorrectedT.ToString("F6") +
+                         ", offsetT=" + WaferAlignOffsetT.ToString("F6") +
+                         ", limit=" + ResolveWaferAlignThetaCorrectionLimit().ToString("F6");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage theta align result ready check failed: " + ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void ClearWaferAlignThetaResult()
+        {
+            HasWaferAlignThetaResult = false;
+            WaferAlignReferenceT = 0.0;
+            WaferAlignCorrectedT = 0.0;
+            WaferAlignOffsetT = 0.0;
+        }
+
+        public bool IsWaferAlignThetaInPosition()
+        {
+            try
+            {
+                double targetT;
+                if (!TryResolveWaferAlignThetaTarget(out targetT))
+                    return true;
+
+                if (StageT == null)
+                    return false;
+
+                double tolerance = ResolveAxisPositionTolerance(StageT);
+                return !StageT.IsMoving &&
+                       !StageT.IsAlarm &&
+                       Math.Abs(StageT.ActualPosition - targetT) <= tolerance;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

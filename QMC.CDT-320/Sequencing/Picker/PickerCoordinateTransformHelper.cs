@@ -1,5 +1,4 @@
 ﻿using System;
-using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -117,10 +116,6 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, front.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, front.Setup.PickerPitchY);
-            if (!inputVision)
-            {
-                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Front);
-            }
             return true;
         }
 
@@ -156,37 +151,8 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, rear.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, rear.Setup.PickerPitchY);
-            if (!inputVision)
-            {
-                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Rear);
-            }
             return true;
         }
 
-        private static double ResolveOutputHomeGap(PickerSequenceSide side)
-        {
-            try
-            {
-                SharedRailXConfig config = SharedRailXConfigStore.LoadOrCreateDefault();
-                if (config == null)
-                    return 0.0;
-
-                SharedRailXAxis pickerAxis = side == PickerSequenceSide.Front
-                    ? SharedRailXAxis.FrontPickerX
-                    : SharedRailXAxis.RearPickerX;
-
-                SharedRailXAxisPair pair;
-                if (config.TryGetCollisionPair(SharedRailXAxis.OutputVisionX, pickerAxis, out pair))
-                    return pair.HomeClearance;
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-
-            return 0.0;
-        }
     }
 }

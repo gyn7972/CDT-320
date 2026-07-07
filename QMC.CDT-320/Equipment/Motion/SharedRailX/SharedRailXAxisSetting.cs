@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 
 namespace QMC.CDT320.Motion.SharedRailX
 {

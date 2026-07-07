@@ -63,6 +63,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ActionButton btnNeedleBlockDown;
         private ActionButton btnThetaMatchMove;
         private ActionButton btnXyMatchMove;
+        private ActionButton btnManualDieMapOffsetApply;
         private Button btnClose;
 
         private void InitializeComponent()
@@ -122,6 +123,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnXyMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnManualDieMapOffsetApply = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnClose = new System.Windows.Forms.Button();
             this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -903,14 +905,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.actionLayout.Controls.Add(this.btnManualAlignComplete, 0, 0);
             this.actionLayout.Controls.Add(this.btnThetaMatchMove, 0, 1);
             this.actionLayout.Controls.Add(this.btnXyMatchMove, 0, 2);
+            this.actionLayout.Controls.Add(this.btnManualDieMapOffsetApply, 0, 3);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionLayout.Location = new System.Drawing.Point(233, 263);
             this.actionLayout.Name = "actionLayout";
             this.actionLayout.Padding = new System.Windows.Forms.Padding(4, 6, 4, 4);
-            this.actionLayout.RowCount = 3;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.actionLayout.RowCount = 4;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.actionLayout.Size = new System.Drawing.Size(278, 224);
             this.actionLayout.TabIndex = 3;
             //
@@ -924,7 +928,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnManualAlignComplete.Location = new System.Drawing.Point(8, 10);
             this.btnManualAlignComplete.Margin = new System.Windows.Forms.Padding(4);
             this.btnManualAlignComplete.Name = "btnManualAlignComplete";
-            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 63);
+            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 48);
             this.btnManualAlignComplete.TabIndex = 0;
             this.btnManualAlignComplete.Text = "MANUAL ALIGN COMPLETE";
             //
@@ -950,12 +954,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnThetaMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 83);
+            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 64);
             this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";
-            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 63);
+            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 47);
             this.btnThetaMatchMove.TabIndex = 2;
-            this.btnThetaMatchMove.Text = "THETA MATCH MOVE";
+            this.btnThetaMatchMove.Text = "T 보정";
             //
             // btnXyMatchMove
             //
@@ -964,12 +968,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnXyMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnXyMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 156);
+            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 117);
             this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnXyMatchMove.Name = "btnXyMatchMove";
-            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 64);
+            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 47);
             this.btnXyMatchMove.TabIndex = 3;
-            this.btnXyMatchMove.Text = "X_Y_MATCH MOVE";
+            this.btnXyMatchMove.Text = "다이 검출";
+            //
+            // btnManualDieMapOffsetApply
+            //
+            this.btnManualDieMapOffsetApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnManualDieMapOffsetApply.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnManualDieMapOffsetApply.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnManualDieMapOffsetApply.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnManualDieMapOffsetApply.ForeColor = System.Drawing.Color.White;
+            this.btnManualDieMapOffsetApply.Location = new System.Drawing.Point(8, 170);
+            this.btnManualDieMapOffsetApply.Margin = new System.Windows.Forms.Padding(4);
+            this.btnManualDieMapOffsetApply.Name = "btnManualDieMapOffsetApply";
+            this.btnManualDieMapOffsetApply.Size = new System.Drawing.Size(262, 46);
+            this.btnManualDieMapOffsetApply.TabIndex = 4;
+            this.btnManualDieMapOffsetApply.Text = "Offset 적용";
             //
             // btnClose
             //
