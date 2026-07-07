@@ -1134,6 +1134,10 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 인터락 조건: 내부에서 AxisMove로 변환된 Step/Continuous Jog도 원래 Jog 요청이면 조그 룰로 처리한다.
+            if (MotionGuardRuleHelpers.IsJogMove(request))
+                return CanJogEjectPinZ(request, out reason);
+
             switch (request.MoveKind)
             {
                 // 자동 이동 인터락 확인
@@ -1142,6 +1146,10 @@ namespace QMC.CDT320.Interlocks
                 // 매뉴얼 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
                     return CanManualEjectPinZ(request, out reason);
+                // 조그 이동 인터락 확인
+                case MotionGuardMoveKind.AxisContinuousJog:
+                case MotionGuardMoveKind.AxisStepJog:
+                    return CanJogEjectPinZ(request, out reason);
                 // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeEjectPinZ(request.Machine, out reason);
@@ -1164,6 +1172,14 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             // 인터락 조건: EjectPinZ 수동 이동은 Avoid 복귀 또는 Avoid 위치에서만 허용한다.
             return VerifyEjectPinZManualMoveSafe(request, "EjectPinZ", out reason);
+        }
+
+        // 인터락 항목: 조그 EjectPinZ 이동은 복구/위치 확인을 위해 Avoid 위치 제한을 적용하지 않는다.
+        private static bool CanJogEjectPinZ(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            // 인터락 조건: EjectPinZ Step/Continuous Jog는 작업자가 직접 복구할 수 있도록 위치 제한 없이 허용한다.
+            return true;
         }
 
         // 인터락 항목: 자동 EjectPinZ 이동은 수동 이동 룰을 먼저 확인한 뒤 자동 전용 조건을 추가 확인한다.

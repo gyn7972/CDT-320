@@ -211,10 +211,19 @@ namespace QMC.Vision.Comm
             string liveOn   = parts[3];
             bool on = liveOn == "1" || liveOn.Equals("on", StringComparison.OrdinalIgnoreCase)
                                     || liveOn.Equals("true", StringComparison.OrdinalIgnoreCase);
-            // 핸들러 Live → Vision 카메라 연속 촬상 시작/정지(실제와 동일 경로).
             if (m == null || m.Camera == null) return "fail:camera not assigned";
-            try { if (on) m.Camera.StartLive(); else m.Camera.StopLive(); }
-            catch (Exception ex) { return "fail:" + ex.Message; }
+            // 카메라 Live 시작/정지는 수 초 블록될 수 있어 명령 스레드에서 직접 호출하지 않는다(프리즈 방지).
+            // 백그라운드로 던지고 즉시 ACK. 겹침은 MIL 내부 _liveCtl 로 직렬화(실제와 동일 경로).
+            var cam = m.Camera;
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try { if (on) cam.StartLive(); else cam.StopLive(); }
+                catch (Exception ex)
+                {
+                    try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION",
+                        "CamSwitch", "Live " + (on ? "start" : "stop") + " 실패: " + ex.Message); } catch { }
+                }
+            });
             return $"OK;tool={toolName};live={liveOn}";
         }
 

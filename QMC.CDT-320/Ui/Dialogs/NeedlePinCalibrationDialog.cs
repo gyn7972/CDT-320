@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Globalization;
 using System.Threading;
@@ -329,6 +329,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _resultGrid.Rows.Clear();
             NeedleCalibrationData needle = ResolveNeedleCalibrationData();
+            AddResult("Vision Pixel Offset X", needle != null && needle.Valid ? needle.VisionOffsetX : 0.0, "mm");
+            AddResult("Vision Pixel Offset Y", needle != null && needle.Valid ? needle.VisionOffsetY : 0.0, "mm");
             AddResult("NeedleX To VisionX", needle != null && needle.Valid ? needle.NeedleXToVisionXOffset : 0.0, "mm");
             AddResult("NeedleY To VisionY", needle != null && needle.Valid ? needle.NeedleYToVisionYOffset : 0.0, "mm");
             AddResult("Calibration Valid", needle != null && needle.Valid ? "OK" : "-", "");
@@ -547,7 +549,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return false;
 
                 stage.Recipe.EnsurePositionObjects();
-                stage.Setup.NeedlePinCalVisionTargetId = ReadString("Vision Target", "NeedlePinCal");
+                stage.Setup.NeedlePinCalVisionTargetId = ReadString("Vision Target", "EjectPinFinder");
                 stage.Setup.NeedlePinCalVisionTimeoutMs = Math.Max(1000, ReadInt("Vision Timeout", 5000));
                 NeedleCalibrationData needleData = ResolveNeedleCalibrationData();
                 if (needleData != null)
@@ -756,8 +758,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 host.SaveMachineSettings();
-                _status.Text = "완료. X Offset=" + sequence.Result.NeedleXToVisionXOffset.ToString("F6") +
-                               ", Y Offset=" + sequence.Result.NeedleYToVisionYOffset.ToString("F6");
+                _status.Text = "완료. Pixel X=" + sequence.Result.VisionOffsetX.ToString("F6") +
+                               ", Pixel Y=" + sequence.Result.VisionOffsetY.ToString("F6") +
+                               ", NeedleX-To-VisionX=" + sequence.Result.NeedleXToVisionXOffset.ToString("F6");
             }
             catch (OperationCanceledException)
             {

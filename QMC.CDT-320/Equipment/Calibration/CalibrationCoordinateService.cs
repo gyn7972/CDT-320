@@ -273,7 +273,8 @@ namespace QMC.CDT320.Calibration
             double runtimeX = runtimeOffset != null ? runtimeOffset.AlignOffsetX : 0.0;
             double runtimeY = runtimeOffset != null ? runtimeOffset.AlignOffsetY : 0.0;
             double runtimeT = runtimeOffset != null ? runtimeOffset.AlignOffsetT : 0.0;
-            double pickerYForward = Math.Abs(pickerYTeaching);
+            double pickerYTarget = pickerYTeaching + runtimeY + collet.Y;
+            double pickerYForward = Math.Abs(pickerYTarget);
             PickerCalibratedManualOutputTarget target = new PickerCalibratedManualOutputTarget
             {
                 OutputVisionToPickerX = outputVisionToPickerX,
@@ -286,13 +287,13 @@ namespace QMC.CDT320.Calibration
                 ColletOffsetY = collet.Y,
                 ColletOffsetT = collet.T
             };
-            // 현재 기준: PickerY 전진량은 OutputStageY 보정에서 제외해 Y 방향 보상이 중복되지 않게 한다.
+            // 현재 기준: Picker별 Y 보정까지 포함한 최종 PickerY 전진량으로 OutputStageY를 보상한다.
             target.OutputStageY = slotY + outputVisionToPickerY - pickerYForward;
             target.PickerX = slotX + outputVisionToPickerX + runtimeX + collet.X;
-            target.PickerY = pickerYTeaching + runtimeY + collet.Y;
+            target.PickerY = pickerYTarget;
             target.PickerT = pickerTTeaching + runtimeT + collet.T;
             target.Formula =
-                "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYForward(" + F(pickerYForward) + ")=" + F(target.OutputStageY) +
+                "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYForward(abs(PickerY))(" + F(pickerYForward) + ")=" + F(target.OutputStageY) +
                 " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ")+colletX(" + F(collet.X) + ")=" + F(target.PickerX) +
                 " / PickerY=teachingY(" + F(pickerYTeaching) + ")+runtimeY(" + F(runtimeY) + ")+colletY(" + F(collet.Y) + ")=" + F(target.PickerY) +
                 " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(" + F(collet.T) + ")=" + F(target.PickerT);
