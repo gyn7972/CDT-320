@@ -2515,6 +2515,20 @@ namespace QMC.CDT320.Sequencing
             return (offset != null ? offset.AlignOffsetT : 0.0) + calibration.T;
         }
 
+        protected double ResolvePickerRuntimeAlignOffsetX(int index)
+        {
+            PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
+            // InputVisionToPicker X는 Collet Final 위치 기준 저장값이므로 Pick 계산에서는 Runtime X만 추가한다.
+            return offset != null ? offset.AlignOffsetX : 0.0;
+        }
+
+        protected double ResolvePickerRuntimeAlignOffsetY(int index)
+        {
+            PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
+            // InputVisionToPicker Y는 Collet Final 위치 기준 저장값이므로 Pick 계산에서는 Runtime Y만 추가한다.
+            return offset != null ? offset.AlignOffsetY : 0.0;
+        }
+
         private PickerCalibrationOffset ResolvePickerCalibrationOffset(int index)
         {
             return CalibrationCoordinateService.ResolvePickerCalibrationOffset(

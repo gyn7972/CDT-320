@@ -99,15 +99,15 @@ namespace QMC.CDT320.Sequencing
         public static double ResolvePickerAlignOffsetX(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
-            return (runtime != null ? runtime.AlignOffsetX : 0.0) + (calibration != null ? calibration.X : 0.0);
+            // InputVisionToPicker X/Y는 Collet Final 위치로 저장되므로 Collet X는 여기서 다시 더하지 않는다.
+            return runtime != null ? runtime.AlignOffsetX : 0.0;
         }
 
         public static double ResolvePickerAlignOffsetY(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
-            return (runtime != null ? runtime.AlignOffsetY : 0.0) + (calibration != null ? calibration.Y : 0.0);
+            // InputVisionToPicker X/Y는 Collet Final 위치로 저장되므로 Collet Y는 여기서 다시 더하지 않는다.
+            return runtime != null ? runtime.AlignOffsetY : 0.0;
         }
 
         public static double ResolvePickerAlignOffsetT(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
