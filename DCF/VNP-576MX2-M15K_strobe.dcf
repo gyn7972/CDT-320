@@ -9,7 +9,7 @@ VIEWORKS VNP-576MX2-M15K
 [CONFIG_FILE]
 50CF
 RAPIXOCXP
-Wednesday, June 24, 2026 07:24:43
+Tuesday, July 07, 2026 21:04:32
 [INFO_FILE_REV]
 10.60.0776.10123
 RAPIXOCXP
@@ -22,7 +22,7 @@ INT_Height                                                            "12000"
 INT_OffsetX                                                           "0"
 INT_OffsetY                                                           "0"
 ENUM_AcquisitionMode                                                  "SingleFrame"
-FLOAT_AcquisitionFrameRate                                            "15"
+FLOAT_AcquisitionFrameRate                                            "5"
 ENUM_TriggerSelector                                                  "ExposureStart"
 ENUM_TriggerMode                                                      "Off"
 ENUM_TriggerActivation                                                "RisingEdge"
@@ -34,5 +34,6 @@ ENUM_LineSelector                                                     "Line1"
 ENUM_LineMode                                                         "Output"
 ENUM_LineSource                                                       "ExposureActive"
 BOOL_LineInverter                                                     "0"
+FLOAT_AcquisitionFrameRate                                            "5"
 [STANDARD_FEATURES_DIGITIZER]
 [EOF]
