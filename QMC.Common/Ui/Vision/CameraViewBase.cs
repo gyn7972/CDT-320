@@ -441,6 +441,15 @@ namespace QMC.Common.Ui.Controls
             base.OnHandleDestroyed(e);
         }
 
+        /// <summary>다른 메뉴/페이지로 이동해 이 뷰가 화면에서 사라지면(Visible=false) Live 를 자동 정지.
+        /// 모든 Grab/Live/Stop 툴바(공용 CameraViewBase)에 일괄 적용. 페이지가 살아있는 채 숨겨지는
+        /// 경우를 담당하고, 완전 종료(Dispose/핸들 파괴)는 OnHandleDestroyed 가 처리한다.</summary>
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            try { if (!Visible && _live) DoToolbarStop(); } catch { }
+        }
+
         private void DoToolbarSave()
         {
             if (_frame == null) return;
@@ -889,8 +898,9 @@ namespace QMC.Common.Ui.Controls
                 {
                     //Color.FromArgb(120, 255, 0, 0) 반투명 레드
                     int top = TopInset;
-                    int cx = ClientSize.Width / 2;
-                    int cy = top + (ClientSize.Height - top) / 2;
+                    // 크로스라인을 이미지 중심(dst 중심)에 고정 → 줌/팬/방향전환을 따라가게.
+                    int cx = dst.Left + dst.Width / 2;
+                    int cy = dst.Top + dst.Height / 2;
                     g.DrawLine(p, 0, cy, ClientSize.Width, cy);
                     g.DrawLine(p, cx, top, cx, ClientSize.Height);
                 }

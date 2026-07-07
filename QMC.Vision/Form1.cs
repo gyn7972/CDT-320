@@ -117,20 +117,8 @@ namespace QMC.Vision
         /// <summary>조명 시스템 Setup 로드 + 1회 마이그레이션 + LightHub 초기화 + 시작 시 시리얼 Open(비차단).</summary>
         private void InitializeLighting(VisionSettings cfg)
         {
-            // Stage 69 — 조명 시스템 Setup 로드. 첫 기동 시 레거시 io_set 존재하면 1회 변환 + 백업.
+            // 조명 시스템 Setup 로드 (light_system.json 정본).
             var lightSetup = QMC.Common.Recipes.LightSystemSetupStore.Load();
-            if (lightSetup.Controllers == null || lightSetup.Controllers.Count == 0)
-            {
-                string ioSet = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "io_set.lightSource.json");
-                var migrated = QMC.Common.Recipes.LightSystemMigrator.MigrateFromLegacy(ioSet);
-                if (migrated != null)
-                {
-                    QMC.Common.Recipes.LightSystemMigrator.BackupLegacy(ioSet, DateTime.Now.ToString("yyyyMMdd"));
-                    QMC.Common.Recipes.LightSystemSetupStore.SetCurrent(migrated);
-                    QMC.Common.Recipes.LightSystemSetupStore.Save();
-                    lightSetup = migrated;
-                }
-            }
 
             // Stage 73 — 조명 Sim 여부는 비전 Provider 와 독립(기본 true=Sim). 실점등은 [설정>조명]의 '조명 연결' 버튼.
             QMC.Vision.Comm.LightHub.Initialize(lightSetup, cfg.LightUseSim);
@@ -197,7 +185,7 @@ namespace QMC.Vision
                 // 1) 기본 데이터 폴더 생성(이미 있으면 무해).
                 System.IO.Directory.CreateDirectory(QMC.Common.Data.Store.RecipeDataStore.Root);
                 System.IO.Directory.CreateDirectory(QMC.Common.Data.Store.EquipmentDataStore.Root);
-                System.IO.Directory.CreateDirectory(System.IO.Path.Combine(baseDir, "Config"));
+                System.IO.Directory.CreateDirectory(QMC.Vision.Config.VisionPaths.ConfigDir);
                 EnsureRelativeDir(baseDir, cfg?.ImageLogPath ?? @".\Log\Image");
                 EnsureRelativeDir(baseDir, cfg?.DataLogPath  ?? @".\Log\Data");
 
@@ -748,6 +736,7 @@ namespace QMC.Vision
             if (mod == null) { error = "unknown algorithm: " + algorithm; return false; }
 
             mod.DelayBeforeGrabMs = mapping.DelayBeforeGrabMs;
+            mod.AverageCount = mapping.AverageCount;
 
             // 카메라 ID 가 같으면 파라미터만 갱신, 다르면 카메라 교체
             if (string.Equals(mod.Camera?.Info?.Id, mapping.CameraId, StringComparison.OrdinalIgnoreCase))

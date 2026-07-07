@@ -256,8 +256,8 @@ namespace QMC.Vision.Config
 
     public static class VisionConfigStore
     {
-        public static string Dir  { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
-        public static string Path_ { get; } = System.IO.Path.Combine(Dir, "vision.json");
+        public static string Dir  => QMC.Vision.Config.VisionPaths.ConfigDir;
+        public static string Path_ => System.IO.Path.Combine(Dir, "vision.json");
 
         public static VisionSettings Current { get; private set; } = new VisionSettings();
 
