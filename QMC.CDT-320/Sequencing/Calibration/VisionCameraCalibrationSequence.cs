@@ -962,9 +962,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                result = await vision.SetReticleFrontSideForwardAsync(true, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                //Front 사용안함
+                //result = await vision.SetReticleFrontSideForwardAsync(true, ct).ConfigureAwait(false);
+                //if (result != 0)
+                //    return result;
 
                 result = await vision.SetReticleRearSideForwardAsync(true, ct).ConfigureAwait(false);
                 if (result != 0)

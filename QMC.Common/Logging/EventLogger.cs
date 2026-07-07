@@ -29,6 +29,12 @@ namespace QMC.Common.Logging
         private static string _logRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
         private static bool _writerRunning;
 
+        // 로그 저장 방식 오버라이드(로그 설정창). false=전체 한 폴더, true=종류별 폴더.
+        private static readonly object _kindDirLock = new object();
+        private static readonly Dictionary<EventKind, string> _kindDirs = new Dictionary<EventKind, string>();
+        private static bool _splitByKind;    // 기본 false = 전체 한 폴더(기존 동작)
+        private static string _allDir;       // 전체 모드 저장 폴더(null → <LogRoot>\Event)
+
         public static event Action<EventRow> EventLogged;
 
         public static string LogRoot
@@ -65,6 +71,100 @@ namespace QMC.Common.Logging
                 {
                 }
             }
+        }
+
+        /// <summary>종류별 기본 폴더명. 기본 경로는 &lt;LogRoot&gt;\&lt;이 이름&gt; 이다.
+        /// (Event 는 기존과 동일하게 LogDir 과 일치 → 기존 로그 위치 유지)</summary>
+        public static string KindFolderName(EventKind kind)
+        {
+            switch (kind)
+            {
+                case EventKind.Event:        return "Event";
+                case EventKind.Warning:      return "Warning";
+                case EventKind.Alarm:        return "Alarm";
+                case EventKind.Data:         return "Data";
+                case EventKind.Work:         return "Work";
+                case EventKind.InputSeq:     return "InputSeq";
+                case EventKind.OutputSeq:    return "OutputSeq";
+                case EventKind.FrontHeadSeq: return "FrontHeadSeq";
+                case EventKind.RearHeadSeq:  return "RearHeadSeq";
+                default:                     return "Event";
+            }
+        }
+
+        /// <summary>해당 종류의 로그 폴더. 설정 오버라이드가 있으면 그것을, 없으면 &lt;LogRoot&gt;\&lt;종류&gt; 를 반환한다.</summary>
+        public static string ResolveKindDir(EventKind kind)
+        {
+            try
+            {
+                lock (_kindDirLock)
+                {
+                    // 전체 모드: 모든 종류가 한 폴더(_allDir, 기본 <LogRoot>\Event)로 간다.
+                    if (!_splitByKind)
+                        return !string.IsNullOrWhiteSpace(_allDir) ? _allDir : Path.Combine(LogRoot, "Event");
+
+                    // 종류별 모드: 오버라이드가 있으면 그것, 없으면 <LogRoot>\<종류>.
+                    string ov;
+                    if (_kindDirs.TryGetValue(kind, out ov) && !string.IsNullOrWhiteSpace(ov))
+                        return ov;
+                }
+                return Path.Combine(LogRoot, KindFolderName(kind));
+            }
+            catch
+            {
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log", KindFolderName(kind));
+            }
+        }
+
+        /// <summary>로그 저장 경로 설정(설정창 SAVE / 앱 시작 주입).
+        /// splitByKind=false 면 전체(allDir 한 폴더), true 면 종류별(kindDirs 오버라이드+기본 &lt;LogRoot&gt;\&lt;종류&gt;).
+        /// 이후 flush 부터 새 경로에 기록된다.</summary>
+        public static void ConfigureLogPaths(bool splitByKind, string allDir, IDictionary<EventKind, string> kindDirs)
+        {
+            try
+            {
+                lock (_kindDirLock)
+                {
+                    _splitByKind = splitByKind;
+                    _allDir = string.IsNullOrWhiteSpace(allDir) ? null : allDir;
+                    _kindDirs.Clear();
+                    if (kindDirs != null)
+                    {
+                        foreach (var kv in kindDirs)
+                        {
+                            if (!string.IsNullOrWhiteSpace(kv.Value))
+                                _kindDirs[kv.Key] = kv.Value;
+                        }
+                    }
+                }
+
+                // 다음 flush 에서 새 경로로 파일을 다시 잡도록 현재 캐시를 초기화한다.
+                lock (SyncRoot)
+                {
+                    _currentDate = null;
+                    _currentPath = null;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        /// <summary>종류 이름(EventKind.ToString) 키의 맵으로 경로 설정(설정 저장값·앱 시작 주입용).</summary>
+        public static void ConfigureLogPathsByName(bool splitByKind, string allDir, IDictionary<string, string> kindDirsByName)
+        {
+            var map = new Dictionary<EventKind, string>();
+            if (kindDirsByName != null)
+            {
+                foreach (var kv in kindDirsByName)
+                {
+                    EventKind kind;
+                    if (!string.IsNullOrWhiteSpace(kv.Value) &&
+                        Enum.TryParse(kv.Key, out kind) && Enum.IsDefined(typeof(EventKind), kind))
+                        map[kind] = kv.Value;
+                }
+            }
+            ConfigureLogPaths(splitByKind, allDir, map);
         }
 
         public static void Configure(string logRoot)
@@ -377,7 +477,7 @@ namespace QMC.Common.Logging
         {
             try
             {
-                string path = GetActiveLogFileForDate(date);
+                string path = GetActiveLogFileForDate(date, null);
                 if (string.IsNullOrWhiteSpace(path))
                     return new List<EventRow>();
 
@@ -397,7 +497,7 @@ namespace QMC.Common.Logging
         {
             try
             {
-                string path = GetActiveLogFileForDate(date);
+                string path = GetActiveLogFileForDate(date, kindHint);
                 if (string.IsNullOrWhiteSpace(path))
                     return new List<EventRow>();
 
@@ -700,22 +800,29 @@ namespace QMC.Common.Logging
         {
             try
             {
+                // 종류별 폴더의 그날 CSV 로 기록한다. 종류 또는 날짜가 바뀌면 버퍼를 비우고 대상 파일을 전환한다.
+                EventKind currentKind = EventKind.Event;
+                bool hasCurrent = false;
                 DateTime currentDate = DateTime.MinValue;
                 StringBuilder buffer = new StringBuilder();
 
                 foreach (EventRow row in rows)
                 {
                     DateTime rowDate = row.When.Date;
-                    if (currentDate != DateTime.MinValue && rowDate != currentDate)
+                    bool switchTarget = !hasCurrent || row.Kind != currentKind || rowDate != currentDate;
+
+                    if (switchTarget && buffer.Length > 0)
                     {
                         FlushEventCsvBuffer(buffer);
                         buffer.Length = 0;
                     }
 
-                    if (rowDate != currentDate)
+                    if (switchTarget)
                     {
+                        currentKind = row.Kind;
                         currentDate = rowDate;
-                        RotateIfNeeded(row.When);
+                        hasCurrent = true;
+                        RotateIfNeeded(row.When, ResolveKindDir(row.Kind));
                     }
 
                     buffer.Append(row.ToCsv());
@@ -751,17 +858,20 @@ namespace QMC.Common.Logging
             }
         }
 
-        private static void RotateIfNeeded(DateTime when)
+        private static void RotateIfNeeded(DateTime when, string dir)
         {
             try
             {
                 string today = when.Date.ToString("yyyy-MM-dd");
-                if (_currentDate == today && !string.IsNullOrWhiteSpace(_currentPath))
+                string desired = Path.Combine(dir, today + ".csv");
+                if (_currentDate == today &&
+                    !string.IsNullOrWhiteSpace(_currentPath) &&
+                    string.Equals(_currentPath, desired, StringComparison.OrdinalIgnoreCase))
                     return;
 
-                Directory.CreateDirectory(LogDir);
+                Directory.CreateDirectory(dir);
                 _currentDate = today;
-                _currentPath = Path.Combine(LogDir, today + ".csv");
+                _currentPath = desired;
                 if (!File.Exists(_currentPath))
                     WriteEventCsvHeader(_currentPath);
             }
@@ -848,12 +958,25 @@ namespace QMC.Common.Logging
             var result = new List<string>();
             try
             {
-                string dir = LogDir;
                 string dateName = date.ToString("yyyy-MM-dd");
-                string activePath = Path.Combine(dir, dateName + ".csv");
 
-                if (Directory.Exists(dir))
+                // 종류별 분리 후에도 '그날 전체' 읽기를 유지하기 위해 모든 종류 폴더(+기본 LogDir)를 훑는다.
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var dirs = new List<string>();
+                if (seen.Add(LogDir))
+                    dirs.Add(LogDir);
+                foreach (EventKind kind in (EventKind[])Enum.GetValues(typeof(EventKind)))
                 {
+                    string kd = ResolveKindDir(kind);
+                    if (seen.Add(kd))
+                        dirs.Add(kd);
+                }
+
+                foreach (string dir in dirs)
+                {
+                    if (!Directory.Exists(dir))
+                        continue;
+
                     string[] archived = Directory.GetFiles(dir, dateName + "_*.csv");
                     Array.Sort(archived, StringComparer.OrdinalIgnoreCase);
                     foreach (string path in archived)
@@ -861,10 +984,11 @@ namespace QMC.Common.Logging
                         if (IsNumberedArchivePath(path, dateName))
                             result.Add(path);
                     }
-                }
 
-                if (File.Exists(activePath))
-                    result.Add(activePath);
+                    string activePath = Path.Combine(dir, dateName + ".csv");
+                    if (File.Exists(activePath))
+                        result.Add(activePath);
+                }
             }
             catch
             {
@@ -876,11 +1000,12 @@ namespace QMC.Common.Logging
             return result;
         }
 
-        private static string GetActiveLogFileForDate(DateTime date)
+        private static string GetActiveLogFileForDate(DateTime date, EventKind? kindHint)
         {
             try
             {
-                string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
+                string dir = kindHint.HasValue ? ResolveKindDir(kindHint.Value) : LogDir;
+                string path = Path.Combine(dir, date.ToString("yyyy-MM-dd") + ".csv");
                 return File.Exists(path) ? path : null;
             }
             catch
