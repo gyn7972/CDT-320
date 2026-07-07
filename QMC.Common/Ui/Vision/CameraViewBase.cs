@@ -145,6 +145,7 @@ namespace QMC.Common.Ui.Controls
         private bool _live;
         private int  _grabBusy;   // 0/1 — 단발 그랩 재진입 가드(백그라운드 그랩 중 재클릭 무시)
         private int  _liveBusy;   // 0/1 — Live 시작 재진입 가드
+        private int  _liveUiPending;   // 0/1 — 라이브 프레임 UI 적체 방지(직전 프레임 표시 중이면 새 프레임 드롭)
 
         // ── 소스 작업 직렬 큐 ──
         // Grab/StartLive/StopLive 를 각각 Task.Run 으로 던지면 스레드풀에서 실행 순서가 보장되지 않아
@@ -361,13 +362,34 @@ namespace QMC.Common.Ui.Controls
                     src.StartLive(bmp =>
                     {
                         if (bmp == null) return;
+                        // UI 가 직전 프레임을 아직 그리는 중이면 이번 프레임은 버린다(드롭) —
+                        // 매 프레임 BeginInvoke 를 쌓으면 대형 프레임(144MP 등)에서 UI 스레드가 포화되어
+                        // 화면 전체가 멈추고 Stop 클릭조차 처리되지 않는다(BeginInvoke flooding).
+                        // CameraMappingPanel 의 _uiPending 가드와 동일 패턴.
+                        if (System.Threading.Interlocked.CompareExchange(ref _liveUiPending, 1, 0) != 0)
+                        {
+                            try { bmp.Dispose(); } catch { }
+                            return;
+                        }
                         try
                         {
                             if (IsHandleCreated && !IsDisposed)
-                                BeginInvoke(new Action(() => { SetImage(bmp); bmp.Dispose(); CountLiveFrame(); }));
-                            else bmp.Dispose();
+                                BeginInvoke(new Action(() =>
+                                {
+                                    try { SetImage(bmp); bmp.Dispose(); CountLiveFrame(); }
+                                    finally { System.Threading.Interlocked.Exchange(ref _liveUiPending, 0); }
+                                }));
+                            else
+                            {
+                                bmp.Dispose();
+                                System.Threading.Interlocked.Exchange(ref _liveUiPending, 0);
+                            }
                         }
-                        catch { try { bmp.Dispose(); } catch { } }
+                        catch
+                        {
+                            try { bmp.Dispose(); } catch { }
+                            System.Threading.Interlocked.Exchange(ref _liveUiPending, 0);
+                        }
                     });
                     ok = true;
                 }
