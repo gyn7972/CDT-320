@@ -443,10 +443,31 @@ namespace QMC.Vision
         /// 핸들러 명령(GRAB/MATCH 등) 게이트 조건. RUN 이 풀리면 자동 해제(<see cref="IsRunActive"/> 종속).</summary>
         internal bool IsReady => _ready && IsRunActive;
 
-        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.</summary>
+        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.
+        /// READY 진입 시 모든 모듈 카메라의 라이브를 정지한다 — 시퀀서/핸들러가 소프트트리거로
+        /// 카메라를 제어하므로 연속 촬상(Live)이 남아 있으면 시퀀스 그랩과 충돌한다.</summary>
         internal void SetReady(bool on)
         {
             _ready = on && IsRunActive;
+            if (_ready) StopAllCameraLive();
+        }
+
+        /// <summary>모든 모듈 카메라 라이브 정지 — READY 진입 시 호출(핸들러 그랩과 충돌 방지).</summary>
+        private void StopAllCameraLive()
+        {
+            var mods = new Modules.IVisionModule[]
+                { WaferMod, BinMod, BottomMod, FrontSideVisionMod, RearSideVisionMod };
+            foreach (var mod in mods)
+            {
+                try { mod?.Camera?.StopLive(); }
+                catch (Exception ex)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "ReadyStopLive",
+                        (mod?.Name ?? "?") + " 라이브 정지 실패: " + ex.Message);
+                }
+            }
+            QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ReadyStopLive",
+                "READY 진입 — 전 모듈 카메라 라이브 정지");
         }
 
         /// <summary>작업 탭 RUN/STOP 토글 — Sim 자체 실행은 시퀀서 시작/정지, 실제 모드는 RUN 상태 set(핸들러 접속 시).</summary>
