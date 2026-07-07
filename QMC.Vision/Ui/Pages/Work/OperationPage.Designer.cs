@@ -12,7 +12,6 @@ namespace QMC.Vision.Ui.Pages
         private TableLayoutPanel _root;
         private Label            _hdr;
         private Button           _btnRun;        // RUN / STOP 토글
-        private Button           _btnReady;      // READY — RUN 왼쪽, 핸들러 VISION 사용 승인
         private TableLayoutPanel _cardsHost;   // 5열 — 모듈 상태카드(런타임 채움, 비클릭)
 
         // 모니터링: 상단(메인 Bottom 크게 + Wafer/Bin) / 하단(FrontSide·RearSide 전체폭 가로 띠, 위아래 스택)
@@ -40,7 +39,6 @@ namespace QMC.Vision.Ui.Pages
             this._root = new System.Windows.Forms.TableLayoutPanel();
             this._hdr = new System.Windows.Forms.Label();
             this._btnRun = new System.Windows.Forms.Button();
-            this._btnReady = new System.Windows.Forms.Button();
             this._cardsHost = new System.Windows.Forms.TableLayoutPanel();
             this._monitor = new System.Windows.Forms.TableLayoutPanel();
             this._camBig = new QMC.Vision.Ui.Controls.CameraView();
@@ -78,7 +76,6 @@ namespace QMC.Vision.Ui.Pages
             // _hdr
             // 
             this._hdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this._hdr.Controls.Add(this._btnReady);
             this._hdr.Controls.Add(this._btnRun);
             this._hdr.Dock = System.Windows.Forms.DockStyle.Fill;
             this._hdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -107,22 +104,6 @@ namespace QMC.Vision.Ui.Pages
             this._btnRun.Text = "RUN";
             this._btnRun.UseVisualStyleBackColor = false;
             this._btnRun.Click += new System.EventHandler(this.OnRunToggleClick);
-            // 
-            // _btnReady
-            // 
-            this._btnReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this._btnReady.Dock = System.Windows.Forms.DockStyle.Right;
-            this._btnReady.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnReady.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
-            this._btnReady.ForeColor = System.Drawing.Color.White;
-            this._btnReady.Location = new System.Drawing.Point(1187, 0);
-            this._btnReady.Margin = new System.Windows.Forms.Padding(0);
-            this._btnReady.Name = "_btnReady";
-            this._btnReady.Size = new System.Drawing.Size(96, 30);
-            this._btnReady.TabIndex = 1;
-            this._btnReady.Text = "READY";
-            this._btnReady.UseVisualStyleBackColor = false;
-            this._btnReady.Click += new System.EventHandler(this.OnReadyToggleClick);
             // 
             // _cardsHost
             // 

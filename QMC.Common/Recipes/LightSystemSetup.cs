@@ -122,7 +122,7 @@ namespace QMC.Common.Recipes
                 }
                 catch { Current = new LightSystemSetup(); }
             }
-            else Current = new LightSystemSetup();   // 마이그레이션은 호출자(LightSystemMigrator)가 별도 수행
+            else Current = new LightSystemSetup();
 
             if (Current == null) Current = new LightSystemSetup();
             return Current;

@@ -41,7 +41,7 @@ namespace QMC.CDT320
 
         [DataMember] public double NeedleWorkAreaCenterY { get; set; } = 0.0;
 
-        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = "NeedlePinCal";
+        [DataMember] public string NeedlePinCalVisionTargetId { get; set; } = "EjectPinFinder";
 
         [DataMember] public int NeedlePinCalVisionTimeoutMs { get; set; } = 5000;
 
@@ -57,7 +57,7 @@ namespace QMC.CDT320
             if (NeedleWorkAreaRadius <= 0.0)
                 NeedleWorkAreaRadius = 125.0;
             if (string.IsNullOrWhiteSpace(NeedlePinCalVisionTargetId))
-                NeedlePinCalVisionTargetId = "NeedlePinCal";
+                NeedlePinCalVisionTargetId = "EjectPinFinder";
             if (NeedlePinCalVisionTimeoutMs <= 0)
                 NeedlePinCalVisionTimeoutMs = 5000;
         }
@@ -1776,7 +1776,7 @@ namespace QMC.CDT320
                 double velocity = UnitJogVelocityResolver.Resolve(item, speedType, customSpeed);
                 double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
                 double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
-                int result = await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                int result = await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration, true).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1815,6 +1815,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveInputStageAxisCommandWithMotion(WaferStageAxis axis, double targetPos, double velocity, double acceleration, double deceleration)
         {
+            return await MoveInputStageAxisCommandWithMotion(axis, targetPos, velocity, acceleration, deceleration, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveInputStageAxisCommandWithMotion(WaferStageAxis axis, double targetPos, double velocity, double acceleration, double deceleration, bool isJogStep)
+        {
             try
             {
                 BaseAxis item = ResolveInputStageAxis(axis);
@@ -1832,7 +1837,10 @@ namespace QMC.CDT320
                 }
 
                 string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
+                bool interlockOk = isJogStep
+                    ? MotionGuardRuntime.VerifyAxisStepJog(item, targetPos, "StepJog", out interlockReason)
+                    : MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason);
+                if (!interlockOk)
                 {
                     string message = axis + " move command blocked by interlock. target=" + targetPos + ". " + interlockReason;
                     LastStageMoveFailureMessage = message;
@@ -1843,12 +1851,29 @@ namespace QMC.CDT320
                         message);
                 }
 
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(
-                    item,
-                    targetPos,
-                    velocity,
-                    acceleration,
-                    deceleration).ConfigureAwait(false);
+                int result;
+                if (isJogStep)
+                {
+                    using (SharedRailXMotionRuntime.EnterInternalDispatch())
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                            item,
+                            targetPos,
+                            velocity,
+                            acceleration,
+                            deceleration,
+                            true).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    result = await SharedRailXMotionRuntime.MoveAxisAsync(
+                        item,
+                        targetPos,
+                        velocity,
+                        acceleration,
+                        deceleration).ConfigureAwait(false);
+                }
 
                 if (result != 0 || item.IsAlarm)
                 {

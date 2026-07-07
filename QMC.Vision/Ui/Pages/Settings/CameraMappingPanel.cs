@@ -159,6 +159,9 @@ namespace QMC.Vision.Ui.Pages
                 // 그랩 전 지연: MVS 카메라 노드가 아닌 핸들러 그랩 직전 대기(소프트웨어) — (SW) 표기로 구분.
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.delayGrab") + " (SW)", "ms", ParameterGridScope.Recipe,
                     () => m.DelayBeforeGrabMs, v => m.DelayBeforeGrabMs = v), 0, 60000),
+                // 프레임 평균화 매수(1=단발). N장 촬상 후 픽셀평균으로 노이즈 저감 — 소프트웨어 처리(SW) 표기.
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.avgCount") + " (SW)", "장", ParameterGridScope.Recipe,
+                    () => m.AverageCount, v => m.AverageCount = v), 1, 64),
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiOffX"), "px", ParameterGridScope.Recipe,
                     () => m.RoiOffsetX, v => m.RoiOffsetX = v), 0, 8000),
                 WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiOffY"), "px", ParameterGridScope.Recipe,

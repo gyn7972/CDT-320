@@ -171,17 +171,6 @@ namespace QMC.Vision.Comm
                 return;
             }
 
-            // 핸들러 Live(CAM_SWITCH liveOn=1) 는 셋업(비 READY)에서만 허용 — RUN/READY 중엔 시퀀서가
-            // 소프트트리거로 카메라를 제어하므로 연속 촬상(Live) 을 켜면 시퀀스 그랩과 충돌한다.
-            if (cmd == "CAM_SWITCH" && parts.Length >= 4
-                && (parts[3] == "1" || parts[3].Equals("on", StringComparison.OrdinalIgnoreCase)
-                    || parts[3].Equals("true", StringComparison.OrdinalIgnoreCase))
-                && IsCommandAllowed != null && IsCommandAllowed())
-            {
-                Send(stream, $"ERR|{mod}|{cmd}|busy: RUN/READY 중 Live 불가");
-                return;
-            }
-
             try
             {
                 string resp = string.Empty;

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -11,7 +11,7 @@ namespace QMC.Vision.Ui.Pages
         // 헤더 / 툴바 / 상태
         private Label _hdr;
         private TableLayoutPanel _bar;   // 하단 버튼 툴바 (GENERAL 동일 프레임)
-        private Button _btnSave, _btnReload, _btnAddCtrl, _btnDelCtrl, _btnMigrate, _btnRename, _btnConnect, _btnDisc;
+        private Button _btnSave, _btnReload, _btnAddCtrl, _btnDelCtrl, _btnRename, _btnConnect, _btnDisc;
         // _lblStatus 는 Code 측 partial 에 이미 선언됨
 
         // 레이아웃 컨테이너 (C3b-3: 결선 섹션 제거 — 컨트롤러 인벤토리만)
@@ -44,7 +44,7 @@ namespace QMC.Vision.Ui.Pages
             this._bar = new TableLayoutPanel();
             this._btnSave = new Button(); this._btnReload = new Button();
             this._btnAddCtrl = new Button(); this._btnDelCtrl = new Button();
-            this._btnMigrate = new Button(); this._btnRename = new Button();
+            this._btnRename = new Button();
             this._btnConnect = new Button(); this._btnDisc = new Button();
             this._lblStatus = new Label();
             this._body = new TableLayoutPanel();
@@ -90,12 +90,11 @@ namespace QMC.Vision.Ui.Pages
             // ── 하단 버튼 툴바 (TableLayoutPanel — 좌측 액션 / 스페이서 / 우측 불러오기·저장) ──
             this._bar.Dock = DockStyle.Bottom;
             this._bar.Height = 46;
-            this._bar.ColumnCount = 9;
+            this._bar.ColumnCount = 8;
             this._bar.RowCount = 1;
             this._bar.Padding = new Padding(0, 0, 0, 0);
             this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F)); // 컨트롤러 추가
             this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F)); // 컨트롤러 삭제
-            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F)); // io_set 가져오기
             this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F)); // 포트 일괄 변경
             this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F)); // 조명 연결
             this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F)); // 조명 해제
@@ -120,14 +119,6 @@ namespace QMC.Vision.Ui.Pages
             this._btnDelCtrl.BackColor = Color.White;
             this._btnDelCtrl.ForeColor = Color.Black;
             this._btnDelCtrl.UseVisualStyleBackColor = false;
-            // io_set 가져오기
-            this._btnMigrate.Dock = DockStyle.Fill;
-            this._btnMigrate.Text = "io_set 가져오기";
-            this._btnMigrate.FlatStyle = FlatStyle.Flat;
-            this._btnMigrate.Font = new Font("맑은 고딕", 10.5F);
-            this._btnMigrate.BackColor = Color.White;
-            this._btnMigrate.ForeColor = Color.Black;
-            this._btnMigrate.UseVisualStyleBackColor = false;
             // 포트 일괄 변경
             this._btnRename.Dock = DockStyle.Fill;
             this._btnRename.Text = "포트 일괄 변경";
@@ -175,19 +166,17 @@ namespace QMC.Vision.Ui.Pages
             this._btnReload.Click  += new System.EventHandler(this.OnReloadClick);
             this._btnAddCtrl.Click += new System.EventHandler(this.OnAddCtrlClick);
             this._btnDelCtrl.Click += new System.EventHandler(this.OnDelCtrlClick);
-            this._btnMigrate.Click += new System.EventHandler(this.OnMigrateClick);
             this._btnRename.Click  += new System.EventHandler(this.OnRenameClick);
             this._btnConnect.Click += new System.EventHandler(this.OnConnectLightsClick);
             this._btnDisc.Click    += new System.EventHandler(this.OnDisconnectLightsClick);
 
             this._bar.Controls.Add(this._btnAddCtrl, 0, 0);
             this._bar.Controls.Add(this._btnDelCtrl, 1, 0);
-            this._bar.Controls.Add(this._btnMigrate, 2, 0);
-            this._bar.Controls.Add(this._btnRename,  3, 0);
-            this._bar.Controls.Add(this._btnConnect, 4, 0);
-            this._bar.Controls.Add(this._btnDisc,    5, 0);
-            this._bar.Controls.Add(this._btnReload,  7, 0);
-            this._bar.Controls.Add(this._btnSave,    8, 0);
+            this._bar.Controls.Add(this._btnRename,  2, 0);
+            this._bar.Controls.Add(this._btnConnect, 3, 0);
+            this._bar.Controls.Add(this._btnDisc,    4, 0);
+            this._bar.Controls.Add(this._btnReload,  6, 0);
+            this._bar.Controls.Add(this._btnSave,    7, 0);
 
             // ── 상태바 ──
             this._lblStatus.Dock = DockStyle.Bottom;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
@@ -54,7 +54,6 @@ namespace QMC.Vision.Ui.Pages
         private void OnReloadClick(object sender, EventArgs e) => LoadFromStore();
         private void OnAddCtrlClick(object sender, EventArgs e) => AddController();
         private void OnDelCtrlClick(object sender, EventArgs e) => DeleteController();
-        private void OnMigrateClick(object sender, EventArgs e) => Migrate();
         private void OnRenameClick(object sender, EventArgs e) => RenamePort();
         private void OnConnectLightsClick(object sender, EventArgs e) => ConnectLights();
         private void OnDisconnectLightsClick(object sender, EventArgs e) => DisconnectLights();
@@ -390,18 +389,6 @@ namespace QMC.Vision.Ui.Pages
         {
             _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine");   // Stage 77 — 기본 Vendor
             SetStatus("컨트롤러 행 추가 — PortName 수정 후 저장", false);
-        }
-
-        private void Migrate()
-        {
-            // io_set.lightSource.json 은 Handler/Vision 의 Config 폴더에 위치 — 현 exe Config 우선.
-            string ioSet = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "io_set.lightSource.json");
-            var setup = LightSystemMigrator.MigrateFromLegacy(ioSet);
-            if (setup == null) { SetStatus("io_set.lightSource.json 없음/파싱 실패: " + ioSet, true); return; }
-            LightSystemMigrator.BackupLegacy(ioSet, DateTime.Now.ToString("yyyyMMdd"));
-            LightSystemSetupStore.SetCurrent(setup);
-            BindAll(setup);
-            SetStatus($"가져오기 완료 — 컨트롤러 {setup.Controllers.Count}개 (저장 필요). 검사별 컨트롤러/페이지는 [설정>검사]에서 지정.", false);
         }
 
         private void RenamePort()

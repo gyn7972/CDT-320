@@ -32,6 +32,10 @@ namespace QMC.CDT320.Sequencing
             double inputVisionToPickerY,
             bool logFormula = false)
         {
+            double cameraOffsetX;
+            double cameraOffsetY;
+            TryResolveInputCameraToBottomOffsets(machine, out cameraOffsetX, out cameraOffsetY);
+
             return DieCoordinateTransformService.CalculatePickTarget(
                 "InputPickerPickTargetResolver.ManualInputMap",
                 side,
@@ -42,7 +46,10 @@ namespace QMC.CDT320.Sequencing
                 inputVisionToPickerX,
                 inputVisionToPickerY,
                 ResolvePickerAlignOffsetX(machine, side, pickerIndex),
+                ResolvePickerAlignOffsetY(machine, side, pickerIndex),
                 ResolvePickerAlignOffsetT(machine, side, pickerIndex),
+                cameraOffsetX,
+                cameraOffsetY,
                 0.0,
                 0.0,
                 0.0,
@@ -56,11 +63,51 @@ namespace QMC.CDT320.Sequencing
                 logFormula);
         }
 
+        public static bool TryResolveInputCameraToBottomOffsets(
+            CDT320_Machine machine,
+            out double offsetX,
+            out double offsetY)
+        {
+            offsetX = 0.0;
+            offsetY = 0.0;
+
+            try
+            {
+                VisionCameraCalibrationData camera = CalibrationCoordinateService.ResolveCamera(machine);
+                if (camera == null)
+                    return false;
+
+                camera.EnsureObjects();
+                if (!camera.Valid)
+                    return false;
+
+                offsetX = camera.InputToBottomOffsetX;
+                offsetY = camera.InputToBottomOffsetY;
+                return true;
+            }
+            catch
+            {
+                offsetX = 0.0;
+                offsetY = 0.0;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static double ResolvePickerAlignOffsetX(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
             PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
             return (runtime != null ? runtime.AlignOffsetX : 0.0) + (calibration != null ? calibration.X : 0.0);
+        }
+
+        public static double ResolvePickerAlignOffsetY(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
+        {
+            PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
+            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
+            return (runtime != null ? runtime.AlignOffsetY : 0.0) + (calibration != null ? calibration.Y : 0.0);
         }
 
         public static double ResolvePickerAlignOffsetT(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)

@@ -503,21 +503,7 @@ namespace QMC.Vision.Ui.Pages
         /// READY 해제 후에만 레시피 변경 허용(런 중 desync 방지). READY 아닐 때 핸들러와 동기는 Form1.CheckHandlerRecipeSync 가 처리.</summary>
         private bool IsRecipeLockedByReady()
         {
-            var host = FindForm() as Form1;
-            if (host != null && host.IsReady)
-            {
-                try
-                {
-                    QMC.Common.MessageDialog.Show(
-                        "READY(핸들러 사용 중) 상태에서는 레시피를 변경할 수 없습니다.\r\nREADY 해제 후 진행하세요.",
-                        "레시피 잠금",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Warning);
-                }
-                catch { }
-                return true;
-            }
-            return false;
+            return false;   // READY 제약 폐기 — 레시피 편집 잠금 없음
         }
 
         /// <summary>마지막 적용 레시피명을 VisionSettings 에 저장 — 재시작 시 RestoreLastRecipe 가 복원.</summary>

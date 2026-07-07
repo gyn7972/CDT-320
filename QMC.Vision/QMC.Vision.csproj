@@ -181,6 +181,7 @@
     <Compile Include="Equipment\Comm\GrabStreamServer.cs" />
     <Compile Include="Equipment\Tools\UiOverlapAuditor.cs" />
     <Compile Include="Equipment\Tools\CameraConnectTest.cs" />
+    <Compile Include="Config\VisionPaths.cs" />
     <Compile Include="Equipment\Config\VisionConfig.cs" />
     <Compile Include="Equipment\Config\AlgorithmCameraBinder.cs" />
     <Compile Include="Equipment\Config\CameraNodeCatalog.cs" />

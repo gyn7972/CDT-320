@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             Unload,
             Ready,
             Reticle,
-            NeedlePinCal
+            EjectPinFinder
         }
 
         private sealed class StageTeachingPosition
@@ -75,7 +75,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             AddTeachingAxis(axes, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ, false, false);
 
             var positions = new List<StageTeachingPosition>();
-            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle, StagePositionKind.NeedlePinCal })
+            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle, StagePositionKind.EjectPinFinder })
             {
                 foreach (StageTeachingAxis axis in axes)
                 {
@@ -85,7 +85,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "EXPANDER Z", StringComparison.OrdinalIgnoreCase))
                         continue;
-                    if (kind == StagePositionKind.NeedlePinCal &&
+                    if (kind == StagePositionKind.EjectPinFinder &&
                         !string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "VISION X", StringComparison.OrdinalIgnoreCase) &&
                         !string.Equals(axis.AxisLabel, "NEEDLE X", StringComparison.OrdinalIgnoreCase) &&
@@ -188,7 +188,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
                     break;
                 // Needle Pin Calibration 위치 레시피 항목 추가
-                case StagePositionKind.NeedlePinCal:
+                case StagePositionKind.EjectPinFinder:
                     if (string.Equals(axis.AxisLabel, "WAFER Y", StringComparison.OrdinalIgnoreCase))
                         AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
                     else
@@ -220,7 +220,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 case StagePositionKind.Reticle:
                     return "RETICLE POSITION";
                 // Needle Pin Calibration 위치 라벨 반환
-                case StagePositionKind.NeedlePinCal:
+                case StagePositionKind.EjectPinFinder:
                     return "NEEDLE PIN CAL POSITION";
                 default:
                     return kind.ToString().ToUpperInvariant() + " POSITION";
@@ -1398,7 +1398,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             StagePositionKind.Ready,
             StagePositionKind.Process,
             StagePositionKind.Reticle,
-            StagePositionKind.NeedlePinCal
+            StagePositionKind.EjectPinFinder
         };
 
         private void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
@@ -1409,7 +1409,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ParameterGridItem header = ParameterGridItem.Header(GetPositionLabel(kind), groupKey);
                 if (kind == StagePositionKind.Reticle)
                     header.Description = "Vision Cal Position";
-                if (kind == StagePositionKind.NeedlePinCal)
+                if (kind == StagePositionKind.EjectPinFinder)
                     header.Description = "Needle Pin Calibration teaching position. WAFER Y uses ProcessPosition.";
                 items.Add(header);
 

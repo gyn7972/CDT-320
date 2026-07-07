@@ -63,7 +63,7 @@ namespace QMC.Vision.Optics.LFine
         [DataMember] public List<LFineLightConfig> Controllers { get; set; } = new List<LFineLightConfig>();
 
         /// <summary>매뉴얼 Illuminator communicator 1·2 기본값 (컨트롤러 2개).
-        /// io_set.lightSource.json 8채널을 2 컨트롤러로 분배 (COM1 4채널 / COM2 4채널 — 실 결선 시 조정).</summary>
+        /// 8채널을 2 컨트롤러로 분배 (COM1 4채널 / COM2 4채널 — 실 결선 시 조정).</summary>
         public static LFineLightSetup CreateDefault()
         {
             return new LFineLightSetup
@@ -100,8 +100,8 @@ namespace QMC.Vision.Optics.LFine
     /// <summary>LFine 조명 설정 영속화 — Config\lfine_light.json.</summary>
     public static class LFineLightConfigStore
     {
-        public static string Dir  { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
-        public static string Path_ { get; } = System.IO.Path.Combine(Dir, "lfine_light.json");
+        public static string Dir  => QMC.Vision.Config.VisionPaths.ConfigDir;
+        public static string Path_ => System.IO.Path.Combine(Dir, "lfine_light.json");
 
         public static LFineLightSetup Current { get; private set; } = new LFineLightSetup();
 

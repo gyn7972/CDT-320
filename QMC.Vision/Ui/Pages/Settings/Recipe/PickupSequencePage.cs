@@ -171,14 +171,7 @@ namespace QMC.Vision.Ui.Pages
 
         private bool IsRecipeLockedByReady()
         {
-            var host = FindForm() as Form1;
-            if (host != null && host.IsReady)
-            {
-                MessageBox.Show("READY(핸들러 사용 중) 상태에서는 레시피를 변경할 수 없습니다.\r\nREADY 해제 후 진행하세요.",
-                    "레시피 잠금", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return true;
-            }
-            return false;
+            return false;   // READY 제약 폐기 — 레시피 편집 잠금 없음
         }
 
         private static int Clamp(int v) => v < 0 ? 0 : (v > 255 ? 255 : v);
