@@ -89,22 +89,25 @@ namespace QMC.CDT320.Sequencing
             bool logFormula = true)
         {
             PickCoordinateResult result = new PickCoordinateResult();
-            result.PickerY = ResolveInputPickerYTarget(side, inputVisionToPickerY);
             // StageY는 선택 Die Y와 Needle Y 캘리브레이션만 적용해 Needle 중심 기준을 유지한다.
             result.StageY = inputStageY + needleYToVisionYOffset;
-            result.PickerX = inputVisionX + cameraOffsetX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX;
+            result.PickerX = inputVisionX - cameraOffsetX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX;
             result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT;
             result.PickerZ = pickerZTeaching;
-            result.NeedleX = inputVisionX + cameraOffsetX + alignOffsetX - needleXToVisionXOffset;
+            result.NeedleX = inputVisionX - cameraOffsetX + alignOffsetX - needleXToVisionXOffset;
+            double pickerYBase = ResolveInputPickerYTarget(side, inputVisionToPickerY);
+            double pickerYOffset = -cameraOffsetY + alignOffsetY + pickerAlignOffsetY;
+            result.PickerY = pickerYBase + ResolveSignedPickerYOffset(side, pickerYOffset);
             result.NeedleZ = needleZTeaching;
             result.EjectPinZ = ejectPinZTeaching;
             result.Formula =
                 "stageY = inputStageY(" + F(inputStageY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") = " + F(result.StageY) +
-                " [cameraOffsetY(" + F(cameraOffsetY) + "), alignOffsetY(" + F(alignOffsetY) + ") not applied to StageY]" +
-                " / pickerX = inputVisionX(" + F(inputVisionX) + ") + cameraOffsetX(" + F(cameraOffsetX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") = " + F(result.PickerX) +
+                " [cameraOffsetY(" + F(cameraOffsetY) + ") not applied to StageY; applied to PickerY with minus sign]" +
+                " / pickerX = inputVisionX(" + F(inputVisionX) + ") - cameraOffsetX(" + F(cameraOffsetX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") = " + F(result.PickerT) +
-                " / needleX = inputVisionX(" + F(inputVisionX) + ") + cameraOffsetX(" + F(cameraOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") = " + F(result.NeedleX) +
-                " / pickerY = signedInputVisionToPickerY(side=" + side + ", inputVisionToPickerY=" + F(inputVisionToPickerY) + ") = " + F(result.PickerY) +
+                " / needleX = inputVisionX(" + F(inputVisionX) + ") - cameraOffsetX(" + F(cameraOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") = " + F(result.NeedleX) +
+                " / pickerY = signedInputVisionToPickerY(side=" + side + ", inputVisionToPickerY=" + F(inputVisionToPickerY) + ")(" + F(pickerYBase) + ")" +
+                " + signedPickerYOffset(-cameraOffsetY(" + F(cameraOffsetY) + ") + alignOffsetY(" + F(alignOffsetY) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + "))(" + F(ResolveSignedPickerYOffset(side, pickerYOffset)) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ) +
                 " / needleZ = " + F(result.NeedleZ) +
                 " / ejectPinZ = " + F(result.EjectPinZ);
@@ -117,6 +120,11 @@ namespace QMC.CDT320.Sequencing
         {
             double magnitude = System.Math.Abs(inputVisionToPickerY);
             return side == PickerSequenceSide.Rear ? -magnitude : magnitude;
+        }
+
+        private static double ResolveSignedPickerYOffset(PickerSequenceSide side, double offsetY)
+        {
+            return side == PickerSequenceSide.Rear ? -offsetY : offsetY;
         }
 
         public static PlaceCoordinateResult CalculatePlaceTarget(

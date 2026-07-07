@@ -435,14 +435,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         needleTargetText =
                             "\r\nNeedleX 이동 목표 X=" + target.NeedleX.ToString("F3") +
                             " mm (Die VisionX=" + entry.PosX.ToString("F3") +
-                            " + CameraX=" + cameraOffsetX.ToString("F3") +
+                            " - CameraX=" + cameraOffsetX.ToString("F3") +
                             " - NeedleXToVisionXOffset=" +
                             InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F3") + ")";
                         needleTargetText +=
                             "\r\nPicker 이동 목표 X=" + target.PickerX.ToString("F3") +
                             " mm, Y=" + target.PickerY.ToString("F3") +
                             " mm, StageY=" + target.StageY.ToString("F3") +
-                            " mm (CameraY=" + cameraOffsetY.ToString("F3") + " 미적용)";
+                            " mm (CameraY=" + cameraOffsetY.ToString("F3") + " PickerY - 적용)";
                     }
 
                     QMC.Common.MessageDialog.Show(this,
@@ -2472,8 +2472,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
                     " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
-                    " mm, Y=" + cameraOffsetY.ToString("F3") + " mm (Y는 StageY 미적용)\r\n" +
-                    " Auto formula 기준, CameraOffsetX=Bottom-Input X, CameraOffsetY는 표시만, AlignOffset X/Y/T=0\r\n" +
+                    " mm (X - 적용), Y=" + cameraOffsetY.ToString("F3") +
+                    " mm (PickerY - 적용, StageY 미적용)\r\n" +
+                    " Auto formula 기준, CameraOffsetX는 X - 적용, CameraOffsetY는 PickerY - 적용, AlignOffset X/Y/T=0\r\n" +
                     " " + target.Formula + ")",
                     out speedType))
                 {

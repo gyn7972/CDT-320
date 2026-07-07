@@ -1045,8 +1045,10 @@ namespace QMC.CDT320.Sequencing
                     Context != null ? Context.Machine : null,
                     out cameraOffsetX,
                     out cameraOffsetY);
-                double alignOffsetX = _visionOffset.DeltaX - cameraOffsetX;
-                double alignOffsetY = _visionOffset.DeltaY - cameraOffsetY;
+                // Picker X 계산식에서 CameraOffsetX를 빼므로, 자동 비전 총 보정값은 최종적으로 한 번만 남도록 보정한다.
+                double alignOffsetX = _visionOffset.DeltaX + cameraOffsetX;
+                // PickerY 계산식에서 CameraOffsetY를 빼므로, 자동 비전 총 보정값은 최종적으로 한 번만 남도록 보정한다.
+                double alignOffsetY = _visionOffset.DeltaY + cameraOffsetY;
                 double alignOffsetT = _visionOffset.DeltaTheta;
 
                 PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(

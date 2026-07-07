@@ -251,8 +251,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double cameraOffsetX;
                 double cameraOffsetY;
                 InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
-                double effectiveX = currentPickerX - _dieX - pickerAlignOffsetX - cameraOffsetX;
-                double effectiveY = Math.Abs(currentPickerY);
+                double pickerAlignOffsetY = InputPickerPickTargetResolver.ResolvePickerAlignOffsetY(_machine, _side, _pickerIndex);
+                double effectiveX = currentPickerX - _dieX + cameraOffsetX - pickerAlignOffsetX;
+                double effectiveY = Math.Abs(currentPickerY) + cameraOffsetY - pickerAlignOffsetY;
                 double expectedStageY =
                     _dieY +
                     InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
@@ -264,8 +265,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "현재 위치 기준 계산 완료. PickerX=" + F(currentPickerX) +
                     " mm, PickerY=" + F(currentPickerY) +
                     " mm, StageY=" + F(currentStageY) +
-                    " mm, CameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ")" +
-                    ", StageYTarget=" + F(expectedStageY) + " mm (CameraY 미적용)");
+                    " mm, CameraOffsetX=" + F(cameraOffsetX) + " applied to X with minus sign, CameraOffsetY=" + F(cameraOffsetY) + " applied to PickerY with minus sign" +
+                    ", PickerYInput=" + F(effectiveY) +
+                    ", StageYTarget=" + F(expectedStageY) + " mm");
             }
             catch (Exception ex)
             {
@@ -438,20 +440,23 @@ namespace QMC.CDT_320.Ui.Dialogs
         private string BuildAutoOffsetStackText(double effectiveX, double effectiveY)
         {
             double alignX = InputPickerPickTargetResolver.ResolvePickerAlignOffsetX(_machine, _side, _pickerIndex);
+            double alignY = InputPickerPickTargetResolver.ResolvePickerAlignOffsetY(_machine, _side, _pickerIndex);
             double alignT = InputPickerPickTargetResolver.ResolvePickerAlignOffsetT(_machine, _side, _pickerIndex);
-            double pickerYTarget = ResolveSignedPickerYTarget(effectiveY);
             double needleXOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(_machine);
             double needleYOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
             double cameraOffsetX;
             double cameraOffsetY;
             InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
+            double pickerYTarget = ResolveSignedPickerYTarget(effectiveY - cameraOffsetY + alignY);
 
             return "X: IV->Picker=" + F(effectiveX) +
-                   " + CameraX=" + F(cameraOffsetX) +
+                   " - CameraX=" + F(cameraOffsetX) +
                    " + AlignX=" + F(alignX) +
                    " / Y: IV->Picker=" + F(effectiveY) +
+                   " - CameraY=" + F(cameraOffsetY) +
+                   " + AlignY=" + F(alignY) +
                    " -> PickerY=" + F(pickerYTarget) +
-                   " / StageY: DieY + NeedleY(" + F(needleYOffset) + "), CameraY(" + F(cameraOffsetY) + ") 미적용" +
+                   " / StageY: DieY + NeedleY(" + F(needleYOffset) + ")" +
                    " / NeedleX Offset=" + F(needleXOffset) +
                    " / T Align=" + F(alignT);
         }
