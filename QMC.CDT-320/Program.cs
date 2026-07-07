@@ -86,6 +86,14 @@ namespace QMC.CDT_320
             Application.ThreadException += (s, e) => HandleFatalException(e.Exception, "UI-THREAD");
             AppDomain.CurrentDomain.UnhandledException += (s, e) => HandleFatalException(e.ExceptionObject as Exception, "APP-DOMAIN");
 
+            // 저장된 로그 저장방식/경로를 로거에 주입한다(로그 쓰기/읽기 경로 일치). 앱 시작 시 1회, 이후 로그부터 적용.
+            try
+            {
+                var logCfg = QMC.CDT320.AppSettingsStore.Current;
+                QMC.Common.Logging.EventLogger.ConfigureLogPathsByName(logCfg.LogSplitByKind, logCfg.LogAllDir, logCfg.LogKindPaths);
+            }
+            catch { }
+
             // 기존에 쌓인 이벤트 로그의 메시지 종류를 번역 카탈로그에 1회 시드한다(백그라운드).
             // 메시지편집 페이지가 과거 메시지까지 바로 보이도록 하되, UI 시작은 막지 않는다(마커로 1회만 실행).
             QMC.Common.Logging.MessageCatalog.SeedFromLogsInBackground();

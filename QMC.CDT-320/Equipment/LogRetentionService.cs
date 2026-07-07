@@ -78,8 +78,14 @@ namespace QMC.CDT320
             {
                 string summary = "";
 
-                // ── 1단계: 14일 지난 원본 로그 압축 보관 (고정 규칙) ──
-                DateTime rawCutoff = DateTime.Today.AddDays(-RawKeepDays);
+                // ── 1단계: 원본 로그 압축 보관 (설정: 사용여부 + 유예일수) ──
+                int rawKeepDays = AppSettingsStore.Current.LogCompressDays;
+                if (rawKeepDays < 1) rawKeepDays = 1;
+                if (rawKeepDays > 365) rawKeepDays = 365;
+                // 압축 비활성 시 cutoff 를 최소값으로 두어 어떤 파일도 압축 대상이 되지 않게 한다.
+                DateTime rawCutoff = AppSettingsStore.Current.LogCompressEnabled
+                    ? DateTime.Today.AddDays(-rawKeepDays)
+                    : DateTime.MinValue;
                 int zipped = 0, zipFailed = 0;
                 long beforeBytes = 0, afterBytes = 0;
 
@@ -106,15 +112,22 @@ namespace QMC.CDT320
 
                 if (zipped > 0 || zipFailed > 0)
                 {
-                    summary += RawKeepDays + "일 경과 원본 압축 " + zipped + "개("
+                    summary += rawKeepDays + "일 경과 원본 압축 " + zipped + "개("
                         + (beforeBytes / 1048576) + "MB → " + (afterBytes / 1048576) + "MB)"
                         + (zipFailed > 0 ? ", 실패 " + zipFailed + "개" : "");
                 }
 
                 // ── 2단계: 보존일수(설정)가 지난 압축본 최종 삭제 ──
-                int archiveKeepDays = AppSettingsStore.Current.ArchiveKeepDays;
+                // 압축 OFF면 삭제도 하지 않는다(압축 없이 삭제만 쓰는 조합 금지 — 구 설정 방어).
+                int archiveKeepDays = AppSettingsStore.Current.LogCompressEnabled
+                    ? AppSettingsStore.Current.ArchiveKeepDays
+                    : 0;
                 if (archiveKeepDays > 0)
                 {
+                    // 삭제 기간은 압축 유예 기간보다 짧을 수 없다(압축되자마자 삭제되는 것 방지).
+                    if (archiveKeepDays < rawKeepDays)
+                        archiveKeepDays = rawKeepDays;
+
                     DateTime zipCutoff = DateTime.Today.AddDays(-archiveKeepDays);
                     int deleted = 0, deleteFailed = 0;
                     long deletedBytes = 0;
@@ -165,7 +178,18 @@ namespace QMC.CDT320
         private static IEnumerable<string> CollectRawTargets()
         {
             var list = new List<string>();
-            AddFiles(list, EventLogger.LogDir, "*.csv");                                  // 이벤트 CSV(분할 조각 포함)
+
+            // 이벤트 CSV — 종류별 폴더(설정 오버라이드 포함) 전부. 같은 폴더는 한 번만.
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (seen.Add(EventLogger.LogDir))
+                AddFiles(list, EventLogger.LogDir, "*.csv");
+            foreach (EventKind kind in (EventKind[])Enum.GetValues(typeof(EventKind)))
+            {
+                string dir = EventLogger.ResolveKindDir(kind);
+                if (seen.Add(dir))
+                    AddFiles(list, dir, "*.csv");
+            }
+
             AddFiles(list, EventLogger.LogRoot, "*.log");                                 // 레거시 Event_/LCP_280_/Main_ 로그
             AddFiles(list, Path.Combine(EventLogger.LogRoot, "Alarms"), "*.json");        // 알람 이력 JSON
             return list;
@@ -217,7 +241,12 @@ namespace QMC.CDT320
             try
             {
                 Directory.CreateDirectory(ArchiveDir);
-                string zipPath = Path.Combine(ArchiveDir, Path.GetFileName(path) + ".zip");
+                // 종류별 폴더의 CSV 는 파일명(날짜)이 같아 충돌하므로 상위 폴더명을 접두로 붙여 유일하게 만든다.
+                string parentDir = Path.GetFileName(Path.GetDirectoryName(path) ?? string.Empty);
+                string zipBase = string.IsNullOrEmpty(parentDir)
+                    ? Path.GetFileName(path)
+                    : parentDir + "_" + Path.GetFileName(path);
+                string zipPath = Path.Combine(ArchiveDir, zipBase + ".zip");
 
                 // 같은 이름의 압축본이 이미 있으면(직전 실행이 원본 삭제 직전에 중단된 경우)
                 // 다시 압축하지 않고 원본 삭제만 이어서 한다.

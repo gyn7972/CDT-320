@@ -15,8 +15,6 @@
         private System.Windows.Forms.Label lblDeveloperMode;
         private System.Windows.Forms.Label lblPickerMotionOnlyTestMode;
         private System.Windows.Forms.Label lblUseVision;
-        private System.Windows.Forms.Label lblFileLogHistory;
-        private System.Windows.Forms.Label lblArchiveKeep;
         private System.Windows.Forms.ComboBox _cbLang;
         private System.Windows.Forms.ComboBox _cbBinArr;
         private System.Windows.Forms.ComboBox _cbVisionMatch;
@@ -25,8 +23,8 @@
         private System.Windows.Forms.ComboBox _cbDeveloperMode;
         private System.Windows.Forms.ComboBox _cbPickerMotionOnlyTestMode;
         private System.Windows.Forms.ComboBox _cbUseVision;
-        private System.Windows.Forms.ComboBox _cbFileLogHistory;
-        private System.Windows.Forms.ComboBox _cbArchiveKeep;
+        private System.Windows.Forms.TableLayoutPanel logBtnLayout;
+        private System.Windows.Forms.Button btnLogSettings;
         private System.Windows.Forms.GroupBox grpAjin;
         private System.Windows.Forms.TableLayoutPanel ajinLayout;
         private System.Windows.Forms.CheckBox _cbAjin;
@@ -53,8 +51,6 @@
             this.lblDeveloperMode = new System.Windows.Forms.Label();
             this.lblPickerMotionOnlyTestMode = new System.Windows.Forms.Label();
             this.lblUseVision = new System.Windows.Forms.Label();
-            this.lblFileLogHistory = new System.Windows.Forms.Label();
-            this.lblArchiveKeep = new System.Windows.Forms.Label();
             this._cbLang = new System.Windows.Forms.ComboBox();
             this._cbBinArr = new System.Windows.Forms.ComboBox();
             this._cbVisionMatch = new System.Windows.Forms.ComboBox();
@@ -63,17 +59,18 @@
             this._cbDeveloperMode = new System.Windows.Forms.ComboBox();
             this._cbPickerMotionOnlyTestMode = new System.Windows.Forms.ComboBox();
             this._cbUseVision = new System.Windows.Forms.ComboBox();
-            this._cbFileLogHistory = new System.Windows.Forms.ComboBox();
-            this._cbArchiveKeep = new System.Windows.Forms.ComboBox();
             this.grpAjin = new System.Windows.Forms.GroupBox();
             this.ajinLayout = new System.Windows.Forms.TableLayoutPanel();
             this._cbAjin = new System.Windows.Forms.CheckBox();
             this.lblIrq = new System.Windows.Forms.Label();
             this._tbIrq = new System.Windows.Forms.TextBox();
+            this.logBtnLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnLogSettings = new System.Windows.Forms.Button();
             this.rootLayout.SuspendLayout();
             this.bodyLayout.SuspendLayout();
             this.grpAjin.SuspendLayout();
             this.ajinLayout.SuspendLayout();
+            this.logBtnLayout.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -83,13 +80,14 @@
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.bodyLayout, 0, 1);
             this.rootLayout.Controls.Add(this.grpAjin, 0, 2);
+            this.rootLayout.Controls.Add(this.logBtnLayout, 0, 3);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
             this.rootLayout.RowCount = 4;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 420F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 344F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
@@ -103,7 +101,7 @@
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1662, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1662, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "SETTING";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -121,8 +119,6 @@
             this.bodyLayout.Controls.Add(this.lblDeveloperMode, 0, 5);
             this.bodyLayout.Controls.Add(this.lblPickerMotionOnlyTestMode, 0, 6);
             this.bodyLayout.Controls.Add(this.lblUseVision, 0, 7);
-            this.bodyLayout.Controls.Add(this.lblFileLogHistory, 0, 8);
-            this.bodyLayout.Controls.Add(this.lblArchiveKeep, 0, 9);
             this.bodyLayout.Controls.Add(this._cbLang, 1, 0);
             this.bodyLayout.Controls.Add(this._cbBinArr, 1, 1);
             this.bodyLayout.Controls.Add(this._cbVisionMatch, 1, 2);
@@ -131,14 +127,12 @@
             this.bodyLayout.Controls.Add(this._cbDeveloperMode, 1, 5);
             this.bodyLayout.Controls.Add(this._cbPickerMotionOnlyTestMode, 1, 6);
             this.bodyLayout.Controls.Add(this._cbUseVision, 1, 7);
-            this.bodyLayout.Controls.Add(this._cbFileLogHistory, 1, 8);
-            this.bodyLayout.Controls.Add(this._cbArchiveKeep, 1, 9);
             this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.bodyLayout.Location = new System.Drawing.Point(8, 40);
+            this.bodyLayout.Location = new System.Drawing.Point(8, 38);
             this.bodyLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.bodyLayout.Name = "bodyLayout";
             this.bodyLayout.Padding = new System.Windows.Forms.Padding(8);
-            this.bodyLayout.RowCount = 10;
+            this.bodyLayout.RowCount = 8;
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
@@ -149,7 +143,7 @@
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 40F));
-            this.bodyLayout.Size = new System.Drawing.Size(1662, 412);
+            this.bodyLayout.Size = new System.Drawing.Size(1662, 336);
             this.bodyLayout.TabIndex = 1;
             // 
             // lblLanguage
@@ -221,9 +215,9 @@
             this.lblDryRunMode.TabIndex = 7;
             this.lblDryRunMode.Text = "DRY RUN MODE";
             this.lblDryRunMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblDeveloperMode
-            //
+            // 
             this.lblDeveloperMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -235,9 +229,9 @@
             this.lblDeveloperMode.TabIndex = 10;
             this.lblDeveloperMode.Text = "DEVELOPER MODE";
             this.lblDeveloperMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblPickerMotionOnlyTestMode
-            //
+            // 
             this.lblPickerMotionOnlyTestMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -249,9 +243,9 @@
             this.lblPickerMotionOnlyTestMode.TabIndex = 12;
             this.lblPickerMotionOnlyTestMode.Text = "PICKER MOTION ONLY TEST";
             this.lblPickerMotionOnlyTestMode.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblUseVision
-            //
+            // 
             this.lblUseVision.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -263,37 +257,9 @@
             this.lblUseVision.TabIndex = 14;
             this.lblUseVision.Text = "VISION USE";
             this.lblUseVision.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblFileLogHistory
-            //
-            this.lblFileLogHistory.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblFileLogHistory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFileLogHistory.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblFileLogHistory.Location = new System.Drawing.Point(10, 330);
-            this.lblFileLogHistory.Margin = new System.Windows.Forms.Padding(2);
-            this.lblFileLogHistory.Name = "lblFileLogHistory";
-            this.lblFileLogHistory.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblFileLogHistory.Size = new System.Drawing.Size(176, 36);
-            this.lblFileLogHistory.TabIndex = 16;
-            this.lblFileLogHistory.Text = "LOG HISTORY VIEW";
-            this.lblFileLogHistory.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblArchiveKeep
-            //
-            this.lblArchiveKeep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblArchiveKeep.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblArchiveKeep.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblArchiveKeep.Location = new System.Drawing.Point(10, 370);
-            this.lblArchiveKeep.Margin = new System.Windows.Forms.Padding(2);
-            this.lblArchiveKeep.Name = "lblArchiveKeep";
-            this.lblArchiveKeep.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblArchiveKeep.Size = new System.Drawing.Size(176, 36);
-            this.lblArchiveKeep.TabIndex = 18;
-            this.lblArchiveKeep.Text = "ARCHIVE KEEP DAYS";
-            this.lblArchiveKeep.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // _cbLang
-            //
+            // 
             this._cbLang.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbLang.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbLang.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -346,9 +312,9 @@
             this._cbDryRunMode.Name = "_cbDryRunMode";
             this._cbDryRunMode.Size = new System.Drawing.Size(1462, 23);
             this._cbDryRunMode.TabIndex = 9;
-            //
+            // 
             // _cbDeveloperMode
-            //
+            // 
             this._cbDeveloperMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbDeveloperMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbDeveloperMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -357,9 +323,9 @@
             this._cbDeveloperMode.Name = "_cbDeveloperMode";
             this._cbDeveloperMode.Size = new System.Drawing.Size(1462, 23);
             this._cbDeveloperMode.TabIndex = 11;
-            //
+            // 
             // _cbPickerMotionOnlyTestMode
-            //
+            // 
             this._cbPickerMotionOnlyTestMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbPickerMotionOnlyTestMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbPickerMotionOnlyTestMode.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -368,9 +334,9 @@
             this._cbPickerMotionOnlyTestMode.Name = "_cbPickerMotionOnlyTestMode";
             this._cbPickerMotionOnlyTestMode.Size = new System.Drawing.Size(1462, 23);
             this._cbPickerMotionOnlyTestMode.TabIndex = 13;
-            //
+            // 
             // _cbUseVision
-            //
+            // 
             this._cbUseVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbUseVision.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbUseVision.Font = new System.Drawing.Font("맑은 고딕", 9F);
@@ -379,35 +345,13 @@
             this._cbUseVision.Name = "_cbUseVision";
             this._cbUseVision.Size = new System.Drawing.Size(1462, 23);
             this._cbUseVision.TabIndex = 15;
-            //
-            // _cbFileLogHistory
-            //
-            this._cbFileLogHistory.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbFileLogHistory.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbFileLogHistory.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbFileLogHistory.Location = new System.Drawing.Point(190, 330);
-            this._cbFileLogHistory.Margin = new System.Windows.Forms.Padding(2);
-            this._cbFileLogHistory.Name = "_cbFileLogHistory";
-            this._cbFileLogHistory.Size = new System.Drawing.Size(1462, 23);
-            this._cbFileLogHistory.TabIndex = 17;
-            //
-            // _cbArchiveKeep
-            //
-            this._cbArchiveKeep.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbArchiveKeep.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbArchiveKeep.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this._cbArchiveKeep.Location = new System.Drawing.Point(190, 370);
-            this._cbArchiveKeep.Margin = new System.Windows.Forms.Padding(2);
-            this._cbArchiveKeep.Name = "_cbArchiveKeep";
-            this._cbArchiveKeep.Size = new System.Drawing.Size(1462, 23);
-            this._cbArchiveKeep.TabIndex = 19;
-            //
+            // 
             // grpAjin
-            //
+            // 
             this.grpAjin.Controls.Add(this.ajinLayout);
             this.grpAjin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAjin.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpAjin.Location = new System.Drawing.Point(8, 340);
+            this.grpAjin.Location = new System.Drawing.Point(8, 382);
             this.grpAjin.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.grpAjin.Name = "grpAjin";
             this.grpAjin.Padding = new System.Windows.Forms.Padding(8);
@@ -465,6 +409,35 @@
             this._tbIrq.Size = new System.Drawing.Size(1380, 23);
             this._tbIrq.TabIndex = 2;
             // 
+            // logBtnLayout
+            // 
+            this.logBtnLayout.ColumnCount = 3;
+            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.logBtnLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.logBtnLayout.Controls.Add(this.btnLogSettings, 2, 0);
+            this.logBtnLayout.Dock = System.Windows.Forms.DockStyle.Top;
+            this.logBtnLayout.Location = new System.Drawing.Point(16, 510);
+            this.logBtnLayout.Margin = new System.Windows.Forms.Padding(8, 8, 8, 0);
+            this.logBtnLayout.Name = "logBtnLayout";
+            this.logBtnLayout.RowCount = 1;
+            this.logBtnLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.logBtnLayout.Size = new System.Drawing.Size(1646, 50);
+            this.logBtnLayout.TabIndex = 3;
+            // 
+            // btnLogSettings
+            // 
+            this.btnLogSettings.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLogSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLogSettings.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLogSettings.Location = new System.Drawing.Point(1098, 2);
+            this.btnLogSettings.Margin = new System.Windows.Forms.Padding(2);
+            this.btnLogSettings.Name = "btnLogSettings";
+            this.btnLogSettings.Size = new System.Drawing.Size(546, 46);
+            this.btnLogSettings.TabIndex = 0;
+            this.btnLogSettings.Text = "LOG SETTINGS";
+            this.btnLogSettings.UseVisualStyleBackColor = true;
+            // 
             // GeneralPage
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
@@ -477,6 +450,7 @@
             this.grpAjin.ResumeLayout(false);
             this.ajinLayout.ResumeLayout(false);
             this.ajinLayout.PerformLayout();
+            this.logBtnLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
