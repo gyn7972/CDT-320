@@ -13,6 +13,7 @@ using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Pages.WorkInfo;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Work
@@ -81,8 +82,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridMoveRearPickerMenuItems;
+        private ToolStripMenuItem[] _gridPickUpTestFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridPickUpTestRearPickerMenuItems;
         private ToolStripMenuItem[] _gridOffsetFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridOffsetRearPickerMenuItems;
+        private InputPickTargetSelectDialog _pickUpTestDialog;
         private bool _manualMoveBusy;
         private bool _manualDieDetectSentPositionValid;
         private string _manualDieDetectSentMapSignature = "";
@@ -260,6 +264,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE FRONT PICKER", PickerSequenceSide.Front, out _gridMoveFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE REAR PICKER", PickerSequenceSide.Rear, out _gridMoveRearPickerMenuItems));
                 _gridMenu.Items.Add(new ToolStripSeparator());
+                _gridMenu.Items.Add(BuildPickerPickUpTestMenu("PICKUP TEST FRONT PICKER", PickerSequenceSide.Front, out _gridPickUpTestFrontPickerMenuItems));
+                _gridMenu.Items.Add(BuildPickerPickUpTestMenu("PICKUP TEST REAR PICKER", PickerSequenceSide.Rear, out _gridPickUpTestRearPickerMenuItems));
+                _gridMenu.Items.Add(new ToolStripSeparator());
                 _gridMenu.Items.Add(BuildPickerOffsetMenu("SET FRONT PICKER OFFSET", PickerSequenceSide.Front, out _gridOffsetFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerOffsetMenu("SET REAR PICKER OFFSET", PickerSequenceSide.Rear, out _gridOffsetRearPickerMenuItems));
                 _gridMenu.Opening += (s, e) =>
@@ -270,6 +277,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     SetPickerMoveMenuEnabled(_gridMoveFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridMoveRearPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPickUpTestFrontPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPickUpTestRearPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridOffsetFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridOffsetRearPickerMenuItems, enabled);
                 };
@@ -293,7 +302,24 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
-                item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo, false).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private ToolStripMenuItem BuildPickerPickUpTestMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += async (s, e) => await MoveSelectedDieByPickerAsync(side, pickerNo, true).ConfigureAwait(true);
                 items[i] = item;
                 root.DropDownItems.Add(item);
             }
@@ -2357,7 +2383,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private async Task MoveSelectedDieByPickerAsync(PickerSequenceSide side, int pickerNo)
+        private async Task MoveSelectedDieByPickerAsync(PickerSequenceSide side, int pickerNo, bool openPickUpTestAfterMove)
         {
             IDisposable actionScope = null;
             try
@@ -2405,7 +2431,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!ConfirmManualMapMoveSpeed(
                     this,
                     "Input Die Map",
-                    ResolvePickerMoveTitle(side, pickerNo) + "를 선택 다이 위치로 이동하시겠습니까?\r\n" +
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    (openPickUpTestAfterMove
+                        ? "를 선택 다이 위치로 이동 후 PickUp Test를 여시겠습니까?\r\n"
+                        : "를 선택 다이 위치로 이동하시겠습니까?\r\n") +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
                     BuildDiePositionMoveText(diePosition, "최종 Die 위치") + "\r\n" +
                     "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
@@ -2441,6 +2470,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 lblAxisX.Text = entry.PosX.ToString("F3");
                 lblAxisY.Text = entry.PosY.ToString("F3");
+                if (openPickUpTestAfterMove)
+                {
+                    ShowPickUpTestDialogForSelectedInputDie(host, side, pickerNo, entry);
+                    return;
+                }
+
                 QMC.Common.MessageDialog.Show(this,
                     ResolvePickerMoveTitle(side, pickerNo) + " 좌표 이동 완료.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -2470,6 +2505,134 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     SetActionButtonsEnabled(true);
                 }
             }
+        }
+
+        private void ShowPickUpTestDialogForSelectedInputDie(
+            Form1 host,
+            PickerSequenceSide side,
+            int pickerNo,
+            DieMapEntry entry)
+        {
+            try
+            {
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "PickUp Test를 실행할 Controller 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                {
+                    QMC.Common.MessageDialog.Show(this, "PickUp Test 대상 Die UID를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                CloseInputMapPickUpTestDialog();
+
+                InputStagePickTarget target = EnsureInputPickReservation(side, pickerNo, entry.DieUid);
+                if (target == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        ResolvePickerMoveTitle(side, pickerNo) + " PickUp Test 예약 실패\r\n" +
+                        "Die=" + entry.DieUid + "\r\n" +
+                        "Material 상태 또는 Pickup 순서를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                UpsertManualPickUpTestVisionOffset(entry.DieUid);
+
+                _pickUpTestDialog = new InputPickTargetSelectDialog(
+                    host.Controller,
+                    side,
+                    pickerNo,
+                    entry.DieUid,
+                    true);
+                _pickUpTestDialog.FormClosed += (s, e) => _pickUpTestDialog = null;
+
+                IWin32Window ownerWindow = FindForm();
+                if (ownerWindow != null)
+                    _pickUpTestDialog.Show(ownerWindow);
+                else
+                    _pickUpTestDialog.Show();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " PickUp Test dialog opened. die=" + entry.DieUid +
+                    ", order=" + target.OrderIndex + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "PickUp Test dialog open failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "PickUp Test 다이얼로그 실행 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void CloseInputMapPickUpTestDialog()
+        {
+            try
+            {
+                if (_pickUpTestDialog == null || _pickUpTestDialog.IsDisposed)
+                    return;
+
+                _pickUpTestDialog.Close();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                _pickUpTestDialog = null;
+            }
+        }
+
+        private static InputStagePickTarget EnsureInputPickReservation(
+            PickerSequenceSide side,
+            int pickerNo,
+            string dieId)
+        {
+            MaterialLocationKind pickerLocation = ResolvePickerLocation(side);
+            InputStagePickTarget target =
+                MaterialStateService.GetReservedInputStagePickTarget(pickerLocation, pickerNo, dieId);
+            if (target != null)
+                return target;
+
+            return MaterialStateService.ReserveInputStagePickTargetByDieId(pickerLocation, pickerNo, dieId);
+        }
+
+        private static void UpsertManualPickUpTestVisionOffset(string dieId)
+        {
+            if (string.IsNullOrWhiteSpace(dieId))
+                return;
+
+            MaterialStateService.UpsertInspection(dieId, new DieInspectionRecord
+            {
+                InspectionType = "InputPickVision",
+                Result = MaterialInspectionResult.Ok,
+                Offset = new VisionOffset
+                {
+                    X = 0.0,
+                    Y = 0.0,
+                    R = 0.0,
+                    IsValid = true
+                },
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            });
+        }
+
+        private static MaterialLocationKind ResolvePickerLocation(PickerSequenceSide side)
+        {
+            return side == PickerSequenceSide.Front
+                ? MaterialLocationKind.PickerFront
+                : MaterialLocationKind.PickerRear;
         }
 
         private DiePositionMoveDisplay BuildDiePositionMoveDisplay(DieMapEntry entry, Form1 host)
