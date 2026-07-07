@@ -321,6 +321,13 @@ namespace QMC.Vision.Cameras.Mil
                 if (!WaitHaltDone(3000))
                     throw new InvalidOperationException("이전 Live 정지(MdigHalt)가 완료되지 않았습니다 — 잠시 후 다시 시도하세요.");
 
+                // 직전 단발 그랩으로 카메라가 SingleFrame 획득 잠금(TLParamsLocked)에 남아 있으면 Continuous
+                // 쓰기가 조용히 거부돼 MdigGrabContinuous 가 프레임을 못 받고 'Synchronization lost'(time out)로 멈춘다.
+                // (Bottom area 카메라 실측 — Intellicam 에서 AcquisitionMode=Continuous 로 바꾸면 정상 라이브.)
+                // → 획득 모드 캐시를 무효화하고 획득을 확실히 정지한 뒤 Continuous 를 재적용·재검증한다.
+                _acqModeApplied = null;
+                HaltWithTimeout(2000);
+
                 // 라이브 = Continuous(free-run): 트리거 없이 연속 수신 → 화면이 갱신된다.
                 //   적용은 readback 으로 검증 — 조용히 거부되면 카메라가 SingleFrame 에 남아
                 //   '한 번만 그랩되는 라이브' 증상이 된다. (SingleFrame 복원은 StopLive 에서.)
