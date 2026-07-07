@@ -56,12 +56,14 @@ namespace QMC.CDT320.Interlocks
         private static bool CanHomeFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
+            // 인터락 조건: FrontSideVisionY 홈은 현재 별도 차단 조건 없이 허용한다.
             return true;
         }
 
         // 인터락 항목: 수동 FrontSideVisionY 이동은 Vision 장치 Busy 여부를 확인한다.
         private static bool CanManualFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
+            // 인터락 조건: 수동 이동 전 FrontSideVisionY 홈 조건을 먼저 확인한다.
             if (!CanHomeFrontSideVisionY(machine, out reason))
                 return false;
 
@@ -71,6 +73,7 @@ namespace QMC.CDT320.Interlocks
         // 인터락 항목: 자동 FrontSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanAutoFrontSideVisionY(CDT320_Machine machine, out string reason)
         {
+            // 인터락 조건: 자동 이동 전 FrontSideVisionY 홈 조건을 먼저 확인한다.
             if (!CanHomeFrontSideVisionY(machine, out reason))
                 return false;
 
@@ -105,12 +108,14 @@ namespace QMC.CDT320.Interlocks
         private static bool CanHomeRearSideVisionY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
+            // 인터락 조건: RearSideVisionY 홈은 현재 별도 차단 조건 없이 허용한다.
             return true;
         }
 
         // 인터락 항목: 수동 RearSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanManualRearSideVisionY(CDT320_Machine machine, out string reason)
         {
+            // 인터락 조건: 수동 이동 전 RearSideVisionY 홈 조건을 먼저 확인한다.
             if (!CanHomeRearSideVisionY(machine, out reason))
                 return false;
 
@@ -123,6 +128,7 @@ namespace QMC.CDT320.Interlocks
         // 인터락 항목: 자동 RearSideVisionY 이동은 InputStage 간섭과 Vision 장치 Busy 여부를 확인한다.
         private static bool CanAutoRearSideVisionY(CDT320_Machine machine, out string reason)
         {
+            // 인터락 조건: 자동 이동 전 RearSideVisionY 홈 조건을 먼저 확인한다.
             if (!CanHomeRearSideVisionY(machine, out reason))
                 return false;
 

@@ -1322,24 +1322,28 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                // 인터락 조건: 요청/장비 참조가 없으면 Auto Process 공유 예외를 적용하지 않는다.
                 if (request == null || request.Machine == null)
                 {
                     detail = "Auto Process 공유 판단 불가: request/machine=null";
                     return false;
                 }
 
+                // 인터락 조건: 자동 티칭 이동이 아니면 Process 작업영역 공유 예외를 적용하지 않는다.
                 if (request.MoveKind != MotionGuardMoveKind.AxisTeachingMove)
                 {
                     detail = "Manual 이동은 Process 작업영역 공유 예외를 적용하지 않습니다.";
                     return false;
                 }
 
+                // 인터락 조건: 검사 연속 이동 태그가 없으면 Process 작업영역 공유 예외를 적용하지 않는다.
                 if (request.Intent == null || !request.Intent.InspectionContinuous)
                 {
                     detail = "Auto 검사 연속 이동 태그가 없습니다.";
                     return false;
                 }
 
+                // 인터락 조건: 목표 존이 Process 계열이 아니면 공유 예외를 적용하지 않는다.
                 if (!IsProcessZone(targetZone))
                 {
                     detail = "대상 존이 Process가 아닙니다. targetZone=" + targetZone;
@@ -1347,6 +1351,7 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 bool otherFront = !isFront;
+                // 인터락 조건: 상대 PickerY가 전진 또는 이탈 중이면 같은 Process 존 공유를 차단한다.
                 if (IsPickerYOutOrMovingOut(request.Machine, otherFront, null))
                 {
                     detail = "같은 Process 존에서 상대 PickerY가 전진/이동 중입니다. 상대 PickerY가 실제 Avoid 또는 0 위치여야 합니다.";

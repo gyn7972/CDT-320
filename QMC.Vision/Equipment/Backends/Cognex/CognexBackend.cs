@@ -207,6 +207,40 @@ namespace QMC.Vision.Backends.Cognex
             return null;
         }
 
+        /// <summary>Cognex 라이선스(동글) 사용 가능 여부 — PMAlign 도구를 실제로 1회 생성해 확인한다.
+        /// DLL 로드와 별개로 라이선스 미체결이면 도구 생성/사용 시 라이선스 예외가 난다.
+        /// true=사용 가능. false 면 error 에 원인(라이선스 없음/기타 예외) 문구.</summary>
+        public bool CheckLicense(out string error)
+        {
+            error = null;
+            try
+            {
+                if (!CognexLoaded || PMAlignAssembly == null)
+                {
+                    error = "Cognex VisionPro 미로드 — " + VersionInfo;
+                    return false;
+                }
+                var toolType = PMAlignAssembly.GetType("Cognex.VisionPro.PMAlign.CogPMAlignTool");
+                if (toolType == null)
+                {
+                    error = "CogPMAlignTool 타입을 찾을 수 없습니다(어셈블리 버전 확인).";
+                    return false;
+                }
+                object tool = Activator.CreateInstance(toolType);
+                (tool as IDisposable)?.Dispose();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                var inner = ex.InnerException ?? ex;   // TypeInitialization 등은 내부 예외에 실원인
+                bool licenseIssue = (inner.GetType().FullName ?? "").IndexOf("License", StringComparison.OrdinalIgnoreCase) >= 0
+                                 || (inner.Message ?? "").IndexOf("license", StringComparison.OrdinalIgnoreCase) >= 0
+                                 || (inner.Message ?? "").IndexOf("라이선스", StringComparison.OrdinalIgnoreCase) >= 0;
+                error = (licenseIssue ? "Cognex 라이선스 없음(동글/키 확인): " : "Cognex 초기화 실패: ") + inner.Message;
+                return false;
+            }
+        }
+
         public IPatternFinder CreatePatternFinder(string id) => new CognexPatternFinder(id, this);
         public IInspector     CreateInspector   (string id)
             => QMC.Vision.Core.DomainInspectorFactory.TryCreate(id, out var di)   // 310 포팅(Bottom/Side/Placement)

@@ -542,6 +542,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (!CalibrationData.Valid)
                     return Fail("VISION-CAMERA-CAL-SAVE-NOT-VALID", "VisionUnit", "Vision Camera Calibration 저장 불가: 계산 완료된 유효 데이터가 없습니다.");
 
+                string offsetSummary;
+                PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(_machine, GetUserName(), out offsetSummary);
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-PICKER-OFFSET", offsetSummary);
+
                 if (!SaveMachineSettings())
                     return Fail("VISION-CAMERA-CAL-SAVE-FAIL", "VisionUnit", "Vision Camera Calibration 저장 실패: VisionUnit Config 파일 저장에 실패했습니다.");
 

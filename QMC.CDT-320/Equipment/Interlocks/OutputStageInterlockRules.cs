@@ -86,15 +86,19 @@ namespace QMC.CDT320.Interlocks
             // Feeder -> Stage Load 준비 중에는 OutputFeeder가 bin을 잡고 있어야 하므로
             // FeederY가 Avoid 위치라면 clamp/unclamp 상태로 GoodStageY 이동을 막지 않는다.
 
+            // 인터락 조건: OutputFeeder 과부하가 감지되면 GoodStageY 자동 이동을 차단한다.
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                 return false;
 
+            // 인터락 조건: GoodStageY 목표가 NG Stage/Guide와 기구 간섭 없는 위치인지 확인한다.
             if (!VerifyGoodStageYMechanicalClear(request, "OutputGoodStageY", out reason))
                 return false;
 
+            // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 자동 이동을 차단한다.
             if (!VerifyNgClampLiftUpForGoodStageMove(stage, "OutputGoodStageY", out reason))
                 return false;
 
+            // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageY", out reason))
                 return false;
 
@@ -257,6 +261,7 @@ namespace QMC.CDT320.Interlocks
         private static bool CanHomeOutputGoodStageZ(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
+            // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 홈 이동을 차단한다.
             if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
@@ -264,9 +269,11 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 GoodStageZ 홈 이동을 차단한다.
             if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 인터락 조건: OutputFeeder 과부하가 감지되면 GoodStageZ 홈 이동을 차단한다.
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
@@ -278,9 +285,11 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
+            // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageZ 수동 이동을 차단한다.
             if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 인터락 조건: GoodStageZ 비Avoid 이동이 NG/Guide와 간섭 없는지 확인한다.
             if (!VerifyGoodStageZNonAvoidMoveClear(request, "OutputGoodStageZ", out reason))
                 return false;
 
@@ -301,9 +310,11 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 GoodStageZ 수동 이동을 차단한다.
             if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
+            // 인터락 조건: OutputFeeder 과부하가 감지되면 GoodStageZ 수동 이동을 차단한다.
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageZ", out reason))
                 return false;
 
@@ -355,9 +366,11 @@ namespace QMC.CDT320.Interlocks
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            // 인터락 조건: NGStageY 목표가 GoodStage/Guide와 기구 간섭 없는 위치인지 확인한다.
             if (!VerifyOutputNgStageYMechanicalClear(request, "OutputNGStageY", out reason))
                 return false;
 
+            // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
             if (!VerifyOutputTransportClear(machine, "OutputNGStageY", out reason))
                 return false;
 
@@ -370,9 +383,11 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
 
+            // 인터락 조건: OutputFeeder 과부하가 감지되면 NGStageY 자동 이동을 차단한다.
             if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
                 return false;
 
+            // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 NGStageY 자동 이동을 차단한다.
             if (stage != null &&
                 stage.GoodStage != null &&
                 !stage.IsGoodStageZAtAvoid())
@@ -408,9 +423,11 @@ namespace QMC.CDT320.Interlocks
         // 인터락 항목: 자동 OutputVisionX 이동은 OutputStage Busy 여부를 확인한다.
         private static bool CanAutoOutputVisionX(CDT320_Machine machine, out string reason)
         {
+            // 인터락 조건: 자동 OutputVisionX 이동 전 홈 조건을 먼저 확인한다.
             if (!CanHomeOutputVisionX(machine, out reason))
                 return false;
 
+            // 인터락 조건: Picker/Feeder 등 Output transport 점유 상태가 해제되어 있는지 확인한다.
             if (!VerifyOutputTransportClear(machine, "OutputVisionX", out reason))
                 return false;
 
@@ -427,12 +444,14 @@ namespace QMC.CDT320.Interlocks
                 // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
 
                 OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+                // 인터락 조건: OutputFeederY가 Avoid 위치가 아니면 OutputVisionX 수동 이동을 차단한다.
                 if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
                         "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
                         out reason);
 
+                // 인터락 조건: OutputFeeder Lift가 Down 상태가 아니면 OutputVisionX 수동 이동을 차단한다.
                 if (outputFeeder != null && !outputFeeder.IsFeederDown())
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
@@ -464,12 +483,14 @@ namespace QMC.CDT320.Interlocks
                 // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
 
                 OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+                // 인터락 조건: OutputFeederY가 Avoid 위치가 아니면 OutputVisionX 홈 이동을 차단한다.
                 if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
                         "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
                         out reason);
 
+                // 인터락 조건: OutputFeeder Lift가 Down 상태가 아니면 OutputVisionX 홈 이동을 차단한다.
                 if (outputFeeder != null && !outputFeeder.IsFeederDown())
                     return MotionGuardRuleHelpers.Block(
                         "OutputVisionX",
@@ -500,9 +521,11 @@ namespace QMC.CDT320.Interlocks
             {
                 CDT320_Machine machine = request != null ? request.Machine : null;
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                // 인터락 조건: GoodStageY 목표가 NG Stage/Guide와 기구 간섭 없는 위치인지 확인한다.
                 if (!VerifyGoodStageYMechanicalClear(request, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 수동 이동을 차단한다.
                 if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
@@ -514,9 +537,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 GoodStageY 수동 이동을 차단한다.
                 if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder 과부하가 감지되면 GoodStageY 수동 이동을 차단한다.
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
@@ -544,9 +569,11 @@ namespace QMC.CDT320.Interlocks
             {
                 CDT320_Machine machine = request != null ? request.Machine : null;
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                // 인터락 조건: GoodStageY 홈 목표가 NG Stage/Guide와 기구 간섭 없는 위치인지 확인한다.
                 if (!VerifyGoodStageYHomeMechanicalClear(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: NG Clamp Lift가 Up 상태가 아니면 GoodStageY 홈 이동을 차단한다.
                 if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
@@ -558,9 +585,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 GoodStageY 홈 이동을 차단한다.
                 if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder 과부하가 감지되면 GoodStageY 홈 이동을 차단한다.
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputGoodStageY", out reason))
                     return false;
 
@@ -587,17 +616,21 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                // 방어 조건: OutputStage 참조가 없으면 NGStageY 수동 인터락을 적용하지 않는다.
                 if (outputStage == null)
                     return true;
 
+                // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 NGStageY 수동 이동을 차단한다.
                 if (outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 GoodStageZ가 반드시 Avoid 위치여야 합니다.",
                         out reason);
 
+                // 인터락 조건: GoodBinGuideDown 센서를 갱신할 수 없으면 NGStageY 수동 이동을 차단한다.
                 if (!RefreshRequiredHardwareInput(outputStage.GoodBinGuideDownSensor, "OutputNGStageY", "GoodBinGuideDown", out reason))
                     return false;
+                // 인터락 조건: Good Bin Guide가 Down 상태가 아니면 NGStageY 수동 이동을 차단한다.
                 if (outputStage.GoodBinGuideDownSensor != null &&
                     !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
                     !outputStage.GoodBinGuideDownSensor.IsOn)
@@ -606,8 +639,10 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
+                // 인터락 조건: NgBinClampUp 센서를 갱신할 수 없으면 NGStageY 수동 이동을 차단한다.
                 if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
                     return false;
+                // 인터락 조건: NG Bin Clamp Lift가 Up 상태가 아니면 NGStageY 수동 이동을 차단한다.
                 if (outputStage.NgBinClampUpSensor != null &&
                     !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
                     !outputStage.NgBinClampUpSensor.IsOn)
@@ -624,9 +659,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 NGStageY 수동 이동을 차단한다.
                 if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder 과부하가 감지되면 NGStageY 수동 이동을 차단한다.
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 
@@ -653,17 +690,21 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                // 방어 조건: OutputStage 참조가 없으면 NGStageY 홈 인터락을 적용하지 않는다.
                 if (outputStage == null)
                     return true;
 
+                // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 NGStageY 홈 이동을 차단한다.
                 if (outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 GoodStageZ가 반드시 Avoid 위치여야 합니다.",
                         out reason);
 
+                // 인터락 조건: GoodBinGuideDown 센서를 갱신할 수 없으면 NGStageY 홈 이동을 차단한다.
                 if (!RefreshRequiredHardwareInput(outputStage.GoodBinGuideDownSensor, "OutputNGStageY", "GoodBinGuideDown", out reason))
                     return false;
+                // 인터락 조건: Good Bin Guide가 Down 상태가 아니면 NGStageY 홈 이동을 차단한다.
                 if (outputStage.GoodBinGuideDownSensor != null &&
                     !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
                     !outputStage.GoodBinGuideDownSensor.IsOn)
@@ -672,8 +713,10 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 Good Bin Guide가 반드시 Down 상태여야 합니다.",
                         out reason);
 
+                // 인터락 조건: NgBinClampUp 센서를 갱신할 수 없으면 NGStageY 홈 이동을 차단한다.
                 if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
                     return false;
+                // 인터락 조건: NG Bin Clamp Lift가 Up 상태가 아니면 NGStageY 홈 이동을 차단한다.
                 if (outputStage.NgBinClampUpSensor != null &&
                     !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
                     !outputStage.NgBinClampUpSensor.IsOn)
@@ -690,9 +733,11 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyOutputFeederRingClearForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder가 Unclamp 상태가 아니면 NGStageY 홈 이동을 차단한다.
                 if (!VerifyOutputFeederUnclampForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 
+                // 인터락 조건: OutputFeeder 과부하가 감지되면 NGStageY 홈 이동을 차단한다.
                 if (!VerifyOutputFeederOverloadClearForGoodStageY(machine, "OutputNGStageY", out reason))
                     return false;
 

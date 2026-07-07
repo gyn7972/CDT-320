@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -21,6 +23,18 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string MotionAccRow = "Move Acc";
         private const string MotionDecRow = "Move Dec";
         private const string MotionTimeoutRow = "Move Timeout";
+        private const string BottomPixelXRow = "Bottom Pixel X";
+        private const string BottomPixelYRow = "Bottom Pixel Y";
+        private const string InputPixelXRow = "Input Pixel X";
+        private const string InputPixelYRow = "Input Pixel Y";
+        private const string OutputPixelXRow = "Output Pixel X";
+        private const string OutputPixelYRow = "Output Pixel Y";
+        private const string InputVisionXEncoderRow = "Input VisionX Encoder";
+        private const string OutputVisionXEncoderRow = "Output VisionX Encoder";
+        private const string BottomInputOffsetXRow = "Bottom-Input Offset X";
+        private const string BottomInputOffsetYRow = "Bottom-Input Offset Y";
+        private const string BottomOutputOffsetXRow = "Bottom-Output Offset X";
+        private const string BottomOutputOffsetYRow = "Bottom-Output Offset Y";
         private VisionCameraCalibrationSequence _sequence;
         private CancellationTokenSource _cts;
         private bool _busy;
@@ -49,6 +63,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplyText();
                 gridAppliedValues.CellDoubleClick += gridAppliedValues_CellDoubleClick;
                 gridAppliedValues.CellToolTipTextNeeded += gridAppliedValues_CellToolTipTextNeeded;
+                UserSession.UserChanged += UserSession_UserChanged;
                 RefreshData();
             }
             catch (Exception ex)
@@ -90,6 +105,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                UserSession.UserChanged -= UserSession_UserChanged;
                 base.OnFormClosing(e);
             }
         }
@@ -132,6 +148,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 toolTip.SetToolTip(btnLoadValues, "저장 파일에서 Machine Settings와 현재 Recipe 값을 다시 읽어 표시합니다.");
                 toolTip.SetToolTip(btnSaveReticleValues, "FIND INPUT/OUTPUT에서 측정한 InputVisionX/OutputVisionX 위치를 ReticlePosition으로 저장합니다.\r\nBottom 위 Reticle 촬영 X Encoder 값도 VisionUnit Config에 함께 저장합니다.");
+                toolTip.SetToolTip(gridAppliedValues, "Admin 권한에서 값을 더블클릭하면 키패드로 수정하고 VisionUnit CalibrationData에 저장합니다.");
                 toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
                 toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Front Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다.");
                 toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
@@ -275,14 +292,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 data.EnsureObjects();
                 if (data.InputReticle == null ||
-                    !data.InputReticle.Valid ||
                     !data.InputReticle.HasVisionXPosition)
-                    throw new InvalidOperationException("Input Reticle 측정 위치가 없습니다. FIND INPUT을 먼저 수행하세요.");
+                    throw new InvalidOperationException("Input Reticle VisionX 위치가 없습니다. FIND INPUT을 수행하거나 Admin 수동 입력 후 저장하세요.");
 
                 if (data.OutputReticle == null ||
-                    !data.OutputReticle.Valid ||
                     !data.OutputReticle.HasVisionXPosition)
-                    throw new InvalidOperationException("Output Reticle 측정 위치가 없습니다. FIND OUTPUT을 먼저 수행하세요.");
+                    throw new InvalidOperationException("Output Reticle VisionX 위치가 없습니다. FIND OUTPUT을 수행하거나 Admin 수동 입력 후 저장하세요.");
 
                 double inputX = data.InputReticle.VisionXPosition;
                 double outputX = data.OutputReticle.VisionXPosition;
@@ -770,23 +785,33 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 if (data == null)
                 {
-                    AddAppliedValueRow("Bottom Pixel X/Y", "-");
-                    AddAppliedValueRow("Input Pixel X/Y", "-");
-                    AddAppliedValueRow("Output Pixel X/Y", "-");
-                    AddAppliedValueRow("Input VisionX Encoder", "-");
-                    AddAppliedValueRow("Output VisionX Encoder", "-");
-                    AddAppliedValueRow("Bottom-Input Offset", "-");
-                    AddAppliedValueRow("Bottom-Output Offset", "-");
+                    AddAppliedValueRow(BottomPixelXRow, "-");
+                    AddAppliedValueRow(BottomPixelYRow, "-");
+                    AddAppliedValueRow(InputPixelXRow, "-");
+                    AddAppliedValueRow(InputPixelYRow, "-");
+                    AddAppliedValueRow(OutputPixelXRow, "-");
+                    AddAppliedValueRow(OutputPixelYRow, "-");
+                    AddAppliedValueRow(InputVisionXEncoderRow, "-");
+                    AddAppliedValueRow(OutputVisionXEncoderRow, "-");
+                    AddAppliedValueRow(BottomInputOffsetXRow, "-");
+                    AddAppliedValueRow(BottomInputOffsetYRow, "-");
+                    AddAppliedValueRow(BottomOutputOffsetXRow, "-");
+                    AddAppliedValueRow(BottomOutputOffsetYRow, "-");
                     return;
                 }
 
-                AddAppliedValueRow("Bottom Pixel X/Y", FormatPixel(data.BottomReticle));
-                AddAppliedValueRow("Input Pixel X/Y", FormatPixel(data.InputReticle));
-                AddAppliedValueRow("Output Pixel X/Y", FormatPixel(data.OutputReticle));
-                AddAppliedValueRow("Input VisionX Encoder", FormatVisionXPosition(data.InputReticle));
-                AddAppliedValueRow("Output VisionX Encoder", FormatVisionXPosition(data.OutputReticle));
-                AddAppliedValueRow("Bottom-Input Offset", FormatOffset(data.InputToBottomOffsetX, data.InputToBottomOffsetY));
-                AddAppliedValueRow("Bottom-Output Offset", FormatOffset(data.OutputToBottomOffsetX, data.OutputToBottomOffsetY));
+                AddAppliedValueRow(BottomPixelXRow, FormatPixelValue(data.BottomReticle, true));
+                AddAppliedValueRow(BottomPixelYRow, FormatPixelValue(data.BottomReticle, false));
+                AddAppliedValueRow(InputPixelXRow, FormatPixelValue(data.InputReticle, true));
+                AddAppliedValueRow(InputPixelYRow, FormatPixelValue(data.InputReticle, false));
+                AddAppliedValueRow(OutputPixelXRow, FormatPixelValue(data.OutputReticle, true));
+                AddAppliedValueRow(OutputPixelYRow, FormatPixelValue(data.OutputReticle, false));
+                AddAppliedValueRow(InputVisionXEncoderRow, FormatVisionXPosition(data.InputReticle));
+                AddAppliedValueRow(OutputVisionXEncoderRow, FormatVisionXPosition(data.OutputReticle));
+                AddAppliedValueRow(BottomInputOffsetXRow, FormatOffsetValue(data.InputToBottomOffsetX));
+                AddAppliedValueRow(BottomInputOffsetYRow, FormatOffsetValue(data.InputToBottomOffsetY));
+                AddAppliedValueRow(BottomOutputOffsetXRow, FormatOffsetValue(data.OutputToBottomOffsetX));
+                AddAppliedValueRow(BottomOutputOffsetYRow, FormatOffsetValue(data.OutputToBottomOffsetY));
                 AddAppliedValueRow(MotionSpeedRow, data.Motion.MoveVelocity.ToString("F6") + " mm/s", MotionSpeedRow);
                 AddAppliedValueRow(MotionAccRow, data.Motion.MoveAcceleration.ToString("F6") + " mm/s2", MotionAccRow);
                 AddAppliedValueRow(MotionDecRow, data.Motion.MoveDeceleration.ToString("F6") + " mm/s2", MotionDecRow);
@@ -798,6 +823,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                UpdateAppliedValueEditorAccess();
             }
         }
 
@@ -810,6 +836,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = gridAppliedValues.Rows.Add(item, string.Empty, string.Empty, value);
             gridAppliedValues.Rows[row].Tag = tag;
+            ApplyAppliedValueEditState(gridAppliedValues.Rows[row]);
             ApplyAppliedValueToolTip(gridAppliedValues.Rows[row], GetAppliedValueToolTip(item));
         }
 
@@ -835,20 +862,25 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             switch (item)
             {
-                case "Bottom Pixel X/Y":
+                case BottomPixelXRow:
+                case BottomPixelYRow:
                     return "Bottom 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. 카메라 간 Offset 계산의 기준이 됩니다.";
-                case "Input Pixel X/Y":
+                case InputPixelXRow:
+                case InputPixelYRow:
                     return "Input 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Input Camera Offset 계산에 사용합니다.";
-                case "Output Pixel X/Y":
+                case OutputPixelXRow:
+                case OutputPixelYRow:
                     return "Output 카메라에서 Reticle Finder로 측정한 픽셀 좌표입니다. Bottom 기준 Output Camera Offset 계산에 사용합니다.";
-                case "Input VisionX Encoder":
+                case InputVisionXEncoderRow:
                     return "Input 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
-                case "Output VisionX Encoder":
+                case OutputVisionXEncoderRow:
                     return "Output 카메라 Reticle 촬영 시 VisionX 실제 Encoder 위치입니다. SAVE RETICLE VALUES로 ReticlePosition에 저장됩니다.";
-                case "Bottom-Input Offset":
-                    return "Bottom 카메라 좌표계를 기준으로 계산된 Input 카메라 X/Y 보정값입니다.";
-                case "Bottom-Output Offset":
-                    return "Bottom 카메라 좌표계를 기준으로 계산된 Output 카메라 X/Y 보정값입니다.";
+                case BottomInputOffsetXRow:
+                case BottomInputOffsetYRow:
+                    return "Bottom 카메라 좌표계를 기준으로 계산된 Input 카메라 보정값입니다.";
+                case BottomOutputOffsetXRow:
+                case BottomOutputOffsetYRow:
+                    return "Bottom 카메라 좌표계를 기준으로 계산된 Output 카메라 보정값입니다.";
                 case MotionSpeedRow:
                     return "Vision Camera Calibration에서 Reticle 촬영 위치로 이동할 때 사용하는 전용 속도입니다. 더블클릭하면 키패드로 수정합니다.";
                 case MotionAccRow:
@@ -862,91 +894,566 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
-        private void gridAppliedValues_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        private void UserSession_UserChanged()
         {
-            if (_busy || e.RowIndex < 0)
-                return;
-
-            DataGridViewRow row = gridAppliedValues.Rows[e.RowIndex];
-            string key = row != null ? row.Tag as string : null;
-            if (string.IsNullOrWhiteSpace(key))
-                return;
-
             try
             {
-                VisionCameraCalibrationData data = Sequence.CalibrationData;
-                if (data == null)
+                if (IsDisposed)
                     return;
 
-                data.EnsureObjects();
-                string unit = key == MotionTimeoutRow ? "ms" : key == MotionSpeedRow ? "mm/s" : "mm/s2";
-                string current;
-                if (key == MotionSpeedRow)
-                    current = data.Motion.MoveVelocity.ToString("F6");
-                else if (key == MotionAccRow)
-                    current = data.Motion.MoveAcceleration.ToString("F6");
-                else if (key == MotionDecRow)
-                    current = data.Motion.MoveDeceleration.ToString("F6");
-                else if (key == MotionTimeoutRow)
-                    current = data.Motion.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture);
-                else
-                    return;
-
-                using (NumericKeypadDialog dialog = new NumericKeypadDialog(key, current, unit))
+                if (InvokeRequired)
                 {
-                    if (dialog.ShowDialog(this) != DialogResult.OK)
-                        return;
-
-                    double value;
-                    if (!double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
-                        !double.TryParse(dialog.ValueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
-                    {
-                        lblStatus.Text = key + " 값이 숫자가 아닙니다. value=" + dialog.ValueText;
-                        return;
-                    }
-
-                    if (key == MotionSpeedRow)
-                        data.Motion.MoveVelocity = Math.Max(0.001, value);
-                    else if (key == MotionAccRow)
-                        data.Motion.MoveAcceleration = Math.Max(0.001, value);
-                    else if (key == MotionDecRow)
-                        data.Motion.MoveDeceleration = Math.Max(0.001, value);
-                    else if (key == MotionTimeoutRow)
-                        data.Motion.MoveTimeoutMs = Math.Max(100, (int)Math.Round(value));
-
-                    data.Motion.EnsureDefaults();
-                    Form1 host = FindHostForm();
-                    if (host != null && host.Machine != null && host.Machine.VisionUnit != null)
-                    {
-                        host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
-                        host.Machine.SaveSettings();
-                    }
-
-                    RefreshAppliedValueGrid();
-                    lblStatus.Text = "Vision Camera Calibration " + key + " 값을 저장했습니다.";
+                    BeginInvoke(new Action(UserSession_UserChanged));
+                    return;
                 }
+
+                RefreshAppliedValueGrid();
             }
-            catch (Exception ex)
+            catch
             {
-                lblStatus.Text = "Vision Camera Calibration 모션 설정 저장 실패: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-MOTION-SAVE", lblStatus.Text);
             }
             finally
             {
             }
         }
 
-        private string FormatPixel(VisionReticleMeasurement measurement)
+        private void UpdateAppliedValueEditorAccess()
+        {
+            try
+            {
+                if (gridAppliedValues == null)
+                    return;
+
+                gridAppliedValues.ReadOnly = true;
+                gridAppliedValues.EditMode = DataGridViewEditMode.EditProgrammatically;
+                gridAppliedValues.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
+                colValueName.ReadOnly = true;
+                colSavedValue.ReadOnly = true;
+                colCurrentValue.ReadOnly = true;
+                colApplyValue.ReadOnly = true;
+
+                foreach (DataGridViewRow row in gridAppliedValues.Rows)
+                    ApplyAppliedValueEditState(row);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyAppliedValueEditState(DataGridViewRow row)
+        {
+            if (row == null)
+                return;
+
+            string item = Convert.ToString(row.Cells[colValueName.Index].Value, CultureInfo.InvariantCulture);
+            bool editable = CanEditAppliedValues() && IsAppliedValueEditableItem(item);
+
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ReadOnly = true;
+
+            DataGridViewCell valueCell = row.Cells[colApplyValue.Index];
+            valueCell.ReadOnly = true;
+            valueCell.Style.BackColor = editable ? Color.FromArgb(255, 255, 230) : Color.FromArgb(245, 245, 245);
+            valueCell.Style.ForeColor = editable ? Color.Black : Color.DimGray;
+        }
+
+        private static bool CanEditAppliedValues()
+        {
+            return UserSession.Has(UserLevel.Admin);
+        }
+
+        private static bool IsAppliedValueEditableItem(string item)
+        {
+            return item == BottomPixelXRow ||
+                   item == BottomPixelYRow ||
+                   item == InputPixelXRow ||
+                   item == InputPixelYRow ||
+                   item == OutputPixelXRow ||
+                   item == OutputPixelYRow ||
+                   item == InputVisionXEncoderRow ||
+                   item == OutputVisionXEncoderRow ||
+                   item == BottomInputOffsetXRow ||
+                   item == BottomInputOffsetYRow ||
+                   item == BottomOutputOffsetXRow ||
+                   item == BottomOutputOffsetYRow ||
+                   item == MotionSpeedRow ||
+                   item == MotionAccRow ||
+                   item == MotionDecRow ||
+                   item == MotionTimeoutRow;
+        }
+
+        private static bool IsReticlePixelItem(string item)
+        {
+            return item == BottomPixelXRow ||
+                   item == BottomPixelYRow ||
+                   item == InputPixelXRow ||
+                   item == InputPixelYRow ||
+                   item == OutputPixelXRow ||
+                   item == OutputPixelYRow;
+        }
+
+        private static bool IsCameraCalibrationGeometryItem(string item)
+        {
+            return item == BottomPixelXRow ||
+                   item == BottomPixelYRow ||
+                   item == InputPixelXRow ||
+                   item == InputPixelYRow ||
+                   item == OutputPixelXRow ||
+                   item == OutputPixelYRow ||
+                   item == InputVisionXEncoderRow ||
+                   item == OutputVisionXEncoderRow ||
+                   item == BottomInputOffsetXRow ||
+                   item == BottomInputOffsetYRow ||
+                   item == BottomOutputOffsetXRow ||
+                   item == BottomOutputOffsetYRow;
+        }
+
+        private void ApplyManualAppliedValue(string item, string valueText)
+        {
+            VisionCameraCalibrationData data = Sequence.CalibrationData;
+            if (data == null)
+                throw new InvalidOperationException("Vision Camera Calibration 데이터가 준비되지 않았습니다.");
+
+            data.EnsureObjects();
+
+            if (item == BottomPixelXRow)
+            {
+                ApplyManualReticlePixelAxis(data.BottomReticle, data.BottomCamera, "Bottom", valueText, true);
+                data.Valid = false;
+            }
+            else if (item == BottomPixelYRow)
+            {
+                ApplyManualReticlePixelAxis(data.BottomReticle, data.BottomCamera, "Bottom", valueText, false);
+                data.Valid = false;
+            }
+            else if (item == InputPixelXRow)
+            {
+                ApplyManualReticlePixelAxis(data.InputReticle, data.InputCamera, "Input", valueText, true);
+                data.Valid = false;
+            }
+            else if (item == InputPixelYRow)
+            {
+                ApplyManualReticlePixelAxis(data.InputReticle, data.InputCamera, "Input", valueText, false);
+                data.Valid = false;
+            }
+            else if (item == OutputPixelXRow)
+            {
+                ApplyManualReticlePixelAxis(data.OutputReticle, data.OutputCamera, "Output", valueText, true);
+                data.Valid = false;
+            }
+            else if (item == OutputPixelYRow)
+            {
+                ApplyManualReticlePixelAxis(data.OutputReticle, data.OutputCamera, "Output", valueText, false);
+                data.Valid = false;
+            }
+            else if (item == InputVisionXEncoderRow)
+            {
+                ApplyManualVisionXPosition(data.InputReticle, "Input", valueText);
+            }
+            else if (item == OutputVisionXEncoderRow)
+            {
+                ApplyManualVisionXPosition(data.OutputReticle, "Output", valueText);
+            }
+            else if (item == BottomInputOffsetXRow)
+            {
+                data.InputToBottomOffsetX = ReadDoubleValue(item, valueText);
+                data.Valid = true;
+            }
+            else if (item == BottomInputOffsetYRow)
+            {
+                data.InputToBottomOffsetY = ReadDoubleValue(item, valueText);
+                data.Valid = true;
+            }
+            else if (item == BottomOutputOffsetXRow)
+            {
+                data.OutputToBottomOffsetX = ReadDoubleValue(item, valueText);
+                data.Valid = true;
+            }
+            else if (item == BottomOutputOffsetYRow)
+            {
+                data.OutputToBottomOffsetY = ReadDoubleValue(item, valueText);
+                data.Valid = true;
+            }
+            else if (item == MotionSpeedRow)
+            {
+                data.Motion.MoveVelocity = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                data.Motion.EnsureDefaults();
+            }
+            else if (item == MotionAccRow)
+            {
+                data.Motion.MoveAcceleration = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                data.Motion.EnsureDefaults();
+            }
+            else if (item == MotionDecRow)
+            {
+                data.Motion.MoveDeceleration = Math.Max(0.001, ReadDoubleValue(item, valueText));
+                data.Motion.EnsureDefaults();
+            }
+            else if (item == MotionTimeoutRow)
+            {
+                data.Motion.MoveTimeoutMs = Math.Max(100, (int)Math.Round(ReadDoubleValue(item, valueText)));
+                data.Motion.EnsureDefaults();
+            }
+            else
+            {
+                throw new InvalidOperationException("수정할 수 없는 항목입니다. item=" + item);
+            }
+
+            MarkManualCameraCalibrationUpdate(data);
+        }
+
+        private void ApplyManualReticlePixelAxis(
+            VisionReticleMeasurement measurement,
+            VisionCameraPixelCalibration camera,
+            string cameraName,
+            string valueText,
+            bool isXAxis)
+        {
+            if (measurement == null || camera == null)
+                throw new InvalidOperationException(cameraName + " Reticle 데이터가 준비되지 않았습니다.");
+
+            string axisName = isXAxis ? " Pixel X" : " Pixel Y";
+            double pixelValue = ReadDoubleValue(cameraName + axisName, valueText);
+
+            measurement.Valid = true;
+            measurement.CameraName = cameraName;
+            if (isXAxis)
+                measurement.PixelX = pixelValue;
+            else
+                measurement.PixelY = pixelValue;
+
+            measurement.MmX = camera.PixelToMmOffsetX(measurement.PixelX);
+            measurement.MmY = camera.PixelToMmOffsetY(measurement.PixelY);
+            if (measurement.Score <= 0.0)
+                measurement.Score = 1.0;
+            measurement.MeasuredAt = DateTime.Now;
+            measurement.Raw = "ADMIN:ManualEdit";
+        }
+
+        private void ApplyManualVisionXPosition(
+            VisionReticleMeasurement measurement,
+            string cameraName,
+            string valueText)
+        {
+            if (measurement == null)
+                throw new InvalidOperationException(cameraName + " Reticle 데이터가 준비되지 않았습니다.");
+
+            double position = ReadDoubleValue(cameraName + " VisionX Encoder", valueText);
+            measurement.CameraName = cameraName;
+            measurement.VisionXPosition = position;
+            measurement.HasVisionXPosition = true;
+            measurement.MeasuredAt = DateTime.Now;
+            measurement.Raw = "ADMIN:ManualEdit";
+        }
+
+        private void MarkManualCameraCalibrationUpdate(VisionCameraCalibrationData data)
+        {
+            if (data == null)
+                return;
+
+            data.UpdatedAt = DateTime.Now;
+            data.UpdatedBy = UserSession.Name ?? string.Empty;
+            data.EnsureSerializableDateTimes();
+        }
+
+        private void SaveManualAppliedValue(string item)
+        {
+            Form1 host = FindHostForm();
+            if (host == null || host.Machine == null)
+                throw new InvalidOperationException("장비 객체가 준비되지 않았습니다.");
+
+            if (host.Machine.VisionUnit == null ||
+                host.Machine.VisionUnit.Config == null ||
+                host.Machine.VisionUnit.Config.CalibrationData == null)
+                throw new InvalidOperationException("VisionUnit CalibrationData가 준비되지 않았습니다.");
+
+            host.Machine.VisionUnit.Config.CalibrationData.Touch(UserSession.Name);
+
+            if (IsCameraCalibrationGeometryItem(item))
+            {
+                string offsetSummary;
+                PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(host.Machine, UserSession.Name, out offsetSummary);
+                if (!string.IsNullOrWhiteSpace(offsetSummary))
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MANUAL-PICKER-OFFSET", offsetSummary);
+            }
+
+            if (!host.Machine.SaveSettings())
+                throw new InvalidOperationException("CalibrationData 파일 저장에 실패했습니다.");
+
+            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-MANUAL-EDIT",
+                "Vision Camera Calibration admin 수동 수정 저장. item=" + item + ", user=" + UserSession.Name);
+        }
+
+        private static double ReadDoubleValue(string item, string text)
+        {
+            double[] values;
+            if (!TryReadNumbers(text, 1, out values))
+                throw new FormatException(item + " 값은 숫자가 필요합니다.");
+
+            double value = values[0];
+            if (!IsFinite(value))
+                throw new FormatException(item + " 값이 유효한 숫자가 아닙니다.");
+
+            return value;
+        }
+
+        private static bool TryReadNumbers(string text, int minimumCount, out double[] values)
+        {
+            List<double> parsed = new List<double>();
+            MatchCollection matches = Regex.Matches(text ?? string.Empty, @"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?");
+            foreach (Match match in matches)
+            {
+                double value;
+                if (double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                    double.TryParse(match.Value, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                {
+                    parsed.Add(value);
+                }
+            }
+
+            values = parsed.ToArray();
+            return values.Length >= minimumCount;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
+        }
+
+        private void gridAppliedValues_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0)
+                return;
+
+            DataGridViewRow row = gridAppliedValues.Rows[e.RowIndex];
+            string item = Convert.ToString(row != null ? row.Cells[colValueName.Index].Value : null, CultureInfo.InvariantCulture);
+            if (!IsAppliedValueEditableItem(item))
+                return;
+
+            if (!CanEditAppliedValues())
+            {
+                lblStatus.Text = "Admin 권한에서만 Vision Camera Calibration 값을 수정할 수 있습니다.";
+                return;
+            }
+
+            try
+            {
+                string valueText;
+                if (!PromptAppliedValueWithKeypad(item, out valueText))
+                    return;
+
+                ApplyManualAppliedValue(item, valueText);
+                SaveManualAppliedValue(item);
+                RefreshData();
+
+                string suffix = IsReticlePixelItem(item)
+                    ? " Offset 재계산이 필요하면 CALC / SAVE를 실행하세요."
+                    : string.Empty;
+                lblStatus.Text = item + " 키패드 수정값을 저장했습니다." + suffix;
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = item + " 키패드 수정 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION-CAMERA-CAL-KEYPAD-SAVE", lblStatus.Text);
+                QMC.Common.MessageDialog.Show(this, lblStatus.Text, "VISION CAMERA CAL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                RefreshAppliedValueGrid();
+            }
+            finally
+            {
+            }
+        }
+
+        private bool PromptAppliedValueWithKeypad(string item, out string valueText)
+        {
+            valueText = null;
+
+            VisionCameraCalibrationData data = Sequence.CalibrationData;
+            if (data == null)
+                throw new InvalidOperationException("Vision Camera Calibration 데이터가 준비되지 않았습니다.");
+
+            data.EnsureObjects();
+
+            double value;
+            if (item == BottomPixelXRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.BottomReticle.PixelX, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == BottomPixelYRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.BottomReticle.PixelY, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == InputPixelXRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.InputReticle.PixelX, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == InputPixelYRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.InputReticle.PixelY, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == OutputPixelXRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.OutputReticle.PixelX, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == OutputPixelYRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.OutputReticle.PixelY, "px", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == InputVisionXEncoderRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.InputReticle.HasVisionXPosition ? data.InputReticle.VisionXPosition : 0.0, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == OutputVisionXEncoderRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.OutputReticle.HasVisionXPosition ? data.OutputReticle.VisionXPosition : 0.0, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == BottomInputOffsetXRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.InputToBottomOffsetX, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == BottomInputOffsetYRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.InputToBottomOffsetY, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == BottomOutputOffsetXRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.OutputToBottomOffsetX, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == BottomOutputOffsetYRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.OutputToBottomOffsetY, "mm", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == MotionSpeedRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.Motion.MoveVelocity, "mm/s", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == MotionAccRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.Motion.MoveAcceleration, "mm/s2", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == MotionDecRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.Motion.MoveDeceleration, "mm/s2", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            if (item == MotionTimeoutRow)
+            {
+                if (!PromptSingleWithKeypad(item, data.Motion.MoveTimeoutMs, "ms", out value))
+                    return false;
+
+                valueText = FormatManualNumber(value);
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool PromptSingleWithKeypad(string title, double currentValue, string unit, out double value)
+        {
+            value = currentValue;
+            using (NumericKeypadDialog dialog = new NumericKeypadDialog(title, FormatManualNumber(currentValue), unit))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return false;
+
+                value = ReadDoubleValue(title, dialog.ValueText);
+                return true;
+            }
+        }
+
+        private static string FormatManualNumber(double value)
+        {
+            return value.ToString("0.######", CultureInfo.InvariantCulture);
+        }
+
+        private string FormatPixelValue(VisionReticleMeasurement measurement, bool isXAxis)
         {
             if (measurement == null || !measurement.Valid)
                 return "-";
 
-            return measurement.PixelX.ToString("F3") + ", " + measurement.PixelY.ToString("F3") + " px";
+            return (isXAxis ? measurement.PixelX : measurement.PixelY).ToString("F3") + " px";
         }
 
-        private string FormatOffset(double x, double y)
+        private string FormatOffsetValue(double value)
         {
-            return x.ToString("F6") + ", " + y.ToString("F6") + " mm";
+            return value.ToString("F6") + " mm";
         }
 
         private string FormatVisionXPosition(VisionReticleMeasurement measurement)
@@ -961,7 +1468,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (measurement == null || !measurement.Valid)
             {
-                gridMeasurements.Rows.Add(name, "-", "-", "-", "-", "-");
+                gridMeasurements.Rows.Add(name, "-", "-", "-", "-", "-", "-", "-");
                 return;
             }
 
@@ -974,8 +1481,10 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             gridMeasurements.Rows.Add(
                 name,
-                measurement.PixelX.ToString("F3") + " / " + measurement.PixelY.ToString("F3"),
-                measurement.MmX.ToString("F6") + " / " + measurement.MmY.ToString("F6"),
+                measurement.PixelX.ToString("F3"),
+                measurement.PixelY.ToString("F3"),
+                measurement.MmX.ToString("F6"),
+                measurement.MmY.ToString("F6"),
                 measurement.AngleDeg.ToString("F3"),
                 axis,
                 measurement.Score.ToString("F3"));

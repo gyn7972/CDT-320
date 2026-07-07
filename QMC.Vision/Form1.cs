@@ -139,12 +139,50 @@ namespace QMC.Vision
             _ = ConnectLightsOnStartupAsync();
         }
 
-        /// <summary>비전 백엔드 선택 + 상태바 텍스트 / VISION 연결 동그라미.</summary>
+        /// <summary>비전 백엔드 선택 + 상태바 텍스트 / VISION 연결 동그라미.
+        /// Provider=Cognex 인데 DLL 미로드/라이선스(동글) 미체결이면 사용자에게 메시지로 알린다
+        /// (모르고 운영하면 매치/검사가 조용히 실패하므로 시작 시점에 드러낸다).</summary>
         private void InitializeBackend(VisionSettings cfg)
         {
             Backend = VisionFactory.Global;
             dotVision.IsOn  = Backend != null;
             RefreshStatusBar();   // 초기 상태바(Recipe: -)
+
+            if (cfg != null && cfg.Provider == QMC.Vision.Config.VisionProvider.Cognex)
+            {
+                string cognexError = null;
+                var cb = Backend as QMC.Vision.Backends.Cognex.CognexBackend;
+                if (cb == null || !cb.CognexLoaded)
+                    cognexError = "Cognex VisionPro 미로드 — 설치/경로(CognexBinPath)를 확인하세요.\r\n"
+                                + (cb != null ? cb.VersionInfo : "백엔드 생성 실패");
+                else if (!cb.CheckLicense(out var licErr))
+                    cognexError = licErr;
+
+                if (cognexError != null)
+                {
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error,
+                        "VISION-COGNEX-LICENSE", "Vision/Backend", cognexError);
+                    string msg = cognexError;   // 클로저 캡처
+                    this.Shown += (s, e) =>
+                    {
+                        try
+                        {
+                            QMC.Common.MessageDialog.Show(
+                                "Cognex 백엔드를 사용할 수 없습니다.\r\n\r\n" + msg +
+                                "\r\n\r\n매치/검사가 실패합니다. 라이선스(동글)와 VisionPro 설치를 확인하세요.",
+                                "Cognex 라이선스 없음",
+                                System.Windows.Forms.MessageBoxButtons.OK,
+                                System.Windows.Forms.MessageBoxIcon.Error);
+                        }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Form1] Cognex 경고 표시 실패: " + ex.Message); }
+                    };
+                }
+                else
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
+                        "Cognex 백엔드 정상 — " + cb.VersionInfo + " (라이선스 확인 OK)");
+                }
+            }
         }
 
         /// <summary>기본 데이터 폴더(Recipes/EquipmentData/Config/Log)와 'default' 레시피를 보장한다.

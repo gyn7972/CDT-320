@@ -80,7 +80,84 @@ namespace QMC.Vision.Ui.Pages
             UpdateRoiInfo();
             if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
             ApplyLanguage();
+            StartCommTap();
             Status((module?.Name ?? "?") + " / " + (inspector?.Id ?? "?"));
+        }
+
+        // ── 통신(핸들러) 그랩/검사 실시간 반영 — 모듈 뷰어 탭 + 결과 스토어 폴링 ──
+        // 핸들러 GRAB/INSPECT 등 통신 명령으로 프레임/검사 결과가 바뀌면, 이 레시피 페이지의 카메라뷰도
+        // 작업 모니터와 동일하게 이미지·검사 ROI·검출 기하(다이박스/프로파일)·판정/결과 라인을 갱신한다.
+        private System.Windows.Forms.Timer _commTimer;
+        private long _lastCommSeq = -1;
+        private long _lastResRev = -1;
+
+        private void StartCommTap()
+        {
+            if (_commTimer != null) return;
+            _commTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _commTimer.Tick += (s, e) => CommTapTick();
+            _commTimer.Start();
+        }
+
+        private void CommTapTick()
+        {
+            try
+            {
+                if (_module == null || _cam == null || !Visible || IsDisposed) return;
+
+                // 1) 통신/핸들러 그랩 프레임 — 라이브 중이 아니면 최신 뷰어 프레임 표시.
+                if (!_cam.IsLive)
+                {
+                    long seq = _module.ViewerFrameSeq;
+                    if (seq != _lastCommSeq)
+                    {
+                        _lastCommSeq = seq;
+                        if (seq > 0)
+                        {
+                            Bitmap f = _module.AcquireViewerFrame();
+                            if (f != null)
+                            {
+                                try { _cam.SetImage(f); }   // 내부 복제 — 원본은 여기서 해제
+                                finally { f.Dispose(); }
+                            }
+                        }
+                    }
+                }
+
+                // 2) 실행 결과(통신 INSPECT/MATCH — 작업 모니터와 동일 스토어) — 결과 리비전 변경 시에만.
+                long rv = QMC.Vision.Core.ModuleResultStore.Revision(_module.Name);
+                if (rv != _lastResRev)
+                {
+                    _lastResRev = rv;
+                    if (QMC.Vision.Core.MatchOverlayStore.TryGet(_module.Name, out var ov))
+                    {
+                        var rect = (ov.RoiW > 0 && ov.RoiH > 0)
+                            ? new System.Drawing.RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
+                            : System.Drawing.RectangleF.Empty;
+                        System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
+                        if (ov.Marks != null && ov.Marks.Length > 0)
+                        {
+                            marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
+                            foreach (var k in ov.Marks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
+                        }
+                        _cam.SetOverlay(rect, marks);
+                    }
+                    // 검사 종류별 검출 기하(다이박스/갭/프로파일) — 모니터링 뷰와 동일 렌더러.
+                    if (QMC.Vision.Core.InspectionOverlayStore.TryGet(_module.Name, out var geom))
+                    {
+                        var gm = geom;
+                        _cam.CustomOverlayPaint = (gr, toS) => QMC.Vision.Core.InspectionOverlayRenderer.Draw(gr, toS, gm);
+                        _cam.Invalidate();
+                    }
+                    if (QMC.Vision.Core.ModuleResultStore.TryGet(_module.Name, out bool pass, out string[] lines))
+                    {
+                        _cam.SetVerdict(pass ? "OK" : "NG", pass);
+                        _cam.SetResultLines(lines);
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[InspectorTargetPage] 통신 반영 실패: " + ex.Message); }
         }
 
         private void WireCamera()
@@ -206,6 +283,7 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
             try { if (_cam != null) _cam.FrameChanged -= OnCamFrameChanged; } catch { }
+            try { _commTimer?.Stop(); _commTimer?.Dispose(); _commTimer = null; } catch { }
             base.OnHandleDestroyed(e);
         }
 

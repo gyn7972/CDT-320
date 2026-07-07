@@ -193,6 +193,9 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-WAFER", "Material",
                         "InputStage wafer data was not found. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                Stage.ClearWaferAlignThetaResult();
+                MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
+
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
                 _map = ResolveWaferMapForAlign(waferId);
@@ -257,7 +260,10 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (Options.EnableMotion)
                 {
-                    int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, Stage.Recipe.WaferY.ProcessPosition, "StageY process", ct).ConfigureAwait(false);
+                    int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, Stage.Recipe.WaferY.ProcessPosition, "StageY process", ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
@@ -281,6 +287,37 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.NeedleZ,
+                Stage.Recipe.NeedleZ.AvoidPosition,
+                "NeedleZ avoid before process plane move",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.EjectPinZ,
+                Stage.Recipe.EjectPinZ.AvoidPosition,
+                "EjectPinZ avoid before process plane move",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "StageZ avoid before process plane move",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+            }
+
+            return 0;
         }
 
         private Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
@@ -799,13 +836,43 @@ namespace QMC.CDT320.Sequencing
             {
                 double offsetX = _centerResult != null ? _centerResult.DeltaX : 0.0;
                 double offsetY = _centerResult != null ? _centerResult.DeltaY : 0.0;
+                double referenceT = Stage.ResolveWaferAlignReferenceT();
+                double correctedT = Stage.StageT != null ? Stage.StageT.ActualPosition : referenceT;
+                double offsetT = correctedT - referenceT;
+                if (Math.Abs(offsetT) <= 0.000001)
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-ZERO", Stage.Name,
+                        "Final theta offset is zero. referenceT=" + referenceT.ToString("F6") +
+                        ", correctedT=" + correctedT.ToString("F6") +
+                        ", offsetT=" + offsetT.ToString("F6"));
+
+                int finalThetaLimitResult = CheckThetaCorrectionLimit(offsetT, "FinalOffset");
+                if (finalThetaLimitResult != 0)
+                    return finalThetaLimitResult;
+
+                string thetaReadyReason;
+                if (!Stage.IsWaferAlignThetaOffsetWithinLimit(offsetT, out thetaReadyReason))
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-LIMIT", Stage.Name,
+                        "Final theta offset is outside limit. " + thetaReadyReason);
+
                 Stage.ApplyWaferAlignResult(_originX, _originY, _pitchX, _pitchY, offsetX, offsetY);
+                Stage.ApplyWaferAlignThetaResult(referenceT, correctedT, offsetT);
 
                 WaferMaterial wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer != null)
                 {
                     wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
-                    MaterialStateService.SaveInputStageAlignResult(wafer, _originX, _originY, _pitchX, _pitchY, offsetX, offsetY);
+                    MaterialStateService.SaveInputStageAlignResult(
+                        wafer,
+                        _originX,
+                        _originY,
+                        _pitchX,
+                        _pitchY,
+                        offsetX,
+                        offsetY,
+                        true,
+                        referenceT,
+                        correctedT,
+                        offsetT);
                 }
 
                 Context.Bus.Set("InputStageAligned");

@@ -11,8 +11,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private TableLayoutPanel contentLayout;
         private DataGridView gridMeasurements;
         private DataGridViewTextBoxColumn colItem;
-        private DataGridViewTextBoxColumn colPixel;
-        private DataGridViewTextBoxColumn colMm;
+        private DataGridViewTextBoxColumn colPixelX;
+        private DataGridViewTextBoxColumn colPixelY;
+        private DataGridViewTextBoxColumn colMmX;
+        private DataGridViewTextBoxColumn colMmY;
         private DataGridViewTextBoxColumn colAngle;
         private DataGridViewTextBoxColumn colAxis;
         private DataGridViewTextBoxColumn colScore;
@@ -57,8 +59,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
             this.gridMeasurements = new System.Windows.Forms.DataGridView();
             this.colItem = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colPixel = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colMm = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colPixelX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colPixelY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colMmX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colMmY = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colAngle = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colScore = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -170,8 +174,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.gridMeasurements.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
             this.gridMeasurements.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colItem,
-            this.colPixel,
-            this.colMm,
+            this.colPixelX,
+            this.colPixelY,
+            this.colMmX,
+            this.colMmY,
             this.colAngle,
             this.colAxis,
             this.colScore});
@@ -192,28 +198,42 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colItem.HeaderText = "CAMERA";
             this.colItem.Name = "colItem";
             this.colItem.ReadOnly = true;
-            this.colItem.Width = 120;
+            this.colItem.Width = 95;
             // 
-            // colPixel
+            // colPixelX
             // 
-            this.colPixel.HeaderText = "PIXEL X/Y";
-            this.colPixel.Name = "colPixel";
-            this.colPixel.ReadOnly = true;
-            this.colPixel.Width = 140;
+            this.colPixelX.HeaderText = "PIXEL X";
+            this.colPixelX.Name = "colPixelX";
+            this.colPixelX.ReadOnly = true;
+            this.colPixelX.Width = 80;
             // 
-            // colMm
+            // colPixelY
             // 
-            this.colMm.HeaderText = "MM X/Y";
-            this.colMm.Name = "colMm";
-            this.colMm.ReadOnly = true;
-            this.colMm.Width = 140;
+            this.colPixelY.HeaderText = "PIXEL Y";
+            this.colPixelY.Name = "colPixelY";
+            this.colPixelY.ReadOnly = true;
+            this.colPixelY.Width = 80;
+            // 
+            // colMmX
+            // 
+            this.colMmX.HeaderText = "MM X";
+            this.colMmX.Name = "colMmX";
+            this.colMmX.ReadOnly = true;
+            this.colMmX.Width = 85;
+            // 
+            // colMmY
+            // 
+            this.colMmY.HeaderText = "MM Y";
+            this.colMmY.Name = "colMmY";
+            this.colMmY.ReadOnly = true;
+            this.colMmY.Width = 85;
             // 
             // colAngle
             // 
             this.colAngle.HeaderText = "ANGLE T";
             this.colAngle.Name = "colAngle";
             this.colAngle.ReadOnly = true;
-            this.colAngle.Width = 80;
+            this.colAngle.Width = 70;
             // 
             // colAxis
             // 
@@ -227,7 +247,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colScore.HeaderText = "SCORE";
             this.colScore.Name = "colScore";
             this.colScore.ReadOnly = true;
-            this.colScore.Width = 80;
+            this.colScore.Width = 65;
             // 
             // valuePanel
             // 
@@ -274,6 +294,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colCurrentValue,
             this.colApplyValue});
             this.gridAppliedValues.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.gridAppliedValues.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
             this.gridAppliedValues.Location = new System.Drawing.Point(4, 39);
             this.gridAppliedValues.MultiSelect = false;
             this.gridAppliedValues.Name = "gridAppliedValues";

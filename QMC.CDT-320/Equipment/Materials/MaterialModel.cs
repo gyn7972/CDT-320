@@ -311,6 +311,10 @@ namespace QMC.CDT320.Materials
         [DataMember] public double InputStageAlignPitchY { get; set; }
         [DataMember] public double InputStageAlignOffsetX { get; set; }
         [DataMember] public double InputStageAlignOffsetY { get; set; }
+        [DataMember] public bool HasInputStageThetaAlignResult { get; set; }
+        [DataMember] public double InputStageAlignReferenceT { get; set; }
+        [DataMember] public double InputStageAlignCorrectedT { get; set; }
+        [DataMember] public double InputStageAlignOffsetT { get; set; }
         [DataMember] public bool HasInputStageDieMappingResult { get; set; }
         [DataMember] public double InputStageDieMappingOffsetX { get; set; }
         [DataMember] public double InputStageDieMappingOffsetY { get; set; }
