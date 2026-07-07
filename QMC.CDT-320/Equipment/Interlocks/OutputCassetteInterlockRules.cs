@@ -62,6 +62,7 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
 
+            // 인터락 조건: Bin 돌출이 감지되면 OutputLifterZ 홈 이동을 차단한다.
             if (cassette != null && cassette.IsBinProtrusionDetected())
             {
                 return MotionGuardRuleHelpers.Block(
@@ -70,9 +71,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 방어 조건: Feeder 참조가 없으면 Feeder 연동 조건은 적용하지 않는다.
             if (feeder == null)
                 return true;
 
+            // 인터락 조건: OutputFeederY가 이동 중이면 OutputLifterZ 홈 이동을 차단한다.
             if (feeder.FeederY != null && feeder.FeederY.IsMoving)
             {
                 return MotionGuardRuleHelpers.Block(
@@ -81,6 +84,7 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
+            // 인터락 조건: OutputFeederY가 카세트 안전 위치가 아니면 OutputLifterZ 홈 이동을 차단한다.
             if (!IsOutputFeederYSafeForOutputLifterZ(feeder))
             {
                 return MotionGuardRuleHelpers.Block(

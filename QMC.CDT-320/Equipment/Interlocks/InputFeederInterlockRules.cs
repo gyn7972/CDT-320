@@ -55,28 +55,34 @@ namespace QMC.CDT320.Interlocks
         private static bool CanAutoInputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
+            // 방어 조건: 장비 참조가 없으면 InputFeederY 자동 인터락을 적용하지 않는다.
             if (machine == null)
                 return true;
 
             InputCassetteUnit cassette = machine.InputCassetteUnit;
             InputStageUnit stage = machine.InputStageUnit;
+            // 인터락 조건: InputLifterZ가 이동 중이면 InputFeederY 자동 이동을 차단한다.
             if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
                     "InputLifterZ is moving. InputFeederY move is blocked.",
                     out reason);
 
+            // 인터락 조건: InputStage가 있으면 T/Z/VisionX 안전 위치를 확인한다.
             if (stage != null)
             {
                 //if (!IsInputStageYAtLoadOrUnload(stage))
                 //    return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
+                // 인터락 조건: StageT가 Load/Unload 계열 위치가 아니면 FeederY 이송을 차단한다.
                 if (!IsInputStageTAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageT must be at Loading or Unloading position.", out reason);
 
+                // 인터락 조건: ExpanderZ가 Load/Unload 높이가 아니면 FeederY 이송을 차단한다.
                 if (!IsExpanderZAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
 
+                // 인터락 조건: InputVisionX가 Avoid 위치가 아니면 FeederY 이송을 차단한다.
                 if (!IsInputVisionXInAvoidPosition(stage))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
@@ -85,12 +91,14 @@ namespace QMC.CDT320.Interlocks
             }
 
             string pickerDetail;
+            // 인터락 조건: FrontPicker가 Input 존을 점유하거나 위치를 확정할 수 없으면 FeederY 이동을 차단한다.
             if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, true, PickerWorkZone.Input, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
                     "InputFeederY 이동 차단. FrontPicker가 Input zone을 사용 중이거나 위치를 확정할 수 없습니다. " + pickerDetail,
                     out reason);
 
+            // 인터락 조건: RearPicker가 Input 존을 점유하거나 위치를 확정할 수 없으면 FeederY 이동을 차단한다.
             if (PickerZoneInterlockRules.IsPickerBlockingZoneTransport(machine, false, PickerWorkZone.Input, out pickerDetail))
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
@@ -98,9 +106,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
 
             InputFeederUnit feeder = machine.InputFeederUnit;
+            // 방어 조건: Feeder 참조가 없으면 Feeder 센서 조건은 적용하지 않는다.
             if (feeder == null)
                 return true;
 
+            // 인터락 조건: Feeder 과부하 센서가 감지되면 FeederY 자동 이동을 차단한다.
             if (feeder.IsWaferFeederOverload())
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
@@ -117,10 +127,12 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                // 방어 조건: 장비 참조가 없으면 InputFeederY 수동 인터락을 적용하지 않는다.
                 if (machine == null)
                     return true;
 
                 InputCassetteUnit cassette = machine.InputCassetteUnit;
+                // 인터락 조건: InputLifterZ가 이동 중이면 InputFeederY 수동 이동을 차단한다.
                 if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
                 {
                     return MotionGuardRuleHelpers.Block(
@@ -146,18 +158,21 @@ namespace QMC.CDT320.Interlocks
 
                 string axisReason;
 
+                // 인터락 조건: InputVisionX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
                 if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
                         "InputFeederY HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
                         out reason);
 
+                // 인터락 조건: FrontPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
                 if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
                         "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
                         out reason);
 
+                // 인터락 조건: RearPickerX가 홈 준비 상태가 아니면 FeederY 수동 이동을 차단한다.
                 if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
@@ -165,20 +180,25 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 InputFeederUnit feeder = machine.InputFeederUnit;
+                // 방어 조건: Feeder 참조가 없으면 Feeder 센서/자재 조건은 적용하지 않는다.
                 if (feeder == null)
                     return true;
 
+                // 인터락 조건: Feeder 위에 자재 데이터나 검출 센서가 남아 있으면 홈 계열 이동을 차단한다.
                 if (!VerifyInputFeederEmptyForHome(feeder, out reason))
                     return false;
 
+                // 인터락 조건: Feeder 과부하 센서가 감지되면 FeederY 수동 이동을 차단한다.
                 if (feeder.IsWaferFeederOverload())
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
                         "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
                         out reason);
 
+                // 인터락 조건: 실장비 모드에서는 Feeder Unclamp 상태를 확인한다.
                 if (!ShouldBypassHardwareMechanismChecks())
                 {
+                    // 인터락 조건: Feeder가 Unclamp 상태가 아니면 FeederY 수동 이동을 차단한다.
                     if (!IsFeederUnclamp(feeder))
                         return MotionGuardRuleHelpers.Block(
                             "InputFeederY",
@@ -186,6 +206,7 @@ namespace QMC.CDT320.Interlocks
                             out reason);
                 }
 
+                // 인터락 조건: 실장비에서 Ring Check가 감지되면 FeederY 수동 이동을 차단한다.
                 if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
                 {
                     return MotionGuardRuleHelpers.Block(
@@ -216,10 +237,12 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
+                // 방어 조건: 장비 참조가 없으면 InputFeederY 홈 인터락을 적용하지 않는다.
                 if (machine == null)
                     return true;
 
                 InputCassetteUnit cassette = machine.InputCassetteUnit;
+                // 인터락 조건: InputLifterZ가 이동 중이면 InputFeederY 홈 이동을 차단한다.
                 if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
                 {
                     return MotionGuardRuleHelpers.Block(
@@ -277,20 +300,25 @@ namespace QMC.CDT320.Interlocks
                 //        out reason);
 
                 InputFeederUnit feeder = machine.InputFeederUnit;
+                // 방어 조건: Feeder 참조가 없으면 Feeder 센서/자재 조건은 적용하지 않는다.
                 if (feeder == null)
                     return true;
 
+                // 인터락 조건: Feeder 위에 자재 데이터나 검출 센서가 남아 있으면 홈 이동을 차단한다.
                 if (!VerifyInputFeederEmptyForHome(feeder, out reason))
                     return false;
 
+                // 인터락 조건: Feeder 과부하 센서가 감지되면 FeederY 홈 이동을 차단한다.
                 if (feeder.IsWaferFeederOverload())
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
                         "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
                         out reason);
 
+                // 인터락 조건: 실장비 모드에서는 Feeder Unclamp 상태를 확인한다.
                 if (!ShouldBypassHardwareMechanismChecks())
                 {
+                    // 인터락 조건: Feeder가 Unclamp 상태가 아니면 FeederY 홈 이동을 차단한다.
                     if (!IsFeederUnclamp(feeder))
                         return MotionGuardRuleHelpers.Block(
                             "InputFeederY",
@@ -298,6 +326,7 @@ namespace QMC.CDT320.Interlocks
                             out reason);
                 }
 
+                // 인터락 조건: 실장비에서 Ring Check가 감지되면 FeederY 홈 이동을 차단한다.
                 if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
                 {
                     return MotionGuardRuleHelpers.Block(
