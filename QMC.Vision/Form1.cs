@@ -264,11 +264,10 @@ namespace QMC.Vision
             try
             {
                 var cfg = QMC.Vision.Config.VisionConfigStore.Current ?? QMC.Vision.Config.VisionConfigStore.Load();
-                // 실상태 표시 — RUN/STOP(핸들러 접속 시 자동 RUN), READY ON/OFF(ON=핸들러 통신 가능), 모드.
+                // 실상태 표시 — RUN/STOP(핸들러 접속 시 자동 RUN), 모드.
                 string runTok  = IsRunActive ? "▶ RUN" : "■ STOP";
-                string rdyTok  = IsReady ? "READY ON" : "READY OFF";
                 string modeTok = IsSelfRunMode ? "시뮬 모드" : (IsHandlerConnected ? "핸들러 연결" : "핸들러 대기");
-                lblStatusL.Text = $"{runTok}   |   {rdyTok}   |   {modeTok}   |   Recipe: {_statusRecipe}   |   Backend: {Backend?.Name}   |   TCP: W={cfg.WaferVisionPort} B={cfg.BinVisionPort} Bot={cfg.InspectionVisionPort}   |   {_resMon.ShortText()}";
+                lblStatusL.Text = $"{runTok}   |   {modeTok}   |   Recipe: {_statusRecipe}   |   Backend: {Backend?.Name}   |   TCP: W={cfg.WaferVisionPort} B={cfg.BinVisionPort} Bot={cfg.InspectionVisionPort}   |   {_resMon.ShortText()}";
             }
             catch { }
         }
@@ -318,9 +317,8 @@ namespace QMC.Vision
         }
 
         private bool _runArmed;   // 실제(비Sim) 모드 RUN 상태 — RUN arming(핸들러 접속 시).
-        private bool _ready;      // READY 상태 — RUN 활성 후 작업자가 누름. 핸들러 VISION 사용 게이트.
         private bool _prevHandlerConnected;   // 핸들러 접속 상승엣지 감지용(자동 RUN).
-        private string _handlerRecipeName;    // 핸들러가 RECIPE 명령으로 지시한 레시피명(SSOT). READY 아닐 때 실시간 동기 체크 기준.
+        private string _handlerRecipeName;    // 핸들러가 RECIPE 명령으로 지시한 레시피명(SSOT). 실시간 동기 체크 기준.
         private DateTime _lastRecipeReqUtc;   // 레시피 요청(RECIPEREQ) throttle — 미동기 시 과다 요청 방지.
         private int _recipeReqCount;          // 무응답 시 요청 횟수 상한(접속 시 0으로 리셋).
 
@@ -337,17 +335,16 @@ namespace QMC.Vision
             catch { }
         }
 
-        /// <summary>핸들러 접속(상승엣지) 시 자동 RUN(arming) — 실제 모드 한정.
-        /// RUN 만 자동 진행하고 READY 는 작업자가 눌러야 핸들러 VISION 사용 가능(안전). 접속 이벤트에서 호출.</summary>
+        /// <summary>핸들러 접속(상승엣지) 시 자동 RUN(arming) — 실제 모드 한정. 접속 이벤트에서 호출.</summary>
         private void AutoArmRunOnConnect()
         {
             if (IsSelfRunMode) return;             // Sim 자체 실행은 자동 RUN 대상 아님
             bool connected = IsHandlerConnected;
             if (connected && !_prevHandlerConnected && !IsRunActive)
             {
-                SetRun(true);                      // 접속 → 자동 RUN. READY 는 수동.
+                SetRun(true);                      // 접속 → 자동 RUN.
                 try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Run",
-                          "핸들러 접속 → 자동 RUN(arming). READY 대기."); } catch { }
+                          "핸들러 접속 → 자동 RUN(arming)."); } catch { }
             }
             _prevHandlerConnected = connected;
         }
@@ -424,46 +421,11 @@ namespace QMC.Vision
         /// <summary>현재 RUN 중인가 — Sim 자체 실행은 시퀀서 가동, 실제 모드는 RUN arming 상태.</summary>
         internal bool IsRunActive => IsSelfRunMode ? (_autoSeqHost?.IsRunning ?? false) : _runArmed;
 
-        /// <summary>READY 전환 가능 여부 — RUN 활성 상태에서만 READY 를 누를 수 있다.</summary>
-        internal bool CanReady => IsRunActive;
-
-        /// <summary>핸들러가 VISION 을 사용할 수 있는 상태인가 — READY(작업자 승인) + RUN 활성.
-        /// 핸들러 명령(GRAB/MATCH 등) 게이트 조건. RUN 이 풀리면 자동 해제(<see cref="IsRunActive"/> 종속).</summary>
-        internal bool IsReady => _ready && IsRunActive;
-
-        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.
-        /// READY 진입 시 모든 모듈 카메라의 라이브를 정지한다 — 시퀀서/핸들러가 소프트트리거로
-        /// 카메라를 제어하므로 연속 촬상(Live)이 남아 있으면 시퀀스 그랩과 충돌한다.</summary>
-        internal void SetReady(bool on)
-        {
-            _ready = on && IsRunActive;
-            if (_ready) StopAllCameraLive();
-        }
-
-        /// <summary>모든 모듈 카메라 라이브 정지 — READY 진입 시 호출(핸들러 그랩과 충돌 방지).</summary>
-        private void StopAllCameraLive()
-        {
-            var mods = new Modules.IVisionModule[]
-                { WaferMod, BinMod, BottomMod, FrontSideVisionMod, RearSideVisionMod };
-            foreach (var mod in mods)
-            {
-                try { mod?.Camera?.StopLive(); }
-                catch (Exception ex)
-                {
-                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "ReadyStopLive",
-                        (mod?.Name ?? "?") + " 라이브 정지 실패: " + ex.Message);
-                }
-            }
-            QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ReadyStopLive",
-                "READY 진입 — 전 모듈 카메라 라이브 정지");
-        }
-
         /// <summary>작업 탭 RUN/STOP 토글 — Sim 자체 실행은 시퀀서 시작/정지, 실제 모드는 RUN 상태 set(핸들러 접속 시).</summary>
         internal void SetRun(bool on)
         {
             try
             {
-                if (!on) _ready = false;        // STOP 시 READY 자동 해제 — 핸들러 VISION 사용 차단
                 if (on) _resMon.ResetPeaks();   // RUN 시작 시 피크 초기화 — 이번 가동 기준 최대 부하 측정
                 if (IsSelfRunMode)
                 {
@@ -525,7 +487,6 @@ namespace QMC.Vision
                     RequestHandlerRecipeThrottled();                        // 지시 이력 없음 → 핸들러에 현재 레시피 능동 요청(throttle)
                     return;
                 }
-                if (IsReady) return;                                        // READY(생산 사용 중) — 변경 금지
 
                 string active = Machine.CurrentRecipeName;
                 if (string.Equals(active, _handlerRecipeName, StringComparison.OrdinalIgnoreCase)) return;  // 동일 → 변경 불필요
@@ -540,7 +501,7 @@ namespace QMC.Vision
                 catch { }
                 SetRecipeStatus(_handlerRecipeName);
                 QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "RecipeSync",
-                    "READY 아님 — 활성('" + active + "') ≠ 핸들러('" + _handlerRecipeName + "') → 핸들러 레시피로 재적용");
+                    "활성('" + active + "') ≠ 핸들러('" + _handlerRecipeName + "') → 핸들러 레시피로 재적용");
             }
             catch (Exception ex)
             {
@@ -556,11 +517,10 @@ namespace QMC.Vision
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
             _svrFrontSideVision    = new VisionTcpServer(FrontSideVisionMod,    cfg.FrontSidePort);
             _svrRearSideVision = new VisionTcpServer(RearSideVisionMod, cfg.RearSidePort);
-            // READY 게이트 — READY(작업자 승인 + RUN 활성) 상태에서만 핸들러 명령 수락(PING 제외). + 통신 로그 수집.
+            // 게이트 개방 — READY 제약 폐기. 핸들러 명령을 상태와 무관하게 항상 수락(IsCommandAllowed=null → 항상 허용). + 통신 로그 수집.
             foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrFrontSideVision, _svrRearSideVision })
             {
-                // READY(핸들러용) 또는 자체 TCP 루프백 구동 중이면 명령 수락(후자는 핸들러/READY 없이 자기 명령 허용).
-                s.IsCommandAllowed = () => IsReady || QMC.Vision.Sequencing.VisionSelfRunTcpState.Active;
+                s.IsCommandAllowed = null;   // 항상 허용
                 s.Log += QMC.Vision.Comm.VisionCommLog.Add;
             }
             try { _svrWafer            .Start(); } catch { }
@@ -881,7 +841,7 @@ namespace QMC.Vision
         {
             // UI 스레드 틱은 시계만(가벼움). 무거운 리소스 샘플링/CSV/상태바는 백그라운드(StartResourceSampler).
             UpdateClock();
-            CheckHandlerRecipeSync();   // 실시간 레시피 동기 — READY 아닐 때 활성≠핸들러면 핸들러 레시피로 재적용(diff only)
+            CheckHandlerRecipeSync();   // 실시간 레시피 동기 — 활성≠핸들러면 핸들러 레시피로 재적용(diff only)
         }
 
         /// <summary>리소스 샘플링 + CSV(디스크 IO) 를 백그라운드 스레드에서 1초 주기로 수행한다.
@@ -965,41 +925,3 @@ namespace QMC.Vision
             try { _viewFrontSide?.Dispose(); } catch { }
             try { _viewRearSide?.Dispose(); }  catch { }
             try { _svrMain?.Dispose(); }       catch { }
-            try { _svrWafer?.Dispose(); }      catch { }
-            try { _svrBin?.Dispose(); }        catch { }
-            try { _svrBottom?.Dispose(); }     catch { }
-            try { _svrFrontSideVision?.Dispose(); }    catch { }
-            try { _svrRearSideVision?.Dispose(); } catch { }
-
-            // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
-            //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
-            ShutdownLog("tcp/viewer done -> cameras");
-            try { WaferMod    ?.Camera?.StopLive(); } catch { }
-            try { BinMod      ?.Camera?.StopLive(); } catch { }
-            try { BottomMod   ?.Camera?.StopLive(); } catch { }
-            try { FrontSideVisionMod?.Camera?.StopLive(); } catch { }
-            try { RearSideVisionMod ?.Camera?.StopLive(); } catch { }
-            try { WaferMod    ?.Dispose(); } catch { }
-            try { BinMod      ?.Dispose(); } catch { }
-            try { BottomMod   ?.Dispose(); } catch { }
-            try { FrontSideVisionMod?.Dispose(); } catch { }
-            try { RearSideVisionMod ?.Dispose(); } catch { }
-
-            ShutdownLog("cameras done -> lights");
-            try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
-            ShutdownLog("lights done -> backend");
-            try { Backend?.Dispose(); }        catch { }
-            // 카메라(digitizer) 정리 후 MIL System/App 완전 해제 — 그래버 점유 해제(다음 실행/Intellicam 즉시 사용 가능).
-            ShutdownLog("backend done -> MIL shutdown");
-            try { QMC.Vision.Cameras.Mil.MilSystem.Shutdown(); } catch { }
-            ShutdownLog("done");
-            base.OnFormClosing(e);
-        }
-
-        /// <summary>종료 단계 로그 — 실장비에서 종료가 행 걸릴 때 마지막으로 찍힌 단계가 행 지점.</summary>
-        private static void ShutdownLog(string step)
-        {
-            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Shutdown", step); } catch { }
-        }
-    }
-}

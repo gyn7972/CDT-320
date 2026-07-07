@@ -694,6 +694,10 @@ namespace QMC.Common.Ui.Controls
         {
             _measSegs.Clear();
             _haveA = false; _haveB = false; _measureDone = false; _haveMouse = false;
+            // 측정 세그먼트뿐 아니라 화면에 겹쳐진 매치 마크/검출 박스/판정(OK·NG)·결과 라인도 함께 정리한다.
+            // (검색 ROI 사각형은 설정값이므로 유지 — ClearDetectionForNewFrame 이 마크만 지우고 ROI 는 남긴다.)
+            // 사용자 '측정 클리어' = 화면 오버레이 제거 기대에 맞춤.
+            ClearDetectionForNewFrame();
             Invalidate();
         }
 

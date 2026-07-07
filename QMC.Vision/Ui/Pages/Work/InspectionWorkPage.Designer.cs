@@ -18,7 +18,6 @@ namespace QMC.Vision.Ui.Pages
         private Panel  _header;
         private Label  _lblHeader;     // "작업 — 모니터링" + 레시피/Lot/Wafer/Judge
         private Button _btnRun;        // RUN/STOP
-        private Button _btnReady;      // READY
 
         // 메인 표시 영역 + 우측 세로 버튼바
         private Panel        _contentHost;
@@ -36,7 +35,6 @@ namespace QMC.Vision.Ui.Pages
             _header      = new Panel();
             _lblHeader   = new Label();
             _btnRun      = new Button();
-            _btnReady    = new Button();
             _contentHost = new Panel();
             _btnBar      = new Panel();
             _btnFlow     = new FlowLayoutPanel();
@@ -55,7 +53,6 @@ namespace QMC.Vision.Ui.Pages
             // 추가 순서: Fill 라벨을 마지막에 → RUN/READY(Right)가 먼저 자리 차지
             _header.Controls.Add(_lblHeader);
             _header.Controls.Add(_btnRun);
-            _header.Controls.Add(_btnReady);
 
             _lblHeader.Dock = DockStyle.Fill;
             _lblHeader.ForeColor = UiTheme.StatusBarFg;
@@ -75,16 +72,6 @@ namespace QMC.Vision.Ui.Pages
             _btnRun.Text = "RUN";
             _btnRun.UseVisualStyleBackColor = false;
 
-            // _btnReady
-            _btnReady.Dock = DockStyle.Right;
-            _btnReady.Width = 92;
-            _btnReady.FlatStyle = FlatStyle.Flat;
-            _btnReady.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
-            _btnReady.ForeColor = Color.White;
-            _btnReady.BackColor = Color.FromArgb(0x55, 0x55, 0x55);
-            _btnReady.Margin = new Padding(0);
-            _btnReady.Text = "READY";
-            _btnReady.UseVisualStyleBackColor = false;
 
             // ── 메인 표시 영역(나머지 채움) — 먼저 추가(뒤) ──
             _contentHost.Dock = DockStyle.Fill;
