@@ -1036,8 +1036,18 @@ namespace QMC.CDT320.Sequencing
                         ", pickerNo=" + _currentPickerNo +
                         ", pickerIndex=" + _currentPickerIndex +
                         ", die=" + _currentDieId +
-                        ", reason=" + offsetReason);
+                    ", reason=" + offsetReason);
                 }
+
+                double cameraOffsetX;
+                double cameraOffsetY;
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                    Context != null ? Context.Machine : null,
+                    out cameraOffsetX,
+                    out cameraOffsetY);
+                double alignOffsetX = _visionOffset.DeltaX - cameraOffsetX;
+                double alignOffsetY = _visionOffset.DeltaY - cameraOffsetY;
+                double alignOffsetT = _visionOffset.DeltaTheta;
 
                 PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(
                     Name,
@@ -1049,10 +1059,13 @@ namespace QMC.CDT320.Sequencing
                     inputVisionToPickerX,
                     inputVisionToPickerY,
                     ResolvePickerAlignOffsetX(_currentPickerIndex),
+                    ResolvePickerAlignOffsetY(_currentPickerIndex),
                     ResolvePickerAlignOffsetT(_currentPickerIndex),
-                    _visionOffset.DeltaX,
-                    _visionOffset.DeltaY,
-                    _visionOffset.DeltaTheta,
+                    cameraOffsetX,
+                    cameraOffsetY,
+                    alignOffsetX,
+                    alignOffsetY,
+                    alignOffsetT,
                     ResolveNeedleCalibrationOffsetX(),
                     ResolveNeedleCalibrationOffsetY(),
                     GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition"),
@@ -1086,10 +1099,14 @@ namespace QMC.CDT320.Sequencing
                     ", inputVisionToPickerOffsetX=" + inputVisionToPickerX +
                     ", inputVisionToPickerOffsetY=" + inputVisionToPickerY +
                     ", formula=" + coordinate.Formula +
-                    ", visionOffsetX=" + _visionOffset.DeltaX +
-                    ", visionOffsetY=" + _visionOffset.DeltaY +
+                    ", cameraOffsetX=" + cameraOffsetX +
+                    ", cameraOffsetY=" + cameraOffsetY +
+                    ", alignOffsetX=" + alignOffsetX +
+                    ", alignOffsetY=" + alignOffsetY +
+                    ", visionTotalOffsetX=" + _visionOffset.DeltaX +
+                    ", visionTotalOffsetY=" + _visionOffset.DeltaY +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
-                    ", visionOffsetT=" + _visionOffset.DeltaTheta + " - Ok");
+                    ", alignOffsetT=" + alignOffsetT + " - Ok");
 
                 return 0;
             }

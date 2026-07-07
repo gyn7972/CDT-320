@@ -22,6 +22,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private Label _effectiveValue;
         private Label _offsetStackValue;
         private Label _targetValue;
+        private Label _needleTargetValue;
         private Label _currentValue;
         private TextBox _formulaValue;
         private Label _fallbackValue;
@@ -98,7 +99,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 Dock = DockStyle.Fill,
                 Text = "OFFSET"
             };
-            TableLayoutPanel editor = CreateValueTable(10);
+            TableLayoutPanel editor = CreateValueTable(11);
             editor.Dock = DockStyle.Fill;
             editor.Padding = new Padding(8);
             editorGroup.Controls.Add(editor);
@@ -115,6 +116,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _offsetStackValue = AddDynamicValueRow(editor, "AUTO Stack");
             _effectiveValue = AddDynamicValueRow(editor, "Formula Input");
             _targetValue = AddDynamicValueRow(editor, "최종 이동 목표");
+            _needleTargetValue = AddDynamicValueRow(editor, "Needle X 이동");
             _currentValue = AddDynamicValueRow(editor, "현재 축 위치");
             _fallbackValue = AddDynamicValueRow(editor, "Fallback");
             _formulaValue = AddDynamicTextBoxRow(editor, "Formula", 92);
@@ -234,27 +236,36 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 BaseAxis pickerX = ResolvePickerXAxis();
+                BaseAxis pickerY = ResolvePickerYAxis();
                 InputStageUnit stage = _machine.InputStageUnit;
-                if (pickerX == null || stage == null || stage.StageY == null)
+                if (pickerX == null || pickerY == null || stage == null || stage.StageY == null)
                 {
-                    SetStatus("현재 PickerX/StageY 축 정보를 찾을 수 없습니다.");
+                    SetStatus("현재 PickerX/PickerY/StageY 축 정보를 찾을 수 없습니다.");
                     return;
                 }
 
                 double currentPickerX = pickerX.ActualPosition;
+                double currentPickerY = pickerY.ActualPosition;
                 double currentStageY = stage.StageY.ActualPosition;
                 double pickerAlignOffsetX = InputPickerPickTargetResolver.ResolvePickerAlignOffsetX(_machine, _side, _pickerIndex);
-                double pickerYForward = Math.Abs(InputPickerPickTargetResolver.ResolvePickerYPickTeaching(_machine, _side));
-                double needleYToVisionYOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
-                double effectiveX = currentPickerX - _dieX - pickerAlignOffsetX;
-                double effectiveY = currentStageY - _dieY + pickerYForward - needleYToVisionYOffset;
+                double cameraOffsetX;
+                double cameraOffsetY;
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
+                double effectiveX = currentPickerX - _dieX - pickerAlignOffsetX - cameraOffsetX;
+                double effectiveY = Math.Abs(currentPickerY);
+                double expectedStageY =
+                    _dieY +
+                    InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
 
                 _offsetX.Value = ClampDecimal(effectiveX);
                 _offsetY.Value = ClampDecimal(effectiveY);
                 RefreshPreview();
                 SetStatus(
                     "현재 위치 기준 계산 완료. PickerX=" + F(currentPickerX) +
-                    " mm, StageY=" + F(currentStageY) + " mm");
+                    " mm, PickerY=" + F(currentPickerY) +
+                    " mm, StageY=" + F(currentStageY) +
+                    " mm, CameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ")" +
+                    ", StageYTarget=" + F(expectedStageY) + " mm (CameraY 미적용)");
             }
             catch (Exception ex)
             {
@@ -302,10 +313,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _offsetStackValue.Text = BuildAutoOffsetStackText(effectiveX, effectiveY);
                 _targetValue.Text =
                     "PickerX=" + F(target.PickerX) +
+                    " mm, PickerY=" + F(target.PickerY) +
                     " mm, StageY=" + F(target.StageY) +
                     " mm, NeedleX=" + F(target.NeedleX) + " mm";
+                _needleTargetValue.Text = BuildNeedleXTargetText(target.NeedleX);
                 _currentValue.Text =
                     "PickerX=" + F(ReadAxisActual(ResolvePickerXAxis())) +
+                    " mm, PickerY=" + F(ReadAxisActual(ResolvePickerYAxis())) +
                     " mm, StageY=" + F(ReadStageYActual()) +
                     " mm, NeedleX=" + F(ReadNeedleXActual()) + " mm";
                 _formulaValue.Text = target.Formula;
@@ -388,6 +402,17 @@ namespace QMC.CDT_320.Ui.Dialogs
             return _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerX : null;
         }
 
+        private BaseAxis ResolvePickerYAxis()
+        {
+            if (_machine == null)
+                return null;
+
+            if (_side == PickerSequenceSide.Front)
+                return _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerY : null;
+
+            return _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerY : null;
+        }
+
         private double ResolvePickerPitchX()
         {
             if (_side == PickerSequenceSide.Front && _machine.PickerFrontUnit != null && _machine.PickerFrontUnit.Setup != null)
@@ -414,17 +439,39 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             double alignX = InputPickerPickTargetResolver.ResolvePickerAlignOffsetX(_machine, _side, _pickerIndex);
             double alignT = InputPickerPickTargetResolver.ResolvePickerAlignOffsetT(_machine, _side, _pickerIndex);
-            double pickerYForward = Math.Abs(InputPickerPickTargetResolver.ResolvePickerYPickTeaching(_machine, _side));
+            double pickerYTarget = ResolveSignedPickerYTarget(effectiveY);
             double needleXOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(_machine);
             double needleYOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
+            double cameraOffsetX;
+            double cameraOffsetY;
+            InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
 
             return "X: IV->Picker=" + F(effectiveX) +
+                   " + CameraX=" + F(cameraOffsetX) +
                    " + AlignX=" + F(alignX) +
                    " / Y: IV->Picker=" + F(effectiveY) +
-                   " - PickerY=" + F(pickerYForward) +
-                   " + NeedleY=" + F(needleYOffset) +
+                   " -> PickerY=" + F(pickerYTarget) +
+                   " / StageY: DieY + NeedleY(" + F(needleYOffset) + "), CameraY(" + F(cameraOffsetY) + ") 미적용" +
                    " / NeedleX Offset=" + F(needleXOffset) +
                    " / T Align=" + F(alignT);
+        }
+
+        private double ResolveSignedPickerYTarget(double inputVisionToPickerY)
+        {
+            double magnitude = Math.Abs(inputVisionToPickerY);
+            return _side == PickerSequenceSide.Rear ? -magnitude : magnitude;
+        }
+
+        private string BuildNeedleXTargetText(double targetNeedleX)
+        {
+            double needleXOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(_machine);
+            double cameraOffsetX;
+            double cameraOffsetY;
+            InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
+            return "Target X=" + F(targetNeedleX) +
+                   " mm  (Die VisionX=" + F(_dieX) +
+                   " + CameraX=" + F(cameraOffsetX) +
+                   " - NeedleXToVisionXOffset=" + F(needleXOffset) + ")";
         }
 
         private double ReadStageYActual()

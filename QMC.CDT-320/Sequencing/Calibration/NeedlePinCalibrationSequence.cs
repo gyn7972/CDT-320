@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.VisionComm;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 
@@ -26,6 +27,7 @@ namespace QMC.CDT320.Sequencing.Calibration
     public sealed class NeedlePinCalibrationSequence
     {
         private const double SimVisionOffsetRangeMm = 0.03;
+        private const double VisionAlignPitchMm = 0.15;
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
 
@@ -356,10 +358,138 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             string targetId = stage.Setup.NeedlePinCalVisionTargetId;
             if (string.IsNullOrWhiteSpace(targetId))
-                targetId = "NeedlePinCal";
+                targetId = "EjectPinFinder";
+
+            int timeoutMs = stage.Setup.NeedlePinCalVisionTimeoutMs > 0 ? stage.Setup.NeedlePinCalVisionTimeoutMs : 5000;
+            string finder = ResolveAlignFinder(targetId);
 
             ct.ThrowIfCancellationRequested();
-            return await stage.Vision.TriggerAlignAsync(targetId).ConfigureAwait(false);
+            bool grabbed = await AutoVisionRequestService.GrabAsync(
+                AutoVisionChannel.Wafer,
+                0,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+            if (!grabbed)
+            {
+                EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-PIN-CAL-VISION-GRAB",
+                    "Needle Pin Cal vision grab failed. target=" + targetId +
+                    ", finder=" + finder +
+                    ", timeoutMs=" + timeoutMs);
+                return null;
+            }
+
+            MatchResultDto match = await AutoVisionRequestService.MatchAsync(
+                AutoVisionChannel.Wafer,
+                finder,
+                0,
+                timeoutMs,
+                ct).ConfigureAwait(false);
+
+            VisionAlignResult align = BuildNeedlePinVisionAlignResult(match);
+            LogVisionMatch(targetId, finder, timeoutMs, match, align);
+
+            if (align != null)
+                QMC.CDT_320.Equipment.Vision.WaferVisionResultStore.RecordAlign(targetId, align);
+
+            return align;
+        }
+
+        private VisionAlignResult BuildNeedlePinVisionAlignResult(MatchResultDto match)
+        {
+            if (match == null || !match.Success)
+                return null;
+
+            VisionCameraPixelCalibration camera = ResolveNeedlePinCameraCalibration();
+            if (match.HasImageSize)
+                camera.ApplyImageSize(match.ImageWidthPixel, match.ImageHeightPixel);
+
+            return new VisionAlignResult
+            {
+                DeltaX = camera.PixelToMmOffsetX(match.X),
+                DeltaY = camera.PixelToMmOffsetY(match.Y),
+                DeltaTheta = match.AngleDeg,
+                PitchX = VisionAlignPitchMm,
+                PitchY = VisionAlignPitchMm
+            };
+        }
+
+        private VisionCameraPixelCalibration ResolveNeedlePinCameraCalibration()
+        {
+            CalibrationData calibration = _context.Machine.VisionUnit.Config.CalibrationData;
+            if (calibration == null)
+                calibration = new CalibrationData();
+            calibration.EnsureObjects();
+
+            VisionCameraCalibrationData data = calibration.Camera;
+            if (data == null)
+                data = new VisionCameraCalibrationData();
+            data.EnsureObjects();
+
+            return VisionCameraCalibrationTransform.ResolveCamera(data, AutoVisionChannel.Wafer);
+        }
+
+        private static string ResolveAlignFinder(string alignTargetId)
+        {
+            switch (alignTargetId)
+            {
+                case "Center":
+                    return "AlignDieFinder";
+                case "Ref1":
+                    return "FirstReferenceFinder";
+                case "Ref2":
+                    return "SecondReferenceFinder";
+                case "InputPickDie":
+                    return "DieFinder";
+                default:
+                    return alignTargetId;
+            }
+        }
+
+        private void LogVisionMatch(
+            string targetId,
+            string finder,
+            int timeoutMs,
+            MatchResultDto match,
+            VisionAlignResult align)
+        {
+            try
+            {
+                VisionCameraPixelCalibration camera = ResolveNeedlePinCameraCalibration();
+                double pixelDeltaX = match != null && match.Success ? match.X - camera.ImageCenterPixelX : 0.0;
+                double pixelDeltaY = match != null && match.Success ? match.Y - camera.ImageCenterPixelY : 0.0;
+                double pixelMmX = match != null && match.Success ? camera.PixelToMmOffsetX(match.X) : 0.0;
+                double pixelMmY = match != null && match.Success ? camera.PixelToMmOffsetY(match.Y) : 0.0;
+
+                EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-VISION-RAW",
+                    "Needle Pin Cal vision raw. target=" + targetId +
+                    ", finder=" + finder +
+                    ", timeoutMs=" + timeoutMs +
+                    ", success=" + (match != null && match.Success) +
+                    ", pixelX=" + (match != null ? match.X.ToString("F6") : "null") +
+                    ", pixelY=" + (match != null ? match.Y.ToString("F6") : "null") +
+                    ", angleDeg=" + (match != null ? match.AngleDeg.ToString("F6") : "null") +
+                    ", score=" + (match != null ? match.Score.ToString("F6") : "null") +
+                    ", hasImageSize=" + (match != null && match.HasImageSize) +
+                    ", imageW=" + (match != null ? match.ImageWidthPixel.ToString("F3") : "null") +
+                    ", imageH=" + (match != null ? match.ImageHeightPixel.ToString("F3") : "null") +
+                    ", centerX=" + camera.ImageCenterPixelX.ToString("F3") +
+                    ", centerY=" + camera.ImageCenterPixelY.ToString("F3") +
+                    ", pixelDeltaX=pixelX-centerX=" + pixelDeltaX.ToString("F6") +
+                    ", pixelDeltaY=pixelY-centerY=" + pixelDeltaY.ToString("F6") +
+                    ", pixelToMmX=" + camera.PixelToMmX.ToString("F9") +
+                    ", pixelToMmY=" + camera.PixelToMmY.ToString("F9") +
+                    ", pixelMmX=(pixelX-centerX)*pixelToMmX=" + pixelMmX.ToString("F6") +
+                    ", pixelMmY=(pixelY-centerY)*pixelToMmY=" + pixelMmY.ToString("F6") +
+                    ", inputBottomRef=not_applied" +
+                    ", finalDeltaX=" + (align != null ? align.DeltaX.ToString("F6") : "null") +
+                    ", finalDeltaY=" + (align != null ? align.DeltaY.ToString("F6") : "null") +
+                    ", raw=" + (match != null ? (match.RawError ?? string.Empty) : "null"));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "CAL", "NEEDLE-PIN-CAL-VISION-LOG",
+                    "Needle Pin Cal vision raw log failed. error=" + ex.Message);
+            }
         }
 
         private bool IsSimulationOrVisionBypass(InputStageUnit stage)
@@ -393,7 +523,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             string targetId = stage != null && stage.Setup != null ? stage.Setup.NeedlePinCalVisionTargetId : null;
             if (string.IsNullOrWhiteSpace(targetId))
-                targetId = "NeedlePinCal";
+                targetId = "EjectPinFinder";
 
             EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-SIM-VISION",
                 "Needle Pin Cal simulated vision offset generated. target=" + targetId +
@@ -451,6 +581,17 @@ namespace QMC.CDT320.Sequencing.Calibration
             double needleXToVisionX = visionX + offsetX - needleX;
             double needleYToVisionY = offsetY;
 
+            LogCalibrationCalculation(
+                visionX,
+                stageY,
+                needleX,
+                needleZ,
+                ejectPinZ,
+                offsetX,
+                offsetY,
+                needleXToVisionX,
+                needleYToVisionY);
+
             CalibrationData calibration = _context.Machine.VisionUnit.Config.CalibrationData;
             calibration.EnsureObjects();
             calibration.Needle.VisionXPosition = visionX;
@@ -477,6 +618,30 @@ namespace QMC.CDT320.Sequencing.Calibration
             Result.NeedleXToVisionXOffset = needleXToVisionX;
             Result.NeedleYToVisionYOffset = needleYToVisionY;
             _context.Machine.SaveSettings();
+        }
+
+        private static void LogCalibrationCalculation(
+            double visionX,
+            double stageY,
+            double needleX,
+            double needleZ,
+            double ejectPinZ,
+            double visionOffsetX,
+            double visionOffsetY,
+            double needleXToVisionX,
+            double needleYToVisionY)
+        {
+            EventLogger.Write(EventKind.Event, "CAL", "NEEDLE-PIN-CAL-CALC",
+                "Needle Pin Cal calculation. " +
+                "visionX=" + visionX.ToString("F6") +
+                ", stageY=" + stageY.ToString("F6") +
+                ", needleX=" + needleX.ToString("F6") +
+                ", needleZ=" + needleZ.ToString("F6") +
+                ", ejectPinZ=" + ejectPinZ.ToString("F6") +
+                ", visionOffsetX=" + visionOffsetX.ToString("F6") +
+                ", visionOffsetY=" + visionOffsetY.ToString("F6") +
+                ", needleXToVisionX=visionX+visionOffsetX-needleX=" + needleXToVisionX.ToString("F6") +
+                ", needleYToVisionY=visionOffsetY=" + needleYToVisionY.ToString("F6"));
         }
 
         private int Fail(string message)

@@ -904,6 +904,7 @@ namespace QMC.CDT320.Sequencing
                 _outputVisionToPickerX,
                 _outputVisionToPickerY,
                 ResolvePickerAlignOffsetX(_currentPickerIndex),
+                ResolvePickerAlignOffsetY(_currentPickerIndex),
                 GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition"),
                 GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition"),
                 ResolvePickerAlignOffsetT(_currentPickerIndex),

@@ -388,11 +388,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     double effectiveX;
                     double effectiveY;
                     string effectiveText = "";
+                    string needleTargetText = "";
                     if (TryResolvePickerInputOffsets(host, side, pickerNo, out effectiveX, out effectiveY))
                     {
                         effectiveText =
                             "\r\n실제 적용 Offset X=" + effectiveX.ToString("F3") +
                             " mm, Y=" + effectiveY.ToString("F3") + " mm";
+                        PickCoordinateResult target = InputPickerPickTargetResolver.CalculateManualInputMapTarget(
+                            host.Machine,
+                            side,
+                            pickerNo - 1,
+                            entry.DieUid ?? "",
+                            entry.PosX,
+                            entry.PosY,
+                            effectiveX,
+                            effectiveY);
+                        double cameraOffsetX;
+                        double cameraOffsetY;
+                        InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(host.Machine, out cameraOffsetX, out cameraOffsetY);
+                        needleTargetText =
+                            "\r\nNeedleX 이동 목표 X=" + target.NeedleX.ToString("F3") +
+                            " mm (Die VisionX=" + entry.PosX.ToString("F3") +
+                            " + CameraX=" + cameraOffsetX.ToString("F3") +
+                            " - NeedleXToVisionXOffset=" +
+                            InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F3") + ")";
+                        needleTargetText +=
+                            "\r\nPicker 이동 목표 X=" + target.PickerX.ToString("F3") +
+                            " mm, Y=" + target.PickerY.ToString("F3") +
+                            " mm, StageY=" + target.StageY.ToString("F3") +
+                            " mm (CameraY=" + cameraOffsetY.ToString("F3") + " 미적용)";
                     }
 
                     QMC.Common.MessageDialog.Show(this,
@@ -400,6 +424,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         "InputVisionToPicker X=" + dialog.SavedOffsetX.ToString("F3") +
                         " mm, Y=" + dialog.SavedOffsetY.ToString("F3") + " mm" +
                         effectiveText +
+                        needleTargetText +
                         "\r\n자동 PickUp과 수동 우클릭 이동은 같은 Setup 값을 사용합니다.",
                         "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
@@ -2398,8 +2423,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     offsetX,
                     offsetY);
                 double targetPickerX = target.PickerX;
+                double targetPickerY = target.PickerY;
                 double targetStageY = target.StageY;
                 double targetNeedleX = target.NeedleX;
+                double cameraOffsetX;
+                double cameraOffsetY;
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(host.Machine, out cameraOffsetX, out cameraOffsetY);
                 DiePositionMoveDisplay diePosition = BuildDiePositionMoveDisplay(entry, host);
                 JogSpeedType speedType;
                 if (!ConfirmManualMapMoveSpeed(
@@ -2409,10 +2438,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
                     BuildDiePositionMoveText(diePosition, "최종 Die 위치") + "\r\n" +
                     "PickerX=" + targetPickerX.ToString("F3") + " mm\r\n" +
+                    "PickerY=" + targetPickerY.ToString("F3") + " mm\r\n" +
                     "NeedleX=" + targetNeedleX.ToString("F3") + " mm\r\n" +
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
-                    " Auto formula 기준, Vision Offset X/Y/T=0\r\n" +
+                    " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
+                    " mm, Y=" + cameraOffsetY.ToString("F3") + " mm (Y는 StageY 미적용)\r\n" +
+                    " Auto formula 기준, CameraOffsetX=Bottom-Input X, CameraOffsetY는 표시만, AlignOffset X/Y/T=0\r\n" +
                     " " + target.Formula + ")",
                     out speedType))
                 {
@@ -2426,8 +2458,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetStageY, targetNeedleX, speedType),
-                    ResolveManualMoveTimeoutMs(host),
+                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetPickerY, targetStageY, targetNeedleX, speedType),
+                    ResolvePickerManualMoveTimeoutMs(),
                     ResolvePickerMoveTitle(side, pickerNo) + " 선택 다이 좌표 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " die move timeout")).ConfigureAwait(true);
                 if (result != 0)
@@ -2573,6 +2605,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             int pickerNo,
             DieMapEntry entry,
             double targetPickerX,
+            double targetPickerY,
             double targetStageY,
             double targetNeedleX,
             JogSpeedType speedType)
@@ -2595,11 +2628,29 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
                 }
 
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " calculated manual picker target. die=" + BuildSelectedDieText(entry) +
+                    ", dieVisionX=" + entry.PosX.ToString("F6") +
+                    ", dieStageY=" + entry.PosY.ToString("F6") +
+                    ", pickerX=" + targetPickerX.ToString("F6") +
+                    ", pickerY=" + targetPickerY.ToString("F6") +
+                    ", stageY=" + targetStageY.ToString("F6") +
+                    ", needleX=" + targetNeedleX.ToString("F6") +
+                    ", formulaNeedleX=dieVisionX(" + entry.PosX.ToString("F6") +
+                    ")-NeedleXToVisionXOffset(" +
+                    InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F6") +
+                    ")=" + targetNeedleX.ToString("F6") + " - Check");
+
                 int result = await MoveInputVisionToAvoidForPickerMoveAsync(stage, speedType).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
                 result = await MoveOppositePickerToAvoidForManualPickerMoveAsync(host, side, speedType).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                result = await MoveTargetPickerYToAvoidForManualPickerMoveAsync(host, side, pickerNo, speedType).ConfigureAwait(true);
                 if (result != 0)
                     return result;
 
@@ -2625,6 +2676,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int waitPickerResult = await waitPickerX.ConfigureAwait(true);
                 if (waitPickerResult != 0)
                     return waitPickerResult;
+
+                result = await MoveTargetPickerYForManualPickerMoveAsync(
+                    host,
+                    side,
+                    pickerNo,
+                    targetPickerY,
+                    speedType,
+                    pickerTargetName + ";PickerZone=Input",
+                    true).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
 
                 if (!IsStageYInPosition(stage, targetStageY))
                 {
@@ -2653,10 +2715,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
                 }
 
+                if (!IsPickerYInPosition(host, side, targetPickerY))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " final check failed: PickerY target=" + targetPickerY.ToString("F3") + " - Failed");
+                    return -1;
+                }
+
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " move complete. die=" + BuildSelectedDieText(entry) +
                     ", pickerX=" + targetPickerX.ToString("F3") +
+                    ", pickerY=" + targetPickerY.ToString("F3") +
                     ", needleX=" + targetNeedleX.ToString("F3") +
                     ", stageY=" + targetStageY.ToString("F3") + " - Ok");
                 return 0;
@@ -3145,6 +3216,207 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private async Task<int> MoveTargetPickerYToAvoidForManualPickerMoveAsync(
+            Form1 host,
+            PickerSequenceSide side,
+            int pickerNo,
+            JogSpeedType speedType)
+        {
+            try
+            {
+                double avoidTarget = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                    host != null ? host.Machine : null,
+                    side,
+                    PickerAxis.PickerY,
+                    "AvoidPosition");
+                string targetName = "AvoidPosition;ManualInputDieMapMove;PickerPhase=SafeY";
+                return await MoveTargetPickerYForManualPickerMoveAsync(
+                    host,
+                    side,
+                    pickerNo,
+                    avoidTarget,
+                    speedType,
+                    targetName,
+                    false).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " PickerY avoid move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveTargetPickerYForManualPickerMoveAsync(
+            Form1 host,
+            PickerSequenceSide side,
+            int pickerNo,
+            double targetPickerY,
+            JogSpeedType speedType,
+            string targetName,
+            bool requireForwardTarget)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return -1;
+
+                BaseAxis pickerY = ResolvePickerYAxis(host, side);
+                double actualBefore = pickerY != null ? pickerY.ActualPosition : 0.0;
+                double tolerance = ResolvePickerTolerance(pickerY);
+
+                if (requireForwardTarget && IsPickerYForwardTargetInvalid(host, side, targetPickerY, tolerance))
+                {
+                    string message = ResolvePickerMoveTitle(side, pickerNo) +
+                        " PickerY 전진 목표값이 Avoid/Home과 같아 전진할 수 없습니다. " +
+                        "calculatedTargetY=" + targetPickerY.ToString("F6") +
+                        ", actualY=" + actualBefore.ToString("F6") +
+                        ", avoidY=" + InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                            host.Machine,
+                            side,
+                            PickerAxis.PickerY,
+                            "AvoidPosition").ToString("F6") +
+                        ", tolerance=" + tolerance.ToString("F6") +
+                        ", targetName=" + (targetName ?? "-") +
+                        ". InputVisionToPickerY 설정과 PickerY 축 방향을 확인하세요.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage", message + " - Failed");
+                    RaiseManualMoveAlarm("IN-STAGE-MAP-PICKER-Y-TARGET", message);
+                    return -1;
+                }
+
+                if (IsPickerYInPosition(host, side, targetPickerY))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " PickerY move skipped because axis is already at calculated target. " +
+                        "targetY=" + targetPickerY.ToString("F6") +
+                        ", actualY=" + actualBefore.ToString("F6") +
+                        ", tolerance=" + tolerance.ToString("F6") +
+                        ", targetName=" + (targetName ?? "-") + " - Ok");
+                    return 0;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " PickerY move start. targetY=" + targetPickerY.ToString("F6") +
+                    ", actualY=" + actualBefore.ToString("F6") +
+                    ", tolerance=" + tolerance.ToString("F6") +
+                    ", targetName=" + (targetName ?? "-") + " - Start");
+
+                int result;
+                if (side == PickerSequenceSide.Front)
+                {
+                    PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                    if (front == null)
+                        return -1;
+
+                    result = await front.MoveFrontPickerAxis(
+                        PickerAxis.PickerY,
+                        targetPickerY,
+                        speedType,
+                        0.0,
+                        targetName).ConfigureAwait(true);
+                    if (result != 0)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            ResolvePickerMoveTitle(side, pickerNo) +
+                            " PickerY move command failed. result=" + result +
+                            ", targetY=" + targetPickerY.ToString("F6") +
+                            ", actualY=" + (front.PickerY != null ? front.PickerY.ActualPosition.ToString("F6") : "-") +
+                            ", targetName=" + (targetName ?? "-") + " - Failed");
+                        return result;
+                    }
+
+                    bool ok = await front.WaitFrontPickerAxisMoveDone(
+                        PickerAxis.PickerY,
+                        front.ResolvePickerAxisMoveTimeoutMs(PickerAxis.PickerY)).ConfigureAwait(true);
+                    if (!ok)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            ResolvePickerMoveTitle(side, pickerNo) +
+                            " PickerY move wait failed. targetY=" + targetPickerY.ToString("F6") +
+                            ", actualY=" + (front.PickerY != null ? front.PickerY.ActualPosition.ToString("F6") : "-") +
+                            ", targetName=" + (targetName ?? "-") + " - Failed");
+                        return -1;
+                    }
+
+                    bool inPosition = front.IsFrontPickerAxisInPosition(
+                        PickerAxis.PickerY,
+                        targetPickerY,
+                        ResolvePickerTolerance(front.PickerY));
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " PickerY move complete check. targetY=" + targetPickerY.ToString("F6") +
+                        ", actualY=" + (front.PickerY != null ? front.PickerY.ActualPosition.ToString("F6") : "-") +
+                        ", inPosition=" + (inPosition ? "Y" : "N") +
+                        ", targetName=" + (targetName ?? "-") +
+                        (inPosition ? " - Ok" : " - Failed"));
+                    return inPosition ? 0 : -1;
+                }
+
+                PickerRearUnit rear = host.Machine.PickerRearUnit;
+                if (rear == null)
+                    return -1;
+
+                result = await rear.MoveRearPickerAxis(
+                    PickerAxis.PickerY,
+                    targetPickerY,
+                    speedType,
+                    0.0,
+                    targetName).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " PickerY move command failed. result=" + result +
+                        ", targetY=" + targetPickerY.ToString("F6") +
+                        ", actualY=" + (rear.PickerY != null ? rear.PickerY.ActualPosition.ToString("F6") : "-") +
+                        ", targetName=" + (targetName ?? "-") + " - Failed");
+                    return result;
+                }
+
+                bool rearOk = await rear.WaitRearPickerAxisMoveDone(
+                    PickerAxis.PickerY,
+                    rear.ResolvePickerAxisMoveTimeoutMs(PickerAxis.PickerY)).ConfigureAwait(true);
+                if (!rearOk)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerMoveTitle(side, pickerNo) +
+                        " PickerY move wait failed. targetY=" + targetPickerY.ToString("F6") +
+                        ", actualY=" + (rear.PickerY != null ? rear.PickerY.ActualPosition.ToString("F6") : "-") +
+                        ", targetName=" + (targetName ?? "-") + " - Failed");
+                    return -1;
+                }
+
+                bool rearInPosition = rear.IsRearPickerAxisInPosition(
+                    PickerAxis.PickerY,
+                    targetPickerY,
+                    ResolvePickerTolerance(rear.PickerY));
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " PickerY move complete check. targetY=" + targetPickerY.ToString("F6") +
+                    ", actualY=" + (rear.PickerY != null ? rear.PickerY.ActualPosition.ToString("F6") : "-") +
+                    ", inPosition=" + (rearInPosition ? "Y" : "N") +
+                    ", targetName=" + (targetName ?? "-") +
+                    (rearInPosition ? " - Ok" : " - Failed"));
+                return rearInPosition ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " PickerY move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> AwaitManualMoveStepAsync(
             Task<int> operation,
             int timeoutMs,
@@ -3404,6 +3676,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private static int ResolvePickerManualMoveTimeoutMs()
+        {
+            return 5 * 60 * 1000;
+        }
+
         private static double ResolvePickerTolerance(BaseAxis axis)
         {
             if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
@@ -3457,6 +3734,70 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     PickerAxis.PickerX,
                     targetPickerX,
                     ResolvePickerTolerance(rear.PickerX));
+        }
+
+        private static bool IsPickerYInPosition(Form1 host, PickerSequenceSide side, double targetPickerY)
+        {
+            if (host == null || host.Machine == null)
+                return false;
+
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                return front != null &&
+                    front.PickerY != null &&
+                    front.IsFrontPickerAxisInPosition(
+                        PickerAxis.PickerY,
+                        targetPickerY,
+                        ResolvePickerTolerance(front.PickerY));
+            }
+
+            PickerRearUnit rear = host.Machine.PickerRearUnit;
+            return rear != null &&
+                rear.PickerY != null &&
+                rear.IsRearPickerAxisInPosition(
+                    PickerAxis.PickerY,
+                    targetPickerY,
+                    ResolvePickerTolerance(rear.PickerY));
+        }
+
+        private static BaseAxis ResolvePickerYAxis(Form1 host, PickerSequenceSide side)
+        {
+            if (host == null || host.Machine == null)
+                return null;
+
+            if (side == PickerSequenceSide.Front)
+                return host.Machine.PickerFrontUnit != null ? host.Machine.PickerFrontUnit.PickerY : null;
+
+            return host.Machine.PickerRearUnit != null ? host.Machine.PickerRearUnit.PickerY : null;
+        }
+
+        private static bool IsPickerYForwardTargetInvalid(
+            Form1 host,
+            PickerSequenceSide side,
+            double targetPickerY,
+            double tolerance)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return true;
+
+                double avoid = InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
+                    host.Machine,
+                    side,
+                    PickerAxis.PickerY,
+                    "AvoidPosition");
+                double tol = tolerance > 0.0 ? tolerance : 0.05;
+                return Math.Abs(targetPickerY) <= tol || Math.Abs(targetPickerY - avoid) <= tol;
+            }
+            catch
+            {
+                return true;
+            }
+            finally
+            {
+            }
         }
 
         private void SetActionButtonsEnabled(bool enabled)
