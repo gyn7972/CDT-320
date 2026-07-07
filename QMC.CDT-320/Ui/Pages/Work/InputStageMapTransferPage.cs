@@ -84,12 +84,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem[] _gridOffsetFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridOffsetRearPickerMenuItems;
         private bool _manualMoveBusy;
+        private bool _manualDieDetectSentPositionValid;
+        private string _manualDieDetectSentMapSignature = "";
+        private string _manualDieDetectSentFrameObjId = "";
+        private string _manualDieDetectSentDieUid = "";
+        private int _manualDieDetectSentMapX;
+        private int _manualDieDetectSentMapY;
+        private double _manualDieDetectSentX;
+        private double _manualDieDetectSentY;
         private bool _manualDieDetectOffsetPending;
         private string _manualDieDetectMapSignature = "";
         private string _manualDieDetectFrameObjId = "";
         private string _manualDieDetectDieUid = "";
         private int _manualDieDetectMapX;
         private int _manualDieDetectMapY;
+        private double _manualDieDetectReferenceX;
+        private double _manualDieDetectReferenceY;
+        private double _manualDieDetectCurrentX;
+        private double _manualDieDetectCurrentY;
+        private double _manualDieDetectJogDeltaX;
+        private double _manualDieDetectJogDeltaY;
         private double _manualDieDetectOffsetX;
         private double _manualDieDetectOffsetY;
         private double _manualDieDetectDetectedCenterX;
@@ -1279,6 +1293,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
+                double sentDieX;
+                double sentDieY;
+                string sentPositionSource;
+                TryResolveManualInputDieDetectSentPosition(map, entry, out sentDieX, out sentDieY, out sentPositionSource);
+
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 string materialReason;
                 if (!MaterialStateService.IsInputStageThetaAlignComplete(wafer, out materialReason))
@@ -1292,7 +1311,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "현재 Vision 화면에서 선택 Die 중심을 검출하시겠습니까?\r\n" +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
-                    "현재 Map X=" + entry.PosX.ToString("F3") + " mm, Y=" + entry.PosY.ToString("F3") + " mm",
+                    "보낸 Die 위치(" + sentPositionSource + ") X=" + sentDieX.ToString("F3") +
+                    " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
+                    "현재 Vision 위치 X=" + stage.CameraX.ActualPosition.ToString("F3") +
+                    " mm, StageY=" + stage.StageY.ActualPosition.ToString("F3") + " mm",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
@@ -1343,6 +1365,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double baseOriginY = stage.OriginY;
                 double currentVisionX = stage.CameraX.ActualPosition;
                 double currentStageY = stage.StageY.ActualPosition;
+                double jogDeltaX = currentVisionX - sentDieX;
+                double jogDeltaY = currentStageY - sentDieY;
 
                 VisionAlignResult vision = await RequestManualInputDieDetectVisionAsync(
                     stage,
@@ -1360,8 +1384,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double detectedCenterX = currentVisionX + vision.DeltaX;
                 //double detectedCenterX = currentVisionX + (vision.DeltaX * -1);
                 double detectedCenterY = currentStageY + vision.DeltaY;
-                double offsetX = detectedCenterX - entry.PosX;
-                double offsetY = detectedCenterY - entry.PosY;
+                double offsetX = detectedCenterX - sentDieX;
+                double offsetY = detectedCenterY - sentDieY;
 
                 string limitReason;
                 if (!stage.IsManualDieDetectOffsetWithinLimit(offsetX, offsetY, out limitReason))
@@ -1396,6 +1420,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry,
                     offsetX,
                     offsetY,
+                    sentDieX,
+                    sentDieY,
+                    currentVisionX,
+                    currentStageY,
+                    jogDeltaX,
+                    jogDeltaY,
                     detectedCenterX,
                     detectedCenterY,
                     vision,
@@ -1409,6 +1439,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die detect completed. die=" + (entry.DieUid ?? "") +
+                    ", sentX=" + sentDieX.ToString("F6") +
+                    ", sentY=" + sentDieY.ToString("F6") +
+                    ", currentX=" + currentVisionX.ToString("F6") +
+                    ", currentY=" + currentStageY.ToString("F6") +
+                    ", jogDeltaX=" + jogDeltaX.ToString("F6") +
+                    ", jogDeltaY=" + jogDeltaY.ToString("F6") +
                     ", visionDeltaX=" + vision.DeltaX.ToString("F6") +
                     ", visionDeltaY=" + vision.DeltaY.ToString("F6") +
                     ", offsetX=" + offsetX.ToString("F6") +
@@ -1416,10 +1452,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 QMC.Common.MessageDialog.Show(this,
                     "다이 검출 완료.\r\n" +
+                    "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
+                    "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
+                    "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta X=" + vision.DeltaX.ToString("F6") + " mm, Y=" + vision.DeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
-                    "Map Offset X=" + offsetX.ToString("F6") + " mm, Y=" + offsetY.ToString("F6") + " mm\r\n\r\n" +
+                    "Map Offset X=" + offsetX.ToString("F6") + " mm, Y=" + offsetY.ToString("F6") + " mm\r\n" +
+                    "(Map Offset = Jog 이동량 + Vision Delta)\r\n\r\n" +
                     "[Offset 적용] 버튼을 누르면 전체 Die Map에 적용됩니다.",
                     "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
@@ -1447,6 +1487,79 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     _manualMoveBusy = false;
                     SetActionButtonsEnabled(true);
                 }
+            }
+        }
+
+        private void StoreManualInputDieDetectSentPosition(DieMap map, DieMapEntry entry, double sentX, double sentY)
+        {
+            try
+            {
+                _manualDieDetectSentPositionValid = entry != null && IsFinite(sentX) && IsFinite(sentY);
+                _manualDieDetectSentMapSignature = BuildMapSignature(map);
+                _manualDieDetectSentFrameObjId = map != null ? map.FrameObjId ?? "" : "";
+                _manualDieDetectSentDieUid = entry != null ? entry.DieUid ?? "" : "";
+                _manualDieDetectSentMapX = ResolveEntryMapX(entry);
+                _manualDieDetectSentMapY = ResolveEntryMapY(entry);
+                _manualDieDetectSentX = sentX;
+                _manualDieDetectSentY = sentY;
+            }
+            catch
+            {
+                _manualDieDetectSentPositionValid = false;
+                _manualDieDetectSentMapSignature = "";
+                _manualDieDetectSentFrameObjId = "";
+                _manualDieDetectSentDieUid = "";
+                _manualDieDetectSentMapX = 0;
+                _manualDieDetectSentMapY = 0;
+                _manualDieDetectSentX = 0.0;
+                _manualDieDetectSentY = 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryResolveManualInputDieDetectSentPosition(
+            DieMap map,
+            DieMapEntry entry,
+            out double sentX,
+            out double sentY,
+            out string source)
+        {
+            sentX = entry != null ? entry.PosX : 0.0;
+            sentY = entry != null ? entry.PosY : 0.0;
+            source = "현재 선택 Die 위치";
+
+            try
+            {
+                if (!_manualDieDetectSentPositionValid || map == null || entry == null)
+                    return false;
+
+                if (!string.Equals(BuildMapSignature(map), _manualDieDetectSentMapSignature, StringComparison.Ordinal))
+                    return false;
+
+                if (!string.Equals(map.FrameObjId ?? "", _manualDieDetectSentFrameObjId, StringComparison.Ordinal))
+                    return false;
+
+                if (!string.IsNullOrWhiteSpace(_manualDieDetectSentDieUid) &&
+                    !string.Equals(entry.DieUid ?? "", _manualDieDetectSentDieUid, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                if (ResolveEntryMapX(entry) != _manualDieDetectSentMapX ||
+                    ResolveEntryMapY(entry) != _manualDieDetectSentMapY)
+                    return false;
+
+                sentX = _manualDieDetectSentX;
+                sentY = _manualDieDetectSentY;
+                source = "마지막 MOVE VISION 전송 위치";
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
             }
         }
 
@@ -1555,6 +1668,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             DieMapEntry entry,
             double offsetX,
             double offsetY,
+            double referenceX,
+            double referenceY,
+            double currentX,
+            double currentY,
+            double jogDeltaX,
+            double jogDeltaY,
             double detectedCenterX,
             double detectedCenterY,
             VisionAlignResult vision,
@@ -1567,6 +1686,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _manualDieDetectDieUid = entry != null ? entry.DieUid ?? "" : "";
             _manualDieDetectMapX = ResolveEntryMapX(entry);
             _manualDieDetectMapY = ResolveEntryMapY(entry);
+            _manualDieDetectReferenceX = referenceX;
+            _manualDieDetectReferenceY = referenceY;
+            _manualDieDetectCurrentX = currentX;
+            _manualDieDetectCurrentY = currentY;
+            _manualDieDetectJogDeltaX = jogDeltaX;
+            _manualDieDetectJogDeltaY = jogDeltaY;
             _manualDieDetectOffsetX = offsetX;
             _manualDieDetectOffsetY = offsetY;
             _manualDieDetectDetectedCenterX = detectedCenterX;
@@ -1586,6 +1711,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _manualDieDetectDieUid = "";
             _manualDieDetectMapX = 0;
             _manualDieDetectMapY = 0;
+            _manualDieDetectReferenceX = 0.0;
+            _manualDieDetectReferenceY = 0.0;
+            _manualDieDetectCurrentX = 0.0;
+            _manualDieDetectCurrentY = 0.0;
+            _manualDieDetectJogDeltaX = 0.0;
+            _manualDieDetectJogDeltaY = 0.0;
             _manualDieDetectOffsetX = 0.0;
             _manualDieDetectOffsetY = 0.0;
             _manualDieDetectDetectedCenterX = 0.0;
@@ -1663,10 +1794,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "검출된 Offset을 전체 Input Die Map에 적용하시겠습니까?\r\n" +
                     "Die=" + BuildSelectedDieText(entry) + "\r\n" +
+                    "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
+                    "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
+                    "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
-                    "Map Offset X=" + _manualDieDetectOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectOffsetY.ToString("F6") + " mm",
+                    "Map Offset X=" + _manualDieDetectOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectOffsetY.ToString("F6") + " mm\r\n" +
+                    "(Map Offset = Jog 이동량 + Vision Delta)",
                     "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
@@ -1874,13 +2009,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 double randomOffsetX = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.002;
                 double randomOffsetY = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.002;
-                double targetCenterX = entry != null ? entry.PosX + randomOffsetX : currentVisionX + randomOffsetX;
-                double targetCenterY = entry != null ? entry.PosY + randomOffsetY : currentStageY + randomOffsetY;
 
                 return new VisionAlignResult
                 {
-                    DeltaX = targetCenterX - currentVisionX,
-                    DeltaY = targetCenterY - currentStageY,
+                    DeltaX = randomOffsetX,
+                    DeltaY = randomOffsetY,
                     DeltaTheta = (ManualDieDetectSimVisionRandom.NextDouble() - 0.5) * 0.02
                 };
             }
@@ -2193,6 +2326,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
+                StoreManualInputDieDetectSentPosition(mapView != null ? mapView.Map : null, entry, entry.PosX, entry.PosY);
                 lblAxisX.Text = entry.PosX.ToString("F3");
                 lblAxisY.Text = entry.PosY.ToString("F3");
                 QMC.Common.MessageDialog.Show(this, "선택 다이 좌표 이동 완료.",
