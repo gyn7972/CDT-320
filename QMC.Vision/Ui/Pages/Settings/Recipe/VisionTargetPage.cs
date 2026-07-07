@@ -6,11 +6,13 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
 using QMC.Vision.Ui.Localization; // Lang
+using QMC.Vision.Ui.Security;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -79,7 +81,77 @@ namespace QMC.Vision.Ui.Pages
             BuildCamContextMenu();
             if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
             ApplyLanguage();
+            StartCommTap();
             Status((module?.Name ?? "?") + " / " + (finder?.Id ?? "?"));
+        }
+
+        // ── 통신(핸들러) 그랩/검출 실시간 반영 — 모듈 뷰어 탭 + 결과 스토어 폴링 ──
+        // 핸들러 GRAB/MATCH 등 통신 명령으로 프레임/검출이 바뀌면, 이 레시피 페이지의 카메라뷰도
+        // 작업 모니터와 동일하게 이미지·검출 오버레이(마크/검색 ROI)·판정을 갱신한다.
+        private System.Windows.Forms.Timer _commTimer;
+        private long _lastCommSeq = -1;
+        private long _lastResRev = -1;
+
+        private void StartCommTap()
+        {
+            if (_commTimer != null) return;
+            _commTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _commTimer.Tick += (s, e) => CommTapTick();
+            _commTimer.Start();
+        }
+
+        private void CommTapTick()
+        {
+            try
+            {
+                if (_module == null || _cam == null || !Visible || IsDisposed) return;
+
+                // 1) 통신/핸들러 그랩 프레임 — 라이브 중이 아니면 최신 뷰어 프레임 표시.
+                if (!_cam.IsLive)
+                {
+                    long seq = _module.ViewerFrameSeq;
+                    if (seq != _lastCommSeq)
+                    {
+                        _lastCommSeq = seq;
+                        if (seq > 0)
+                        {
+                            Bitmap f = _module.AcquireViewerFrame();
+                            if (f != null)
+                            {
+                                try { _cam.SetImage(f); }   // 내부 복제 — 원본은 여기서 해제
+                                finally { f.Dispose(); }
+                            }
+                        }
+                    }
+                }
+
+                // 2) 실행 결과(통신 MATCH/INSPECT — 작업 모니터와 동일 스토어) — 결과 리비전 변경 시에만.
+                long rv = QMC.Vision.Core.ModuleResultStore.Revision(_module.Name);
+                if (rv != _lastResRev)
+                {
+                    _lastResRev = rv;
+                    if (QMC.Vision.Core.MatchOverlayStore.TryGet(_module.Name, out var ov))
+                    {
+                        var rect = (ov.RoiW > 0 && ov.RoiH > 0)
+                            ? new RectangleF((float)ov.RoiX, (float)ov.RoiY, (float)ov.RoiW, (float)ov.RoiH)
+                            : RectangleF.Empty;
+                        System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark> marks = null;
+                        if (ov.Marks != null && ov.Marks.Length > 0)
+                        {
+                            marks = new System.Collections.Generic.List<QMC.Common.Ui.Controls.OverlayMark>(ov.Marks.Length);
+                            foreach (var k in ov.Marks)
+                                marks.Add(new QMC.Common.Ui.Controls.OverlayMark(k.X, k.Y, k.Score, k.Angle, k.BoxW, k.BoxH));
+                        }
+                        _cam.SetOverlay(rect, marks);
+                    }
+                    if (QMC.Vision.Core.ModuleResultStore.TryGet(_module.Name, out bool pass, out string[] lines))
+                    {
+                        _cam.SetVerdict(pass ? "OK" : "NG", pass);
+                        _cam.SetResultLines(lines);
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 통신 반영 실패: " + ex.Message); }
         }
 
         private void WireCamera()
@@ -104,6 +176,7 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
             try { if (_cam != null) _cam.FrameChanged -= OnCamFrameChanged; } catch { }
+            try { _commTimer?.Stop(); _commTimer?.Dispose(); _commTimer = null; } catch { }
             try { _flatResultImage?.Dispose(); } catch { }
             try { if (_flatResultForm != null && !_flatResultForm.IsDisposed) _flatResultForm.Close(); } catch { }
             base.OnHandleDestroyed(e);
@@ -228,14 +301,14 @@ namespace QMC.Vision.Ui.Pages
             }
 
             // 도구별 시뮬 저장이미지 — 웨이퍼 2점 정렬의 이미지1/이미지2처럼 Finder 마다 다른 이미지 지정.
-            // 카메라가 '시뮬레이션'일 때만 사용된다 — 실카메라 장착 시 설정과 무관하게 항상 실제 촬상.
+            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 클릭 시 파일 찾아보기로 경로 설정.)
             // 로드 시 Setup/Recipe POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
             if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
             {
-                items.Add(ParameterGridItem.Bool("시뮬 저장 이미지 사용 (카메라 시뮬레이션 전용)", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.Bool("저장 이미지 사용 (이 도구 전용·모듈보다 우선)", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
-                items.Add(ParameterGridItem.FilePath("시뮬 저장 이미지 경로", ParameterGridScope.Setup,
+                items.Add(ParameterGridItem.FilePath("저장 이미지 경로", ParameterGridScope.Setup,
                     () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
                     v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
                     "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
@@ -297,6 +370,45 @@ namespace QMC.Vision.Ui.Pages
                     () => (_node.Config as QMC.Vision.Modules.ColletFinderConfig)?.FlatFastMode ?? false,
                     v => { if (_node.Config is QMC.Vision.Modules.ColletFinderConfig c) { c.FlatFastMode = v; MarkDirty(); } }));
             }
+
+            // ── Cognex 전용 고급 파라미터 그룹 — Expert(Engineer 이상) 권한 + 백엔드=Cognex 일 때만 노출 ──
+            //   일반(Operator) 화면에는 숨긴다. 코그넥스 패턴매칭 상세 파라미터를 별도 그룹으로 관리한다.
+            //   0/미설정 값은 공용 파라미터/엔진 기본을 그대로 쓴다(이중 구동 방지).
+            if (_finder is QMC.Vision.Backends.Cognex.CognexPatternFinder
+                && QMC.Vision.Ui.Security.AccessControl.Current >= QMC.Vision.Ui.Security.UserLevel.Engineer
+                && _node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe cogFar && cogFar.Cognex != null)
+            {
+                var cog = cogFar.Cognex;
+                items.Add(ParameterGridItem.Selection<QMC.Vision.Modules.CognexPatternAlgorithm>(
+                    "[Cognex] 알고리즘", "", ParameterGridScope.Recipe,
+                    () => cog.Algorithm, v => { cog.Algorithm = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] AcceptThreshold (0=공용)", "", ParameterGridScope.Recipe,
+                    () => cog.AcceptThreshold, v => { cog.AcceptThreshold = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 대비 임계 (Contrast)", "", ParameterGridScope.Recipe,
+                    () => cog.ContrastThreshold, v => { cog.ContrastThreshold = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Int("[Cognex] 찾을 개수 (0=공용)", "", ParameterGridScope.Recipe,
+                    () => cog.ApproxNumToFind, v => { cog.ApproxNumToFind = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 각도 시작", "deg", ParameterGridScope.Recipe,
+                    () => cog.AngleStartDeg, v => { cog.AngleStartDeg = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 각도 범위 (0=공용)", "deg", ParameterGridScope.Recipe,
+                    () => cog.AngleExtentDeg, v => { cog.AngleExtentDeg = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 스케일 시작", "", ParameterGridScope.Recipe,
+                    () => cog.ScaleStart, v => { cog.ScaleStart = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 스케일 범위 (0=미탐색)", "", ParameterGridScope.Recipe,
+                    () => cog.ScaleExtent, v => { cog.ScaleExtent = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Bool("[Cognex] 극성 무시", ParameterGridScope.Recipe,
+                    () => cog.IgnorePolarity, v => { cog.IgnorePolarity = v; PushCognexToFinder(); MarkDirty(); }));
+                items.Add(ParameterGridItem.Double("[Cognex] 타임아웃 (ms, 0=기본)", "ms", ParameterGridScope.Recipe,
+                    () => cog.TimeoutMs, v => { cog.TimeoutMs = v; PushCognexToFinder(); MarkDirty(); }));
+            }
+        }
+
+        /// <summary>UI 에서 편집한 Cognex 파라미터를 런타임 finder 에 즉시 반영(저장 전 MATCH 테스트도 일치).</summary>
+        private void PushCognexToFinder()
+        {
+            if (_node == null || _finder == null) return;
+            try { (_finder as QMC.Vision.Core.IAlgoParamSync)?.ApplyParams(_node.Recipe, _node.Config, _node.Setup); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] Cognex push 실패: " + ex.Message); }
         }
 
         private void RefreshOverlay()

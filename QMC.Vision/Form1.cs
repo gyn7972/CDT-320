@@ -139,12 +139,50 @@ namespace QMC.Vision
             _ = ConnectLightsOnStartupAsync();
         }
 
-        /// <summary>비전 백엔드 선택 + 상태바 텍스트 / VISION 연결 동그라미.</summary>
+        /// <summary>비전 백엔드 선택 + 상태바 텍스트 / VISION 연결 동그라미.
+        /// Provider=Cognex 인데 DLL 미로드/라이선스(동글) 미체결이면 사용자에게 메시지로 알린다
+        /// (모르고 운영하면 매치/검사가 조용히 실패하므로 시작 시점에 드러낸다).</summary>
         private void InitializeBackend(VisionSettings cfg)
         {
             Backend = VisionFactory.Global;
             dotVision.IsOn  = Backend != null;
             RefreshStatusBar();   // 초기 상태바(Recipe: -)
+
+            if (cfg != null && cfg.Provider == QMC.Vision.Config.VisionProvider.Cognex)
+            {
+                string cognexError = null;
+                var cb = Backend as QMC.Vision.Backends.Cognex.CognexBackend;
+                if (cb == null || !cb.CognexLoaded)
+                    cognexError = "Cognex VisionPro 미로드 — 설치/경로(CognexBinPath)를 확인하세요.\r\n"
+                                + (cb != null ? cb.VersionInfo : "백엔드 생성 실패");
+                else if (!cb.CheckLicense(out var licErr))
+                    cognexError = licErr;
+
+                if (cognexError != null)
+                {
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Error,
+                        "VISION-COGNEX-LICENSE", "Vision/Backend", cognexError);
+                    string msg = cognexError;   // 클로저 캡처
+                    this.Shown += (s, e) =>
+                    {
+                        try
+                        {
+                            QMC.Common.MessageDialog.Show(
+                                "Cognex 백엔드를 사용할 수 없습니다.\r\n\r\n" + msg +
+                                "\r\n\r\n매치/검사가 실패합니다. 라이선스(동글)와 VisionPro 설치를 확인하세요.",
+                                "Cognex 라이선스 없음",
+                                System.Windows.Forms.MessageBoxButtons.OK,
+                                System.Windows.Forms.MessageBoxIcon.Error);
+                        }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[Form1] Cognex 경고 표시 실패: " + ex.Message); }
+                    };
+                }
+                else
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "Cognex",
+                        "Cognex 백엔드 정상 — " + cb.VersionInfo + " (라이선스 확인 OK)");
+                }
+            }
         }
 
         /// <summary>기본 데이터 폴더(Recipes/EquipmentData/Config/Log)와 'default' 레시피를 보장한다.
@@ -405,10 +443,31 @@ namespace QMC.Vision
         /// 핸들러 명령(GRAB/MATCH 등) 게이트 조건. RUN 이 풀리면 자동 해제(<see cref="IsRunActive"/> 종속).</summary>
         internal bool IsReady => _ready && IsRunActive;
 
-        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.</summary>
+        /// <summary>작업 탭 READY 토글 — RUN 활성 상태에서만 켜진다. 켜지면 핸들러 VISION 사용 허용.
+        /// READY 진입 시 모든 모듈 카메라의 라이브를 정지한다 — 시퀀서/핸들러가 소프트트리거로
+        /// 카메라를 제어하므로 연속 촬상(Live)이 남아 있으면 시퀀스 그랩과 충돌한다.</summary>
         internal void SetReady(bool on)
         {
             _ready = on && IsRunActive;
+            if (_ready) StopAllCameraLive();
+        }
+
+        /// <summary>모든 모듈 카메라 라이브 정지 — READY 진입 시 호출(핸들러 그랩과 충돌 방지).</summary>
+        private void StopAllCameraLive()
+        {
+            var mods = new Modules.IVisionModule[]
+                { WaferMod, BinMod, BottomMod, FrontSideVisionMod, RearSideVisionMod };
+            foreach (var mod in mods)
+            {
+                try { mod?.Camera?.StopLive(); }
+                catch (Exception ex)
+                {
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "VISION", "ReadyStopLive",
+                        (mod?.Name ?? "?") + " 라이브 정지 실패: " + ex.Message);
+                }
+            }
+            QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", "ReadyStopLive",
+                "READY 진입 — 전 모듈 카메라 라이브 정지");
         }
 
         /// <summary>작업 탭 RUN/STOP 토글 — Sim 자체 실행은 시퀀서 시작/정지, 실제 모드는 RUN 상태 set(핸들러 접속 시).</summary>

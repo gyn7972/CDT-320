@@ -719,12 +719,8 @@ namespace QMC.Vision.Ui.Pages
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
 
-                // 모듈 시뮬 이미지 — 카메라가 '시뮬레이션'일 때만 GRAB 에 사용(실카메라=항상 실제 촬상).
-                ParameterGridItem.Bool("GRAB 소스: 시뮬 저장 이미지 사용 (시뮬 카메라 전용)", ParameterGridScope.Config,
-                    () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
-                ParameterGridItem.FilePath("GRAB 시뮬 저장 이미지 경로", ParameterGridScope.Config,
-                    () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
-                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
+                // (제거) 모듈단위 GRAB 시뮬 이미지 항목 — 레시피 툴단위 시뮬 저장이미지(VisionTargetPage)와 편집 UI 중복.
+                //        모델 필드(m.SimUseSavedImage/SimSavedImagePath)는 폴백용으로 유지, 설정 UI에서만 삭제.
             };
         }
 
@@ -959,8 +955,31 @@ namespace QMC.Vision.Ui.Pages
                 // 등록돼 있으면(예: LFine 12페이지인데 8) 사용자가 지정한 페이지(P08 등)를 저장할 때마다
                 // 몰래 깎아(8→7, 1→0) 조명이 꺼지는 사고가 났다. 지정 값은 그대로 저장한다.
                 string channels = (r.Cells["LightChannels"].Value as string ?? "").Trim();
-                if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
+                var exist = list.FirstOrDefault(x =>
+                    string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page);
+                if (exist == null)
+                {
                     list.Add(new LightPageRef { ControllerPort = port, Page = page, Channels = channels });
+                }
+                else
+                {
+                    // 같은 (컨트롤러,페이지) 지정을 여러 행으로 입력한 경우 채널을 병합한다
+                    // (예: p8 에 6·7·8 을 세 행으로 → "6,7,8"). 기존엔 첫 행만 남기고 버려
+                    // 채널이 유실됐다(레시피 조명 그리드에 일부만 표시되던 원인).
+                    // 빈 채널 지정(=전 채널)이 하나라도 있으면 전 채널 유지.
+                    if (string.IsNullOrEmpty(exist.Channels) || string.IsNullOrEmpty(channels))
+                    {
+                        exist.Channels = "";
+                    }
+                    else
+                    {
+                        var merged = new SortedSet<int>();
+                        foreach (var tok in (exist.Channels + "," + channels)
+                                 .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                            if (int.TryParse(tok.Trim(), out int chNo) && chNo >= 1) merged.Add(chNo);
+                        exist.Channels = string.Join(",", merged);
+                    }
+                }
             }
             return list;
         }

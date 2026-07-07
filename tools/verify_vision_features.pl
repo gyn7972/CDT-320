@@ -102,6 +102,35 @@ my $vc2_ok = greps($vc2, qr/event\s+Action<string>\s+ExposureDone/) &&
 row("STATIC", "Handler VisionTcpClient — EPD/ARM 비동기 이벤트 수신",
     $vc2_ok ? "PASS" : "FAIL", $vc2);
 
+# ── 1b. 포커스 레시피 통일 + 설정 GRAB 소스 제거 (2026-07-07) ──
+my $rp = "$VIS_ROOT/Ui/Pages/Settings/Recipe/RecipePage.cs";
+my $rp_ok = greps($rp, qr/FocusCameraForModule/) &&
+            greps($rp, qr/FrontSideVision.*FocusCamera\.Front/s) &&
+            greps($rp, qr/RearSideVision.*FocusCamera\.Back/s);
+row("STATIC", "RecipePage — FocusFinder 라우팅 바텀/앞측면/뒤측면 통일",
+    $rp_ok ? "PASS" : "FAIL", $rp);
+
+my $ftp = "$VIS_ROOT/Ui/Pages/Settings/Recipe/FocusTargetPage.cs";
+my $ftp_ok = greps($ftp, qr/FocusTarget\.Side/) &&
+             greps($ftp, qr/btnTargetCollet\.Visible\s*=\s*false/);
+row("STATIC", "FocusTargetPage — 측면 카메라 Side 단일 타깃(콜렛/다이 토글 숨김)",
+    $ftp_ok ? "PASS" : "FAIL", $ftp);
+
+# FocusTargetPage 파라미터 그리드 + 편입 조명 통합(다른 레시피 페이지와 동일 UI).
+my $ftp_param_ok = greps($ftp, qr/BuildParams/) &&
+                   greps($ftp, qr/_params\.SetItems/) &&
+                   greps($ftp, qr/SimUseSavedImage/) &&
+                   greps($ftp, qr/EmbeddedMode = true/) &&
+                   greps($ftp, qr/_params\.Title = "PARAMETERS"/);
+row("STATIC", "FocusTargetPage — 파라미터 그리드 + 시뮬이미지 + 편입 조명(레시피 동일)",
+    $ftp_param_ok ? "PASS" : "FAIL", $ftp);
+
+my $cmp = "$VIS_ROOT/Ui/Pages/Settings/CameraMappingPanel.cs";
+# 설정 카메라 패널에서 모듈단위 GRAB 시뮬 이미지 편집 UI 가 제거됐는지(레시피 툴단위와 중복 해소).
+my $cmp_ok = (-e $cmp) && !greps($cmp, qr/ParameterGridItem\.\w+\("GRAB/);
+row("STATIC", "CameraMappingPanel — 모듈단위 GRAB 소스/시뮬저장 UI 제거",
+    $cmp_ok ? "PASS" : "FAIL", $cmp);
+
 # ── 2. 런타임 검사 (Vision exe 가 띄워져 있어야 함) ────
 sub req {
     my ($host, $port, $line, $timeout) = @_;

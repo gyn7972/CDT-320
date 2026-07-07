@@ -171,6 +171,17 @@ namespace QMC.Vision.Comm
                 return;
             }
 
+            // 핸들러 Live(CAM_SWITCH liveOn=1) 는 셋업(비 READY)에서만 허용 — RUN/READY 중엔 시퀀서가
+            // 소프트트리거로 카메라를 제어하므로 연속 촬상(Live) 을 켜면 시퀀스 그랩과 충돌한다.
+            if (cmd == "CAM_SWITCH" && parts.Length >= 4
+                && (parts[3] == "1" || parts[3].Equals("on", StringComparison.OrdinalIgnoreCase)
+                    || parts[3].Equals("true", StringComparison.OrdinalIgnoreCase))
+                && IsCommandAllowed != null && IsCommandAllowed())
+            {
+                Send(stream, $"ERR|{mod}|{cmd}|busy: RUN/READY 중 Live 불가");
+                return;
+            }
+
             try
             {
                 string resp = string.Empty;
@@ -237,7 +248,7 @@ namespace QMC.Vision.Comm
         /// <summary>RUN 게이트 면제 명령 — PING/그랩/캘리브레이션용 비전 명령은 수동 셋업에서도 허용한다.</summary>
         private static bool IsGateExemptCommand(string cmd)
             => cmd == "PING" || cmd == "EXPOSE" || cmd == "GRAB"
-            || cmd == "CAM_SETTING"
+            || cmd == "CAM_SETTING" || cmd == "CAM_SWITCH"
             || cmd == "MATCHASYNC" || cmd == "MATCHRESULT"
             || cmd == "FOCUS_START" || cmd == "FOCUS_VAL" || cmd == "FOCUS_BEST";   // 오토포커스=셋업/캘리브레이션, RUN 아닐 때도 허용(그랩만, 모션은 핸들러 책임)
 
@@ -371,29 +382,49 @@ namespace QMC.Vision.Comm
             if (!double.TryParse(parts[2], out var wMm)) return "fail:bad width";
             if (!double.TryParse(parts[3], out var hMm)) return "fail:bad height";
             if (!m.Calibrate(wMm, hMm, out var sx, out var sy, out var err))
+            {
+                try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "SCALE", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             // 모듈별 CameraConfig 스케일 갱신 + 영속(SSOT=모듈)
             var map = m.ExportCameraMapping();
             map.ScaleX = sx; map.ScaleY = sy;
             m.ImportCameraMapping(map);
             try { m.SaveSettings(); } catch { }
+            // 작업/레시피 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "SCALE", true, $"scaleX={sx:F6};scaleY={sy:F6}"); } catch { }
             return $"OK;scaleX={sx:F6};scaleY={sy:F6}";
         }
 
         private static string DoRotCenter(IVisionModule m)
         {
             if (!m.MeasureRotationalCenter(out var corners, out var err))
+            {
+                try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "ROT_CENTER", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
             var sb = new StringBuilder("OK");
+            var items = new StringBuilder();
             for (int i = 0; i < corners.Count; i++)
+            {
                 sb.Append($";x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+                if (items.Length > 0) items.Append(';');
+                items.Append($"x{i}={corners[i].X:F2};y{i}={corners[i].Y:F2}");
+            }
+            // 작업/레시피 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "ROT_CENTER", true, items.ToString()); } catch { }
             return sb.ToString();
         }
 
         private static string DoDistort(IVisionModule m)
         {
             if (!m.LearnDistortion(out var err))
+            {
+                try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "DISTORT", false, "fail:" + err); } catch { }
                 return "fail:" + err;
+            }
+            // 작업/레시피 모니터링 뷰에 측정 결과 표시(최근 결과 라인).
+            try { QMC.Vision.Core.ModuleResultStore.Record(m.Name, "DISTORT", true, "distortion=OK"); } catch { }
             return "OK";
         }
 
@@ -402,7 +433,12 @@ namespace QMC.Vision.Comm
             if (parts.Length < 4) return "fail:need toolName liveOn";
             string toolName = parts[2];
             string liveOn   = parts[3];
-            // 단일 카메라 모듈에서는 no-op. 멀티 카메라 모듈에서 override 가능.
+            bool on = liveOn == "1" || liveOn.Equals("on", StringComparison.OrdinalIgnoreCase)
+                                    || liveOn.Equals("true", StringComparison.OrdinalIgnoreCase);
+            // 핸들러 Live → Vision 카메라 연속 촬상 시작/정지(Vision 자체 Live 버튼과 동일 경로).
+            if (m == null || m.Camera == null) return "fail:camera not assigned";
+            try { if (on) m.Camera.StartLive(); else m.Camera.StopLive(); }
+            catch (Exception ex) { return "fail:" + ex.Message; }
             return $"OK;tool={toolName};live={liveOn}";
         }
 
