@@ -161,6 +161,9 @@
     <Compile Include="Ui\Dialogs\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\LogSettingsDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Controls\ParamGrid.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -218,6 +221,12 @@
     </Compile>
     <Compile Include="Ui\Controls\ManualActionPanelControl.Designer.cs">
       <DependentUpon>ManualActionPanelControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\LogSettingsPanelControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\LogSettingsPanelControl.Designer.cs">
+      <DependentUpon>LogSettingsPanelControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\IoCylinderPanelControl.cs">
       <SubType>UserControl</SubType>
@@ -1193,6 +1202,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\JogAxisMoveControl.resx">
       <DependentUpon>JogAxisMoveControl.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Controls\LogSettingsPanelControl.resx">
+      <DependentUpon>LogSettingsPanelControl.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\SideVisionViewerControl.resx">
       <DependentUpon>SideVisionViewerControl.cs</DependentUpon>

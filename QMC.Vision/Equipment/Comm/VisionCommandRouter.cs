@@ -40,13 +40,6 @@ namespace QMC.Vision.Comm
             if (!IsGateExemptCommand(cmd) && isCommandAllowed != null && !isCommandAllowed())
                 return $"ERR|{mod}|{cmd}|not running (press RUN)";
 
-            // 핸들러 Live(CAM_SWITCH liveOn=1) 는 셋업(비 READY)에서만 허용 — RUN/READY 중 시퀀스 그랩 충돌 방지.
-            if (cmd == "CAM_SWITCH" && parts.Length >= 4
-                && (parts[3] == "1" || parts[3].Equals("on", StringComparison.OrdinalIgnoreCase)
-                    || parts[3].Equals("true", StringComparison.OrdinalIgnoreCase))
-                && isCommandAllowed != null && isCommandAllowed())
-                return $"ERR|{mod}|{cmd}|busy: RUN/READY 중 Live 불가";
-
             try
             {
                 string resp;

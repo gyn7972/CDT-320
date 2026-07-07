@@ -66,9 +66,10 @@ namespace QMC.Vision.Ui.Dialogs
             g.DrawImage(_image, x, y, w, h);
             using (var p = new Pen(Color.LimeGreen, 1f) { DashStyle = DashStyle.Dash })
             {
-                // 크로스헤어
-                g.DrawLine(p, _canvas.Width / 2f, 0, _canvas.Width / 2f, _canvas.Height);
-                g.DrawLine(p, 0, _canvas.Height / 2f, _canvas.Width, _canvas.Height / 2f);
+                // 크로스헤어 — 이미지 중심에 고정(줌/팬을 따라가게)
+                PointF cc = ImageToScreen(new PointF(_image.Width / 2f, _image.Height / 2f));
+                g.DrawLine(p, cc.X, 0, cc.X, _canvas.Height);
+                g.DrawLine(p, 0, cc.Y, _canvas.Width, cc.Y);
             }
             if (_measuring) DrawMeasure(g);
         }

@@ -51,6 +51,7 @@ namespace QMC.Vision.Modules
 
         // ── 런타임 동작 ──
         int DelayBeforeGrabMs { get; set; }
+        int AverageCount { get; set; }
         event Action<string> ExposureDone;
         event Action<string, string> Alarmed;
         long ViewerFrameSeq { get; }

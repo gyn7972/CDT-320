@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,7 +34,7 @@ namespace QMC.Vision.DieMaps
         private static List<TapeFrameSpec> _specs;
 
         private static string FilePath
-            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "frame_specs.json");
+            => Path.Combine(QMC.Vision.Config.VisionPaths.ConfigDir, "frame_specs.json");
 
         /// <summary>전체 스펙 목록(지연 로드).</summary>
         public static List<TapeFrameSpec> All()

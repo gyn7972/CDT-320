@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
@@ -93,6 +94,22 @@ namespace QMC.CDT320
         /// </summary>
         [DataMember] public int    ArchiveKeepDays { get; set; } = 0;
 
+        /// <summary>로그 압축 사용 여부. true 면 <see cref="LogCompressDays"/> 지난 원본 로그를 zip 보관하고 원본을 지운다. 기본 true.</summary>
+        [DataMember] public bool   LogCompressEnabled { get; set; } = true;
+
+        /// <summary>로그 압축 유예일수(이 일수가 지난 원본을 압축 보관). 1~365. 기본 14.</summary>
+        [DataMember] public int    LogCompressDays { get; set; } = 14;
+
+        /// <summary>로그 저장 방식. false=전체(모든 종류를 <see cref="LogAllDir"/> 한 폴더에), true=종류별(각 종류 폴더). 기본 false(기존 동작).</summary>
+        [DataMember] public bool   LogSplitByKind { get; set; } = false;
+
+        /// <summary>전체 저장 모드일 때 모든 로그를 저장할 폴더. 비어있으면 기본(&lt;LogRoot&gt;\Event).</summary>
+        [DataMember] public string LogAllDir { get; set; }
+
+        /// <summary>종류별 저장 모드일 때 종류별 폴더 오버라이드. 키=EventKind 이름(Event/Warning/…), 값=폴더 경로.
+        /// 비어있거나 키가 없으면 기본 경로(&lt;LogRoot&gt;\&lt;종류&gt;)를 사용한다.</summary>
+        [DataMember] public Dictionary<string, string> LogKindPaths { get; set; }
+
         // DataContractJsonSerializer 는 필드 이니셜라이저를 실행하지 않으므로, 구 settings.json 에 없는
         // 신규 키는 여기서 기본값을 심는다(없으면 false 로 로드되어 의도치 않게 비전이 꺼지는 문제 방지).
         [OnDeserializing]
@@ -102,6 +119,8 @@ namespace QMC.CDT320
             ViewerMeasureScaleFactor = 1.0;   // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기본=저장 스케일 그대로)
             FileLogHistoryEnabled = true;   // 구 settings.json 에 키가 없으면 false 로 로드되어 이력 화면이 꺼지는 문제 방지
             // ArchiveKeepDays 는 키가 없으면 0(무기한 보관)으로 로드되며, 이는 기본값과 같아 별도 처리가 필요 없다.
+            LogCompressEnabled = true;      // 구 settings.json 에 키 없으면 압축이 꺼지는 것 방지(기존 동작=항상 압축)
+            LogCompressDays = 14;           // 구 settings.json 에 키 없으면 0 으로 로드되는 것 방지(기존 고정값 14)
         }
 
         public bool BypassHardware => SimulationMode;

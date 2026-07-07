@@ -22,7 +22,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private const int MaxPendingLiveRows = 1000;
 
         // 이력 로드 스위치 — 설정(Config\settings.json)의 FileLogHistoryEnabled 를 따른다.
-        // 설정 탭 GENERAL 의 "LOG HISTORY VIEW" 에서 빌드 없이 켜고 끌 수 있고(응급 차단),
+        // 설정 탭 GENERAL 의 "LOG SETTINGS" 창 'Log history view' 에서 빌드 없이 켜고 끌 수 있고(응급 차단),
         // 바꾼 값은 이력 페이지를 다시 방문하는 순간 반영된다. 끄면 안내 행만 표시한다.
         private static bool FileLogHistoryEnabled => QMC.CDT320.AppSettingsStore.Current.FileLogHistoryEnabled;
 
@@ -146,7 +146,7 @@ namespace QMC.CDT_320.Ui.Pages.History
                 "",
                 "History",
                 "FILE-LOG-DISABLED",
-                "로그 이력 화면이 설정에서 꺼져 있습니다. 설정 탭 GENERAL 의 'LOG HISTORY VIEW' 를 ENABLE 로 바꾸면 다시 표시됩니다.");
+                "로그 이력 화면이 설정에서 꺼져 있습니다. 설정 탭 GENERAL 의 'LOG SETTINGS' 창에서 'Log history view' 를 ENABLE 로 바꾸면 다시 표시됩니다.");
         }
 
         // 필터/버튼 사용 가능 여부 일괄 전환(토글 켜짐/꺼짐에 따라).

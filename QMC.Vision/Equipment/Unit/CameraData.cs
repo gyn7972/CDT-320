@@ -25,6 +25,8 @@ namespace QMC.Vision.Modules
         [DataMember] public string TriggerMode       { get; set; }
         [DataMember] public string PixelFormat       { get; set; }
         [DataMember] public int    DelayBeforeGrabMs { get; set; }
+        /// <summary>프레임 평균화 매수. 1=단발, N&gt;1 이면 N장 촬상 후 픽셀평균(노이즈 저감).</summary>
+        [DataMember] public int    AverageCount      { get; set; }
         [DataMember] public int    RoiOffsetX        { get; set; }
         [DataMember] public int    RoiOffsetY        { get; set; }
         [DataMember] public int    RoiWidth          { get; set; }
@@ -73,6 +75,7 @@ namespace QMC.Vision.Modules
             TriggerMode = string.Empty;
             PixelFormat = string.Empty;
             DelayBeforeGrabMs = 0;
+            AverageCount = 1;
             RoiOffsetX = 0; RoiOffsetY = 0; RoiWidth = 0; RoiHeight = 0;
             ScaleX = 1.0; ScaleY = 1.0;
             IsRotated = false; InvertedX = false; InvertedY = false;

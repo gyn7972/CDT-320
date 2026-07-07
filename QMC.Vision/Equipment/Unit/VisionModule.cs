@@ -38,6 +38,9 @@ namespace QMC.Vision.Modules
         /// <summary>그랩 직전 지연 (ms).</summary>
         public int DelayBeforeGrabMs { get; set; } = 0;
 
+        /// <summary>프레임 평균화 매수. 1=단발, N&gt;1 이면 N장 촬상 후 픽셀평균(노이즈 저감).</summary>
+        public int AverageCount { get; set; } = 1;
+
         public event Action<string> ExposureDone;
         public event Action<string, string> Alarmed;
 
@@ -88,6 +91,7 @@ namespace QMC.Vision.Modules
             m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
             m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
             m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+            m.AverageCount = c.AverageCount;
             m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
             m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
             m.ScaleX = c.ScaleX; m.ScaleY = c.ScaleY;
@@ -107,6 +111,7 @@ namespace QMC.Vision.Modules
             if (Camera == null) return;
             AlgorithmCameraBinder.TryApplyParameters(Camera, ExportCameraMapping(), out _);
             DelayBeforeGrabMs = CameraNode.Config.DelayBeforeGrabMs;
+            AverageCount = CameraNode.Config.AverageCount;
         }
 
         /// <summary>Camera → Camera Config/Recipe 수집(저장 직전). Camera null 시 no-op.</summary>
@@ -121,6 +126,7 @@ namespace QMC.Vision.Modules
             try { c.PixelFormat = Camera.PixelFormat.ToString(); } catch { }
             try { var roi = Camera.Roi; c.RoiOffsetX = roi.X; c.RoiOffsetY = roi.Y; c.RoiWidth = roi.Width; c.RoiHeight = roi.Height; } catch { }
             c.DelayBeforeGrabMs = DelayBeforeGrabMs;
+            c.AverageCount = AverageCount;
             try { r.Exposure = Camera.ExposureUs; } catch { }
             // CameraId 는 생성 트리거라 수집 안 함(UI 가 설정).
         }
@@ -134,6 +140,7 @@ namespace QMC.Vision.Modules
             c.CameraId = m.CameraId; c.Gain = m.Gain; c.FrameRate = m.FrameRate;
             c.TriggerMode = m.TriggerMode; c.PixelFormat = m.PixelFormat;
             c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+            c.AverageCount = m.AverageCount;
             c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
             c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
             c.ScaleX = m.ScaleX; c.ScaleY = m.ScaleY;
@@ -311,6 +318,114 @@ namespace QMC.Vision.Modules
         public bool IsSimCameraMode
             => Camera == null || Camera.Info == null || Camera.Info.Transport == CameraTransport.Sim;
 
+        /// <summary>프레임 평균화 그랩 — <see cref="AverageCount"/>&gt;1 이면 N장을 촬상해 픽셀별 평균으로 노이즈를 낮춘다.
+        /// 1 이하이거나 추가 프레임 확보 실패 시 첫 프레임을 그대로 반환. 카메라 무관(소프트웨어 평균)이라 Sim/실기 동일 동작.</summary>
+        private GrabResult GrabAveraged(int timeoutMs)
+        {
+            GrabResult first = Camera.Grab(timeoutMs);
+            int n = AverageCount;
+            if (n <= 1 || first == null || !first.IsSuccess || first.Image == null) return first;
+
+            Bitmap baseImg = first.Image;
+            var pf = baseImg.PixelFormat;
+            // 인덱스(팔레트) 또는 표준 8/24/32bpp 만 지원 — 그 외 포맷은 평균 생략(원본 반환).
+            var rect = new Rectangle(0, 0, baseImg.Width, baseImg.Height);
+            long[] sum;
+            int stride, height = baseImg.Height;
+            try
+            {
+                var bd = baseImg.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadOnly, pf);
+                stride = Math.Abs(bd.Stride);
+                sum = new long[(long)stride * height];
+                AccumulateBytes(sum, bd, stride, height);
+                baseImg.UnlockBits(bd);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", Name,
+                    "Averaging Lock 실패(원본 사용): " + ex.Message);
+                return first;
+            }
+
+            int used = 1;
+            for (int i = 1; i < n; i++)
+            {
+                GrabResult gi = null;
+                try { gi = Camera.Grab(timeoutMs); } catch { }
+                if (gi == null || !gi.IsSuccess || gi.Image == null) { gi?.Image?.Dispose(); continue; }
+                try
+                {
+                    var img = gi.Image;
+                    if (img.PixelFormat == pf && img.Width == baseImg.Width && img.Height == height)
+                    {
+                        var bd = img.LockBits(rect, System.Drawing.Imaging.ImageLockMode.ReadOnly, pf);
+                        if (Math.Abs(bd.Stride) == stride) { AccumulateBytes(sum, bd, stride, height); used++; }
+                        img.UnlockBits(bd);
+                    }
+                }
+                catch { }
+                finally { gi.Image.Dispose(); }
+            }
+
+            if (used <= 1) return first;   // 추가 프레임 확보 실패 → 원본 그대로
+
+            Bitmap outBmp;
+            try
+            {
+                outBmp = new Bitmap(baseImg.Width, height, pf);
+                if ((pf & System.Drawing.Imaging.PixelFormat.Indexed) != 0) outBmp.Palette = baseImg.Palette;
+                var od = outBmp.LockBits(rect, System.Drawing.Imaging.ImageLockMode.WriteOnly, pf);
+                WriteAverage(sum, od, stride, height, used);
+                outBmp.UnlockBits(od);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION", Name,
+                    "Averaging 출력 실패(원본 사용): " + ex.Message);
+                return first;
+            }
+
+            string src = (first.Source ?? "") + " avg" + used;
+            int seq = first.FrameNumber;
+            first.Image.Dispose();
+            return GrabResult.Success(outBmp, seq, src);
+        }
+
+        /// <summary>BitmapData 한 프레임의 바이트를 누적합 버퍼에 더한다(포맷 무관 바이트 단위).</summary>
+        private static void AccumulateBytes(long[] sum, System.Drawing.Imaging.BitmapData bd, int stride, int height)
+        {
+            byte[] row = new byte[stride];
+            IntPtr scan = bd.Scan0;
+            int bdStride = bd.Stride;
+            for (int y = 0; y < height; y++)
+            {
+                IntPtr rowPtr = IntPtr.Add(scan, y * bdStride);
+                System.Runtime.InteropServices.Marshal.Copy(rowPtr, row, 0, stride);
+                int baseIdx = y * stride;
+                for (int x = 0; x < stride; x++) sum[baseIdx + x] += row[x];
+            }
+        }
+
+        /// <summary>누적합을 매수로 나눠 평균값을 출력 BitmapData 에 기록한다.</summary>
+        private static void WriteAverage(long[] sum, System.Drawing.Imaging.BitmapData od, int stride, int height, int count)
+        {
+            byte[] row = new byte[stride];
+            IntPtr scan = od.Scan0;
+            int odStride = od.Stride;
+            int half = count / 2;
+            for (int y = 0; y < height; y++)
+            {
+                int baseIdx = y * stride;
+                for (int x = 0; x < stride; x++)
+                {
+                    long v = (sum[baseIdx + x] + half) / count;   // 반올림
+                    row[x] = v > 255 ? (byte)255 : (byte)v;
+                }
+                IntPtr rowPtr = IntPtr.Add(scan, y * odStride);
+                System.Runtime.InteropServices.Marshal.Copy(row, 0, rowPtr, stride);
+            }
+        }
+
         public GrabResult Grab(int timeoutMs = 3000)
         {
             // 테스트 오버라이드 — 화면에 표시한 이미지를 grab 으로 반환(오토포커스 ROI 정렬용).
@@ -345,7 +460,7 @@ namespace QMC.Vision.Modules
             _grabInProgress = true;
 
             GrabResult g;
-            try { g = Camera.Grab(timeoutMs); }
+            try { g = GrabAveraged(timeoutMs); }
             finally { _grabInProgress = false; }
 
             // 폴백 — 노출 이벤트 미지원 카메라(Sim 등)는 그랩 완료 시점에 발화(핸들러 EPD 대기 멈춤 방지).

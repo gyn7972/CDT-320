@@ -36,7 +36,6 @@ namespace QMC.Vision.Ui.Pages
             _contentHost.Controls.Add(_opPage);
 
             _btnRun.Click   += OnRunToggleClick;
-            _btnReady.Click += OnReadyToggleClick;
 
             ShowWork();
             StartStateTimer();
@@ -83,7 +82,7 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
-        // ── RUN/READY (모든 모드에서 유지) — Form1 상태에 연동 ──
+        // ── RUN (모든 모드에서 유지) — Form1 상태에 연동 ──
         private void StartStateTimer()
         {
             _stateTimer = new System.Windows.Forms.Timer { Interval = 250 };
@@ -91,11 +90,9 @@ namespace QMC.Vision.Ui.Pages
             {
                 if (IsDisposed || Disposing) { _stateTimer.Stop(); return; }
                 UpdateRunButton();
-                UpdateReadyButton();
             };
             _stateTimer.Start();
             UpdateRunButton();
-            UpdateReadyButton();
         }
 
         private void OnRunToggleClick(object sender, EventArgs e)
@@ -107,22 +104,8 @@ namespace QMC.Vision.Ui.Pages
                 if (host.IsRunActive) host.SetRun(false);
                 else if (host.CanRun) host.SetRun(true);
                 UpdateRunButton();
-                UpdateReadyButton();
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[InspectionWorkPage] RUN 토글 실패: " + ex.Message); }
-        }
-
-        private void OnReadyToggleClick(object sender, EventArgs e)
-        {
-            try
-            {
-                var host = FindForm() as Form1;
-                if (host == null) return;
-                if (host.IsReady) host.SetReady(false);
-                else if (host.CanReady) host.SetReady(true);
-                UpdateReadyButton();
-            }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[InspectionWorkPage] READY 토글 실패: " + ex.Message); }
         }
 
         private void UpdateRunButton()
@@ -140,19 +123,5 @@ namespace QMC.Vision.Ui.Pages
                 : (canRun ? Color.FromArgb(0x1f, 0x9d, 0x4d) : Color.FromArgb(0x55, 0x55, 0x55));
         }
 
-        private void UpdateReadyButton()
-        {
-            if (_btnReady == null) return;
-            var host = FindForm() as Form1;
-            if (host == null) { _btnReady.Enabled = false; return; }
-
-            bool ready  = host.IsReady;
-            bool canRdy = host.CanReady;
-            _btnReady.Enabled   = ready || canRdy;
-            _btnReady.Text      = ready ? "READY ●" : "READY";
-            _btnReady.BackColor = ready
-                ? Color.FromArgb(0x1f, 0x9d, 0x4d)
-                : (canRdy ? Color.FromArgb(0x35, 0x6b, 0x46) : Color.FromArgb(0x55, 0x55, 0x55));
-        }
     }
 }
