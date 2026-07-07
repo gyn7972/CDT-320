@@ -312,7 +312,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z APPROACH SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSlowApproachSpeedPercent, v => pickUp.PickerZSlowApproachSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
                 "PrePick 위치에서 실제 PickPosition까지 천천히 내려갈 때 사용하는 PickerZ 속도 비율입니다.\r\n축 기본 속도 대비 퍼센트로 적용됩니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE DISTANCE", AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => pickUp.PickerZSeparateDistance, v => pickUp.PickerZSeparateDistance = Math.Max(0.0, v)),
-                "Sync Lift 후 PickerZ를 Needle/EjectPinZ와 먼저 벌리는 거리입니다.\r\n이 거리만큼 PICKER Z SEPARATE SPEED로 이동한 뒤 최종 안전 복귀 단계에서 Avoid 위치로 이동합니다."), groupKey));
+                "Sync Lift 후 PickerZ를 Needle/EjectPinZ와 먼저 벌리는 거리입니다.\r\n이 거리만큼 PICKER Z SEPARATE SPEED로 이동한 뒤 이어서 PickerZ를 Avoid 위치까지 올립니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Double("PICKER Z SEPARATE SPEED", "%", ParameterGridScope.Config, () => pickUp.PickerZSeparateSpeedPercent, v => pickUp.PickerZSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
                 "Step 07에서 Sync Lift 후 PickerZ를 Separate Distance만큼 이동할 때 사용하는 속도 비율입니다.\r\nNeedleZ/EjectPinZ Avoid 이동 속도는 InputStage Needle Pickup 설정값을 사용합니다."), groupKey));
             items.Add(InGroup(Describe(ParameterGridItem.Selection<PickerPickUpSeparateMode>("SEPARATE MODE", "mode", ParameterGridScope.Config, () => pickUp.SeparateMode, v => pickUp.SeparateMode = v),

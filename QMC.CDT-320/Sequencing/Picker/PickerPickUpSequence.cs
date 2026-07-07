@@ -2743,6 +2743,18 @@ namespace QMC.CDT320.Sequencing
                 if (pickerResult != 0)
                     return pickerResult;
 
+                pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
+                    pickerZ,
+                    pickerZAvoid,
+                    pickerVelocity,
+                    pickerAcceleration,
+                    pickerDeceleration,
+                    "PickUp Sync Lift 후 PickerZ Avoid 최종 이동",
+                    "AvoidPosition",
+                    ct).ConfigureAwait(false);
+                if (pickerResult != 0)
+                    return pickerResult;
+
                 return await MoveNeedlePinZToAvoidAndVacuumOffAsync(
                     stage,
                     needleZAvoid,
