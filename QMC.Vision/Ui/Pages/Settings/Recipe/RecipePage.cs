@@ -344,11 +344,13 @@ namespace QMC.Vision.Ui.Pages
             if (!_cache.TryGetValue(key, out var page))
             {
                 string k = key;
-                if (s.IsFinder && s.Id == "FocusFinder" &&
-                    string.Equals(s.Module.Name, "BottomInspection", StringComparison.OrdinalIgnoreCase))
+                QMC.Vision.Core.FocusCamera? focusCam = null;
+                if (s.IsFinder && s.Id == "FocusFinder")
+                    focusCam = FocusCameraForModule(s.Module.Name);
+                if (focusCam.HasValue)
                 {
-                    // 바텀 검사 '포커스'는 패턴 매칭을 사용하지 않는다 — 오토포커스 ROI1~4 전용 페이지.
-                    var ftp = new FocusTargetPage(s.Module, QMC.Vision.Core.FocusCamera.Bottom, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
+                    // '포커스'는 패턴 매칭을 사용하지 않는다 — 오토포커스 ROI1~4 전용 페이지(바텀/앞측면/뒤측면 공통).
+                    var ftp = new FocusTargetPage(s.Module, focusCam.Value, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
                     ftp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = ftp;
                 }
@@ -375,6 +377,18 @@ namespace QMC.Vision.Ui.Pages
             _projectView = false;
             UpdateHeader();
             UpdateSettingDot(key);
+        }
+
+        /// <summary>FocusFinder 모듈명 → 오토포커스 카메라. 포커스 오토포커스 대상이 아니면 null.</summary>
+        private static FocusCamera? FocusCameraForModule(string moduleName)
+        {
+            if (string.Equals(moduleName, "BottomInspection", StringComparison.OrdinalIgnoreCase))
+                return FocusCamera.Bottom;
+            if (string.Equals(moduleName, "FrontSideVision", StringComparison.OrdinalIgnoreCase))
+                return FocusCamera.Front;
+            if (string.Equals(moduleName, "RearSideVision", StringComparison.OrdinalIgnoreCase))
+                return FocusCamera.Back;
+            return null;
         }
 
         // ── 상태(미설정/설정완료/변경됨) ──

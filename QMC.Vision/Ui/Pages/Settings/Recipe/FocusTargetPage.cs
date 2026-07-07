@@ -14,7 +14,7 @@ using QMC.Vision.Ui.Controls;
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// 바텀 검사 '포커스' 타깃 페이지 — 패턴 매칭을 사용하지 않는 오토포커스 전용 화면.
+    /// '포커스' 타깃 페이지(바텀 검사 / 앞·뒤 측면 검사 공통) — 패턴 매칭을 사용하지 않는 오토포커스 전용 화면.
     /// <para>
     /// 오토포커스 ROI1~4 를 드래그로 지정(타깃 콜렛/다이)하고, [포커스 측정]으로 현재 프레임의
     /// ROI별 포커스 Score 를 즉시 확인하며, 핸들러 Z스캔(FOCUS_START/VAL) 세션의 피크 곡선을 표시한다.
@@ -31,13 +31,15 @@ namespace QMC.Vision.Ui.Pages
         private readonly Font _bold = new Font(UiTheme.ButtonFont, FontStyle.Bold);
         private readonly double?[] _measured = new double?[AutoFocusRoiStore.RoiCount];   // 마지막 [포커스 측정] ROI별 Score
         private IAlgorithmNode _node;                    // FocusFinder 노드 — 조명 레벨(Recipe.LightSettings) SSOT
-        private InspectionLightPanel _lightPanel;        // 검사 조명 편집/점등 패널(독립 모드 — 자체 저장/적용)
+        private InspectionLightPanel _lightPanel;        // 검사 조명 편집/점등 패널(편입 모드 — SaveTarget 에서 노드와 함께 저장)
+        private bool _dirty;                             // 파라미터/조명 변경 미저장 여부
+        private string _recipeName = "default";          // 저장/로드 대상 레시피명(생성자 주입)
         private long _lastLogRev = -1;                   // FOCUS 통신 로그 갱신 리비전(변경 시에만 다시 그림)
         private long _lastViewerSeq = -1;                // 모듈 뷰어 프레임 시퀀스 — 프로토콜(핸들러) 그랩 자동 표시용
 
         // ── Properties (ITargetPage) ───────────────────
-        /// <summary>ROI 는 지정 즉시 vision.json 에 저장되므로 별도 dirty 상태가 없다.</summary>
-        public bool IsDirty => false;
+        /// <summary>파라미터/조명 변경 미저장 여부. (ROI/노출은 지정 즉시 저장되나 파인더 파라미터·조명은 SAVE 필요.)</summary>
+        public bool IsDirty => _dirty;
 
         /// <summary>현재 타깃에 지정된 ROI 가 하나라도 있으면 저장 데이터 있음.</summary>
         public bool HasSavedData
@@ -59,16 +61,18 @@ namespace QMC.Vision.Ui.Pages
             InitializeComponent();
             if (IsDesignerMode()) return;
 
-            // 검사 조명 — FocusFinder 노드의 Recipe.LightSettings 편집/점등(독립 모드: 패널 자체 저장/적용 버튼 사용).
+            _recipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName;
             _node = _module?.GetAlgorithm("FocusFinder");
+            // 검사 조명 — 편입 모드(다른 레시피 페이지와 동일: 저장은 상단바 SAVE=SaveTarget 에서 노드와 함께).
             _lightPanel = new InspectionLightPanel
             {
                 Dock = DockStyle.Fill,
-                EmbeddedMode = false,
-                RecipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName
+                EmbeddedMode = true,
+                RecipeName = _recipeName
             };
             // 바텀 검사 채널 정책(리스광 ch2 + 엘파인 P08 ch6~8)은 패널이 SelectInspection 에서 자동 적용.
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", "FocusFinder");
+            _lightPanel.LightChanged += (s, e) => MarkDirty();
             pnlLightHost.Controls.Add(_lightPanel);
             _lightPanel.BringToFront();   // 호스트 내 Fill 도킹 우선(패널 자체 헤더 포함 전체 채움)
 
@@ -96,11 +100,34 @@ namespace QMC.Vision.Ui.Pages
                 roiBtns[i].Click += (s, e) => BeginEditRoi(idx);
             }
             btnRoiClear.Click += (s, e) => ClearRois();
-            btnExposureApply.Click += (s, e) => ApplyExposure();
             btnMeasure.Click += (s, e) => MeasureRois();
 
             timerRefresh.Tick += (s, e) => RefreshSessionView();
-            SelectTarget(FocusTarget.Collet);
+
+            BuildParams();   // 우측 파라미터 그리드(ROI1~4 좌표 + 카메라 노출 연동 + 시뮬 이미지)
+
+            // 파라미터 헤더 통일 — VisionTargetPage 와 동일: 바깥 orange 헤더(lblHdrParam) 숨기고
+            // ParameterGridControl 자체 제목바(panelHeader.Title)를 "PARAMETERS" 로 사용(색/크기/위치 일치).
+            _params.Title = "PARAMETERS";
+            lblHdrParam.Visible = false;
+            _right.RowStyles[0].Height = 0;
+
+            // 섹션 타이틀(카메라/동작/곡선/값/조명)을 다른 레시피 페이지와 동일 스타일로 통일
+            // — SectionHeaderStyle: 회색 배경 + 어두운 글자 + 하단 2px 주황 밑줄(솔리드 오렌지 → 통일).
+            SectionHeaderStyle.Apply(lblHdrImg, lblHdrAction, lblHdrChart, lblHdrGrid, lblHdrLight);
+
+            // 카메라별 포커스 대상 — 바텀=콜렛/다이 토글, 앞/뒤 측면=Side 단일(토글 숨김).
+            chart.ChartAreas["main"].AxisX.Title = _camera == FocusCamera.Bottom ? "모터 Z (mm)" : "모터 위치 (mm)";
+            if (_camera == FocusCamera.Bottom)
+            {
+                SelectTarget(FocusTarget.Collet);
+            }
+            else
+            {
+                btnTargetCollet.Visible = false;
+                btnTargetDie.Visible = false;
+                SelectTarget(FocusTarget.Side);
+            }
         }
 
         // ── Event Methods ──────────────────────────────
@@ -130,6 +157,7 @@ namespace QMC.Vision.Ui.Pages
                 else
                     VisionCommLog.Add("[FocusTargetPage] ROI" + (idx + 1) + " 저장 실패 — 설정 저장 오류.");
                 UpdateRoiOverlay();
+                _params?.RefreshValues();
             }
             catch (Exception ex)
             {
@@ -138,20 +166,101 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── Public Methods (ITargetPage) ───────────────
-        /// <summary>ROI 는 지정 즉시 저장되므로 별도 저장 동작 없음.</summary>
-        public void SaveTarget() { }
+        /// <summary>파인더 파라미터 + 조명을 노드 레시피로 저장. (ROI/노출은 이미 즉시 저장됨.)</summary>
+        public void SaveTarget()
+        {
+            try
+            {
+                _lightPanel?.PersistLight();        // 조명 레벨을 recipe POCO 로 반영
+                _node?.SaveRecipe(_recipeName);      // 파인더 파라미터/시뮬이미지 POCO 저장
+                _dirty = false;
+                try { DirtyChanged?.Invoke(this, EventArgs.Empty); } catch { }
+            }
+            catch (Exception ex) { VisionCommLog.Add("[FocusTargetPage] 저장 실패: " + ex.Message); }
+        }
 
-        /// <summary>저장된 ROI 를 다시 읽어 오버레이/표를 갱신한다.</summary>
+        /// <summary>저장된 레시피(파인더 파라미터/조명)로 되돌리고 ROI 오버레이/표를 갱신한다.</summary>
         public void LoadTarget()
         {
+            try { _node?.LoadRecipe(_recipeName); }
+            catch (Exception ex) { VisionCommLog.Add("[FocusTargetPage] 로드 실패: " + ex.Message); }
+            try { _params?.RefreshValues(); } catch { }
             UpdateRoiOverlay();
             RefreshSessionView();
+            _dirty = false;
             try { DirtyChanged?.Invoke(this, EventArgs.Empty); } catch { }
         }
 
         /// <summary>조명 지정(SettingsPage) 변경을 조명 그리드에 반영 — RecipePage 가 타깃 표시 시 호출.</summary>
         public void RefreshLightAssignment()
             => _lightPanel?.SelectInspection(_node, _module?.AlgorithmKey ?? "", "FocusFinder");
+
+        /// <summary>우측 ParameterGridControl 구성 — 실제 사용하는 오토포커스 ROI1~4 좌표(X/Y/W/H) +
+        /// 카메라 노출(파라미터 연동) + 도구 전용 시뮬 저장이미지. 미사용 파인더 파라미터는 제외한다.</summary>
+        private void BuildParams()
+        {
+            var items = new System.Collections.Generic.List<ParameterGridItem>();
+
+            // 실제 사용하는 오토포커스 ROI1~4 좌표(px) — AutoFocusRoiStore SSOT(현재 카메라/타깃).
+            for (int i = 0; i < AutoFocusRoiStore.RoiCount; i++)
+            {
+                int idx = i;
+                string pfx = "ROI" + (idx + 1) + " ";
+                items.Add(ParameterGridItem.Double(pfx + "X", "px", ParameterGridScope.Recipe,
+                    () => AutoFocusRoiStore.GetRoi(_camera, _target, idx)?.CenterX ?? 0,
+                    v => SetRoiField(idx, r => r.CenterX = v)));
+                items.Add(ParameterGridItem.Double(pfx + "Y", "px", ParameterGridScope.Recipe,
+                    () => AutoFocusRoiStore.GetRoi(_camera, _target, idx)?.CenterY ?? 0,
+                    v => SetRoiField(idx, r => r.CenterY = v)));
+                items.Add(ParameterGridItem.Double(pfx + "W", "px", ParameterGridScope.Recipe,
+                    () => AutoFocusRoiStore.GetRoi(_camera, _target, idx)?.Width ?? 0,
+                    v => SetRoiField(idx, r => r.Width = v)));
+                items.Add(ParameterGridItem.Double(pfx + "H", "px", ParameterGridScope.Recipe,
+                    () => AutoFocusRoiStore.GetRoi(_camera, _target, idx)?.Height ?? 0,
+                    v => SetRoiField(idx, r => r.Height = v)));
+            }
+
+            // 카메라 노출(µs) — 파라미터 연동. 0=미지정(스캔 시 현재 노출 유지). AutoFocusRoiStore SSOT.
+            items.Add(ParameterGridItem.Double("카메라 노출", "µs", ParameterGridScope.Recipe,
+                () => AutoFocusRoiStore.GetExposureUs(_camera, _target),
+                v => ApplyExposure(v)));
+
+            // 도구 전용 시뮬 저장이미지 — 카메라가 '시뮬레이션'일 때만 사용(실카메라=항상 실제 촬상).
+            if (_node?.Setup is QMC.Vision.Modules.AlgoSetupBase)
+            {
+                items.Add(ParameterGridItem.Bool("시뮬 저장 이미지 사용 (카메라 시뮬레이션 전용)", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase su) { su.SimUseSavedImage = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.FilePath("시뮬 저장 이미지 경로", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase su) { su.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
+                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
+            }
+
+            _params.SetItems(items);
+            _params.ParameterValueChanged += (s, e) => { UpdateRoiOverlay(); MarkDirty(); };
+        }
+
+        /// <summary>ROI{idx} 좌표 1개 변경(파라미터 그리드 편집) → AutoFocusRoiStore 저장(즉시 영속) + 오버레이 갱신.</summary>
+        private void SetRoiField(int idx, Action<Roi> mutate)
+        {
+            try
+            {
+                Roi r = AutoFocusRoiStore.GetRoi(_camera, _target, idx) ?? new Roi();
+                mutate(r);
+                AutoFocusRoiStore.SetRoi(_camera, _target, idx, r);
+                UpdateRoiOverlay();
+            }
+            catch (Exception ex) { VisionCommLog.Add("[FocusTargetPage] ROI 좌표 저장 실패: " + ex.Message); }
+        }
+
+        /// <summary>파라미터/조명 변경 → dirty 표시 + RecipePage 상태점 갱신.</summary>
+        private void MarkDirty()
+        {
+            if (_dirty) return;
+            _dirty = true;
+            try { DirtyChanged?.Invoke(this, EventArgs.Empty); } catch { }
+        }
 
         // ── Private Methods ────────────────────────────
         /// <summary>포커스 대상(콜렛/다이) 전환 — ROI/노출/측정값/곡선을 해당 타깃 것으로 갱신.</summary>
@@ -163,42 +272,18 @@ namespace QMC.Vision.Ui.Pages
             btnTargetCollet.ForeColor = target == FocusTarget.Collet ? Color.White : Color.FromArgb(0x22, 0x22, 0x22);
             btnTargetDie.BackColor = target == FocusTarget.Die ? UiTheme.Accent : Color.White;
             btnTargetDie.ForeColor = target == FocusTarget.Die ? Color.White : Color.FromArgb(0x22, 0x22, 0x22);
-            LoadExposureField();
+            _params?.RefreshValues();   // 타깃 전환 → ROI 좌표/노출 파라미터 값을 새 타깃 것으로 갱신
             UpdateRoiOverlay();
             RefreshSessionView();
         }
 
-        /// <summary>저장된 오토포커스 노출(µs)을 입력 필드에 표시. 미지정(0)이면 빈칸.</summary>
-        private void LoadExposureField()
+        /// <summary>카메라 노출(µs) 파라미터 편집 → (카메라,타깃) 오토포커스 노출로 저장 + 카메라 즉시 적용.
+        /// 0(이하)=미지정으로 저장(스캔 시 현재 카메라 노출 유지). FOCUS_START 가 스캔 전 자동 적용한다.</summary>
+        private void ApplyExposure(double us)
         {
             try
             {
-                double us = AutoFocusRoiStore.GetExposureUs(_camera, _target);
-                txtExposure.Text = us > 0 ? us.ToString("F0") : "";
-            }
-            catch (Exception ex)
-            {
-                VisionCommLog.Add("[FocusTargetPage] 노출 값 로드 실패: " + ex.Message);
-            }
-        }
-
-        /// <summary>[노출 적용] — 입력값(µs)을 (카메라,타깃) 오토포커스 노출로 저장하고 카메라에 즉시 적용.
-        /// 빈칸/0 이면 미지정으로 저장(스캔 시 현재 카메라 노출 유지). FOCUS_START 가 스캔 전 자동 적용한다.</summary>
-        private void ApplyExposure()
-        {
-            try
-            {
-                double us = 0;
-                string raw = txtExposure.Text.Trim();
-                if (raw.Length > 0 &&
-                    (!double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                                      System.Globalization.CultureInfo.InvariantCulture, out us) || us < 0))
-                {
-                    QMC.Common.MessageDialog.Show("노출 시간(µs)을 숫자로 입력하세요.", "포커스 노출",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
+                if (us < 0) us = 0;
                 bool ok = AutoFocusRoiStore.SetExposureUs(_camera, _target, us);
                 if (!ok)
                 {
@@ -217,7 +302,6 @@ namespace QMC.Vision.Ui.Pages
                     VisionCommLog.Add("[FocusTargetPage] 포커스 노출 미지정으로 저장 — 스캔 시 현재 카메라 노출 유지 (" +
                                       _camera + "/" + _target + ")");
                 }
-                LoadExposureField();
             }
             catch (Exception ex)
             {
@@ -250,6 +334,7 @@ namespace QMC.Vision.Ui.Pages
                 for (int i = 0; i < _measured.Length; i++) _measured[i] = null;
                 VisionCommLog.Add("[FocusTargetPage] ROI 전체 삭제 (" + _camera + "/" + _target + ")");
                 UpdateRoiOverlay();
+                _params?.RefreshValues();
                 RefreshSessionView();
             }
             catch (Exception ex)

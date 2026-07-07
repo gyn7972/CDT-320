@@ -719,12 +719,8 @@ namespace QMC.Vision.Ui.Pages
                 WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
                     () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
 
-                // 모듈 시뮬 이미지 — 카메라가 '시뮬레이션'일 때만 GRAB 에 사용(실카메라=항상 실제 촬상).
-                ParameterGridItem.Bool("GRAB 소스: 시뮬 저장 이미지 사용 (시뮬 카메라 전용)", ParameterGridScope.Config,
-                    () => m.SimUseSavedImage, v => m.SimUseSavedImage = v),
-                ParameterGridItem.FilePath("GRAB 시뮬 저장 이미지 경로", ParameterGridScope.Config,
-                    () => m.SimSavedImagePath ?? "", v => m.SimSavedImagePath = v?.Trim() ?? "",
-                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"),
+                // (제거) 모듈단위 GRAB 시뮬 이미지 항목 — 레시피 툴단위 시뮬 저장이미지(VisionTargetPage)와 편집 UI 중복.
+                //        모델 필드(m.SimUseSavedImage/SimSavedImagePath)는 폴백용으로 유지, 설정 UI에서만 삭제.
             };
         }
 
