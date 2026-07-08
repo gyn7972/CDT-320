@@ -91,23 +91,23 @@ namespace QMC.CDT320.Sequencing
             PickCoordinateResult result = new PickCoordinateResult();
             // StageY는 선택 Die Y와 Needle Y 캘리브레이션만 적용해 Needle 중심 기준을 유지한다.
             result.StageY = inputStageY + needleYToVisionYOffset;
-            result.PickerX = inputVisionX - cameraOffsetX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX;
+            result.PickerX = inputVisionX + inputVisionToPickerX + pickerAlignOffsetX + alignOffsetX;
             result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT;
             result.PickerZ = pickerZTeaching;
-            result.NeedleX = inputVisionX - cameraOffsetX + alignOffsetX - needleXToVisionXOffset;
+            result.NeedleX = inputVisionX + alignOffsetX - needleXToVisionXOffset;
             double pickerYBase = ResolveInputPickerYTarget(side, inputVisionToPickerY);
-            double pickerYOffset = -cameraOffsetY + alignOffsetY + pickerAlignOffsetY;
+            double pickerYOffset = alignOffsetY + pickerAlignOffsetY;
             result.PickerY = pickerYBase + ResolveSignedPickerYOffset(side, pickerYOffset);
             result.NeedleZ = needleZTeaching;
             result.EjectPinZ = ejectPinZTeaching;
             result.Formula =
                 "stageY = inputStageY(" + F(inputStageY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") = " + F(result.StageY) +
-                " [cameraOffsetY(" + F(cameraOffsetY) + ") not applied to StageY; applied to PickerY with minus sign]" +
-                " / pickerX = inputVisionX(" + F(inputVisionX) + ") - cameraOffsetX(" + F(cameraOffsetX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") = " + F(result.PickerX) +
+                " [cameraOffset=(" + F(cameraOffsetX) + "," + F(cameraOffsetY) + ") already included in InputVisionToPicker offset]" +
+                " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") = " + F(result.PickerT) +
-                " / needleX = inputVisionX(" + F(inputVisionX) + ") - cameraOffsetX(" + F(cameraOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") = " + F(result.NeedleX) +
+                " / needleX = inputVisionX(" + F(inputVisionX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") = " + F(result.NeedleX) +
                 " / pickerY = signedInputVisionToPickerY(side=" + side + ", inputVisionToPickerY=" + F(inputVisionToPickerY) + ")(" + F(pickerYBase) + ")" +
-                " + signedPickerYOffset(-cameraOffsetY(" + F(cameraOffsetY) + ") + alignOffsetY(" + F(alignOffsetY) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + "))(" + F(ResolveSignedPickerYOffset(side, pickerYOffset)) + ") = " + F(result.PickerY) +
+                " + signedPickerYOffset(alignOffsetY(" + F(alignOffsetY) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + "))(" + F(ResolveSignedPickerYOffset(side, pickerYOffset)) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ) +
                 " / needleZ = " + F(result.NeedleZ) +
                 " / ejectPinZ = " + F(result.EjectPinZ);

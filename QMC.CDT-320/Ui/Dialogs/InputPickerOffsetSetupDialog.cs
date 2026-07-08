@@ -248,12 +248,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double currentPickerY = pickerY.ActualPosition;
                 double currentStageY = stage.StageY.ActualPosition;
                 double pickerAlignOffsetX = InputPickerPickTargetResolver.ResolvePickerAlignOffsetX(_machine, _side, _pickerIndex);
-                double cameraOffsetX;
-                double cameraOffsetY;
-                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
                 double pickerAlignOffsetY = InputPickerPickTargetResolver.ResolvePickerAlignOffsetY(_machine, _side, _pickerIndex);
-                double effectiveX = currentPickerX - _dieX + cameraOffsetX - pickerAlignOffsetX;
-                double effectiveY = Math.Abs(currentPickerY) + cameraOffsetY - pickerAlignOffsetY;
+                double effectiveX = currentPickerX - _dieX - pickerAlignOffsetX;
+                double effectiveY = Math.Abs(currentPickerY) - pickerAlignOffsetY;
                 double expectedStageY =
                     _dieY +
                     InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(_machine);
@@ -265,7 +262,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     "현재 위치 기준 계산 완료. PickerX=" + F(currentPickerX) +
                     " mm, PickerY=" + F(currentPickerY) +
                     " mm, StageY=" + F(currentStageY) +
-                    " mm, CameraOffsetX=" + F(cameraOffsetX) + " applied to X with minus sign, CameraOffsetY=" + F(cameraOffsetY) + " applied to PickerY with minus sign" +
+                    " mm, CameraOffset is already included in saved InputVisionToPicker offset" +
                     ", PickerYInput=" + F(effectiveY) +
                     ", StageYTarget=" + F(expectedStageY) + " mm");
             }
@@ -447,13 +444,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             double cameraOffsetX;
             double cameraOffsetY;
             InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
-            double pickerYTarget = ResolveSignedPickerYTarget(effectiveY - cameraOffsetY + alignY);
+            double pickerYTarget = ResolveSignedPickerYTarget(effectiveY + alignY);
 
             return "X: IV->Picker=" + F(effectiveX) +
-                   " - CameraX=" + F(cameraOffsetX) +
+                   " (CameraX " + F(cameraOffsetX) + " included)" +
                    " + AlignX=" + F(alignX) +
                    " / Y: IV->Picker=" + F(effectiveY) +
-                   " - CameraY=" + F(cameraOffsetY) +
+                   " (CameraY " + F(cameraOffsetY) + " included)" +
                    " + AlignY=" + F(alignY) +
                    " -> PickerY=" + F(pickerYTarget) +
                    " / StageY: DieY + NeedleY(" + F(needleYOffset) + ")" +
@@ -470,12 +467,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private string BuildNeedleXTargetText(double targetNeedleX)
         {
             double needleXOffset = InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(_machine);
-            double cameraOffsetX;
-            double cameraOffsetY;
-            InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(_machine, out cameraOffsetX, out cameraOffsetY);
             return "Target X=" + F(targetNeedleX) +
                    " mm  (Die VisionX=" + F(_dieX) +
-                   " + CameraX=" + F(cameraOffsetX) +
                    " - NeedleXToVisionXOffset=" + F(needleXOffset) + ")";
         }
 

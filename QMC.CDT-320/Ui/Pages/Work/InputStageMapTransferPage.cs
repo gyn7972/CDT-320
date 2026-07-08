@@ -439,21 +439,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             entry.PosX,
                             entry.PosY,
                             effectiveX,
-                            effectiveY);
+                            effectiveY,
+                            false);
                         double cameraOffsetX;
                         double cameraOffsetY;
                         InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(host.Machine, out cameraOffsetX, out cameraOffsetY);
                         needleTargetText =
                             "\r\nNeedleX 이동 목표 X=" + target.NeedleX.ToString("F3") +
                             " mm (Die VisionX=" + entry.PosX.ToString("F3") +
-                            " - CameraX=" + cameraOffsetX.ToString("F3") +
                             " - NeedleXToVisionXOffset=" +
                             InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F3") + ")";
                         needleTargetText +=
                             "\r\nPicker 이동 목표 X=" + target.PickerX.ToString("F3") +
                             " mm, Y=" + target.PickerY.ToString("F3") +
                             " mm, StageY=" + target.StageY.ToString("F3") +
-                            " mm (CameraY=" + cameraOffsetY.ToString("F3") + " PickerY - 적용)";
+                            " mm (CameraOffset X=" + cameraOffsetX.ToString("F3") +
+                            ", Y=" + cameraOffsetY.ToString("F3") +
+                            " is included in InputVisionToPicker)";
                     }
 
                     QMC.Common.MessageDialog.Show(this,
@@ -2510,7 +2512,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry.PosX,
                     entry.PosY,
                     offsetX,
-                    offsetY);
+                    offsetY,
+                    false);
                 double targetPickerX = target.PickerX;
                 double targetPickerY = target.PickerY;
                 double targetStageY = target.StageY;
@@ -2532,9 +2535,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
                     " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
-                    " mm (X - 적용), Y=" + cameraOffsetY.ToString("F3") +
-                    " mm (PickerY - 적용, StageY 미적용)\r\n" +
-                    " Auto formula 기준, CameraOffsetX는 X - 적용, CameraOffsetY는 PickerY - 적용, AlignOffset X/Y/T=0\r\n" +
+                    " mm, Y=" + cameraOffsetY.ToString("F3") +
+                    " mm (InputVision Offset 저장값에 포함됨, 이동 공식에서 중복 적용하지 않음)\r\n" +
+                    " Auto formula 기준, Runtime AlignOffset X/Y=0 (DieMap 좌표에 이미 적용됨)\r\n" +
                     " " + target.Formula + ")",
                     out speedType))
                 {

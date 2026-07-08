@@ -34,6 +34,7 @@ namespace QMC.CDT320.Sequencing.Calibration
         private const string ReticleFinderName = "ReticleFinder";
         private const int ReticleFindRetryCount = 3;
         private const int ReticleMatchPollIntervalMs = 100;
+        private const int ReticleMotionSettleDelayMs = 500;
         private const double CalibrationAxisTolerance = 0.01;
         private const double SimReticleMaxPixelOffset = 25.0;
         private const double SimReticleMaxAngleDeg = 0.08;
@@ -905,7 +906,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
 
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-SAFE-BEFORE-PICKER",
-                    "Picker 이동 전 Reticle을 안전 위치로 복귀합니다. 순서=Rear Back -> Front Back -> Lift Down");
+                    "Picker 이동 전 Reticle을 안전 위치로 복귀합니다. 순서=Rear Back -> Lift Down. Front Slide는 사용하지 않고 Rear Back으로 확인합니다.");
 
                 return await RetractReticleFromBottomCameraAsync(ct).ConfigureAwait(false);
             }
@@ -958,21 +959,47 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (vision == null)
                     return Fail("VISION-CAMERA-CAL-RETICLE-NO-VISION", "VisionUnit", "Reticle 동작을 위한 VisionUnit이 없습니다.");
 
-                int result = await vision.SetReticleLiftUpAsync(true, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (IsReticleBottomReady(vision))
+                {
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-READY-SKIP",
+                        "Reticle이 이미 Bottom 촬영 위치입니다. 추가 동작 없이 현재 위치에서 촬영을 진행합니다. up=" + vision.IsVisionReticleUp() + ", rearFw=" + vision.IsVisionReticleRearSideForward());
+                    return 0;
+                }
+
+                bool upReady = vision.IsVisionReticleUp();
+                bool forwardReady = vision.IsVisionReticleRearSideForward();
+                if (upReady && forwardReady)
+                {
+                    EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-READY-SKIP",
+                        "Reticle이 이미 Bottom 촬영 위치입니다. 추가 동작 없이 현재 위치에서 촬영을 진행합니다. up=" + upReady + ", rearFw=" + forwardReady);
+                    return 0;
+                }
+
+                if (!upReady)
+                {
+                    int result = await vision.SetReticleLiftUpAsync(true, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    await DelayAfterReticleMotionAsync("Reticle Lift Up", ct).ConfigureAwait(false);
+                }
 
                 //Front 사용안함
                 //result = await vision.SetReticleFrontSideForwardAsync(true, ct).ConfigureAwait(false);
                 //if (result != 0)
                 //    return result;
 
-                result = await vision.SetReticleRearSideForwardAsync(true, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
+                if (!forwardReady)
+                {
+                    int result = await vision.SetReticleRearSideForwardAsync(true, ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    await DelayAfterReticleMotionAsync("Reticle Rear Slide Forward", ct).ConfigureAwait(false);
+                }
 
                 if (!IsReticleBottomReady(vision))
-                    return Fail("VISION-CAMERA-CAL-RETICLE-CHECK", "VisionUnit", "Bottom 카메라 촬영 전 Reticle 위치 확인 실패. up=" + vision.IsVisionReticleUp() + ", frontFw=" + vision.IsVisionReticleFrontSideForward() + ", rearFw=" + vision.IsVisionReticleRearSideForward());
+                    return Fail("VISION-CAMERA-CAL-RETICLE-CHECK", "VisionUnit", "Bottom 카메라 촬영 전 Reticle 위치 확인 실패. up=" + vision.IsVisionReticleUp() + ", rearFw=" + vision.IsVisionReticleRearSideForward() + ", frontFw=" + vision.IsVisionReticleFrontSideForward() + " (Front Slide 미사용, Rear Forward 기준)");
 
                 EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-READY", "Reticle이 Bottom 카메라 측정 위치에 도착했습니다.");
                 return 0;
@@ -988,6 +1015,14 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private async Task DelayAfterReticleMotionAsync(string motionName, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-SETTLE",
+                motionName + " 완료 후 안정화 대기. delayMs=" + ReticleMotionSettleDelayMs);
+            await Task.Delay(ReticleMotionSettleDelayMs, ct).ConfigureAwait(false);
         }
 
         public async Task<int> RetractReticleFromBottomCameraAsync(CancellationToken ct)
@@ -1010,18 +1045,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (result != 0)
                     return result;
 
-                result = await vision.SetReticleFrontSideForwardAsync(false, ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
                 result = await vision.SetReticleLiftUpAsync(false, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 if (!IsReticleRetracted(vision))
-                    return Fail("VISION-CAMERA-CAL-RETICLE-RETRACT-CHECK", "VisionUnit", "Reticle 복귀 후 위치 확인 실패. down=" + vision.IsVisionReticleDown() + ", frontBw=" + vision.IsVisionReticleFrontSideBackward() + ", rearBw=" + vision.IsVisionReticleRearSideBackward());
+                    return Fail("VISION-CAMERA-CAL-RETICLE-RETRACT-CHECK", "VisionUnit", "Reticle 복귀 후 위치 확인 실패. down=" + vision.IsVisionReticleDown() + ", rearBw=" + vision.IsVisionReticleRearSideBackward() + ", frontBw=" + vision.IsVisionReticleFrontSideBackward() + " (Front Slide 미사용, Rear Back 기준)");
 
-                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-RETRACT", "Reticle이 역순으로 복귀했습니다.");
+                EventLogger.Write(EventKind.Event, "CAL", "VISION-CAMERA-CAL-RETICLE-RETRACT", "Reticle이 Rear Back -> Lift Down 순서로 복귀했습니다. Front Slide는 Rear Back 기준으로 확인합니다.");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -1049,7 +1080,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return true;
 
                 return vision.IsVisionReticleDown() &&
-                       vision.IsVisionReticleFrontSideBackward() &&
                        vision.IsVisionReticleRearSideBackward();
             }
             catch
@@ -1072,7 +1102,6 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return true;
 
                 return vision.IsVisionReticleUp() &&
-                       vision.IsVisionReticleFrontSideForward() &&
                        vision.IsVisionReticleRearSideForward();
             }
             catch
