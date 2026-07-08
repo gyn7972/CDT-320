@@ -100,8 +100,14 @@ namespace QMC.CDT320.Sequencing
         public static double ResolvePickerAlignOffsetT(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            // runtimeT = PickerAlignOffset.AlignOffsetT. Collet theta is applied by picker T homing zero, not by move target math.
+            // runtimeT는 PickerAlignOffset.AlignOffsetT이고, ColletT는 홈 기준 보정이라 이동식에는 넣지 않는다.
             return runtime != null ? runtime.AlignOffsetT : 0.0;
+        }
+
+        public static double ResolveColletTOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
+        {
+            PickerCalibrationOffset collet = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
+            return collet != null ? collet.T : 0.0;
         }
 
         // Runtime offset is the temporary alignment value currently held by the selected picker unit.

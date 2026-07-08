@@ -1025,7 +1025,7 @@ namespace QMC.CDT320.Sequencing
                         "Input die vision offset is missing before target calculation. die=" + _currentDieId +
                         ", pickerNo=" + _currentPickerNo);
 
-                // 현재 기준: InputPickDie 비전에서 찾은 Die 보정량 X/Y/T를 실제 Pick 목표에 반영한다.
+                // Input Vision 검사에서 받은 X/Y/T 보정값을 Pick 이동식에 직접 적용한다.
                 double alignOffsetX = _visionOffset.DeltaX;
                 double alignOffsetY = _visionOffset.DeltaY;
                 double alignOffsetT = _visionOffset.DeltaTheta;
@@ -1066,6 +1066,13 @@ namespace QMC.CDT320.Sequencing
                 _targetEjectPinZ = coordinate.EjectPinZ;
                 _targetFormula = coordinate.Formula;
 
+                double cameraOffsetX;
+                double cameraOffsetY;
+                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
+                    Context != null ? Context.Machine : null,
+                    out cameraOffsetX,
+                    out cameraOffsetY);
+
                 WriteLog("PickerPickUpSequence",
                     Name + " calculated pick target. die=" + _currentDieId +
                     ", pickerNo=" + _currentPickerNo +
@@ -1087,7 +1094,7 @@ namespace QMC.CDT320.Sequencing
                     ", alignOffsetY=" + alignOffsetY +
                     ", visionTotalOffsetX=" + _visionOffset.DeltaX +
                     ", visionTotalOffsetY=" + _visionOffset.DeltaY +
-                    ", visionOffsetXYAppliedToMove=True" +
+                    ", visionOffsetXYAppliedToMove=True(DirectVisionOffset)" +
                     ", needleYToVisionYOffset=" + ResolveNeedleCalibrationOffsetY() +
                     ", alignOffsetT=" + alignOffsetT + " - Ok");
 

@@ -69,7 +69,7 @@ namespace QMC.CDT320.Sequencing
         }
 
         // Calculates the picker/input-stage target for picking a die already centered by InputVision.
-        // runtimeT is PickerAlignOffset.AlignOffsetT; collet theta is not added because picker T home zero already includes it.
+        // runtimeT는 적용하고 ColletT는 홈 기준 보정이라 로그만 남기고 이동식에는 적용하지 않는다.
         public static PickCoordinateResult CalculateInputPickTarget(
             CDT320_Machine machine,
             PickerSequenceSide side,
@@ -96,6 +96,10 @@ namespace QMC.CDT320.Sequencing
             double runtimeX = runtime != null ? runtime.AlignOffsetX : 0.0;
             double runtimeY = runtime != null ? runtime.AlignOffsetY : 0.0;
             double runtimeT = runtime != null ? runtime.AlignOffsetT : 0.0;
+            double colletT = InputPickerPickTargetResolver.ResolveColletTOffset(machine, side, pickerIndex);
+            // Collet T offset은 Picker T 홈 기준 보정에 이미 반영되므로 Pick 이동식에는 다시 더하지 않는다.
+            // double appliedColletT = colletT;
+            double appliedColletT = 0.0;
 
             PickCoordinateResult result = DieCoordinateTransformService.CalculatePickTarget(
                 sequenceName,
@@ -141,7 +145,8 @@ namespace QMC.CDT320.Sequencing
                 ", runtimeX=" + F(runtimeX) +
                 ", runtimeY=" + F(runtimeY) +
                 ", runtimeT=" + F(runtimeT) +
-                ", colletTAppliedToMove=0.000000" +
+                ", colletTOffset=" + F(colletT) +
+                ", colletTAppliedToMove=" + F(appliedColletT) +
                 ", inputVisionToPickerX=" + F(inputVisionToPickerX) +
                 ", inputVisionToPickerY=" + F(inputVisionToPickerY) +
                 ", cameraOffsetX=" + F(cameraOffsetX) +
