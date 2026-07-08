@@ -468,6 +468,34 @@ namespace QMC.Vision.Ui.Pages
             RefreshChart(sess);
             RefreshFocusLog();
             RefreshViewerFrame();
+            RefreshRoiZLabels(sess);
+        }
+
+        /// <summary>ROI 박스 옆 상대 Z 라벨 — 각 ROI 의 Best Z 를 '가장 큰 Z' 기준 편차로 표시.
+        /// 예: Z 가 1 / 0.5 이면 가장 큰 ROI 는 0, 나머지는 -0.5. 샘플 없는 ROI 는 라벨 없음.</summary>
+        private void RefreshRoiZLabels(AutoFocusSession sess)
+        {
+            try
+            {
+                var labels = new string[AutoFocusRoiStore.RoiCount];
+                List<FocusBestRow> best = sess != null ? sess.BuildBestTable() : null;
+                if (best != null)
+                {
+                    double maxZ = double.MinValue;
+                    foreach (FocusBestRow row in best)
+                        if (row.SampleCount > 0 && row.BestMotorZ > maxZ) maxZ = row.BestMotorZ;
+
+                    if (maxZ > double.MinValue)
+                        foreach (FocusBestRow row in best)
+                        {
+                            int i = row.PickupNo - 1;
+                            if (row.SampleCount > 0 && i >= 0 && i < labels.Length)
+                                labels[i] = (row.BestMotorZ - maxZ).ToString("0.000;-0.000");
+                        }
+                }
+                camView.SetAutoFocusRoiLabels(labels);
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[FocusTargetPage] ROI Z 라벨 갱신 실패: " + ex.Message); }
         }
 
         /// <summary>FOCUS 관련 통신/동작 로그를 하단 스트립에 표시(변경 시에만).

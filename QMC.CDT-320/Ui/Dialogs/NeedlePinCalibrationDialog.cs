@@ -15,6 +15,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 {
     public sealed partial class NeedlePinCalibrationDialog : Form
     {
+        private const string ResultVisionOffsetX = "Vision Pixel Offset X";
+        private const string ResultVisionOffsetY = "Vision Pixel Offset Y";
+        private const string ResultNeedleXToVisionX = "NeedleX To VisionX";
+        private const string ResultNeedleYToVisionY = "NeedleY To VisionY";
+
         private bool _busy;
         private bool _loadedOnce;
         private CancellationTokenSource _runCts;
@@ -31,7 +36,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             InitializeComponent();
             ApplyButtonStyle();
+            CalibrationDialogGridBehavior.Apply(_settingsGrid, _resultGrid, _teachingGrid);
             _settingsGrid.CellToolTipTextNeeded += SettingsGrid_CellToolTipTextNeeded;
+            _resultGrid.CellDoubleClick += ResultGrid_CellDoubleClick;
 
 #if false
             Text = "Needle Pin Calibration";
@@ -244,6 +251,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Columns[0].FillWeight = 48F;
             grid.Columns[1].FillWeight = 34F;
             grid.Columns[2].FillWeight = 18F;
+            CalibrationDialogGridBehavior.Apply(grid);
             return grid;
         }
 
@@ -271,6 +279,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Columns[1].FillWeight = 24F;
             grid.Columns[2].FillWeight = 24F;
             grid.Columns[3].FillWeight = 10F;
+            CalibrationDialogGridBehavior.Apply(grid);
             return grid;
         }
 
@@ -329,10 +338,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _resultGrid.Rows.Clear();
             NeedleCalibrationData needle = ResolveNeedleCalibrationData();
-            AddResult("Vision Pixel Offset X", needle != null && needle.Valid ? needle.VisionOffsetX : 0.0, "mm");
-            AddResult("Vision Pixel Offset Y", needle != null && needle.Valid ? needle.VisionOffsetY : 0.0, "mm");
-            AddResult("NeedleX To VisionX", needle != null && needle.Valid ? needle.NeedleXToVisionXOffset : 0.0, "mm");
-            AddResult("NeedleY To VisionY", needle != null && needle.Valid ? needle.NeedleYToVisionYOffset : 0.0, "mm");
+            AddResult(ResultVisionOffsetX, needle != null && needle.Valid ? needle.VisionOffsetX : 0.0, "mm");
+            AddResult(ResultVisionOffsetY, needle != null && needle.Valid ? needle.VisionOffsetY : 0.0, "mm");
+            AddResult(ResultNeedleXToVisionX, needle != null && needle.Valid ? needle.NeedleXToVisionXOffset : 0.0, "mm");
+            AddResult(ResultNeedleYToVisionY, needle != null && needle.Valid ? needle.NeedleYToVisionYOffset : 0.0, "mm");
             AddResult("Calibration Valid", needle != null && needle.Valid ? "OK" : "-", "");
             AddResult("Vision Target", stage.Setup.NeedlePinCalVisionTargetId, "");
             AddResult("Vision Timeout", stage.Setup.NeedlePinCalVisionTimeoutMs, "ms");
@@ -389,16 +398,19 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void AddResult(string name, double value, string unit)
         {
             AddRow(_resultGrid, name, value.ToString("0.######", CultureInfo.InvariantCulture), unit);
+            ApplyResultRowStyle(_resultGrid.Rows[_resultGrid.Rows.Count - 1]);
         }
 
         private void AddResult(string name, int value, string unit)
         {
             AddRow(_resultGrid, name, value.ToString(CultureInfo.InvariantCulture), unit);
+            ApplyResultRowStyle(_resultGrid.Rows[_resultGrid.Rows.Count - 1]);
         }
 
         private void AddResult(string name, string value, string unit)
         {
             AddRow(_resultGrid, name, value ?? string.Empty, unit);
+            ApplyResultRowStyle(_resultGrid.Rows[_resultGrid.Rows.Count - 1]);
         }
 
         private void AddTeaching(string name, double target, double actual, string unit)
@@ -415,6 +427,20 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             int row = grid.Rows.Add(name, value, unit);
             grid.Rows[row].Tag = name;
+        }
+
+        private static void ApplyResultRowStyle(DataGridViewRow row)
+        {
+            if (row == null)
+                return;
+
+            string name = Convert.ToString(row.Tag, CultureInfo.InvariantCulture);
+            bool editable = IsEditableResultOffset(name);
+            if (editable)
+            {
+                row.Cells[1].ToolTipText = "더블클릭하면 키패드로 수동 Offset 값을 입력합니다.";
+                row.Cells[1].Style.BackColor = Color.FromArgb(255, 255, 230);
+            }
         }
 
         private void SettingsGrid_CellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
@@ -474,7 +500,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             string name = Convert.ToString(_settingsGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
             if (name == "Vision Target")
             {
-                _settingsGrid.BeginEdit(true);
+                _status.Text = "Vision Target은 문자열 항목이라 키패드 수정 대상이 아닙니다.";
                 return;
             }
 
@@ -485,6 +511,96 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (keypad.ShowDialog(this) == DialogResult.OK)
                     _settingsGrid.Rows[e.RowIndex].Cells[1].Value = keypad.ValueText;
             }
+        }
+
+        private void ResultGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0 || e.ColumnIndex != 1)
+                return;
+
+            string name = Convert.ToString(_resultGrid.Rows[e.RowIndex].Tag, CultureInfo.InvariantCulture);
+            if (!IsEditableResultOffset(name))
+                return;
+
+            string unit = Convert.ToString(_resultGrid.Rows[e.RowIndex].Cells[2].Value, CultureInfo.InvariantCulture);
+            string currentText = Convert.ToString(_resultGrid.Rows[e.RowIndex].Cells[1].Value, CultureInfo.InvariantCulture);
+            using (var keypad = new QMC.CDT_320.Ui.Controls.NumericKeypadDialog(name, currentText, unit))
+            {
+                if (keypad.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                double value;
+                if (!TryParseDouble(keypad.ValueText, out value))
+                {
+                    QMC.Common.MessageDialog.Show(this, name + " 값이 숫자가 아닙니다.", "NEEDLE PIN CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ApplyManualResultOffset(name, value))
+                    return;
+
+                _resultGrid.Rows[e.RowIndex].Cells[1].Value = value.ToString("0.######", CultureInfo.InvariantCulture);
+                _status.Text = name + " 수동 수정값을 저장했습니다. value=" + value.ToString("0.######", CultureInfo.InvariantCulture) + " " + unit;
+            }
+        }
+
+        private bool ApplyManualResultOffset(string name, double value)
+        {
+            try
+            {
+                Form1 host = ResolveHost();
+                if (host == null || host.Machine == null || host.Machine.VisionUnit == null || host.Machine.VisionUnit.Config == null)
+                {
+                    _status.Text = "VisionUnit CalibrationData를 찾을 수 없습니다.";
+                    return false;
+                }
+
+                host.Machine.VisionUnit.Config.EnsureCalibrationObjects();
+                host.Machine.VisionUnit.Config.CalibrationData.EnsureObjects();
+                NeedleCalibrationData needle = host.Machine.VisionUnit.Config.CalibrationData.Needle;
+                if (needle == null)
+                {
+                    _status.Text = "Needle CalibrationData를 찾을 수 없습니다.";
+                    return false;
+                }
+
+                if (name == ResultVisionOffsetX)
+                    needle.VisionOffsetX = value;
+                else if (name == ResultVisionOffsetY)
+                    needle.VisionOffsetY = value;
+                else if (name == ResultNeedleXToVisionX)
+                    needle.NeedleXToVisionXOffset = value;
+                else if (name == ResultNeedleYToVisionY)
+                    needle.NeedleYToVisionYOffset = value;
+                else
+                    return false;
+
+                needle.Valid = true;
+                needle.UpdatedAt = DateTime.Now;
+                needle.UpdatedBy = "NeedlePinCalibrationManual";
+                host.Machine.VisionUnit.Config.CalibrationData.Touch("NeedlePinCalibrationManual");
+                host.SaveMachineSettings();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _status.Text = "결과 Offset 수동 저장 실패: " + ex.Message;
+                return false;
+            }
+        }
+
+        private static bool IsEditableResultOffset(string name)
+        {
+            return name == ResultVisionOffsetX ||
+                   name == ResultVisionOffsetY ||
+                   name == ResultNeedleXToVisionX ||
+                   name == ResultNeedleYToVisionY;
+        }
+
+        private static bool TryParseDouble(string text, out double value)
+        {
+            return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                   double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
         }
 
         private bool CheckReady(bool showOk)

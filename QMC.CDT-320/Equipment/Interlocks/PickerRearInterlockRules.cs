@@ -878,23 +878,29 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                // 현재 기준: RearPickerX Home 전 FrontPickerY는 Avoid 위치여야 한다.
-                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                // 현재 기준: RearPickerX Home 전 FrontPickerY는 Home(0) 또는 Avoid 위치여야 한다.
+                if (front != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveFrontPickerAxis(front, PickerAxis.PickerY),
+                        () => front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
                     return MotionGuardRuleHelpers.Block(
                         "RearPickerX",
-                        "RearPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        "RearPickerX HOME blocked. FrontPickerY must be at Home(0) or Avoid position.",
                         out reason);
 
                 PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
-                // 현재 기준: RearPickerX Home 전 RearPickerY는 Avoid 위치여야 한다.
-                if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                // 현재 기준: RearPickerX Home 전 RearPickerY는 Home(0) 또는 Avoid 위치여야 한다.
+                if (rear != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveRearPickerAxis(rear, PickerAxis.PickerY),
+                        () => rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition")))
                     return MotionGuardRuleHelpers.Block(
                         "RearPickerX",
-                        "RearPickerX HOME blocked. RearPickerY must be at Avoid position.",
+                        "RearPickerX HOME blocked. RearPickerY must be at Home(0) or Avoid position.",
                         out reason);
 
-                // 현재 기준: RearPickerX Home 전 RearPickerZ0~Z3는 모두 Avoid 위치여야 한다.
-                if (!VerifyRearPickerZAxesAvoid(rear, "RearPickerX", out reason))
+                // 현재 기준: RearPickerX Home 전 RearPickerZ0~Z3는 모두 Home(0) 또는 Avoid 위치여야 한다.
+                if (!VerifyRearPickerZAxesHomeOrAvoid(rear, "RearPickerX", out reason))
                     return false;
 
                 return true;
@@ -951,11 +957,14 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
-                // 현재 기준: RearPickerT Home 전 대응 RearPickerZ축은 Avoid 위치여야 한다.
-                if (rear != null && !rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                // 현재 기준: RearPickerT Home 전 대응 RearPickerZ축은 Home(0) 또는 Avoid 위치여야 한다.
+                if (rear != null &&
+                    !IsAxisAtHomeOrTeachingAvoid(
+                        ResolveRearPickerAxis(rear, zAxis),
+                        () => rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " HOME blocked. Rear" + zAxis + " must be at Avoid position.",
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Home(0) or Avoid position.",
                         out reason);
 
                 return true;
@@ -1305,6 +1314,29 @@ namespace QMC.CDT320.Interlocks
             return System.Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
                    System.Math.Abs(actual - waferZ.ProcessPosition) <= tolerance ||
                    System.Math.Abs(actual - waferZ.ReadyPosition) <= tolerance;
+        }
+
+        // 인터락 기준: FrontPicker 논리 축을 실제 Axis 객체로 변환한다.
+        private static BaseAxis ResolveFrontPickerAxis(PickerFrontUnit picker, PickerAxis axis)
+        {
+            // 방어 조건: FrontPicker 참조가 없으면 축을 해석하지 않는다.
+            if (picker == null)
+                return null;
+
+            switch (axis)
+            {
+                case PickerAxis.PickerZ0: return picker.PickerZ0;
+                case PickerAxis.PickerZ1: return picker.PickerZ1;
+                case PickerAxis.PickerZ2: return picker.PickerZ2;
+                case PickerAxis.PickerZ3: return picker.PickerZ3;
+                case PickerAxis.PickerX: return picker.PickerX;
+                case PickerAxis.PickerY: return picker.PickerY;
+                case PickerAxis.PickerT0: return picker.PickerT0;
+                case PickerAxis.PickerT1: return picker.PickerT1;
+                case PickerAxis.PickerT2: return picker.PickerT2;
+                case PickerAxis.PickerT3: return picker.PickerT3;
+                default: return null;
+            }
         }
 
         // 인터락 기준: RearPicker 논리 축을 실제 Axis 객체로 변환한다.

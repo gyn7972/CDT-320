@@ -3358,9 +3358,19 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignReferenceT = referenceT;
                 wafer.InputStageAlignCorrectedT = correctedT;
                 wafer.InputStageAlignOffsetT = offsetT;
-                wafer.HasInputStageDieMappingResult = false;
-                wafer.InputStageDieMappingOffsetX = 0.0;
-                wafer.InputStageDieMappingOffsetY = 0.0;
+                string dieMapReason;
+                if (CanRestoreInputStageDieMappingCompleteNoLock(wafer, out dieMapReason))
+                {
+                    wafer.HasInputStageDieMappingResult = true;
+                    wafer.InputStageDieMappingOffsetX = NormalizeFinite(wafer.InputStageDieMappingOffsetX);
+                    wafer.InputStageDieMappingOffsetY = NormalizeFinite(wafer.InputStageDieMappingOffsetY);
+                }
+                else
+                {
+                    wafer.HasInputStageDieMappingResult = false;
+                    wafer.InputStageDieMappingOffsetX = 0.0;
+                    wafer.InputStageDieMappingOffsetY = 0.0;
+                }
                 wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave("InputStageThetaAlignResult");
@@ -3373,6 +3383,92 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        public static bool RestoreInputStageDieMappingCompleteFromSavedMap(string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (wafer == null || wafer.HasInputStageDieMappingResult)
+                        return false;
+
+                    string restoreReason;
+                    if (!CanRestoreInputStageDieMappingCompleteNoLock(wafer, out restoreReason))
+                        return false;
+
+                    wafer.HasInputStageDieMappingResult = true;
+                    wafer.InputStageDieMappingOffsetX = NormalizeFinite(wafer.InputStageDieMappingOffsetX);
+                    wafer.InputStageDieMappingOffsetY = NormalizeFinite(wafer.InputStageDieMappingOffsetY);
+                    wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
+                    wafer.UpdatedAt = DateTime.Now;
+
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "InputStage DieMap complete restored from saved map data. waferId=" + wafer.WaferId +
+                        ", dieCount=" + (wafer.DieIds != null ? wafer.DieIds.Count : 0) +
+                        ", reason=" + restoreReason + " - Ok");
+                    NotifyAndSave(string.IsNullOrWhiteSpace(reason)
+                        ? "InputStageDieMapCompleteRestore"
+                        : reason);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "InputStage DieMap complete restore failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool CanRestoreInputStageDieMappingCompleteNoLock(WaferMaterial wafer, out string reason)
+        {
+            reason = string.Empty;
+
+            if (wafer == null)
+            {
+                reason = "wafer is null.";
+                return false;
+            }
+
+            if (!wafer.HasInputStageAlignResult)
+            {
+                reason = "align result is not complete.";
+                return false;
+            }
+
+            if (!wafer.HasInputStageThetaAlignResult)
+            {
+                reason = "theta align result is not complete.";
+                return false;
+            }
+
+            if (wafer.DieIds == null || wafer.DieIds.Count == 0)
+            {
+                reason = "die id list is empty.";
+                return false;
+            }
+
+            DieMap map = BuildDieMapFromWafer(wafer);
+            if (map == null || map.Entries == null || map.Entries.Count == 0)
+            {
+                reason = "die map rebuild failed.";
+                return false;
+            }
+
+            reason = "die map data exists. frame=" + (map.FrameObjId ?? "") +
+                     ", dieCount=" + map.Entries.Count;
+            return true;
+        }
+
+        private static double NormalizeFinite(double value)
+        {
+            return double.IsNaN(value) || double.IsInfinity(value) ? 0.0 : value;
         }
 
         public static void ResetInputStageThetaAlignResult(WaferMaterial wafer, string reason)

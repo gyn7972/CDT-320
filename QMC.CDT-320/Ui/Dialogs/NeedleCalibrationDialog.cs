@@ -226,6 +226,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Columns[0].FillWeight = 52F;
             grid.Columns[1].FillWeight = 30F;
             grid.Columns[2].FillWeight = 18F;
+            CalibrationDialogGridBehavior.Apply(grid);
             return grid;
         }
 
@@ -248,6 +249,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Columns[0].FillWeight = 48F;
             grid.Columns[1].FillWeight = 34F;
             grid.Columns[2].FillWeight = 18F;
+            CalibrationDialogGridBehavior.Apply(grid);
             return grid;
         }
 

@@ -122,6 +122,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             try
             {
                 InitializeComponent();
+                CalibrationDialogGridBehavior.Apply(gridSettings, gridSamples, gridSaved);
                 InitializeRuntime();
             }
             catch (Exception ex)
@@ -223,7 +224,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (!info.Numeric)
             {
-                gridSettings.BeginEdit(true);
+                lblStatus.Text = info.Name + " 항목은 숫자 키패드 수정 대상이 아닙니다.";
                 return;
             }
 

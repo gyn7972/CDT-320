@@ -137,6 +137,38 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        // 인터락 항목: 홈 이동 전 OutputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
+        private static bool VerifyOutputFeederYHomeOrAvoid(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputFeederUnit feeder = machine != null ? machine.OutputFeederUnit : null;
+                if (feeder == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAt(feeder.FeederY, 0.0) ||
+                    feeder.IsBinFeederYInAvoidPosition())
+                    return true;
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " HOME 이동 불가: OutputFeederY가 Home(0) 또는 Avoid 위치가 아닙니다.",
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying OutputFeederY home/avoid for " + movingName + ": " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
         // OutputGoodStageY 이동 전제 ①: OutputFeeder Ring Check 센서가 감지되면 차단/알람.
         // 인터락 항목: GoodStageY 이동 전 OutputFeeder Ring 감지 상태가 해제되어 있는지 확인한다.
         private static bool VerifyOutputFeederRingClearForGoodStageY(CDT320_Machine machine, string movingName, out string reason)
@@ -483,12 +515,9 @@ namespace QMC.CDT320.Interlocks
                 // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
 
                 OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
-                // 인터락 조건: OutputFeederY가 Avoid 위치가 아니면 OutputVisionX 홈 이동을 차단한다.
-                if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputVisionX",
-                        "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
-                        out reason);
+                // 인터락 조건: OutputVisionX 홈 전 OutputFeederY가 Home(0) 또는 Avoid 위치인지 확인한다.
+                if (!VerifyOutputFeederYHomeOrAvoid(machine, "OutputVisionX", out reason))
+                    return false;
 
                 // 인터락 조건: OutputFeeder Lift가 Down 상태가 아니면 OutputVisionX 홈 이동을 차단한다.
                 if (outputFeeder != null && !outputFeeder.IsFeederDown())
@@ -529,8 +558,8 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
                     return false;
 
-                // OutputFeederY가 Avoid 위치여야 이동 가능.
-                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputGoodStageY", out reason))
+                // OutputFeederY가 Home(0) 또는 Avoid 위치여야 홈 이동 가능.
+                if (!VerifyOutputFeederYHomeOrAvoid(machine, "OutputGoodStageY", out reason))
                     return false;
 
                 // OutputFeeder 상태 — 세 조건 개별 확인.
@@ -694,11 +723,11 @@ namespace QMC.CDT320.Interlocks
                 if (outputStage == null)
                     return true;
 
-                // 인터락 조건: GoodStageZ가 Avoid 위치가 아니면 NGStageY 홈 이동을 차단한다.
-                if (outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
+                // 인터락 조건: GoodStageZ가 Home(0) 또는 Avoid 위치가 아니면 NGStageY 홈 이동을 차단한다.
+                if (outputStage.GoodStage != null && !IsGoodStageZHomeOrAvoid(outputStage))
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
-                        "OutputNGStageY 이동 불가: NG StageY 이동 전 GoodStageZ가 반드시 Avoid 위치여야 합니다.",
+                        "OutputNGStageY 이동 불가: NG StageY 이동 전 GoodStageZ가 반드시 Home(0) 또는 Avoid 위치여야 합니다.",
                         out reason);
 
                 // 인터락 조건: GoodBinGuideDown 센서를 갱신할 수 없으면 NGStageY 홈 이동을 차단한다.
@@ -725,8 +754,8 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY 이동 불가: NG StageY 이동 전 NG Bin Clamp Lift가 반드시 Up 상태여야 합니다.",
                         out reason);
 
-                // OutputFeederY가 Avoid 위치여야 이동 가능.
-                if (!VerifyOutputFeederYAvoidForGoodStageY(machine, "OutputNGStageY", out reason))
+                // OutputFeederY가 Home(0) 또는 Avoid 위치여야 홈 이동 가능.
+                if (!VerifyOutputFeederYHomeOrAvoid(machine, "OutputNGStageY", out reason))
                     return false;
 
                 // OutputFeeder 상태 — 세 조건 개별 확인.
@@ -905,6 +934,19 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
+        // 인터락 기준: 홈 이동 전 GoodStageZ가 Home(0) 또는 Avoid 위치인지 판단한다.
+        private static bool IsGoodStageZHomeOrAvoid(OutputStageUnit outputStage)
+        {
+            if (outputStage == null)
+                return true;
+
+            BaseAxis goodStageZ = outputStage.GoodStage != null ? outputStage.GoodStage.StageZ : null;
+            if (MotionGuardRuleHelpers.IsAt(goodStageZ, 0.0))
+                return true;
+
+            return outputStage.IsGoodStageZAtAvoid();
+        }
+
         // 인터락 항목: GoodStageY 홈 전 GoodStageZ와 NGStageY 기구 간섭을 확인한다.
         private static bool VerifyGoodStageYHomeMechanicalClear(OutputStageUnit outputStage, string movingName, out string reason)
         {
@@ -912,10 +954,10 @@ namespace QMC.CDT320.Interlocks
             if (outputStage == null)
                 return true;
 
-            if (!outputStage.IsGoodStageZAtAvoid())
+            if (!IsGoodStageZHomeOrAvoid(outputStage))
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " HOME 이동 불가: OutputGoodStageZ가 Avoid 위치가 아닙니다.",
+                    movingName + " HOME 이동 불가: OutputGoodStageZ가 Home(0) 또는 Avoid 위치가 아닙니다.",
                     out reason);
 
             return true;

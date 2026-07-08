@@ -873,6 +873,7 @@ namespace QMC.CDT_320
                 if (result == DialogResult.Yes)
                 {
                     MaterialStorage.ReplaceState(snapshot);
+                    MaterialStateService.RestoreInputStageDieMappingCompleteFromSavedMap("MaterialRecoveryInputStageDieMapRestore");
                     _materialSnapshotRestored = true;
                     if (!_materialSnapshotRestored)
                     {

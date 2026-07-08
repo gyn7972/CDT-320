@@ -1365,17 +1365,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             const string groupKey = "NEEDLE_PICKUP_SETTING";
             unit.Config.EnsurePickUpMotionDefaults();
-            items.Add(ParameterGridItem.Header("NEEDLE PICKUP SETTING", groupKey));
-            items.Add(InGroup(AxisDouble("EJECT PIN PICK OFFSET", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v), groupKey));
-            items.Add(InGroup(AxisDouble("EJECT PIN PICK VELOCITY", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v), "/s"), groupKey));
-            items.Add(InGroup(AxisDouble("EJECT PIN PICK ACC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v), "/s2"), groupKey));
-            items.Add(InGroup(AxisDouble("EJECT PIN PICK DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v), "/s2"), groupKey));
-            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftDistance, v => unit.Config.PickUpNeedleSyncLiftDistance = Math.Max(0.0, v)), groupKey));
-            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT VELOCITY", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftVelocity, v => unit.Config.PickUpNeedleSyncLiftVelocity = Math.Max(0.0, v), "/s"), groupKey));
-            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT ACC", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftAcc, v => unit.Config.PickUpNeedleSyncLiftAcc = Math.Max(0.0, v), "/s2"), groupKey));
-            items.Add(InGroup(AxisDouble("NEEDLE SYNC LIFT DEC", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSyncLiftDec, v => unit.Config.PickUpNeedleSyncLiftDec = Math.Max(0.0, v), "/s2"), groupKey));
-            items.Add(InGroup(AxisDouble("NEEDLE SEPARATE DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSeparateDistance, v => unit.Config.PickUpNeedleSeparateDistance = Math.Max(0.0, v)), groupKey));
-            items.Add(InGroup(ParameterGridItem.Double("NEEDLE SEPARATE SPEED", "%", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSeparateSpeedPercent, v => unit.Config.PickUpNeedleSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)), groupKey));
+            items.Add(Describe(ParameterGridItem.Header("NEEDLE PICKUP SETTING", groupKey),
+                "InputStage PickUp Z 공통 파라미터입니다.\r\nFront/Rear PickUp Test와 자동 PickUp Step 06 Sync Lift가 이 값을 같이 사용합니다."));
+            items.Add(InGroup(Describe(AxisDouble("EJECT PIN PICK OFFSET", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v),
+                "PickUp 준비 시 EjectPinZ 티칭 위치에 더해지는 보정 Offset입니다.\r\nEjectPinZ 이동 속도/가감속은 별도 PickUp 값이 아니라 축 기본 모터 설정을 사용합니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT DISTANCE", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftDistance, v => unit.Config.PickUpNeedleSyncLiftDistance = Math.Max(0.0, v)),
+                "PickUp Step 06에서 PickerZ와 EjectPinZ가 동시에 위로 올라가는 공통 거리입니다.\r\nPickerZ는 PickPosition + 거리, EjectPinZ는 픽업 위치 + 거리로 이동하고 NeedleZ는 티칭 위치를 유지합니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT VELOCITY", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftVelocity, v => unit.Config.PickUpNeedleSyncLiftVelocity = Math.Max(0.0, v), "/s"),
+                "PickUp Step 06 직선 동기 상승에 사용하는 목표 속도입니다.\r\n실장비에서는 PickerZ/EjectPinZ 동시 도착 보간 속도, 시뮬/드라이런에서는 두 축 개별 이동의 동일 속도로 사용됩니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT ACC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftAcc, v => unit.Config.PickUpNeedleSyncLiftAcc = Math.Max(0.0, v), "/s2"),
+                "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 가속도입니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("PICKUP SYNC LIFT DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpNeedleSyncLiftDec, v => unit.Config.PickUpNeedleSyncLiftDec = Math.Max(0.0, v), "/s2"),
+                "PickUp Step 06 PickerZ/EjectPinZ 직선 동기 상승의 감속도입니다."), groupKey));
+            items.Add(InGroup(Describe(AxisDouble("NEEDLE SEPARATE DISTANCE", ParameterGridScope.Config, unit.NeedleZ, () => unit.Config.PickUpNeedleSeparateDistance, v => unit.Config.PickUpNeedleSeparateDistance = Math.Max(0.0, v)),
+                "구 Needle 분리 동작용 거리입니다.\r\n현재 PickUp Step 07은 PickerZ Avoid 후 NeedleZ/EjectPinZ Avoid 복귀 흐름이라 이 값은 현재 흐름에서 사용하지 않습니다."), groupKey));
+            items.Add(InGroup(Describe(ParameterGridItem.Double("NEEDLE SEPARATE SPEED", "%", ParameterGridScope.Config, () => unit.Config.PickUpNeedleSeparateSpeedPercent, v => unit.Config.PickUpNeedleSeparateSpeedPercent = PickerPickUpMotionConfig.NormalizePercent(v, 1.0)),
+                "구 Needle 분리 동작용 속도 비율입니다.\r\n현재 PickUp Step 07의 NeedleZ/EjectPinZ Avoid 복귀는 이 값이 아니라 각 축 기본 모터 속도를 사용합니다."), groupKey));
         }
 
         private static ParameterGridItem InGroup(ParameterGridItem item, string groupKey)

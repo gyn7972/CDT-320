@@ -61,6 +61,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 InitializeComponent();
                 ApplyText();
+                CalibrationDialogGridBehavior.Apply(gridMeasurements, gridAppliedValues);
                 gridAppliedValues.CellDoubleClick += gridAppliedValues_CellDoubleClick;
                 gridAppliedValues.CellToolTipTextNeeded += gridAppliedValues_CellToolTipTextNeeded;
                 UserSession.UserChanged += UserSession_UserChanged;

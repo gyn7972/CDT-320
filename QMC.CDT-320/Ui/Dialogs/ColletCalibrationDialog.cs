@@ -94,6 +94,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 InitializeComponent();
                 ApplyButtonStyle();
+                CalibrationDialogGridBehavior.Apply(gridSettings, gridResults);
                 LoadSettingsToUi();
                 RefreshResultGrid();
                 lblStatus.Text = "대기 중입니다. Collet과 보정 조건을 확인한 뒤 START를 실행하세요.";
@@ -170,7 +171,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             if (!info.Numeric)
             {
-                gridSettings.BeginEdit(true);
+                lblStatus.Text = info.Name + " 항목은 숫자 키패드 수정 대상이 아닙니다.";
                 return;
             }
 
