@@ -220,6 +220,9 @@ namespace QMC.Vision.Ui.Pages
         public void StartLive(int intervalMs = 0)
         {
             if (_liveOn) return;
+            // 라이브 시작 전 촬상 준비 — 이 도구의 레시피 노출(없으면 모듈 카메라 레시피 노출)과 조명을
+            // 카메라에 적용한 뒤 그랩을 시작한다(직전 도구/포커스 노출 잔존 방지).
+            try { _module?.PrepareToolAcquisition(ResolveToolId()); } catch { }
             if (_liveTimer == null) { _liveTimer = new System.Windows.Forms.Timer(); _liveTimer.Tick += OnLiveTick; }
             _liveTimer.Interval = intervalMs > 0 ? intervalMs : ResolveDefaultLiveIntervalMs();
             _liveTimer.Start();
