@@ -66,6 +66,14 @@ namespace QMC.Vision.Config
                 try { cam.SetParameterTyped(def.Node, def.Kind, v); }
                 catch (Exception ex) { sb.Append(def.Node + ":" + ex.Message + "; "); }
             }
+            // X/Y 반전 = 카메라 하드웨어(ReverseX/ReverseY)로 적용 — 소프트웨어 표시/좌표 변환 금지.
+            //   VisionScale 의 좌표 부호 반전 제거 + 프리뷰 표시 반전 제거와 짝을 이룬다(하드웨어 미러가
+            //   픽셀 자체를 뒤집으므로 소프트웨어에서 다시 뒤집으면 이중 적용된다).
+            //   미지원 카메라(Sim 등)는 TryFeature 가 조용히 무시 → 그 경우 플립 없음.
+            try { cam.SetParameterTyped("ReverseX", CameraParamKind.Bool, m.InvertedX ? "True" : "False"); }
+            catch (Exception ex) { sb.Append("ReverseX:" + ex.Message + "; "); }
+            try { cam.SetParameterTyped("ReverseY", CameraParamKind.Bool, m.InvertedY ? "True" : "False"); }
+            catch (Exception ex) { sb.Append("ReverseY:" + ex.Message + "; "); }
             if (sb.Length > 0) { error = sb.ToString().TrimEnd(' ', ';'); return false; }
             return true;
         }

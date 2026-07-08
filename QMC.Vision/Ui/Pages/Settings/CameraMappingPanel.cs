@@ -754,7 +754,9 @@ namespace QMC.Vision.Ui.Pages
             if (_camPreview == null) return;
             var m = CurrentMapping();
             if (m == null) { _camPreview.DisplayOrientation = System.Drawing.RotateFlipType.RotateNoneFlipNone; return; }
-            _camPreview.DisplayOrientation = CameraView.OrientationFromFlags(m.InvertedX, m.InvertedY, m.IsRotated);
+            // X/Y 반전은 카메라 하드웨어(ReverseX/ReverseY)가 이미 픽셀을 뒤집으므로 표시에서 재반전하지 않는다.
+            // 90° 회전만 소프트웨어 표시 변환으로 유지.
+            _camPreview.DisplayOrientation = CameraView.OrientationFromFlags(false, false, m.IsRotated);
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -996,6 +998,19 @@ namespace QMC.Vision.Ui.Pages
 
         public void SelectAlgorithm(string algorithm)
         {
+            // 알고리즘(웨이퍼/빈 등) 전환 시 미리보기 Live 를 반드시 정지.
+            // _camPanel 은 여러 알고리즘이 공유하므로 알고리즘만 바뀔 때 Visible 이 변하지 않아
+            // CameraViewBase.OnVisibleChanged 자동 정지가 발화하지 않는다(설정→웨이퍼비전 Live 후
+            // 빈비전 이동 시 Live 가 계속되던 버그). 여기서 명시적으로 정지시킨다.
+            try
+            {
+                if (_camPreview != null && _camPreview.IsLive) _camPreview.StopLive();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 알고리즘 전환 Live 정지 실패: " + ex.Message);
+            }
+
             _algorithm = algorithm;
             _buffer = null;   // 모듈 Config/Recipe 에서 새로 로드
             _lblAlgorithm.Text = Lang.T("set.cam.title") + " — " + Lang.Algo(algorithm) + "  (" + algorithm + ")";
@@ -1768,77 +1783,4 @@ namespace QMC.Vision.Ui.Pages
                     _fpsCount = 0; _fpsT0 = DateTime.Now;
                 }
             }
-            finally { System.Threading.Interlocked.Exchange(ref _uiPending, 0); }
-        }
-
-        /// <summary>카메라 HW 노출 종료 이벤트(SDK 콜백 스레드) — 카운트만 증가(표시는 라이브 상태줄에서).</summary>
-        private void Cam_ExposureEnded()
-        {
-            System.Threading.Interlocked.Increment(ref _expEndCount);
-        }
-
-        private void Cam_ConnectionChanged(CameraConnectionEvent ev)
-        {
-            _uiCtx.Post(_ =>
-            {
-                if (_lblStatus != null) _lblStatus.Text = "[evt] " + ev;
-                UpdateConnectButtons();
-            }, null);
-        }
-
-        private void UpdateConnectButtons()
-        {
-            if (_btnConnect == null) return;
-            bool connected = _activeCam != null;
-            _btnConnect.Text = connected ? "Disconnect" : "Connect";
-            _btnConnect.BackColor = connected ? Color.IndianRed : UiTheme.Accent;
-            // 연결 중엔 카메라/매핑 변경 잠금
-            _cbCameraId.Enabled = !connected;
-            if (_btnDiscover != null) _btnDiscover.Enabled = !connected;
-            _btnApply.Enabled = !connected;
-        }
-
-        // ──────────────────────────────────────────
-        //  ComboBox 아이템 wrapper / helpers
-        // ──────────────────────────────────────────
-
-        /// <summary>"UserDefinedName [Model] IP" 표시용 wrapper. 매핑 저장값은 Info.Id (IP) 그대로.</summary>
-        private class DeviceListItem
-        {
-            public CameraInfo Info { get; }
-            public DeviceListItem(CameraInfo info) { Info = info; }
-            public string Id => Info?.Id;
-            public override string ToString()
-            {
-                if (Info == null) return "";
-                if (Info.Transport == CameraTransport.Sim) return Info.Id;
-                var uid = string.IsNullOrWhiteSpace(Info.UserDefinedName) ? "(no UserID)" : Info.UserDefinedName;
-                return $"{uid}   [{Info.Model}]   {Info.IpAddress}";
-            }
-        }
-
-        private static string ItemToId(object item)
-        {
-            if (item is DeviceListItem d) return d.Id;
-            return item as string;
-        }
-
-        private static bool ItemMatches(object item, string id)
-        {
-            var s = ItemToId(item);
-            return s != null && s.Equals(id, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static void SetSelectedById(ComboBox cb, string id)
-        {
-            if (string.IsNullOrEmpty(id)) { cb.SelectedIndex = -1; cb.Text = ""; return; }
-            for (int i = 0; i < cb.Items.Count; i++)
-            {
-                if (ItemMatches(cb.Items[i], id)) { cb.SelectedIndex = i; cb.Text = cb.Items[i].ToString(); return; }
-            }
-            cb.Items.Add(id);
-            cb.SelectedIndex = cb.Items.Count - 1;
-            cb.Text = id;
-        }
-    }
-}
+            finally { System.T
