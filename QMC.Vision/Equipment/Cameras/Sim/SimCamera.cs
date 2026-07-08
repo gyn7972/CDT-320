@@ -85,9 +85,11 @@ namespace QMC.Vision.Cameras.Sim
 
         public override void StopLive()
         {
+            bool wasLive = IsGrabbing;
             IsGrabbing = false;
             _liveTimer?.Dispose();
             _liveTimer = null;
+            if (wasLive) RaiseLiveStopped();
         }
 
         public override void TriggerSoftware()

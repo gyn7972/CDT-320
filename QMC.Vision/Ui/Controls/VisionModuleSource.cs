@@ -15,6 +15,11 @@ namespace QMC.Vision.Ui.Controls
         private readonly IVisionModule _m;
         private Action<Bitmap> _onFrame;
         private Action<GrabResult> _handler;
+        private ICamera _liveCam;         // 라이브를 시작한 카메라(리바인드 대비 — 정확히 그 카메라에서 구독 해제)
+        private Action _camLiveStopped;   // 카메라 LiveStopped 구독 델리게이트
+
+        /// <summary>라이브가 그랩 자동 정지 등으로 멈췄을 때 발화(카메라 LiveStopped 전파). CameraViewBase 가 버튼 해제에 사용.</summary>
+        public event Action LiveStopped;
 
         // 생성 시(UI 스레드) SynchronizationContext 캡처 — GrabFrame 이 워커 스레드에서 호출돼도
         // 사용자 안내 팝업은 UI 스레드에서 뜨도록 마샬링한다(CameraViewBase 툴바 Grab 비동기화 대응).
@@ -110,6 +115,10 @@ namespace QMC.Vision.Ui.Controls
                 _onFrame?.Invoke(b);
             };
             cam.FrameReceived += _handler;
+            // 카메라가 (그랩 자동 정지 등으로) 라이브를 멈추면 통지 받아 프레임 핸들러 정리 + LiveStopped 전파.
+            _liveCam = cam;
+            _camLiveStopped = OnCameraLiveStopped;
+            cam.LiveStopped += _camLiveStopped;
             // MIL 카메라는 TriggerMode 세터를 호출하지 않는다 — StartLive 내부(EnsureContinuousLiveMode)가
             // 모드를 관리하며, 외부 트리거 쓰기는 VNP FrameRate 재계산 부작용만 유발(QMC.MilCameraTest 와 동일 경로).
             if (!(cam is QMC.Vision.Cameras.Mil.MilCamera))
@@ -117,13 +126,33 @@ namespace QMC.Vision.Ui.Controls
             cam.StartLive();
         }
 
+        /// <summary>카메라가 라이브를 정지했을 때(그랩 자동 정지 포함) — 구독 정리 후 LiveStopped 전파.</summary>
+        private void OnCameraLiveStopped()
+        {
+            DetachLive();
+            var h = LiveStopped;
+            if (h != null) try { h(); } catch { }
+        }
+
+        /// <summary>라이브 프레임/정지 구독 해제(구독한 바로 그 카메라 기준). 반복 호출 안전.</summary>
+        private void DetachLive()
+        {
+            var cam = _liveCam;
+            if (cam != null)
+            {
+                try { if (_handler != null) cam.FrameReceived -= _handler; } catch { }
+                try { if (_camLiveStopped != null) cam.LiveStopped -= _camLiveStopped; } catch { }
+            }
+            _handler = null;
+            _camLiveStopped = null;
+            _liveCam = null;
+        }
+
         public void StopLive()
         {
-            var cam = _m?.Camera;
-            if (cam == null) return;
-            try { cam.StopLive(); } catch { }
-            try { if (_handler != null) cam.FrameReceived -= _handler; } catch { }
-            _handler = null;
+            var cam = _liveCam ?? _m?.Camera;
+            if (cam != null) { try { cam.StopLive(); } catch { } }
+            DetachLive();
         }
     }
 }

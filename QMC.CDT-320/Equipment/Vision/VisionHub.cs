@@ -190,10 +190,25 @@ namespace QMC.CDT320.VisionComm
             return client;
         }
 
+        private static string _lastConnSig;
+
+        /// <summary>연결 상태가 실제로 바뀔 때만 ConnectionChanged 발행 — 재연결 재시도로 상태가 그대로면
+        /// 이벤트가 나가지 않아 UI 부하가 0 이 된다(끊김 유지 중 UI 스레드 마샬링 없음).</summary>
         private static void RaiseChanged()
         {
+            string sig = ConnSignature();
+            if (sig == _lastConnSig) return;
+            _lastConnSig = sig;
             try { ConnectionChanged?.Invoke(); } catch { }
         }
+
+        private static string ConnSignature()
+            => (Wafer?.IsConnected == true ? "1" : "0")
+             + (Inspection?.IsConnected == true ? "1" : "0")
+             + (Bin?.IsConnected == true ? "1" : "0")
+             + (Main?.IsConnected == true ? "1" : "0")
+             + (FrontSideVision?.IsConnected == true ? "1" : "0")
+             + (RearSideVision?.IsConnected == true ? "1" : "0");
 
         private static bool IsVisionLinkBypassed()
         {

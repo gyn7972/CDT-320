@@ -18,6 +18,7 @@ namespace QMC.Vision.Core
         public event Action<GrabResult>           FrameReceived;
         public event Action<CameraConnectionEvent> ConnectionChanged;
         public event Action                        ExposureEnded;
+        public event Action                        LiveStopped;
 
         // ─── 파라미터 기본 캐시 ───────────────────
         private double _exposureUs = 10_000;
@@ -120,6 +121,12 @@ namespace QMC.Vision.Core
         protected void RaiseExposureEnded()
         {
             var h = ExposureEnded;
+            if (h != null) try { h(); } catch { }
+        }
+        /// <summary>라이브 정지 통지 발행 — 파생 클래스가 StopLive 완료 후(실제로 라이브였을 때) 호출.</summary>
+        protected void RaiseLiveStopped()
+        {
+            var h = LiveStopped;
             if (h != null) try { h(); } catch { }
         }
 

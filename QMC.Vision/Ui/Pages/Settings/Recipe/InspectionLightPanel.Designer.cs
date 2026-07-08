@@ -11,6 +11,7 @@ namespace QMC.Vision.Ui.Pages
         private Label  _lblWiring;
         private Panel  _bar;
         private Button _btnSave, _btnApply, _btnReset, _btnCancel;
+        private Button _btnLightOn, _btnLightOff;
         private Label  _lblStatus;
         private DataGridView _grid;
         protected override void Dispose(bool disposing)
@@ -31,6 +32,8 @@ namespace QMC.Vision.Ui.Pages
             this._btnApply = new System.Windows.Forms.Button();
             this._btnReset = new System.Windows.Forms.Button();
             this._btnCancel = new System.Windows.Forms.Button();
+            this._btnLightOn = new System.Windows.Forms.Button();
+            this._btnLightOff = new System.Windows.Forms.Button();
             this._lblStatus = new System.Windows.Forms.Label();
             this._grid = new System.Windows.Forms.DataGridView();
             this.Ctrl = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -76,6 +79,8 @@ namespace QMC.Vision.Ui.Pages
             this._bar.Controls.Add(this._btnApply);
             this._bar.Controls.Add(this._btnReset);
             this._bar.Controls.Add(this._btnCancel);
+            this._bar.Controls.Add(this._btnLightOn);
+            this._bar.Controls.Add(this._btnLightOff);
             this._bar.Dock = System.Windows.Forms.DockStyle.Top;
             this._bar.Location = new System.Drawing.Point(0, 0);
             this._bar.Name = "_bar";
@@ -137,9 +142,37 @@ namespace QMC.Vision.Ui.Pages
             this._btnCancel.Text = "취소";
             this._btnCancel.UseVisualStyleBackColor = false;
             this._btnCancel.Click += new System.EventHandler(this.OnCancelClick);
-            // 
+            //
+            // _btnLightOn
+            //
+            this._btnLightOn.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(31)))), ((int)(((byte)(157)))), ((int)(((byte)(77)))));
+            this._btnLightOn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnLightOn.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._btnLightOn.ForeColor = System.Drawing.Color.White;
+            this._btnLightOn.Location = new System.Drawing.Point(392, 4);
+            this._btnLightOn.Name = "_btnLightOn";
+            this._btnLightOn.Size = new System.Drawing.Size(90, 32);
+            this._btnLightOn.TabIndex = 4;
+            this._btnLightOn.Text = "조명 ON";
+            this._btnLightOn.UseVisualStyleBackColor = false;
+            this._btnLightOn.Click += new System.EventHandler(this.OnLightOnClick);
+            //
+            // _btnLightOff
+            //
+            this._btnLightOff.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this._btnLightOff.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnLightOff.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._btnLightOff.ForeColor = System.Drawing.Color.White;
+            this._btnLightOff.Location = new System.Drawing.Point(488, 4);
+            this._btnLightOff.Name = "_btnLightOff";
+            this._btnLightOff.Size = new System.Drawing.Size(90, 32);
+            this._btnLightOff.TabIndex = 5;
+            this._btnLightOff.Text = "조명 OFF";
+            this._btnLightOff.UseVisualStyleBackColor = false;
+            this._btnLightOff.Click += new System.EventHandler(this.OnLightOffClick);
+            //
             // _lblStatus
-            // 
+            //
             this._lblStatus.Dock = System.Windows.Forms.DockStyle.Bottom;
             this._lblStatus.Font = new System.Drawing.Font("Consolas", 10F);
             this._lblStatus.ForeColor = System.Drawing.Color.DarkSlateGray;
