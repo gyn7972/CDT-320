@@ -1591,7 +1591,7 @@ namespace QMC.Vision.Ui.Pages
                 var mod = form?.ResolveModule(_algorithm);
                 if (mod != null)
                 {
-                    bool sameId = string.Equals(mod.Camera?.Info?.Id, m.CameraId, StringComparison.OrdinalIgnoreCase);
+                    bool sameId = mod.Camera?.Info?.Matches(m.CameraId) == true;   // 고유이름/IP 매칭
                     if (!sameId || mod.Camera == null || !mod.Camera.IsOpen)
                     {
                         if (!form.RebindAlgorithmCamera(_algorithm, m, out var rebindErr))
@@ -1820,7 +1820,8 @@ namespace QMC.Vision.Ui.Pages
         {
             public CameraInfo Info { get; }
             public DeviceListItem(CameraInfo info) { Info = info; }
-            public string Id => Info?.Id;
+            // 매핑 저장값 = 고유이름(UserDefinedName) 우선. 없으면 IP/시리얼. Sim 은 그대로 Id.
+            public string Id => Info?.StableId;
             public override string ToString()
             {
                 if (Info == null) return "";
@@ -1838,7 +1839,9 @@ namespace QMC.Vision.Ui.Pages
 
         private static bool ItemMatches(object item, string id)
         {
-            var s = ItemToId(item);
+            // 저장값이 예전 IP 든 신규 고유이름이든 같은 장치로 선택되게 Info 전체(이름/IP/시리얼) 매칭.
+            if (item is DeviceListItem d) return d.Info != null && d.Info.Matches(id);
+            var s = item as string;
             return s != null && s.Equals(id, StringComparison.OrdinalIgnoreCase);
         }
 

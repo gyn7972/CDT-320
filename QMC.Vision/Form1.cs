@@ -720,7 +720,7 @@ namespace QMC.Vision
             mod.AverageCount = mapping.AverageCount;
 
             // 카메라 ID 가 같으면 파라미터만 갱신, 다르면 카메라 교체
-            if (string.Equals(mod.Camera?.Info?.Id, mapping.CameraId, StringComparison.OrdinalIgnoreCase))
+            if (mod.Camera?.Info?.Matches(mapping.CameraId) == true)   // 고유이름/IP 매칭
             {
                 // 같은 카메라라도 닫혀 있으면 먼저 연다(앱 시작 시 startup Open 실패로 닫힌 상태 복구).
                 if (mod.Camera != null && !mod.Camera.IsOpen)

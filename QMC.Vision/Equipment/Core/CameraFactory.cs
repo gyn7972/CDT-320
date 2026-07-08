@@ -53,10 +53,11 @@ namespace QMC.Vision.Core
             // HIK: 사용자가 IP(xxx.xxx.xxx.xxx) 로 지정했다고 가정.
             // SDK 로드 여부 + enum 결과로 매칭 시도.
             foreach (var i in HikGigECamera.Enumerate())
-                if (i.Id == id) return new HikGigECamera(i);
+                if (i.Matches(id)) return new HikGigECamera(i);   // 고유이름/IP/시리얼 매칭
 
-            // 찾지 못하면 Info 최소 정보만으로 시도 (SDK 로드 시 실패할 가능성).
-            if (HikMvsDll.IsLoaded)
+            // 찾지 못했고 저장값이 IP 형태면 그 IP 로 직접 시도(SDK 로드 시). 저장값이 고유이름인데
+            // 열거에 없으면 = 네트워크에 없음 → 아래 Sim fallback(온라인 되면 재열거 시 Matches 로 잡힘).
+            if (HikMvsDll.IsLoaded && CameraInfo.LooksLikeIp(id))
                 return new HikGigECamera(new CameraInfo { Id = id, IpAddress = id, Transport = CameraTransport.GigE, Vendor = "HIKVISION" });
 
             // Fallback
