@@ -139,7 +139,7 @@ namespace QMC.Common.Ui.Controls
 
         // ── 내장 툴바 ──
         private ToolStrip       _tools;
-        private ToolStripButton _tbGrab, _tbLive, _tbStop, _tbSave, _tbLoad, _tbMeasure, _tbMeasClear, _tbFit, _tbCross;
+        private ToolStripButton _tbGrab, _tbLive, _tbStop, _tbSave, _tbLoad, _tbMeasure, _tbMeasClear, _tbFit, _tbCross, _tbAccum, _tbAccumReset;
         private ToolStripLabel  _tbMag;
         private ICameraViewSource _source;
         private bool _live;
@@ -270,6 +270,10 @@ namespace QMC.Common.Ui.Controls
             _tbMeasClear = new ToolStripButton("측정 클리어") { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbFit     = new ToolStripButton("맞춤")  { DisplayStyle = ToolStripItemDisplayStyle.Text };
             _tbCross   = new ToolStripButton("CrossLine") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true, Checked = _showCrosshair };
+            _tbAccum   = new ToolStripButton("누적") { DisplayStyle = ToolStripItemDisplayStyle.Text, CheckOnClick = true,
+                ToolTipText = "영상 누적 평균 — 켠 순간부터 픽셀별 밝기 합/카운트를 유지하고 합÷카운트 평균 영상을 표시" };
+            _tbAccumReset = new ToolStripButton("누적 리셋") { DisplayStyle = ToolStripItemDisplayStyle.Text,
+                ToolTipText = "누적 합/카운트를 지우고 지금부터 다시 누적(토글은 유지)" };
             _tbMag     = new ToolStripLabel("Mag. 1.00x");
 
             _tbGrab.Click    += (s, e) => DoToolbarGrab();
@@ -281,12 +285,23 @@ namespace QMC.Common.Ui.Controls
             _tbMeasClear.Click += (s, e) => ClearMeasurements();
             _tbFit.Click     += (s, e) => ZoomFit();
             _tbCross.Click   += (s, e) => ShowCrosshair = _tbCross.Checked;
+            _tbAccum.CheckedChanged += (s, e) =>
+            {
+                _accumOn = _tbAccum.Checked;
+                ResetAccum();                       // 켜는 순간부터 새로 누적 / 끄면 버퍼 해제
+                _tbAccum.Text = "누적";
+            };
+            _tbAccumReset.Click += (s, e) =>
+            {
+                ResetAccum();                       // 합/카운트만 초기화 — 토글 상태는 유지(지금부터 다시 누적)
+                if (_tbAccum != null) _tbAccum.Text = "누적";
+            };
 
             _tools.Items.AddRange(new ToolStripItem[]
             {
                 _tbGrab, _tbLive, _tbStop, new ToolStripSeparator(),
                 _tbSave, _tbLoad, new ToolStripSeparator(),
-                _tbMeasure, _tbMeasClear, _tbFit, _tbCross, new ToolStripSeparator(), _tbMag
+                _tbMeasure, _tbMeasClear, _tbFit, _tbCross, _tbAccum, _tbAccumReset, new ToolStripSeparator(), _tbMag
             });
             Controls.Add(_tools);
             UpdateToolbarButtons();
@@ -624,6 +639,15 @@ namespace QMC.Common.Ui.Controls
         /// <see cref="DisplayOrientation"/> 가 설정돼 있으면 그 방향변환을 적용해 표시한다.</summary>
         public void SetImage(Bitmap bmp)
         {
+            // 영상 누적(평균) — 토글 ON 이면 입력 프레임을 픽셀별 합에 더하고 표시 프레임을 합÷카운트로 치환.
+            Bitmap avgTmp = null;
+            if (_accumOn && bmp != null)
+            {
+                try { avgTmp = AccumulateFrame(bmp); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 영상 누적 실패: " + ex.Message); }
+                if (avgTmp != null) bmp = avgTmp;
+            }
+
             // 이전 oriented 복사본(원본과 다른 인스턴스)부터 해제 → 그 다음 원본 해제(이중 해제 방지).
             if (_frame != null && !ReferenceEquals(_frame, _srcFrame))
             {
@@ -632,9 +656,103 @@ namespace QMC.Common.Ui.Controls
             _frame = null;
             try { _srcFrame?.Dispose(); } catch { }
             _srcFrame = bmp != null ? (Bitmap)bmp.Clone() : null;
+            try { avgTmp?.Dispose(); } catch { }
             RebuildOrientedFrame();
             RaiseFrameChangedIfSizeChanged();
-            if (IsHandleCreated) BeginInvoke(new Action(() => { UpdateMagLabel(); Invalidate(); })); else Invalidate();
+            if (IsHandleCreated) BeginInvoke(new Action(() =>
+            {
+                UpdateMagLabel();
+                if (_tbAccum != null && _accumOn) _tbAccum.Text = "누적(" + _accumCount + ")";
+                Invalidate();
+            })); else Invalidate();
+        }
+
+        // ── 영상 누적(평균) — '누적' 토글을 켠 순간부터 픽셀별 밝기(그레이) 합과 카운트를 유지하고,
+        //    표시할 때 합÷카운트 평균 영상을 만들어 보여준다(노이즈 저감/장시간 관찰용).
+        //    프레임 크기가 바뀌거나 토글을 껐다 켜면 리셋. 합 버퍼는 int[](12000² 기준 약 576MB). ──
+        private bool  _accumOn;
+        private int[] _accumSum;      // 픽셀별 그레이 합
+        private int   _accumW, _accumH, _accumCount;
+
+        private void ResetAccum()
+        {
+            _accumSum = null;
+            _accumW = _accumH = _accumCount = 0;
+        }
+
+        /// <summary>입력 프레임을 누적 합에 더하고(카운트 증가) 평균(합÷카운트) 흑백 24bpp 영상을 만들어 반환.
+        /// 미지원 픽셀 포맷이면 null(원본 그대로 표시). 반환 비트맵 소유권은 호출자.</summary>
+        private Bitmap AccumulateFrame(Bitmap src)
+        {
+            int w = src.Width, h = src.Height;
+            var fmt = src.PixelFormat;
+            int bpp = fmt == System.Drawing.Imaging.PixelFormat.Format8bppIndexed ? 1
+                    : fmt == System.Drawing.Imaging.PixelFormat.Format24bppRgb ? 3
+                    : (fmt == System.Drawing.Imaging.PixelFormat.Format32bppRgb
+                    || fmt == System.Drawing.Imaging.PixelFormat.Format32bppArgb) ? 4 : 0;
+            if (bpp == 0) return null;
+
+            if (_accumSum == null || _accumW != w || _accumH != h)
+            {
+                _accumSum = new int[w * h];
+                _accumW = w; _accumH = h; _accumCount = 0;
+            }
+
+            // 1) 입력 프레임 → 그레이 값을 합 버퍼에 누적(행 병렬).
+            var bd = src.LockBits(new Rectangle(0, 0, w, h),
+                System.Drawing.Imaging.ImageLockMode.ReadOnly, fmt);
+            try
+            {
+                IntPtr scan0 = bd.Scan0;
+                int stride = bd.Stride;
+                int[] sum = _accumSum;
+                System.Threading.Tasks.Parallel.For(0, h, y =>
+                {
+                    var row = new byte[stride];
+                    System.Runtime.InteropServices.Marshal.Copy(IntPtr.Add(scan0, y * stride), row, 0, stride);
+                    int o = y * w;
+                    if (bpp == 1)
+                    {
+                        for (int x = 0; x < w; x++) sum[o + x] += row[x];
+                    }
+                    else
+                    {
+                        for (int x = 0; x < w; x++)
+                        {
+                            int i = x * bpp;   // BGR(A) — 휘도 가중 평균
+                            sum[o + x] += (row[i] * 114 + row[i + 1] * 587 + row[i + 2] * 299) / 1000;
+                        }
+                    }
+                });
+            }
+            finally { src.UnlockBits(bd); }
+            _accumCount++;
+
+            // 2) 평균(합÷카운트) 흑백 24bpp 영상 생성(행 병렬).
+            var avg = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            var ad = avg.LockBits(new Rectangle(0, 0, w, h),
+                System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            try
+            {
+                IntPtr s0 = ad.Scan0;
+                int stride2 = ad.Stride;
+                int[] sum = _accumSum;
+                int n = _accumCount;
+                System.Threading.Tasks.Parallel.For(0, h, y =>
+                {
+                    var row = new byte[stride2];
+                    int o = y * w;
+                    for (int x = 0; x < w; x++)
+                    {
+                        byte v = (byte)(sum[o + x] / n);
+                        int i = x * 3;
+                        row[i] = v; row[i + 1] = v; row[i + 2] = v;
+                    }
+                    System.Runtime.InteropServices.Marshal.Copy(row, 0, IntPtr.Add(s0, y * stride2), stride2);
+                });
+            }
+            finally { avg.UnlockBits(ad); }
+            return avg;
         }
 
         /// <summary>현재 표시 중인 프레임(원본 참조 — Dispose 금지). 없으면 null.</summary>

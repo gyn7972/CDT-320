@@ -678,9 +678,9 @@ namespace QMC.Vision.Core
             if (!AutoFocusStore.TryParseCamera(parts[2], out var cam)) return "fail:bad camera";
             if (!AutoFocusStore.TryParseTarget(parts[3], out var tgt)) return "fail:bad target";
 
-            int onlyPickup = -1;
-            if (parts.Length > 4) int.TryParse(parts[4], out onlyPickup);
-            if (onlyPickup <= 0) onlyPickup = -1;   // 0/미지정 = 전체 ROI(샘플 있는 것) 평균
+            // pickupNo(parts[4]) 인자는 하위호환으로 받기만 하고 무시한다(2026-07-08) —
+            // 베스트 Z 는 항상 'ROI1~4(샘플 있는 것) Best Z 의 평균'으로 리턴한다.
+            // (특정 ROI 하나만 회수하던 동작 제거 — 콜렛/다이 포커스 대표값 = 4-ROI 평균.)
 
             // FOCUS_VAL 들이 백그라운드로 채점 중이므로, 누적이 모두 끝난 뒤(=처리 완료) best 를 회수한다.
             // 완료될 때까지 충분히 대기해야 불완전한 best 로 응답하지 않는다(처리 완료 후 ACK).
@@ -693,12 +693,11 @@ namespace QMC.Vision.Core
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             var rows = sess.BuildBestTable();
 
-            // 대표 포커스 = 측정된 ROI(샘플 있는 것들) Best 위치의 평균 — 핸들러 피드백 값.
+            // 대표 포커스 = ROI1~4(샘플 있는 것) Best 위치의 평균 — 핸들러 피드백 값.
             // 핸들러 파서(VisionFocusBestResult.Parse)가 bestZ/bestScore 키를 최우선으로 읽는다.
             double zSum = 0, sSum = 0; int used = 0;
             foreach (var row in rows)
             {
-                if (onlyPickup >= 0 && row.PickupNo != onlyPickup) continue;
                 if (row.SampleCount <= 0) continue;
                 zSum += row.BestMotorZ; sSum += row.BestScore; used++;
             }
@@ -719,9 +718,8 @@ namespace QMC.Vision.Core
                 }
                 catch { }
             }
-            foreach (var row in rows)   // ROI 별 상세(진단/그래프용) — 기존 필드 유지
+            foreach (var row in rows)   // ROI 별 상세(진단/그래프용) — 기존 필드 유지, 항상 전체 ROI 출력
             {
-                if (onlyPickup >= 0 && row.PickupNo != onlyPickup) continue;
                 int p = row.PickupNo;
                 sb.Append(";p" + p + "z=" + row.BestMotorZ.ToString("F4", inv));
                 sb.Append(";p" + p + "s=" + row.BestScore.ToString("F2", inv));

@@ -123,6 +123,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 InitializeComponent();
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridSamples, gridSaved);
+                ConfigureEditableSettingGrid();
                 InitializeRuntime();
             }
             catch (Exception ex)
@@ -159,6 +160,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 new[] { btnCheck, btnUseCurrent, btnMoveDefault, btnMoveZAvoid, btnMoveYAvoid, btnApplyBest, btnReload, btnClose },
                 new[] { btnStartScan },
                 new[] { btnSave });
+        }
+
+        private void ConfigureEditableSettingGrid()
+        {
+            gridSettings.ReadOnly = false;
+            gridSettings.EditMode = DataGridViewEditMode.EditOnEnter;
+            colSettingName.ReadOnly = true;
+            colSettingValue.ReadOnly = false;
+            colSettingUnit.ReadOnly = true;
         }
 
         private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)
