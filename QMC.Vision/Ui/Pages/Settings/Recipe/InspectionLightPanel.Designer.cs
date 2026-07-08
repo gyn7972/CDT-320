@@ -178,6 +178,7 @@ namespace QMC.Vision.Ui.Pages
             this.Ctrl.HeaderText = "컨트롤러";
             this.Ctrl.Name = "Ctrl";
             this.Ctrl.ReadOnly = true;
+            this.Ctrl.Visible = false;
             // 
             // Channel
             // 
@@ -187,19 +188,20 @@ namespace QMC.Vision.Ui.Pages
             this.Channel.HeaderText = "Ch";
             this.Channel.Name = "Channel";
             this.Channel.ReadOnly = true;
+            this.Channel.Visible = false;
             //
             // ColName
             //
             dataGridViewCellStyle3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(242)))), ((int)(((byte)(242)))));
             this.ColName.DefaultCellStyle = dataGridViewCellStyle3;
-            this.ColName.FillWeight = 30F;
+            this.ColName.FillWeight = 65F;
             this.ColName.HeaderText = "이름";
             this.ColName.Name = "ColName";
             this.ColName.ReadOnly = true;
             // 
             // Level
             // 
-            this.Level.FillWeight = 18F;
+            this.Level.FillWeight = 35F;
             this.Level.HeaderText = "Level";
             this.Level.Name = "Level";
             // 
@@ -208,6 +210,7 @@ namespace QMC.Vision.Ui.Pages
             this.Page.FillWeight = 12F;
             this.Page.HeaderText = "Page";
             this.Page.Name = "Page";
+            this.Page.Visible = false;
             // 
             // InspectionLightPanel
             // 
