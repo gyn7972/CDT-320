@@ -62,6 +62,9 @@ namespace QMC.Vision.Core
         public static string Grab(IVisionModule m)
         {
             if (m == null) return "fail:no module";
+            // 레시피 카메라 노출 적용 후 그랩 — 직전 도구/포커스 그랩이 남긴 노출(예: 스캔용 30µs)이
+            // 그대로 쓰이지 않게 한다. 도구 미지정(null) → 모듈 카메라 레시피 노출, 조명은 변경 없음.
+            try { m.PrepareToolAcquisition(null); } catch { }
             var swGrab = Stopwatch.StartNew();
             using (var g = m.Grab())
             {
