@@ -741,7 +741,7 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                     BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(_colletIndex));
                     double actual = ReadPickerActual(GetPickerTAxis(_colletIndex), tAxis, _basePickerT);
-                    double target = actual + theta * _settings.ThetaMoveGain;
+                    double target = CalculateThetaMoveTarget(actual, theta);
                     int moveResult = await MovePickerAxisAndVerifyAsync(
                         GetPickerTAxis(_colletIndex),
                         target,
@@ -846,12 +846,12 @@ namespace QMC.CDT320.Sequencing.Calibration
                         return new MatchStepResult { Result = 0, Match = lastMatch };
                     }
 
-                    double target = actual + theta * _settings.ThetaMoveGain;
+                    double target = CalculateThetaMoveTarget(actual, theta);
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalTheta",
                         label + " 이동. side=" + _calibrationSide +
                         ", colletNo=" + _colletNo +
                         ", iteration=" + i +
-                        ", formula=targetT=actualT+theta*gain=" + actual.ToString("F6") + "+" + theta.ToString("F6") + "*" + _settings.ThetaMoveGain.ToString("F6") +
+                        ", formula=targetT=actualT-theta*gain=" + actual.ToString("F6") + "-" + theta.ToString("F6") + "*" + _settings.ThetaMoveGain.ToString("F6") +
                         "=" + target.ToString("F6"));
 
                     int moveResult = await MovePickerAxisAndVerifyAsync(
@@ -884,6 +884,11 @@ namespace QMC.CDT320.Sequencing.Calibration
             finally
             {
             }
+        }
+
+        private double CalculateThetaMoveTarget(double actualT, double thetaDeg)
+        {
+            return actualT - thetaDeg * _settings.ThetaMoveGain;
         }
 
         private async Task<MatchStepResult> RefineXyToCenterAsync(MatchResultDto startMatch, string label, CancellationToken ct)
@@ -929,7 +934,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         return new MatchStepResult { Result = 0, Match = lastMatch };
                     }
 
-                    double targetX = actualX + offsetMmX * _settings.XyMoveGainX;
+                    double targetX = actualX - offsetMmX * _settings.XyMoveGainX;
                     double targetY = actualY + offsetMmY * _settings.XyMoveGainY;
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalXy",
                         label + " 이동. side=" + _calibrationSide +
@@ -939,7 +944,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", center=(" + camera.ImageCenterPixelX.ToString("F3") + "," + camera.ImageCenterPixelY.ToString("F3") + ")" +
                         ", scale=(" + camera.PixelToMmX.ToString("F9") + "," + camera.PixelToMmY.ToString("F9") + ")" +
                         ", offsetMm=(" + offsetMmX.ToString("F6") + "," + offsetMmY.ToString("F6") + ")" +
-                        ", formulaX=targetX=actualX+offsetMmX*gainX=" + actualX.ToString("F6") + "+" + offsetMmX.ToString("F6") + "*" + _settings.XyMoveGainX.ToString("F6") + "=" + targetX.ToString("F6") +
+                        ", formulaX=targetX=actualX-offsetMmX*gainX=" + actualX.ToString("F6") + "-" + offsetMmX.ToString("F6") + "*" + _settings.XyMoveGainX.ToString("F6") + "=" + targetX.ToString("F6") +
                         ", formulaY=targetY=actualY+offsetMmY*gainY=" + actualY.ToString("F6") + "+" + offsetMmY.ToString("F6") + "*" + _settings.XyMoveGainY.ToString("F6") + "=" + targetY.ToString("F6"));
 
                     var xyTargets = new Dictionary<PickerAxis, double>();
@@ -1401,7 +1406,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", centerPixel=(" + _finalMatch.X.ToString("F3") + "," + _finalMatch.Y.ToString("F3") + ")" +
                     ", centerMm=(" + centerMmX.ToString("F6") + "," + centerMmY.ToString("F6") + ")" +
                     ", formulaCenterMmX=(pixelX-centerX)*scaleX=(" + _finalMatch.X.ToString("F3") + "-" + camera.ImageCenterPixelX.ToString("F3") + ")*" + camera.PixelToMmX.ToString("F9") + "=" + centerMmX.ToString("F6") +
-                    ", formulaCenterMmY=(pixelY-centerY)*scaleY=(" + _finalMatch.Y.ToString("F3") + "-" + camera.ImageCenterPixelY.ToString("F3") + ")*" + camera.PixelToMmY.ToString("F9") + "=" + centerMmY.ToString("F6") +
+                    ", formulaCenterMmY=(centerY-pixelY)*scaleY=(" + camera.ImageCenterPixelY.ToString("F3") + "-" + _finalMatch.Y.ToString("F3") + ")*" + camera.PixelToMmY.ToString("F9") + "=" + centerMmY.ToString("F6") +
                     ", offset=(" + _calculatedRecord.OffsetX.ToString("F6") + "," + _calculatedRecord.OffsetY.ToString("F6") + ")" +
                     ", formulaOffsetX=" + (IsReferenceCollet() ? "referenceCollet=0" : "finalPickerX-nominalPickerX=" + finalPickerX.ToString("F6") + "-" + _nominalPickerX.ToString("F6") + "=" + colletOffsetX.ToString("F6")) +
                     ", formulaOffsetY=" + (IsReferenceCollet() ? "referenceCollet=0" : "finalPickerY-nominalPickerY=" + finalPickerY.ToString("F6") + "-" + _nominalPickerY.ToString("F6") + "=" + colletOffsetY.ToString("F6")) +
@@ -1594,11 +1599,11 @@ namespace QMC.CDT320.Sequencing.Calibration
 
             EnsureSimulatedColletTarget(actualX, actualY, actualT, camera);
 
-            double offsetMmX = _simColletCenterPickerX.Value - actualX;
+            double offsetMmX = actualX - _simColletCenterPickerX.Value;
             double offsetMmY = _simColletCenterPickerY.Value - actualY;
-            double theta = _simColletZeroPickerT.Value - actualT;
+            double theta = actualT - _simColletZeroPickerT.Value;
             double pixelX = camera.ImageCenterPixelX + SafeMmToPixel(offsetMmX, camera.PixelToMmX) + NextSimulatedValue(0.0, SimColletNoisePixel);
-            double pixelY = camera.ImageCenterPixelY + SafeMmToPixel(offsetMmY, camera.PixelToMmY) + NextSimulatedValue(0.0, SimColletNoisePixel);
+            double pixelY = camera.ImageCenterPixelY - SafeMmToPixel(offsetMmY, camera.PixelToMmY) + NextSimulatedValue(0.0, SimColletNoisePixel);
             double angle = theta + NextSimulatedValue(0.0, SimColletNoiseAngleDeg);
             double score = NextSimulatedScore();
 
@@ -1609,8 +1614,8 @@ namespace QMC.CDT320.Sequencing.Calibration
                 ", simulatedPixel=(" + pixelX.ToString("F3") + "," + pixelY.ToString("F3") + ")" +
                 ", offsetMm=(" + offsetMmX.ToString("F6") + "," + offsetMmY.ToString("F6") + ")" +
                 ", formulaPixelX=centerX+(offsetMmX/scaleX)+noise=" + camera.ImageCenterPixelX.ToString("F3") + "+(" + offsetMmX.ToString("F6") + "/" + camera.PixelToMmX.ToString("F9") + ")+noise=" + pixelX.ToString("F3") +
-                ", formulaPixelY=centerY+(offsetMmY/scaleY)+noise=" + camera.ImageCenterPixelY.ToString("F3") + "+(" + offsetMmY.ToString("F6") + "/" + camera.PixelToMmY.ToString("F9") + ")+noise=" + pixelY.ToString("F3") +
-                ", formulaAngle=zeroT-actualT+noise=" + _simColletZeroPickerT.Value.ToString("F6") + "-" + actualT.ToString("F6") + "+noise=" + angle.ToString("F6") +
+                ", formulaPixelY=centerY-(offsetMmY/scaleY)+noise=" + camera.ImageCenterPixelY.ToString("F3") + "-(" + offsetMmY.ToString("F6") + "/" + camera.PixelToMmY.ToString("F9") + ")+noise=" + pixelY.ToString("F3") +
+                ", formulaAngle=actualT-zeroT+noise=" + actualT.ToString("F6") + "-" + _simColletZeroPickerT.Value.ToString("F6") + "+noise=" + angle.ToString("F6") +
                 ", actual=(" + actualX.ToString("F6") + "," + actualY.ToString("F6") + "," + actualT.ToString("F6") + ")" +
                 ", virtualTarget=(" + _simColletCenterPickerX.Value.ToString("F6") + "," + _simColletCenterPickerY.Value.ToString("F6") + "," + _simColletZeroPickerT.Value.ToString("F6") + ")" +
                 ", scale=(" + camera.PixelToMmX.ToString("F9") + "," + camera.PixelToMmY.ToString("F9") + ")" +

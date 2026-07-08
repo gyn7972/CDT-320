@@ -31,6 +31,7 @@ namespace QMC.CDT320.Sequencing
             double inputStageY,
             double inputVisionToPickerX,
             double inputVisionToPickerY,
+            bool includePickerRuntimeAlignOffset = true,
             bool logFormula = false)
         {
             return PickerMotionTargetResolver.CalculateInputPickTarget(
@@ -85,14 +86,14 @@ namespace QMC.CDT320.Sequencing
         public static double ResolvePickerAlignOffsetX(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            // InputVisionToPicker X/Y는 Collet Final 위치로 저장되므로 Collet X는 여기서 다시 더하지 않는다.
+            // InputVisionToPicker X/Y는 카메라/콜렛 캘을 포함한 최종 변환값이므로 Collet X는 여기서 다시 더하지 않는다.
             return runtime != null ? runtime.AlignOffsetX : 0.0;
         }
 
         public static double ResolvePickerAlignOffsetY(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            // InputVisionToPicker X/Y는 Collet Final 위치로 저장되므로 Collet Y는 여기서 다시 더하지 않는다.
+            // InputVisionToPicker X/Y는 카메라/콜렛 캘을 포함한 최종 변환값이므로 Collet Y는 여기서 다시 더하지 않는다.
             return runtime != null ? runtime.AlignOffsetY : 0.0;
         }
 

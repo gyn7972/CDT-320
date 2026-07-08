@@ -206,6 +206,49 @@ namespace QMC.Vision.Ui.Pages
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
         private void OnSaveClick(object sender, EventArgs e) => Save();
         private void OnApplyClick(object sender, EventArgs e) => Apply();
+
+        /// <summary>[조명 ON] — 현재 그리드의 설정 레벨로 즉시 점등([실행 적용]과 동일 동작).</summary>
+        private void OnLightOnClick(object sender, EventArgs e) => Apply();
+
+        /// <summary>[조명 OFF] — 지정된 (컨트롤러,페이지)의 전 채널을 0 으로 송신해 소등.
+        /// 그리드/레시피 값은 건드리지 않는다(다시 ON 하면 설정 레벨로 복귀).</summary>
+        private async void OnLightOffClick(object sender, EventArgs e)
+        {
+            if (ActivePages().Count == 0)
+            {
+                SetStatus(Lang.T("rec.lightApplyReject"), true);
+                return;
+            }
+            var settings = Collect();                       // UI 그리드 사본 — Level 만 0 으로 바꿔 송신
+            foreach (var s in settings) s.Level = 0;
+            try
+            {
+                var tasks = new List<Task<bool>>();
+                var ports = new List<string>();
+                foreach (var grp in settings.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).GroupBy(s => s.ControllerPort))
+                {
+                    var ctrl = LightHub.Get(grp.Key);
+                    if (ctrl == null)
+                    {
+                        LogLight("조명 OFF — 포트 '" + grp.Key + "' LightHub 미등록 → 건너뜀");
+                        continue;
+                    }
+                    ports.Add(grp.Key);
+                    tasks.Add(ApplyControllerAsync(ctrl, grp.ToList()));
+                }
+                if (tasks.Count == 0) { SetStatus(Lang.T("rec.lightApplyNoCtrl"), true); return; }
+
+                var results = await Task.WhenAll(tasks);
+                int okCtrl = results.Count(r => r);
+                SetStatus("조명 OFF — " + okCtrl + "/" + tasks.Count + " 컨트롤러 소등", okCtrl != tasks.Count);
+                LogLight("조명 OFF 완료 — 포트=[" + string.Join(",", ports) + "] 전 채널 0 송신 (" + okCtrl + "/" + tasks.Count + ")");
+            }
+            catch (Exception ex)
+            {
+                SetStatus("조명 OFF 실패: " + ex.Message, true);
+                LogLight("조명 OFF 예외: " + ex.Message);
+            }
+        }
         private void OnResetClick(object sender, EventArgs e) => ResetLevels();
         private void OnCancelClick(object sender, EventArgs e) => BindFields();
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;

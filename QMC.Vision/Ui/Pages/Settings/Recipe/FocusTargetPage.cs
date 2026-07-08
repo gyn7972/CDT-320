@@ -136,7 +136,14 @@ namespace QMC.Vision.Ui.Pages
             base.OnVisibleChanged(e);
             if (IsDesignerMode() || _module == null) return;
             if (Visible) { UpdateRoiOverlay(); RefreshSessionView(); timerRefresh.Start(); }
-            else timerRefresh.Stop();
+            else
+            {
+                timerRefresh.Stop();
+                // 다른 도구/모듈/페이지로 이동해 이 페이지가 숨겨지면 툴바(camView) Live 도 정지
+                // (Inspector/VisionTargetPage 와 동일 정책 — 포커스 페이지도 커버).
+                try { if (camView != null && camView.IsLive) camView.StopLive(); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[FocusTargetPage] 숨김 시 Live 정지 실패: " + ex.Message); }
+            }
         }
 
         /// <summary>드래그 완료 콜백 — "AF{idx}" 종류면 현재 타깃의 ROI{idx+1} 로 저장 + 오버레이 갱신.</summary>
@@ -363,6 +370,7 @@ namespace QMC.Vision.Ui.Pages
                 string error = null;
                 try
                 {
+                    if (_module != null) _module.SuppressLiveAutoStopOnGrab = true;   // 오토포커스 측정 — 라이브(스트로브) 유지
                     // 촬상 준비 — FocusFinder 조명/노출 + 포커스 전용 노출(페이지의 '노출 적용' 저장값) 적용.
                     //   핸들러 FOCUS_START 와 동일 경로라 측정 조건이 스캔과 일치한다.
                     VisionCommandCore.PrepareFocusAcquisition(_module, _camera, target);
@@ -385,6 +393,7 @@ namespace QMC.Vision.Ui.Pages
                     }
                 }
                 catch (Exception ex) { error = ex.Message; }
+                finally { try { if (_module != null) _module.SuppressLiveAutoStopOnGrab = false; } catch { } }
 
                 try
                 {

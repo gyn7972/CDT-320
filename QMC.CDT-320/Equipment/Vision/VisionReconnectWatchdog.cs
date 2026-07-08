@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320;
-using QMC.Common.Alarms;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
@@ -10,168 +9,112 @@ namespace QMC.CDT320.VisionComm
     /// <summary>
     /// Vision PC 연결 끊김 감시·자동 재연결 워치독.
     /// <para>
-    /// 한 번이라도 연결된 뒤(연결 의도) 끊기면 <b>3회 재연결</b>을 시도하고, 모두 실패하면 알람을 올린다.
-    /// 사용자가 알람을 해제하면 다시 <b>3회 시도</b>하고 실패 시 알람 — 연결될 때까지 이 사이클을 반복한다.
-    /// 재연결에 성공하면 <see cref="Start"/>에 넘긴 콜백(레시피 재전송 등)을 호출한다.
-    /// 자동연결(<c>VisionAutoConnect</c>)이 꺼져 있으면 재연결을 시도하지 않는다.
+    /// 연결이 끊기면 <b>알람 없이</b> 일정 간격(<see cref="RetryIntervalMs"/>)으로 <b>붙을 때까지 계속</b>
+    /// 재연결을 시도한다. 비전 미사용(Sim / UseVision=false) 이거나 자동연결(VisionAutoConnect) 이 꺼져 있으면
+    /// 시도하지 않고 상태만 감시한다. 재연결에 성공하면 <see cref="Start"/> 에 넘긴 콜백(레시피 재전송 등)을 호출한다.
+    /// </para>
+    /// <para>
+    /// UI 부하 방지: 루프는 백그라운드 Task 에서만 돌고, 재시도가 실패해 상태가 그대로면 UI 이벤트를 일으키지
+    /// 않는다(VisionHub.RaiseChanged 가 엣지 트리거 — 상태 실제 변경 시에만 ConnectionChanged 발행).
+    /// 재연결 시도 자체도 connect 타임아웃(3초) + 간격으로 저부하이며 UI 스레드를 점유하지 않는다.
     /// </para>
     /// </summary>
     public static class VisionReconnectWatchdog
     {
-        private const int    MaxTriesPerCycle = 3;
-        private const int    RetryDelayMs     = 2000;
-        private const int    CooldownMs       = 15000;   // 알람 후, 해제 신호를 못 받아도 이 시간 뒤 자동 재시도
-        private const string AlarmCode        = "VISION-RECONNECT";
-        private const string Source           = "VisionReconnect";
+        /// <summary>연결돼 있을 때 상태 감시 주기(저부하 폴링).</summary>
+        private const int PollMs = 1000;
+
+        /// <summary>끊김 시 재연결 시도 간격. UI 부하는 엣지 트리거로 제거되므로 3초로 두되,
+        /// 필요하면 5~10초로 올려도 된다(값만 조정).</summary>
+        private const int RetryIntervalMs = 3000;
 
         private static CancellationTokenSource _cts;
-        private static volatile bool _alarmActive;
-        private static volatile bool _retrySignal;   // 알람 해제 등으로 즉시 재시도하라는 신호
-        private static AlarmRecord _alarm;   // 마지막으로 올린 재연결 알람(해제용)
         private static Action _onReconnected;
 
-        /// <summary>워치독 시작. <paramref name="onReconnected"/>는 재연결 성공 직후 호출(예: 레시피 재전송).</summary>
+        /// <summary>워치독 시작. <paramref name="onReconnected"/> 는 재연결 성공 직후 호출(예: 레시피 재전송).</summary>
         public static void Start(Action onReconnected)
         {
             Stop();
             _onReconnected = onReconnected;
-
-            if (IsVisionLinkBypassed())
-                return;
-
             _cts = new CancellationTokenSource();
-            AlarmManager.AlarmCleared += OnAlarmCleared;
-            var ct = _cts.Token;
+            CancellationToken ct = _cts.Token;
             _ = Task.Run(() => LoopAsync(ct));
         }
 
         public static void Stop()
         {
-            try { AlarmManager.AlarmCleared -= OnAlarmCleared; } catch { }
-            try { _cts?.Cancel(); } catch { }
+            try { _cts?.Cancel(); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionReconnect] Stop: " + ex.Message); }
             _cts = null;
-        }
-
-        private static void OnAlarmCleared(AlarmRecord rec)
-        {
-            // 어떤 알람이든 해제되면(작업 화면 알람 리셋 = ClearAll) 즉시 재연결을 시도하도록 깨운다.
-            _retrySignal = true;
-            if (rec != null && string.Equals(rec.Code, AlarmCode, StringComparison.OrdinalIgnoreCase))
-                _alarmActive = false;
         }
 
         private static async Task LoopAsync(CancellationToken ct)
         {
-            bool wasConnected = false;
             while (!ct.IsCancellationRequested)
             {
                 try
                 {
-                    if (IsVisionLinkBypassed())
+                    // 비전 미사용(Sim / UseVision=false) 또는 자동연결 OFF → 시도하지 않고 감시만.
+                    if (IsVisionLinkBypassed() || !AppSettingsStore.Current.VisionAutoConnect)
                     {
-                        ClearMyAlarm();
-                        await Task.Delay(1000, ct).ConfigureAwait(false);
+                        await Task.Delay(PollMs, ct).ConfigureAwait(false);
                         continue;
                     }
 
+                    // 이미 연결돼 있으면 저부하 감시만(재연결 시도 없음).
                     if (VisionHub.AnyConnected)
                     {
-                        wasConnected = true;
-                        ClearMyAlarm();
-                        await Task.Delay(1000, ct).ConfigureAwait(false);
+                        await Task.Delay(PollMs, ct).ConfigureAwait(false);
                         continue;
                     }
 
-                    // 이전에 연결된 적이 없거나(연결 의도 없음) 자동연결 OFF 면 감시만.
-                    if (!wasConnected || !AppSettingsStore.Current.VisionAutoConnect)
+                    // 끊김 → 알람 없이 조용히 재연결 시도. 성공하면 레시피 재전송.
+                    if (await TryReconnectOnceAsync(ct).ConfigureAwait(false))
                     {
-                        await Task.Delay(1000, ct).ConfigureAwait(false);
+                        SafeOnReconnected();
+                        await Task.Delay(PollMs, ct).ConfigureAwait(false);
                         continue;
                     }
 
-                    // 끊김 감지 → 3회 재연결
-                    if (await TryReconnectCycleAsync(ct).ConfigureAwait(false))
-                    {
-                        wasConnected = true;
-                        ClearMyAlarm();
-                        SafeOnReconnected();   // 레시피 재전송 등
-                        continue;
-                    }
-
-                    // 3회 실패 → 알람(중복 방지) 올리고, 알람 해제 / 연결 회복 / 쿨다운 중 먼저 오는 것까지 대기 후 재시도
-                    if (!_alarmActive) RaiseAlarm();
-                    _retrySignal = false;
-                    int waited = 0;
-                    while (!ct.IsCancellationRequested && !VisionHub.AnyConnected && !_retrySignal && waited < CooldownMs)
-                    {
-                        await Task.Delay(500, ct).ConfigureAwait(false);
-                        waited += 500;
-                    }
-                    // 알람 해제(또는 쿨다운/연결 회복) → 루프 상단으로 → 다시 3회 시도
+                    // 실패 → 과부하 방지 간격 뒤 재시도(붙을 때까지 무한 반복, 알람 없음).
+                    await Task.Delay(RetryIntervalMs, ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
-                    try { EventLogger.Write(EventKind.Alarm, "SYS", AlarmCode, "watchdog error: " + ex.Message); } catch { }
-                    try { await Task.Delay(2000, ct).ConfigureAwait(false); } catch { break; }
+                    try { EventLogger.Write(EventKind.Event, "SYS", "VISION-RECONNECT", "watchdog error: " + ex.Message); } catch { }
+                    try { await Task.Delay(RetryIntervalMs, ct).ConfigureAwait(false); } catch { break; }
                 }
             }
         }
 
-        private static async Task<bool> TryReconnectCycleAsync(CancellationToken ct)
+        /// <summary>한 번 재연결 시도. 연결 실패는 정상 상황(호스트 다운)이므로 로그 스팸을 피하려 조용히 삼킨다.</summary>
+        private static async Task<bool> TryReconnectOnceAsync(CancellationToken ct)
         {
-            var cfg = AppSettingsStore.Current;
-            if (IsVisionLinkBypassed())
-                return true;
-
-            for (int i = 1; i <= MaxTriesPerCycle; i++)
-            {
-                if (ct.IsCancellationRequested) return false;
-                try { EventLogger.Write(EventKind.Event, "SYS", AlarmCode, $"reconnect try {i}/{MaxTriesPerCycle} -> {cfg.VisionHost}"); } catch { }
-                try
-                {
-                    await VisionHub.ConnectAllAsync(cfg.VisionHost,
-                        cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                        cfg.VisionMainPort, cfg.VisionFrontSidePort, cfg.VisionRearSidePort).ConfigureAwait(false);
-                }
-                catch { }
-                if (VisionHub.AnyConnected) return true;
-                try { await Task.Delay(RetryDelayMs, ct).ConfigureAwait(false); } catch { return false; }
-            }
-            return false;
-        }
-
-        private static void RaiseAlarm()
-        {
-            _alarmActive = true;
+            AppSettings cfg = AppSettingsStore.Current;
+            if (ct.IsCancellationRequested || IsVisionLinkBypassed()) return false;
             try
             {
-                _alarm = AlarmManager.Raise(AlarmSeverity.Error, AlarmCode, Source,
-                    "Vision PC 연결 끊김 — 재연결 3회 실패. 네트워크/Vision 프로그램 확인 후 알람 해제 시 재시도합니다.");
+                await VisionHub.ConnectAllAsync(cfg.VisionHost,
+                    cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
+                    cfg.VisionMainPort, cfg.VisionFrontSidePort, cfg.VisionRearSidePort).ConfigureAwait(false);
             }
-            catch { }
-        }
-
-        private static void ClearMyAlarm()
-        {
-            try
+            catch (Exception ex)
             {
-                if (_alarm != null && _alarm.IsActive)
-                    AlarmManager.Clear(_alarm.Id);
+                // 재연결 실패는 예상된 상황 — 매 시도 로그 기록 시 I/O 부하가 커지므로 Debug 채널로만.
+                System.Diagnostics.Debug.WriteLine("[VisionReconnect] attempt failed: " + ex.Message);
             }
-            catch { }
-            _alarm = null;
-            _alarmActive = false;
+            return VisionHub.AnyConnected;
         }
 
         private static void SafeOnReconnected()
         {
-            try { _onReconnected?.Invoke(); } catch { }
+            try { _onReconnected?.Invoke(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionReconnect] onReconnected: " + ex.Message); }
         }
 
         private static bool IsVisionLinkBypassed()
         {
-            var settings = AppSettingsStore.Current;
+            AppSettings settings = AppSettingsStore.Current;
             return settings != null && !settings.UseVision;
         }
     }

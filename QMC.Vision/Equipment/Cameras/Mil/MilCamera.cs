@@ -401,9 +401,10 @@ namespace QMC.Vision.Cameras.Mil
             // IsGrabbing=false 는 락 밖에서 먼저 — 진행 중인 훅이 즉시 빠지게(RaiseFrame/UI 마샬링 차단).
             //   StartLive 가 락을 쥐고 있어도 새 프레임 발행부터 멈추게 한 뒤 직렬화 구간에 진입한다.
             IsGrabbing = false;
+            bool wasLive;
             lock (_liveCtl)
             {
-                bool wasLive = _continuousOn;
+                wasLive = _continuousOn;
                 LiveLog("StopLive enter: continuousOn=" + _continuousOn + ", frames=" + _liveFrameCount);
 
                 // 순서 중요 — MdigHalt 보다 먼저 훅 해제로 새 콜백 차단. 이렇게 해야 MdigHalt 가
@@ -437,6 +438,8 @@ namespace QMC.Vision.Cameras.Mil
                 }
                 LiveLog("StopLive done");
             }
+            // 실제로 라이브였을 때만 UI 동기화 통지(그랩 자동 정지 포함). 락 밖에서 발행 — 핸들러 재진입 데드락 방지.
+            if (wasLive) RaiseLiveStopped();
         }
 
         /// <summary>타임아웃으로 백그라운드에 남은 직전 MdigHalt 완료 대기. true=완료(또는 진행 중 halt 없음).</summary>

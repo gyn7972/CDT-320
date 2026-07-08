@@ -21,5 +21,9 @@ namespace QMC.Common.Ui.Controls
 
         /// <summary>라이브 정지.</summary>
         void StopLive();
+
+        /// <summary>라이브가 (그랩에 의한 자동 정지 등) 외부 요인으로 정지됐을 때 발화.
+        /// <see cref="CameraViewBase"/> 가 이를 구독해 툴바 Live 버튼 상태를 자동 해제한다. 백그라운드 스레드일 수 있음.</summary>
+        event Action LiveStopped;
     }
 }

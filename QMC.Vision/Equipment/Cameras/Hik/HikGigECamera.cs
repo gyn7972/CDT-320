@@ -199,12 +199,14 @@ namespace QMC.Vision.Cameras.Hik
 
         public override void StopLive()
         {
+            bool wasLive = IsGrabbing;
             _liveRun = false;
             try { _liveThread?.Join(1000); } catch { }
             _liveThread = null;
             try { InvokeFirst(new[] { "MV_CC_StopGrabbing_NET", "MV_CC_StopGrabbing" }, Array.Empty<object>()); } catch { }
             IsGrabbing = false;
             _frameCallbackDelegate = null;
+            if (wasLive) RaiseLiveStopped();
         }
 
         public override void TriggerSoftware()

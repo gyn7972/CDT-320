@@ -2318,6 +2318,12 @@ namespace QMC.CDT320.Interlocks
             string targetName)
         {
             PickerWorkZone byName = ParseZone(targetName);
+            PickerWorkZone explicitProcessZone = ResolveExplicitProcessZoneIntent(targetName);
+            // 인터락 조건: ColletCal/FocusCal처럼 Process 존을 명시한 이동은 활성 작업영역 점유와 일치할 때 Encoder Input range보다 우선한다.
+            if (explicitProcessZone != PickerWorkZone.Unknown &&
+                IsActiveProcessWorkArea(machine, isFront, explicitProcessZone))
+                return explicitProcessZone;
+
             if (targetX.HasValue)
             {
                 PickerWorkZone byPosition = ResolveXZoneByPositionWithContext(machine, isFront, targetX.Value);
@@ -2567,6 +2573,13 @@ namespace QMC.CDT320.Interlocks
                 if (x == null)
                     return PickerWorkZone.Unknown;
 
+                PickerWorkZone activeProcessZone;
+                string activeProcessOwner;
+                // 인터락 조건: Process 작업영역을 점유하고 PickerY가 들어온 상태면 현재 X encoder가 Input range여도 Process 존으로 본다.
+                if (!IsPickerYAtAvoid(machine, isFront) &&
+                    TryGetActiveProcessWorkArea(machine, isFront, out activeProcessZone, out activeProcessOwner))
+                    return activeProcessZone;
+
                 PickerWorkZone xZone = ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
                 if (xZone != PickerWorkZone.Unknown)
                     return xZone;
@@ -2625,6 +2638,45 @@ namespace QMC.CDT320.Interlocks
             }
 
             return PickerWorkZone.Unknown;
+        }
+
+        // 인터락 기준: targetName에 명시된 Bottom/Side/Process 작업존 의도를 Process 대표 존으로 해석한다.
+        private static PickerWorkZone ResolveExplicitProcessZoneIntent(string targetName)
+        {
+            if (!HasExplicitPickerZoneIntent(targetName))
+                return PickerWorkZone.Unknown;
+
+            PickerWorkZone zone = ParseZone(targetName);
+            return IsProcessZone(zone) ? NormalizeInterlockZone(zone) : PickerWorkZone.Unknown;
+        }
+
+        // 인터락 기준: 현재 Picker가 점유 중인 Process 작업영역이 요청 Process 존과 일치하는지 확인한다.
+        private static bool IsActiveProcessWorkArea(CDT320_Machine machine, bool isFront, PickerWorkZone requestedZone)
+        {
+            PickerWorkZone activeZone;
+            string owner;
+            if (!TryGetActiveProcessWorkArea(machine, isFront, out activeZone, out owner))
+                return false;
+
+            return IsSameInterlockZone(activeZone, requestedZone);
+        }
+
+        // 인터락 기준: Picker가 Bottom/Side 계열 Process 작업영역을 점유 중인지 조회한다.
+        private static bool TryGetActiveProcessWorkArea(CDT320_Machine machine, bool isFront, out PickerWorkZone zone, out string owner)
+        {
+            zone = PickerWorkZone.Unknown;
+            owner = string.Empty;
+            if (machine == null)
+                return false;
+
+            PickerWorkZone activeZone;
+            string activeOwner;
+            if (!TryGetPickerWorkArea(isFront, out activeZone, out activeOwner) || !IsProcessZone(activeZone))
+                return false;
+
+            zone = NormalizeInterlockZone(activeZone);
+            owner = activeOwner;
+            return true;
         }
 
         // 인터락 기준: PickerY 실제 위치가 속한 작업 존을 해석한다.

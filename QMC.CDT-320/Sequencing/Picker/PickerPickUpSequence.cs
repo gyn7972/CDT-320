@@ -1080,6 +1080,9 @@ namespace QMC.CDT320.Sequencing
                     ", inputVisionX=" + _pickTarget.TargetX +
                     ", inputStageY=" + _pickTarget.TargetY +
                     ", formula=" + coordinate.Formula +
+                    ", cameraOffsetX=" + cameraOffsetX +
+                    ", cameraOffsetY=" + cameraOffsetY +
+                    ", cameraOffsetIncludedInInputVisionToPicker=True" +
                     ", alignOffsetX=" + alignOffsetX +
                     ", alignOffsetY=" + alignOffsetY +
                     ", visionTotalOffsetX=" + _visionOffset.DeltaX +

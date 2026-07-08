@@ -34,7 +34,11 @@ namespace QMC.CDT320.VisionComm
         /// <summary>상태 메시지(촬상 OK / READY 거부 / 미연결 등). UI 표시용.</summary>
         public event Action<string> Status;
 
+        /// <summary>라이브가 (Vision 의 그랩 자동 정지에 따라) 종료됐을 때 발화 — CameraViewBase 가 툴바 Live 버튼을 해제한다.</summary>
+        public event Action LiveStopped;
+
         private void OnStatus(string s) { var h = Status; if (h != null) try { h(s); } catch { } }
+        private void RaiseLiveStopped() { var h = LiveStopped; if (h != null) try { h(); } catch { } }
 
         public VisionViewerSource(string host, int port, int connectTimeoutMs = 2000, VisionTcpClient commandClient = null)
         {
@@ -66,6 +70,7 @@ namespace QMC.CDT320.VisionComm
             _thread = null;
             // 라이브였을 때만 Vision 카메라 Live 정지 요청(재구성 시 불필요한 명령 방지).
             if (was) { try { RequestVisionLive(false); } catch { } }
+            if (was) RaiseLiveStopped();
         }
 
         /// <summary>Vision 카메라 Live(연속 촬상) 시작/정지를 CAM_SWITCH 로 요청.
@@ -112,6 +117,7 @@ namespace QMC.CDT320.VisionComm
                 if (!ack) { OnStatus("촬상 거부 — Vision READY(O) 상태에서는 불가. READY 해제 후 다시 시도"); return null; }
                 OnStatus("촬상 OK");
                 // 라이브 중이면 RecvLoop 가 새 프레임을 표시하므로 여기선 null. 아니면 단발로 받아 반환.
+                //   (라이브 중 그랩은 CameraViewBase 가 StopLive 를 먼저 수행하므로 여기 도달 시 _running=false 이다.)
                 if (_running) return null;
                 Bitmap frame = ReadSingleFrame();
                 if (frame == null)
