@@ -5,6 +5,9 @@ using QMC.CDT320.Interlocks;
 using QMC.Common.IO;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
+using QMC.CDT_320.Ui.Dialogs;
+using QMC.CDT320.Calibration;
+using QMC.CDT320.Sequencing;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -183,6 +186,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ManualActionItem.Create("DIE BOTTOM POSITION", () => ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"))),
                     ManualActionItem.Create("DIE SIDE POSITION", () => ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"))),
                     ManualActionItem.Create("DIE PLACE POSITION", () => ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"))),
+                    ManualActionItem.Create("APPLIED ZONE MOVE", ShowAppliedZoneMoveDialogAsync),
 
                     ManualActionItem.Create("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
                 });
@@ -813,6 +817,181 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (r != 0) return AbortSeq(kind, "Z 하강 실패 (CDA/알람 확인)");
 
             return 0;
+        }
+
+        private async Task ShowAppliedZoneMoveDialogAsync()
+        {
+            using (PickerAppliedZoneMoveDialog dialog = new PickerAppliedZoneMoveDialog("Front Applied Zone Move"))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+
+                int pickerNo = dialog.PickerNo;
+                string zoneText = dialog.ZoneText;
+                string positionArrayName = dialog.PositionArrayName;
+                string actionName = "APPLIED " + zoneText + " PICKER #" + pickerNo;
+                await ConfirmAppliedZoneMoveAsync(actionName, pickerNo, positionArrayName, zoneText).ConfigureAwait(true);
+            }
+        }
+
+        private async Task ConfirmAppliedZoneMoveAsync(string actionName, int pickerNo, string positionArrayName, string zoneText)
+        {
+            if (unit == null)
+                return;
+
+            if (ManualMoveGuard.BlockIfNotReady(this, "Front Picker"))
+                return;
+
+            PickerAxis zAxis = ResolvePickerZAxis(pickerNo - 1);
+            PickerAxis tAxis = ResolvePickerTAxis(pickerNo - 1);
+            if (!EnsureTargetAxesHomeDone(actionName, new[] { PickerAxis.PickerX, PickerAxis.PickerY, tAxis, zAxis }))
+                return;
+
+            PickerCalibratedZoneTarget target = ResolveAppliedZoneTarget(pickerNo, positionArrayName);
+            DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                actionName + " 보정 적용 위치로 이동하시겠습니까?\r\n" +
+                "Picker #" + pickerNo + " / Zone=" + zoneText + "\r\n" +
+                "Final X=" + target.X.ToString("F3") + " mm\r\n" +
+                "Final Y=" + target.Y.ToString("F3") + " mm\r\n" +
+                "Final T=" + target.T.ToString("F3") + " deg\r\n" +
+                "Final Z=" + target.Z.ToString("F3") + " mm\r\n" +
+                "순서: Z 상승 -> Y 후진 -> T/X 이동 -> Y 전진 -> Z 하강\r\n" +
+                "\r\n축별 계산\r\n" +
+                PickerMotionTargetResolver.FormatZoneTargetByAxis(target, "\r\n"),
+                "Front Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            await RunSafeAsync(() => MoveAppliedZonePositionAsync(target, actionName, zoneText), actionName).ConfigureAwait(true);
+        }
+
+        private PickerCalibratedZoneTarget ResolveAppliedZoneTarget(int pickerNo, string positionArrayName)
+        {
+            return PickerMotionTargetResolver.ResolveCarryZoneTarget(
+                FindMachine(),
+                PickerSequenceSide.Front,
+                positionArrayName,
+                pickerNo - 1);
+        }
+
+        private async Task<int> MoveAppliedZonePositionAsync(PickerCalibratedZoneTarget target, string actionName, string zoneText)
+        {
+            if (unit == null || target == null)
+                return -1;
+
+            EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER-APPLIED-ZONE",
+                actionName + " target calculated. pickerNo=" + (target.PickerIndex + 1) +
+                ", zone=" + zoneText +
+                ", axisFormula=" + PickerMotionTargetResolver.FormatZoneTargetByAxis(target, " | "));
+
+            int r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerZAxes)).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "Z 상승 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                PickerAxis.PickerY,
+                unit.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                BuildAppliedZoneTargetName(target, "SafeY")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "Y 후진 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                target.PickerTAxis,
+                target.T,
+                BuildAppliedZoneTargetName(target, "T")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "T 이동 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                PickerAxis.PickerX,
+                target.X,
+                BuildAppliedZoneTargetName(target, "X")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "X 이동 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                PickerAxis.PickerY,
+                target.Y,
+                BuildAppliedZoneTargetName(target, "YForward")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "Y 전진 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                target.PickerZAxis,
+                target.Z,
+                BuildAppliedZoneTargetName(target, "ZDown")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "Z 하강 실패");
+
+            if (!IsPickerAxisInPosition(PickerAxis.PickerX, target.X) ||
+                !IsPickerAxisInPosition(PickerAxis.PickerY, target.Y) ||
+                !IsPickerAxisInPosition(target.PickerTAxis, target.T) ||
+                !IsPickerAxisInPosition(target.PickerZAxis, target.Z))
+            {
+                return AbortSeq(actionName,
+                    "최종 위치 확인 실패. " +
+                    "X축[" + BuildAxisState(PickerAxis.PickerX, target.X) + "] / " +
+                    "Y축[" + BuildAxisState(PickerAxis.PickerY, target.Y) + "] / " +
+                    "T축[" + BuildAxisState(target.PickerTAxis, target.T) + "] / " +
+                    "Z축[" + BuildAxisState(target.PickerZAxis, target.Z) + "]");
+            }
+
+            EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER-APPLIED-ZONE",
+                actionName + " move complete. axisFormula=" +
+                PickerMotionTargetResolver.FormatZoneTargetByAxis(target, " | ") +
+                ", axisState=X축[" + BuildAxisState(PickerAxis.PickerX, target.X) + "]" +
+                ", Y축[" + BuildAxisState(PickerAxis.PickerY, target.Y) + "]" +
+                ", T축[" + BuildAxisState(target.PickerTAxis, target.T) + "]" +
+                ", Z축[" + BuildAxisState(target.PickerZAxis, target.Z) + "]" +
+                " - Ok");
+            return 0;
+        }
+
+        private Task<int> MovePickerAxisTargetAsync(PickerAxis axis, double target, string targetName)
+        {
+            return unit.MovePickerAxis(
+                axis,
+                target,
+                jogAxisMoveControl.SelectedSpeedType,
+                jogAxisMoveControl.GetSelectedSpeed(ResolvePickerBaseAxis(axis)),
+                targetName);
+        }
+
+        private bool IsPickerAxisInPosition(PickerAxis axis, double target)
+        {
+            BaseAxis item = ResolvePickerBaseAxis(axis);
+            if (item == null)
+                return false;
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return unit.IsFrontPickerAxisInPosition(axis, target, tolerance);
+        }
+
+        private string BuildAxisState(PickerAxis axis, double target)
+        {
+            BaseAxis item = ResolvePickerBaseAxis(axis);
+            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return AxisMoveWaiter.BuildAxisState(item, target, tolerance);
+        }
+
+        private static string BuildAppliedZoneTargetName(PickerCalibratedZoneTarget target, string phase)
+        {
+            return target.PositionArrayName + "[" + target.PickerIndex + "];RecipeAppliedZoneMove;PickerZone=" +
+                   target.ZonePositionName + ";PickerPhase=" + phase;
+        }
+
+        private static PickerAxis ResolvePickerTAxis(int pickerIndex)
+        {
+            if (pickerIndex <= 0) return PickerAxis.PickerT0;
+            if (pickerIndex == 1) return PickerAxis.PickerT1;
+            if (pickerIndex == 2) return PickerAxis.PickerT2;
+            return PickerAxis.PickerT3;
+        }
+
+        private static PickerAxis ResolvePickerZAxis(int pickerIndex)
+        {
+            if (pickerIndex <= 0) return PickerAxis.PickerZ0;
+            if (pickerIndex == 1) return PickerAxis.PickerZ1;
+            if (pickerIndex == 2) return PickerAxis.PickerZ2;
+            return PickerAxis.PickerZ3;
         }
 
         private async Task<int> RunFrontPickerZ1CycleTestAsync()

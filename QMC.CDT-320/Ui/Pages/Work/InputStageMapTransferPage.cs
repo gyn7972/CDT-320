@@ -2548,7 +2548,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetPickerY, targetStageY, targetNeedleX, speedType),
+                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetPickerY, targetStageY, targetNeedleX, target.Formula, speedType),
                     ResolvePickerManualMoveTimeoutMs(),
                     ResolvePickerMoveTitle(side, pickerNo) + " 선택 다이 좌표 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " die move timeout")).ConfigureAwait(true);
@@ -2778,6 +2778,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double targetPickerY,
             double targetStageY,
             double targetNeedleX,
+            string targetFormula,
             JogSpeedType speedType)
         {
             try
@@ -2807,6 +2808,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", pickerY=" + targetPickerY.ToString("F6") +
                     ", stageY=" + targetStageY.ToString("F6") +
                     ", needleX=" + targetNeedleX.ToString("F6") +
+                    ", formula=" + (targetFormula ?? string.Empty) +
                     ", formulaNeedleX=dieVisionX(" + entry.PosX.ToString("F6") +
                     ")-NeedleXToVisionXOffset(" +
                     InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F6") +
@@ -2900,10 +2902,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " move complete. die=" + BuildSelectedDieText(entry) +
-                    ", pickerX=" + targetPickerX.ToString("F3") +
-                    ", pickerY=" + targetPickerY.ToString("F3") +
-                    ", needleX=" + targetNeedleX.ToString("F3") +
-                    ", stageY=" + targetStageY.ToString("F3") + " - Ok");
+                    ", formula=" + (targetFormula ?? string.Empty) +
+                    ", pickerXState=" + BuildPickerAxisState(host, side, PickerAxis.PickerX, targetPickerX) +
+                    ", pickerYState=" + BuildPickerAxisState(host, side, PickerAxis.PickerY, targetPickerY) +
+                    ", needleXState=" + BuildAxisStateForLog("NeedleX", stage.NeedleBlockX, targetNeedleX) +
+                    ", stageYState=" + BuildAxisStateForLog("StageY", stage.StageY, targetStageY) +
+                    " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -4111,6 +4115,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ? axis.Config.InPositionTolerance
                 : 0.05;
             return Math.Abs(axis.ActualPosition - target) <= tolerance && !axis.IsAlarm && !axis.IsMoving;
+        }
+
+        private static string BuildAxisStateForLog(string axisName, BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return "axis=" + axisName + ", target=" + target.ToString("F6") + ", state=axis-not-found";
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axisName +
+                   ", name=" + axis.Name +
+                   ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                   ", actual=" + axis.ActualPosition.ToString("F6") +
+                   ", target=" + target.ToString("F6") +
+                   ", tolerance=" + tolerance.ToString("F6");
+        }
+
+        private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            return BuildAxisStateForLog(axis.ToString(), ResolvePickerAxis(host, side, axis), target);
         }
 
         private static bool IsPickerAxisInPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)

@@ -195,6 +195,8 @@ namespace QMC.CDT320.Calibration
             PickerCalibrationOffset collet = includeColletCalibrationOffset
                 ? ResolvePickerCalibrationOffset(machine, side, index)
                 : new PickerCalibrationOffset();
+            // Collet theta is converted into the picker T home zero. Do not add it again to motion targets.
+            double appliedColletT = 0.0;
 
             PickerCalibratedZoneTarget target = new PickerCalibratedZoneTarget
             {
@@ -214,16 +216,16 @@ namespace QMC.CDT320.Calibration
                 RuntimeOffsetT = runtimeT,
                 ColletOffsetX = collet.X,
                 ColletOffsetY = collet.Y,
-                ColletOffsetT = collet.T
+                ColletOffsetT = appliedColletT
             };
             target.X = teachingX + pitchOffsetX + runtimeX + collet.X;
             target.Y = teachingY + runtimeY + collet.Y;
-            target.T = teachingT + runtimeT + collet.T;
+            target.T = teachingT + runtimeT + appliedColletT;
             target.Z = teachingZ;
             target.Formula =
                 "X=teachingX(" + F(teachingX) + ")+pitchX(" + F(pitchOffsetX) + ")+runtimeX(" + F(runtimeX) + ")+colletX(" + F(collet.X) + ")=" + F(target.X) +
                 " / Y=teachingY(" + F(teachingY) + ")+runtimeY(" + F(runtimeY) + ")+colletY(" + F(collet.Y) + ")=" + F(target.Y) +
-                " / T=teachingT(" + F(teachingT) + ")+runtimeT(" + F(runtimeT) + ")+colletT(" + F(collet.T) + ")=" + F(target.T) +
+                " / T=teachingT(" + F(teachingT) + ")+runtimeT(" + F(runtimeT) + ")+colletT(homeZeroApplied)(" + F(appliedColletT) + ")=" + F(target.T) +
                 " / Z=teachingZ(" + F(teachingZ) + ")";
             return target;
         }
@@ -273,6 +275,8 @@ namespace QMC.CDT320.Calibration
             double runtimeX = runtimeOffset != null ? runtimeOffset.AlignOffsetX : 0.0;
             double runtimeY = runtimeOffset != null ? runtimeOffset.AlignOffsetY : 0.0;
             double runtimeT = runtimeOffset != null ? runtimeOffset.AlignOffsetT : 0.0;
+            // Collet theta is converted into the picker T home zero. Do not add it again to motion targets.
+            double appliedColletT = 0.0;
             double pickerYTarget = pickerYTeaching + runtimeY + collet.Y;
             double pickerYForward = Math.Abs(pickerYTarget);
             PickerCalibratedManualOutputTarget target = new PickerCalibratedManualOutputTarget
@@ -285,18 +289,18 @@ namespace QMC.CDT320.Calibration
                 RuntimeOffsetT = runtimeT,
                 ColletOffsetX = collet.X,
                 ColletOffsetY = collet.Y,
-                ColletOffsetT = collet.T
+                ColletOffsetT = appliedColletT
             };
             // 현재 기준: Picker별 Y 보정까지 포함한 최종 PickerY 전진량으로 OutputStageY를 보상한다.
             target.OutputStageY = slotY + outputVisionToPickerY - pickerYForward;
             target.PickerX = slotX + outputVisionToPickerX + runtimeX + collet.X;
             target.PickerY = pickerYTarget;
-            target.PickerT = pickerTTeaching + runtimeT + collet.T;
+            target.PickerT = pickerTTeaching + runtimeT + appliedColletT;
             target.Formula =
                 "OutputStageY=slotY(" + F(slotY) + ")+outputVisionToPickerY(" + F(outputVisionToPickerY) + ")-pickerYForward(abs(PickerY))(" + F(pickerYForward) + ")=" + F(target.OutputStageY) +
                 " / PickerX=slotX(" + F(slotX) + ")+outputVisionToPickerX(" + F(outputVisionToPickerX) + ")+runtimeX(" + F(runtimeX) + ")+colletX(" + F(collet.X) + ")=" + F(target.PickerX) +
                 " / PickerY=teachingY(" + F(pickerYTeaching) + ")+runtimeY(" + F(runtimeY) + ")+colletY(" + F(collet.Y) + ")=" + F(target.PickerY) +
-                " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(" + F(collet.T) + ")=" + F(target.PickerT);
+                " / PickerT=teachingT(" + F(pickerTTeaching) + ")+runtimeT(" + F(runtimeT) + ")+colletT(homeZeroApplied)(" + F(appliedColletT) + ")=" + F(target.PickerT);
             return target;
         }
 

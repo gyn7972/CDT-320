@@ -881,12 +881,12 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyInputStageWorkArea(request, WaferStageAxis.WaferY, "WaferStageY", out reason))
                     return false;
 
-                // 인터락 조건: FrontPicker Z축들이 Avoid 위치가 아니면 StageY 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
+                // 인터락 조건: FrontPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, true, "InputStageY", out reason))
                     return false;
 
-                // 인터락 조건: RearPicker Z축들이 Avoid 위치가 아니면 StageY 이동을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageY", "Rear", out reason))
+                // 인터락 조건: RearPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, false, "InputStageY", out reason))
                     return false;
 
                 return true;
@@ -927,12 +927,12 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyWaferFeederReadyForStageY(machine, "WaferStageT", out reason))
                     return false;
 
-                // 인터락 조건: FrontPicker Z축들이 Avoid 위치가 아니면 StageT 회전을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageT", "Front", out reason))
+                // 인터락 조건: FrontPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, true, "InputStageT", out reason))
                     return false;
 
-                // 인터락 조건: RearPicker Z축들이 Avoid 위치가 아니면 StageT 회전을 차단한다.
-                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageT", "Rear", out reason))
+                // 인터락 조건: RearPicker가 Input 영역 위험 상태일 때만 Z축 Avoid를 강제한다.
+                if (!VerifyPickerZAxesAvoidWhenInputRisk(machine, false, "InputStageT", out reason))
                     return false;
 
                 return true;
@@ -1874,6 +1874,123 @@ namespace QMC.CDT320.Interlocks
             {
                 if (string.Equals(movingName, names[i], System.StringComparison.OrdinalIgnoreCase))
                     return false;
+            }
+
+            return true;
+        }
+
+        // 인터락 항목: Picker가 Input 영역 위험 상태일 때만 해당 PickerZ 전체 Avoid를 강제한다.
+        private static bool VerifyPickerZAxesAvoidWhenInputRisk(CDT320_Machine machine, bool isFront, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                string prefix = isFront ? "Front" : "Rear";
+                PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                    machine,
+                    isFront,
+                    PickerWorkZone.Input,
+                    null,
+                    movingName + ";InputStagePickerZRiskCheck");
+
+                if (!IsPickerInputRiskForZAvoid(state))
+                    return true;
+
+                string detail = state != null ? state.Describe() : prefix + "Picker state=null";
+                if (isFront)
+                    return VerifyPickerZAxesAvoidForInputRisk(
+                        machine != null ? machine.PickerFrontUnit : null,
+                        movingName,
+                        prefix,
+                        detail,
+                        out reason);
+
+                return VerifyPickerZAxesAvoidForInputRisk(
+                    machine != null ? machine.PickerRearUnit : null,
+                    movingName,
+                    prefix,
+                    detail,
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 이동 불가: Picker Input 영역 위험 상태 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 기준: Input 영역에서 PickerY가 실제 돌출/이동 중이거나 작업영역/Unknown 위험이면 PickerZ Avoid 강제 대상이다.
+        private static bool IsPickerInputRiskForZAvoid(PickerZoneTransportState state)
+        {
+            if (state == null)
+                return false;
+
+            if (state.UnknownUnsafe || state.WorkAreaBlocksTransport)
+                return true;
+
+            bool inputZoneActive =
+                PickerZoneInterlockRules.IsSameInterlockZone(state.CurrentZone, PickerWorkZone.Input) ||
+                PickerZoneInterlockRules.IsSameInterlockZone(state.TargetZone, PickerWorkZone.Input);
+
+            if (!inputZoneActive)
+                return false;
+
+            return !state.YAvoid || IsAxisMoving(state.PickerY);
+        }
+
+        // 인터락 기준: 축이 이동 중인지 판단한다.
+        private static bool IsAxisMoving(BaseAxis axis)
+        {
+            return axis != null && axis.IsMoving;
+        }
+
+        // 인터락 항목: Input 위험 상태인 Front PickerZ 전체가 Avoid 위치인지 확인한다.
+        private static bool VerifyPickerZAxesAvoidForInputRisk(PickerFrontUnit picker, string movingName, string prefix, string detail, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: " + prefix + zAxis +
+                        "가 Avoid 위치가 아닙니다. " + prefix +
+                        "Picker가 Input 영역 위험 상태입니다. " + detail,
+                        out reason);
+            }
+
+            return true;
+        }
+
+        // 인터락 항목: Input 위험 상태인 Rear PickerZ 전체가 Avoid 위치인지 확인한다.
+        private static bool VerifyPickerZAxesAvoidForInputRisk(PickerRearUnit picker, string movingName, string prefix, string detail, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: " + prefix + zAxis +
+                        "가 Avoid 위치가 아닙니다. " + prefix +
+                        "Picker가 Input 영역 위험 상태입니다. " + detail,
+                        out reason);
             }
 
             return true;

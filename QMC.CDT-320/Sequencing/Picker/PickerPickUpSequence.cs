@@ -43,6 +43,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetNeedleX;
         private double _targetNeedleZ;
         private double _targetEjectPinZ;
+        // Formula from the central pick target resolver; kept until final verify logging.
+        private string _targetFormula = "";
         private bool _diePicked;
         private SequenceResourceLease _inputStageLease;
         private PickUpBatchItem _currentBatchItem;
@@ -63,6 +65,8 @@ namespace QMC.CDT320.Sequencing
             public double TargetNeedleX;
             public double TargetNeedleZ;
             public double TargetEjectPinZ;
+            // Formula snapshot for this picker item so batch cursor changes do not hide the original calculation.
+            public string TargetFormula;
             public bool DiePicked;
         }
 
@@ -1021,59 +1025,36 @@ namespace QMC.CDT320.Sequencing
                         "Input die vision offset is missing before target calculation. die=" + _currentDieId +
                         ", pickerNo=" + _currentPickerNo);
 
-                double inputVisionToPickerX;
-                double inputVisionToPickerY;
-                string offsetReason;
-                if (!TryResolveInputVisionToPickerOffsets(
-                    _currentPickerIndex,
-                    out inputVisionToPickerX,
-                    out inputVisionToPickerY,
-                    out offsetReason))
-                {
-                    return Fail("PICKER-PICKUP-COORD-OFFSET", Name,
-                        "InputVision to picker coordinate offset resolve failed. " +
-                        "side=" + Side +
-                        ", pickerNo=" + _currentPickerNo +
-                        ", pickerIndex=" + _currentPickerIndex +
-                        ", die=" + _currentDieId +
-                    ", reason=" + offsetReason);
-                }
-
-                double cameraOffsetX;
-                double cameraOffsetY;
-                InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
-                    Context != null ? Context.Machine : null,
-                    out cameraOffsetX,
-                    out cameraOffsetY);
                 // 다이맵 좌표에는 Input Vision 얼라인 X/Y가 이미 반영되어 있으므로 Pick 이동에서 다시 더하지 않는다.
                 double alignOffsetX = 0.0;
                 double alignOffsetY = 0.0;
                 double alignOffsetT = _visionOffset.DeltaTheta;
 
-                PickCoordinateResult coordinate = DieCoordinateTransformService.CalculatePickTarget(
-                    Name,
+                PickCoordinateResult coordinate;
+                string coordinateReason;
+                if (!PickerMotionTargetResolver.TryCalculateInputPickTarget(
+                    Context != null ? Context.Machine : null,
                     Side,
                     _currentPickerIndex,
+                    Name,
                     _currentDieId,
                     _pickTarget.TargetX,
                     _pickTarget.TargetY,
-                    inputVisionToPickerX,
-                    inputVisionToPickerY,
-                    ResolvePickerRuntimeAlignOffsetX(_currentPickerIndex),
-                    ResolvePickerRuntimeAlignOffsetY(_currentPickerIndex),
-                    ResolvePickerAlignOffsetT(_currentPickerIndex),
-                    cameraOffsetX,
-                    cameraOffsetY,
                     alignOffsetX,
                     alignOffsetY,
                     alignOffsetT,
-                    ResolveNeedleCalibrationOffsetX(),
-                    ResolveNeedleCalibrationOffsetY(),
-                    GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition"),
-                    GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition"),
-                    GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PickPosition"),
-                    ResolveNeedleZPickTarget(),
-                    ResolveEjectPinZPickTarget());
+                    true,
+                    out coordinate,
+                    out coordinateReason))
+                {
+                    return Fail("PICKER-PICKUP-COORD-OFFSET", Name,
+                        "Input pick coordinate target resolve failed. " +
+                        "side=" + Side +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", pickerIndex=" + _currentPickerIndex +
+                        ", die=" + _currentDieId +
+                        ", reason=" + coordinateReason);
+                }
 
                 _targetStageY = coordinate.StageY;
                 _targetPickerX = coordinate.PickerX;
@@ -1083,6 +1064,7 @@ namespace QMC.CDT320.Sequencing
                 _targetNeedleX = coordinate.NeedleX;
                 _targetNeedleZ = coordinate.NeedleZ;
                 _targetEjectPinZ = coordinate.EjectPinZ;
+                _targetFormula = coordinate.Formula;
 
                 WriteLog("PickerPickUpSequence",
                     Name + " calculated pick target. die=" + _currentDieId +
@@ -1097,11 +1079,7 @@ namespace QMC.CDT320.Sequencing
                     ", ejectPinZ=" + _targetEjectPinZ +
                     ", inputVisionX=" + _pickTarget.TargetX +
                     ", inputStageY=" + _pickTarget.TargetY +
-                    ", inputVisionToPickerOffsetX=" + inputVisionToPickerX +
-                    ", inputVisionToPickerOffsetY=" + inputVisionToPickerY +
                     ", formula=" + coordinate.Formula +
-                    ", cameraOffsetX=" + cameraOffsetX +
-                    ", cameraOffsetY=" + cameraOffsetY +
                     ", alignOffsetX=" + alignOffsetX +
                     ", alignOffsetY=" + alignOffsetY +
                     ", visionTotalOffsetX=" + _visionOffset.DeltaX +
@@ -1542,6 +1520,18 @@ namespace QMC.CDT320.Sequencing
             result = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleX, _targetNeedleX, "pick NeedleX");
             if (result != 0)
                 return result;
+
+            WriteLog("PickerPickTargetVerify",
+                Name + " pick target verified after move. die=" + _currentDieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickerIndex=" + _currentPickerIndex +
+                ", formula=" + (_targetFormula ?? "") +
+                ", stageYState=" + BuildInputStageAxisState(stage, WaferStageAxis.WaferY, _targetStageY) +
+                ", needleXState=" + BuildInputStageAxisState(stage, WaferStageAxis.NeedleX, _targetNeedleX) +
+                ", pickerXState=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                ", pickerYState=" + BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) +
+                ", pickerTState=" + BuildPickerAxisState(GetPickerTAxis(_currentPickerIndex), _targetPickerT) +
+                " - Ok");
 
             CurrentStep = PickerPickUpStep.MovePickerZPick;
             return 0;
@@ -3443,6 +3433,7 @@ namespace QMC.CDT320.Sequencing
             _targetNeedleX = item != null ? item.TargetNeedleX : 0.0;
             _targetNeedleZ = item != null ? item.TargetNeedleZ : 0.0;
             _targetEjectPinZ = item != null ? item.TargetEjectPinZ : 0.0;
+            _targetFormula = item != null ? item.TargetFormula ?? "" : "";
             _diePicked = item != null && item.DiePicked;
         }
 
@@ -3464,6 +3455,7 @@ namespace QMC.CDT320.Sequencing
             _currentBatchItem.TargetNeedleX = _targetNeedleX;
             _currentBatchItem.TargetNeedleZ = _targetNeedleZ;
             _currentBatchItem.TargetEjectPinZ = _targetEjectPinZ;
+            _currentBatchItem.TargetFormula = _targetFormula;
             _currentBatchItem.DiePicked = _diePicked || _currentBatchItem.DiePicked;
         }
 
@@ -3483,6 +3475,7 @@ namespace QMC.CDT320.Sequencing
             _targetNeedleX = 0.0;
             _targetNeedleZ = 0.0;
             _targetEjectPinZ = 0.0;
+            _targetFormula = "";
             _diePicked = false;
         }
 

@@ -1522,17 +1522,45 @@ namespace QMC.CDT320
             return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, "AvoidPosition"), bFine, "AvoidPosition");
         }
 
-        public Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
+        public async Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
             PickerAxis axis = GetPickerTAxis(index);
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
-            QMC.CDT320.Calibration.PickerCalibrationOffset calibrationOffset = ResolvePickerCalibrationOffset(index);
-            return MovePickerAxisNamed(
+            double teachingT = GetPickerTeachingPosition(axis, "PickPosition");
+            double runtimeT = offset.AlignOffsetT;
+            double targetT = teachingT + runtimeT;
+
+            // runtimeT is the current PickerAlignOffset.AlignOffsetT. Collet theta is already reflected in picker T home zero.
+            EventLogger.Write(EventKind.Event, "QMC", "PK-T-OFFSET-CALC",
+                Name + " MovePickerTToOffset target calculated. pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", axis=" + axis +
+                ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
+                ")+runtimeT(" + runtimeT.ToString("F6") +
+                ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6"));
+
+            int result = await MovePickerAxisNamed(
                 axis,
-                GetPickerTeachingPosition(axis, "PickPosition") + offset.AlignOffsetT + calibrationOffset.T,
+                targetT,
                 bFine,
-                "PickPosition");
+                "PickPosition").ConfigureAwait(false);
+
+            BaseAxis item = GetAxis(axis);
+            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            EventLogger.Write(EventKind.Event, "QMC", result == 0 ? "PK-T-OFFSET-OK" : "PK-T-OFFSET-FAIL",
+                Name + " MovePickerTToOffset move complete. result=" + result +
+                ", pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
+                ")+runtimeT(" + runtimeT.ToString("F6") +
+                ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6") +
+                ", " + AxisMoveWaiter.BuildAxisState(item, targetT, tolerance) +
+                (result == 0 ? " - Ok" : " - Failed"));
+
+            return result;
         }
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
@@ -2819,14 +2847,11 @@ namespace QMC.CDT320
 
         private QMC.CDT320.Calibration.PickerCalibratedZoneTarget ResolvePickerZoneTarget(string positionArrayName, int index)
         {
-            return QMC.CDT320.Calibration.CalibrationCoordinateService.ResolvePickerZoneTarget(
+            return QMC.CDT320.Sequencing.PickerMotionTargetResolver.ResolveCarryZoneTarget(
                 QMC.CDT320.Calibration.CalibrationCoordinateService.ResolveMachine(),
-                QMC.CDT320.Calibration.VisionFocusPickerSide.Rear,
+                QMC.CDT320.Sequencing.PickerSequenceSide.Rear,
                 positionArrayName,
-                index,
-                GetRuntimePickerOffset(index),
-                true,
-                true);
+                index);
         }
 
         private static string ResolveZonePositionName(string positionArrayName)

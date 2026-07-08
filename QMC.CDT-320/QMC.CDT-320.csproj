@@ -812,6 +812,9 @@
     <Compile Include="Ui\Dialogs\PickerZoneSetupDialog.Designer.cs">
       <DependentUpon>PickerZoneSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\PickerAppliedZoneMoveDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\InputPickerOffsetSetupDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -924,6 +927,7 @@
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
+    <Compile Include="Sequencing\Picker\PickerMotionTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />

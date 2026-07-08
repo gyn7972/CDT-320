@@ -37,6 +37,7 @@ namespace QMC.CDT320.Sequencing
 
     internal static class DieCoordinateTransformService
     {
+        // Calculates taught picker zone coordinates with the selected X/Y/T correction values.
         public static PickerZoneCoordinateResult CalculatePickerZoneTarget(
             string sequenceName,
             PickerSequenceSide side,
@@ -62,6 +63,8 @@ namespace QMC.CDT320.Sequencing
             return result;
         }
 
+        // Converts an InputVision-centered die position into InputStage, Needle, and Picker pickup targets.
+        // pickerAlignOffsetT is runtimeT; saved collet theta is not added because it is handled by picker T home zero.
         public static PickCoordinateResult CalculatePickTarget(
             string sequenceName,
             PickerSequenceSide side,
@@ -127,6 +130,7 @@ namespace QMC.CDT320.Sequencing
             return side == PickerSequenceSide.Rear ? -offsetY : offsetY;
         }
 
+        // Converts an output slot position into OutputStage and Picker place targets using the carried picker correction.
         public static PlaceCoordinateResult CalculatePlaceTarget(
             string sequenceName,
             PickerSequenceSide side,

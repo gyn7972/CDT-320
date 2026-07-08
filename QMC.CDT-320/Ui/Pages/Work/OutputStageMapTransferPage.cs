@@ -36,6 +36,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public double PickerY { get; set; }
             public double PickerYForward { get; set; }
             public double PickerT { get; set; }
+            public string Formula { get; set; }
         }
 
         public OutputStageMapTransferPage() : this("work.page.outputMap")
@@ -1208,6 +1209,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
                     "PickerY Forward=" + targets.PickerYForward.ToString("F3") + " mm\r\n" +
                     "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
+                    "Formula=" + (targets.Formula ?? string.Empty) + "\r\n" +
                     "PickerZ는 이동하지 않습니다.",
                     "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
@@ -1333,10 +1335,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " output place view move complete. slot=" + BuildEntryMapText(entry) +
-                    ", stageY=" + targets.OutputStageY.ToString("F3") +
-                    ", pickerX=" + targets.PickerX.ToString("F3") +
-                    ", pickerY=" + targets.PickerY.ToString("F3") +
-                    ", pickerT=" + targets.PickerT.ToString("F3") + " - Ok");
+                    ", formula=" + (targets.Formula ?? string.Empty) +
+                    ", outputStageYState=" + unit.BuildStageAxisState(yAxis, targets.OutputStageY) +
+                    ", pickerXState=" + BuildPickerAxisState(host, side, PickerAxis.PickerX, targets.PickerX) +
+                    ", pickerYState=" + BuildPickerAxisState(host, side, PickerAxis.PickerY, targets.PickerY) +
+                    ", pickerTState=" + BuildPickerAxisState(host, side, tAxis, targets.PickerT) +
+                    " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -1613,28 +1617,29 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
                 }
 
-                PickerAlignOffset alignOffset = ResolveRuntimePickerOffset(host, side, pickerIndex);
-                PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                PickerCalibratedManualOutputTarget calibratedTarget =
-                    CalibrationCoordinateService.ResolveManualOutputMapTarget(
+                PlaceCoordinateResult calibratedTarget =
+                    PickerMotionTargetResolver.CalculateOutputPlaceTarget(
                         host.Machine,
-                        ToVisionFocusPickerSide(side),
+                        side,
                         pickerIndex,
+                        "OutputStageMapTransferPage.ManualOutputMap",
+                        entry.DieUid,
+                        outputSide,
+                        0.0,
                         entry.PosX,
                         entry.PosY,
+                        0.0,
                         offsetX,
-                        offsetY,
-                        alignOffset,
-                        GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition"),
-                        GetPickerTeachingPosition(host, side, tAxis, "PlacePosition"));
+                        offsetY);
 
                 targets = new OutputPlaceManualTargets
                 {
                     OutputStageY = calibratedTarget.OutputStageY,
                     PickerX = calibratedTarget.PickerX,
                     PickerY = calibratedTarget.PickerY,
-                    PickerYForward = calibratedTarget.PickerYForward,
-                    PickerT = calibratedTarget.PickerT
+                    PickerYForward = Math.Abs(calibratedTarget.PickerY),
+                    PickerT = calibratedTarget.PickerT,
+                    Formula = calibratedTarget.Formula
                 };
                 return true;
             }
@@ -1737,6 +1742,47 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             PickerRearUnit rear = host.Machine.PickerRearUnit;
             return rear != null && rear.IsRearPickerAxisInPosition(axis, target, ResolvePickerAxisTolerance(rear, axis));
+        }
+
+        private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            BaseAxis item = ResolvePickerAxis(host, side, axis);
+            if (item == null)
+                return "axis=" + axis + ", target=" + target.ToString("F6") + ", state=axis-not-found";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axis +
+                   ", name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition.ToString("F6") +
+                   ", target=" + target.ToString("F6") +
+                   ", tolerance=" + tolerance.ToString("F6");
+        }
+
+        private static BaseAxis ResolvePickerAxis(Form1 host, PickerSequenceSide side, PickerAxis axis)
+        {
+            if (host == null || host.Machine == null)
+                return null;
+
+            BaseAxis item;
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (front != null && front.Axes != null && front.Axes.TryGetValue(axis, out item))
+                    return item;
+                return null;
+            }
+
+            PickerRearUnit rear = host.Machine.PickerRearUnit;
+            if (rear != null && rear.Axes != null && rear.Axes.TryGetValue(axis, out item))
+                return item;
+
+            return null;
         }
 
         private static double ResolvePickerAxisTolerance(PickerFrontUnit picker, PickerAxis axis)

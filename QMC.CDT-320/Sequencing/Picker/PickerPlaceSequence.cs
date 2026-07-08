@@ -24,6 +24,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private double _targetPickerZ;
         private double _targetOutputStageY;
+        // Formula from the central place target resolver; logged after XYT/Z final position checks.
+        private string _targetFormula = "";
         private double _outputVisionToPickerX;
         private double _outputVisionToPickerY;
         private string _placedDieId = "";
@@ -891,30 +893,26 @@ namespace QMC.CDT320.Sequencing
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
                 : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
-            PlaceCoordinateResult coordinate = DieCoordinateTransformService.CalculatePlaceTarget(
-                Name,
+            PlaceCoordinateResult coordinate = PickerMotionTargetResolver.CalculateOutputPlaceTarget(
+                Context != null ? Context.Machine : null,
                 Side,
                 _currentPickerIndex,
+                Name,
                 dieId,
                 _currentOutputSide,
                 outputStageBaseY,
+                _receiveTarget != null ? _receiveTarget.TargetX : 0.0,
                 _receiveTarget != null ? _receiveTarget.TargetY : 0.0,
                 OutputStage.Recipe.VisionX.ProcessPosition,
-                _receiveTarget != null ? _receiveTarget.TargetX : 0.0,
                 _outputVisionToPickerX,
-                _outputVisionToPickerY,
-                ResolvePickerAlignOffsetX(_currentPickerIndex),
-                ResolvePickerAlignOffsetY(_currentPickerIndex),
-                GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition"),
-                GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition"),
-                ResolvePickerAlignOffsetT(_currentPickerIndex),
-                GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition"));
+                _outputVisionToPickerY);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
             _targetPickerY = coordinate.PickerY;
             _targetPickerT = coordinate.PickerT;
             _targetPickerZ = coordinate.PickerZ;
+            _targetFormula = coordinate.Formula;
 
             WriteLog("PickerPlaceSequence",
                 Name + " calculated place target. die=" + dieId +
@@ -1866,6 +1864,20 @@ namespace QMC.CDT320.Sequencing
                     ", " + BuildPickerAxisState(tAxis, _targetPickerT));
             }
 
+            PickerAxis currentTAxis = GetPickerTAxis(_currentPickerIndex);
+            WriteLog("PickerPlaceTargetVerify",
+                Name + " place target verified after XYT move. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickerIndex=" + _currentPickerIndex +
+                ", outputSide=" + _currentOutputSide +
+                ", formula=" + (_targetFormula ?? "") +
+                ", outputStageYState=" + OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY) +
+                ", pickerXState=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                ", pickerYState=" + BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) +
+                ", pickerTState=" + BuildPickerAxisState(currentTAxis, _targetPickerT) +
+                ", pickerZTarget=" + _targetPickerZ.ToString("F6") +
+                " - Ok");
+
             if (_pickerZPlacedBySynchronizedArrival)
             {
                 PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
@@ -1875,6 +1887,14 @@ namespace QMC.CDT320.Sequencing
                         "Place 보간 이동 후 PickerZ 최종 위치 확인 실패. pickerNo=" + _currentPickerNo +
                         ", " + BuildPickerAxisState(zAxis, _targetPickerZ));
                 }
+
+                WriteLog("PickerPlaceTargetVerify",
+                    Name + " place synchronized Z target verified after move. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", formula=" + (_targetFormula ?? "") +
+                    ", pickerZState=" + BuildPickerAxisState(zAxis, _targetPickerZ) +
+                    " - Ok");
 
                 CurrentStep = PickerPlaceStep.VacuumOff;
                 return 0;

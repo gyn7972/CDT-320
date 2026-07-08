@@ -21,6 +21,7 @@ namespace QMC.CDT320.Sequencing
                 out reason);
         }
 
+        // Manual right-click input map moves use the same pick target formula as the automatic pickup sequence.
         public static PickCoordinateResult CalculateManualInputMapTarget(
             CDT320_Machine machine,
             PickerSequenceSide side,
@@ -32,34 +33,19 @@ namespace QMC.CDT320.Sequencing
             double inputVisionToPickerY,
             bool logFormula = false)
         {
-            double cameraOffsetX;
-            double cameraOffsetY;
-            TryResolveInputCameraToBottomOffsets(machine, out cameraOffsetX, out cameraOffsetY);
-
-            return DieCoordinateTransformService.CalculatePickTarget(
-                "InputPickerPickTargetResolver.ManualInputMap",
+            return PickerMotionTargetResolver.CalculateInputPickTarget(
+                machine,
                 side,
                 pickerIndex,
+                "InputPickerPickTargetResolver.ManualInputMap",
                 string.IsNullOrWhiteSpace(dieId) ? "" : dieId,
                 inputVisionX,
                 inputStageY,
                 inputVisionToPickerX,
                 inputVisionToPickerY,
-                ResolvePickerAlignOffsetX(machine, side, pickerIndex),
-                ResolvePickerAlignOffsetY(machine, side, pickerIndex),
-                ResolvePickerAlignOffsetT(machine, side, pickerIndex),
-                cameraOffsetX,
-                cameraOffsetY,
                 0.0,
                 0.0,
                 0.0,
-                ResolveNeedleCalibrationOffsetX(machine),
-                ResolveNeedleCalibrationOffsetY(machine),
-                ResolvePickerYPickTeaching(machine, side),
-                ResolvePickerTeachingPosition(machine, side, CalibrationCoordinateService.ResolvePickerTAxis(pickerIndex), "PickPosition"),
-                ResolvePickerTeachingPosition(machine, side, CalibrationCoordinateService.ResolvePickerZAxis(pickerIndex), "PickPosition"),
-                ResolveNeedleZPickTarget(machine),
-                ResolveEjectPinZPickTarget(machine),
                 logFormula);
         }
 
@@ -113,10 +99,11 @@ namespace QMC.CDT320.Sequencing
         public static double ResolvePickerAlignOffsetT(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             PickerAlignOffset runtime = ResolveRuntimePickerOffset(machine, side, pickerIndex);
-            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(machine, side, pickerIndex);
-            return (runtime != null ? runtime.AlignOffsetT : 0.0) + (calibration != null ? calibration.T : 0.0);
+            // runtimeT = PickerAlignOffset.AlignOffsetT. Collet theta is applied by picker T homing zero, not by move target math.
+            return runtime != null ? runtime.AlignOffsetT : 0.0;
         }
 
+        // Runtime offset is the temporary alignment value currently held by the selected picker unit.
         public static PickerAlignOffset ResolveRuntimePickerOffset(CDT320_Machine machine, PickerSequenceSide side, int pickerIndex)
         {
             if (machine == null || pickerIndex < 0)
