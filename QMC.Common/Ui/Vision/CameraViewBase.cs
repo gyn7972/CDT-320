@@ -182,7 +182,37 @@ namespace QMC.Common.Ui.Controls
         }
 
         /// <summary>Grab/Live 영상 소스 지정. null 이면 툴바 Grab/Live 비활성.</summary>
-        public void AttachSource(ICameraViewSource source) { _source = source; }
+        public void AttachSource(ICameraViewSource source)
+        {
+            if (ReferenceEquals(_source, source)) return;
+            if (_source != null) try { _source.LiveStopped -= OnSourceLiveStopped; } catch { }
+            _source = source;
+            if (_source != null) try { _source.LiveStopped += OnSourceLiveStopped; } catch { }
+        }
+
+        /// <summary>소스가 그랩 자동 정지 등으로 라이브를 멈췄을 때 — 툴바 Live 상태만 UI 스레드에서 해제한다.
+        /// (카메라는 이미 정지됐으므로 StopLive 재요청은 하지 않는다.)</summary>
+        private void OnSourceLiveStopped()
+        {
+            try
+            {
+                if (!IsHandleCreated || IsDisposed) { _live = false; return; }
+                BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (!_live) return;
+                        _live = false;
+                        if (_tbLive != null) _tbLive.Checked = false;
+                        System.Threading.Interlocked.Exchange(ref _liveBusy, 0);
+                        UpdateToolbarButtons();
+                        Invalidate();
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] LiveStopped UI 반영 실패: " + ex.Message); }
+                }));
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] LiveStopped 마샬링 실패: " + ex.Message); }
+        }
 
         /// <summary>라이브 시작/정지/단발 그랩을 코드에서 직접 제어(툴바 없이도 사용). 소스가 있어야 동작.</summary>
         public void StartLive() { DoToolbarLive(); }
@@ -212,6 +242,7 @@ namespace QMC.Common.Ui.Controls
         {
             if (disposing)
             {
+                if (_source != null) try { _source.LiveStopped -= OnSourceLiveStopped; } catch { }
                 if (_frame != null && !ReferenceEquals(_frame, _srcFrame)) { try { _frame.Dispose(); } catch { } }
                 try { _srcFrame?.Dispose(); } catch { }
                 _frame = null; _srcFrame = null;
@@ -281,7 +312,7 @@ namespace QMC.Common.Ui.Controls
         {
             bool live = _live;
             bool grabbing = System.Threading.Interlocked.CompareExchange(ref _grabBusy, 0, 0) == 1;
-            if (_tbGrab != null) _tbGrab.Enabled = !live && !grabbing;
+            if (_tbGrab != null) _tbGrab.Enabled = !grabbing;   // 라이브 중에도 Grab 허용 — 그랩이 Live 를 자동 정지한다.
             if (_tbLive != null) _tbLive.Enabled = !live && !grabbing;
             if (_tbStop != null) _tbStop.Enabled = live;
         }

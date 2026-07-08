@@ -451,6 +451,16 @@ namespace QMC.Vision.Modules
 
             if (Camera == null) return GrabResult.Fail("camera not assigned", Name);
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
+
+            // 카메라 그랩 시 Live(연속 촬상)가 켜져 있으면 무조건 정지 — 모든 실카메라 그랩(툴바 Grab·핸들러
+            //   EXPOSE/GRAB·시퀀스 MATCH/INSPECT·툴 그랩)이 이 관문을 지나므로 단발 그랩과 라이브가 겹치지 않는다.
+            //   StopLive 는 LiveStopped 를 발화 → UI 툴바 Live 버튼이 자동 해제된다.
+            if (Camera.IsGrabbing)
+            {
+                try { Camera.StopLive(); LogGrab("카메라 그랩 진입 — Live 자동 정지"); }
+                catch (Exception ex) { LogGrab("Live 자동 정지 실패: " + ex.Message); }
+            }
+
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
 
             // 실카메라 노출 종료(ExposureEnded) → ExposureDone(EPD) 승격 — 그랩 진행 중에만 허용.

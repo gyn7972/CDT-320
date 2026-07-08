@@ -136,7 +136,14 @@ namespace QMC.Vision.Ui.Pages
             base.OnVisibleChanged(e);
             if (IsDesignerMode() || _module == null) return;
             if (Visible) { UpdateRoiOverlay(); RefreshSessionView(); timerRefresh.Start(); }
-            else timerRefresh.Stop();
+            else
+            {
+                timerRefresh.Stop();
+                // 다른 도구/모듈/페이지로 이동해 이 페이지가 숨겨지면 툴바(camView) Live 도 정지
+                // (Inspector/VisionTargetPage 와 동일 정책 — 포커스 페이지도 커버).
+                try { if (camView != null && camView.IsLive) camView.StopLive(); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[FocusTargetPage] 숨김 시 Live 정지 실패: " + ex.Message); }
+            }
         }
 
         /// <summary>드래그 완료 콜백 — "AF{idx}" 종류면 현재 타깃의 ROI{idx+1} 로 저장 + 오버레이 갱신.</summary>

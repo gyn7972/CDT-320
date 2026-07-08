@@ -24,6 +24,9 @@ namespace QMC.Vision.Core
         /// <summary>센서 노출 종료 시점 (HW ExposureEnd 이벤트). 지원 카메라만 발화.
         /// 전송 완료(FrameReceived)보다 앞서 도착하므로, 이 신호로 다음 기구 동작을 앞당길 수 있다.</summary>
         event Action ExposureEnded;
+        /// <summary>라이브(연속 촬상)가 정지됐을 때 발화 — 명시적 StopLive 및 그랩에 의한 자동 정지 포함.
+        /// UI(툴바 Live 버튼) 상태 동기화에 사용한다.</summary>
+        event Action LiveStopped;
 
         // ─── 라이프사이클 ───────────────────────────
         void Open();

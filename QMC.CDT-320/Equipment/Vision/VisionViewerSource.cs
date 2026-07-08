@@ -34,7 +34,11 @@ namespace QMC.CDT320.VisionComm
         /// <summary>상태 메시지(촬상 OK / READY 거부 / 미연결 등). UI 표시용.</summary>
         public event Action<string> Status;
 
+        /// <summary>라이브가 (Vision 의 그랩 자동 정지에 따라) 종료됐을 때 발화 — CameraViewBase 가 툴바 Live 버튼을 해제한다.</summary>
+        public event Action LiveStopped;
+
         private void OnStatus(string s) { var h = Status; if (h != null) try { h(s); } catch { } }
+        private void RaiseLiveStopped() { var h = LiveStopped; if (h != null) try { h(); } catch { } }
 
         public VisionViewerSource(string host, int port, int connectTimeoutMs = 2000, VisionTcpClient commandClient = null)
         {
@@ -111,8 +115,15 @@ namespace QMC.CDT320.VisionComm
                 catch (Exception ex) { OnStatus("촬상 실패: " + ex.Message); return null; }
                 if (!ack) { OnStatus("촬상 거부 — Vision READY(O) 상태에서는 불가. READY 해제 후 다시 시도"); return null; }
                 OnStatus("촬상 OK");
-                // 라이브 중이면 RecvLoop 가 새 프레임을 표시하므로 여기선 null. 아니면 단발로 받아 반환.
-                if (_running) return null;
+                // Vision 은 그랩 시 카메라 Live 를 무조건 정지한다 → 뷰어 라이브도 종료하고 그랩 프레임 1장을 표시.
+                //   (그랩 프레임은 Vision 이 뷰어 스트림으로 보내므로 RecvLoop 가 받을 때까지 잠깐 대기 후 확보.)
+                if (_running)
+                {
+                    Bitmap grabbed = GrabbedFrameDuringLive(1000);
+                    StopLive();            // 스트림/스레드 정리(+CAM_SWITCH off 재확인, 무해)
+                    RaiseLiveStopped();    // 핸들러 툴바 Live 버튼 해제
+                    return grabbed;        // null 이면 CameraView 가 직전 화면 유지
+                }
                 Bitmap frame = ReadSingleFrame();
                 if (frame == null)
                     OnStatus("촬상 OK, 영상 프레임 수신 실패 — Viewer 포트/스트림 상태를 확인하세요.");
@@ -150,6 +161,20 @@ namespace QMC.CDT320.VisionComm
                 finally { _tcp = null; }
                 if (_running) Thread.Sleep(300);             // 끊기면 잠시 후 재접속
             }
+        }
+
+        /// <summary>라이브 중 그랩 직후, Vision 이 뷰어 스트림으로 보낸 그랩 프레임을 RecvLoop 가 받을 때까지 잠깐 대기해 확보.
+        /// 새 프레임이 안 오면 마지막 수신 프레임(없으면 null) 반환. 백그라운드(그랩 작업 큐) 스레드에서 호출.</summary>
+        private Bitmap GrabbedFrameDuringLive(int timeoutMs)
+        {
+            Bitmap before; lock (_lastLock) { before = _last; }
+            int waited = 0;
+            while (waited < timeoutMs && _running)
+            {
+                Thread.Sleep(30); waited += 30;
+                lock (_lastLock) { if (!ReferenceEquals(_last, before) && _last != null) return (Bitmap)_last.Clone(); }
+            }
+            lock (_lastLock) { return _last != null ? (Bitmap)_last.Clone() : null; }
         }
 
         private Bitmap ReadSingleFrame()
