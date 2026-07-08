@@ -235,6 +235,20 @@ namespace QMC.Vision.Ui.Pages
             _liveOn = false;
         }
 
+        /// <summary>다른 모듈/페이지로 전환돼 이 페이지가 숨겨지면 라이브를 반드시 정지.
+        /// 페이지 자체 라이브(_liveTimer, 우클릭 Live)는 OnHandleDestroyed(완전 종료)로만 멈춰
+        /// 페이지가 살아있는 채 숨겨지면 계속 그랩된다(모듈 전환 후 Bottom LIVE 지속 버그).
+        /// 툴바(CameraViewBase) Live 도 안전망으로 함께 정지.</summary>
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible) return;
+            try { StopLive(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 숨김 시 페이지 라이브 정지 실패: " + ex.Message); }
+            try { if (_cam != null && _cam.IsLive) _cam.StopLive(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[VisionTargetPage] 숨김 시 툴바 라이브 정지 실패: " + ex.Message); }
+        }
+
         private void OnLiveTick(object sender, EventArgs e)
         {
             if (_module == null) return;
