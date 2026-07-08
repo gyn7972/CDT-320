@@ -1585,7 +1585,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             return name +
                    " MmX = (PixelX - CenterX) * ScaleX = (" + measurement.PixelX.ToString("F3") + " - " + camera.ImageCenterPixelX.ToString("F3") + ") * " + camera.PixelToMmX.ToString("F9") + " = " + measurement.MmX.ToString("F6") + " mm, " +
                    name +
-                   " MmY = (PixelY - CenterY) * ScaleY = (" + measurement.PixelY.ToString("F3") + " - " + camera.ImageCenterPixelY.ToString("F3") + ") * " + camera.PixelToMmY.ToString("F9") + " = " + measurement.MmY.ToString("F6") + " mm";
+                   " MmY = (CenterY - PixelY) * ScaleY = (" + camera.ImageCenterPixelY.ToString("F3") + " - " + measurement.PixelY.ToString("F3") + ") * " + camera.PixelToMmY.ToString("F9") + " = " + measurement.MmY.ToString("F6") + " mm";
         }
 
         private static void FillAxis(VisionReticleMeasurement measurement, BaseAxis visionX, BaseAxis stageY)

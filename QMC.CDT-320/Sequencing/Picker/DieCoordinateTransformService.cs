@@ -95,9 +95,8 @@ namespace QMC.CDT320.Sequencing
             result.PickerT = pickerTTeaching + pickerAlignOffsetT + alignOffsetT;
             result.PickerZ = pickerZTeaching;
             result.NeedleX = inputVisionX + alignOffsetX - needleXToVisionXOffset;
-            double pickerYBase = ResolveInputPickerYTarget(side, inputVisionToPickerY);
             double pickerYOffset = alignOffsetY + pickerAlignOffsetY;
-            result.PickerY = pickerYBase + ResolveSignedPickerYOffset(side, pickerYOffset);
+            result.PickerY = inputVisionToPickerY + needleYToVisionYOffset + pickerYOffset;
             result.NeedleZ = needleZTeaching;
             result.EjectPinZ = ejectPinZTeaching;
             result.Formula =
@@ -106,25 +105,13 @@ namespace QMC.CDT320.Sequencing
                 " / pickerX = inputVisionX(" + F(inputVisionX) + ") + inputVisionToPickerX(" + F(inputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") + alignOffsetX(" + F(alignOffsetX) + ") = " + F(result.PickerX) +
                 " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") + alignOffsetT(" + F(alignOffsetT) + ") = " + F(result.PickerT) +
                 " / needleX = inputVisionX(" + F(inputVisionX) + ") + alignOffsetX(" + F(alignOffsetX) + ") - needleXToVisionXOffset(" + F(needleXToVisionXOffset) + ") = " + F(result.NeedleX) +
-                " / pickerY = signedInputVisionToPickerY(side=" + side + ", inputVisionToPickerY=" + F(inputVisionToPickerY) + ")(" + F(pickerYBase) + ")" +
-                " + signedPickerYOffset(alignOffsetY(" + F(alignOffsetY) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + "))(" + F(ResolveSignedPickerYOffset(side, pickerYOffset)) + ") = " + F(result.PickerY) +
+                " / pickerY = inputVisionToPickerY(" + F(inputVisionToPickerY) + ") + needleYToVisionYOffset(" + F(needleYToVisionYOffset) + ") + pickerYOffset(alignOffsetY(" + F(alignOffsetY) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + "))(" + F(pickerYOffset) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ) +
                 " / needleZ = " + F(result.NeedleZ) +
                 " / ejectPinZ = " + F(result.EjectPinZ);
             if (logFormula)
                 LogFormula(sequenceName, "PICK", side, pickerIndex, dieId, result.Formula);
             return result;
-        }
-
-        private static double ResolveInputPickerYTarget(PickerSequenceSide side, double inputVisionToPickerY)
-        {
-            double magnitude = System.Math.Abs(inputVisionToPickerY);
-            return side == PickerSequenceSide.Rear ? -magnitude : magnitude;
-        }
-
-        private static double ResolveSignedPickerYOffset(PickerSequenceSide side, double offsetY)
-        {
-            return side == PickerSequenceSide.Rear ? -offsetY : offsetY;
         }
 
         public static PlaceCoordinateResult CalculatePlaceTarget(

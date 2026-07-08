@@ -1450,17 +1450,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double bottomRefVisionDeltaY = vision.DeltaY;
                 double cameraOffsetX = 0.0;
                 double cameraOffsetY = 0.0;
-                bool cameraOffsetExcluded = !simulationOrDryRun &&
+                bool cameraOffsetXExcluded = !simulationOrDryRun &&
                     InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
                         host.Machine,
                         out cameraOffsetX,
                         out cameraOffsetY);
                 double centerMoveDeltaX = bottomRefVisionDeltaX;
                 double centerMoveDeltaY = bottomRefVisionDeltaY;
-                if (cameraOffsetExcluded)
+                if (cameraOffsetXExcluded)
                 {
                     centerMoveDeltaX -= cameraOffsetX;
-                    centerMoveDeltaY -= cameraOffsetY;
                 }
 
                 VisionAlignResult centerMoveVision = new VisionAlignResult
@@ -1540,10 +1539,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", jogDeltaX=" + jogDeltaX.ToString("F6") +
                     ", jogDeltaY=" + jogDeltaY.ToString("F6") +
                     ", bottomRefVisionDeltaX=" + bottomRefVisionDeltaX.ToString("F6") +
-                    ", bottomRefVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
-                    ", cameraOffsetExcluded=" + cameraOffsetExcluded +
+                    ", inputVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
+                    ", cameraOffsetXExcluded=" + cameraOffsetXExcluded +
                     ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
-                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
+                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") + "(notUsedForDieY)" +
                     ", centerMoveDeltaX=" + centerMoveDeltaX.ToString("F6") +
                     ", centerMoveDeltaY=" + centerMoveDeltaY.ToString("F6") +
                     ", offsetX=" + offsetX.ToString("F6") +
@@ -1554,9 +1553,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta(보정 포함) X=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + " mm, Y=" + cameraOffsetY.ToString("F6") +
-                    (cameraOffsetExcluded ? " mm (센터 이동에서 제외)\r\n" : " mm (미적용)\r\n") +
+                    "Vision Delta X(보정 포함)=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + (cameraOffsetXExcluded ? " mm (X 센터 이동에서 제외), " : " mm (X 미적용), ") +
+                    "Y=" + cameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
                     "Center Move Delta X=" + centerMoveDeltaX.ToString("F6") + " mm, Y=" + centerMoveDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
@@ -1911,8 +1910,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta(보정 포함) X=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (센터 이동에서 제외)\r\n" +
+                    "Vision Delta X(보정 포함)=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm (X 센터 이동에서 제외), Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
                     "Center Move Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
@@ -2065,21 +2064,63 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return null;
                 }
 
-                VisionAlignResult result = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAlignAsync(
+                QMC.CDT320.VisionComm.MatchResultDto match = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAsync(
                     QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
                     ManualInputDieDetectFinderName,
                     ManualInputDieDetectVisionIndex,
-                    ManualInputDieDetectPitchMm,
                     ManualInputDieDetectVisionTimeoutMs,
                     System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (match == null || !match.Success)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual input die detect Vision MATCH failed. channel=Wafer" +
+                        ", finder=" + ManualInputDieDetectFinderName +
+                        ", index=" + ManualInputDieDetectVisionIndex +
+                        ", raw=" + (match != null ? match.RawError ?? "" : "null") + " - Failed");
+                    return null;
+                }
+
+                VisionAlignResult bottomRefAlign = QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToAlignResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                    match,
+                    ManualInputDieDetectPitchMm);
+                if (bottomRefAlign == null)
+                    return null;
+
+                QMC.CDT320.Calibration.VisionCameraPixelCalibration inputCamera =
+                    QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ResolveCamera(
+                        null,
+                        QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+                if (inputCamera == null)
+                    inputCamera = new QMC.CDT320.Calibration.VisionCameraPixelCalibration();
+
+                inputCamera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
+                if (match.HasImageSize)
+                    inputCamera.ApplyImageSize(match.ImageWidthPixel, match.ImageHeightPixel);
+
+                double inputOnlyDeltaY = inputCamera.PixelToMmOffsetY(match.Y);
+                VisionAlignResult result = new VisionAlignResult
+                {
+                    DeltaX = bottomRefAlign.DeltaX,
+                    DeltaY = inputOnlyDeltaY,
+                    DeltaTheta = bottomRefAlign.DeltaTheta,
+                    PitchX = bottomRefAlign.PitchX,
+                    PitchY = bottomRefAlign.PitchY
+                };
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die detect Vision result. channel=Wafer" +
                     ", finder=" + ManualInputDieDetectFinderName +
                     ", index=" + ManualInputDieDetectVisionIndex +
+                    ", pixelX=" + match.X.ToString("F6") +
+                    ", pixelY=" + match.Y.ToString("F6") +
+                    ", inputCenterY=" + inputCamera.ImageCenterPixelY.ToString("F6") +
+                    ", inputScaleY=" + inputCamera.PixelToMmY.ToString("F9") +
+                    ", formulaY=(centerY-pixelY)*scaleY=" + inputOnlyDeltaY.ToString("F6") +
                     ", dx=" + (result != null ? result.DeltaX.ToString("F6") : "null") +
                     ", dy=" + (result != null ? result.DeltaY.ToString("F6") : "null") +
                     ", dt=" + (result != null ? result.DeltaTheta.ToString("F6") : "null") +
+                    ", inputToBottomOffsetY=notUsedForDieY" +
                     (result != null ? " - Ok" : " - Failed"));
                 return result;
             }
