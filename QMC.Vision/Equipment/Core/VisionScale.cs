@@ -45,9 +45,8 @@ namespace QMC.Vision.Core
                 double t = dx; dx = dy; dy = t;
             }
 
-            // 부호 반전
-            if (vec.InvertedX) dx = -dx;
-            if (vec.InvertedY) dy = -dy;
+            // 부호 반전(X/Y)은 카메라 하드웨어 ReverseX/ReverseY 로 이관 — 픽셀이 이미 물리적으로 미러링되므로
+            // 여기서 다시 부호를 뒤집지 않는다(이중 적용 방지). 90° 회전(위 스왑)만 소프트웨어 유지.
 
             // 픽셀 → mm
             mmX = dx * scale.X;

@@ -294,6 +294,12 @@ namespace QMC.Vision.Ui.Pages
         // ── 세팅선택기: 현 알고리즘의 finder/inspector ──
         private void BuildSettingSelector(IVisionModule module)
         {
+            // 모듈 전환 시 현재 표시 중인 타깃 페이지를 먼저 숨긴다. 이 함수가 _curSetKey 를 null 로
+            // 지우기 때문에, 아래에서 ShowSetting 이 새 페이지를 표시할 때는 이전 페이지를 못 숨긴다.
+            // 숨기지 않으면 새 페이지가 BringToFront 로 위에 올라와도 이전 페이지는 Visible=true 로 남아,
+            // 그 안의 CameraView Live 가 OnVisibleChanged 미발화로 계속된다(Bottom LIVE 지속 버그).
+            if (_curSetKey != null && _cache.TryGetValue(_curSetKey, out var prevPage)) prevPage.Visible = false;
+
             _setFlow.Controls.Clear();
             _settings.Clear();
             _setBtns.Clear();
