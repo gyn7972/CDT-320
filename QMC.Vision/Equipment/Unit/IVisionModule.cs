@@ -62,6 +62,10 @@ namespace QMC.Vision.Modules
 
         GrabResult Grab(int timeoutMs = 3000);
 
+        /// <summary>true 동안 <see cref="Grab"/> 가 라이브(연속 촬상)를 자동 정지하지 않는다.
+        /// 오토포커스 측정처럼 라이브(스트로브) 상태에서 의도적으로 그랩할 때 설정한다.</summary>
+        bool SuppressLiveAutoStopOnGrab { get; set; }
+
         /// <summary>카메라 시뮬레이션 여부 — 저장이미지/오버라이드 그랩은 이 경우에만 허용.
         /// 실카메라가 붙어 있으면 모든 그랩/검사는 항상 실제 촬상을 사용한다(디스크 이미지 금지).</summary>
         bool IsSimCameraMode { get; }

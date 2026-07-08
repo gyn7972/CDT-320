@@ -338,10 +338,24 @@ namespace QMC.Common.Ui.Controls
             // 단발 그랩(MIL MdigGrab 등)은 완료까지 블록될 수 있어 UI Thread 에서 직접 호출하지 않는다.
             //   워커에서 수행 후 UI 로 마샬링. 재진입 가드로 연속 클릭 겹침 방지(QMC.MilCameraTest 검증 패턴).
             if (System.Threading.Interlocked.Exchange(ref _grabBusy, 1) == 1) return;
-            UpdateToolbarButtons();   // 그랩 시작 → Grab/Live 잠금
+            // 라이브 중 그랩 → 그랩이 라이브를 해제한다. 버튼 상태는 즉시(UI 스레드) 반영해 'Grab·Live 동시 ON' 창을 없애고,
+            //   실제 StopLive→Grab 은 같은 직렬 작업으로 순서 보장(비결정적 teardown/경쟁 제거).
+            bool wasLive = _live;
+            if (wasLive)
+            {
+                _live = false;
+                if (_tbLive != null) _tbLive.Checked = false;
+                System.Threading.Interlocked.Exchange(ref _liveBusy, 0);
+            }
+            UpdateToolbarButtons();   // 그랩 시작 → Grab/Live 잠금 (+라이브 해제 반영)
             var src = _source;
             EnqueueSourceOp(() =>
             {
+                if (wasLive)
+                {
+                    try { src.StopLive(); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] 그랩 전 Live 정지 실패: " + ex.Message); }
+                }
                 Bitmap b = null;
                 try { b = src.GrabFrame(); }
                 catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[CameraViewBase] Grab 실패: " + ex.Message); }

@@ -38,6 +38,9 @@ namespace QMC.Vision.Modules
         /// <summary>그랩 직전 지연 (ms).</summary>
         public int DelayBeforeGrabMs { get; set; } = 0;
 
+        /// <summary>true 동안 <see cref="Grab"/> 가 라이브를 자동 정지하지 않는다(오토포커스 측정 등 스트로브 라이브 유지).</summary>
+        public bool SuppressLiveAutoStopOnGrab { get; set; }
+
         /// <summary>프레임 평균화 매수. 1=단발, N&gt;1 이면 N장 촬상 후 픽셀평균(노이즈 저감).</summary>
         public int AverageCount { get; set; } = 1;
 
@@ -455,7 +458,7 @@ namespace QMC.Vision.Modules
             // 카메라 그랩 시 Live(연속 촬상)가 켜져 있으면 무조건 정지 — 모든 실카메라 그랩(툴바 Grab·핸들러
             //   EXPOSE/GRAB·시퀀스 MATCH/INSPECT·툴 그랩)이 이 관문을 지나므로 단발 그랩과 라이브가 겹치지 않는다.
             //   StopLive 는 LiveStopped 를 발화 → UI 툴바 Live 버튼이 자동 해제된다.
-            if (Camera.IsGrabbing)
+            if (Camera.IsGrabbing && !SuppressLiveAutoStopOnGrab)
             {
                 try { Camera.StopLive(); LogGrab("카메라 그랩 진입 — Live 자동 정지"); }
                 catch (Exception ex) { LogGrab("Live 자동 정지 실패: " + ex.Message); }
@@ -780,16 +783,22 @@ namespace QMC.Vision.Modules
         {
             roiFocus = new List<KeyValuePair<string, double>>();
             err = null;
-            using (var g = Grab())
+            bool prevSuppress = SuppressLiveAutoStopOnGrab;
+            SuppressLiveAutoStopOnGrab = true;   // 오토포커스(4-ROI) 측정 — 라이브(스트로브) 유지
+            try
             {
-                if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
-                int w = g.Width, h = g.Height;
-                roiFocus.Add(new KeyValuePair<string, double>("Left top",     ApproxFocus(g.Image, 0,   0,   w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Right top",    ApproxFocus(g.Image, w/2, 0,   w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Left bottom",  ApproxFocus(g.Image, 0,   h/2, w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Right bottom", ApproxFocus(g.Image, w/2, h/2, w/2, h/2)));
-                return true;
+                using (var g = Grab())
+                {
+                    if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
+                    int w = g.Width, h = g.Height;
+                    roiFocus.Add(new KeyValuePair<string, double>("Left top",     ApproxFocus(g.Image, 0,   0,   w/2, h/2)));
+                    roiFocus.Add(new KeyValuePair<string, double>("Right top",    ApproxFocus(g.Image, w/2, 0,   w/2, h/2)));
+                    roiFocus.Add(new KeyValuePair<string, double>("Left bottom",  ApproxFocus(g.Image, 0,   h/2, w/2, h/2)));
+                    roiFocus.Add(new KeyValuePair<string, double>("Right bottom", ApproxFocus(g.Image, w/2, h/2, w/2, h/2)));
+                    return true;
+                }
             }
+            finally { SuppressLiveAutoStopOnGrab = prevSuppress; }
         }
 
         private static double ApproxFocus(Bitmap bmp, int x, int y, int w, int h)

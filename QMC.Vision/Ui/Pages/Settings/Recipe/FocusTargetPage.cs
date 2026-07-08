@@ -370,6 +370,7 @@ namespace QMC.Vision.Ui.Pages
                 string error = null;
                 try
                 {
+                    if (_module != null) _module.SuppressLiveAutoStopOnGrab = true;   // 오토포커스 측정 — 라이브(스트로브) 유지
                     // 촬상 준비 — FocusFinder 조명/노출 + 포커스 전용 노출(페이지의 '노출 적용' 저장값) 적용.
                     //   핸들러 FOCUS_START 와 동일 경로라 측정 조건이 스캔과 일치한다.
                     VisionCommandCore.PrepareFocusAcquisition(_module, _camera, target);
@@ -392,6 +393,7 @@ namespace QMC.Vision.Ui.Pages
                     }
                 }
                 catch (Exception ex) { error = ex.Message; }
+                finally { try { if (_module != null) _module.SuppressLiveAutoStopOnGrab = false; } catch { } }
 
                 try
                 {
