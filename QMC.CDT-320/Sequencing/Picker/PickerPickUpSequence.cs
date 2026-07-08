@@ -2217,6 +2217,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                InputStageUnit stage = ResolveInputStage();
+                result = EnsureNeedleVacuumOffForPick(stage, "PickUp 단순 PickerZ AVOID 이동 전");
+                if (result != 0)
+                    return result;
+
                 result = await MovePickerAxisAndVerifyAsync(
                     pickerZ,
                     pickerZAvoid,
@@ -2333,7 +2338,11 @@ namespace QMC.CDT320.Sequencing
                 if (check != 0)
                     return check;
 
-                return CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ, "PickUp EjectPinZ 픽업 준비 위치");
+                check = CheckInputStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, _targetEjectPinZ, "PickUp EjectPinZ 픽업 준비 위치");
+                if (check != 0)
+                    return check;
+
+                return EnsureNeedleVacuumOnForPick(stage, "PickUp Needle/EjectPin 준비 완료 후");
             }
             catch (OperationCanceledException)
             {
@@ -2354,6 +2363,11 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                InputStageUnit stage = ResolveInputStage();
+                int needleVacuumResult = EnsureNeedleVacuumOnForPick(stage, "PickUp Vacuum ON Step");
+                if (needleVacuumResult != 0)
+                    return needleVacuumResult;
 
                 SetPickerVacuum(_currentPickerNo, true);
 
@@ -2377,11 +2391,70 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private int EnsureNeedleVacuumOnForPick(InputStageUnit stage, string reason)
+        {
+            if (stage == null)
+                return Fail("PICKER-PICKUP-NEEDLE-VAC-NO-STAGE", "InputStageUnit",
+                    reason + " Needle Vacuum ON 실패: InputStageUnit is null.");
+
+            if (stage.NeedleVacuum == null)
+                return Fail("PICKER-PICKUP-NEEDLE-VAC-NO-OUTPUT", "InputStageUnit",
+                    reason + " Needle Vacuum 출력이 없습니다.");
+
+            stage.NeedleVacuum.On();
+            WriteLog("PickerPickUpZ",
+                reason + " Needle Vacuum ON. outputOn=" + stage.NeedleVacuum.IsOn);
+
+            return 0;
+        }
+
+        private int EnsureNeedleVacuumOffForPick(InputStageUnit stage, string reason)
+        {
+            if (stage == null)
+                return Fail("PICKER-PICKUP-NEEDLE-VAC-OFF-NO-STAGE", "InputStageUnit",
+                    reason + " Needle Vacuum OFF 실패: InputStageUnit is null.");
+
+            if (stage.NeedleVacuum == null)
+                return Fail("PICKER-PICKUP-NEEDLE-VAC-OFF-NO-OUTPUT", "InputStageUnit",
+                    reason + " Needle Vacuum 출력이 없습니다.");
+
+            stage.NeedleVacuum.Off();
+            WriteLog("PickerPickUpZ",
+                reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn);
+
+            return 0;
+        }
+
+        private void TryNeedleVacuumOffForPick(InputStageUnit stage, string reason)
+        {
+            try
+            {
+                if (stage == null || stage.NeedleVacuum == null)
+                {
+                    WriteLog("PickerPickUpZ", reason + " Needle Vacuum OFF skip. output is null.");
+                    return;
+                }
+
+                stage.NeedleVacuum.Off();
+                WriteLog("PickerPickUpZ",
+                    reason + " Needle Vacuum OFF. outputOn=" + stage.NeedleVacuum.IsOn);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpZ", reason + " Needle Vacuum OFF 중 예외. error=" + ex.Message);
+            }
+        }
+
         private async Task<int> VacuumOnForSimplePickAsync(PickerPickUpMotionConfig config, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
+
+                InputStageUnit stage = ResolveInputStage();
+                int needleVacuumResult = EnsureNeedleVacuumOnForPick(stage, "PickUp Simple Vacuum ON Step");
+                if (needleVacuumResult != 0)
+                    return needleVacuumResult;
 
                 SetPickerVacuum(_currentPickerNo, true);
 
@@ -2731,6 +2804,10 @@ namespace QMC.CDT320.Sequencing
                     ", acceleration=" + pickerAcceleration.ToString("0.###") +
                     ", deceleration=" + pickerDeceleration.ToString("0.###"));
 
+                int needleVacuumOffResult = EnsureNeedleVacuumOffForPick(stage, "PickUp Sync Lift 후 AVOID 이동 전");
+                if (needleVacuumOffResult != 0)
+                    return needleVacuumOffResult;
+
                 int pickerResult = await MovePickerAxisWithMotionAndVerifyAsync(
                     pickerZ,
                     pickerSeparateTarget,
@@ -2783,6 +2860,10 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                int needleVacuumOffResult = EnsureNeedleVacuumOffForPick(stage, "PickUp 후 NeedlePinZ/NeedleZ AVOID 이동 전");
+                if (needleVacuumOffResult != 0)
+                    return needleVacuumOffResult;
+
                 int ejectResult = await MoveInputStageAxisCommandAsync(
                     stage,
                     WaferStageAxis.EjectPinZ,
@@ -2826,9 +2907,6 @@ namespace QMC.CDT320.Sequencing
                 check = CheckInputStageAxisInPosition(stage, WaferStageAxis.NeedleZ, needleTarget, "PickUp 후 NeedleZ Avoid 이동");
                 if (check != 0)
                     return check;
-
-                if (stage.NeedleVacuum != null)
-                    stage.NeedleVacuum.Off();
 
                 return 0;
             }
@@ -3200,6 +3278,10 @@ namespace QMC.CDT320.Sequencing
 
                 double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                int needleVacuumOffResult = EnsureNeedleVacuumOffForPick(stage, description + " 이동 전");
+                if (needleVacuumOffResult != 0)
+                    return needleVacuumOffResult;
+
                 Task<int> pickerZMove = MovePickerAxisAndVerifyAsync(
                     pickerZ,
                     pickerZAvoid,
@@ -3260,6 +3342,8 @@ namespace QMC.CDT320.Sequencing
                 double pickerZAvoid = GetPickerTeachingPosition(pickerZ, "AvoidPosition");
                 double needleZAvoid = ResolveNeedleZAvoidTarget(stage);
                 double ejectPinZAvoid = ResolveEjectPinZAvoidTarget(stage);
+                TryNeedleVacuumOffForPick(stage, description + " 이동 전");
+
                 Task<int> pickerZMove = MovePickerAxisAndVerifyAsync(
                     pickerZ,
                     pickerZAvoid,
@@ -3306,6 +3390,11 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                InputStageUnit stage = ResolveInputStage();
+                int needleVacuumResult = EnsureNeedleVacuumOnForPick(stage, "PickUp Vacuum ON");
+                if (needleVacuumResult != 0)
+                    return needleVacuumResult;
+
                 SetPickerVacuum(_currentPickerNo, true);
                 await Task.Delay(ResolveVacuumSettleMs(), ct).ConfigureAwait(false);
 
