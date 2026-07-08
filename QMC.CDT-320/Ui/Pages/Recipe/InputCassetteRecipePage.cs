@@ -696,53 +696,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.InputLifterZ, AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ), 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
-                axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
-                {
-                    try
-                    {
-                        double target = _InputCassetteUnit.InputLifterZ.ActualPosition + (direction * axisStepDistance);
-                        int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, speedType, customSpeed);
-                        if (moveResult != 0)
-                            return moveResult;
-
-                        return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
-                axisItem.ContinuousMoveAsync = async (item, direction, speedType, customSpeed) =>
-                {
-                    try
-                    {
-                        return await _InputCassetteUnit.ManualMoveWaferLifterZJog(direction, speedType, customSpeed);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
-                axisItem.StopAsync = async item =>
-                {
-                    try
-                    {
-                        return await _InputCassetteUnit.ManualStopWaferLifterZ();
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                axisItem.StepMoveAsync = (item, direction, speedType, customSpeed, axisStepDistance) =>
+                    _InputCassetteUnit.JogStepAsync(_InputCassetteUnit.InputLifterZ, direction, speedType, customSpeed, axisStepDistance);
+                axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
+                    _InputCassetteUnit.JogContinuousAsync(_InputCassetteUnit.InputLifterZ, direction, speedType, customSpeed);
+                axisItem.StopAsync = item =>
+                    _InputCassetteUnit.StopJogAsync(_InputCassetteUnit.InputLifterZ);
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
