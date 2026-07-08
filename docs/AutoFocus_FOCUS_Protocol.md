@@ -55,9 +55,11 @@ MODULE|FOCUS_BEST|<camera>|<target>|[pickupNo]
 ```
 
 - 핸들러가 스캔 종료 후 best 위치/점수를 TCP 로 회수. **이 명령은 응답을 기다린다**(FOCUS_VAL 과 달리).
-- 동작: 진행 중인 백그라운드 채점이 **모두 끝날 때까지 대기**(`AutoFocusProcessor.WaitForDrain`) 후, 누적 전체에서 **최고 점수 Z** 를 회수.
-- 응답(인덱스 키): `OK;p1z=19.9500;p1s=214.00;p1n=21;p2z=20.1000;p2s=198.00;p2n=21;...`
-  (`p<n>z`=bestZ, `p<n>s`=bestScore, `p<n>n`=샘플수). `pickupNo` 지정 시 그 픽업만(측면 `0`→시리즈 `1`).
+- 동작: 진행 중인 백그라운드 채점이 **모두 끝날 때까지 대기**(`AutoFocusProcessor.WaitForDrain`) 후 best 회수.
+- **대표값 `bestZ`/`bestScore` = ROI1~4(샘플 있는 것) Best 의 평균**(2026-07-08) — `pickupNo` 인자는
+  하위호환으로 받기만 하고 무시한다(특정 ROI 하나만 회수하던 동작 제거).
+- 응답: `OK;bestZ=19.9750;bestScore=205.00;roiN=4;p1z=19.9500;p1s=214.00;p1n=21;p2z=...`
+  (`bestZ`=4-ROI 평균 Z, `p<n>z/s/n`=ROI 별 상세 — 진단/그래프용, 항상 전체 출력).
 
 ## 카메라 ↔ 모듈 ↔ 포트
 
