@@ -677,25 +677,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputFeederUnit;
 
                 JogAxisItem axisItem = JogAxisItem.Single("BinFeederY", unit.FeederY, AxisUnitConverter.DisplayUnitFor(unit.FeederY), 1.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.Vertical);
-                axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
-                {
-                    double target = unit.FeederY.ActualPosition + (direction * axisStepDistance);
-                    int r = await unit.MoveBinFeederY(target, speedType, customSpeed);
-                    if (r != 0)
-                        return r;
-
-                    return await unit.WaitBinFeederYMoveDone(unit.FeederY.Setup.MoveTimeoutMs) ? 0 : -1;
-                };
+                axisItem.StepMoveAsync = (item, direction, speedType, customSpeed, axisStepDistance) =>
+                    unit.JogStepAsync(unit.FeederY, direction, speedType, customSpeed, axisStepDistance);
                 axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
-                {
-                    unit.ManualMoveBinFeederYJog(direction, customSpeed);
-                    return Task.FromResult(0);
-                };
+                    unit.JogContinuousAsync(unit.FeederY, direction, speedType, customSpeed);
                 axisItem.StopAsync = item =>
-                {
-                    unit.ManualStopBinFeederY();
-                    return Task.FromResult(0);
-                };
+                    unit.StopJogAsync(unit.FeederY);
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;

@@ -953,56 +953,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _OutCassetteUnit.OutputLifterZ, AxisUnitConverter.DisplayUnitFor(_OutCassetteUnit.OutputLifterZ), 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
-                axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
-                {
-                    try
-                    {
-                        double target = _OutCassetteUnit.OutputLifterZ.ActualPosition + (direction * axisStepDistance);
-                        await _OutCassetteUnit.MoveBinLifterZ(
-                            target,
-                            jogAxisMoveControl.SelectedSpeedType,
-                            jogAxisMoveControl.GetSelectedSpeed(_OutCassetteUnit.OutputLifterZ));
-                        bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
-                        return done ? 0 : -1;
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                axisItem.StepMoveAsync = (item, direction, speedType, customSpeed, axisStepDistance) =>
+                    _OutCassetteUnit.JogStepAsync(_OutCassetteUnit.OutputLifterZ, direction, speedType, customSpeed, axisStepDistance);
                 axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
-                {
-                    try
-                    {
-                        _OutCassetteUnit.ManualMoveBinLifterZJog(direction, customSpeed);
-                        return Task.FromResult(0);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                    _OutCassetteUnit.JogContinuousAsync(_OutCassetteUnit.OutputLifterZ, direction, speedType, customSpeed);
                 axisItem.StopAsync = item =>
-                {
-                    try
-                    {
-                        _OutCassetteUnit.ManualStopBinLifterZ();
-                        return Task.FromResult(0);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                    _OutCassetteUnit.StopJogAsync(_OutCassetteUnit.OutputLifterZ);
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;

@@ -564,55 +564,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 JogAxisItem axisItem = JogAxisItem.Single("FEEDER Y", _inputFeederUnit.FeederY, AxisUnitConverter.DisplayUnitFor(_inputFeederUnit.FeederY), 1.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.Vertical);
-                axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
-                {
-                    try
-                    {
-                        double target = _inputFeederUnit.FeederY.ActualPosition + (direction * axisStepDistance);
-                        int moveResult = await _inputFeederUnit.MoveWaferFeederY(target, speedType, customSpeed);
-                        if (moveResult != 0)
-                            return moveResult;
-
-                        return await _inputFeederUnit.WaitWaferFeederYMoveDone(_inputFeederUnit.FeederY.Setup.MoveTimeoutMs) ? 0 : -1;
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                axisItem.StepMoveAsync = (item, direction, speedType, customSpeed, axisStepDistance) =>
+                    _inputFeederUnit.JogStepAsync(_inputFeederUnit.FeederY, direction, speedType, customSpeed, axisStepDistance);
                 axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
-                {
-                    try
-                    {
-                        _inputFeederUnit.ManualMoveWaferFeederYJog(direction, customSpeed);
-                        return Task.FromResult(0);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                    _inputFeederUnit.JogContinuousAsync(_inputFeederUnit.FeederY, direction, speedType, customSpeed);
                 axisItem.StopAsync = item =>
-                {
-                    try
-                    {
-                        _inputFeederUnit.ManualStopWaferFeederY();
-                        return Task.FromResult(0);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                    _inputFeederUnit.StopJogAsync(_inputFeederUnit.FeederY);
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
