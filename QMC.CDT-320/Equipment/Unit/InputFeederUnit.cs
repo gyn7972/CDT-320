@@ -161,7 +161,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = FeederY.ActualPosition + signedDistance;
-            return MoveWaferFeederY(target, speedType, customSpeed);
+            return MoveWaferFeederY(target, speedType, customSpeed, true);
         }
 
         public Task<int> JogContinuousAsync(
@@ -194,7 +194,12 @@ namespace QMC.CDT320
 
         public Task<int> MoveWaferFeederY(double targetPos, JogSpeedType speedType, double customSpeed)
         {
-            return MoveWaferFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed), string.Empty);
+            return MoveWaferFeederY(targetPos, speedType, customSpeed, false);
+        }
+
+        private Task<int> MoveWaferFeederY(double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
+            return MoveWaferFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed), string.Empty, forceMove);
         }
 
         public async Task<int> MoveWaferFeederYAsync(double targetPos, bool bFine = false)
@@ -301,6 +306,11 @@ namespace QMC.CDT320
 
         private async Task<int> MoveWaferFeederYAsync(double targetPos, double velocity, string targetName)
         {
+            return await MoveWaferFeederYAsync(targetPos, velocity, targetName, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWaferFeederYAsync(double targetPos, double velocity, string targetName, bool forceMove)
+        {
             try
             {
                 string readyReason;
@@ -318,7 +328,7 @@ namespace QMC.CDT320
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
                 }
 
-                if (IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
+                if (!forceMove && IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
                 {
                     LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
@@ -336,7 +346,8 @@ namespace QMC.CDT320
                     targetPos,
                     velocity,
                     UnitJogVelocityResolver.ResolveAcceleration(FeederY),
-                    UnitJogVelocityResolver.ResolveDeceleration(FeederY)).ConfigureAwait(false);
+                    UnitJogVelocityResolver.ResolveDeceleration(FeederY),
+                    forceMove).ConfigureAwait(false);
                 if (result != 0 || FeederY.IsAlarm)
                 {
                     LastWaferFeederMoveFailureMessage = "InputFeederY 조그 속도 이동 명령이 실패했습니다. result=" + result +

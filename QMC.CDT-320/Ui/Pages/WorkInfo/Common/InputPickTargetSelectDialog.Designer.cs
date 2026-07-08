@@ -28,6 +28,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private FlowLayoutPanel buttonPanel;
         private Button btnRunStep;
         private Button btnNextStep;
+        private Button btnRunAllSteps;
         private Button btnPickZTest;
         private Button btnClose;
 
@@ -56,6 +57,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.buttonPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnClose = new System.Windows.Forms.Button();
             this.btnPickZTest = new System.Windows.Forms.Button();
+            this.btnRunAllSteps = new System.Windows.Forms.Button();
             this.btnNextStep = new System.Windows.Forms.Button();
             this.btnRunStep = new System.Windows.Forms.Button();
             this.rootLayout.SuspendLayout();
@@ -353,6 +355,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             //
             this.buttonPanel.Controls.Add(this.btnClose);
             this.buttonPanel.Controls.Add(this.btnPickZTest);
+            this.buttonPanel.Controls.Add(this.btnRunAllSteps);
             this.buttonPanel.Controls.Add(this.btnNextStep);
             this.buttonPanel.Controls.Add(this.btnRunStep);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -389,6 +392,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnPickZTest.Text = "PICK Z TEST";
             this.btnPickZTest.UseVisualStyleBackColor = false;
             this.btnPickZTest.Click += new System.EventHandler(this.btnPickZTest_Click);
+            //
+            // btnRunAllSteps
+            //
+            this.btnRunAllSteps.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.btnRunAllSteps.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnRunAllSteps.Font = new System.Drawing.Font("留묒? 怨좊뵓", 10F, System.Drawing.FontStyle.Bold);
+            this.btnRunAllSteps.ForeColor = System.Drawing.Color.White;
+            this.btnRunAllSteps.Location = new System.Drawing.Point(450, 11);
+            this.btnRunAllSteps.Name = "btnRunAllSteps";
+            this.btnRunAllSteps.Size = new System.Drawing.Size(130, 34);
+            this.btnRunAllSteps.TabIndex = 4;
+            this.btnRunAllSteps.Text = "RUN ALL";
+            this.btnRunAllSteps.UseVisualStyleBackColor = false;
+            this.btnRunAllSteps.Click += new System.EventHandler(this.btnRunAllSteps_Click);
             //
             // btnNextStep
             //

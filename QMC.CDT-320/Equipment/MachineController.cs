@@ -14,6 +14,7 @@ using QMC.CDT320.Jobs;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Alarms;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Calibration;
 using QMC.CDT320.Initialization;
 using QMC.CDT320.Motion.SharedRailX;
@@ -2858,8 +2859,9 @@ namespace QMC.CDT320
             return await CheckFrontPickerZAxesHomeOrAvoidAsync().ConfigureAwait(false);
         }
 
-        private Task<int> CheckFrontPickerZAxesAvoidAsync()
+        private Task<int> CheckFrontPickerZAxesAvoidAsync(string contextName = "FrontPickerY HOME")
         {
+            string context = string.IsNullOrWhiteSpace(contextName) ? "FrontPickerY HOME" : contextName;
             var front = _machine.PickerFrontUnit;
             if (front != null)
             {
@@ -2869,7 +2871,7 @@ namespace QMC.CDT320
                     if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
                     {
                         return Task.FromResult(FailInitializePreparation(
-                            "FrontPickerY HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                            context + " 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
                     }
                 }
             }
@@ -2877,8 +2879,9 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
-        private Task<int> CheckRearPickerZAxesAvoidAsync()
+        private Task<int> CheckRearPickerZAxesAvoidAsync(string contextName = "RearPickerY HOME")
         {
+            string context = string.IsNullOrWhiteSpace(contextName) ? "RearPickerY HOME" : contextName;
             var rear = _machine.PickerRearUnit;
             if (rear != null)
             {
@@ -2888,12 +2891,81 @@ namespace QMC.CDT320
                     if (!rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
                     {
                         return Task.FromResult(FailInitializePreparation(
-                            "RearPickerY HOME 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                            context + " 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
                     }
                 }
             }
 
             return Task.FromResult(0);
+        }
+
+        private Task<int> CheckFrontPickerZAxesAvoidWhenInputRiskAsync(string contextName)
+        {
+            return CheckPickerZAxesAvoidWhenInputRiskAsync(true, contextName);
+        }
+
+        private Task<int> CheckRearPickerZAxesAvoidWhenInputRiskAsync(string contextName)
+        {
+            return CheckPickerZAxesAvoidWhenInputRiskAsync(false, contextName);
+        }
+
+        private Task<int> CheckPickerZAxesAvoidWhenInputRiskAsync(bool isFront, string contextName)
+        {
+            string context = string.IsNullOrWhiteSpace(contextName) ? "InputStage HOME" : contextName;
+            string prefix = isFront ? "Front" : "Rear";
+
+            PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                _machine,
+                isFront,
+                PickerWorkZone.Input,
+                null,
+                context + ";InitializePrepare");
+
+            if (!IsPickerInputRiskForZAvoid(state))
+            {
+                Log("[INIT] " + context + ": " + prefix + "Picker Input risk 없음. PickerZ Avoid check skip. " + SafeDescribePickerZoneState(state));
+                return Task.FromResult(0);
+            }
+
+            Log("[INIT] " + context + ": " + prefix + "Picker Input risk 감지. PickerZ Avoid check. " + SafeDescribePickerZoneState(state));
+            return isFront
+                ? CheckFrontPickerZAxesAvoidAsync(context)
+                : CheckRearPickerZAxesAvoidAsync(context);
+        }
+
+        private static bool IsPickerInputRiskForZAvoid(PickerZoneTransportState state)
+        {
+            if (state == null)
+                return false;
+
+            if (state.UnknownUnsafe || state.WorkAreaBlocksTransport)
+                return true;
+
+            bool inputZoneActive =
+                PickerZoneInterlockRules.IsSameInterlockZone(state.CurrentZone, PickerWorkZone.Input) ||
+                PickerZoneInterlockRules.IsSameInterlockZone(state.TargetZone, PickerWorkZone.Input);
+
+            if (!inputZoneActive)
+                return false;
+
+            return !state.YAvoid || IsAxisMoving(state.PickerY);
+        }
+
+        private static bool IsAxisMoving(BaseAxis axis)
+        {
+            return axis != null && axis.IsMoving;
+        }
+
+        private static string SafeDescribePickerZoneState(PickerZoneTransportState state)
+        {
+            try
+            {
+                return state != null ? state.Describe() : "state=null";
+            }
+            catch (Exception ex)
+            {
+                return "stateDescribeFailed=" + ex.Message;
+            }
         }
 
         private Task<int> CheckFrontPickerZAxesHomeOrAvoidAsync()
@@ -4134,13 +4206,13 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: NeedleZ / Front,RearPickerZ0~Z3 / InputFeederY Avoid check.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 / InputFeederY Avoid check.");
 
             var stage = _machine.InputStageUnit;
-            if (stage != null && !stage.IsNeedleZInSafePosition())
+            if (stage != null && !stage.IsNeedleZInHomeOrSafePosition())
             {
                 return FailInitializePreparation(
-                    "InputStageY HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+                    "InputStageY HOME 불가: NeedleZ가 Home(0) 또는 Avoid 위치에 있지 않습니다.");
             }
 
             var feeder = _machine.InputFeederUnit;
@@ -4150,11 +4222,11 @@ namespace QMC.CDT320
                     "InputStageY HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
             }
 
-            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            int result = await CheckFrontPickerZAxesAvoidWhenInputRiskAsync("InputStageY HOME").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            result = await CheckRearPickerZAxesAvoidWhenInputRiskAsync("InputStageY HOME").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -4163,24 +4235,60 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageTHomeAsync(BaseAxis axis)
         {
-            Log("[INIT] Prepare InputStageT home: NeedleZ / Front,RearPickerZ0~Z3 Avoid check.");
+            Log("[INIT] Prepare InputStageT home: EjectPinZ Home(0)/Avoid / Input-risk Front,RearPickerZ0~Z3 check.");
 
             var stage = _machine.InputStageUnit;
-            if (stage != null && !stage.IsNeedleZInSafePosition())
+            string ejectPinZReason;
+            if (!IsInputStageEjectPinZInHomeOrAvoid(stage, out ejectPinZReason))
             {
                 return FailInitializePreparation(
-                    "InputStageT HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+                    "InputStageT HOME 불가: " + ejectPinZReason);
             }
 
-            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            int result = await CheckFrontPickerZAxesAvoidWhenInputRiskAsync("InputStageT HOME").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            result = await CheckRearPickerZAxesAvoidWhenInputRiskAsync("InputStageT HOME").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
             return 0;
+        }
+
+        private static bool IsInputStageEjectPinZInHomeOrAvoid(InputStageUnit stage, out string reason)
+        {
+            reason = string.Empty;
+            if (stage == null || stage.EjectPinZ == null)
+                return true;
+
+            if (stage.Recipe == null)
+            {
+                reason = "EjectPinZ 레시피 위치가 없습니다.";
+                return false;
+            }
+
+            stage.Recipe.EnsurePositionObjects();
+            if (stage.Recipe.EjectPinZ == null)
+            {
+                reason = "EjectPinZ 레시피 위치가 없습니다.";
+                return false;
+            }
+
+            double tolerance = stage.EjectPinZ.Config != null && stage.EjectPinZ.Config.InPositionTolerance > 0.0
+                ? stage.EjectPinZ.Config.InPositionTolerance
+                : 0.05;
+            double actual = stage.EjectPinZ.ActualPosition;
+            double avoid = stage.Recipe.EjectPinZ.AvoidPosition;
+
+            if (actual <= 0.0 + tolerance || Math.Abs(actual - avoid) <= tolerance)
+                return true;
+
+            reason = "EjectPinZ(NeedlePinZ)가 Home(0) 또는 Avoid 위치가 아닙니다. actual=" +
+                actual.ToString("F3") +
+                ", zero=0.000, avoid=" + avoid.ToString("F3") +
+                ", tolerance=" + tolerance.ToString("F3");
+            return false;
         }
 
         private async Task<int> MoveInputNeedleZSafeToAvoidAsync()
@@ -5401,6 +5509,7 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
                     "START 전 Ready 시퀀스를 자동 실행합니다. - Start");
                 Log("[START] Ready sequence before auto start.");
+                LogMachineAxisSnapshot("StartBeforeReady");
 
                 int result = await RunReadySequenceAsync().ConfigureAwait(false);
                 if (result != 0)
@@ -5417,6 +5526,7 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync",
                     "START 전 Ready 시퀀스가 완료되었습니다. - Ok");
                 Log("[START] Ready sequence before auto start complete.");
+                LogMachineAxisSnapshot("StartAfterReadyBeforeAuto");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -5497,6 +5607,7 @@ namespace QMC.CDT320
                 Log("[READY] Ready sequence start.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence start. - Start");
+                LogMachineAxisSnapshot("ReadyStart");
 
                 int result = await sequence.RunAsync(ManualOperationToken).ConfigureAwait(false);
                 if (result != 0)
@@ -5516,6 +5627,7 @@ namespace QMC.CDT320
                 Log("[READY] Ready sequence complete.");
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
                     "Ready sequence complete. - Ok");
+                LogMachineAxisSnapshot("ReadyComplete");
                 return 0;
             }
             catch (OperationCanceledException)
@@ -6391,6 +6503,8 @@ namespace QMC.CDT320
                 Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
                     "Sequence start. units=" + options.Units + ", mode=" + options.Mode + " - Ok");
+                if (options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    LogMachineAxisSnapshot("AutoStartBeforeCoordinatorRun");
 
                 var coordinator = _coordinator;
                 var cts = _autoCts;
@@ -6499,6 +6613,79 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private void LogMachineAxisSnapshot(string phase)
+        {
+            try
+            {
+                string snapshotPhase = string.IsNullOrWhiteSpace(phase) ? "Unknown" : phase;
+                List<BaseAxis> axes = AjinAxisRegistry.GetOrderedAxes(_machine);
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisSnapshot",
+                    "phase=" + snapshotPhase + ", axisCount=" + (axes != null ? axes.Count : 0) + " - Start");
+
+                if (axes == null)
+                    return;
+
+                for (int i = 0; i < axes.Count; i++)
+                {
+                    BaseAxis axis = axes[i];
+                    if (axis == null)
+                        continue;
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "AxisSnapshot",
+                        "phase=" + snapshotPhase +
+                        ", no=" + i +
+                        ", axis=" + SafeAxisName(axis) +
+                        ", display=" + SafeAxisDisplayName(axis) +
+                        ", unit=" + SafeAxisUnitName(axis) +
+                        ", axisNo=" + SafeAxisNo(axis) +
+                        ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                        ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                        ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                        ", homeDone=" + (axis.IsHomeDone ? "Y" : "N") +
+                        ", inPosition=" + (axis.IsInPosition ? "Y" : "N") +
+                        ", actual=" + axis.ActualPosition.ToString("F6") +
+                        ", command=" + axis.CommandPosition.ToString("F6") +
+                        ", tolerance=" + ResolveAxisInPositionTolerance(axis).ToString("F6") +
+                        " - State");
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisSnapshot",
+                    "phase=" + snapshotPhase + " - End");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AxisSnapshot",
+                    "phase=" + phase + ", snapshot failed. error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static string SafeAxisName(BaseAxis axis)
+        {
+            return axis != null && !string.IsNullOrWhiteSpace(axis.Name) ? axis.Name : "-";
+        }
+
+        private static string SafeAxisDisplayName(BaseAxis axis)
+        {
+            return axis != null && axis.Setup != null && !string.IsNullOrWhiteSpace(axis.Setup.DisplayName)
+                ? axis.Setup.DisplayName
+                : SafeAxisName(axis);
+        }
+
+        private static string SafeAxisUnitName(BaseAxis axis)
+        {
+            return axis != null && axis.Setup != null && !string.IsNullOrWhiteSpace(axis.Setup.UnitName)
+                ? axis.Setup.UnitName
+                : "-";
+        }
+
+        private static int SafeAxisNo(BaseAxis axis)
+        {
+            return axis != null && axis.Setup != null ? axis.Setup.AxisNo : -1;
         }
 
         /// <summary>실행 중인 병렬 시퀀스를 중단하고 Coordinator 종료를 대기합니다.</summary>
@@ -7200,6 +7387,147 @@ namespace QMC.CDT320
             {
                 LastActionFailureMessage = "선택 Die PickUp 테스트 중 예외가 발생했습니다. " + ex.Message;
                 AlarmManager.Raise(AlarmSeverity.Error, "SEQ-MANUAL-PICKER-DIE-EX", "MachineController", LastActionFailureMessage);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> RunManualPickerSelectedOutputSlotPlaceAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            QMC.CDT320.BinSide outputSide,
+            QMC.CDT320.Materials.OutputStageReceiveTarget receiveTarget)
+        {
+            return await RunManualPickerSelectedOutputSlotPlaceCoreAsync(
+                side,
+                pickerNo,
+                outputSide,
+                receiveTarget,
+                null,
+                "선택 Output Slot Place 테스트",
+                "ManualPickerSelectedOutputSlotPlace",
+                "SEQ-MANUAL-PICKER-PLACE").ConfigureAwait(false);
+        }
+
+        public async Task<int> RunManualPickerSelectedOutputSlotPlaceStepAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            QMC.CDT320.BinSide outputSide,
+            QMC.CDT320.Materials.OutputStageReceiveTarget receiveTarget,
+            QMC.CDT320.Sequencing.PickerPlaceManualStep step)
+        {
+            return await RunManualPickerSelectedOutputSlotPlaceCoreAsync(
+                side,
+                pickerNo,
+                outputSide,
+                receiveTarget,
+                step,
+                "선택 Output Slot Place Step 테스트",
+                "ManualPickerSelectedOutputSlotPlaceStep:" + step,
+                "SEQ-MANUAL-PICKER-PLACE-STEP").ConfigureAwait(false);
+        }
+
+        private async Task<int> RunManualPickerSelectedOutputSlotPlaceCoreAsync(
+            QMC.CDT320.Sequencing.PickerSequenceSide side,
+            int pickerNo,
+            QMC.CDT320.BinSide outputSide,
+            QMC.CDT320.Materials.OutputStageReceiveTarget receiveTarget,
+            QMC.CDT320.Sequencing.PickerPlaceManualStep? step,
+            string actionTitle,
+            string scopeName,
+            string alarmCode)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 " + actionTitle + "를 실행할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCode + "-ALARM", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (IsManualBusy)
+                {
+                    LastActionFailureMessage = "다른 Manual 동작이 진행 중이라 " + actionTitle + "를 실행할 수 없습니다.";
+                    return -1;
+                }
+
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto/Manual 시퀀스가 실행 중일 때는 " + actionTitle + "를 새로 시작할 수 없습니다.";
+                    AlarmManager.Raise(AlarmSeverity.Error, alarmCode + "-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (receiveTarget == null)
+                {
+                    LastActionFailureMessage = "Place 테스트 대상 Output slot이 선택되지 않았습니다.";
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun(scopeName))
+                    return -1;
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                using (BeginManualActionScope(ManualMotionScopeKind.ProcessSequence, scopeName + ":" + side + ":" + pickerNo))
+                {
+                    var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                    var context = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        bus,
+                        new QMC.CDT320.Sequencing.SequenceResourceManager(),
+                        _sequenceActivity);
+                    var options = QMC.CDT320.Sequencing.PickerSequenceOptions.Default();
+                    options.RunMode = QMC.CDT320.Sequencing.SequenceRunMode.Manual;
+                    options.PickerNo = pickerNo;
+                    options.RestrictToPickerNo = pickerNo;
+
+                    var sequence = new QMC.CDT320.Sequencing.PickerPlaceSequence(context, side);
+                    int result = step.HasValue
+                        ? await sequence.RunManualSelectedOutputSlotPlaceStepAsync(
+                            outputSide,
+                            receiveTarget,
+                            pickerNo,
+                            step.Value,
+                            ManualOperationToken,
+                            options).ConfigureAwait(false)
+                        : await sequence.RunManualSelectedOutputSlotPlaceAsync(
+                            outputSide,
+                            receiveTarget,
+                            pickerNo,
+                            ManualOperationToken,
+                            options).ConfigureAwait(false);
+
+                    if (result != 0)
+                    {
+                        LastActionFailureMessage = actionTitle + " 실패. side=" + side +
+                                                   ", pickerNo=" + pickerNo +
+                                                   ", outputSide=" + outputSide +
+                                                   ", order=" + receiveTarget.OrderIndex +
+                                                   ", result=" + result;
+                        return result;
+                    }
+
+                    SaveMachineRuntimeState(scopeName + ":" + side + ":" + pickerNo + ":" + outputSide + ":" + receiveTarget.OrderIndex);
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = actionTitle + "가 취소되었습니다.";
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = actionTitle + " 중 예외가 발생했습니다. " + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Error, alarmCode + "-EX", "MachineController", LastActionFailureMessage);
                 SetStatus(EquipmentStatus.Alarm);
                 return -1;
             }

@@ -157,13 +157,13 @@ namespace QMC.CDT320.Sequencing
             // 현재 기준: Picker별 Y 보정은 최종 PickerY 전진량으로 OutputStageY 보상에 반영한다.
             result.OutputStageY = outputStageBaseY + receiveTargetY + outputVisionToPickerY - pickerYForward;
             result.PickerX = outputVisionProcessX + receiveTargetX + outputVisionToPickerX + pickerAlignOffsetX;
-            result.PickerT = pickerTTeaching + pickerAlignOffsetT;
+            result.PickerT = pickerTTeaching;
             result.PickerZ = pickerZTeaching;
             result.Formula =
                 "targetSide = " + targetSide +
                 " / outputStageY = outputStageBaseY(" + F(outputStageBaseY) + ") + receiveTargetY(" + F(receiveTargetY) + ") + outputVisionToPickerY(" + F(outputVisionToPickerY) + ") - pickerYForward(abs(pickerY))(" + F(pickerYForward) + ") = " + F(result.OutputStageY) +
                 " / pickerX = outputVisionProcessX(" + F(outputVisionProcessX) + ") + receiveTargetX(" + F(receiveTargetX) + ") + outputVisionToPickerX(" + F(outputVisionToPickerX) + ") + pickerAlignOffsetX(" + F(pickerAlignOffsetX) + ") = " + F(result.PickerX) +
-                " / pickerT = pickerTTeaching(" + F(pickerTTeaching) + ") + pickerAlignOffsetT(" + F(pickerAlignOffsetT) + ") = " + F(result.PickerT) +
+                " / pickerT = placeTeachingT(" + F(pickerTTeaching) + ") [pickerAlignOffsetT ignored for place=" + F(pickerAlignOffsetT) + "] = " + F(result.PickerT) +
                 " / pickerY = pickerYTeaching(" + F(pickerYTeaching) + ") + pickerAlignOffsetY(" + F(pickerAlignOffsetY) + ") = " + F(result.PickerY) +
                 " / pickerZ = " + F(result.PickerZ);
             LogFormula(sequenceName, "PLACE", side, pickerIndex, dieId, result.Formula);

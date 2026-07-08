@@ -181,7 +181,15 @@ namespace QMC.CDT320.Ajin
                 }
 
                 if (UseSimulation)
+                {
+                    // 현재 기준: 시뮬레이션 절대 이동도 실장비와 동일하게 MotionGuard를 통과해야 한다.
+                    string simulationInterlockReason;
+                    if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                        !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out simulationInterlockReason))
+                        return FailMotion(-11, "ABS MOVE", simulationInterlockReason, targetPos, true);
+
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
+                }
 
                 UpdateStatus();
                 bool limitRecoveryTarget = IsLimitRecoveryTarget(targetPos);
@@ -291,7 +299,16 @@ namespace QMC.CDT320.Ajin
             try
             {
                 if (UseSimulation || !AjinSystem.IsOpen)
+                {
+                    double simulationTargetPos = ActualPosition + distance;
+                    // 현재 기준: 시뮬레이션/드라이런 상대 이동도 실장비와 동일하게 MotionGuard를 통과해야 한다.
+                    string simulationInterlockReason;
+                    if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                        !MotionGuardRuntime.VerifyAxisMove(this, simulationTargetPos, out simulationInterlockReason))
+                        return FailMotion(-11, "REL MOVE", simulationInterlockReason, simulationTargetPos, true);
+
                     return await base.MoveRelativeAsync(distance, velocity);
+                }
 
                 UpdateStatus();
                 double targetPos = ActualPosition + distance;
@@ -361,6 +378,11 @@ namespace QMC.CDT320.Ajin
                 if (UseSimulation)
                 {
                     sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
+                    // 현재 기준: 시뮬레이션 홈 동작도 실장비와 동일하게 MotionGuard를 통과해야 한다.
+                    string simulationInterlockReason;
+                    if (!MotionGuardRuntime.VerifyAxisHome(this, out simulationInterlockReason))
+                        return FailMotion(-11, "HOME", simulationInterlockReason, AxisHomeTarget(), true);
+
                     return await base.HomeSearchAsync();
                 }
 
@@ -598,17 +620,16 @@ namespace QMC.CDT320.Ajin
                     SharedRailXMotionRuntime.IsSharedRailAxis(this);
 
                 if (!UseSimulation)
-                {
                     UpdateStatus();
-                    // 이동 중 반복 입력은 새 Jog 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
-                    if (IsMoving)
-                    {
-                        if (sharedRailJog)
-                            SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
-                        else if (!SharedRailXMotionRuntime.IsInternalDispatch)
-                            VerifyJogSafetyWhileMoving(direction);
-                        return;
-                    }
+
+                // 이동 중 반복 입력은 새 Jog 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+                if (IsMoving)
+                {
+                    if (sharedRailJog)
+                        SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
+                    else if (!SharedRailXMotionRuntime.IsInternalDispatch)
+                        VerifyJogSafetyWhileMoving(direction);
+                    return;
                 }
 
                 if (sharedRailJog)
@@ -619,6 +640,16 @@ namespace QMC.CDT320.Ajin
 
                 if (UseSimulation)
                 {
+                    double simulationJogTarget = ResolveJogGuardTarget(direction);
+                    // 현재 기준: 시뮬레이션 Continuous Jog도 실장비와 동일하게 MotionGuard를 통과해야 한다.
+                    string simulationInterlockReason;
+                    if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                        !MotionGuardRuntime.VerifyAxisContinuousJog(this, simulationJogTarget, "ContinuousJog", out simulationInterlockReason))
+                    {
+                        RecordMotionFailure(-11, "JOG", simulationInterlockReason, simulationJogTarget, true);
+                        return;
+                    }
+
                     base.MoveJogContinuous(direction, speedType, customVel);
                     return;
                 }
@@ -706,7 +737,11 @@ namespace QMC.CDT320.Ajin
             {
                 double jogTarget = ResolveJogGuardTarget(direction);
                 string interlockReason;
-                MotionGuardRuntime.VerifyAxisContinuousJog(this, jogTarget, "ContinuousJog", out interlockReason);
+                if (!MotionGuardRuntime.VerifyAxisContinuousJog(this, jogTarget, "ContinuousJog", out interlockReason))
+                {
+                    // 현재 기준: 조그 중 실시간 재검사에서 차단되면 해당 축을 즉시 비상정지한다.
+                    EStop();
+                }
             }
             catch (Exception ex)
             {
@@ -780,17 +815,16 @@ namespace QMC.CDT320.Ajin
                     SharedRailXMotionRuntime.IsSharedRailAxis(this);
 
                 if (!UseSimulation)
-                {
                     UpdateStatus();
-                    // 이동 중 반복 Step Jog 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
-                    if (IsMoving)
-                    {
-                        if (sharedRailJog)
-                            SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
-                        else if (!SharedRailXMotionRuntime.IsInternalDispatch)
-                            VerifyJogSafetyWhileMoving(direction);
-                        return 0;
-                    }
+
+                // 이동 중 반복 Step Jog 입력은 새 명령은 막고, 인터락은 현재 방향 기준으로 재확인한다.
+                if (IsMoving)
+                {
+                    if (sharedRailJog)
+                        SharedRailXMotionRuntime.VerifyJogSafetyWhileMoving(this, direction);
+                    else if (!SharedRailXMotionRuntime.IsInternalDispatch)
+                        VerifyJogSafetyWhileMoving(direction);
+                    return 0;
                 }
 
                 if (sharedRailJog)
@@ -804,7 +838,17 @@ namespace QMC.CDT320.Ajin
                 }
 
                 if (UseSimulation)
+                {
+                    double simulationDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(stepDistance);
+                    double simulationTarget = ActualPosition + simulationDistance;
+                    // 현재 기준: 시뮬레이션 Step Jog도 실장비와 동일하게 MotionGuard를 통과해야 한다.
+                    string simulationInterlockReason;
+                    if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                        !MotionGuardRuntime.VerifyAxisStepJog(this, simulationTarget, "StepJog", out simulationInterlockReason))
+                        return FailMotion(-11, "JOG STEP", simulationInterlockReason, simulationTarget, true);
+
                     return await base.MoveJogStepAsync(direction, speedType, stepDistance, customVel);
+                }
 
                 if (!IsServoOn || IsAlarm)
                 {
@@ -1599,7 +1643,9 @@ namespace QMC.CDT320.Ajin
                     {
                         setup.HomeDirection = hDir;
                         setup.HomeSignal = hSig;
-                        setup.HomeOffset = FromBoardPosition(hOff);
+                        // 현재 기준: Picker T HomeOffset은 보드값이 아니라 홈 후 PC 보정값이므로 보드 읽기로 덮지 않는다.
+                        if (!ShouldApplyPickerThetaPcHomeOffset())
+                            setup.HomeOffset = FromBoardPosition(hOff);
                     }
 
                     // Max velocity
@@ -1832,12 +1878,16 @@ namespace QMC.CDT320.Ajin
                         // Home method
                         try
                         {
+                            // 현재 기준: Picker T PC HomeOffset은 보드에 쓰지 않고 홈 후 상대 이동으로만 적용한다.
+                            double boardHomeOffset = ShouldApplyPickerThetaPcHomeOffset()
+                                ? 0.0
+                                : setup.HomeOffset;
                             AXM.SetHomeMethod(AxisNo,
                                 setup.HomeDirection,
                                 setup.HomeSignal,
                                 HomeZPhase.None,
                                 0.0,
-                                ToBoardPosition(setup.HomeOffset));
+                                ToBoardPosition(boardHomeOffset));
                         }
                         catch (Exception ex) { LogWriteWarn("HomeMethod", ex); }
 

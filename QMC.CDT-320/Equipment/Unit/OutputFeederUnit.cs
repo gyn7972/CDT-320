@@ -177,7 +177,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = FeederY.ActualPosition + signedDistance;
-            return MoveBinFeederY(target, speedType, customSpeed);
+            return MoveBinFeederY(target, speedType, customSpeed, true);
         }
 
         public Task<int> JogContinuousAsync(
@@ -210,7 +210,12 @@ namespace QMC.CDT320
 
         public Task<int> MoveBinFeederY(double targetPos, JogSpeedType speedType, double customSpeed)
         {
-            return MoveBinFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed));
+            return MoveBinFeederY(targetPos, speedType, customSpeed, false);
+        }
+
+        private Task<int> MoveBinFeederY(double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
+            return MoveBinFeederYAsync(targetPos, UnitJogVelocityResolver.Resolve(FeederY, speedType, customSpeed), forceMove);
         }
 
         public async Task<int> MoveBinFeederYAsync(double targetPos, bool bFine = false)
@@ -258,6 +263,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveBinFeederYAsync(double targetPos, double velocity)
         {
+            return await MoveBinFeederYAsync(targetPos, velocity, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveBinFeederYAsync(double targetPos, double velocity, bool forceMove)
+        {
             try
             {
                 string readyReason;
@@ -267,7 +277,7 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 조그 속도 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
-                if (IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
+                if (!forceMove && IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
                         "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
@@ -280,7 +290,8 @@ namespace QMC.CDT320
                     targetPos,
                     velocity,
                     UnitJogVelocityResolver.ResolveAcceleration(FeederY),
-                    UnitJogVelocityResolver.ResolveDeceleration(FeederY)).ConfigureAwait(false);
+                    UnitJogVelocityResolver.ResolveDeceleration(FeederY),
+                    forceMove).ConfigureAwait(false);
                 if (result != 0 || FeederY.IsAlarm)
                     return RaiseFeederAlarm(
                         "BF-Y-MOVE",

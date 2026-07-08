@@ -3,11 +3,20 @@ using System.Threading.Tasks;
 
 namespace QMC.CDT_320.Ui.Controls
 {
+    public enum ManualActionVisualKind
+    {
+        Default,
+        PickerSelect,
+        PickerSelected
+    }
+
     /// <summary>MANUAL ACTION 버튼 하나의 정의. 텍스트와 클릭 시 실행할 비동기 동작을 갖는다.</summary>
     public sealed class ManualActionItem
     {
         public string Text { get; private set; }
         public Func<Task> ClickAsync { get; private set; }
+        public ManualActionVisualKind VisualKind { get; private set; }
+        public int ColumnSpan { get; private set; } = 1;
         public object Tag { get; set; }
 
         private ManualActionItem()
@@ -18,6 +27,18 @@ namespace QMC.CDT_320.Ui.Controls
         public static ManualActionItem Create(string text, Func<Task> clickAsync)
         {
             return new ManualActionItem { Text = text ?? string.Empty, ClickAsync = clickAsync };
+        }
+
+        public ManualActionItem WithVisualKind(ManualActionVisualKind visualKind)
+        {
+            VisualKind = visualKind;
+            return this;
+        }
+
+        public ManualActionItem WithColumnSpan(int columnSpan)
+        {
+            ColumnSpan = Math.Max(1, columnSpan);
+            return this;
         }
     }
 }

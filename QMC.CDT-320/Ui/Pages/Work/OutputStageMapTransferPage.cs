@@ -13,6 +13,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Pages.WorkInfo;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
@@ -27,6 +28,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridMoveRearPickerMenuItems;
+        private ToolStripMenuItem[] _gridPlaceTestFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridPlaceTestRearPickerMenuItems;
+        private OutputPlaceTargetSelectDialog _placeTestDialog;
         private bool _manualMoveBusy;
 
         private sealed class OutputPlaceManualTargets
@@ -957,6 +961,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(new ToolStripSeparator());
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE FRONT PICKER", PickerSequenceSide.Front, out _gridMoveFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE REAR PICKER", PickerSequenceSide.Rear, out _gridMoveRearPickerMenuItems));
+                _gridMenu.Items.Add(new ToolStripSeparator());
+                _gridMenu.Items.Add(BuildPickerPlaceTestMenu("PLACE TEST FRONT PICKER", PickerSequenceSide.Front, out _gridPlaceTestFrontPickerMenuItems));
+                _gridMenu.Items.Add(BuildPickerPlaceTestMenu("PLACE TEST REAR PICKER", PickerSequenceSide.Rear, out _gridPlaceTestRearPickerMenuItems));
                 _gridMenu.Opening += (s, e) =>
                 {
                     bool enabled = _selectedEntry != null && !_manualMoveBusy;
@@ -965,6 +972,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     SetPickerMoveMenuEnabled(_gridMoveFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridMoveRearPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPlaceTestFrontPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPlaceTestRearPickerMenuItems, enabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -987,6 +996,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
                 item.Click += async (s, e) => await MoveSelectedSlotByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private ToolStripMenuItem BuildPickerPlaceTestMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += (s, e) => ShowPlaceTestDialogForSelectedOutputSlot(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
             }
@@ -1020,6 +1046,110 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     gridDieList.CurrentCell = row.Cells[0];
 
                 SelectEntryByGridRow(e.RowIndex);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ShowPlaceTestDialogForSelectedOutputSlot(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Place Test 대상 Output Slot이 선택되지 않았습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Place Test를 실행할 Controller 정보를 찾을 수 없습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                CloseOutputMapPlaceTestDialog();
+
+                _placeTestDialog = new OutputPlaceTargetSelectDialog(
+                    host.Controller,
+                    side,
+                    pickerNo,
+                    _selectedSide,
+                    entry,
+                    ResolveSelectedEntryOrderIndex(entry));
+                _placeTestDialog.FormClosed += (s, e) => _placeTestDialog = null;
+
+                IWin32Window ownerWindow = FindForm();
+                if (ownerWindow != null)
+                    _placeTestDialog.Show(ownerWindow);
+                else
+                    _placeTestDialog.Show();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " Place Test dialog opened. slot=" + BuildEntryMapText(entry) +
+                    ", outputSide=" + _selectedSide + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Place Test dialog open failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Place Test 다이얼로그 실행 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveSelectedEntryOrderIndex(DieMapEntry entry)
+        {
+            try
+            {
+                DieMap map = mapView != null ? mapView.Map : null;
+                if (entry == null || map == null)
+                    return 0;
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    DieMapEntry item = ordered[i];
+                    if (item == null)
+                        continue;
+
+                    if (ResolveEntryMapX(item) == ResolveEntryMapX(entry) &&
+                        ResolveEntryMapY(item) == ResolveEntryMapY(entry) &&
+                        string.Equals(item.DieUid ?? "", entry.DieUid ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return i;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0;
+        }
+
+        private void CloseOutputMapPlaceTestDialog()
+        {
+            try
+            {
+                if (_placeTestDialog == null || _placeTestDialog.IsDisposed)
+                    return;
+
+                _placeTestDialog.Close();
             }
             catch
             {
@@ -2120,6 +2250,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
+                CloseOutputMapPlaceTestDialog();
                 _refresh?.Stop();
                 _refresh?.Dispose();
             }

@@ -180,7 +180,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = InputLifterZ.ActualPosition + signedDistance;
-            return MoveWaferLifterZ(target, speedType, customSpeed);
+            return MoveWaferLifterZ(target, speedType, customSpeed, true);
         }
 
         public Task<int> JogContinuousAsync(
@@ -288,6 +288,11 @@ namespace QMC.CDT320
         /// <summary>지정한 조그 속도 모드로 Wafer Lifter Z축을 절대 위치로 이동합니다.</summary>
         public async Task<int> MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
         {
+            return await MoveWaferLifterZ(targetPos, speedType, customSpeed, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
             try
             {
                 string targetReason;
@@ -304,7 +309,8 @@ namespace QMC.CDT320
                     velocity,
                     UnitJogVelocityResolver.ResolveAcceleration(InputLifterZ),
                     UnitJogVelocityResolver.ResolveDeceleration(InputLifterZ),
-                    CancellationToken.None).ConfigureAwait(false);
+                    CancellationToken.None,
+                    forceMove).ConfigureAwait(false);
                 return 0;
             }
             catch (Exception ex)
@@ -2015,7 +2021,8 @@ namespace QMC.CDT320
             double velocity,
             double acceleration,
             double deceleration,
-            CancellationToken ct)
+            CancellationToken ct,
+            bool forceMove = false)
         {
             double oldAcceleration = 0.0;
             double oldDeceleration = 0.0;
@@ -2042,7 +2049,18 @@ namespace QMC.CDT320
                     InputLifterZ.Config.Deceleration = deceleration;
                 }
 
-                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                Task<int> moveTask;
+                if (forceMove)
+                {
+                    using (BaseAxis.BeginForceMoveScope())
+                    {
+                        moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                    }
+                }
+                else
+                {
+                    moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                }
                 while (!moveTask.IsCompleted)
                 {
                     ct.ThrowIfCancellationRequested();

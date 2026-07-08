@@ -403,7 +403,8 @@ namespace QMC.CDT320.Sequencing
                 SequenceTrace.MotionEnd("InputStageMove", 0,
                     "axis=" + axis,
                     "target=" + target,
-                    "status=WaitOk");
+                    "status=WaitOk",
+                    "state=" + BuildAxisState(axis, target));
                 return 0;
             }
             catch (OperationCanceledException)

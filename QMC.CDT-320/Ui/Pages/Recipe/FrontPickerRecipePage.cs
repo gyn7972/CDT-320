@@ -30,6 +30,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerFrontUnit unit;
+        private int selectedManualPickerNo = 4;
 
         public FrontPickerRecipePage()
         {
@@ -131,64 +132,68 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async void btnPickPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("PICK POSITION", () => MoveHeadKindSequenceAsync("PICK"));
+            await ConfirmSelectedAppliedZoneMoveAsync("PICK POSITION", "DiePickPosition", "PICK");
         }
 
         private async void btnBottomPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("BOTTOM POSITION", () => MoveHeadKindSequenceAsync("BOTTOM"));
+            await ConfirmSelectedAppliedZoneMoveAsync("BOTTOM POSITION", "DieBottomPosition", "BOTTOM");
         }
 
         private async void btnSidePosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("SIDE POSITION", () => MoveHeadKindSequenceAsync("SIDE"));
+            await ConfirmSelectedAppliedZoneMoveAsync("SIDE POSITION", "DieSidePosition", "SIDE");
         }
 
         private async void btnPlacePosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("PLACE POSITION", () => MoveHeadKindSequenceAsync("PLACE"));
+            await ConfirmSelectedAppliedZoneMoveAsync("PLACE POSITION", "DiePlacePosition", "PLACE");
         }
 
         private async void btnDiePickPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("DIE PICK POSITION", () => MoveDieKindSequenceAsync("DIE PICK", "DiePickPosition"));
+            await ConfirmSelectedAppliedZoneMoveAsync("DIE PICK POSITION", "DiePickPosition", "PICK");
         }
 
         private async void btnDieBottomPosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"));
+            await ConfirmSelectedAppliedZoneMoveAsync("DIE BOTTOM POSITION", "DieBottomPosition", "BOTTOM");
         }
 
         private async void btnDieSidePosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"));
+            await ConfirmSelectedAppliedZoneMoveAsync("DIE SIDE POSITION", "DieSidePosition", "SIDE");
         }
 
         private async void btnDiePlacePosition_Click(object sender, EventArgs e)
         {
-            await ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"));
+            await ConfirmSelectedAppliedZoneMoveAsync("DIE PLACE POSITION", "DiePlacePosition", "PLACE");
         }
 
         private void ConfigureManualActions()
         {
             try
             {
-                // 공용 MANUAL ACTION 판넬에 위치 이동 버튼 등록 (2열, 행 수 자동)
-                manualActionPanel.ColumnCount = 2;
+                // 픽커 선택은 4열 한 줄, 이동 동작은 2칸씩 사용해서 기존 2열 감각을 유지한다.
+                manualActionPanel.ColumnCount = 4;
                 manualActionPanel.SetItems(new[]
                 {
-                    ManualActionItem.Create("AVOID POSITION", () => ConfirmMoveAsync("AVOID POSITION", MoveAvoidSequenceAsync)),
-                    ManualActionItem.Create("PICK POSITION", () => ConfirmMoveAsync("PICK POSITION", () => MoveHeadKindSequenceAsync("PICK"))),
-                    ManualActionItem.Create("BOTTOM POSITION", () => ConfirmMoveAsync("BOTTOM POSITION", () => MoveHeadKindSequenceAsync("BOTTOM"))),
-                    ManualActionItem.Create("SIDE POSITION", () => ConfirmMoveAsync("SIDE POSITION", () => MoveHeadKindSequenceAsync("SIDE"))),
-                    ManualActionItem.Create("PLACE POSITION", () => ConfirmMoveAsync("PLACE POSITION", () => MoveHeadKindSequenceAsync("PLACE"))),
-                    ManualActionItem.Create("DIE PICK POSITION", () => ConfirmMoveAsync("DIE PICK POSITION", () => MoveDieKindSequenceAsync("DIE PICK", "DiePickPosition"))),
-                    ManualActionItem.Create("DIE BOTTOM POSITION", () => ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"))),
-                    ManualActionItem.Create("DIE SIDE POSITION", () => ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"))),
-                    ManualActionItem.Create("DIE PLACE POSITION", () => ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"))),
-                    ManualActionItem.Create("APPLIED ZONE MOVE", ShowAppliedZoneMoveDialogAsync),
+                    CreatePickerSelectItem(1),
+                    CreatePickerSelectItem(2),
+                    CreatePickerSelectItem(3),
+                    CreatePickerSelectItem(4),
+                    CreateManualMoveItem("AVOID POSITION", () => ConfirmMoveAsync("AVOID POSITION", MoveAvoidSequenceAsync)),
+                    CreateManualMoveItem("PICK POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("PICK POSITION", "DiePickPosition", "PICK")),
+                    CreateManualMoveItem("BOTTOM POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("BOTTOM POSITION", "DieBottomPosition", "BOTTOM")),
+                    CreateManualMoveItem("SIDE POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("SIDE POSITION", "DieSidePosition", "SIDE")),
+                    CreateManualMoveItem("PLACE POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("PLACE POSITION", "DiePlacePosition", "PLACE")),
+                    CreateManualMoveItem("DIE PICK POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("DIE PICK POSITION", "DiePickPosition", "PICK")),
+                    CreateManualMoveItem("DIE BOTTOM POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("DIE BOTTOM POSITION", "DieBottomPosition", "BOTTOM")),
+                    CreateManualMoveItem("DIE SIDE POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("DIE SIDE POSITION", "DieSidePosition", "SIDE")),
+                    CreateManualMoveItem("DIE PLACE POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("DIE PLACE POSITION", "DiePlacePosition", "PLACE")),
+                    CreateManualMoveItem("APPLIED ZONE MOVE", ShowAppliedZoneMoveDialogAsync),
 
-                    ManualActionItem.Create("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
+                    CreateManualMoveItem("Z1 0-2mm x50 TEST", () => ConfirmMoveAsync("FRONT PICKER Z1 0-2mm x50 TEST", RunFrontPickerZ1CycleTestAsync))
                 });
             }
             catch (Exception ex)
@@ -834,6 +839,43 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private ManualActionItem CreatePickerSelectItem(int pickerNo)
+        {
+            return ManualActionItem
+                .Create(BuildPickerSelectText(pickerNo), () => SelectManualPickerAsync(pickerNo))
+                .WithVisualKind(pickerNo == selectedManualPickerNo ? ManualActionVisualKind.PickerSelected : ManualActionVisualKind.PickerSelect);
+        }
+
+        private static ManualActionItem CreateManualMoveItem(string text, Func<Task> clickAsync)
+        {
+            return ManualActionItem.Create(text, clickAsync).WithColumnSpan(2);
+        }
+
+        private string BuildPickerSelectText(int pickerNo)
+        {
+            return pickerNo == selectedManualPickerNo
+                ? "#" + pickerNo + " SELECTED"
+                : "#" + pickerNo;
+        }
+
+        private Task SelectManualPickerAsync(int pickerNo)
+        {
+            selectedManualPickerNo = Math.Max(1, Math.Min(4, pickerNo));
+            EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER",
+                "Manual action picker selected. pickerNo=" + selectedManualPickerNo);
+            ConfigureManualActions();
+            return Task.FromResult(0);
+        }
+
+        private Task ConfirmSelectedAppliedZoneMoveAsync(string actionName, string positionArrayName, string zoneText)
+        {
+            return ConfirmAppliedZoneMoveAsync(
+                actionName + " PICKER #" + selectedManualPickerNo,
+                selectedManualPickerNo,
+                positionArrayName,
+                zoneText);
+        }
+
         private async Task ConfirmAppliedZoneMoveAsync(string actionName, int pickerNo, string positionArrayName, string zoneText)
         {
             if (unit == null)
@@ -847,17 +889,37 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!EnsureTargetAxesHomeDone(actionName, new[] { PickerAxis.PickerX, PickerAxis.PickerY, tAxis, zAxis }))
                 return;
 
-            PickerCalibratedZoneTarget target = ResolveAppliedZoneTarget(pickerNo, positionArrayName);
+            RecipePickerMoveTarget target;
+            string targetReason;
+            if (!RecipePickerMoveTargetResolver.TryResolve(
+                FindMachine(),
+                PickerSequenceSide.Front,
+                pickerNo,
+                positionArrayName,
+                zoneText,
+                out target,
+                out targetReason))
+            {
+                QMC.Common.MessageDialog.Show(this,
+                    actionName + " 보정 적용 위치 계산 실패\r\n" + targetReason,
+                    "Front Picker",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                 actionName + " 보정 적용 위치로 이동하시겠습니까?\r\n" +
                 "Picker #" + pickerNo + " / Zone=" + zoneText + "\r\n" +
+                "Source=" + target.SourceMode + "\r\n" +
+                "Loaded Die=" + target.LoadedDieText + "\r\n" +
                 "Final X=" + target.X.ToString("F3") + " mm\r\n" +
                 "Final Y=" + target.Y.ToString("F3") + " mm\r\n" +
                 "Final T=" + target.T.ToString("F3") + " deg\r\n" +
                 "Final Z=" + target.Z.ToString("F3") + " mm\r\n" +
-                "순서: Z 상승 -> Y 후진 -> T/X 이동 -> Y 전진 -> Z 하강\r\n" +
+                "순서: Z 상승 -> Y 후진 -> X 이동 -> Y 전진 -> T 이동 -> Z 하강\r\n" +
                 "\r\n축별 계산\r\n" +
-                PickerMotionTargetResolver.FormatZoneTargetByAxis(target, "\r\n"),
+                target.AxisFormula,
                 "Front Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes)
                 return;
@@ -865,16 +927,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await RunSafeAsync(() => MoveAppliedZonePositionAsync(target, actionName, zoneText), actionName).ConfigureAwait(true);
         }
 
-        private PickerCalibratedZoneTarget ResolveAppliedZoneTarget(int pickerNo, string positionArrayName)
-        {
-            return PickerMotionTargetResolver.ResolveCarryZoneTarget(
-                FindMachine(),
-                PickerSequenceSide.Front,
-                positionArrayName,
-                pickerNo - 1);
-        }
-
-        private async Task<int> MoveAppliedZonePositionAsync(PickerCalibratedZoneTarget target, string actionName, string zoneText)
+        private async Task<int> MoveAppliedZonePositionAsync(RecipePickerMoveTarget target, string actionName, string zoneText)
         {
             if (unit == null || target == null)
                 return -1;
@@ -882,7 +935,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER-APPLIED-ZONE",
                 actionName + " target calculated. pickerNo=" + (target.PickerIndex + 1) +
                 ", zone=" + zoneText +
-                ", axisFormula=" + PickerMotionTargetResolver.FormatZoneTargetByAxis(target, " | "));
+                ", source=" + target.SourceMode +
+                ", loadedDie=" + target.LoadedDieText +
+                ", axisFormula=" + target.AxisFormula.Replace(Environment.NewLine, " | "));
 
             int r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerZAxes)).ConfigureAwait(true);
             if (r != 0) return AbortSeq(actionName, "Z 상승 실패");
@@ -892,12 +947,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 unit.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                 BuildAppliedZoneTargetName(target, "SafeY")).ConfigureAwait(true);
             if (r != 0) return AbortSeq(actionName, "Y 후진 실패");
-
-            r = await MovePickerAxisTargetAsync(
-                target.PickerTAxis,
-                target.T,
-                BuildAppliedZoneTargetName(target, "T")).ConfigureAwait(true);
-            if (r != 0) return AbortSeq(actionName, "T 이동 실패");
 
             r = await MovePickerAxisTargetAsync(
                 PickerAxis.PickerX,
@@ -910,6 +959,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 target.Y,
                 BuildAppliedZoneTargetName(target, "YForward")).ConfigureAwait(true);
             if (r != 0) return AbortSeq(actionName, "Y 전진 실패");
+
+            r = await MovePickerAxisTargetAsync(
+                target.PickerTAxis,
+                target.T,
+                BuildAppliedZoneTargetName(target, "T")).ConfigureAwait(true);
+            if (r != 0) return AbortSeq(actionName, "T 이동 실패");
 
             r = await MovePickerAxisTargetAsync(
                 target.PickerZAxis,
@@ -931,8 +986,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             EventLogger.Write(EventKind.Event, "UI", "FRONT-PICKER-APPLIED-ZONE",
-                actionName + " move complete. axisFormula=" +
-                PickerMotionTargetResolver.FormatZoneTargetByAxis(target, " | ") +
+                actionName + " move complete. source=" + target.SourceMode +
+                ", loadedDie=" + target.LoadedDieText +
+                ", axisFormula=" + target.AxisFormula.Replace(Environment.NewLine, " | ") +
                 ", axisState=X축[" + BuildAxisState(PickerAxis.PickerX, target.X) + "]" +
                 ", Y축[" + BuildAxisState(PickerAxis.PickerY, target.Y) + "]" +
                 ", T축[" + BuildAxisState(target.PickerTAxis, target.T) + "]" +
@@ -972,10 +1028,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return AxisMoveWaiter.BuildAxisState(item, target, tolerance);
         }
 
-        private static string BuildAppliedZoneTargetName(PickerCalibratedZoneTarget target, string phase)
+        private static string BuildAppliedZoneTargetName(RecipePickerMoveTarget target, string phase)
         {
             return target.PositionArrayName + "[" + target.PickerIndex + "];RecipeAppliedZoneMove;PickerZone=" +
-                   target.ZonePositionName + ";PickerPhase=" + phase;
+                   target.ZonePositionName + ";PickerPhase=" + phase + ";Source=" + target.SourceMode;
         }
 
         private static PickerAxis ResolvePickerTAxis(int pickerIndex)

@@ -986,6 +986,9 @@
     <Compile Include="Ui\Pages\WorkInfo\Common\InputPickTargetSelectDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\OutputPlaceTargetSelectDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.Designer.cs">
       <DependentUpon>PickerHeadDieDialog.cs</DependentUpon>
     </Compile>
@@ -1079,6 +1082,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
+    <Compile Include="Ui\Pages\Recipe\RecipePickerMoveTarget.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>

@@ -9,6 +9,10 @@ namespace QMC.CDT_320.Ui.Controls
     {
         private bool _hover;
         private bool _down;
+        private string _badgeText = "ACTION";
+        private Color _badgeColor = Color.FromArgb(0xF5, 0xA6, 0x23);
+        private Color _borderColor = Color.Empty;
+        private int _borderWidth;
 
         public ActionButton()
         {
@@ -21,6 +25,30 @@ namespace QMC.CDT_320.Ui.Controls
             Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
             ForeColor = Color.White;
             BackColor = Color.FromArgb(0x80, 0x80, 0x80);
+        }
+
+        public string BadgeText
+        {
+            get { return _badgeText; }
+            set { _badgeText = value ?? string.Empty; Invalidate(); }
+        }
+
+        public Color BadgeColor
+        {
+            get { return _badgeColor; }
+            set { _badgeColor = value; Invalidate(); }
+        }
+
+        public Color BorderColor
+        {
+            get { return _borderColor; }
+            set { _borderColor = value; Invalidate(); }
+        }
+
+        public int BorderWidth
+        {
+            get { return _borderWidth; }
+            set { _borderWidth = Math.Max(0, value); Invalidate(); }
         }
 
         // Control 상속이라 Text/Enabled 변경만으로는 다시 그리지 않음 -> 명시적 Invalidate 필요
@@ -47,9 +75,25 @@ namespace QMC.CDT_320.Ui.Controls
             using (SolidBrush b = new SolidBrush(bg))
                 g.FillRectangle(b, ClientRectangle);
 
-            using (Font actFont = new Font("Malgun Gothic", 7.5F, FontStyle.Bold))
-            using (SolidBrush actBrush = new SolidBrush(Color.FromArgb(0xF5, 0xA6, 0x23)))
-                g.DrawString("ACTION", actFont, actBrush, 6, 4);
+            if (_borderWidth > 0 && !_borderColor.IsEmpty)
+            {
+                using (Pen pen = new Pen(_borderColor, _borderWidth))
+                {
+                    Rectangle borderRect = new Rectangle(
+                        _borderWidth / 2,
+                        _borderWidth / 2,
+                        Math.Max(1, Width - _borderWidth),
+                        Math.Max(1, Height - _borderWidth));
+                    g.DrawRectangle(pen, borderRect);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_badgeText))
+            {
+                using (Font actFont = new Font("Malgun Gothic", 7.5F, FontStyle.Bold))
+                using (SolidBrush actBrush = new SolidBrush(_badgeColor))
+                    g.DrawString(_badgeText, actFont, actBrush, 6, 4);
+            }
 
             using (SolidBrush fg = new SolidBrush(Enabled ? ForeColor : Color.FromArgb(0x90, 0x90, 0x90)))
             {

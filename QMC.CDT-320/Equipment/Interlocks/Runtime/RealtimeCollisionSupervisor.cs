@@ -12,6 +12,8 @@ namespace QMC.CDT320.Interlocks
         private const int DefaultMonitorPeriodMs = 100;
         private const int RiskLogThrottleMs = 10000;
         private const int StateLogThrottleMs = 30000;
+        private const int HardStopRepeatStopMs = 250;
+        private const int HardStopRepeatAlarmMs = 1000;
 
         private readonly object _sync = new object();
         private readonly CDT320_Machine _machine;
@@ -20,6 +22,8 @@ namespace QMC.CDT320.Interlocks
         private int _monitorPeriodMs = DefaultMonitorPeriodMs;
         private DateTime _lastRiskLogUtc = DateTime.MinValue;
         private DateTime _lastStateLogUtc = DateTime.MinValue;
+        private DateTime _lastHardStopStopUtc = DateTime.MinValue;
+        private DateTime _lastHardStopAlarmUtc = DateTime.MinValue;
         private int _hardStopRaised;
         private PickerSafetyPhase _frontPhase = PickerSafetyPhase.Idle;
         private PickerSafetyPhase _rearPhase = PickerSafetyPhase.Idle;
@@ -198,6 +202,8 @@ namespace QMC.CDT320.Interlocks
             }
 
             Interlocked.Exchange(ref _hardStopRaised, 0);
+            _lastHardStopStopUtc = DateTime.MinValue;
+            _lastHardStopAlarmUtc = DateTime.MinValue;
             WriteThrottledStateLog(
                 "실시간 충돌 감시 상태. " +
                 pair.Describe() + ", " + state.Front.Describe() + ", " + state.Rear.Describe());
@@ -257,10 +263,21 @@ namespace QMC.CDT320.Interlocks
 
         private void RaiseHardStop(string reason)
         {
-            if (Interlocked.Exchange(ref _hardStopRaised, 1) != 0)
+            DateTime now = DateTime.UtcNow;
+            bool firstRaise = Interlocked.Exchange(ref _hardStopRaised, 1) == 0;
+
+            // 현재 기준: 위험 상태가 남아 있으면 알람 리셋 후에도 주기적으로 EStop을 재실행한다.
+            if (firstRaise || (now - _lastHardStopStopUtc).TotalMilliseconds >= HardStopRepeatStopMs)
+            {
+                _lastHardStopStopUtc = now;
+                StopAllForCollision();
+            }
+
+            if (!firstRaise && (now - _lastHardStopAlarmUtc).TotalMilliseconds < HardStopRepeatAlarmMs)
                 return;
 
-            StopAllForCollision();
+            _lastHardStopAlarmUtc = now;
+
             QMC.Common.Log.Write("Main", "INTERLOCK", "RealtimeCollisionSupervisor", reason + " - Blocked");
             AlarmManager.Raise(
                 AlarmSeverity.Critical,

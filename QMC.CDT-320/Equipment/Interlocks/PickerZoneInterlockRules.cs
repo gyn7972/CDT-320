@@ -765,6 +765,66 @@ namespace QMC.CDT320.Interlocks
                 out reason);
         }
 
+        // 인터락 항목: FrontPickerY 조그는 목표 존 판정은 생략하되 양쪽 PickerY 돌출과 X 안전거리는 확인한다.
+        public static bool VerifyFrontPickerYJogFacingMove(MotionGuardRuleContext request, out string reason)
+        {
+            return VerifyPickerYJogFacingMove(
+                request,
+                true,
+                "FrontPickerY",
+                out reason);
+        }
+
+        // 인터락 항목: RearPickerY 조그는 목표 존 판정은 생략하되 양쪽 PickerY 돌출과 X 안전거리는 확인한다.
+        public static bool VerifyRearPickerYJogFacingMove(MotionGuardRuleContext request, out string reason)
+        {
+            return VerifyPickerYJogFacingMove(
+                request,
+                false,
+                "RearPickerY",
+                out reason);
+        }
+
+        // 인터락 항목: PickerY 조그 시작 전 Front/Rear Y 돌출과 X 안전거리 조건만 별도로 확인한다.
+        private static bool VerifyPickerYJogFacingMove(
+            MotionGuardRuleContext request,
+            bool isFront,
+            string movingName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                    return true;
+
+                string detail;
+                if (CanMovePickerYByFacingYInterlock(
+                    request.Machine,
+                    isFront,
+                    request.TargetValue,
+                    null,
+                    request.TargetName,
+                    out detail))
+                {
+                    return true;
+                }
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 조그 이동 불가: " + detail,
+                    out reason);
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " 조그 X거리 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
         // 인터락 항목: Picker X/Y 조그/이동 시작 전 Front/Rear Y 돌출 거리 인터락을 1차로 확인한다.
         public static bool VerifyFacingYDistanceFirst(MotionGuardRuleContext request, out string reason)
         {
@@ -1589,9 +1649,19 @@ namespace QMC.CDT320.Interlocks
                 if (machine == null)
                     return true;
 
-                // 현재 기준: Y 목표가 Home(0) 또는 실제 Avoid이면 안전 복귀 이동이므로 허용한다.
+                BaseAxis ownY = GetPickerY(machine, isFront);
+                double currentY = ownY != null ? ownY.ActualPosition : targetY;
+
+                // 현재 기준: Y가 이미 돌출된 상태에서 Home/Avoid 쪽으로 줄어드는 이동은 복구 이동으로 허용한다.
+                if (IsPickerYRecoveryMove(machine, isFront, currentY, targetY))
+                    return true;
+
+                // 현재 기준: Front는 +Y, Rear는 -Y 방향 조그/이동을 전진으로 보고 첫 1mm 진입부터 검사한다.
+                bool ownMovingForward = IsPickerYForwardDirection(isFront, currentY, targetY);
+
+                // 현재 기준: Y 목표가 Home(0) 또는 실제 Avoid이고 전진 방향도 아니면 안전 복귀 이동이므로 허용한다.
                 bool ownTargetOut = IsPickerYOutByPosition(machine, isFront, targetY);
-                if (!ownTargetOut)
+                if (!ownTargetOut && !ownMovingForward)
                     return true;
 
                 bool otherFront = !isFront;
@@ -1601,7 +1671,6 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 BaseAxis ownX = GetPickerX(machine, isFront);
-                BaseAxis ownY = GetPickerY(machine, isFront);
                 BaseAxis otherX = GetPickerX(machine, otherFront);
                 BaseAxis otherY = GetPickerY(machine, otherFront);
                 if (ownX == null || otherX == null)
@@ -1815,6 +1884,57 @@ namespace QMC.CDT320.Interlocks
         private static bool IsPickerYForwardOrMovingForward(CDT320_Machine machine, bool isFront)
         {
             return IsPickerYOutOrMovingOut(machine, isFront, null);
+        }
+
+        // 인터락 기준: FrontPickerY는 +방향, RearPickerY는 -방향을 물리 전진 방향으로 판단한다.
+        private static bool IsPickerYForwardDirection(bool isFront, double currentY, double targetY)
+        {
+            double tolerance = DefaultTolerance;
+            return isFront
+                ? targetY > currentY + tolerance
+                : targetY < currentY - tolerance;
+        }
+
+        // 인터락 기준: 위험 위치에서 Home(0) 또는 실제 Avoid 쪽으로 가까워지는 Y 이동은 복구 이동으로 허용한다.
+        private static bool IsPickerYRecoveryMove(CDT320_Machine machine, bool isFront, double currentY, double targetY)
+        {
+            try
+            {
+                if (!IsPickerYOutByPosition(machine, isFront, currentY))
+                    return false;
+
+                double currentDistance = ResolvePickerYSafeDistance(machine, isFront, currentY);
+                double targetDistance = ResolvePickerYSafeDistance(machine, isFront, targetY);
+                double tolerance = ResolveTolerance(GetPickerY(machine, isFront));
+                return targetDistance < currentDistance - tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        // 인터락 기준: PickerY 안전 위치는 Home(0)과 실제 AvoidPosition 중 더 가까운 거리로 계산한다.
+        private static double ResolvePickerYSafeDistance(CDT320_Machine machine, bool isFront, double position)
+        {
+            double distance = Math.Abs(position);
+
+            try
+            {
+                double avoid = GetPickerTeachingPosition(machine, isFront, PickerAxis.PickerY, "AvoidPosition");
+                distance = Math.Min(distance, Math.Abs(position - avoid));
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return distance;
         }
 
         // 인터락 기준: PickerY가 Home/Avoid 안전 위치 밖에 있거나 밖으로 이동 중인지 판단한다.

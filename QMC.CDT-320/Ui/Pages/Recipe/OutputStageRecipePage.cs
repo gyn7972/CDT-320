@@ -511,7 +511,96 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
-        // GOOD/NG 빈 공통 시퀀스: 게이트 → Z→Avoid → Z확인 → Y→종류 → (종류별 Z) → (Process면 VisionX)
+        private async Task<int> EnsureOutputFeederSafeBeforeStageMoveAsync(string title)
+        {
+            var machine = FindMachine();
+            var feeder = machine != null ? machine.OutputFeederUnit : null;
+            if (feeder == null)
+                return AbortSeq(title, "OutputFeederUnit 없음");
+
+            if (!feeder.IsFeederUnclamped())
+            {
+                int clampResult = await feeder.SetFeederClampAsync(false, ManualCylinderTimeoutMs).ConfigureAwait(true);
+                if (clampResult != 0)
+                    return AbortSeq(title, "OutputFeeder Unclamp 실패. result=" + clampResult + ", " + feeder.DescribeFeederCylinderState());
+            }
+
+            if (!feeder.IsFeederUnclamped())
+                return AbortSeq(title, "OutputFeeder Unclamp 최종 확인 실패. " + feeder.DescribeFeederCylinderState());
+
+            if (!feeder.IsBinFeederYInAvoidPosition())
+            {
+                int moveResult = await feeder.MoveToFeederAvoidPosition(jogAxisMoveControl.SelectedSpeedType == JogSpeedType.Fine).ConfigureAwait(true);
+                if (moveResult != 0)
+                    return AbortSeq(title, "OutputFeederY Avoid 이동 실패. result=" + moveResult + ", " + feeder.DescribeBinFeederYMoveDoneState() + feeder.DescribeBinFeederYLastMotionFailure());
+
+                AxisMoveWaitResult waitResult = await feeder.WaitBinFeederYMoveDoneInPosition(
+                    feeder.Recipe.AvoidPosition,
+                    ManualCylinderTimeoutMs).ConfigureAwait(true);
+                if (!waitResult.Success)
+                    return AbortSeq(title, "OutputFeederY Avoid 이동 완료 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, feeder.DescribeBinFeederYMoveDoneState()));
+            }
+
+            if (!feeder.IsBinFeederYInAvoidPosition())
+                return AbortSeq(title, "OutputFeederY Avoid 최종 확인 실패. " + feeder.DescribeBinFeederYMoveDoneState());
+
+            return 0;
+        }
+
+        private async Task<int> EnsureBinStageZSafeBeforeYAsync(BinSide side, string title, string context)
+        {
+            if (!_outputStageUnit.HasStageAxis(BinZAxis(side)))
+                return 0;
+
+            double zAvoid = GetBinZAvoidTarget(side);
+            int result = await MoveStageAxisWithSelectedSpeedAsync(BinZAxis(side), zAvoid).ConfigureAwait(true);
+            if (result != 0)
+                return AbortSeq(title, context + " Z Avoid 이동 실패");
+
+            if (!_outputStageUnit.IsStageAxisAtPosition(BinZAxis(side), zAvoid))
+                return AbortSeq(title, context + " Y 이동 전 Z Avoid 미확인");
+
+            return 0;
+        }
+
+        private async Task<int> EnsureOppositeStageZSafeBeforeYAsync(BinSide side, string title)
+        {
+            BinSide opposite = side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+            return await EnsureBinStageZSafeBeforeYAsync(opposite, title, "반대쪽 " + (opposite == BinSide.Ng ? "NG" : "GOOD")).ConfigureAwait(true);
+        }
+
+        private async Task<int> EnsureGoodGuideDownBeforeNgYMoveAsync(string title)
+        {
+            int result = await _outputStageUnit.EnsureBinGuideDownAsync(BinSide.Good, ManualCylinderTimeoutMs).ConfigureAwait(true);
+            if (result != 0)
+                return AbortSeq(title, "NG Y 이동 전 Good Bin Guide Down 실패. result=" + result + ", " + _outputStageUnit.DescribeOutputStageInterlockState(BinSide.Ng));
+
+            if (!_outputStageUnit.IsBinGuideDown(BinSide.Good))
+                return AbortSeq(title, "NG Y 이동 전 Good Bin Guide Down 최종 확인 실패. " + _outputStageUnit.DescribeOutputStageInterlockState(BinSide.Ng));
+
+            return 0;
+        }
+
+        private async Task<int> EnsureGoodProcessOppositeStageClearAsync(string title)
+        {
+            int result = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinStageAxis.NgBinY, "Avoid").ConfigureAwait(true);
+            if (result != 0)
+                return AbortSeq(title, "GOOD Process 전 NG Y Avoid 이동 실패");
+
+            if (!_outputStageUnit.IsStageAxisAtPosition(BinStageAxis.NgBinY, _outputStageUnit.Recipe.NGStageY.AvoidPosition))
+                return AbortSeq(title, "GOOD Process 전 NG Y Avoid 최종 확인 실패");
+
+            result = await _outputStageUnit.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ManualCylinderTimeoutMs).ConfigureAwait(true);
+            if (result != 0)
+                return AbortSeq(title, "GOOD Process 전 NG Clamp Lift Up 실패. result=" + result + ", " + _outputStageUnit.DescribeOutputStageInterlockState(BinSide.Good));
+
+            if (!_outputStageUnit.IsBinGuideClampLiftUp(BinSide.Ng))
+                return AbortSeq(title, "GOOD Process 전 NG Clamp Lift Up 최종 확인 실패. " + _outputStageUnit.DescribeOutputStageInterlockState(BinSide.Good));
+
+            return 0;
+        }
+
+        // GOOD/NG 빈 공통 시퀀스: 게이트 → Feeder 안전 → 반대 Z Avoid → 대상 Z Avoid → Y → 종류 → (종류별 Z) → (Process면 VisionX)
         private async Task<int> MoveBinSequenceAsync(BinSide side, string kind)
         {
             if (_outputStageUnit == null)
@@ -519,37 +608,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             string title = (side == BinSide.Ng ? "NG " : "GOOD ") + kind.ToUpperInvariant();
             string reason;
+            int r;
+            bool isAvoidMove = string.Equals(kind, "Avoid", StringComparison.OrdinalIgnoreCase);
 
             // 이동 대상 축(해당 빈 Y/Z)의 HOME END(IsHomeDone) 미완료면 차단.
             if (!CheckBinAxesHomed(side, out reason))
                 return AbortSeq(title, reason);
-            if (!CheckClampUp(side, out reason))
+            if (!isAvoidMove && !CheckClampUp(side, out reason))
                 return AbortSeq(title, reason);
             if (!CheckPickerZClear(out reason))
                 return AbortSeq(title, reason);
 
-            // 이 스테이지에 Z축이 있는지 (예: NG는 Y 전용이라 Z축 없음 → Z 단계 전부 생략)
-            bool hasZ = _outputStageUnit.HasStageAxis(BinZAxis(side));
+            r = await EnsureOutputFeederSafeBeforeStageMoveAsync(title).ConfigureAwait(true);
+            if (r != 0) return r;
 
-            int r = 0;
-            if (hasZ)
+            r = await EnsureOppositeStageZSafeBeforeYAsync(side, title).ConfigureAwait(true);
+            if (r != 0) return r;
+
+            if (side == BinSide.Ng)
             {
-                // 1) Z → Avoid (Y 이동 전 안전높이)
-                double zAvoid = GetBinZAvoidTarget(side);
-                r = await MoveStageAxisWithSelectedSpeedAsync(BinZAxis(side), zAvoid);
-                if (r != 0) return AbortSeq(title, "Z Avoid 이동 실패");
-
-                // 2) Z=Avoid 확인
-                if (!_outputStageUnit.IsStageAxisAtPosition(BinZAxis(side), zAvoid))
-                    return AbortSeq(title, "Y 이동 전 Z Avoid 미확인");
+                r = await EnsureGoodGuideDownBeforeNgYMoveAsync(title).ConfigureAwait(true);
+                if (r != 0) return r;
             }
+
+            if (side == BinSide.Good && string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
+            {
+                r = await EnsureGoodProcessOppositeStageClearAsync(title).ConfigureAwait(true);
+                if (r != 0) return r;
+            }
+
+            r = await EnsureBinStageZSafeBeforeYAsync(side, title, "대상 " + (side == BinSide.Ng ? "NG" : "GOOD")).ConfigureAwait(true);
+            if (r != 0) return r;
 
             // 3) Y → 종류 위치
             r = await MoveStageTeachingPositionWithSelectedSpeedAsync(BinYAxis(side), kind);
             if (r != 0) return AbortSeq(title, "Y 이동 실패");
 
             // 4) 종류별 Z 마무리 (Z축 있을 때만)
-            if (hasZ && string.Equals(kind, "Load", StringComparison.OrdinalIgnoreCase))
+            if (_outputStageUnit.HasStageAxis(BinZAxis(side)) && string.Equals(kind, "Load", StringComparison.OrdinalIgnoreCase))
             {
                 double zTarget = side == BinSide.Ng
                     ? _outputStageUnit.NgStage.Recipe.WorkPositionZ

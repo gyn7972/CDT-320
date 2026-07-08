@@ -101,9 +101,61 @@ namespace QMC.CDT320.Sequencing
                     return InputCameraPreInspectionWaitResult.PermissionReady();
                 }
 
+                Task<int> runningTask = GetRunningTask(side);
+                if (runningTask != null)
+                {
+                    if (runningTask.IsCompleted)
+                    {
+                        int result;
+                        try
+                        {
+                            result = await runningTask.ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            return InputCameraPreInspectionWaitResult.Failed(
+                                -1,
+                                "InputCamera 선행검사 task 예외. error=" + ex.Message);
+                        }
+
+                        RemoveIfSame(side, runningTask);
+
+                        if (InputCameraPickUpPermissionStore.HasPermission(side))
+                            return InputCameraPreInspectionWaitResult.PermissionReady();
+
+                        if (result != 0)
+                        {
+                            return InputCameraPreInspectionWaitResult.Failed(
+                                result,
+                                "InputCamera 선행검사 실패. result=" + result);
+                        }
+
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            side + " InputCamera 선행검사 완료 후 PickUp 대상이 없습니다. " +
+                            "reason=" + (reason ?? "-") + " - NoTarget");
+                        return InputCameraPreInspectionWaitResult.NoTarget();
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            side + " InputCamera 선행검사 완료 대기 중입니다. 조건이 맞을 때까지 대기합니다. " +
+                            "reason=" + (reason ?? "-") + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                    continue;
+                }
+
                 EnsureStarted(context, side, options, ct, reason);
 
-                Task<int> runningTask = GetRunningTask(side);
+                runningTask = GetRunningTask(side);
                 if (runningTask == null)
                 {
                     string pendingPermissionDetail;
@@ -122,40 +174,9 @@ namespace QMC.CDT320.Sequencing
                         continue;
                     }
 
-                    return InputCameraPreInspectionWaitResult.NoTarget();
-                }
-
-                if (runningTask.IsCompleted)
-                {
-                    int result;
-                    try
-                    {
-                        result = await runningTask.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        RemoveIfSame(side, runningTask);
-                        return InputCameraPreInspectionWaitResult.Failed(
-                            -1,
-                            "InputCamera 선행검사 task 예외. error=" + ex.Message);
-                    }
-
-                    RemoveIfSame(side, runningTask);
-
-                    if (InputCameraPickUpPermissionStore.HasPermission(side))
-                        return InputCameraPreInspectionWaitResult.PermissionReady();
-
-                    if (result != 0)
-                    {
-                        return InputCameraPreInspectionWaitResult.Failed(
-                            result,
-                            "InputCamera 선행검사 실패. result=" + result);
-                    }
-
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 시작 대상이 없습니다. " +
+                        "reason=" + (reason ?? "-") + " - NoTarget");
                     return InputCameraPreInspectionWaitResult.NoTarget();
                 }
 
