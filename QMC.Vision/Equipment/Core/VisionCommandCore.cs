@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using QMC.Vision.Config;
 using QMC.Vision.Modules;
 
@@ -145,7 +146,7 @@ namespace QMC.Vision.Core
             if (map.ReturnMmCoordinates)
             {
                 var scale = new VisionScale(map.ScaleX, map.ScaleY);
-                var vec   = new CameraVector(map.InvertedX, map.InvertedY, map.IsRotated);
+                var vec = new CameraVector(map.InvertedX, map.InvertedY, map.IsRotated);
                 VisionScale.ConvertPosition(scale, vec, image.Width, image.Height, b.CenterX, b.CenterY, out xOut, out yOut);
             }
 
@@ -163,15 +164,17 @@ namespace QMC.Vision.Core
             // 오버레이 저장 — 핸들러 뷰어가 '찾은 위치/각/박스 + 검색 ROI' 를 영상 위에 표시(메타로 송출).
             try
             {
-                double bw = f.TrainRoi?.Width  ?? 0.0;
+                double bw = f.TrainRoi?.Width ?? 0.0;
                 double bh = f.TrainRoi?.Height ?? 0.0;
                 var marks = new System.Collections.Generic.List<MatchOverlayStore.Mark>();
                 if (r.Instances != null)
                     foreach (var inst in r.Instances)
                         marks.Add(new MatchOverlayStore.Mark
                         {
-                            X = inst.CenterX, Y = inst.CenterY,
-                            Angle = inst.AngleDeg, Score = inst.Score,
+                            X = inst.CenterX,
+                            Y = inst.CenterY,
+                            Angle = inst.AngleDeg,
+                            Score = inst.Score,
                             // 플랫 콜렛 등 검출 사각형 크기가 있으면 그 크기로(콜렛 전용 오버레이), 없으면 Train ROI.
                             BoxW = inst.BoxW > 0 ? inst.BoxW : bw,
                             BoxH = inst.BoxH > 0 ? inst.BoxH : bh
@@ -185,8 +188,12 @@ namespace QMC.Vision.Core
             catch { }
 
             // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 MATCH 결과값(위치/각/점수)도 라인으로 표시.
-            try { ModuleResultStore.Record(m.Name, finderId, true,
-                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}"); } catch { }
+            try
+            {
+                ModuleResultStore.Record(m.Name, finderId, true,
+                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}");
+            }
+            catch { }
 
             return $"OK;x={b.CenterX:F3};y={b.CenterY:F3};r={rOut:F3};score={b.Score:F3};width={image.Width};height={image.Height}";   // 항상 픽셀 + 이미지크기(px) — 핸들러가 mm 변환
         }
@@ -347,13 +354,13 @@ namespace QMC.Vision.Core
                 try
                 {
                     if (inspId.IndexOf("Surface", StringComparison.OrdinalIgnoreCase) >= 0
-                        || inspId.IndexOf("Bottom",  StringComparison.OrdinalIgnoreCase) >= 0)
+                        || inspId.IndexOf("Bottom", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplyBottom(chipUid, r);
                     else if (inspId.IndexOf("Side", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplySide(chipUid, r, cfg?.SideLocation);
                     else if (inspId.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0
-                          || inspId.IndexOf("DieGap",    StringComparison.OrdinalIgnoreCase) >= 0
-                          || inspId.IndexOf("Bin",       StringComparison.OrdinalIgnoreCase) >= 0)
+                          || inspId.IndexOf("DieGap", StringComparison.OrdinalIgnoreCase) >= 0
+                          || inspId.IndexOf("Bin", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplyDieGap(chipUid, r);
 
                     ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, image, r.IsPass);
@@ -365,17 +372,140 @@ namespace QMC.Vision.Core
             // INSPECT 응답을 '핸들러가 실제 소비하는 필드'로 검사기 타입별 분기:
             //  • Bin 배치검사(PlacementInspector=PlacementGapInspector) → PASS/FAIL + 픽셀 offset(x/y) + 이미지크기(px).
             //      핸들러(CheckPlacement→InspectCalibrated)가 PixelToMm 로 배치보정에 사용.
-            //  • 표면/칩핑 검사(Surface/Chipping=Bottom/SideAppearanceInspector) → PASS/FAIL 만(핸들러는 IsPass만 소비).
-            //      칩 측정 상세(Width/Chipping/Foreign mm)는 비전 자체 표시용(ModuleResultStore/팝업)으로만 유지.
+            //  • Bottom 표면 검사(SurfaceInspector=BottomInspector) → PASS/FAIL + 원본 검사 항목.
+            //      장비쪽 SideVisionY/PickerZ 보정은 로그 검증 전까지 연결하지 않고, 원본값만 내려보낸다.
+            //  • Side 표면/칩핑 검사(SideAppearanceInspector) → PASS/FAIL + 원본 검사 항목.
             string verdict = r.IsPass ? "PASS" : "FAIL";
             if (ins is PlacementGapInspector)
             {
                 var mpOff = m.ExportCameraMapping();
-                double oxPx = ItemPx(r.Items, "Offset X", mpOff.ScaleX);   // 검사기 mm ÷ Scale = 원본 픽셀(Scale<=0이면 이미 px)
-                double oyPx = ItemPx(r.Items, "Offset Y", mpOff.ScaleY);
-                return $"{verdict};x={oxPx:F3};y={oyPx:F3};width={image.Width};height={image.Height}";
+                return verdict + BuildPlacementInspectionPayload(r, image.Width, image.Height, mpOff.ScaleX, mpOff.ScaleY);
             }
+            if (ins is BottomInspector)
+                return verdict + BuildBottomInspectionPayload(r);
+            if (ins is SideAppearanceInspector)
+                return verdict + BuildSideInspectionPayload(r);
+
             return verdict;
+        }
+
+        /// <summary>
+        /// Bottom SurfaceInspector 원본 결과를 통신 payload 로 노출한다.
+        /// SideVisionY/PickerZ 보정 연결은 실장비 로그 확인 후 CDT 쪽 매핑에서 결정한다.
+        /// </summary>
+        private static string BuildBottomInspectionPayload(InspectionResult r)
+        {
+            if (r == null || r.Items == null || r.Items.Count == 0)
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            AppendInspectionItem(sb, r, "Width", "bottom_width_mm");
+            AppendInspectionItem(sb, r, "Height", "bottom_height_mm");
+            AppendInspectionItem(sb, r, "Angle", "bottom_angle_deg");
+            AppendInspectionItem(sb, r, "Offset X", "bottom_offset_x_mm");
+            AppendInspectionItem(sb, r, "Offset Y", "bottom_offset_y_mm");
+            AppendInspectionItems(sb, r, "bottom_item_");
+
+            return sb.ToString();
+        }
+
+        private static string BuildSideInspectionPayload(InspectionResult r)
+        {
+            if (r == null || r.Items == null || r.Items.Count == 0)
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            AppendInspectionItems(sb, r, "side_item_");
+            return sb.ToString();
+        }
+
+        private static string BuildPlacementInspectionPayload(InspectionResult r, int imageWidth, int imageHeight, double scaleX, double scaleY)
+        {
+            var sb = new StringBuilder();
+            double oxPx = r != null && r.Items != null ? ItemPx(r.Items, "Offset X", scaleX) : 0.0;
+            double oyPx = r != null && r.Items != null ? ItemPx(r.Items, "Offset Y", scaleY) : 0.0;
+            AppendKeyValue(sb, "x", oxPx.ToString("F3"));
+            AppendKeyValue(sb, "y", oyPx.ToString("F3"));
+            AppendKeyValue(sb, "width", imageWidth.ToString());
+            AppendKeyValue(sb, "height", imageHeight.ToString());
+
+            if (r == null || r.Items == null || r.Items.Count == 0)
+                return sb.ToString();
+
+            AppendInspectionItem(sb, r, "Offset X", "placement_offset_x_mm");
+            AppendInspectionItem(sb, r, "Offset Y", "placement_offset_y_mm");
+            AppendInspectionItem(sb, r, "Angle", "placement_angle_deg");
+            AppendInspectionItems(sb, r, "placement_item_");
+            return sb.ToString();
+        }
+
+        private static void AppendInspectionItems(StringBuilder sb, InspectionResult r, string prefix)
+        {
+            if (sb == null || r == null || r.Items == null)
+                return;
+
+            for (int i = 0; i < r.Items.Count; i++)
+            {
+                var item = r.Items[i];
+                if (item == null || string.IsNullOrWhiteSpace(item.Name))
+                    continue;
+
+                string key = (prefix ?? "item_") + NormalizePayloadKey(item.Name);
+                AppendKeyValue(sb, key, item.Value);
+                AppendKeyValue(sb, key + "_pass", item.IsPass ? "1" : "0");
+            }
+        }
+
+        private static void AppendInspectionItem(StringBuilder sb, InspectionResult r, string itemName, string payloadKey)
+        {
+            if (sb == null || r == null || r.Items == null)
+                return;
+
+            var item = r.Items.FirstOrDefault(i => i != null && string.Equals(i.Name, itemName, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+                return;
+
+            AppendKeyValue(sb, payloadKey, item.Value);
+        }
+
+        private static void AppendKeyValue(StringBuilder sb, string key, string value)
+        {
+            if (sb == null || string.IsNullOrWhiteSpace(key))
+                return;
+
+            sb.Append(';');
+            sb.Append(key);
+            sb.Append('=');
+            sb.Append(SanitizePayloadValue(value));
+        }
+
+        private static string NormalizePayloadKey(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "unknown";
+
+            var sb = new StringBuilder(value.Length);
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))
+                    sb.Append(char.ToLowerInvariant(c));
+                else
+                    sb.Append('_');
+            }
+
+            while (sb.ToString().Contains("__"))
+                sb.Replace("__", "_");
+
+            return sb.ToString().Trim('_');
+        }
+
+        private static string SanitizePayloadValue(string value)
+        {
+            if (value == null)
+                return string.Empty;
+
+            return value.Replace(";", ",").Replace("|", "/").Trim();
         }
 
         /// <summary>인스펙터 설정(레시피 파라미터) 복제 — 병렬 배치용 신규 인스턴스에 모듈의 설정된 인스펙터 값을 반사 복사.
@@ -620,8 +750,12 @@ namespace QMC.Vision.Core
                         double score = AutoFocusCore.Score(g.Image);
                         int series0 = pickup0 >= 1 ? pickup0 : 1;
                         AutoFocusStore.AddSample(cam, tgt, series0, mz, score, init0);
-                        try { ModuleResultStore.Record(modName, "FOCUS", true,
-                            "z=" + mz.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv)); } catch { }
+                        try
+                        {
+                            ModuleResultStore.Record(modName, "FOCUS", true,
+                            "z=" + mz.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv));
+                        }
+                        catch { }
                     }
                 }
                 catch (Exception ex)
