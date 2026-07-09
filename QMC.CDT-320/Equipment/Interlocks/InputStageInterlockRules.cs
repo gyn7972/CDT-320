@@ -74,7 +74,7 @@ namespace QMC.CDT320.Interlocks
             return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "WaferStageY", out reason);
         }
 
-        // WaferStageY 이동 전제(Wafer Feeder): Ring Check==true, Unclamp==true, Overload==false.
+        // WaferStageY 이동 전제(Wafer Feeder): Ring Check==false, Unclamp==true, Overload==false.
         // 세 조건 중 하나라도 아니면 차단/알람.
         // 인터락 항목: StageY 이동 전 InputFeederY가 Stage 간섭 없는 준비 위치인지 확인한다.
         private static bool VerifyWaferFeederReadyForStageY(CDT320_Machine machine, string movingName, out string reason)
@@ -87,11 +87,11 @@ namespace QMC.CDT320.Interlocks
                 if (feeder == null)
                     return true;
 
-                // 1. Wafer Feeder Ring Check == true
-                if (!feeder.IsWaferFeederRingCheck())
+                // 인터락 조건: StageY/T 이동 전 Wafer Feeder Ring Check가 감지되면 Stage 간섭 위험으로 차단한다.
+                if (feeder.IsWaferFeederRingCheck())
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " 이동 불가: Wafer Feeder Ring Check가 감지되지 않았습니다.",
+                        movingName + " 이동 불가: Wafer Feeder Ring Check가 감지되었습니다.",
                         out reason);
 
                 // 2. Wafer Feeder Unclamp == true

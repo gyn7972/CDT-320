@@ -239,10 +239,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             actionsPanel.Padding = new Padding(1);
             actionsPanel.Dock = DockStyle.Fill;
             actionsPanel.BackColor = Color.White;
-            actionsPanel.ColumnCount = 14;
+            actionsPanel.ColumnCount = 10;
             actionsPanel.ColumnStyles.Clear();
-            for (int i = 0; i < 14; i++)
-                actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+            for (int i = 0; i < 10; i++)
+                actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 10F));
 
             actionsPanel.RowCount = 1;
             actionsPanel.RowStyles.Clear();
@@ -250,7 +250,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             var buttons = new[]
             {
-                btnEnable, btnDisable, btnServoOn, btnServoOff, btnHome, btnGroupHome, btnAllHome,
+                btnServoOn, btnServoOff, btnHome,
                 btnAllStop, btnAlarmClear, btnAllServoOff, btnParaLoad, btnParaSave, btnBoardScan, btnMotionTest
             };
 
@@ -339,11 +339,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void WireActions()
         {
-            btnEnable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
-            btnDisable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
             btnHome.Click += async (s, e) => await InitializeSelectedAxisAsync();
-            btnGroupHome.Click += async (s, e) => await InitializeSelectedAxisGroupAsync();
-            btnAllHome.Click += async (s, e) => await InitializeAllAxesAsync();
             btnAllStop.Click += (s, e) => RunAllAxes(ax => ax.Stop());
             btnAlarmClear.Click += (s, e) => ClearAllAxisAlarms();
             btnAllServoOff.Click += (s, e) => RunAllAxes(ax => ax.ServoOff());

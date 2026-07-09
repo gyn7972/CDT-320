@@ -36,11 +36,7 @@
         private System.Windows.Forms.Label lblSpeedScaleCaption;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedScale;
         private System.Windows.Forms.TableLayoutPanel actionsPanel;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnEnable;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnDisable;
         private QMC.CDT_320.Ui.Controls.ActionButton btnHome;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGroupHome;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnAllHome;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAllStop;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAlarmClear;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAllServoOff;
@@ -130,11 +126,7 @@
             this.btnSpeedScale = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.lblSpeedScaleCaption = new System.Windows.Forms.Label();
             this.actionsPanel = new System.Windows.Forms.TableLayoutPanel();
-            this.btnEnable = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnDisable = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnHome = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGroupHome = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnAllHome = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAllStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAlarmClear = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAllServoOff = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -898,13 +890,7 @@
             // 
             // actionsPanel
             // 
-            this.actionsPanel.ColumnCount = 14;
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 6F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 6F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnCount = 10;
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
@@ -913,20 +899,16 @@
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.Controls.Add(this.btnEnable, 0, 0);
-            this.actionsPanel.Controls.Add(this.btnDisable, 1, 0);
-            this.actionsPanel.Controls.Add(this.btnHome, 2, 0);
-            this.actionsPanel.Controls.Add(this.btnGroupHome, 3, 0);
-            this.actionsPanel.Controls.Add(this.btnAllHome, 4, 0);
-            this.actionsPanel.Controls.Add(this.btnAllStop, 5, 0);
-            this.actionsPanel.Controls.Add(this.btnAlarmClear, 6, 0);
-            this.actionsPanel.Controls.Add(this.btnAllServoOff, 7, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOn, 8, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOff, 9, 0);
-            this.actionsPanel.Controls.Add(this.btnParaLoad, 10, 0);
-            this.actionsPanel.Controls.Add(this.btnParaSave, 11, 0);
-            this.actionsPanel.Controls.Add(this.btnBoardScan, 12, 0);
-            this.actionsPanel.Controls.Add(this.btnMotionTest, 13, 0);
+            this.actionsPanel.Controls.Add(this.btnHome, 0, 0);
+            this.actionsPanel.Controls.Add(this.btnAllStop, 1, 0);
+            this.actionsPanel.Controls.Add(this.btnAlarmClear, 2, 0);
+            this.actionsPanel.Controls.Add(this.btnAllServoOff, 3, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOn, 4, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOff, 5, 0);
+            this.actionsPanel.Controls.Add(this.btnParaLoad, 6, 0);
+            this.actionsPanel.Controls.Add(this.btnParaSave, 7, 0);
+            this.actionsPanel.Controls.Add(this.btnBoardScan, 8, 0);
+            this.actionsPanel.Controls.Add(this.btnMotionTest, 9, 0);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionsPanel.Location = new System.Drawing.Point(8, 832);
             this.actionsPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -935,34 +917,6 @@
             this.actionsPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.actionsPanel.Size = new System.Drawing.Size(1662, 60);
             this.actionsPanel.TabIndex = 5;
-            // 
-            // btnEnable
-            // 
-            this.btnEnable.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnEnable.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnEnable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnEnable.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnEnable.ForeColor = System.Drawing.Color.White;
-            this.btnEnable.Location = new System.Drawing.Point(4, 8);
-            this.btnEnable.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
-            this.btnEnable.Name = "btnEnable";
-            this.btnEnable.Size = new System.Drawing.Size(106, 44);
-            this.btnEnable.TabIndex = 0;
-            this.btnEnable.Text = "ENABLE";
-            // 
-            // btnDisable
-            // 
-            this.btnDisable.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnDisable.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnDisable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDisable.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnDisable.ForeColor = System.Drawing.Color.White;
-            this.btnDisable.Location = new System.Drawing.Point(118, 8);
-            this.btnDisable.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
-            this.btnDisable.Name = "btnDisable";
-            this.btnDisable.Size = new System.Drawing.Size(106, 44);
-            this.btnDisable.TabIndex = 1;
-            this.btnDisable.Text = "DISABLE";
             // 
             // btnHome
             // 
@@ -977,34 +931,6 @@
             this.btnHome.Size = new System.Drawing.Size(122, 44);
             this.btnHome.TabIndex = 2;
             this.btnHome.Text = "INIT AXIS";
-            // 
-            // btnGroupHome
-            // 
-            this.btnGroupHome.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGroupHome.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGroupHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGroupHome.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnGroupHome.ForeColor = System.Drawing.Color.White;
-            this.btnGroupHome.Location = new System.Drawing.Point(362, 8);
-            this.btnGroupHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
-            this.btnGroupHome.Name = "btnGroupHome";
-            this.btnGroupHome.Size = new System.Drawing.Size(122, 44);
-            this.btnGroupHome.TabIndex = 3;
-            this.btnGroupHome.Text = "INIT GROUP";
-            // 
-            // btnAllHome
-            // 
-            this.btnAllHome.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnAllHome.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAllHome.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAllHome.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.btnAllHome.ForeColor = System.Drawing.Color.White;
-            this.btnAllHome.Location = new System.Drawing.Point(492, 8);
-            this.btnAllHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
-            this.btnAllHome.Name = "btnAllHome";
-            this.btnAllHome.Size = new System.Drawing.Size(122, 44);
-            this.btnAllHome.TabIndex = 4;
-            this.btnAllHome.Text = "INIT ALL";
             // 
             // btnAllStop
             // 
