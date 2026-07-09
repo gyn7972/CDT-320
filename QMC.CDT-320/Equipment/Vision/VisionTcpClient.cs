@@ -844,12 +844,14 @@ namespace QMC.CDT320.VisionComm
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
+        public Dictionary<string, string> Values { get; private set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public string Raw       { get; set; }
 
         public static InspectionResultDto Parse(string line)
         {
             var r = new InspectionResultDto { Raw = line };
             VisionProtocolResponse response = VisionProtocolResponse.Parse(line);
+            r.Values = CopyValues(response);
             if (!response.IsAck)
                 return r;
 
@@ -890,6 +892,72 @@ namespace QMC.CDT320.VisionComm
             }
 
             return r;
+        }
+
+        public void SetValue(string key, object value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return;
+
+            if (Values == null)
+                Values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            if (value == null)
+            {
+                Values[key] = string.Empty;
+            }
+            else if (value is IFormattable)
+            {
+                Values[key] = ((IFormattable)value).ToString(null, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                Values[key] = value.ToString();
+            }
+        }
+
+        public bool TryGetDoubleValue(out double value, params string[] keys)
+        {
+            value = 0;
+            if (Values == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                string raw;
+                if (Values.TryGetValue(keys[i], out raw) && VisionProtocolResponse.TryParseDouble(raw, out value))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public string DescribeValues()
+        {
+            if (Values == null || Values.Count == 0)
+                return "-";
+
+            var sb = new StringBuilder();
+            foreach (var kv in Values)
+            {
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(kv.Key);
+                sb.Append("=");
+                sb.Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+
+        private static Dictionary<string, string> CopyValues(VisionProtocolResponse response)
+        {
+            var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (response == null || response.Values == null)
+                return result;
+
+            foreach (var kv in response.Values)
+                result[kv.Key] = kv.Value;
+            return result;
         }
 
         private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)

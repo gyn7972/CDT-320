@@ -120,7 +120,7 @@ namespace QMC.CDT320.Sequencing
                 visionAlignOffsetT,
                 InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(machine),
                 InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetY(machine),
-                InputPickerPickTargetResolver.ResolvePickerYPickTeaching(machine, side, pickerIndex),
+                InputPickerPickTargetResolver.ResolvePickerYPickTeaching(machine, side),
                 InputPickerPickTargetResolver.ResolvePickerTeachingPosition(
                     machine,
                     side,

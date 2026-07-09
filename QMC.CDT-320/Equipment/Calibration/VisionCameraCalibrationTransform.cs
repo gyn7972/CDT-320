@@ -40,13 +40,49 @@ namespace QMC.CDT320.Calibration
             return new BottomVisionOffset
             {
                 PickerNo = pickerNo,
-                OffsetX = ok ? camera.PixelToMmOffsetX(match.X) : 0.0,
-                OffsetY = ok ? camera.PixelToMmOffsetY(match.Y) : 0.0,
+                // 현재 Bottom Vision X/Y는 Side 검사 보정 계산에 사용하지 않으므로 0으로 고정한다.
+                OffsetX = 0.0,
+                OffsetY = 0.0,
                 OffsetT = ok ? match.AngleDeg : 0.0,
-                SideVisionYOffset = ok && match.HasSideInspectionCorrection ? match.SideVisionYOffset : 0.0,
-                PickerZOffset = ok && match.HasSideInspectionCorrection ? match.PickerZOffset : 0.0,
-                HasSideInspectionCorrection = ok && match.HasSideInspectionCorrection,
-                IsOk = ok
+                // TODO: SideVisionY/PickerZ 보정은 Bottom SurfaceInspector 원본 로그 확인 후 연결한다.
+                SideVisionYOffset = 0.0,
+                PickerZOffset = 0.0,
+                HasSideInspectionCorrection = false,
+                IsOk = ok,
+                Raw = match != null ? match.RawError : ""
+            };
+        }
+
+        public static BottomVisionOffset ToBottomVisionOffset(int pickerNo, InspectionResultDto result)
+        {
+            bool ok = result != null && result.IsPass;
+            double bottomAngleDeg = 0.0;
+            if (ok && result.TryGetDoubleValue(out bottomAngleDeg, "bottom_angle_deg", "bottom_item_angle"))
+            {
+                // Bottom SurfaceInspector Angle 원본값이다. T 보정 적용 여부는 별도 검증 후 결정한다.
+            }
+
+            // TODO: 실장비 로그 확인 후 아래 후보 중 하나를 SideVisionY / PickerZ 보정으로 연결한다.
+            // double sideVisionYOffset = ReadCandidate(result, "bottom_offset_y_mm", "bottom_item_offset_y");
+            // double pickerZOffset = ReadCandidate(result, "bottom_offset_x_mm", "bottom_item_offset_x");
+            double sideVisionYOffset = 0.0;
+            double pickerZOffset = 0.0;
+
+            return new BottomVisionOffset
+            {
+                PickerNo = pickerNo,
+                // 현재 Bottom Vision X/Y는 Side 검사 보정 계산에 사용하지 않으므로 0으로 고정한다.
+                OffsetX = 0.0,
+                OffsetY = 0.0,
+                OffsetT = ok ? bottomAngleDeg : 0.0,
+                SideVisionYOffset = sideVisionYOffset,
+                PickerZOffset = pickerZOffset,
+                HasSideInspectionCorrection = false,
+                IsOk = ok,
+                Raw = result != null ? result.Raw : "",
+                Values = result != null && result.Values != null
+                    ? new System.Collections.Generic.Dictionary<string, string>(result.Values, StringComparer.OrdinalIgnoreCase)
+                    : new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
         }
 

@@ -370,40 +370,13 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.Recipe.EnsurePositionObjects();
 
-                int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+                int result = await PrepareVisionProcessPlaneForMappingAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 result = await EnsureWaferAlignThetaPositionAsync("Die Mapping 시작 전 StageT 보정 위치", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
-
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.WaferY,
-                    Stage.Recipe.WaferY.ProcessPosition,
-                    "Die Mapping 시작 전 StageY Process",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.VisionX,
-                    Stage.Recipe.VisionX.ProcessPosition,
-                    "Die Mapping 시작 전 VisionX Process",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-
-                if (Stage.Recipe.WaferZ != null)
-                {
-                    result = await MoveAxisAndWaitAsync(
-                        WaferStageAxis.WaferExpandingZ,
-                        Stage.Recipe.WaferZ.ProcessPosition,
-                        "Die Mapping 시작 전 StageZ Process",
-                        ct).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
 
                 WriteLog("InputStageDieMappingSequence",
                     "Die Mapping 시작 전 InputStage를 Process 기준 위치로 이동했습니다. visionX=" +
@@ -429,7 +402,78 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        private async Task<int> PrepareVisionProcessPlaneForMappingAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
+                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+
+            if (stageZAtProcess)
+            {
+                result = await MoveNeedleXToMappingCenterAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die Mapping 시작 전 StageZ가 이미 Process 위치입니다. StageZ Avoid/Process 재이동을 생략합니다. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
+
+                return await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            }
+
+            result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "Die Mapping 시작 전 StageZ Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            result = await MoveNeedleXToMappingCenterAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndWaitAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.ProcessPosition,
+                    "Die Mapping 시작 전 StageZ Process",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveNeedleXToMappingCenterAsync(CancellationToken ct)
+        {
+            double target = Stage.ResolveNeedleWorkAreaCenterX();
+            return await MoveAxisAndWaitAsync(
+                WaferStageAxis.NeedleX,
+                target,
+                "Die Mapping 시작 전 NeedleX Stage Center",
+                ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
         {
             Stage.Recipe.EnsurePositionObjects();
 
@@ -449,18 +493,72 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            if (Stage.Recipe.WaferZ != null)
-            {
-                result = await MoveAxisAndWaitAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.AvoidPosition,
-                    "Die Mapping 시작 전 StageZ Avoid",
-                    ct).ConfigureAwait(false);
-                if (result != 0)
-                    return result;
-            }
+            return 0;
+        }
+
+        private async Task<int> MoveVisionProcessPlaneAxesAsync(CancellationToken ct)
+        {
+            int result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.WaferY,
+                Stage.Recipe.WaferY.ProcessPosition,
+                "Die Mapping 시작 전 StageY Process",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await MoveAxisAndWaitAsync(
+                WaferStageAxis.VisionX,
+                Stage.Recipe.VisionX.ProcessPosition,
+                "Die Mapping 시작 전 VisionX Process",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             return 0;
+        }
+
+        private async Task<int> EnsureStageTFixedBeforeExpanderZMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            if (IsStageTAtExpanderZFixedPosition())
+                return 0;
+
+            WriteLog("InputStageDieMappingSequence",
+                "Die Mapping 시작 전 StageZ 이동을 위해 StageT를 고정 위치로 복귀합니다. " +
+                BuildAxisState(WaferStageAxis.WaferT, 0.0) + " - Start");
+
+            return await MoveAxisAndWaitAsync(
+                WaferStageAxis.WaferT,
+                0.0,
+                "Die Mapping 시작 전 StageT Home",
+                ct).ConfigureAwait(false);
+        }
+
+        private bool IsStageTAtExpanderZFixedPosition()
+        {
+            try
+            {
+                Stage.Recipe.EnsurePositionObjects();
+
+                QMC.Common.Motion.BaseAxis stageT = ResolveStageAxis(WaferStageAxis.WaferT);
+                if (stageT == null || Stage.Recipe.WaferT == null)
+                    return false;
+
+                return IsAxisInPosition(stageT, 0.0) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.AvoidPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.LoadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.UnloadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ReadyPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)

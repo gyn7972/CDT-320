@@ -201,7 +201,10 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", moveVelocity=" + _settings.Motion.MoveVelocity.ToString("F6") +
                     ", moveAcceleration=" + _settings.Motion.MoveAcceleration.ToString("F6") +
                     ", moveDeceleration=" + _settings.Motion.MoveDeceleration.ToString("F6") +
-                    ", moveTimeoutMs=" + _settings.Motion.MoveTimeoutMs);
+                    ", moveTimeoutMs=" + _settings.Motion.MoveTimeoutMs +
+                    ", speedScalePercent=" + QMC.Common.Motion.MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + QMC.Common.Motion.MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                    ", explicitVelocityNotDefaultScaled=True");
 
                 CurrentStep = ColletCalibrationStep.MoveColletToBottomView;
                 return 0;
@@ -475,13 +478,19 @@ namespace QMC.CDT320.Sequencing.Calibration
                     return 0;
 
                 double target = stage.Recipe.VisionX.AvoidPosition;
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration 시작 전 InputVisionX Avoid 이동. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
                     ", actual=" + stage.CameraX.ActualPosition.ToString("F6") +
-                    ", target=" + target.ToString("F6"));
+                    ", target=" + target.ToString("F6") +
+                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + motion.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + motion.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + motion.MoveTimeoutMs +
+                    ", speedScalePercent=" + QMC.Common.Motion.MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + QMC.Common.Motion.MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
 
-                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 int result = await stage.MoveInputStageAxisCommandWithMotion(
                     WaferStageAxis.VisionX,
                     target,
@@ -534,12 +543,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration 시작 전 OutputVisionX Avoid 이동. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", actual=" + stage.OutputCameraX.ActualPosition.ToString("F6"));
+                    ", actual=" + stage.OutputCameraX.ActualPosition.ToString("F6") +
+                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + motion.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + motion.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + motion.MoveTimeoutMs +
+                    ", speedScalePercent=" + QMC.Common.Motion.MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + QMC.Common.Motion.MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
 
-                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 int result = await stage.MoveVisionXToAvoidAndVerifyAsync(
                     ResolveMoveTimeout(),
                     motion.MoveVelocity,
@@ -607,11 +622,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (FrontPicker.IsPickerInOutputSideAvoidPosition())
                     return 0;
 
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start FrontPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
-                    ", colletNo=" + _colletNo);
+                    ", colletNo=" + _colletNo +
+                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", acceleration=UnitDefault" +
+                    ", deceleration=UnitDefault" +
+                    ", note=MoveToOutputSideAvoidPosition currently receives custom velocity only");
 
-                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 int result = await FrontPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-FRONT-OUTSIDE", "PickerFrontUnit",
@@ -648,11 +667,15 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (RearPicker.IsPickerInOutputSideAvoidPosition())
                     return 0;
 
+                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStartSafe",
                     "Collet Calibration start RearPicker Outside(Output-side Avoid) move for opposite picker. side=" + _calibrationSide +
-                    ", colletNo=" + _colletNo);
+                    ", colletNo=" + _colletNo +
+                    ", velocity=" + motion.MoveVelocity.ToString("F6") +
+                    ", acceleration=UnitDefault" +
+                    ", deceleration=UnitDefault" +
+                    ", note=MoveToOutputSideAvoidPosition currently receives custom velocity only");
 
-                CalibrationMotionSettings motion = ResolveCalibrationMotion();
                 int result = await RearPicker.MoveToOutputSideAvoidPosition(JogSpeedType.Custom, motion.MoveVelocity).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("COLLET-CAL-REAR-OUTSIDE", "PickerRearUnit",
@@ -935,7 +958,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     }
 
                     double targetX = actualX - offsetMmX * _settings.XyMoveGainX;
-                    double targetY = actualY + offsetMmY * _settings.XyMoveGainY;
+                    double targetY = actualY - offsetMmY * _settings.XyMoveGainY;
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalXy",
                         label + " 이동. side=" + _calibrationSide +
                         ", colletNo=" + _colletNo +
@@ -945,7 +968,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", scale=(" + camera.PixelToMmX.ToString("F9") + "," + camera.PixelToMmY.ToString("F9") + ")" +
                         ", offsetMm=(" + offsetMmX.ToString("F6") + "," + offsetMmY.ToString("F6") + ")" +
                         ", formulaX=targetX=actualX-offsetMmX*gainX=" + actualX.ToString("F6") + "-" + offsetMmX.ToString("F6") + "*" + _settings.XyMoveGainX.ToString("F6") + "=" + targetX.ToString("F6") +
-                        ", formulaY=targetY=actualY+offsetMmY*gainY=" + actualY.ToString("F6") + "+" + offsetMmY.ToString("F6") + "*" + _settings.XyMoveGainY.ToString("F6") + "=" + targetY.ToString("F6"));
+                        ", formulaY=targetY=actualY+offsetMmY*gainY=" + actualY.ToString("F6") + "-" + offsetMmY.ToString("F6") + "*" + _settings.XyMoveGainY.ToString("F6") + "=" + targetY.ToString("F6"));
 
                     var xyTargets = new Dictionary<PickerAxis, double>();
                     xyTargets[PickerAxis.PickerX] = targetX;
@@ -1906,8 +1929,18 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 double oldBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, "BottomPosition");
                 double oldBottomY = GetPickerTeachingPosition(PickerAxis.PickerY, "BottomPosition");
+                PickerAxis zAxis = GetPickerZAxis(_colletIndex);
+                double oldBottomZ = GetPickerTeachingPosition(zAxis, "BottomPosition");
+                double oldDieBottomX = GetPickerTeachingPosition(PickerAxis.PickerX, BuildIndexedPositionName("DieBottomPosition"));
+                double oldDiePickY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DiePickPosition"));
+                double oldDieBottomY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DieBottomPosition"));
+                double oldDieSideY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DieSidePosition"));
+                double oldDiePlaceY = GetPickerTeachingPosition(PickerAxis.PickerY, BuildIndexedPositionName("DiePlacePosition"));
+                double oldDieBottomZ = GetPickerTeachingPosition(zAxis, BuildIndexedPositionName("DieBottomPosition"));
                 SetPickerBottomTeachingPosition(PickerAxis.PickerX, target.FinalPickerX);
                 SetPickerBottomTeachingPosition(PickerAxis.PickerY, target.FinalPickerY);
+                SetPickerBottomTeachingPosition(zAxis, target.FinalPickerZ);
+                SyncReferenceColletDieTeachingPositions(target, zAxis);
 
                 if (!Context.Machine.SaveRecipe(recipeName))
                     return Fail("COLLET-CAL-REFERENCE-RECIPE-SAVE", Name,
@@ -1917,14 +1950,18 @@ namespace QMC.CDT320.Sequencing.Calibration
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalReferenceTeach",
                     "4번 Collet 최종 OK 위치를 Bottom 기준 X/Y 티칭으로 저장했습니다. side=" + _calibrationSide +
                     ", colletNo=" + _colletNo +
-                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + ")" +
-                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + "," + oldBottomZ.ToString("F6") + ")" +
+                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + "," + target.FinalPickerZ.ToString("F6") + ")" +
+                    ", oldDieBottomX[" + _colletIndex + "]=" + oldDieBottomX.ToString("F6") +
+                    ", oldDieY[pick,bottom,side,place]=(" + oldDiePickY.ToString("F6") + "," + oldDieBottomY.ToString("F6") + "," + oldDieSideY.ToString("F6") + "," + oldDiePlaceY.ToString("F6") + ")" +
+                    ", oldDieBottomZ[" + _colletIndex + "]=" + oldDieBottomZ.ToString("F6") +
                     ", recipe=" + recipeName);
 
                 EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-REFERENCE-TEACH",
                     "4번 Collet 최종 OK 위치를 Bottom 기준 X/Y 티칭으로 저장했습니다. side=" + _calibrationSide +
-                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + ")" +
-                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + ")" +
+                    ", oldBottom=(" + oldBottomX.ToString("F6") + "," + oldBottomY.ToString("F6") + "," + oldBottomZ.ToString("F6") + ")" +
+                    ", newBottom=(" + target.FinalPickerX.ToString("F6") + "," + target.FinalPickerY.ToString("F6") + "," + target.FinalPickerZ.ToString("F6") + ")" +
+                    ", dieY[pick,bottom,side,place]=" + target.FinalPickerY.ToString("F6") +
                     ", recipe=" + recipeName);
 
                 return 0;
@@ -1955,6 +1992,43 @@ namespace QMC.CDT320.Sequencing.Calibration
                 throw new InvalidOperationException("Rear Picker Unit이 없습니다.");
 
             RearPicker.SetPickerAxisTeachingPosition(axis, "BottomPosition", position);
+        }
+
+        private void SyncReferenceColletDieTeachingPositions(ColletCalibrationRecord target, PickerAxis zAxis)
+        {
+            if (target == null)
+                return;
+
+            // 현재 기준: 4번 Collet Cal 기준 Y는 Pick/Bottom/Side/Place 전진 위치의 공통 기준값으로 저장한다.
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerX, "DieBottomPosition", target.FinalPickerX);
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DiePickPosition", target.FinalPickerY);
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DieBottomPosition", target.FinalPickerY);
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DieSidePosition", target.FinalPickerY);
+            SetPickerIndexedTeachingPosition(PickerAxis.PickerY, "DiePlacePosition", target.FinalPickerY);
+            SetPickerIndexedTeachingPosition(zAxis, "DieBottomPosition", target.FinalPickerZ);
+        }
+
+        private void SetPickerIndexedTeachingPosition(PickerAxis axis, string positionArrayName, double position)
+        {
+            string positionName = BuildIndexedPositionName(positionArrayName);
+            if (_calibrationSide == VisionFocusPickerSide.Front)
+            {
+                if (FrontPicker == null)
+                    throw new InvalidOperationException("Front Picker Unit이 없습니다.");
+
+                FrontPicker.SetPickerAxisTeachingPosition(axis, positionName, position);
+                return;
+            }
+
+            if (RearPicker == null)
+                throw new InvalidOperationException("Rear Picker Unit이 없습니다.");
+
+            RearPicker.SetPickerAxisTeachingPosition(axis, positionName, position);
+        }
+
+        private string BuildIndexedPositionName(string positionArrayName)
+        {
+            return positionArrayName + "[" + _colletIndex + "]";
         }
 
         private static void CopyRecord(ColletCalibrationRecord source, ColletCalibrationRecord target)

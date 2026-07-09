@@ -86,6 +86,15 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        public void ResetAll()
+        {
+            lock (_gate)
+            {
+                _front = PickerPhaseState.Idle(PickerSequenceSide.Front);
+                _rear = PickerPhaseState.Idle(PickerSequenceSide.Rear);
+            }
+        }
+
         internal void Exit(PickerPhaseLease lease)
         {
             if (lease == null)

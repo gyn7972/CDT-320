@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -175,14 +176,13 @@ namespace QMC.CDT320.VisionComm
                     // 신형 8파트: fb/collet 명시 + die_index(키)/grid — 시퀀스가 기록한 다이 주소 사용.
                     int dieIndex, gridX, gridY;
                     ResolveDieAddress(collet, out dieIndex, out gridX, out gridY);
-                    results[i] = await AutoVisionRequestService.MatchBottomOffsetAsync(
+                    results[i] = await AutoVisionRequestService.InspectBottomOffsetAsync(
                         Fb,
                         collet,
-                        "DieFinder",
+                        "SurfaceInspector",
                         dieIndex,
                         gridX,
                         gridY,
-                        MatchScoreThreshold,
                         timeoutMs,
                         ct).ConfigureAwait(false);
                 }
@@ -265,7 +265,11 @@ namespace QMC.CDT320.VisionComm
                     Side1Ok = pass,   // 그룹 합산 판정(0°/90° 모두 PASS 여야 PASS) — 채널별 상세는 Vision 결과 스토어 참조
                     Side2Ok = pass,
                     Side3Ok = true,   // 미사용 — 콜렛당 자기 카메라 0°/90° 2촬영 체계(합산 판정은 1·2만 반영)
-                    Side4Ok = true
+                    Side4Ok = true,
+                    Raw = inspection != null ? inspection.Raw : string.Empty,
+                    Values = inspection != null && inspection.Values != null
+                        ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
+                        : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 };
             }
             catch (OperationCanceledException)
@@ -293,9 +297,13 @@ namespace QMC.CDT320.VisionComm
         {
             // 비전 미사용(UseVision=false) — Bin 배치검사를 수행하지 않고 PASS 통과(연결 불필요).
             if (QMC.CDT320.AppSettingsStore.Current != null && !QMC.CDT320.AppSettingsStore.Current.UseVision)
-                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:VisionDisabled" };
+                return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
+                    AutoVisionChannel.Bin,
+                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, "PlacementInspector", slotIndex));
             if (VisionHub.Bin == null || !VisionHub.Bin.IsConnected)
-                return new InspectionResultDto { IsPass = true, Raw = "BYPASS:BinVisionNotConnected" };
+                return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToInspectionResult(
+                    AutoVisionChannel.Bin,
+                    AutoVisionRequestService.BuildSimulationInspectionResult(AutoVisionChannel.Bin, "PlacementInspector", slotIndex));
 
             try
             {

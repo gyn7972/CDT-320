@@ -12,8 +12,6 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerBottomInspectionSequence : PickerSequenceBase<PickerBottomInspectionStep>
     {
-        private static readonly object SimVisionRandomLock = new object();
-        private static readonly Random SimVisionRandom = new Random();
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
         private int _currentPickerIndex = -1;
@@ -780,6 +778,14 @@ namespace QMC.CDT320.Sequencing
             DieResult dieResult = _bottomResult.IsOk && _currentDie.Result != DieResult.NG
                 ? DieResult.Good
                 : DieResult.NG;
+            var measurements = new List<InspectionMeasurement>
+            {
+                BuildMeasurement("BottomAlignOffsetX", _bottomResult.OffsetX, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetY", _bottomResult.OffsetY, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetT", _bottomResult.OffsetT, "deg", inspectionResult),
+                BuildBooleanMeasurement("BottomInspectionResult", _bottomResult.IsOk)
+            };
+            AppendVisionRawMeasurements(measurements, _bottomResult, "Bottom", inspectionResult);
 
             MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
             {
@@ -812,13 +818,7 @@ namespace QMC.CDT320.Sequencing
                             IsValid = true
                         })
                 },
-                Measurements = new List<InspectionMeasurement>
-                {
-                    BuildMeasurement("BottomAlignOffsetX", _bottomResult.OffsetX, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetY", _bottomResult.OffsetY, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetT", _bottomResult.OffsetT, "deg", inspectionResult),
-                    BuildBooleanMeasurement("BottomInspectionResult", _bottomResult.IsOk)
-                }
+                Measurements = measurements
             });
 
             MaterialStateService.ApplyDieInspectionResult(
@@ -966,28 +966,12 @@ namespace QMC.CDT320.Sequencing
 
         private BottomVisionOffset SimulateBottomResult()
         {
-            if (IsDryRunWithVisionDisabled())
-            {
-                return new BottomVisionOffset
-                {
-                    PickerNo = _currentPickerNo,
-                    OffsetX = 0.0,
-                    OffsetY = 0.0,
-                    OffsetT = 0.0,
-                    IsOk = true
-                };
-            }
-
-            lock (SimVisionRandomLock)
-            {
-                return new BottomVisionOffset
-                {
-                    PickerNo = _currentPickerNo,
-                    OffsetX = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
-                    OffsetY = (SimVisionRandom.NextDouble() - 0.5) * 0.002,
-                    IsOk = true
-                };
-            }
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    _currentPickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(_currentPickerNo, inspection);
         }
 
         private bool ShouldUseSimulatedBottomVision()

@@ -56,6 +56,8 @@ namespace QMC.CDT320.Sequencing
         private double _thetaFromTwoPoint;
         private int _thetaRetryCount;
         private int _twoPointThetaRetryCount;
+        private bool _alignThetaReferenceReady;
+        private double _alignThetaReferenceT;
         private bool _alignAnchorReady;
         private int _alignAnchorRow;
         private int _alignAnchorCol;
@@ -195,6 +197,7 @@ namespace QMC.CDT320.Sequencing
 
                 Stage.ClearWaferAlignThetaResult();
                 MaterialStateService.ResetInputStageThetaAlignResult(_wafer, "InputStageAlignStartThetaReset");
+                CaptureAlignThetaReference("CheckUnit");
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
@@ -245,6 +248,8 @@ namespace QMC.CDT320.Sequencing
             _thetaFromTwoPoint = 0.0;
             _thetaRetryCount = 0;
             _twoPointThetaRetryCount = 0;
+            _alignThetaReferenceReady = false;
+            _alignThetaReferenceT = 0.0;
             _alignAnchorReady = false;
             _alignAnchorRow = 0;
             _alignAnchorCol = 0;
@@ -260,16 +265,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (Options.EnableMotion)
                 {
-                    int result = await MoveZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, Stage.Recipe.WaferY.ProcessPosition, "StageY process", ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
-                    if (result != 0) return result;
-
-                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition, "StageZ process", ct).ConfigureAwait(false);
+                    int result = await PrepareVisionProcessPlaneForAlignAsync(ct).ConfigureAwait(false);
                     if (result != 0) return result;
                 }
 
@@ -289,7 +285,69 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
+        private async Task<int> PrepareVisionProcessPlaneForAlignAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            int result = await MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            bool stageZAtProcess = Stage.Recipe.WaferZ != null &&
+                IsAxisInPosition(ResolveStageAxis(WaferStageAxis.WaferExpandingZ), Stage.Recipe.WaferZ.ProcessPosition);
+
+            if (stageZAtProcess)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.NeedleX,
+                    Stage.Recipe.NeedleX.AvoidPosition,
+                    "NeedleX avoid before process plane move",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                WriteLog("InputStageAlignSequence",
+                    "StageZ already at process position. Skip StageZ avoid/process move before align process plane move. " +
+                    BuildAxisState(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition) + " - Ok");
+
+                return await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            }
+
+            result = await EnsureStageTFixedBeforeExpanderZMoveAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.AvoidPosition,
+                    "StageZ avoid before process plane move",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+            }
+
+            result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.NeedleX,
+                Stage.Recipe.NeedleX.AvoidPosition,
+                "NeedleX avoid before process plane move",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await MoveVisionProcessPlaneAxesAsync(ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            if (Stage.Recipe.WaferZ != null)
+            {
+                result = await MoveAxisAndVerifyAsync(
+                    WaferStageAxis.WaferExpandingZ,
+                    Stage.Recipe.WaferZ.ProcessPosition,
+                    "StageZ process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveHeadZAxesAvoidBeforeProcessPlaneMoveAsync(CancellationToken ct)
         {
             Stage.Recipe.EnsurePositionObjects();
 
@@ -307,17 +365,71 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
             if (result != 0) return result;
 
-            if (Stage.Recipe.WaferZ != null)
-            {
-                result = await MoveAxisAndVerifyAsync(
-                    WaferStageAxis.WaferExpandingZ,
-                    Stage.Recipe.WaferZ.AvoidPosition,
-                    "StageZ avoid before process plane move",
-                    ct).ConfigureAwait(false);
-                if (result != 0) return result;
-            }
+            return 0;
+        }
+
+        private async Task<int> MoveVisionProcessPlaneAxesAsync(CancellationToken ct)
+        {
+            int result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.WaferY,
+                Stage.Recipe.WaferY.ProcessPosition,
+                "StageY process",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await MoveAxisAndVerifyAsync(
+                WaferStageAxis.VisionX,
+                Stage.Recipe.VisionX.ProcessPosition,
+                "VisionX process",
+                ct).ConfigureAwait(false);
+            if (result != 0) return result;
 
             return 0;
+        }
+
+        private async Task<int> EnsureStageTFixedBeforeExpanderZMoveAsync(CancellationToken ct)
+        {
+            Stage.Recipe.EnsurePositionObjects();
+
+            if (IsStageTAtExpanderZFixedPosition())
+                return 0;
+
+            WriteLog("InputStageAlignSequence",
+                "StageT is not at an ExpanderZ-safe fixed position before StageZ process plane move. Move StageT home first. " +
+                BuildAxisState(WaferStageAxis.WaferT, 0.0) + " - Start");
+
+            return await MoveAxisAndVerifyAsync(
+                WaferStageAxis.WaferT,
+                0.0,
+                "StageT home before StageZ process plane move",
+                ct,
+                true).ConfigureAwait(false);
+        }
+
+        private bool IsStageTAtExpanderZFixedPosition()
+        {
+            try
+            {
+                Stage.Recipe.EnsurePositionObjects();
+
+                QMC.Common.Motion.BaseAxis stageT = ResolveStageAxis(WaferStageAxis.WaferT);
+                if (stageT == null || Stage.Recipe.WaferT == null)
+                    return false;
+
+                return IsAxisInPosition(stageT, 0.0) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.AvoidPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.LoadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.UnloadPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ReadyPosition) ||
+                    IsAxisInPosition(stageT, Stage.Recipe.WaferT.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
@@ -836,9 +948,9 @@ namespace QMC.CDT320.Sequencing
             {
                 double offsetX = _centerResult != null ? _centerResult.DeltaX : 0.0;
                 double offsetY = _centerResult != null ? _centerResult.DeltaY : 0.0;
-                double referenceT = Stage.ResolveWaferAlignReferenceT();
+                double referenceT = ResolveAlignThetaReference();
                 double correctedT = Stage.StageT != null ? Stage.StageT.ActualPosition : referenceT;
-                double offsetT = correctedT - referenceT;
+                double offsetT = NormalizeThetaOffset(correctedT - referenceT);
                 if (Math.Abs(offsetT) <= 0.000001)
                     return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-THETA-ZERO", Stage.Name,
                         "Final theta offset is zero. referenceT=" + referenceT.ToString("F6") +
@@ -885,6 +997,58 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-ALIGN-APPLY-EX", Stage.Name, "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void CaptureAlignThetaReference(string source)
+        {
+            try
+            {
+                _alignThetaReferenceT = Stage != null && Stage.StageT != null
+                    ? Stage.StageT.ActualPosition
+                    : 0.0;
+                _alignThetaReferenceReady = true;
+
+                WriteLog("InputStageAlignSequence",
+                    "Align theta reference captured. source=" + source +
+                    ", referenceT=" + _alignThetaReferenceT.ToString("F6") +
+                    ", recipeProcessT=" + (Stage != null ? Stage.ResolveWaferAlignReferenceT().ToString("F6") : "0.000000") +
+                    " - Ok");
+            }
+            catch
+            {
+                _alignThetaReferenceT = 0.0;
+                _alignThetaReferenceReady = true;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveAlignThetaReference()
+        {
+            if (!_alignThetaReferenceReady)
+                CaptureAlignThetaReference("ApplyAlignResultFallback");
+
+            return _alignThetaReferenceT;
+        }
+
+        private static double NormalizeThetaOffset(double offsetT)
+        {
+            try
+            {
+                while (offsetT > 180.0)
+                    offsetT -= 360.0;
+                while (offsetT < -180.0)
+                    offsetT += 360.0;
+                return offsetT;
+            }
+            catch
+            {
+                return offsetT;
             }
             finally
             {

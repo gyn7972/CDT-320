@@ -759,8 +759,34 @@ namespace QMC.CDT320
                 SideVisionYOffset = sideCorrection != null ? sideCorrection.SideVisionYOffset : 0.0,
                 PickerZOffset = sideCorrection != null ? sideCorrection.PickerZOffset : 0.0,
                 SideInspectionSourceDieId = sideCorrection != null ? sideCorrection.SourceDieId : string.Empty,
-                SideInspectionUpdatedAt = sideCorrection != null ? sideCorrection.UpdatedAt : DateTime.MinValue
+                SideInspectionUpdatedAt = NormalizeOptionalRuntimeDateTime(
+                    sideCorrection != null ? sideCorrection.UpdatedAt : DateTime.MinValue,
+                    DateTime.Now)
             });
+        }
+
+        private static DateTime NormalizeOptionalRuntimeDateTime(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                if (value == DateTime.MinValue)
+                    return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+                if (value == DateTime.MaxValue)
+                    return DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc);
+
+                if (value.Year < 2000 || value.Year > 2100)
+                    return fallback;
+
+                return value;
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
+            }
         }
 
         private void RestorePickerOffsetRuntimeState(MachineRuntimeState state)

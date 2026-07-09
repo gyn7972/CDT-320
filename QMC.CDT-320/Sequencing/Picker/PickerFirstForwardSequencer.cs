@@ -32,7 +32,12 @@ namespace QMC.CDT320.Sequencing
             new Dictionary<PickerSequenceSide, int>();
         private static readonly HashSet<PickerSequenceSide> Done =
             new HashSet<PickerSequenceSide>();
+        private static readonly Dictionary<PickerSequenceSide, int> ResumeDrainRanks =
+            new Dictionary<PickerSequenceSide, int>();
+        private static readonly HashSet<PickerSequenceSide> ResumeDrainDone =
+            new HashSet<PickerSequenceSide>();
         private static PickerSequenceSide? _holder;
+        private static PickerSequenceSide? _resumeDrainHolder;
 
         // run 시작(StartSequence) 시 1회 호출. 이전 run의 순서 상태를 초기화한다.
         public static void BeginRun()
@@ -41,7 +46,98 @@ namespace QMC.CDT320.Sequencing
             {
                 Registered.Clear();
                 Done.Clear();
+                ResumeDrainRanks.Clear();
+                ResumeDrainDone.Clear();
                 _holder = null;
+                _resumeDrainHolder = null;
+            }
+        }
+
+        public static void ConfigureResumeDrain(
+            bool frontRequired,
+            int frontRank,
+            bool rearRequired,
+            int rearRank)
+        {
+            lock (Sync)
+            {
+                ResumeDrainRanks.Clear();
+                ResumeDrainDone.Clear();
+                _resumeDrainHolder = null;
+
+                if (frontRequired)
+                    ResumeDrainRanks[PickerSequenceSide.Front] = frontRank;
+                if (rearRequired)
+                    ResumeDrainRanks[PickerSequenceSide.Rear] = rearRank;
+            }
+        }
+
+        public static bool IsResumeDrainRequired(PickerSequenceSide side)
+        {
+            lock (Sync)
+            {
+                return ResumeDrainRanks.ContainsKey(side) && !ResumeDrainDone.Contains(side);
+            }
+        }
+
+        public static async Task<bool> WaitResumeDrainTurnAsync(
+            PickerSequenceSide side,
+            MachineSequenceContext ctx,
+            Action<string> log,
+            CancellationToken ct)
+        {
+            DateTime lastWaitLog = DateTime.MinValue;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (ctx != null)
+                    ctx.StopIfCycleStopRequested("PickerResumeDrainSequencer:" + side);
+
+                bool ownDrain;
+                int ownRank;
+                string waitReason;
+                lock (Sync)
+                {
+                    ownDrain = ResumeDrainRanks.TryGetValue(side, out ownRank) &&
+                               !ResumeDrainDone.Contains(side);
+
+                    if (ResumeDrainRanks.Count == 0 || AllResumeDrainDoneNoLock())
+                        return false;
+
+                    if (ownDrain)
+                    {
+                        if (_resumeDrainHolder == side)
+                            return true;
+
+                        if (_resumeDrainHolder == null && IsHighestResumeDrainPriorityNoLock(side))
+                        {
+                            _resumeDrainHolder = side;
+                            return true;
+                        }
+                    }
+
+                    waitReason = BuildResumeDrainWaitReasonNoLock(side, ownDrain, ownRank);
+                }
+
+                if (log != null && (DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= WaitLogThrottleMs)
+                {
+                    lastWaitLog = DateTime.UtcNow;
+                    log(side + " resume drain 대기. " + waitReason);
+                }
+
+                await Task.Delay(PollMs, ct).ConfigureAwait(false);
+            }
+        }
+
+        public static void CompleteResumeDrain(PickerSequenceSide side)
+        {
+            lock (Sync)
+            {
+                if (ResumeDrainRanks.ContainsKey(side))
+                    ResumeDrainDone.Add(side);
+
+                if (_resumeDrainHolder == side)
+                    _resumeDrainHolder = null;
             }
         }
 
@@ -150,6 +246,62 @@ namespace QMC.CDT320.Sequencing
             }
 
             return true;
+        }
+
+        private static bool AllResumeDrainDoneNoLock()
+        {
+            foreach (PickerSequenceSide side in ResumeDrainRanks.Keys)
+            {
+                if (!ResumeDrainDone.Contains(side))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsHighestResumeDrainPriorityNoLock(PickerSequenceSide side)
+        {
+            int selfRank;
+            if (!ResumeDrainRanks.TryGetValue(side, out selfRank) ||
+                ResumeDrainDone.Contains(side))
+                return false;
+
+            foreach (KeyValuePair<PickerSequenceSide, int> other in ResumeDrainRanks)
+            {
+                if (other.Key == side || ResumeDrainDone.Contains(other.Key))
+                    continue;
+
+                if (other.Value > selfRank)
+                    return false;
+
+                if (other.Value == selfRank &&
+                    other.Key == PickerSequenceSide.Front &&
+                    side != PickerSequenceSide.Front)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static string BuildResumeDrainWaitReasonNoLock(
+            PickerSequenceSide side,
+            bool ownDrain,
+            int ownRank)
+        {
+            return "ownDrain=" + ownDrain +
+                   ", ownRank=" + (ownDrain ? ownRank.ToString() : "-") +
+                   ", holder=" + (_resumeDrainHolder.HasValue ? _resumeDrainHolder.Value.ToString() : "-") +
+                   ", front=" + DescribeResumeDrainSideNoLock(PickerSequenceSide.Front) +
+                   ", rear=" + DescribeResumeDrainSideNoLock(PickerSequenceSide.Rear);
+        }
+
+        private static string DescribeResumeDrainSideNoLock(PickerSequenceSide side)
+        {
+            int rank;
+            if (!ResumeDrainRanks.TryGetValue(side, out rank))
+                return "none";
+
+            return "rank=" + rank + ",done=" + ResumeDrainDone.Contains(side);
         }
     }
 }

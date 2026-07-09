@@ -875,6 +875,13 @@ namespace QMC.CDT_320.Ui.Dialogs
 
                 CDT320_Machine machine = host.Machine;
                 int colletIndex = NormalizeColletIndex(_colletNo);
+                if (colletIndex != 3)
+                {
+                    lblStatus.Text = "SAVE BOTTOM POS는 기준 Collet 4번에서만 사용할 수 있습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 PickerAxis zAxisKind = ResolvePickerZAxis(_colletNo);
                 PickerAxis tAxisKind = ResolvePickerTAxis(_colletNo);
                 BaseAxis xAxis = ResolveSelectedPickerAxis(machine, PickerAxis.PickerX);
@@ -898,6 +905,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double activeTPcHomeOffset = ResolvePickerTPcHomeOffset(tAxis);
                 double tZeroResidual = actualT - baseBottomT;
                 double tZeroHomeOffset = activeTPcHomeOffset + tZeroResidual;
+                ColletCalibrationData data = ResolveData(machine);
+                ColletCalibrationRecord record = data.GetRecord(_side, _colletNo);
+                if (record == null)
+                {
+                    lblStatus.Text = "선택한 Collet Calibration 저장 Record를 찾을 수 없습니다. side=" + _side + ", colletNo=" + _colletNo;
+                    QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 현재 기준: 4번 기준 Bottom 저장은 기존 OK 위치와 크게 다르면 오조작으로 보고 차단한다.
+                string suspiciousReason;
+                if (IsSuspiciousBottomTeachingPosition(record, actualX, actualY, actualZ, out suspiciousReason))
+                {
+                    lblStatus.Text = suspiciousReason;
+                    QMC.Common.MessageDialog.Show(this, suspiciousReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
                 string message =
                     "현재 위치를 Bottom 검사 티칭 위치로 저장하시겠습니까?\r\n" +
@@ -914,9 +938,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, "BottomPosition", bottomTeachingX);
                 SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, "BottomPosition", actualY);
                 SetSelectedPickerTeachingPosition(machine, zAxisKind, "BottomPosition", actualZ);
+                if (colletIndex == 3)
+                    SyncReferenceColletDieTeachingPositions(machine, bottomTeachingX, actualY, actualZ, zAxisKind);
 
-                ColletCalibrationData data = ResolveData(machine);
-                ColletCalibrationRecord record = data.GetRecord(_side, _colletNo);
                 record.Side = _side;
                 record.ColletNo = _colletNo;
                 record.TZeroHomeOffset = tZeroHomeOffset;
@@ -927,6 +951,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 record.FinalPickerT = actualT;
                 record.UpdatedAt = DateTime.Now;
                 machine.VisionUnit.Config.CalibrationData.Touch("ColletBottomTeaching");
+                string offsetSummary;
+                bool offsetApplied = PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(machine, "ColletBottomTeaching", out offsetSummary);
 
                 bool recipeSaved = host.SaveMachineRecipe(host.CurrentRecipeName);
                 host.SaveMachineSettings();
@@ -940,6 +966,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", bottomTeachingX=actualX-pitchOffset=" + actualX.ToString("F6") + "-" + pitchOffsetX.ToString("F6") + "=" + bottomTeachingX.ToString("F6") +
                     ", bottomTeachingY=" + actualY.ToString("F6") +
                     ", bottomTeachingZ=" + actualZ.ToString("F6") +
+                    ", referenceDieTeachingSync=" + (colletIndex == 3) +
+                    ", visionToPickerOffsetApplied=" + offsetApplied +
+                    ", visionToPickerOffsetSummary=" + offsetSummary +
                     ", activeTPcHomeOffset=" + activeTPcHomeOffset.ToString("F6") +
                     ", tZeroResidual=actualT-baseBottomT=" + actualT.ToString("F6") + "-" + baseBottomT.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
                     ", tZeroHomeOffset=activePcOffset+residual=" + activeTPcHomeOffset.ToString("F6") + "+" + tZeroResidual.ToString("F6") + "=" + tZeroHomeOffset.ToString("F6") +
@@ -961,6 +990,33 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _busy = false;
                 SetButtonsEnabled(true);
             }
+        }
+
+        private static bool IsSuspiciousBottomTeachingPosition(ColletCalibrationRecord record, double actualX, double actualY, double actualZ, out string reason)
+        {
+            reason = string.Empty;
+            if (record == null || !record.Valid)
+                return false;
+
+            const double maxXDeltaMm = 20.0;
+            const double maxYDeltaMm = 10.0;
+            const double maxZDeltaMm = 5.0;
+            const double zRaisedThresholdMm = -1.0;
+
+            double xDelta = Math.Abs(actualX - record.FinalPickerX);
+            double yDelta = Math.Abs(actualY - record.FinalPickerY);
+            double zDelta = Math.Abs(actualZ - record.FinalPickerZ);
+            bool zLooksRaised = actualZ > zRaisedThresholdMm && record.FinalPickerZ < zRaisedThresholdMm;
+
+            if (!zLooksRaised && xDelta <= maxXDeltaMm && yDelta <= maxYDeltaMm && zDelta <= maxZDeltaMm)
+                return false;
+
+            reason = "SAVE BOTTOM POS 차단: 현재 축 위치가 기존 Collet OK 위치와 너무 다릅니다. " +
+                     "current=(" + actualX.ToString("F3") + "," + actualY.ToString("F3") + "," + actualZ.ToString("F3") + "), " +
+                     "saved=(" + record.FinalPickerX.ToString("F3") + "," + record.FinalPickerY.ToString("F3") + "," + record.FinalPickerZ.ToString("F3") + "), " +
+                     "delta=(" + xDelta.ToString("F3") + "," + yDelta.ToString("F3") + "," + zDelta.ToString("F3") + "), " +
+                     "zRaised=" + zLooksRaised + ".";
+            return true;
         }
 
         private void ApplySelectedTHomeOffset()
@@ -1110,6 +1166,22 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (machine == null || machine.PickerRearUnit == null)
                 throw new InvalidOperationException("RearPickerUnit이 준비되지 않았습니다.");
             machine.PickerRearUnit.SetPickerAxisTeachingPosition(axis, positionName, position);
+        }
+
+        private void SyncReferenceColletDieTeachingPositions(CDT320_Machine machine, double bottomX, double pickerY, double bottomZ, PickerAxis zAxis)
+        {
+            // 현재 기준: 4번 Collet Cal 기준 Y는 Pick/Bottom/Side/Place 전진 위치의 공통 기준값으로 저장한다.
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerX, BuildIndexedPositionName("DieBottomPosition"), bottomX);
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DiePickPosition"), pickerY);
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DieBottomPosition"), pickerY);
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DieSidePosition"), pickerY);
+            SetSelectedPickerTeachingPosition(machine, PickerAxis.PickerY, BuildIndexedPositionName("DiePlacePosition"), pickerY);
+            SetSelectedPickerTeachingPosition(machine, zAxis, BuildIndexedPositionName("DieBottomPosition"), bottomZ);
+        }
+
+        private string BuildIndexedPositionName(string positionArrayName)
+        {
+            return positionArrayName + "[" + NormalizeColletIndex(_colletNo) + "]";
         }
 
         private BaseAxis ResolveSelectedPickerAxis(CDT320_Machine machine, PickerAxis axis)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Materials;
 using QMC.Common.Alarms;
 using QMC.Common.Diagnostics.TactTime;
 
@@ -76,8 +77,11 @@ namespace QMC.CDT320.Sequencing
                 return;
             }
 
+            ResetCoordinatorRunState();
+
             // §4: 이번 run의 크로스-픽커 첫 전진 우선순위 상태를 초기화한다(신규 시작/재시작 순서 게이트).
             PickerFirstForwardSequencer.BeginRun();
+            ConfigureRestartPickerDrain();
 
             CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _childrenCts = childrenCts;
@@ -122,6 +126,193 @@ namespace QMC.CDT320.Sequencing
                 childrenCts.Dispose();
             }
             }
+        }
+
+        private void ResetCoordinatorRunState()
+        {
+            try
+            {
+                if (_ctx.PickerPhases != null)
+                    _ctx.PickerPhases.ResetAll();
+
+                if (_ctx.AutoSequenceGate != null)
+                    _ctx.AutoSequenceGate.ResetPickerWorkZones("RunStart");
+
+                InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Front);
+                InputCameraPreInspectionCoordinator.Clear(PickerSequenceSide.Rear);
+                _ctx.LogPublic("[SEQ] InputCamera pre-inspection state reset at run start.");
+
+                string clearDetail;
+                if (QMC.CDT320.Interlocks.PickerZoneInterlockRules.ClearPickerWorkAreasForReadyIfSafe(
+                    _ctx.Machine,
+                    out clearDetail))
+                {
+                    _ctx.LogPublic("[SEQ] Picker work area counters reset at run start. " + clearDetail);
+                }
+                else if (!string.IsNullOrWhiteSpace(clearDetail))
+                {
+                    _ctx.LogPublic("[SEQ] Picker work area counters kept at run start. " + clearDetail);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ctx.LogPublic("[SEQ] Coordinator run state reset failed. error=" + ex.Message);
+                QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    "Coordinator run state reset failed. error=" + ex.Message + " - Check");
+            }
+        }
+
+        private void ConfigureRestartPickerDrain()
+        {
+            try
+            {
+                bool frontRequired;
+                int frontRank;
+                string frontReason;
+                ResolveRestartPickerDrain(PickerSequenceSide.Front, out frontRequired, out frontRank, out frontReason);
+
+                bool rearRequired;
+                int rearRank;
+                string rearReason;
+                ResolveRestartPickerDrain(PickerSequenceSide.Rear, out rearRequired, out rearRank, out rearReason);
+
+                PickerFirstForwardSequencer.ConfigureResumeDrain(
+                    frontRequired,
+                    frontRank,
+                    rearRequired,
+                    rearRank);
+
+                _ctx.LogPublic("[SEQ] Picker restart drain configured. front=" +
+                    frontRequired + "(" + frontReason + "), rear=" +
+                    rearRequired + "(" + rearReason + ")");
+                QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    "Picker restart drain configured. frontRequired=" + frontRequired +
+                    ", frontRank=" + frontRank +
+                    ", frontReason=" + frontReason +
+                    ", rearRequired=" + rearRequired +
+                    ", rearRank=" + rearRank +
+                    ", rearReason=" + rearReason + " - Check");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "AutoSequenceCoordinator",
+                    "Picker restart drain configure failed. error=" + ex.Message + " - Failed");
+            }
+        }
+
+        private void ResolveRestartPickerDrain(
+            PickerSequenceSide side,
+            out bool required,
+            out int rank,
+            out string reason)
+        {
+            required = false;
+            rank = PickerFirstForwardSequencer.RankPickUp;
+            reason = "no picker work";
+
+            if (!IsPickerSideActive(side))
+            {
+                reason = "picker side inactive";
+                return;
+            }
+
+            bool hasPickerDie = false;
+            bool hasPlaceReadyDie = false;
+            bool hasInspectionPendingDie = false;
+            MaterialLocationKind location = side == PickerSequenceSide.Front
+                ? MaterialLocationKind.PickerFront
+                : MaterialLocationKind.PickerRear;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                DieMaterial die = MaterialStateService.GetDieAtPicker(location, pickerNo);
+                if (die == null)
+                    continue;
+
+                hasPickerDie = true;
+                bool bottomDone = HasInspectionResult(die, "Bottom");
+                bool side0Done = HasInspectionResult(die, "Side0");
+                bool side90Done = HasInspectionResult(die, "Side90");
+                if (bottomDone && side0Done && side90Done && IsPlaceResultReady(die))
+                    hasPlaceReadyDie = true;
+                else
+                    hasInspectionPendingDie = true;
+            }
+
+            if (hasPlaceReadyDie)
+            {
+                required = true;
+                rank = PickerFirstForwardSequencer.RankPlace;
+                reason = "place-ready die remains on picker";
+                return;
+            }
+
+            if (hasInspectionPendingDie || hasPickerDie)
+            {
+                required = true;
+                rank = PickerFirstForwardSequencer.RankBottomSide;
+                reason = "inspection/picked die remains on picker";
+                return;
+            }
+
+            if (MaterialStateService.HasReadyInputStagePickTarget())
+            {
+                required = true;
+                rank = PickerFirstForwardSequencer.RankPickUp;
+                reason = "ready input pick target exists at restart";
+                return;
+            }
+        }
+
+        private bool IsPickerSideActive(PickerSequenceSide side)
+        {
+            try
+            {
+                if (side == PickerSequenceSide.Front)
+                {
+                    return (_options.Units & SequenceUnitKind.PickerFront) == SequenceUnitKind.PickerFront &&
+                           _ctx.Machine != null &&
+                           _ctx.Machine.PickerFrontUnit != null &&
+                           _ctx.Machine.PickerFrontUnit.Config != null &&
+                           _ctx.Machine.PickerFrontUnit.Config.UseUnit;
+                }
+
+                return (_options.Units & SequenceUnitKind.PickerRear) == SequenceUnitKind.PickerRear &&
+                       _ctx.Machine != null &&
+                       _ctx.Machine.PickerRearUnit != null &&
+                       _ctx.Machine.PickerRearUnit.Config != null &&
+                       _ctx.Machine.PickerRearUnit.Config.UseUnit;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool HasInspectionResult(DieMaterial die, string inspectionType)
+        {
+            if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
+                return false;
+
+            for (int i = 0; i < die.Inspections.Count; i++)
+            {
+                DieInspectionRecord record = die.Inspections[i];
+                if (record == null)
+                    continue;
+
+                if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return record.Result != MaterialInspectionResult.Unknown;
+            }
+
+            return false;
+        }
+
+        private static bool IsPlaceResultReady(DieMaterial die)
+        {
+            return die != null &&
+                   (die.Result == DieResult.Good || die.Result == DieResult.NG);
         }
 
         /// <summary>Manual 또는 Step 모드에서 지정 유닛을 1단계 진행시킵니다.</summary>

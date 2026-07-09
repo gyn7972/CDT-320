@@ -783,6 +783,16 @@ namespace QMC.CDT320.Sequencing
         {
             MaterialInspectionResult inspectionResult = result.IsOk ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
             DieResult dieResult = result.IsOk && target.Die.Result != DieResult.NG ? DieResult.Good : DieResult.NG;
+            var measurements = new List<InspectionMeasurement>
+            {
+                BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetY", result.OffsetY, "mm", inspectionResult),
+                BuildMeasurement("BottomAlignOffsetT", result.OffsetT, "deg", inspectionResult),
+                BuildMeasurement("SideVisionYOffset", result.SideVisionYOffset, "mm", inspectionResult),
+                BuildMeasurement("SidePickerZOffset", result.PickerZOffset, "mm", inspectionResult),
+                BuildBooleanMeasurement("BottomInspectionResult", result.IsOk)
+            };
+            AppendVisionRawMeasurements(measurements, result, "Bottom", inspectionResult);
 
             MaterialStateService.UpsertInspection(target.Die.DieId, new DieInspectionRecord
             {
@@ -813,15 +823,7 @@ namespace QMC.CDT320.Sequencing
                             IsValid = true
                         })
                 },
-                Measurements = new List<InspectionMeasurement>
-                {
-                    BuildMeasurement("BottomAlignOffsetX", result.OffsetX, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetY", result.OffsetY, "mm", inspectionResult),
-                    BuildMeasurement("BottomAlignOffsetT", result.OffsetT, "deg", inspectionResult),
-                    BuildMeasurement("SideVisionYOffset", result.SideVisionYOffset, "mm", inspectionResult),
-                    BuildMeasurement("SidePickerZOffset", result.PickerZOffset, "mm", inspectionResult),
-                    BuildBooleanMeasurement("BottomInspectionResult", result.IsOk)
-                }
+                Measurements = measurements
             });
 
             MaterialStateService.ApplyDieInspectionResult(
@@ -1888,8 +1890,11 @@ namespace QMC.CDT320.Sequencing
             bool side2Ok = result != null && result.Side2Ok;
             bool side3Ok = result != null && result.Side3Ok;
             bool side4Ok = result != null && result.Side4Ok;
+            MaterialInspectionResult inspectionResult = result != null && result.IsAllOk
+                ? MaterialInspectionResult.Ok
+                : MaterialInspectionResult.Ng;
 
-            return new List<InspectionMeasurement>
+            var measurements = new List<InspectionMeasurement>
             {
                 BuildBooleanMeasurement(prefix + "Side1", side1Ok),
                 BuildBooleanMeasurement(prefix + "Side2", side2Ok),
@@ -1897,6 +1902,9 @@ namespace QMC.CDT320.Sequencing
                 BuildBooleanMeasurement(prefix + "Side4", side4Ok),
                 BuildBooleanMeasurement(prefix + "InspectionResult", result != null && result.IsAllOk)
             };
+
+            AppendVisionRawMeasurements(measurements, result, prefix, inspectionResult);
+            return measurements;
         }
 
         private void QueuePendingZAvoid(int pickerIndex)

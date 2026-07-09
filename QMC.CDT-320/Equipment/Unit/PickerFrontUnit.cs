@@ -2574,25 +2574,33 @@ namespace QMC.CDT320
 
         private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)
         {
-            return new BottomVisionOffset
-            {
-                PickerNo = pickerNo,
-                OffsetX = 0.0,
-                OffsetY = 0.0,
-                OffsetT = 0.0,
-                IsOk = true
-            };
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.BottomInspection,
+                    "SurfaceInspector",
+                    pickerNo);
+            return QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToBottomVisionOffset(pickerNo, inspection);
         }
 
         private SideVisionResult SimulateSideInspectionResult(int pickerNo)
         {
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide,
+                    "SurfaceInspector",
+                    pickerNo);
+            bool pass = inspection != null && inspection.IsPass;
             return new SideVisionResult
             {
                 PickerNo = pickerNo,
-                Side1Ok = true,
-                Side2Ok = true,
+                Side1Ok = pass,
+                Side2Ok = pass,
                 Side3Ok = true,
-                Side4Ok = true
+                Side4Ok = true,
+                Raw = inspection != null ? inspection.Raw : "",
+                Values = inspection != null && inspection.Values != null
+                    ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             };
         }
 

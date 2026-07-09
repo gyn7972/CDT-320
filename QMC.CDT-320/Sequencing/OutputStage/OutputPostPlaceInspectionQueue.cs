@@ -586,7 +586,8 @@ namespace QMC.CDT320.Sequencing
                     request.ReceiveTarget,
                     inspectionOk,
                     offset,
-                    inspection != null ? inspection.Raw : "");
+                    inspection != null ? inspection.Raw : "",
+                    inspection != null ? inspection.Values : null);
                 Log.Write("Main", "SYSTEM", "OutputPostPlaceInspection",
                     "Output camera 후검사 완료. die=" + request.DieId +
                     ", side=" + request.OutputSide +

@@ -23,6 +23,7 @@ namespace QMC.CDT320.Sequencing
                 while (!ct.IsCancellationRequested)
                 {
                     await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                    await WaitForLoaderInactiveBeforePickerProcessAsync(ct).ConfigureAwait(false);
 
                     PickerSequenceOptions options = BuildSequenceOptions();
                     PickerProcessSequence processSequence = new PickerProcessSequence(Context, PickerSequenceSide.Front);
@@ -62,6 +63,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                EnsureLoaderInactiveForManualStep();
+
                 if (_stepSequence == null || _stepSequence.IsComplete)
                     _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Front);
 
@@ -205,6 +208,48 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task WaitForLoaderInactiveBeforePickerProcessAsync(CancellationToken ct)
+        {
+            bool waitLogged = false;
+            while (IsInputOrOutputLoaderActive())
+            {
+                ct.ThrowIfCancellationRequested();
+                Context.StopIfCycleStopRequested("FrontPickerSequence.WaitLoaderInactive");
+
+                // 현재 기준: Input/Output 로더 동작 중에는 Picker가 Avoid에서 신규 공정 진입을 기다린다.
+                await EnsureIdlePickerAvoidAsync(ct).ConfigureAwait(false);
+                if (!waitLogged)
+                {
+                    WriteLog("WaitForLoaderInactiveBeforePickerProcessAsync",
+                        "FrontPicker 신규 공정 대기: Input/Output 로더가 동작 중입니다. - Wait");
+                    waitLogged = true;
+                }
+
+                await Task.Delay(100, ct).ConfigureAwait(false);
+            }
+
+            if (waitLogged)
+            {
+                WriteLog("WaitForLoaderInactiveBeforePickerProcessAsync",
+                    "FrontPicker 신규 공정 대기 해제: Input/Output 로더 동작 종료. - Ok");
+            }
+        }
+
+        private void EnsureLoaderInactiveForManualStep()
+        {
+            if (!IsInputOrOutputLoaderActive())
+                return;
+
+            throw new InvalidOperationException("Input/Output 로더 동작 중이므로 FrontPicker 수동/스텝 공정 진입이 차단되었습니다.");
+        }
+
+        private bool IsInputOrOutputLoaderActive()
+        {
+            return Context != null &&
+                   Context.Bus != null &&
+                   (Context.Bus.IsSet("InputLoaderActive") || Context.Bus.IsSet("OutputLoaderActive"));
         }
 
         private async Task EnsureIdlePickerAvoidAsync(CancellationToken ct)

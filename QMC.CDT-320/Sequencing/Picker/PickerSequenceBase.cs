@@ -2141,6 +2141,19 @@ namespace QMC.CDT320.Sequencing
             if (CalibrationMotion != null)
             {
                 CalibrationMotion.EnsureDefaults();
+                WriteLog("PickerMoveCommand",
+                    Name + " calibration motion command. side=" + Side +
+                    ", axis=" + axis +
+                    ", target=" + target.ToString("F6") +
+                    ", targetName=" + (targetName ?? "-") +
+                    ", forceMove=" + forceMove +
+                    ", velocity=" + CalibrationMotion.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + CalibrationMotion.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + CalibrationMotion.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + CalibrationMotion.MoveTimeoutMs +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                    ", explicitVelocityNotDefaultScaled=True - Check");
                 if (Side == PickerSequenceSide.Front)
                     return FrontPicker.MovePickerAxisCommandWithMotion(
                         axis,
@@ -2176,6 +2189,17 @@ namespace QMC.CDT320.Sequencing
 
         protected Task<int> MovePickerAxisCommandWithMotionAsync(PickerAxis axis, double target, double velocity, double acceleration, double deceleration, string targetName = null)
         {
+            WriteLog("PickerMoveCommand",
+                Name + " explicit motion command. side=" + Side +
+                ", axis=" + axis +
+                ", target=" + target.ToString("F6") +
+                ", targetName=" + (targetName ?? "-") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", acceleration=" + acceleration.ToString("F6") +
+                ", deceleration=" + deceleration.ToString("F6") +
+                ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6") +
+                ", explicitVelocityNotDefaultScaled=True - Check");
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
             return RearPicker.MovePickerAxisCommandWithMotion(axis, target, velocity, acceleration, deceleration, targetName);
@@ -2827,6 +2851,160 @@ namespace QMC.CDT320.Sequencing
                 RawValue = ok ? "OK" : "NG",
                 Result = ok ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
             };
+        }
+
+        protected static void AppendVisionRawMeasurements(
+            List<InspectionMeasurement> measurements,
+            BottomVisionOffset result,
+            string prefix,
+            MaterialInspectionResult inspectionResult)
+        {
+            if (measurements == null || result == null)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            if (!string.IsNullOrWhiteSpace(result.Raw))
+            {
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "VisionRaw",
+                    Value = 0.0,
+                    Unit = "raw",
+                    RawValue = result.Raw,
+                    Result = inspectionResult
+                });
+            }
+
+            AppendVisionValueMeasurements(measurements, result.Values, safePrefix, inspectionResult);
+        }
+
+        protected static void AppendVisionRawMeasurements(
+            List<InspectionMeasurement> measurements,
+            SideVisionResult result,
+            string prefix,
+            MaterialInspectionResult inspectionResult)
+        {
+            if (measurements == null || result == null)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            if (!string.IsNullOrWhiteSpace(result.Raw))
+            {
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "VisionRaw",
+                    Value = 0.0,
+                    Unit = "raw",
+                    RawValue = result.Raw,
+                    Result = inspectionResult
+                });
+            }
+
+            if (result.Values == null || result.Values.Count == 0)
+                return;
+
+            AppendVisionValueMeasurements(measurements, result.Values, safePrefix, inspectionResult);
+        }
+
+        protected static void AppendVisionValueMeasurements(
+            List<InspectionMeasurement> measurements,
+            IDictionary<string, string> values,
+            string prefix,
+            MaterialInspectionResult defaultResult)
+        {
+            if (measurements == null || values == null || values.Count == 0)
+                return;
+
+            string safePrefix = string.IsNullOrWhiteSpace(prefix) ? "Vision" : prefix;
+            foreach (KeyValuePair<string, string> pair in values)
+            {
+                if (IsVisionPassKey(pair.Key))
+                    continue;
+
+                double value;
+                QMC.CDT320.VisionComm.VisionProtocolResponse.TryParseDouble(pair.Value, out value);
+                measurements.Add(new InspectionMeasurement
+                {
+                    Name = safePrefix + "Vision_" + NormalizeMeasurementKey(pair.Key),
+                    Value = value,
+                    Unit = "",
+                    RawValue = pair.Value ?? "",
+                    Result = ResolveVisionMeasurementResult(values, pair.Key, defaultResult)
+                });
+            }
+        }
+
+        protected static bool IsVisionPassKey(string key)
+        {
+            return !string.IsNullOrWhiteSpace(key) &&
+                   key.EndsWith("_pass", StringComparison.OrdinalIgnoreCase);
+        }
+
+        protected static MaterialInspectionResult ResolveVisionMeasurementResult(
+            IDictionary<string, string> values,
+            string key,
+            MaterialInspectionResult defaultResult)
+        {
+            if (values == null || string.IsNullOrWhiteSpace(key))
+                return defaultResult;
+
+            string passText;
+            if (!values.TryGetValue(key + "_pass", out passText))
+                return defaultResult;
+
+            bool pass;
+            if (TryParseVisionPassValue(passText, out pass))
+                return pass ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng;
+
+            return defaultResult;
+        }
+
+        protected static bool TryParseVisionPassValue(string text, out bool pass)
+        {
+            pass = false;
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string value = text.Trim();
+            if (string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ok", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "pass", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = true;
+                return true;
+            }
+
+            if (string.Equals(value, "0", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "ng", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "fail", StringComparison.OrdinalIgnoreCase))
+            {
+                pass = false;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string NormalizeMeasurementKey(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                return "unknown";
+
+            var chars = key.Trim().ToCharArray();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                char c = chars[i];
+                bool ok = (c >= 'a' && c <= 'z') ||
+                          (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') ||
+                          c == '_';
+                if (!ok)
+                    chars[i] = '_';
+            }
+
+            return new string(chars);
         }
 
         protected async Task<SequenceResourceLease> AcquireResourceAsync(

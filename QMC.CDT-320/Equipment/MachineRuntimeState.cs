@@ -127,6 +127,7 @@ namespace QMC.CDT320
 
         public static bool Save(MachineRuntimeState state)
         {
+            string tmp = StatePath + ".tmp";
             try
             {
                 if (state == null)
@@ -148,8 +149,8 @@ namespace QMC.CDT320
                     state.PickerWorkCounters = new List<MachinePickerWorkCounterRuntimeState>();
                 if (state.InitializeSteps == null)
                     state.InitializeSteps = new List<MachineInitializeStepRuntimeState>();
+                NormalizeNestedDateTimes(state);
 
-                string tmp = StatePath + ".tmp";
                 using (var fs = File.Create(tmp))
                 {
                     JsonPrettySerializer.WriteObject(fs, typeof(MachineRuntimeState), state);
@@ -178,9 +179,39 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
                 Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
                     "Machine runtime state save failed: " + StatePath + " / " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeNestedDateTimes(MachineRuntimeState state)
+        {
+            try
+            {
+                if (state == null)
+                    return;
+
+                state.SavedAt = NormalizeDateTime(state.SavedAt, DateTime.Now);
+
+                if (state.PickerOffsets == null)
+                    return;
+
+                DateTime fallback = NormalizeDateTime(state.SavedAt, DateTime.Now);
+                foreach (var item in state.PickerOffsets)
+                {
+                    if (item == null)
+                        continue;
+
+                    item.SideInspectionUpdatedAt = NormalizeOptionalDateTime(item.SideInspectionUpdatedAt, fallback);
+                }
+            }
+            catch
+            {
             }
             finally
             {
@@ -193,6 +224,30 @@ namespace QMC.CDT320
             {
                 if (value == DateTime.MinValue || value == DateTime.MaxValue)
                     return fallback;
+
+                if (value.Year < 2000 || value.Year > 2100)
+                    return fallback;
+
+                return value;
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DateTime NormalizeOptionalDateTime(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                if (value == DateTime.MinValue)
+                    return DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
+
+                if (value == DateTime.MaxValue)
+                    return DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc);
 
                 if (value.Year < 2000 || value.Year > 2100)
                     return fallback;

@@ -18,10 +18,13 @@ namespace QMC.CDT320.Sequencing
         private PickerBottomAndSideInspectionSequence _bottomAndSideInspectionSequence;
         private PickerPlaceSequence _placeSequence;
         private PickerPhaseLease _phaseLease;
+        private AutoSequencePickerWorkZoneLease _workZoneLease;
         private bool _bottomInspectionCompletedInCurrentRun;
         private bool _forceBottomInspectionBeforeSideResume;
         private bool _forceSafeYBeforePlaceResume;
         private bool _firstForwardTurnHandled;
+        private bool _resumeDrainWaitHandled;
+        private bool _resumeDrainTurnHeld;
 
         public PickerProcessSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Process, side == PickerSequenceSide.Front ? "FrontPickerSequence" : "RearPickerSequence")
@@ -40,6 +43,7 @@ namespace QMC.CDT320.Sequencing
             {
                 ResetPickerPhaseSignals();
                 ReleasePickerProcessPhase("Abort");
+                ReleasePickerWorkZone("Abort");
                 InputCameraPreInspectionCoordinator.Clear(Side);
 
                 if (_pickUpSequence != null)
@@ -61,6 +65,9 @@ namespace QMC.CDT320.Sequencing
                 _bottomInspectionCompletedInCurrentRun = false;
                 _forceBottomInspectionBeforeSideResume = false;
                 _forceSafeYBeforePlaceResume = false;
+                _firstForwardTurnHandled = false;
+                _resumeDrainWaitHandled = false;
+                _resumeDrainTurnHeld = false;
                 CurrentStep = PickerProcessStep.Complete;
             }
             catch (Exception ex)
@@ -78,7 +85,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                using (SequenceResourceLease pickerLease = await AcquireResourceAsync(PickerResourceKind, Name + ":Process", ct).ConfigureAwait(false))
+                using (SequenceResourceLease pickerLease = await AcquirePickerProcessResourceAsync(ct).ConfigureAwait(false))
                 {
                     if (pickerLease == null)
                         return Fail("PICKER-RESOURCE", Name, "Picker 리소스 점유 실패. resource=" + PickerResourceKind);
@@ -116,7 +123,22 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                ReleasePickerProcessPhase("ProcessFinally");
+                ResetPickerPhaseSignals();
             }
+        }
+
+        private Task<SequenceResourceLease> AcquirePickerProcessResourceAsync(CancellationToken ct)
+        {
+            if (Options != null &&
+                Options.RunMode == SequenceRunMode.Auto &&
+                Context != null &&
+                Context.AutoSequenceGate != null)
+            {
+                return Context.AutoSequenceGate.BeginPickerProcessAsync(Side, Name + ":Process", ct);
+            }
+
+            return AcquireResourceAsync(PickerResourceKind, Name + ":Process", ct);
         }
 
         private bool IsStepRunMode()
@@ -141,6 +163,10 @@ namespace QMC.CDT320.Sequencing
 
                 // §4: run의 첫 전진 스텝만 크로스-픽커 우선순위 게이트를 통과한다(완료 가까운 쪽 먼저, 한 번에 한 픽커).
                 // 이후 스텝/다음 die는 게이트를 통과하지 않으며 기존 상대 PickerY Avoid 대기 + supervisor가 담당한다.
+                int resumeDrainWaitResult = await EnsureResumeDrainTurnBeforeProcessStepAsync(ct).ConfigureAwait(false);
+                if (resumeDrainWaitResult != 0)
+                    return resumeDrainWaitResult;
+
                 bool gateThisStep = !_firstForwardTurnHandled &&
                                     (Options == null || Options.RunMode == SequenceRunMode.Auto) &&
                                     IsFirstForwardGatedStep(CurrentStep);
@@ -173,7 +199,109 @@ namespace QMC.CDT320.Sequencing
                     return result;
             }
 
-            return 0;
+            return await CompleteResumeDrainAfterProcessAsync(ct).ConfigureAwait(false);
+        }
+
+        private async Task<int> EnsureResumeDrainTurnBeforeProcessStepAsync(CancellationToken ct)
+        {
+            if (_resumeDrainWaitHandled)
+                return 0;
+
+            if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                return 0;
+
+            if (CurrentStep == PickerProcessStep.CheckUnit ||
+                CurrentStep == PickerProcessStep.Complete ||
+                CurrentStep == PickerProcessStep.Error ||
+                CurrentStep == PickerProcessStep.Idle)
+            {
+                return 0;
+            }
+
+            try
+            {
+                bool held = await PickerFirstForwardSequencer.WaitResumeDrainTurnAsync(
+                    Side,
+                    Context,
+                    msg => WriteLog("PickerResumeDrainSequencer", Name + " " + msg + " - Wait"),
+                    ct).ConfigureAwait(false);
+
+                _resumeDrainWaitHandled = true;
+                _resumeDrainTurnHeld = held;
+
+                if (held)
+                {
+                    WriteLog("PickerResumeDrainSequencer",
+                        Name + " 재시작 드레인 턴 확보. 이 Picker가 남은 공정을 Place/Avoid/Output검사 완료까지 진행하는 동안 상대 Picker 공정 진입을 보류합니다. " +
+                        "side=" + Side +
+                        ", step=" + CurrentStep + " - Ok");
+                }
+                else
+                {
+                    WriteLog("PickerResumeDrainSequencer",
+                        Name + " 재시작 드레인 대기 완료. 선행 Picker의 Place/Avoid/Output검사 완료 후 공정 진입을 허용합니다. " +
+                        "side=" + Side +
+                        ", step=" + CurrentStep + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-RESUME-DRAIN-WAIT-EX", Name,
+                    "재시작 Picker 드레인 턴 대기 중 예외가 발생했습니다. side=" + Side +
+                    ", step=" + CurrentStep +
+                    ", error=" + ex.Message);
+            }
+        }
+
+        private async Task<int> CompleteResumeDrainAfterProcessAsync(CancellationToken ct)
+        {
+            if (!_resumeDrainTurnHeld)
+                return 0;
+
+            try
+            {
+                if (Context != null && Context.OutputPostPlaceInspections != null)
+                {
+                    int idleResult = await Context.OutputPostPlaceInspections.WaitUntilIdleAsync(
+                        Name + ":ResumeDrainComplete",
+                        0,
+                        ct).ConfigureAwait(false);
+                    if (idleResult != 0)
+                        return idleResult;
+                }
+
+                PickerFirstForwardSequencer.CompleteResumeDrain(Side);
+                _resumeDrainTurnHeld = false;
+
+                WriteLog("PickerResumeDrainSequencer",
+                    Name + " 재시작 드레인 완료. Place 완료, Picker Avoid 복귀, Output camera 후검사 idle 확인 후 상대 Picker 공정 진입을 허용합니다. " +
+                    "side=" + Side + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-RESUME-DRAIN-COMPLETE-EX", Name,
+                    "재시작 Picker 드레인 완료 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", error=" + ex.Message);
+            }
         }
 
         private static bool IsFirstForwardGatedStep(PickerProcessStep step)
@@ -610,6 +738,15 @@ namespace QMC.CDT320.Sequencing
 
         private void StartSafeInputCameraPreInspectionsAfterPickUpComplete(CancellationToken ct, string reason)
         {
+            if (_resumeDrainTurnHeld)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " 재시작 드레인 중이라 PickUp 완료 후 InputCamera 선행검사 예약을 보류합니다. " +
+                    "Place/Avoid/Output검사 완료 후 다음 run/공정 경계에서 다시 판단합니다. side=" +
+                    Side + ", reason=" + reason + " - Check");
+                return;
+            }
+
             PickerSequenceSide oppositeSide = Side == PickerSequenceSide.Front
                 ? PickerSequenceSide.Rear
                 : PickerSequenceSide.Front;
@@ -1024,6 +1161,7 @@ namespace QMC.CDT320.Sequencing
                         return nextPhaseResult;
 
                     CurrentStep = PickerProcessStep.RunPlace;
+                    EnableSafePlaceEntryIfResumeDrain("BottomAndSideInspectionToPlace");
                 }
                 else
                 {
@@ -1394,6 +1532,7 @@ namespace QMC.CDT320.Sequencing
                         return nextPhaseResult;
 
                     CurrentStep = PickerProcessStep.RunPlace;
+                    EnableSafePlaceEntryIfResumeDrain("SideInspectionToPlace");
                 }
                 else
                 {
@@ -1462,7 +1601,18 @@ namespace QMC.CDT320.Sequencing
                         Name + " Place 완료 후 PickerProcessSequence가 다음 PickUp용 비침습 InputCamera 선행검사를 예약합니다. " +
                         "선행검사는 Picker 축을 직접 이동하지 않는 경로만 사용합니다. side=" +
                         Side + " - Check");
-                    StartSafeInputCameraPreInspectionForSideIfNeeded(Side, ct, "PlaceComplete");
+                    if (_resumeDrainTurnHeld)
+                    {
+                        WriteLog("PickerProcessSequence",
+                            Name + " 재시작 드레인 중이라 Place 완료 직후 InputCamera 선행검사 예약을 보류합니다. " +
+                            "Output camera 후검사 idle 확인 후 상대 Picker가 남은 작업을 처리하는 정책을 우선합니다. side=" +
+                            Side + " - Check");
+                    }
+                    else
+                    {
+                        StartSafeInputCameraPreInspectionForSideIfNeeded(Side, ct, "PlaceComplete");
+                    }
+
                     CurrentStep = PickerProcessStep.Complete;
                 }
 
@@ -1486,6 +1636,20 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private void EnableSafePlaceEntryIfResumeDrain(string reason)
+        {
+            if (!_resumeDrainTurnHeld)
+                return;
+
+            _forceSafeYBeforePlaceResume = true;
+            WriteLog("PickerProcessSequence",
+                Name + " 재시작 드레인 중 Place 진입이 예정되어 Place 첫 접근 안전 옵션을 강제합니다. " +
+                "PickerY Avoid 정리 후 Picker X/T를 Place 티칭값으로 먼저 이동하고, 그 다음 PickerY 전진을 허용합니다. " +
+                "side=" + Side +
+                ", reason=" + reason +
+                ", forceSafeYBeforePlaceResume=" + _forceSafeYBeforePlaceResume + " - Check");
+        }
+
         private async Task<int> EnterOrTransitionPickerPhaseAsync(
             PickerProcessPhase requestedPhase,
             string description,
@@ -1501,6 +1665,10 @@ namespace QMC.CDT320.Sequencing
                     string transitionReason;
                     if (Context.PickerPhases.TryTransition(_phaseLease, requestedPhase, out transitionReason))
                     {
+                        int zoneResult = await EnterOrTransitionPickerWorkZoneAsync(requestedPhase, description, ct).ConfigureAwait(false);
+                        if (zoneResult != 0)
+                            return zoneResult;
+
                         WriteLog("PickerPhase",
                             Name + " Picker phase 전환 완료. side=" + Side +
                             ", phase=" + requestedPhase +
@@ -1516,6 +1684,10 @@ namespace QMC.CDT320.Sequencing
                 if (Context.PickerPhases.TryEnter(Side, requestedPhase, Name + ":" + description, out lease, out enterReason))
                 {
                     _phaseLease = lease;
+                    int zoneResult = await EnterOrTransitionPickerWorkZoneAsync(requestedPhase, description, ct).ConfigureAwait(false);
+                    if (zoneResult != 0)
+                        return zoneResult;
+
                     WriteLog("PickerPhase",
                         Name + " Picker phase 점유 완료. side=" + Side +
                         ", phase=" + requestedPhase +
@@ -1578,6 +1750,10 @@ namespace QMC.CDT320.Sequencing
                 if (Context.PickerPhases.TryEnter(Side, requestedPhase, Name + ":" + description, out lease, out reason))
                 {
                     _phaseLease = lease;
+                    int zoneResult = await EnterOrTransitionPickerWorkZoneAsync(requestedPhase, description, ct).ConfigureAwait(false);
+                    if (zoneResult != 0)
+                        return zoneResult;
+
                     WriteLog("PickerPhase",
                         Name + " Picker phase 진입 대기 완료. side=" + Side +
                         ", phase=" + requestedPhase +
@@ -1620,6 +1796,10 @@ namespace QMC.CDT320.Sequencing
                 string reason;
                 if (Context.PickerPhases.TryTransition(_phaseLease, requestedPhase, out reason))
                 {
+                    int zoneResult = await EnterOrTransitionPickerWorkZoneAsync(requestedPhase, description, ct).ConfigureAwait(false);
+                    if (zoneResult != 0)
+                        return zoneResult;
+
                     WriteLog("PickerPhase",
                         Name + " Picker phase 전환 대기 완료. side=" + Side +
                         ", phase=" + requestedPhase +
@@ -1635,6 +1815,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                ReleasePickerWorkZone(description);
+
                 if (_phaseLease == null)
                     return;
 
@@ -1648,6 +1830,242 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("PickerPhase",
                     Name + " Picker phase 해제 실패. side=" + Side +
+                    ", description=" + description +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnterOrTransitionPickerWorkZoneAsync(
+            PickerProcessPhase requestedPhase,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return 0;
+
+                if (Context == null || Context.AutoSequenceGate == null)
+                    return 0;
+
+                PickerWorkZone requestedZone = ResolvePickerWorkZoneForPhase(requestedPhase);
+                if (requestedZone == PickerWorkZone.Unknown || requestedZone == PickerWorkZone.Avoid)
+                {
+                    ReleasePickerWorkZone(description + ":NoWorkZone");
+                    return 0;
+                }
+
+                int physicalClearResult = await WaitOppositePickerPhysicalClearForWorkZoneAsync(
+                    requestedZone,
+                    requestedPhase,
+                    description,
+                    ct).ConfigureAwait(false);
+                if (physicalClearResult != 0)
+                    return physicalClearResult;
+
+                string holder = Name + ":" + description + ":" + requestedPhase;
+                if (_workZoneLease == null || _workZoneLease.IsDisposed)
+                {
+                    _workZoneLease = await Context.AutoSequenceGate
+                        .BeginPickerWorkZoneAsync(Side, requestedZone, holder, ct)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    _workZoneLease = await Context.AutoSequenceGate
+                        .TransitionPickerWorkZoneAsync(_workZoneLease, requestedZone, holder, ct)
+                        .ConfigureAwait(false);
+                }
+
+                WriteLog("PickerWorkZone",
+                    Name + " Picker work zone 승인 완료. side=" + Side +
+                    ", phase=" + requestedPhase +
+                    ", zone=" + requestedZone +
+                    ", description=" + description + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-WORK-ZONE-EX", Name,
+                    "Picker work zone 승인 중 예외가 발생했습니다. side=" + Side +
+                    ", phase=" + requestedPhase +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitOppositePickerPhysicalClearForWorkZoneAsync(
+            PickerWorkZone requestedZone,
+            PickerProcessPhase requestedPhase,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                PickerWorkZone normalizedRequestedZone =
+                    PickerZoneInterlockRules.NormalizeInterlockZone(requestedZone);
+                if (normalizedRequestedZone == PickerWorkZone.Unknown ||
+                    normalizedRequestedZone == PickerWorkZone.Avoid)
+                {
+                    return 0;
+                }
+
+                if (Context == null || Context.Machine == null)
+                    return 0;
+
+                bool waitLogged = false;
+                DateTime lastWaitLog = DateTime.MinValue;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerPhysicalClear:" + normalizedRequestedZone);
+
+                    string blockReason;
+                    if (!IsOppositePickerPhysicallyBlockingWorkZone(
+                        normalizedRequestedZone,
+                        requestedPhase,
+                        description,
+                        out blockReason))
+                    {
+                        if (waitLogged)
+                        {
+                            WriteLog("PickerWorkZone",
+                                Name + " 상대 Picker 물리 zone 대기 완료. 요청 zone 진입을 허용합니다. " +
+                                "side=" + Side +
+                                ", phase=" + requestedPhase +
+                                ", zone=" + normalizedRequestedZone +
+                                ", description=" + description + " - Ok");
+                        }
+
+                        return 0;
+                    }
+
+                    if ((DateTime.UtcNow - lastWaitLog).TotalMilliseconds >= 1000.0)
+                    {
+                        lastWaitLog = DateTime.UtcNow;
+                        waitLogged = true;
+                        WriteLog("PickerWorkZone",
+                            Name + " 상대 Picker 물리 zone 이탈 대기. phase/zone 승인 전에 실제 축 위치 기준으로 같은 작업 zone 침범을 보류합니다. " +
+                            "side=" + Side +
+                            ", phase=" + requestedPhase +
+                            ", zone=" + normalizedRequestedZone +
+                            ", description=" + description +
+                            ", reason=" + blockReason + " - Wait");
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-WORK-ZONE-PHYSICAL-GATE-EX", Name,
+                    "상대 Picker 물리 zone 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", phase=" + requestedPhase +
+                    ", zone=" + requestedZone +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
+        }
+
+        private bool IsOppositePickerPhysicallyBlockingWorkZone(
+            PickerWorkZone requestedZone,
+            PickerProcessPhase requestedPhase,
+            string description,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            bool oppositeIsFront = Side == PickerSequenceSide.Rear;
+            PickerZoneTransportState state = PickerZoneInterlockRules.ResolvePickerZoneTransportState(
+                Context != null ? Context.Machine : null,
+                oppositeIsFront,
+                requestedZone,
+                null,
+                "PickerProcess physical zone gate; requester=" + Side +
+                ";phase=" + requestedPhase +
+                ";description=" + description);
+
+            if (state == null)
+                return false;
+
+            PickerWorkZone currentZone = PickerZoneInterlockRules.NormalizeInterlockZone(state.CurrentZone);
+            PickerWorkZone targetZone = PickerZoneInterlockRules.NormalizeInterlockZone(state.TargetZone);
+            bool currentSame = PickerZoneInterlockRules.IsSameInterlockZone(currentZone, requestedZone);
+            bool targetSame = PickerZoneInterlockRules.IsSameInterlockZone(targetZone, requestedZone);
+            bool moving = (state.PickerX != null && state.PickerX.IsMoving) ||
+                          (state.PickerY != null && state.PickerY.IsMoving);
+            bool block = currentSame ||
+                         targetSame ||
+                         (state.BlocksTransport && (currentSame || targetSame)) ||
+                         (state.UnknownUnsafe && moving);
+
+            if (!block)
+                return false;
+
+            reason = "opposite=" + (oppositeIsFront ? "FrontPicker" : "RearPicker") +
+                ", requestedZone=" + requestedZone +
+                ", currentSame=" + currentSame +
+                ", targetSame=" + targetSame +
+                ", moving=" + moving +
+                ", state=" + state.Describe();
+            return true;
+        }
+
+        private static PickerWorkZone ResolvePickerWorkZoneForPhase(PickerProcessPhase phase)
+        {
+            switch (phase)
+            {
+                case PickerProcessPhase.PickUp:
+                    return PickerWorkZone.Input;
+                case PickerProcessPhase.BottomInspection:
+                case PickerProcessPhase.SideInspection:
+                    return PickerWorkZone.Bottom;
+                case PickerProcessPhase.Place:
+                    return PickerWorkZone.Output;
+                default:
+                    return PickerWorkZone.Unknown;
+            }
+        }
+
+        private void ReleasePickerWorkZone(string description)
+        {
+            try
+            {
+                if (_workZoneLease == null)
+                    return;
+
+                _workZoneLease.Dispose();
+                _workZoneLease = null;
+                WriteLog("PickerWorkZone",
+                    Name + " Picker work zone 해제. side=" + Side +
+                    ", description=" + description + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerWorkZone",
+                    Name + " Picker work zone 해제 실패. side=" + Side +
                     ", description=" + description +
                     ", error=" + ex.Message + " - Failed");
             }

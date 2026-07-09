@@ -140,7 +140,7 @@ namespace QMC.Vision.Core
                         m, cfg, insp, ins, keep, chipUid, picker, channel, ix, iy);
                     sw.Stop();
 
-                    ApplyUidResult(m.Name, insp, chipUid, res, sw.ElapsedMilliseconds);
+                    ApplyUidResult(m.Name, insp, chipUid, channel, res, sw.ElapsedMilliseconds);
                 }
                 catch (Exception ex) { FailUid(m.Name, insp, chipUid, ex.Message); }
                 finally { try { keep?.Dispose(); } catch { } }
@@ -173,9 +173,9 @@ namespace QMC.Vision.Core
             }
         }
 
-        /// <summary>uid 결과 1건 반영 — 기대 수 도달 시 합산 판정(모두 PASS 여야 PASS, t=최대값)으로 1회 Complete.
-        /// Bin 의 배치 오프셋(x=/y=)은 부가필드에서 추출해 완료 페이로드에 보존.</summary>
-        private static void ApplyUidResult(string module, string insp, string uid, string res, long algoMs)
+        /// <summary>uid 결과 1건 반영 — 기대 수 도달 시 합산 판정(모두 PASS 여야 PASS)으로 1회 Complete.
+        /// 검사 부가필드(Bottom 원본 항목, Bin 배치 offset 등)는 완료 페이로드에 그대로 보존한다.</summary>
+        private static void ApplyUidResult(string module, string insp, string uid, int channel, string res, long algoMs)
         {
             string extras = null; bool fail = false; string err = null;
             if (res != null && (res.StartsWith("PASS", StringComparison.Ordinal) || res.StartsWith("FAIL", StringComparison.Ordinal)))
@@ -183,6 +183,8 @@ namespace QMC.Vision.Core
                 if (!res.StartsWith("PASS", StringComparison.Ordinal)) fail = true;
                 int sc = res.IndexOf(';');
                 if (sc >= 0) extras = res.Substring(sc + 1);   // Bin: "x=..;y=..;width=..;height=.."
+                if (!string.IsNullOrWhiteSpace(extras) && IsSideModuleName(module))
+                    extras = PrefixExtras(extras, "ch" + channel.ToString() + "_");
             }
             else
             {
@@ -198,7 +200,7 @@ namespace QMC.Vision.Core
                 if (fail) agg.AnyFail = true;
                 if (err != null && agg.Error == null) agg.Error = err;
                 if (algoMs > agg.TMaxMs) agg.TMaxMs = algoMs;
-                if (extras != null) agg.Extras = extras;
+                if (extras != null) agg.Extras = CombineExtras(agg.Extras, extras);
                 agg.Remain--;
                 if (agg.Remain <= 0) { done = agg; _agg.Remove(key); }
             }
@@ -210,14 +212,56 @@ namespace QMC.Vision.Core
                 return;
             }
             string verdict = done.AnyFail ? "FAIL" : "PASS";
-            string x = "", y = "";
-            if (!string.IsNullOrEmpty(done.Extras))
-                foreach (var tok in done.Extras.Split(';'))
+            string extrasPayload = NormalizeExtras(done.Extras);
+            AsyncMatchStore.Complete(module, insp, uid, verdict + extrasPayload + ";algo_ms=" + done.TMaxMs);
+        }
+
+        private static string NormalizeExtras(string extras)
+        {
+            if (string.IsNullOrWhiteSpace(extras))
+                return string.Empty;
+
+            string value = extras.Trim();
+            return value.StartsWith(";", StringComparison.Ordinal) ? value : ";" + value;
+        }
+
+        private static bool IsSideModuleName(string module)
+        {
+            return !string.IsNullOrWhiteSpace(module) &&
+                   module.IndexOf("Side", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string CombineExtras(string current, string next)
+        {
+            if (string.IsNullOrWhiteSpace(current))
+                return next ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(next))
+                return current;
+
+            return current.TrimEnd(';') + ";" + next.TrimStart(';');
+        }
+
+        private static string PrefixExtras(string extras, string prefix)
+        {
+            if (string.IsNullOrWhiteSpace(extras) || string.IsNullOrWhiteSpace(prefix))
+                return extras;
+
+            var tokens = extras.Split(';');
+            var output = new List<string>();
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                string token = tokens[i];
+                int eq = token.IndexOf('=');
+                if (eq <= 0)
                 {
-                    if (tok.StartsWith("x=", StringComparison.OrdinalIgnoreCase)) x = tok.Substring(2);
-                    else if (tok.StartsWith("y=", StringComparison.OrdinalIgnoreCase)) y = tok.Substring(2);
+                    output.Add(token);
+                    continue;
                 }
-            AsyncMatchStore.Complete(module, insp, uid, verdict + ";x=" + x + ";y=" + y + ";t=" + done.TMaxMs + ";score=");
+
+                output.Add(prefix + token.Substring(0, eq).Trim() + token.Substring(eq));
+            }
+
+            return string.Join(";", output);
         }
 
         /// <summary>uid 그룹 실패 확정 — 집계 제거 + ERR 저장(핸들러 INSPECTRESULT 가 즉시 ERR 수신).

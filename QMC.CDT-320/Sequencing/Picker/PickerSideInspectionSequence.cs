@@ -11,8 +11,6 @@ namespace QMC.CDT320.Sequencing
 {
     internal sealed class PickerSideInspectionSequence : PickerSequenceBase<PickerSideInspectionStep>
     {
-        private static readonly object SimVisionRandomLock = new object();
-        private static readonly Random SimVisionRandom = new Random();
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
         private int _currentPickerIndex = -1;
@@ -992,8 +990,11 @@ namespace QMC.CDT320.Sequencing
             bool side2Ok = result != null && result.Side2Ok;
             bool side3Ok = result != null && result.Side3Ok;
             bool side4Ok = result != null && result.Side4Ok;
+            MaterialInspectionResult inspectionResult = result != null && result.IsAllOk
+                ? MaterialInspectionResult.Ok
+                : MaterialInspectionResult.Ng;
 
-            return new List<InspectionMeasurement>
+            var measurements = new List<InspectionMeasurement>
             {
                 BuildBooleanMeasurement(prefix + "Side1", side1Ok),
                 BuildBooleanMeasurement(prefix + "Side2", side2Ok),
@@ -1001,6 +1002,9 @@ namespace QMC.CDT320.Sequencing
                 BuildBooleanMeasurement(prefix + "Side4", side4Ok),
                 BuildBooleanMeasurement(prefix + "InspectionResult", result != null && result.IsAllOk)
             };
+
+            AppendVisionRawMeasurements(measurements, result, prefix, inspectionResult);
+            return measurements;
         }
 
         private async Task<int> MoveSideZToAvoidAsync(CancellationToken ct)
@@ -1399,17 +1403,27 @@ namespace QMC.CDT320.Sequencing
 
         private SideVisionResult SimulateSideResult()
         {
-            lock (SimVisionRandomLock)
+            QMC.CDT320.VisionComm.AutoVisionChannel channel = Side == PickerSequenceSide.Front
+                ? QMC.CDT320.VisionComm.AutoVisionChannel.FrontSide
+                : QMC.CDT320.VisionComm.AutoVisionChannel.RearSide;
+            QMC.CDT320.VisionComm.InspectionResultDto inspection =
+                QMC.CDT320.VisionComm.AutoVisionRequestService.BuildSimulationInspectionResult(
+                    channel,
+                    "SurfaceInspector",
+                    _currentPickerNo);
+            bool pass = inspection != null && inspection.IsPass;
+            return new SideVisionResult
             {
-                return new SideVisionResult
-                {
-                    PickerNo = _currentPickerNo,
-                    Side1Ok = true,
-                    Side2Ok = true,
-                    Side3Ok = true,
-                    Side4Ok = true
-                };
-            }
+                PickerNo = _currentPickerNo,
+                Side1Ok = pass,
+                Side2Ok = pass,
+                Side3Ok = true,
+                Side4Ok = true,
+                Raw = inspection != null ? inspection.Raw : "",
+                Values = inspection != null && inspection.Values != null
+                    ? new Dictionary<string, string>(inspection.Values, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            };
         }
 
         private bool IsSimulationOrDryRun()
