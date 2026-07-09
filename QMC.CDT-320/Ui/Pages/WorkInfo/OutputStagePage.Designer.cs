@@ -208,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
-            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.contentLayout.BackColor = System.Drawing.Color.White;
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -247,7 +247,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpState
             // 
-            this.grpState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpState.BackColor = System.Drawing.Color.White;
             this.grpState.Controls.Add(this.stateLayout);
             this.grpState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -397,7 +397,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpCounters
             // 
-            this.grpCounters.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpCounters.BackColor = System.Drawing.Color.White;
             this.grpCounters.Controls.Add(this.counterLayout);
             this.grpCounters.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpCounters.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -515,7 +515,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpCylinder
             // 
-            this.grpCylinder.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpCylinder.BackColor = System.Drawing.Color.White;
             this.leftLayout.SetColumnSpan(this.grpCylinder, 2);
             this.grpCylinder.Controls.Add(this.cylinderLayout);
             this.grpCylinder.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -722,7 +722,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpInfo
             // 
-            this.grpInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpInfo.BackColor = System.Drawing.Color.White;
             this.grpInfo.Controls.Add(this.infoLayout);
             this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -927,7 +927,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpAction
             // 
-            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.BackColor = System.Drawing.Color.White;
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -958,7 +958,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionPanel
             // 
-            this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.actionPanel.BackColor = System.Drawing.Color.White;
             this.actionPanel.ColumnCount = 2;
             this.actionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1117,7 +1117,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // actionRightPanel
             // 
-            this.actionRightPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.actionRightPanel.BackColor = System.Drawing.Color.White;
             this.actionRightPanel.ColumnCount = 2;
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionRightPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1217,7 +1217,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // materialDetailView
             // 
-            this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.materialDetailView.BackColor = System.Drawing.Color.White;
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialDetailView.Location = new System.Drawing.Point(0, 52);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(0);

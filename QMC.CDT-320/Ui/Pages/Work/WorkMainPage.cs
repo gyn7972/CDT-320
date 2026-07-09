@@ -17,6 +17,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         // UI 적용 주기(250~500ms). 표시 갱신만 수행하며 저장/모션 루프와 분리된다.
         private const int RefreshIntervalMs = 500;
         private const int MaterialRefreshIntervalMs = 1000;
+        private const int BottomPanelReserveHeight = 56;
+        private const float BottomBannerRowHeight = 42F;
 
         private System.Windows.Forms.Timer _refresh;
         private ToolTip _workTimeToolTip;
@@ -34,6 +36,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             InitializeComponent();
             RebuildWorkInfoPanel();
+            RebuildWorkTimePanel();
+            RebuildMapHeader();
+            StyleMapTabs();
+            ApplyBottomGroupSizing();
             WireEvents();
             InitializeWorkTimeToolTips();
 
@@ -68,6 +74,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private void WireEvents()
         {
+            if (rootLayout != null)
+                rootLayout.SizeChanged += (s, e) => ApplyBottomGroupSizing();
+
             btnCcs.Click += (s, e) =>
             {
                 try
@@ -105,6 +114,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "WorkMainPage",
                     "테스트 알람이 발생했습니다. 오토/메뉴얼 시퀀스 정지 및 축 긴급 정지 응답을 확인하세요.");
             };
+        }
+
+        private void ApplyBottomGroupSizing()
+        {
+            if (rootLayout == null || grpInfo == null || grpTime == null)
+                return;
+
+            int available = rootLayout.ClientSize.Height - rootLayout.Padding.Vertical;
+            int bottomRow = Math.Max(0, (int)(available * 0.35F));
+            int groupHeight = Math.Max(230, bottomRow - BottomPanelReserveHeight);
+            groupHeight = Math.Min(Math.Max(0, bottomRow), groupHeight);
+
+            grpInfo.Dock = DockStyle.Top;
+            grpTime.Dock = DockStyle.Top;
+            grpInfo.Height = groupHeight;
+            grpTime.Height = groupHeight;
         }
 
         private void InitializeWorkTimeToolTips()
@@ -503,6 +528,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        /// <summary>작업 정보: 프로젝트 배너(전폭) + 12개 균일 타일(카운터 4 · FRONT #1~4 · REAR #1~4).
+        /// Collet 값 라벨은 매 호출 새로 만들어 배열에 담고, 나머지는 기존 라벨을 재사용한다(바인딩 유지).</summary>
         private void RebuildWorkInfoPanel()
         {
             if (workInfoBody == null)
@@ -514,42 +541,44 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 workInfoBody.Controls.Clear();
                 workInfoBody.ColumnStyles.Clear();
                 workInfoBody.RowStyles.Clear();
-                workInfoBody.ColumnCount = 4;
-                workInfoBody.RowCount = 11;
-                workInfoBody.BackColor = Color.FromArgb(240, 240, 240);
-                workInfoBody.Padding = new Padding(6);
                 workInfoBody.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
-
+                workInfoBody.BackColor = BodyBackColor;
+                workInfoBody.Padding = new Padding(3);
+                workInfoBody.ColumnCount = 4;
                 for (int i = 0; i < 4; i++)
                     workInfoBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-                for (int i = 0; i < 10; i++)
-                    workInfoBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-                AddWorkInfoPair(lblProjectCaption, lblProject, 0, 0, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblBinQtyCaption, lblBinQty, 2, 0, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblPickFailCaption, lblPickFail, 0, 1, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblPlaceFailCaption, lblPlaceFail, 2, 1, WorkInfoCaptionColor, Color.White);
+                workInfoBody.RowCount = 4;
+                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Absolute, BottomBannerRowHeight)); // 프로젝트 배너
+                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // 카운터 4
+                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // FRONT #1~4
+                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // REAR #1~4
+
+                Panel projTile = BuildCompactMetricTile(lblProjectCaption, lblProject, AccentColor);
+                workInfoBody.Controls.Add(projTile, 0, 0);
+                workInfoBody.SetColumnSpan(projTile, 4);
+
+                workInfoBody.Controls.Add(BuildMetricTile(lblBinQtyCaption, lblBinQty, Color.FromArgb(30, 120, 60), false), 0, 1);
+                workInfoBody.Controls.Add(BuildMetricTile(lblPickFailCaption, lblPickFail, Color.FromArgb(190, 55, 55), false), 1, 1);
+                workInfoBody.Controls.Add(BuildMetricTile(lblPlaceFailCaption, lblPlaceFail, Color.FromArgb(190, 55, 55), false), 2, 1);
+                workInfoBody.Controls.Add(BuildMetricTile(lblNeedleCaption, lblNeedle, TimeValueColor, false), 3, 1);
 
                 for (int i = 0; i < 4; i++)
                 {
-                    Label caption = CreateWorkInfoLabel("Front - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
-                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
-                    _frontColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 2 + i, WorkInfoCaptionColor, Color.White);
+                    Label cap = new Label { Text = "FRONT COLLET #" + (i + 1) };
+                    Label v = new Label { Text = "00 ea" };
+                    _frontColletUseValues[i] = v;
+                    workInfoBody.Controls.Add(BuildMetricTile(cap, v, TimeValueColor, false), i, 2);
                 }
 
                 for (int i = 0; i < 4; i++)
                 {
-                    Label caption = CreateWorkInfoLabel("Rear - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
-                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
-                    _rearColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 6 + i, WorkInfoCaptionColor, Color.White);
+                    Label cap = new Label { Text = "REAR COLLET #" + (i + 1) };
+                    Label v = new Label { Text = "00 ea" };
+                    _rearColletUseValues[i] = v;
+                    workInfoBody.Controls.Add(BuildMetricTile(cap, v, TimeValueColor, false), i, 3);
                 }
 
-                lblNeedleCaption.Tag = null;
-                lblNeedleCaption.Text = "Needle 사용";
-                AddWorkInfoPair(lblNeedleCaption, lblNeedle, 2, 3, WorkInfoCaptionColor, Color.White);
             }
             finally
             {
@@ -557,39 +586,296 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static Color WorkInfoCaptionColor => Color.FromArgb(208, 208, 208);
-        private static Color WorkInfoYellowColor => Color.FromArgb(255, 192, 0);
-
-        private void AddWorkInfoPair(Label caption, Label value, int column, int row, Color captionBackColor, Color valueBackColor)
+        /// <summary>작업 맵 탭을 플랫 오너드로우로 스타일링한다(선택 탭=액센트, 나머지=연회색).</summary>
+        private void StyleMapTabs()
         {
-            ConfigureWorkInfoLabel(caption, true, captionBackColor);
-            ConfigureWorkInfoLabel(value, false, valueBackColor);
-            workInfoBody.Controls.Add(caption, column, row);
-            workInfoBody.Controls.Add(value, column + 1, row);
-        }
-
-        private static Label CreateWorkInfoLabel(string text, bool caption, Color backColor)
-        {
-            var label = new Label { Text = text };
-            ConfigureWorkInfoLabel(label, caption, backColor);
-            return label;
-        }
-
-        private static void ConfigureWorkInfoLabel(Label label, bool caption, Color backColor)
-        {
-            if (label == null)
+            if (mapTabControl == null)
                 return;
 
-            label.BackColor = backColor;
-            label.BorderStyle = BorderStyle.FixedSingle;
-            label.Dock = DockStyle.Fill;
-            label.Font = caption
-                ? new Font("맑은 고딕", 10F, FontStyle.Regular)
-                : new Font("Consolas", 10F, FontStyle.Regular);
-            label.ForeColor = caption && backColor == WorkInfoYellowColor ? Color.White : Color.Black;
-            label.Margin = new Padding(0);
-            label.Padding = caption ? new Padding(8, 0, 0, 0) : new Padding(0, 0, 6, 0);
-            label.TextAlign = caption ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleRight;
+            mapTabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+            mapTabControl.SizeMode = TabSizeMode.Fixed;
+            mapTabControl.BackColor = Color.White;
+            mapTabControl.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
+            mapTabControl.Padding = new Point(6, 1);
+            mapTabControl.DrawItem -= MapTabControl_DrawItem;
+            mapTabControl.DrawItem += MapTabControl_DrawItem;
+            mapTabControl.SizeChanged -= MapTabControl_SizeChanged;
+            mapTabControl.SizeChanged += MapTabControl_SizeChanged;
+            UpdateMapTabWidth();
+        }
+
+        private void MapTabControl_SizeChanged(object sender, EventArgs e)
+        {
+            UpdateMapTabWidth();
+        }
+
+        /// <summary>탭 3개가 좌우로 꽉 차도록 각 탭 폭을 컨트롤 폭에 맞춰 균등 분할한다.</summary>
+        private void UpdateMapTabWidth()
+        {
+            if (mapTabControl == null || mapTabControl.TabCount == 0)
+                return;
+
+            int w = (mapTabControl.ClientSize.Width - 4) / mapTabControl.TabCount;
+            if (w < 40)
+                w = 40;
+            if (mapTabControl.ItemSize.Width != w || mapTabControl.ItemSize.Height != 21)
+                mapTabControl.ItemSize = new Size(w, 21);
+        }
+
+        private void MapTabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var tc = sender as TabControl;
+            if (tc == null || e.Index < 0 || e.Index >= tc.TabPages.Count)
+                return;
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            Rectangle r = tc.GetTabRect(e.Index);
+            bool selected = e.Index == tc.SelectedIndex;
+
+            // 탭 스트립을 콘텐츠와 같은 흰색으로 채워 카드와 자연스럽게 이어지게(모던 언더라인 탭).
+            using (var b = new SolidBrush(Color.White))
+                e.Graphics.FillRectangle(b, r);
+
+            Color fg = selected ? AccentColor : Color.FromArgb(51, 65, 85);   // 캡션과 동일한 slate-700 로 통일
+            using (Font font = new Font(tc.Font.FontFamily, 8F, FontStyle.Bold))   // 선택/미선택 모두 굵게
+                TextRenderer.DrawText(
+                    e.Graphics, tc.TabPages[e.Index].Text, font, r, fg,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            // 선택 탭: 하단 강조 언더라인 바.
+            if (selected)
+                using (var b = new SolidBrush(AccentColor))
+                    e.Graphics.FillRectangle(b, r.Left + 12, r.Bottom - 2, Math.Max(1, r.Width - 24), 2);
+        }
+
+        /// <summary>작업 시간: LOT ID 배너(전폭, 최상단) + 12개 균일 타일(UPH·CYCLE·가동률 · 시간지표 9) + CCS 버튼.
+        /// 작업 정보와 동일한 배치·타일 규격. 기존 라벨을 재사용(바인딩·툴팁 유지).</summary>
+        private void RebuildWorkTimePanel()
+        {
+            if (workTimeBody == null)
+                return;
+
+            workTimeBody.SuspendLayout();
+            try
+            {
+                workTimeBody.Controls.Clear();
+                workTimeBody.ColumnStyles.Clear();
+                workTimeBody.RowStyles.Clear();
+                workTimeBody.BackColor = BodyBackColor;
+                workTimeBody.Padding = new Padding(3);
+                workTimeBody.ColumnCount = 4;
+                for (int i = 0; i < 4; i++)
+                    workTimeBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+
+                workTimeBody.RowCount = 4;
+                workTimeBody.RowStyles.Add(new RowStyle(SizeType.Absolute, BottomBannerRowHeight)); // LOT 배너 + CCS(우측)
+                workTimeBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // UPH/가동/연속가동/가동률
+                workTimeBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // CYCLE/부하/MTBF/MTTR
+                workTimeBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));   // 이상복귀/통상정지/이상정지/이상정지횟수
+
+                // LOT ID 배너 (좌측 3칸) + CCS 검수 확인 (우측 1칸, 가동시간 라벨과 동일 폭) — 같은 행
+                Panel lotTile = BuildCompactMetricTile(lblLotCaption, lblLot, AccentColor);
+                workTimeBody.Controls.Add(lotTile, 0, 0);
+                workTimeBody.SetColumnSpan(lotTile, 3);
+
+                btnCcs.Dock = DockStyle.Fill;
+                btnCcs.Margin = new Padding(3, 2, 3, 2);
+                btnCcs.Font = new Font("맑은 고딕", 9.5F, FontStyle.Bold);
+                workTimeBody.Controls.Add(btnCcs, 3, 0);
+
+                btnTestAlarm.Visible = false;               // 테스트용 — 숨김 상태로 셀 공유
+                workTimeBody.Controls.Add(btnTestAlarm, 3, 0);
+
+                // 균일 타일 12개 — 사용자 지정 순서, 핵심 지표는 값 색으로만 강조(크기는 동일)
+                workTimeBody.Controls.Add(BuildMetricTile(lblUphCaption, lblUph, Color.FromArgb(24, 95, 165), false), 0, 1);
+                workTimeBody.Controls.Add(BuildMetricTile(lblUpCaption, lblUp, TimeValueColor, false), 1, 1);
+                workTimeBody.Controls.Add(BuildMetricTile(lblContUpCaption, lblContUp, TimeValueColor, false), 2, 1);
+                workTimeBody.Controls.Add(BuildMetricTile(lblRateCaption, lblRate, Color.FromArgb(30, 120, 60), false), 3, 1);
+
+                workTimeBody.Controls.Add(BuildMetricTile(lblCycleCaption, lblCycle, TimeValueColor, false), 0, 2);
+                workTimeBody.Controls.Add(BuildMetricTile(lblLoadCaption, lblLoad, TimeValueColor, false), 1, 2);
+                workTimeBody.Controls.Add(BuildMetricTile(lblMtbfCaption, lblMtbf, TimeValueColor, false), 2, 2);
+                workTimeBody.Controls.Add(BuildMetricTile(lblMttrCaption, lblMttr, TimeValueColor, false), 3, 2);
+
+                workTimeBody.Controls.Add(BuildMetricTile(lblRecoveryCaption, lblRecovery, TimeValueColor, false), 0, 3);
+                workTimeBody.Controls.Add(BuildMetricTile(lblNormDownCaption, lblNormDown, TimeValueColor, false), 1, 3);
+                workTimeBody.Controls.Add(BuildMetricTile(lblErrDownCaption, lblErrDown, Color.FromArgb(190, 55, 55), false), 2, 3);
+                workTimeBody.Controls.Add(BuildMetricTile(lblErrCntCaption, lblErrCnt, Color.FromArgb(190, 55, 55), false), 3, 3);
+
+            }
+            finally
+            {
+                workTimeBody.ResumeLayout(false);
+            }
+        }
+
+        /// <summary>작업 맵 상단 스탯 스트립을 타일 2개(Total Chip · Bin #)로 재구성한다.
+        /// 맵 자체는 상태 범례·통계를 내부에서 그리므로 헤더는 핵심 수치만 크게 보여준다.</summary>
+        private void RebuildMapHeader()
+        {
+            if (mapHeaderLayout == null)
+                return;
+
+            mapHeaderLayout.SuspendLayout();
+            try
+            {
+                mapHeaderLayout.Controls.Clear();
+                mapHeaderLayout.ColumnStyles.Clear();
+                mapHeaderLayout.RowStyles.Clear();
+                mapHeaderLayout.BackColor = BodyBackColor;
+                mapHeaderLayout.Margin = new Padding(0);
+                mapHeaderLayout.Padding = new Padding(0);
+                mapHeaderLayout.ColumnCount = 2;
+                mapHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                mapHeaderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                mapHeaderLayout.RowCount = 1;
+                mapHeaderLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                lblTotalChipCaption.Text = "TOTAL CHIP";
+                lblBinNumCaption.Text = "CURRENT BIN";
+                mapHeaderLayout.Controls.Add(BuildMapHeaderTile(lblTotalChipCaption, lblTotalChip, AccentColor), 0, 0);
+                mapHeaderLayout.Controls.Add(BuildMapHeaderTile(lblBinNumCaption, lblBinNum, AccentColor), 1, 0);
+            }
+            finally
+            {
+                mapHeaderLayout.ResumeLayout(false);
+            }
+        }
+
+        private static Color TimeValueColor => Color.FromArgb(45, 45, 45);
+        private static Color TileBackColor => Color.White;
+        private static Color TileCaptionColor => Color.FromArgb(51, 65, 85);    // slate-700, 흰 타일에서 진하고 또렷하게
+        private static Color BodyBackColor => Color.FromArgb(240, 242, 245);
+
+        /// <summary>지표 타일: 상단 캡션 + 큰 값. 흰 카드 + 얇은 테두리로 밝은 배경에서도 또렷하게.
+        /// 기존 라벨을 재사용(툴팁/바인딩 유지)한다.</summary>
+        private static Panel BuildMetricTile(Label caption, Label value, Color valueColor, bool hero)
+        {
+            var tile = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = TileBackColor,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(3),
+                Padding = new Padding(8, 2, 8, 2)
+            };
+
+            if (value != null)
+            {
+                value.AutoSize = false;
+                value.Dock = DockStyle.Fill;
+                value.BackColor = Color.Transparent;
+                value.ForeColor = valueColor;
+                value.Font = hero
+                    ? new Font("Consolas", 18F, FontStyle.Bold)
+                    : new Font("Consolas", 11.5F, FontStyle.Bold);
+                value.Margin = new Padding(0);
+                value.Padding = new Padding(0);
+                value.TextAlign = hero ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft;
+                tile.Controls.Add(value);   // Fill 먼저 추가 → 캡션(Top) 아래 채움
+            }
+
+            if (caption != null)
+            {
+                caption.AutoSize = false;
+                caption.Dock = DockStyle.Top;
+                caption.Height = 17;
+                caption.BackColor = Color.Transparent;
+                caption.ForeColor = TileCaptionColor;
+                caption.Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold);
+                caption.UseCompatibleTextRendering = false;   // GDI 렌더로 더 또렷하게
+                caption.Margin = new Padding(0);
+                caption.Padding = new Padding(0);
+                caption.TextAlign = hero ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft;
+                tile.Controls.Add(caption);
+            }
+
+            return tile;
+        }
+
+        private static Panel BuildCompactMetricTile(Label caption, Label value, Color valueColor)
+        {
+            var tile = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = TileBackColor,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(3, 2, 3, 2),
+                Padding = new Padding(8, 1, 8, 1)
+            };
+
+            if (value != null)
+            {
+                value.AutoSize = false;
+                value.Dock = DockStyle.Fill;
+                value.BackColor = Color.Transparent;
+                value.ForeColor = valueColor;
+                value.Font = new Font("Consolas", 10.5F, FontStyle.Bold);
+                value.Margin = new Padding(0);
+                value.Padding = new Padding(0);
+                value.TextAlign = ContentAlignment.MiddleLeft;
+                tile.Controls.Add(value);
+            }
+
+            if (caption != null)
+            {
+                caption.AutoSize = false;
+                caption.Dock = DockStyle.Top;
+                caption.Height = 15;
+                caption.BackColor = Color.Transparent;
+                caption.ForeColor = TileCaptionColor;
+                caption.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
+                caption.UseCompatibleTextRendering = false;
+                caption.Margin = new Padding(0);
+                caption.Padding = new Padding(0);
+                caption.TextAlign = ContentAlignment.MiddleLeft;
+                tile.Controls.Add(caption);
+            }
+
+            return tile;
+        }
+
+        private static Panel BuildMapHeaderTile(Label caption, Label value, Color valueColor)
+        {
+            var tile = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = TileBackColor,
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = new Padding(2, 1, 2, 1),
+                Padding = new Padding(8, 0, 8, 0)
+            };
+
+            if (value != null)
+            {
+                value.AutoSize = false;
+                value.Dock = DockStyle.Fill;
+                value.BackColor = Color.Transparent;
+                value.ForeColor = valueColor;
+                value.Font = new Font("Consolas", 9.5F, FontStyle.Bold);
+                value.Margin = new Padding(0);
+                value.Padding = new Padding(0);
+                value.TextAlign = ContentAlignment.MiddleLeft;
+                tile.Controls.Add(value);
+            }
+
+            if (caption != null)
+            {
+                caption.AutoSize = false;
+                caption.Dock = DockStyle.Top;
+                caption.Height = 12;
+                caption.BackColor = Color.Transparent;
+                caption.ForeColor = TileCaptionColor;
+                caption.Font = new Font("맑은 고딕", 7F, FontStyle.Bold);
+                caption.UseCompatibleTextRendering = false;
+                caption.Margin = new Padding(0);
+                caption.Padding = new Padding(0);
+                caption.TextAlign = ContentAlignment.MiddleLeft;
+                tile.Controls.Add(caption);
+            }
+
+            return tile;
         }
 
         private static void SetText(Control control, string text)

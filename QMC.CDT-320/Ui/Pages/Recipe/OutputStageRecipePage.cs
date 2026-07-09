@@ -346,6 +346,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var item = AxisDouble(axisLabel, ParameterGridScope.Recipe, axis, getter, setter);
             item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
             item.GroupKey = groupKey;
+            item.SupportsTeaching = true;             // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
             return item;
         }
 
@@ -759,49 +760,73 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                var menu = new ContextMenuStrip();
-                menu.Items.Add("Move To Position", null, async (s, e) =>
-                {
-                    BinStageAxis axis;
-                    string positionName;
-                    if (TryGetSelectedTeachingPosition(out axis, out positionName))
-                    {
-                        // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단.
-                        if (!_outputStageUnit.IsStageAxisHomeDone(axis))
-                        {
-                            string homeMsg = optionParameterGrid.SelectedItem.Key + " 불가: " + axis + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
-                            QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "OUTPUT-STAGE", "UI", homeMsg);
-                            QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return;
-                        }
-                        await ConfirmAndRunMoveToPositionAsync(optionParameterGrid.SelectedItem.Key, () => MoveStageTeachingPositionWithSelectedSpeedAsync(axis, positionName));
-                    }
-                });
-                menu.Items.Add("Teach Current Position", null, (s, e) =>
-                {
-                    BinStageAxis axis;
-                    string positionName;
-                    if (!TryGetSelectedTeachingPosition(out axis, out positionName))
-                        return;
-
-                    _outputStageUnit.TeachStageAxisPosition(axis, positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-                menu.Opening += (s, e) =>
-                {
-                    BinStageAxis axis;
-                    string positionName;
-                    e.Cancel = !TryGetSelectedTeachingPosition(out axis, out positionName);
-                };
-                optionParameterGrid.ContextMenuStrip = menu;
+                // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+                optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+                optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", "BindParameterGridMenus failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Output Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                BinStageAxis axis;
+                string positionName;
+                if (!TryGetSelectedTeachingPosition(out axis, out positionName))
+                    return;
+
+                // 이동 대상 축의 HOME END(IsHomeDone) 미완료면 차단.
+                if (!_outputStageUnit.IsStageAxisHomeDone(axis))
+                {
+                    string homeMsg = e.Item.Key + " 불가: " + axis + " 축 HOME END(원점복귀)가 완료되지 않았습니다.";
+                    QMC.Common.Alarms.AlarmManager.Raise(QMC.Common.Alarms.AlarmSeverity.Warning, "OUTPUT-STAGE", "UI", homeMsg);
+                    QMC.Common.MessageDialog.Show(this, homeMsg, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                await ConfirmAndRunMoveToPositionAsync(e.Item.Key, () => MoveStageTeachingPositionWithSelectedSpeedAsync(axis, positionName));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                BinStageAxis axis;
+                string positionName;
+                if (!TryGetSelectedTeachingPosition(out axis, out positionName))
+                    return;
+
+                _outputStageUnit.TeachStageAxisPosition(axis, positionName);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

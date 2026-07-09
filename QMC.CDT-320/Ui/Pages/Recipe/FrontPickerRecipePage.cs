@@ -485,6 +485,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
             item.GroupKey = groupKey;
             item.Description = description ?? string.Empty;
+            item.SupportsTeaching = true;           // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
             items.Add(item);
         }
 
@@ -584,24 +585,47 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void BindParameterGridMenus()
         {
-            ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Move To Position", null, async delegate
+            // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+            optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+            optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                await MoveSelectedPositionAsync(selected != null ? selected.Key : string.Empty);
-            });
-            menu.Items.Add("Teach Current Position", null, delegate
+                if (e == null || e.Item == null)
+                    return;
+
+                await MoveSelectedPositionAsync(e.Item.Key);
+            }
+            catch (Exception ex)
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                TeachSelectedPosition(selected != null ? selected.Key : string.Empty);
-            });
-            ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-            menu.Opening += delegate(object sender, System.ComponentModel.CancelEventArgs e)
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Front Picker Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
             {
-                ParameterGridItem selected = optionParameterGrid.SelectedItem;
-                e.Cancel = selected == null || !positionItems.ContainsKey(selected.Key);
-            };
-            optionParameterGrid.ContextMenuStrip = menu;
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                TeachSelectedPosition(e.Item.Key);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "FRONT-PICKER", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Front Picker Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
         private async Task MoveSelectedPositionAsync(string key)

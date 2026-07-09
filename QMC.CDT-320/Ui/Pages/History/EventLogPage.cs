@@ -39,7 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 첫 컬럼(시간)은 행 헤더처럼 동작한다. Shift 범위 선택의 기준이 되는 직전 클릭 행(-1 이면 없음).
         private int _lastRowClicked = -1;
 
-        // 첫 컬럼(시간) = 행 전체 선택 트리거. 컬럼 순서: [0]When, Kind, User, Code, Source, [5]Description.
+        // 첫 컬럼(시간) = 행 전체 선택 트리거. 컬럼 순서: [0]When, Kind, ACTOR, Code, Source, [5]Description.
         private const int RowSelectColumnIndex = 0;
 
         // Description 컬럼(마지막). 더블클릭하면 전체 내용을 큰 창으로 보여준다.
@@ -125,6 +125,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             _presetKind = presetKind;
             InitializeComponent();
+            ApplyHistoryWhiteSurface();
             ApplyKindHeader();
             // 이벤트는 항상 연결한다 — 켜짐/꺼짐 판정은 페이지가 보일 때마다(UpdateLiveEventSubscription,
             // ReloadCurrent) 설정값을 다시 읽어 반영하므로, 재시작 없이 토글이 적용된다.
@@ -184,6 +185,99 @@ namespace QMC.CDT_320.Ui.Pages.History
                 case EventKind.RearHeadSeq:  return "hist.rearHeadSeq";
                 default:                     return "hist.event";
             }
+        }
+
+        private void ApplyHistoryWhiteSurface()
+        {
+            BackColor = Color.White;
+            rootLayout.BackColor = Color.White;
+            rootLayout.Margin = Padding.Empty;
+            rootLayout.RowStyles[1].Height = 40F;
+            lblHeader.Margin = Padding.Empty;
+            filterLayout.BackColor = Color.White;
+            filterLayout.Margin = Padding.Empty;
+            filterLayout.Padding = new Padding(8, 3, 8, 3);
+            _grid.BackgroundColor = Color.White;
+
+            ConfigureFilterColumns();
+            StyleFilterLabel(lblDate);
+            StyleFilterLabel(lblRunId);
+            StyleFilterLabel(lblSource);
+            StyleFilterLabel(lblSearch);
+
+            chkRecentHour.BackColor = Color.White;
+            StyleToolbarControl(_dp);
+            StyleToolbarControl(txtRunId);
+            StyleToolbarControl(txtSource);
+            StyleToolbarControl(txtSearch);
+            StyleToolbarControl(chkRecentHour);
+            StyleToolbarControl(cmbLimit);
+            StyleToolbarButton(btnRefresh, 116);
+            StyleToolbarButton(btnOpenFile, 128);
+        }
+
+        private void ConfigureFilterColumns()
+        {
+            SetFilterColumnWidth(0, 66F);   // DATE
+            SetFilterColumnWidth(2, 76F);   // RunId
+            SetFilterColumnWidth(4, 76F);   // Source
+            SetFilterColumnWidth(6, 82F);   // Search
+            SetFilterColumnWidth(10, 122F); // REFRESH
+            SetFilterColumnWidth(11, 136F); // OPEN FILE
+            SetFilterColumnWidth(12, 0F);   // unused spacer from the original layout
+        }
+
+        private void SetFilterColumnWidth(int index, float width)
+        {
+            if (filterLayout == null || index < 0 || index >= filterLayout.ColumnStyles.Count)
+                return;
+
+            filterLayout.ColumnStyles[index].SizeType = SizeType.Absolute;
+            filterLayout.ColumnStyles[index].Width = width;
+        }
+
+        private static void StyleFilterLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.BackColor = Color.FromArgb(245, 247, 249);
+            label.BorderStyle = BorderStyle.FixedSingle;
+            label.Dock = DockStyle.None;
+            label.Anchor = AnchorStyles.Left;
+            label.ForeColor = Color.FromArgb(35, 45, 57);
+            label.Height = 24;
+            label.Margin = new Padding(0, 0, 4, 0);
+            label.Padding = new Padding(5, 0, 3, 0);
+            label.Width = Math.Max(label.Width, TextRenderer.MeasureText(label.Text ?? "", label.Font).Width + label.Padding.Horizontal + 8);
+            label.TextAlign = ContentAlignment.MiddleLeft;
+        }
+
+        private static void StyleToolbarControl(Control control)
+        {
+            if (control == null)
+                return;
+
+            control.Dock = DockStyle.None;
+            control.Anchor = control is CheckBox ? AnchorStyles.Left : AnchorStyles.Left | AnchorStyles.Right;
+            control.Margin = new Padding(3, 0, 3, 0);
+            control.MinimumSize = Size.Empty;
+        }
+
+        private static void StyleToolbarButton(Button button, int minWidth)
+        {
+            if (button == null)
+                return;
+
+            button.AutoSize = false;
+            button.AutoEllipsis = false;
+            button.Dock = DockStyle.None;
+            button.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            button.Height = 24;
+            button.Margin = new Padding(4, 0, 4, 0);
+            button.MinimumSize = new Size(minWidth, 24);
+            button.Padding = new Padding(8, 0, 8, 0);
+            button.TextAlign = ContentAlignment.MiddleCenter;
         }
 
         private void WireEvents()

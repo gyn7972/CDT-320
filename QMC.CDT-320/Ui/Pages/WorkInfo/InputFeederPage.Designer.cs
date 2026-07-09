@@ -83,7 +83,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // rootPanel
             // 
-            this.rootPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.rootPanel.BackColor = System.Drawing.Color.White;
             this.rootPanel.ColumnCount = 1;
             this.rootPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
@@ -116,7 +116,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
-            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.contentLayout.BackColor = System.Drawing.Color.White;
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -135,7 +135,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // pnlInfo
             // 
-            this.pnlInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.pnlInfo.BackColor = System.Drawing.Color.White;
             this.pnlInfo.Controls.Add(this.infoLayout);
             this.pnlInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -328,7 +328,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // ringOverloadPanel
             // 
-            this.ringOverloadPanel.BackColor = System.Drawing.SystemColors.Control;
+            this.ringOverloadPanel.BackColor = System.Drawing.Color.White;
             this.ringOverloadPanel.ColumnCount = 2;
             this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.ringOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -349,7 +349,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // dotRing
             // 
             this.dotRing.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.dotRing.BackColor = System.Drawing.SystemColors.Control;
+            this.dotRing.BackColor = System.Drawing.Color.White;
             this.dotRing.Location = new System.Drawing.Point(8, 27);
             this.dotRing.Name = "dotRing";
             this.dotRing.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
@@ -359,7 +359,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblRingCaption
             // 
-            this.lblRingCaption.BackColor = System.Drawing.SystemColors.Control;
+            this.lblRingCaption.BackColor = System.Drawing.Color.White;
             this.lblRingCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRingCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblRingCaption.Location = new System.Drawing.Point(50, 0);
@@ -373,7 +373,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // dotOverload
             // 
             this.dotOverload.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.dotOverload.BackColor = System.Drawing.SystemColors.Control;
+            this.dotOverload.BackColor = System.Drawing.Color.White;
             this.dotOverload.Location = new System.Drawing.Point(8, 115);
             this.dotOverload.Name = "dotOverload";
             this.dotOverload.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
@@ -383,7 +383,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblOverloadCaption
             // 
-            this.lblOverloadCaption.BackColor = System.Drawing.SystemColors.Control;
+            this.lblOverloadCaption.BackColor = System.Drawing.Color.White;
             this.lblOverloadCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblOverloadCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.lblOverloadCaption.Location = new System.Drawing.Point(50, 88);
@@ -396,7 +396,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpAction
             // 
-            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.BackColor = System.Drawing.Color.White;
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -518,7 +518,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // materialDetailView
             // 
-            this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.materialDetailView.BackColor = System.Drawing.Color.White;
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialDetailView.Location = new System.Drawing.Point(842, 0);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
@@ -530,7 +530,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // InputFeederPage
             // 
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootPanel);
             this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "InputFeederPage";

@@ -15,9 +15,12 @@ namespace QMC.CDT_320.Ui.Pages.Material
     {
         private DieMap _map;
 
+        private static readonly Color DieGroupTitleColor = Color.FromArgb(38, 50, 66);
+
         public DieMapPage()
         {
             InitializeComponent();
+            BuildLayout();
             WireEvents();
 
             if (!IsDesignerMode())
@@ -28,6 +31,117 @@ namespace QMC.CDT_320.Ui.Pages.Material
                     ApplyMapToView(_map, "Generated Demo Die Map");
                 }
             }
+        }
+
+        /// <summary>비전 얼라인과 동일 구조: 좌 7(상 7 맵 / 하 3 그리드) : 우 3(PARAMETERS/ACTION/RESULT 그룹).
+        /// Designer 컨트롤을 재부모화(reparent)해 기능·바인딩 유지. 여백 최소화.</summary>
+        private void BuildLayout()
+        {
+            SuspendLayout();
+            try
+            {
+                this.BackColor = Color.White;
+                rootLayout.Padding = new Padding(0);
+                lblHeader.Margin = new Padding(0);
+
+                // contentLayout: 좌 70 / 우 30, 좌측은 상 70(맵) / 하 30(그리드)
+                contentLayout.BackColor = Color.White;
+                contentLayout.Padding = new Padding(0);
+                contentLayout.ColumnStyles.Clear();
+                contentLayout.ColumnCount = 2;
+                contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
+                contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+                contentLayout.RowStyles.Clear();
+                contentLayout.RowCount = 2;
+                contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 70F));
+                contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 30F));
+                _view.Margin = new Padding(0, 0, 0, 2);
+                _gridEntries.Margin = new Padding(0);
+
+                // 그룹 스타일 통일(흰 배경 + 슬레이트 제목)
+                StyleGroup(grpParams, "PARAMETERS");
+                StyleGroup(grpActions, "ACTION");
+                GroupBox grpResult = new GroupBox();
+                StyleGroup(grpResult, "RESULT");
+
+                // ACTION 그룹의 값 라벨(stats/cell info) 분리 → RESULT 그룹
+                _lblStats.Parent?.Controls.Remove(_lblStats);
+                _lblCellInfo.Parent?.Controls.Remove(_lblCellInfo);
+
+                // actionLayout: 버튼만 남기고 1열 × 5행(46px)으로 쭉 배치
+                actionLayout.ColumnStyles.Clear();
+                actionLayout.ColumnCount = 1;
+                actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                actionLayout.RowStyles.Clear();
+                actionLayout.RowCount = 5;
+                for (int i = 0; i < 5; i++)
+                    actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                actionLayout.Padding = new Padding(8, 6, 8, 6);
+                actionLayout.SetColumnSpan(btnLoadActive, 1);
+                Control[] actBtns = { btnLoadActive, btnGenerate, btnDemo, btnLoad, btnSave };
+                for (int i = 0; i < actBtns.Length; i++)
+                {
+                    actionLayout.SetCellPosition(actBtns[i], new TableLayoutPanelCellPosition(0, i));
+                    actBtns[i].Margin = new Padding(3);
+                }
+
+                // RESULT 그룹 본문
+                var resultLayout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = Color.White,
+                    Margin = new Padding(0),
+                    Padding = new Padding(8, 6, 8, 6),
+                    ColumnCount = 1,
+                    RowCount = 2
+                };
+                resultLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                resultLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40F));
+                resultLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                _lblStats.Dock = DockStyle.Fill;
+                _lblStats.Margin = new Padding(0, 0, 0, 4);
+                _lblCellInfo.Dock = DockStyle.Fill;
+                _lblCellInfo.Margin = new Padding(0);
+                resultLayout.Controls.Add(_lblStats, 0, 0);
+                resultLayout.Controls.Add(_lblCellInfo, 0, 1);
+                grpResult.Controls.Add(resultLayout);
+
+                // rightLayout: PARAMETERS / ACTION / RESULT / 채움
+                rightLayout.Controls.Clear();
+                rightLayout.RowStyles.Clear();
+                rightLayout.ColumnStyles.Clear();
+                rightLayout.BackColor = Color.White;
+                rightLayout.Margin = new Padding(2, 0, 0, 0);
+                rightLayout.ColumnCount = 1;
+                rightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                rightLayout.RowCount = 4;
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 310F));  // PARAMETERS
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 264F));  // ACTION (1열 5버튼)
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));   // 채움
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 150F));  // RESULT (하단 고정)
+                grpParams.Margin = new Padding(0, 0, 0, 4);
+                grpActions.Margin = new Padding(0, 0, 0, 4);
+                grpResult.Margin = new Padding(0);
+                rightLayout.Controls.Add(grpParams, 0, 0);
+                rightLayout.Controls.Add(grpActions, 0, 1);
+                rightLayout.Controls.Add(grpResult, 0, 3);   // 채움 아래 = 하단
+            }
+            catch { }
+            finally
+            {
+                ResumeLayout(true);
+            }
+        }
+
+        private static void StyleGroup(GroupBox g, string text)
+        {
+            g.Text = text;
+            g.Dock = DockStyle.Fill;
+            g.BackColor = Color.White;
+            g.ForeColor = DieGroupTitleColor;
+            g.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            g.Padding = new Padding(4);
+            g.TabStop = false;
         }
 
         private void WireEvents()

@@ -583,32 +583,60 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                var menu = new ContextMenuStrip();
-                menu.Items.Add("Move To Position", null, async (s, e) =>
-                {
-                    StageTeachingPosition position = GetSelectedTeachingPosition();
-                    if (position != null)
-                        await ConfirmAndRunMoveToPositionAsync(position.DisplayName, () => MoveByTeachingPositionAsync(position));
-                });
-                menu.Items.Add("Teach Current Position", null, (s, e) =>
-                {
-                    StageTeachingPosition position = GetSelectedTeachingPosition();
-                    if (position == null)
-                        return;
-
-                    TeachPosition(position);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-                menu.Opening += (s, e) => e.Cancel = GetSelectedTeachingPosition() == null;
-                optionParameterGrid.ContextMenuStrip = menu;
+                // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+                optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+                optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "BindParameterGridMenus failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                StageTeachingPosition position = FindTeachingPosition(e.Item.Key);
+                if (position != null)
+                    await ConfirmAndRunMoveToPositionAsync(position.DisplayName, () => MoveByTeachingPositionAsync(position));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                StageTeachingPosition position = FindTeachingPosition(e.Item.Key);
+                if (position == null)
+                    return;
+
+                TeachPosition(position);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1473,6 +1501,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         v => captured.Setter(captured.PositionSetGetter(unit), v));
                     item.Key = captured.DisplayName;   // 더블클릭/메뉴 티칭 조회는 원래 이름(DisplayName)으로 매칭
                     item.GroupKey = groupKey;
+                    item.SupportsTeaching = true;      // 행에 MOVE/TEACH 버튼 표시
                     items.Add(item);
                 }
             }

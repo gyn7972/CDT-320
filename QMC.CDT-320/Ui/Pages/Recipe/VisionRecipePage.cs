@@ -348,6 +348,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var item = AxisDouble(axisLabel, ParameterGridScope.Recipe, axis, getter, setter);
             item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
             item.GroupKey = groupKey;
+            item.SupportsTeaching = true;             // 행에 MOVE/TEACH 버튼 표시(티칭 포지션)
             return item;
         }
 
@@ -410,49 +411,72 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                var menu = new ContextMenuStrip();
-                menu.Items.Add("Move To Position", null, async (s, e) =>
-                {
-                    VisionAxis axis;
-                    string positionName;
-                    if (TryGetSelectedTeachingPosition(out axis, out positionName))
-                    {
-                        BaseAxis motionAxis = _visionUnit.ResolveVisionAxis(axis);
-                        await ConfirmAndRunMoveToPositionAsync(
-                            optionParameterGrid.SelectedItem.Key,
-                            () => _visionUnit.MoveVisionAxisToTeachingPosition(
-                                axis,
-                                positionName,
-                                jogAxisMoveControl.SelectedSpeedType,
-                                jogAxisMoveControl.GetSelectedSpeed(motionAxis)),
-                            motionAxis);
-                    }
-                });
-                menu.Items.Add("Teach Current Position", null, (s, e) =>
-                {
-                    VisionAxis axis;
-                    string positionName;
-                    if (!TryGetSelectedTeachingPosition(out axis, out positionName))
-                        return;
-
-                    _visionUnit.TeachVisionAxisPosition(axis, positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-                menu.Opening += (s, e) =>
-                {
-                    VisionAxis axis;
-                    string positionName;
-                    e.Cancel = !TryGetSelectedTeachingPosition(out axis, out positionName);
-                };
-                optionParameterGrid.ContextMenuStrip = menu;
+                // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+                optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+                optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindParameterGridMenus failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                VisionAxis axis;
+                string positionName;
+                if (!TryGetSelectedTeachingPosition(out axis, out positionName))
+                    return;
+
+                BaseAxis motionAxis = _visionUnit.ResolveVisionAxis(axis);
+                await ConfirmAndRunMoveToPositionAsync(
+                    e.Item.Key,
+                    () => _visionUnit.MoveVisionAxisToTeachingPosition(
+                        axis,
+                        positionName,
+                        jogAxisMoveControl.SelectedSpeedType,
+                        jogAxisMoveControl.GetSelectedSpeed(motionAxis)),
+                    motionAxis);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                VisionAxis axis;
+                string positionName;
+                if (!TryGetSelectedTeachingPosition(out axis, out positionName))
+                    return;
+
+                _visionUnit.TeachVisionAxisPosition(axis, positionName);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

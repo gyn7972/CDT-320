@@ -473,7 +473,7 @@ namespace QMC.CDT_320
             this.pnlContent.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.pnlContent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.pnlContent.BackColor = System.Drawing.Color.White;
             this.pnlContent.Controls.Add(this.alarmBanner);
             this.pnlContent.Location = new System.Drawing.Point(16, 100);
             this.pnlContent.Name = "pnlContent";
@@ -690,7 +690,7 @@ namespace QMC.CDT_320
             // Form1
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.ClientSize = new System.Drawing.Size(1920, 1080);
             this.Controls.Add(this.pnlContent);
             this.Controls.Add(this.lblMenuLeft);

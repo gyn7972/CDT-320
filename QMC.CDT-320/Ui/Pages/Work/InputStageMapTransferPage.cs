@@ -137,6 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
+            BuildTwoByTwoLayout();
             ApplyTitle();
             InitializeMapDisplayStyle();
             WireEvents();
@@ -207,6 +208,304 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        /// <summary>작업정보 아웃풋카세트와 동일한 룩(240 회색 그룹박스·채움 행·2열 액션)으로 2×2 재구성한다.
+        /// Designer가 만든 컨트롤을 그대로 재부모화(reparent)해 기능·바인딩을 유지한다.</summary>
+        private void BuildTwoByTwoLayout()
+        {
+            SuspendLayout();
+            try
+            {
+                GroupBox grpCreate = CreateQuadrantGroup("INPUT DIE MAP CREATE");
+                GroupBox grpAction = CreateQuadrantGroup("ACTION");
+
+                // ① 좌상단: 맵 뷰
+                Reparent(mapView, grpCreate, new Padding(0));
+
+                // ② 우상단: DIE MAP INFO | DIE STATE EDIT — 두 그룹 모두 하단까지 꽉 차게(Dock.Fill)
+                StyleAsQuadrantGroup(grpMapInfo, "DIE MAP INFO");
+                StyleAsQuadrantGroup(grpDieState, "DIE STATE EDIT");
+
+                // DIE MAP INFO: 9행이 그룹 높이를 균등하게 채우도록 Percent
+                mapInfoLayout.RowStyles.Clear();
+                mapInfoLayout.RowCount = 9;
+                for (int i = 0; i < 9; i++)
+                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 9F));
+                // Die Number 값이 길어 줄바꿈되던 문제: 값 칸을 넓히고(40:60) 폰트를 줄여 한 줄로.
+                mapInfoLayout.ColumnStyles.Clear();
+                mapInfoLayout.ColumnCount = 2;
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+                mapInfoLayout.Dock = DockStyle.Fill;
+                StyleInfoLabelsLikeOutput();                        // 아웃풋 BIN/DIE INFO 라벨 스타일과 통일
+                lblDieNum.Font = new System.Drawing.Font("Consolas", 8F);   // 긴 값은 한 줄 유지
+
+                // APPLY SELECTED DIE: 액션 버튼과 다른 '일반 버튼' 모양. 흰 배경에서 묻히지 않도록
+                //   연한 톤 배경 + 테두리로 버튼임을 명확히.
+                btnApplyDieState.FlatStyle = FlatStyle.Flat;
+                btnApplyDieState.UseVisualStyleBackColor = false;
+                btnApplyDieState.BackColor = System.Drawing.Color.FromArgb(0xE9, 0xEE, 0xF4);
+                btnApplyDieState.ForeColor = System.Drawing.Color.FromArgb(0x26, 0x32, 0x42);
+                btnApplyDieState.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0x8F, 0x9C, 0xAD);
+                btnApplyDieState.FlatAppearance.BorderSize = 1;
+                btnApplyDieState.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xDA, 0xE2, 0xEC);
+                btnApplyDieState.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xC7, 0xD2, 0xE0);
+                btnApplyDieState.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                btnApplyDieState.Dock = DockStyle.Fill;
+                btnApplyDieState.Margin = new Padding(3, 4, 3, 3);
+
+                // DIE STATE EDIT: 라디오 4개 + APPLY 만 (채움 없이 타이트). APPLY 는 이 그룹과 묶어둔다.
+                dieStateLayout.RowStyles.Clear();
+                dieStateLayout.RowCount = 5;
+                for (int i = 0; i < 4; i++)
+                    dieStateLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));   // 라디오 4행
+                dieStateLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));       // APPLY
+                dieStateLayout.Dock = DockStyle.Fill;
+                dieStateLayout.SetCellPosition(btnApplyDieState, new TableLayoutPanelCellPosition(0, 4));
+
+                var infoEditBody = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(3),
+                    Padding = new Padding(0),
+                    ColumnCount = 2,
+                    RowCount = 1
+                };
+                infoEditBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoEditBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoEditBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                grpMapInfo.Parent?.Controls.Remove(grpMapInfo);
+                grpMapInfo.Dock = DockStyle.Fill;                   // 하단까지 꽉 차게
+                grpMapInfo.Margin = new Padding(0, 0, 2, 0);
+                infoEditBody.Controls.Add(grpMapInfo, 0, 0);
+
+                grpDieState.Parent?.Controls.Remove(grpDieState);
+                int dieStateHeight = 4 * 30 + 44 + 52;              // 라디오+APPLY+타이틀/패딩
+                var dieStateArea = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(2, 0, 0, 0),
+                    Padding = new Padding(0),
+                    ColumnCount = 1,
+                    RowCount = 4
+                };
+                dieStateArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, dieStateHeight));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                grpDieState.Dock = DockStyle.Fill;
+                grpDieState.Margin = new Padding(0);
+                dieStateArea.Controls.Add(grpDieState, 0, 0);
+
+                var detachedButtonRow = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
+                    ColumnCount = 1,
+                    RowCount = 2
+                };
+                detachedButtonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                detachedButtonRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                detachedButtonRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+
+                ConfigureDetachedStageButton(btnManualAlignComplete, "MANUAL ALIGN COMPLETE", 0);
+                ConfigureDetachedStageButton(btnReloadActiveMap, "RELOAD ACTIVE MAP", 1);
+                btnManualAlignComplete.Parent?.Controls.Remove(btnManualAlignComplete);
+                btnReloadActiveMap.Parent?.Controls.Remove(btnReloadActiveMap);
+                detachedButtonRow.Controls.Add(btnManualAlignComplete, 0, 0);
+                detachedButtonRow.Controls.Add(btnReloadActiveMap, 0, 1);
+                dieStateArea.Controls.Add(detachedButtonRow, 0, 2);
+                infoEditBody.Controls.Add(dieStateArea, 1, 0);
+
+                // ④ 우하단: 액션 버튼 3개 — 왼쪽 1열만 쓰고 그룹 테두리도 버튼 폭에 맞춰 타이트하게 축소
+                Control[] actionButtons =
+                {
+                    btnThetaMatchMove, btnXyMatchMove, btnManualDieMapOffsetApply
+                };
+                int rows = actionButtons.Length;
+                int compactActionWidth = rootLayout.ClientSize.Width > 0
+                    ? Math.Max(330, (rootLayout.ClientSize.Width / 4) - 10)
+                    : 410;
+                var actionBar = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(0),
+                    Padding = new Padding(3, 1, 3, 0),
+                    ColumnCount = 1,
+                    RowCount = rows,
+                    Height = rows * 46 + 4
+                };
+                actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                for (int r = 0; r < rows; r++)
+                    actionBar.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                for (int i = 0; i < actionButtons.Length; i++)
+                {
+                    Control b = actionButtons[i];
+                    b.Parent?.Controls.Remove(b);
+                    b.Dock = DockStyle.Fill;
+                    b.Margin = new Padding(3);
+                    b.Visible = true;
+                    b.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                    actionBar.Controls.Add(b, 0, i);
+                }
+                grpAction.Controls.Add(actionBar);
+                grpAction.Dock = DockStyle.None;                    // 버튼 폭/높이만큼만(타이트), 오른쪽은 배경 노출
+                grpAction.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                grpAction.Width = compactActionWidth;
+                grpAction.Height = actionBar.Height + 30;           // 버튼 영역 + 타이틀
+
+                // ③ 좌하단: DGV (그룹박스 없이)
+                gridDieList.Parent?.Controls.Remove(gridDieList);
+                gridDieList.Dock = DockStyle.Fill;
+                gridDieList.Margin = new Padding(3);
+
+                // rootLayout → 2×2 (아웃풋카세트와 동일한 회색 배경)
+                rootLayout.Controls.Clear();
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.RowStyles.Clear();
+                rootLayout.BackColor = System.Drawing.Color.White;
+                rootLayout.Padding = new Padding(0);
+                rootLayout.ColumnCount = 2;
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.RowCount = 2;
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 65F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 35F));
+                rootLayout.Controls.Add(grpCreate, 0, 0);   // 좌상단: 맵 뷰
+                rootLayout.Controls.Add(gridDieList, 0, 1); // 좌하단: DGV (그룹박스 없이)
+                rootLayout.Controls.Add(infoEditBody, 1, 0);// 우상단: DIE MAP INFO | DIE STATE EDIT
+                rootLayout.Controls.Add(grpAction, 1, 1);   // 우하단: MAP ACTION 버튼 3개
+            }
+            catch { }
+            finally
+            {
+                ResumeLayout(true);
+            }
+        }
+
+        private static void ConfigureDetachedStageButton(Control button, string text, int tabIndex)
+        {
+            if (button == null)
+                return;
+
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(3);
+            button.Visible = true;
+            button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            button.ForeColor = System.Drawing.Color.FromArgb(0x26, 0x32, 0x42);
+            button.BackColor = System.Drawing.Color.FromArgb(0xF2, 0xF4, 0xF7);
+            button.TabIndex = tabIndex;
+            button.Text = text;
+
+            Button winButton = button as Button;
+            if (winButton == null)
+                return;
+
+            winButton.FlatStyle = FlatStyle.Flat;
+            winButton.UseVisualStyleBackColor = false;
+            winButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0xB7, 0xC0, 0xCA);
+            winButton.FlatAppearance.BorderSize = 1;
+            winButton.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xE7, 0xEC, 0xF2);
+            winButton.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xD5, 0xDE, 0xE9);
+        }
+
+        /// <summary>DIE MAP INFO 캡션/값 라벨을 아웃풋 전환 페이지 BIN/DIE INFO 그룹과 동일한 스타일로 통일한다.</summary>
+        private void StyleInfoLabelsLikeOutput()
+        {
+            System.Drawing.Color capBack = System.Drawing.Color.FromArgb(236, 238, 241);
+            System.Drawing.Color capFore = System.Drawing.Color.FromArgb(70, 70, 70);
+            System.Drawing.Color valFore = System.Drawing.Color.FromArgb(25, 29, 34);
+
+            Label[] captions =
+            {
+                lblChipWCaption, lblChipHCaption, lblPitchXCaption, lblPitchYCaption,
+                lblWaferDiaCaption, lblAxisXCaption, lblAxisYCaption, lblBinRankCaption, lblDieNumCaption
+            };
+            Label[] values =
+            {
+                lblChipW, lblChipH, lblPitchX, lblPitchY,
+                lblWaferDia, lblAxisX, lblAxisY, lblBinRank, lblDieNum
+            };
+
+            foreach (Label c in captions)
+            {
+                if (c == null)
+                    continue;
+                c.AutoEllipsis = true;
+                c.BackColor = capBack;
+                c.BorderStyle = BorderStyle.FixedSingle;
+                c.Dock = DockStyle.Fill;
+                c.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                c.ForeColor = capFore;
+                c.Margin = new Padding(1);
+                c.Padding = new Padding(6, 0, 0, 0);
+                c.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            }
+            foreach (Label v in values)
+            {
+                if (v == null)
+                    continue;
+                v.AutoEllipsis = true;
+                v.BackColor = System.Drawing.Color.White;
+                v.BorderStyle = BorderStyle.FixedSingle;
+                v.Dock = DockStyle.Fill;
+                v.Font = new System.Drawing.Font("Consolas", 9F);
+                v.ForeColor = valFore;
+                v.Margin = new Padding(1);
+                v.Padding = new Padding(0, 0, 6, 0);
+                v.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            }
+        }
+
+        private static GroupBox CreateQuadrantGroup(string text)
+        {
+            var g = new GroupBox();
+            StyleAsQuadrantGroup(g, text);
+            return g;
+        }
+
+        /// <summary>기존/신규 그룹박스를 메인화면 스타일(흰 배경·짙은 제목·여백)로 통일한다.</summary>
+        private static void StyleAsQuadrantGroup(GroupBox g, string text)
+        {
+            if (g == null)
+                return;
+            g.Text = text;
+            g.Dock = DockStyle.Fill;
+            g.BackColor = System.Drawing.Color.White;
+            g.ForeColor = System.Drawing.Color.Black;
+            g.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            g.Margin = new Padding(3);
+            g.Padding = new Padding(3);
+            g.TabStop = false;
+        }
+
+        private static void Reparent(Control child, Control newParent, Padding margin)
+        {
+            if (child == null || newParent == null)
+                return;
+            child.Parent?.Controls.Remove(child);
+            child.Dock = DockStyle.Fill;
+            child.Margin = margin;
+            newParent.Controls.Add(child);
+        }
+
+        private static void Reparent(Control child, TableLayoutPanel newParent, int col, int row, Padding margin)
+        {
+            if (child == null || newParent == null)
+                return;
+            child.Parent?.Controls.Remove(child);
+            child.Dock = DockStyle.Fill;
+            child.Margin = margin;
+            newParent.Controls.Add(child, col, row);
         }
 
         private void WireEvents()

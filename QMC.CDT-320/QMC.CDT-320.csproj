@@ -1121,6 +1121,7 @@
     <Compile Include="Ui\Pages\Settings\DevicePages.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\SettingsPageLayoutStyler.cs" />
     <Compile Include="Ui\Pages\Settings\GeneralPage.Designer.cs">
       <DependentUpon>GeneralPage.cs</DependentUpon>
     </Compile>

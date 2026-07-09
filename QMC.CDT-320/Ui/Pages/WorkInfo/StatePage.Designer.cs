@@ -272,7 +272,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpActiveLot
             // 
-            this.grpActiveLot.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpActiveLot.BackColor = System.Drawing.Color.White;
             this.grpActiveLot.Controls.Add(this.lotLayout);
             this.grpActiveLot.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpActiveLot.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -547,7 +547,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpBin
             // 
-            this.grpBin.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpBin.BackColor = System.Drawing.Color.White;
             this.grpBin.Controls.Add(this._binPanel);
             this.grpBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpBin.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -588,7 +588,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpNg
             // 
-            this.grpNg.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpNg.BackColor = System.Drawing.Color.White;
             this.grpNg.Controls.Add(this.ngLayout);
             this.grpNg.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpNg.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -651,7 +651,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpGood
             // 
-            this.grpGood.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpGood.BackColor = System.Drawing.Color.White;
             this.grpGood.Controls.Add(this.goodLayout);
             this.grpGood.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpGood.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -747,7 +747,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpButtons
             // 
-            this.grpButtons.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpButtons.BackColor = System.Drawing.Color.White;
             this.grpButtons.Controls.Add(this.buttonLayout);
             this.grpButtons.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpButtons.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -930,7 +930,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpResources
             // 
-            this.grpResources.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpResources.BackColor = System.Drawing.Color.White;
             this.grpResources.Controls.Add(this.resourceLayout);
             this.grpResources.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpResources.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -1131,7 +1131,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpLamps
             // 
-            this.grpLamps.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpLamps.BackColor = System.Drawing.Color.White;
             this.grpLamps.Controls.Add(this.lampLayout);
             this.grpLamps.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLamps.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -1236,7 +1236,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpTower
             // 
-            this.grpTower.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpTower.BackColor = System.Drawing.Color.White;
             this.grpTower.Controls.Add(this.towerLayout);
             this.grpTower.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpTower.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -1367,7 +1367,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpIonizer
             // 
-            this.grpIonizer.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpIonizer.BackColor = System.Drawing.Color.White;
             this.grpIonizer.Controls.Add(this.ionizerLayout);
             this.grpIonizer.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpIonizer.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);

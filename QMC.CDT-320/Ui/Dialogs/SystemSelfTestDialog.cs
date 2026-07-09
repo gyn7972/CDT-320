@@ -28,6 +28,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             _host = host;
             InitializeComponent();
+            ApplyDialogStyle();
             WireEvents();
             RegisterTests();
             Seed();
@@ -181,7 +182,89 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void Seed()
         {
             _grid.Rows.Clear();
-            foreach (var t in _tests) _grid.Rows.Add(t.name, "-", "pending");
+            foreach (var t in _tests)
+            {
+                int rowIndex = _grid.Rows.Add(t.name, "-", "pending");
+                _grid.Rows[rowIndex].DefaultCellStyle.BackColor = Color.White;
+            }
+        }
+
+        private void ApplyDialogStyle()
+        {
+            Text = "자가진단";
+            ClientSize = new Size(560, 500);
+            BackColor = Color.White;
+
+            rootLayout.Margin = Padding.Empty;
+            rootLayout.Padding = Padding.Empty;
+            rootLayout.BackColor = Color.White;
+            if (rootLayout.RowStyles.Count >= 4)
+            {
+                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[0].Height = 60F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[2].Height = 10F;
+                rootLayout.RowStyles[3].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[3].Height = 52F;
+            }
+
+            lblTitle.Text = "자가진단";
+            lblTitle.Margin = Padding.Empty;
+            lblTitle.Padding = new Padding(18, 0, 18, 0);
+            lblTitle.BackColor = Color.FromArgb(38, 50, 66);
+            lblTitle.ForeColor = Color.White;
+            lblTitle.Font = new Font("Malgun Gothic", 18F, FontStyle.Bold);
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+
+            _grid.Margin = new Padding(8, 8, 8, 4);
+            _grid.BackgroundColor = Color.White;
+            _grid.BorderStyle = BorderStyle.FixedSingle;
+            _grid.GridColor = Color.FromArgb(214, 219, 226);
+            _grid.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Regular);
+            _grid.RowTemplate.Height = 22;
+            _grid.ColumnHeadersHeight = 26;
+            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(73, 78, 83);
+            _grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
+            _grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _grid.ColumnHeadersDefaultCellStyle.Padding = Padding.Empty;
+            _grid.DefaultCellStyle.Padding = new Padding(2, 0, 2, 0);
+            _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(42, 123, 214);
+            _grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            _grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+            colName.FillWeight = 34F;
+            colState.FillWeight = 12F;
+            colDetail.FillWeight = 54F;
+            colState.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+
+            _pb.Margin = new Padding(8, 0, 8, 0);
+
+            bottomLayout.Margin = Padding.Empty;
+            bottomLayout.Padding = new Padding(8, 6, 8, 10);
+            bottomLayout.BackColor = Color.White;
+            bottomLayout.ColumnStyles.Clear();
+            bottomLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            bottomLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            bottomLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            bottomLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 0F));
+
+            StyleActionButton(_btnRun, true);
+            StyleActionButton(_btnClose, false);
+        }
+
+        private static void StyleActionButton(Button button, bool primary)
+        {
+            if (button == null)
+                return;
+
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(4, 0, 4, 0);
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 0;
+            button.UseVisualStyleBackColor = false;
+            button.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
+            button.ForeColor = Color.White;
+            button.BackColor = primary ? Color.FromArgb(72, 94, 130) : Color.FromArgb(128, 128, 128);
         }
 
         private async Task RunAll()
@@ -202,13 +285,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                     var result = await _tests[i].test();
                     row.Cells[1].Value = result.ok ? "OK" : "NG";
                     row.Cells[2].Value = result.detail ?? "";
-                    row.DefaultCellStyle.BackColor = result.ok ? Color.FromArgb(0xD9, 0xFB, 0xD9) : Color.FromArgb(0xFB, 0xD9, 0xD9);
+                    row.DefaultCellStyle.BackColor = result.ok ? Color.FromArgb(228, 245, 235) : Color.FromArgb(255, 231, 231);
                 }
                 catch (Exception ex)
                 {
                     row.Cells[1].Value = "EX";
                     row.Cells[2].Value = ex.Message;
-                    row.DefaultCellStyle.BackColor = Color.FromArgb(0xFB, 0xD9, 0xD9);
+                    row.DefaultCellStyle.BackColor = Color.FromArgb(255, 231, 231);
                 }
                 _pb.Value = i + 1;
             }

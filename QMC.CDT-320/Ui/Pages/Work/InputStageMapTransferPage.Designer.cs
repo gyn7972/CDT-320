@@ -57,7 +57,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private RadioButton rdoDieStateGood;
         private RadioButton rdoDieStateNg;
         private RadioButton rdoDieStateSkip;
-        private ActionButton btnApplyDieState;
+        private System.Windows.Forms.Button btnApplyDieState;
         private TableLayoutPanel actionLayout;
         private ActionButton btnManualAlignComplete;
         private ActionButton btnNeedleBlockDown;
@@ -117,7 +117,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rdoDieStateGood = new System.Windows.Forms.RadioButton();
             this.rdoDieStateNg = new System.Windows.Forms.RadioButton();
             this.rdoDieStateSkip = new System.Windows.Forms.RadioButton();
-            this.btnApplyDieState = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnApplyDieState = new System.Windows.Forms.Button();
             this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
