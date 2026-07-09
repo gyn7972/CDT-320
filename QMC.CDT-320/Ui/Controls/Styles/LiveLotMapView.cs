@@ -51,7 +51,6 @@ namespace QMC.CDT_320.Ui.Controls
         private MapStats _stats;
         private string _lotText = "(no active lot)";
         private long _signature = long.MinValue;
-        private string _lastInputStageWaferMapKey = "";
 
         // 부드러운 모던 팔레트 — 회색 기계 룩 대신 밝은 뉴트럴 + 은은한 테두리/아웃라인.
         protected override Color MapBorderColor => Color.FromArgb(0x8F, 0x9C, 0xAD);
@@ -98,7 +97,6 @@ namespace QMC.CDT_320.Ui.Controls
                 _displayMap = null;
                 _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 _signature = long.MinValue;
-                _lastInputStageWaferMapKey = "";
                 MarkDirty();
             }
         }
@@ -216,9 +214,6 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            if (EnsureInputStageWaferDisplayMap())
-                return;
-
             DieMap active = LotStorage.ActiveInputDieMap;
             if (active != null)
             {
@@ -253,66 +248,6 @@ namespace QMC.CDT_320.Ui.Controls
                     _displayMap = null;
                     _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 }
-            }
-        }
-
-        private bool EnsureInputStageWaferDisplayMap()
-        {
-            try
-            {
-                WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                if (stageWafer == null || !stageWafer.HasInputStageDieMappingResult)
-                    return false;
-
-                DieMap built = MaterialStateService.BuildDieMapFromWafer(stageWafer);
-                if (built == null)
-                    return false;
-
-                DieMapGenerator.Normalize(built);
-                LotStorage.ActiveInputDieMap = built;
-                Dictionary<string, LiveDieMapCellState> states;
-                _displayMap = BuildDisplayMapFromMaterialState(built, out states);
-                _displayStates = states;
-                LogInputStageWaferMapRefresh(stageWafer, built);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void LogInputStageWaferMapRefresh(WaferMaterial wafer, DieMap map)
-        {
-            try
-            {
-                int entryCount = map != null && map.Entries != null ? map.Entries.Count : 0;
-                int targetCount = 0;
-                if (map != null && map.Entries != null)
-                {
-                    foreach (DieMapEntry entry in map.Entries)
-                    {
-                        if (entry != null && entry.IsTarget)
-                            targetCount++;
-                    }
-                }
-
-                string waferId = wafer != null ? wafer.WaferId ?? "" : "";
-                string frameId = map != null ? map.FrameObjId ?? "" : "";
-                string key = waferId + "|" + frameId + "|" + entryCount.ToString() + "|" + targetCount.ToString();
-                if (string.Equals(_lastInputStageWaferMapKey, key, StringComparison.Ordinal))
-                    return;
-
-                _lastInputStageWaferMapKey = key;
-                QMC.Common.Log.Write("Main", "SYSTEM", "LiveLotMapView",
-                    "Input live map refreshed from InputStage wafer. wafer=" + waferId +
-                    ", frame=" + frameId +
-                    ", entries=" + entryCount.ToString() +
-                    ", targets=" + targetCount.ToString() +
-                    " - Ok");
-            }
-            catch
-            {
             }
         }
 
