@@ -179,6 +179,54 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public sealed class PickerSideInspectionCorrection
+    {
+        [DataMember] public bool IsValid { get; set; } // Bottom 검사에서 Side 검사 보정값을 정상 수신했는지 여부입니다.
+        [DataMember] public double SideVisionYOffset { get; set; } // SideVisionY Process 위치에 더할 Picker별 런타임 보정값입니다.
+        [DataMember] public double PickerZOffset { get; set; } // Side 검사 PickerZ 티칭 위치에 더할 Picker별 런타임 보정값입니다.
+        [DataMember] public string SourceDieId { get; set; } // 해당 보정값을 만든 Bottom 검사 Die ID입니다.
+        [DataMember] public DateTime UpdatedAt { get; set; } // 보정값이 갱신된 시각입니다.
+
+        public PickerSideInspectionCorrection Clone()
+        {
+            return new PickerSideInspectionCorrection
+            {
+                IsValid = IsValid,
+                SideVisionYOffset = SideVisionYOffset,
+                PickerZOffset = PickerZOffset,
+                SourceDieId = SourceDieId,
+                UpdatedAt = UpdatedAt
+            };
+        }
+
+        public void Set(double sideVisionYOffset, double pickerZOffset, bool isValid, string sourceDieId)
+        {
+            SideVisionYOffset = sideVisionYOffset;
+            PickerZOffset = pickerZOffset;
+            IsValid = isValid;
+            SourceDieId = sourceDieId ?? string.Empty;
+            UpdatedAt = DateTime.Now;
+        }
+
+        public void Clear()
+        {
+            IsValid = false;
+            SideVisionYOffset = 0.0;
+            PickerZOffset = 0.0;
+            SourceDieId = string.Empty;
+            UpdatedAt = DateTime.MinValue;
+        }
+
+        public static PickerSideInspectionCorrection[] CreateArray(int count)
+        {
+            PickerSideInspectionCorrection[] corrections = new PickerSideInspectionCorrection[count];
+            for (int i = 0; i < corrections.Length; i++)
+                corrections[i] = new PickerSideInspectionCorrection();
+            return corrections;
+        }
+    }
+
+    [DataContract]
     public sealed class PickerFrontConfig : IConfigData
     {
         [DataMember] public bool UseUnit { get; set; } = true; // Front Picker Unit 전체를 자동/수동 시컨스에서 사용할지 여부입니다.
@@ -519,6 +567,7 @@ namespace QMC.CDT320
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
         public PickerAlignOffset[] RuntimePickerOffsets { get; private set; }
+        public PickerSideInspectionCorrection[] RuntimeSideInspectionCorrections { get; private set; }
         public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
         public int PickFailCount { get; private set; }
         public int PlaceFailCount { get; private set; }
@@ -554,6 +603,7 @@ namespace QMC.CDT320
             }
 
             RuntimePickerOffsets = PickerAlignOffset.CreateArray(MaxPickerCount);
+            RuntimeSideInspectionCorrections = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
             Pickers = CreateRuntimePickers();
         }
 
@@ -595,6 +645,68 @@ namespace QMC.CDT320
                 return;
 
             RuntimePickerOffsets[pickerIndex] = offset.Clone();
+        }
+
+        public void EnsureRuntimeSideInspectionCorrections()
+        {
+            if (RuntimeSideInspectionCorrections == null || RuntimeSideInspectionCorrections.Length < MaxPickerCount)
+            {
+                PickerSideInspectionCorrection[] next = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
+                if (RuntimeSideInspectionCorrections != null)
+                {
+                    for (int i = 0; i < Math.Min(RuntimeSideInspectionCorrections.Length, next.Length); i++)
+                    {
+                        if (RuntimeSideInspectionCorrections[i] != null)
+                            next[i] = RuntimeSideInspectionCorrections[i].Clone();
+                    }
+                }
+
+                RuntimeSideInspectionCorrections = next;
+            }
+
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+            {
+                if (RuntimeSideInspectionCorrections[i] == null)
+                    RuntimeSideInspectionCorrections[i] = new PickerSideInspectionCorrection();
+            }
+        }
+
+        public PickerSideInspectionCorrection GetRuntimeSideInspectionCorrection(int pickerIndex)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return null;
+            return RuntimeSideInspectionCorrections[pickerIndex];
+        }
+
+        public void SetRuntimeSideInspectionCorrection(
+            int pickerIndex,
+            double sideVisionYOffset,
+            double pickerZOffset,
+            bool isValid,
+            string sourceDieId)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex].Set(sideVisionYOffset, pickerZOffset, isValid, sourceDieId);
+        }
+
+        public void RestoreRuntimeSideInspectionCorrection(int pickerIndex, PickerSideInspectionCorrection correction)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length || correction == null)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex] = correction.Clone();
+        }
+
+        public void ClearRuntimeSideInspectionCorrections()
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+                RuntimeSideInspectionCorrections[i].Clear();
         }
 
         private PickerRuntimeTool[] CreateRuntimePickers()

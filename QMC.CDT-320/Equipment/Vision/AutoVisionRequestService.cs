@@ -22,6 +22,8 @@ namespace QMC.CDT320.VisionComm
         private static readonly Random SimVisionRandom = new Random();
         private const double SimVisionMaxPixelOffset = 25.0;
         private const double SimVisionMaxAngleDeg = 0.08;
+        private const double SimBottomSideVisionMaxYOffsetMm = 0.05;
+        private const double SimBottomPickerZMaxOffsetMm = 0.02;
 
         public static Task<bool> GrabAsync(AutoVisionChannel channel, int index, int timeoutMs, CancellationToken ct)
         {
@@ -358,7 +360,10 @@ namespace QMC.CDT320.VisionComm
                         ", ok=" + offset.IsOk +
                         ", dxMm=" + offset.OffsetX.ToString("F6") +
                         ", dyMm=" + offset.OffsetY.ToString("F6") +
-                        ", dt=" + offset.OffsetT.ToString("F6"));
+                        ", dt=" + offset.OffsetT.ToString("F6") +
+                        ", sideVisionYOffsetMm=" + offset.SideVisionYOffset.ToString("F6") +
+                        ", pickerZOffsetMm=" + offset.PickerZOffset.ToString("F6") +
+                        ", sideCorrectionValid=" + offset.HasSideInspectionCorrection);
                 }
 
                 return offset;
@@ -531,7 +536,10 @@ namespace QMC.CDT320.VisionComm
                         ", ok=" + offset.IsOk +
                         ", dxMm=" + offset.OffsetX.ToString("F6") +
                         ", dyMm=" + offset.OffsetY.ToString("F6") +
-                        ", dt=" + offset.OffsetT.ToString("F6"));
+                        ", dt=" + offset.OffsetT.ToString("F6") +
+                        ", sideVisionYOffsetMm=" + offset.SideVisionYOffset.ToString("F6") +
+                        ", pickerZOffsetMm=" + offset.PickerZOffset.ToString("F6") +
+                        ", sideCorrectionValid=" + offset.HasSideInspectionCorrection);
                 }
 
                 return offset;
@@ -979,6 +987,9 @@ namespace QMC.CDT320.VisionComm
                 HasImageSize = true,
                 ImageWidthPixel = camera.ImageWidthPixel,
                 ImageHeightPixel = camera.ImageHeightPixel,
+                HasSideInspectionCorrection = channel == AutoVisionChannel.BottomInspection && simulateOffset,
+                SideVisionYOffset = channel == AutoVisionChannel.BottomInspection && simulateOffset ? NextSimulatedMmOffset(SimBottomSideVisionMaxYOffsetMm) : 0.0,
+                PickerZOffset = channel == AutoVisionChannel.BottomInspection && simulateOffset ? NextSimulatedMmOffset(SimBottomPickerZMaxOffsetMm) : 0.0,
                 RawError = simulateOffset ? "SIMULATION:VisionPixelOffset" : "BYPASS:VisionDisabled"
             };
         }
@@ -1042,6 +1053,14 @@ namespace QMC.CDT320.VisionComm
             }
         }
 
+        private static double NextSimulatedMmOffset(double maxAbsOffset)
+        {
+            lock (SimVisionRandomLock)
+            {
+                return ((SimVisionRandom.NextDouble() * 2.0) - 1.0) * maxAbsOffset;
+            }
+        }
+
         private static double NextSimulatedScore()
         {
             lock (SimVisionRandomLock)
@@ -1084,7 +1103,10 @@ namespace QMC.CDT320.VisionComm
                 ", ok=" + result.IsOk +
                 ", dxMm=" + result.OffsetX.ToString("F6") +
                 ", dyMm=" + result.OffsetY.ToString("F6") +
-                ", dt=" + result.OffsetT.ToString("F6"));
+                ", dt=" + result.OffsetT.ToString("F6") +
+                ", sideVisionYOffsetMm=" + result.SideVisionYOffset.ToString("F6") +
+                ", pickerZOffsetMm=" + result.PickerZOffset.ToString("F6") +
+                ", sideCorrectionValid=" + result.HasSideInspectionCorrection);
         }
 
         private static void LogSimulatedInspectionResult(

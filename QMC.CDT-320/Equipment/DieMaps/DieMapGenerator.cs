@@ -36,6 +36,12 @@ namespace QMC.CDT320.DieMaps
 
             double pitch = pitchMm > 0.0 ? pitchMm : 1.0;
             double dieSize = dieSizeMm > 0.0 ? dieSizeMm : pitch;
+            if (Math.Abs(dieSize - pitch) < 0.000001)
+            {
+                int pitchCount = (int)Math.Round(outerDiameterMm / pitch, MidpointRounding.AwayFromZero);
+                return Math.Max(1, pitchCount);
+            }
+
             int count = (int)Math.Floor(Math.Max(0.0, outerDiameterMm - dieSize) / pitch) + 1;
             return Math.Max(1, count);
         }

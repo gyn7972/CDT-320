@@ -1159,37 +1159,26 @@ namespace QMC.CDT320.Sequencing
                     return;
 
                 bool fallbackMap = map.RowCount <= 1 && map.ColumnCount <= 1;
-                if (fallbackMap)
+                bool pitchGridResolved = TryResolvePitchBasedGrid(spec, out int pitchGridX, out int pitchGridY);
+                bool pitchGridMismatch = pitchGridResolved &&
+                                         (map.ColumnCount != pitchGridX || map.RowCount != pitchGridY);
+                if (fallbackMap || pitchGridMismatch)
                 {
-                    map.RowCount = Math.Max(1, spec.DieMapY);
-                    map.ColumnCount = Math.Max(1, spec.DieMapX);
-                    map.DieMap = new bool[map.RowCount, map.ColumnCount];
-                    for (int row = 0; row < map.RowCount; row++)
-                    {
-                        for (int col = 0; col < map.ColumnCount; col++)
-                            map.DieMap[row, col] = true;
-                    }
+                    int columnCount = pitchGridResolved ? pitchGridX : Math.Max(1, spec.DieMapX);
+                    int rowCount = pitchGridResolved ? pitchGridY : Math.Max(1, spec.DieMapY);
+                    RebuildFullWaferMap(map, rowCount, columnCount);
                 }
 
                 bool invalidRefPair = map.Ref1Row == map.Ref2Row && map.Ref1Col == map.Ref2Col;
-                if (fallbackMap || invalidRefPair)
-                {
-                    int centerRow = map.RowCount / 2;
-                    int leftCol = map.ColumnCount > 1 ? Math.Max(0, map.ColumnCount / 4) : 0;
-                    int rightCol = map.ColumnCount > 1 ? Math.Min(map.ColumnCount - 1, (map.ColumnCount * 3) / 4) : 0;
-                    if (rightCol == leftCol && map.ColumnCount > 1)
-                        rightCol = map.ColumnCount - 1;
-
-                    map.Ref1Row = centerRow;
-                    map.Ref1Col = leftCol;
-                    map.Ref2Row = centerRow;
-                    map.Ref2Col = rightCol;
-                }
+                if (fallbackMap || pitchGridMismatch || invalidRefPair)
+                    ApplyDefaultRefPair(map);
 
                 WriteLog("InputStageAlignSequence",
                     "Frame spec applied to align map. spec=" + spec.Name +
                     ", dieMapX=" + spec.DieMapX +
                     ", dieMapY=" + spec.DieMapY +
+                    ", alignMapX=" + map.ColumnCount +
+                    ", alignMapY=" + map.RowCount +
                     ", pitchX=" + spec.PitchX.ToString("F6") +
                     ", pitchY=" + spec.PitchY.ToString("F6") + " - Ok");
             }
@@ -1199,6 +1188,36 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+            }
+        }
+
+        private static bool TryResolvePitchBasedGrid(TapeFrameSpec spec, out int gridX, out int gridY)
+        {
+            gridX = 0;
+            gridY = 0;
+            if (spec == null ||
+                spec.OuterDiameterMm <= 0.0 ||
+                spec.PitchX <= 0.0 ||
+                spec.PitchY <= 0.0)
+                return false;
+
+            gridX = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, spec.PitchX, spec.PitchX);
+            gridY = DieMapGenerator.CalculateWaferGridCount(spec.OuterDiameterMm, spec.PitchY, spec.PitchY);
+            return gridX > 0 && gridY > 0;
+        }
+
+        private static void RebuildFullWaferMap(WaferMapData map, int rowCount, int columnCount)
+        {
+            if (map == null)
+                return;
+
+            map.RowCount = Math.Max(1, rowCount);
+            map.ColumnCount = Math.Max(1, columnCount);
+            map.DieMap = new bool[map.RowCount, map.ColumnCount];
+            for (int row = 0; row < map.RowCount; row++)
+            {
+                for (int col = 0; col < map.ColumnCount; col++)
+                    map.DieMap[row, col] = true;
             }
         }
 

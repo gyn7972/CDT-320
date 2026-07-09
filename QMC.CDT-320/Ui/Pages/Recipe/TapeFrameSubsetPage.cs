@@ -327,19 +327,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             bool mmMode = string.Equals(edgeMode, "Millimeter", StringComparison.OrdinalIgnoreCase);
 
             frame.FrameSpecName = string.IsNullOrWhiteSpace(_tbName.Text) ? "8inch_5x5" : _tbName.Text.Trim();
-            frame.DieMapX = (int)_nGridX.Value;
-            frame.DieMapY = (int)_nGridY.Value;
             frame.PitchX = (double)_nPitchX.Value;
             frame.PitchY = (double)_nPitchY.Value;
             frame.DieSizeX = (double)_nDieSizeX.Value;
             frame.DieSizeY = (double)_nDieSizeY.Value;
             frame.OuterDiameterMm = (double)_nDiameter.Value;
+            frame.DieMapX = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchX, (int)_nGridX.Value);
+            frame.DieMapY = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchY, (int)_nGridY.Value);
             frame.EdgeSkipMode = edgeMode;
             frame.SideEdgeSkip = !mmMode ? Math.Max(0, (int)Math.Floor(_nSideEdgeSkip.Value)) : 0;
             frame.TopBottomEdgeSkip = !mmMode ? Math.Max(0, (int)Math.Floor(_nTopBottomEdgeSkip.Value)) : 0;
             frame.SideEdgeSkipMm = mmMode ? Math.Max(0.0, (double)_nSideEdgeSkip.Value) : 0.0;
             frame.TopBottomEdgeSkipMm = mmMode ? Math.Max(0.0, (double)_nTopBottomEdgeSkip.Value) : 0.0;
             frame.Rotate = _cbRotate.SelectedItem != null ? _cbRotate.SelectedItem.ToString() : "None";
+            _nGridX.Value = ClampDecimal(frame.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(frame.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
+        }
+
+        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm, int fallback)
+        {
+            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
+                return Math.Max(1, fallback);
+
+            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private void SaveControlsToSelectedRole()

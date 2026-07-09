@@ -1848,15 +1848,15 @@ namespace QMC.CDT320.Materials
                     : null;
                 if (spec != null)
                 {
-                    dieMapX = spec.DieMapX;
-                    dieMapY = spec.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchX, spec.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchY, spec.DieMapY);
                     pitchX = spec.PitchX;
                     pitchY = spec.PitchY;
                 }
                 else if (project != null && project.Frame != null)
                 {
-                    dieMapX = project.Frame.DieMapX;
-                    dieMapY = project.Frame.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchX, project.Frame.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchY, project.Frame.DieMapY);
                     pitchX = project.Frame.PitchX;
                     pitchY = project.Frame.PitchY;
                 }
@@ -4725,11 +4725,13 @@ namespace QMC.CDT320.Materials
                 return;
 
             EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
+            int dieMapX = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchX, frame.DieMapX);
+            int dieMapY = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchY, frame.DieMapY);
 
             MaterialSpecs.UpsertFrame(
                 specName,
-                frame.DieMapX,
-                frame.DieMapY,
+                dieMapX,
+                dieMapY,
                 frame.PitchX,
                 frame.PitchY,
                 frame.DieSizeX,
@@ -4742,6 +4744,14 @@ namespace QMC.CDT320.Materials
                 frame.TopBottomEdgeSkipMm,
                 mapFileName,
                 project.Die != null ? project.Die.DieSpecName ?? "" : "");
+        }
+
+        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm, int fallback)
+        {
+            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
+                return Math.Max(1, fallback);
+
+            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private static void EnsureDieSpecFromRecipe(RecipeProject project, string specName)
