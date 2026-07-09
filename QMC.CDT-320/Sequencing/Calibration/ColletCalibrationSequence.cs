@@ -935,7 +935,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                     }
 
                     double targetX = actualX - offsetMmX * _settings.XyMoveGainX;
-                    double targetY = actualY + offsetMmY * _settings.XyMoveGainY;
+                    double targetY = actualY - offsetMmY * _settings.XyMoveGainY;
                     QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalXy",
                         label + " 이동. side=" + _calibrationSide +
                         ", colletNo=" + _colletNo +
@@ -945,7 +945,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                         ", scale=(" + camera.PixelToMmX.ToString("F9") + "," + camera.PixelToMmY.ToString("F9") + ")" +
                         ", offsetMm=(" + offsetMmX.ToString("F6") + "," + offsetMmY.ToString("F6") + ")" +
                         ", formulaX=targetX=actualX-offsetMmX*gainX=" + actualX.ToString("F6") + "-" + offsetMmX.ToString("F6") + "*" + _settings.XyMoveGainX.ToString("F6") + "=" + targetX.ToString("F6") +
-                        ", formulaY=targetY=actualY+offsetMmY*gainY=" + actualY.ToString("F6") + "+" + offsetMmY.ToString("F6") + "*" + _settings.XyMoveGainY.ToString("F6") + "=" + targetY.ToString("F6"));
+                        ", formulaY=targetY=actualY+offsetMmY*gainY=" + actualY.ToString("F6") + "-" + offsetMmY.ToString("F6") + "*" + _settings.XyMoveGainY.ToString("F6") + "=" + targetY.ToString("F6"));
 
                     var xyTargets = new Dictionary<PickerAxis, double>();
                     xyTargets[PickerAxis.PickerX] = targetX;
