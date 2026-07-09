@@ -1664,17 +1664,18 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                DieMap activeMap = LotStorage.ActiveInputDieMap;
-                if (IsUsableSourceMap(activeMap))
-                    return activeMap;
+                // 현재 기준: 새 wafer align 소스는 recipe/current wafer를 우선하고 이전 active map은 마지막 fallback으로만 사용한다.
+                DieMap recipeMap = LoadRecipeInputDieMap();
+                if (IsUsableSourceMap(recipeMap))
+                    return recipeMap;
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
                     return materialMap;
 
-                DieMap recipeMap = LoadRecipeInputDieMap();
-                if (IsUsableSourceMap(recipeMap))
-                    return recipeMap;
+                DieMap activeMap = LotStorage.ActiveInputDieMap;
+                if (IsUsableSourceMap(activeMap))
+                    return activeMap;
 
                 return null;
             }

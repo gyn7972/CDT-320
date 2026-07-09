@@ -230,6 +230,24 @@ namespace QMC.CDT320
             }
         }
 
+        public void ClearInputDieMap(string reason)
+        {
+            try
+            {
+                _inputDieMap = null;
+                _inputPickupSequence.Clear();
+                QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = null;
+                Log("[PICKSEQ] Input DieMap cleared. reason=" + (reason ?? ""));
+            }
+            catch (Exception ex)
+            {
+                Log("[PICKSEQ] Input DieMap clear failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>Input/Output 다이맵을 생성합니다. 이미 생성되어 있으면 기존 맵을 재사용합니다.</summary>
         public void EnsureDieMaps()
         {

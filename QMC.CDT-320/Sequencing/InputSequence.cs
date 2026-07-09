@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -1909,7 +1910,16 @@ namespace QMC.CDT320.Sequencing
             {
                 var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
                 if (stage != null)
+                {
+                    stage.ClearCurrentWaferMaterial();
                     stage.ClearCurrentWaferMap();
+                }
+
+                // 현재 기준: InputStage가 비워질 때 이전 wafer active map도 같이 비워 다음 wafer와 섞이지 않게 한다.
+                if (Context != null && Context.Controller != null)
+                    Context.Controller.ClearInputDieMap("InputSequence.ClearInputStageRuntime");
+                else
+                    LotStorage.ActiveInputDieMap = null;
             }
             catch (Exception ex)
             {

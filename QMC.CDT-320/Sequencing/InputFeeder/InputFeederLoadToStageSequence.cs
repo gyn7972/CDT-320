@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 
 using QMC.CDT320.Interlocks;
@@ -364,6 +365,12 @@ namespace QMC.CDT320.Sequencing
             WaferMaterial wafer = ResolveFeederWafer();
             if (wafer == null)
                 return Fail("IN-FEEDER-MATERIAL-MOVE", "Material", "Input feeder wafer data was not found for stage material move.");
+
+            // 현재 기준: 새 wafer를 Stage에 올리기 전 이전 Input active map을 지워 stale map 표시/재사용을 막는다.
+            if (Context != null && Context.Controller != null)
+                Context.Controller.ClearInputDieMap("InputFeederLoadToStageSequence.MoveMaterialDataToStage");
+            else
+                LotStorage.ActiveInputDieMap = null;
 
             MaterialStateService.MoveWaferToInputStage(wafer);
 

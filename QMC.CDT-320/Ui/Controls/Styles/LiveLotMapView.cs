@@ -231,20 +231,15 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
                 }
 
+                // 현재 기준: Stage wafer가 아직 맵핑 전이면 이전 wafer map을 표시하지 않는다.
+                LotStorage.ActiveInputDieMap = null;
                 _displayMap = null;
                 _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
                 return;
             }
 
-            DieMap active = LotStorage.ActiveInputDieMap;
-            if (active != null)
-            {
-                DieMapGenerator.Normalize(active);
-                Dictionary<string, LiveDieMapCellState> states;
-                _displayMap = BuildDisplayMapFromMaterialState(active, null, out states);
-                _displayStates = states;
-                return;
-            }
+            // 현재 기준: Stage wafer가 없으면 live input map은 비운다.
+            LotStorage.ActiveInputDieMap = null;
 
             if (dirtyEvent || _displayMap == null)
             {
