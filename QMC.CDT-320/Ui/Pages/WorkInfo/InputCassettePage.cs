@@ -1189,7 +1189,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return;
 
             view.Title = title;
-            view.EmptyColor = Color.Lime;
+            view.EmptyColor = CassetteSlotView.EmptyStateColor;
             view.Enabled = active;
             view.SetSlotCount(slotCount);
             view.UpdateMaterialSlots(active ? items : null);
@@ -1366,23 +1366,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 {
                     // READY 슬롯 색상
                     case WaferMaterialState.Ready:
-                        return Color.Cyan;
+                        return CassetteSlotView.ReadyStateColor;
                     // WORK READY 슬롯 색상
                     case WaferMaterialState.WorkReady:
-                        return Color.Navy;
+                        return CassetteSlotView.WorkReadyStateColor;
                     // WORKING 슬롯 색상
                     case WaferMaterialState.Working:
-                        return Color.Orange;
+                        return CassetteSlotView.WorkingStateColor;
                     // FINISH 슬롯 색상
                     case WaferMaterialState.Finish:
-                        return Color.Red;
+                        return CassetteSlotView.FinishStateColor;
                     default:
-                        return Color.Lime;
+                        return CassetteSlotView.EmptyStateColor;
                 }
             }
             catch
             {
-                return Color.Lime;
+                return CassetteSlotView.EmptyStateColor;
             }
             finally
             {

@@ -15,6 +15,12 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly ToolStripMenuItem _moveSlotMenuItem;
         private int _contextSlotIndex = -1;
 
+        public static readonly Color ReadyStateColor = Color.Cyan;
+        public static readonly Color EmptyStateColor = Color.Gainsboro;
+        public static readonly Color WorkingStateColor = Color.Orange;
+        public static readonly Color FinishStateColor = Color.MediumSeaGreen;
+        public static readonly Color WorkReadyStateColor = Color.Navy;
+
         public CassetteSlotView()
         {
             InitializeComponent();
@@ -31,7 +37,7 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler<CassetteSlotSelectedEventArgs> SlotSelected;
         public event EventHandler<CassetteSlotSelectedEventArgs> SlotMoveRequested;
 
-        public Color EmptyColor { get; set; } = Color.LightGray;
+        public Color EmptyColor { get; set; } = EmptyStateColor;
 
         public string Title
         {
@@ -214,7 +220,7 @@ namespace QMC.CDT_320.Ui.Controls
                     : WaferMaterialState.Empty;
 
                 Color backColor = known ? ResolveStateColor(state) : Color.White;
-                Color foreColor = known && state == WaferMaterialState.WorkReady ? Color.White : Color.Black;
+                Color foreColor = ResolveStateForeColor(state);
                 string text = known ? BuildSlotText(state, item.WaferId) : "-";
 
                 var label = _slotStateLabels[i];
@@ -279,19 +285,28 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 // READY 슬롯 색상
                 case WaferMaterialState.Ready:
-                    return Color.Cyan;
+                    return ReadyStateColor;
                 // WORKING 슬롯 색상
                 case WaferMaterialState.Working:
-                    return Color.Orange;
+                    return WorkingStateColor;
                 // FINISH 슬롯 색상
                 case WaferMaterialState.Finish:
-                    return Color.Red;
+                    return FinishStateColor;
                 // WORK READY 슬롯 색상
                 case WaferMaterialState.WorkReady:
-                    return Color.Navy;
+                    return WorkReadyStateColor;
                 default:
-                    return Color.Lime;
+                    return EmptyStateColor;
             }
+        }
+
+        private static Color ResolveStateForeColor(WaferMaterialState state)
+        {
+            WaferMaterialState normalized = WaferMaterialStateText.Normalize(state);
+            return normalized == WaferMaterialState.Finish ||
+                   normalized == WaferMaterialState.WorkReady
+                ? Color.White
+                : Color.Black;
         }
 
         private static string BuildSlotText(WaferMaterialState state, string waferId)

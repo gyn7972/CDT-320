@@ -6,6 +6,8 @@ using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
 using QMC.CDT320.Calibration;
+using QMC.CDT320.Interlocks;
+using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
 using QMC.CDT320.Sequencing.Calibration;
 using QMC.CDT_320.Ui.Controls;
@@ -38,7 +40,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             MoveAcceleration,
             MoveDeceleration,
             MoveTimeout,
-            AutoFocus
+            AutoFocus,
+            ColletZApply,
+            ColletType,
+            ColletDieCalThickness,
+            ColletBestFocusApplyOffset,
+            ColletFlatZOffset,
+            ColletRimOffsetFromFlat,
+            ColletLastAppliedOffset
         }
 
         private sealed class SettingInfo
@@ -50,6 +59,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             public bool Numeric;
             public bool Integer;
             public string[] Options;
+            public bool ReadOnly;
+        }
+
+        private sealed class ManualMoveResult
+        {
+            public int Result;
+            public double Target;
         }
 
         private static readonly string[] SideOptions = { "Front", "Rear" };
@@ -78,6 +94,13 @@ namespace QMC.CDT_320.Ui.Dialogs
         private double _moveDeceleration = CalibrationMotionSettings.DefaultMoveDeceleration;
         private int _moveTimeoutMs = CalibrationMotionSettings.DefaultMoveTimeoutMs;
         private bool _autoFocus = true;
+        private bool _colletZApply;
+        private ColletShapeType _colletType = ColletShapeType.Flat;
+        private double _colletDieCalThicknessMm;
+        private double _colletBestFocusApplyOffsetMm;
+        private double _colletFlatZOffsetMm;
+        private double _colletRimOffsetFromFlatMm;
+        private double _colletLastAppliedOffsetMm;
         private CancellationTokenSource _runCts;
 
         public static ColletCalibrationDialog Open(IWin32Window owner)
@@ -114,7 +137,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void ApplyButtonStyle()
         {
             CalibrationDialogButtonStyle.ApplyFooterButtons(
-                new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnReload, btnClose },
+                new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnMoveZForward, btnMoveYAvoid, btnReload, btnClose },
                 new[] { btnStart },
                 new[] { btnSave });
         }
@@ -156,7 +179,7 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             DataGridViewRow row = gridSettings.Rows[e.RowIndex];
             SettingInfo info = row != null ? row.Tag as SettingInfo : null;
-            if (info != null && info.Numeric)
+            if (info != null && (info.Numeric || info.ReadOnly))
                 e.Cancel = true;
         }
 
@@ -169,7 +192,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 DataGridViewRow row = gridSettings.Rows[e.RowIndex];
                 SettingInfo info = row.Tag as SettingInfo;
-                if (info == null || info.Numeric)
+                if (info == null || info.Numeric || info.ReadOnly)
                     return;
 
                 ApplySettingValue(row);
@@ -192,6 +215,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             DataGridViewRow row = gridSettings.Rows[e.RowIndex];
             SettingInfo info = row.Tag as SettingInfo;
             if (info == null)
+                return;
+
+            if (info.ReadOnly)
                 return;
 
             if (!info.Numeric)
@@ -265,6 +291,16 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void btnApplyHomeOffset_Click(object sender, EventArgs e)
         {
             ApplySelectedTHomeOffset();
+        }
+
+        private async void btnMoveZForward_Click(object sender, EventArgs e)
+        {
+            await RunMoveZForwardAsync().ConfigureAwait(true);
+        }
+
+        private async void btnMoveYAvoid_Click(object sender, EventArgs e)
+        {
+            await RunMoveYAvoidAsync().ConfigureAwait(true);
         }
 
         private void btnReload_Click(object sender, EventArgs e)
@@ -401,6 +437,154 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private async Task RunMoveZForwardAsync()
+        {
+            if (_busy)
+                return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+
+                string editReason;
+                if (!CommitSettingGridEdits(out editReason))
+                {
+                    lblStatus.Text = editReason;
+                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string reason;
+                if (!CanRunManualCalibration(out reason))
+                {
+                    lblStatus.Text = reason;
+                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host = ResolveHost(out reason);
+                if (host == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                runCts = BeginManualCalibrationRun(host, "MoveZForward", out actionScope, out stopHandler);
+                ManualMoveResult moveResult;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCalibrationDialog.MoveZForward"))
+                {
+                    moveResult = await MoveSelectedColletZToFocusDefaultAsync(host.Machine).ConfigureAwait(true);
+                }
+                runCts.Token.ThrowIfCancellationRequested();
+
+                PickerAxis zAxis = ResolvePickerZAxis(_colletNo);
+                lblStatus.Text = moveResult.Result == 0
+                    ? "Collet Z 전진 이동 완료. side=" + _side + ", collet=" + _colletNo + ", axis=" + zAxis + ", target=" + moveResult.Target.ToString("F6")
+                    : "Collet Z 전진 이동 실패. Alarm/Event Log를 확인하세요.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-Z-MOVE",
+                    lblStatus.Text + ", result=" + moveResult.Result);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Collet Z 전진 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Collet Z 전진 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-Z-MOVE-EX", lblStatus.Text);
+            }
+            finally
+            {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
+
+        private async Task RunMoveYAvoidAsync()
+        {
+            if (_busy)
+                return;
+
+            Form1 host = null;
+            Action stopHandler = null;
+            IDisposable actionScope = null;
+            CancellationTokenSource runCts = null;
+
+            try
+            {
+                _busy = true;
+                SetButtonsEnabled(false);
+
+                string editReason;
+                if (!CommitSettingGridEdits(out editReason))
+                {
+                    lblStatus.Text = editReason;
+                    QMC.Common.MessageDialog.Show(this, editReason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string reason;
+                if (!CanRunManualCalibration(out reason))
+                {
+                    lblStatus.Text = reason;
+                    QMC.Common.MessageDialog.Show(this, reason, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                host = ResolveHost(out reason);
+                if (host == null)
+                {
+                    lblStatus.Text = reason;
+                    return;
+                }
+
+                runCts = BeginManualCalibrationRun(host, "MoveYAvoid", out actionScope, out stopHandler);
+                int result;
+                using (MotionGuardRuntime.BeginManualSequenceProcessMove("ColletCalibrationDialog.MoveYAvoid"))
+                {
+                    if (!IsSelectedColletZInAvoidPosition(host.Machine))
+                    {
+                        lblStatus.Text = "Picker Y Avoid 이동 전 선택 Collet Z를 먼저 Avoid 위치로 이동하세요.";
+                        QMC.Common.MessageDialog.Show(this, lblStatus.Text, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    result = await MoveSelectedPickerYToAvoidAsync(host.Machine).ConfigureAwait(true);
+                }
+                runCts.Token.ThrowIfCancellationRequested();
+
+                lblStatus.Text = result == 0
+                    ? "Picker Y Avoid 이동 완료. side=" + _side
+                    : "Picker Y Avoid 이동 실패. Alarm/Event Log를 확인하세요.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-PICKER-Y-AVOID",
+                    lblStatus.Text + ", result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                lblStatus.Text = "Picker Y Avoid 이동이 정지 요청으로 중단되었습니다.";
+                EventLogger.Write(EventKind.Event, "CAL", "COLLET-CAL-STOP", lblStatus.Text);
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Picker Y Avoid 이동 예외 발생: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-CAL-PICKER-Y-AVOID-EX", lblStatus.Text);
+            }
+            finally
+            {
+                EndManualCalibrationRun(host, stopHandler, runCts, actionScope);
+                _busy = false;
+                SetButtonsEnabled(true);
+            }
+        }
+
         private void LoadSettingsToUi()
         {
             try
@@ -434,6 +618,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _moveDeceleration = settings.Motion.MoveDeceleration;
                 _moveTimeoutMs = settings.Motion.MoveTimeoutMs;
                 _autoFocus = settings.RunAutoFocusAfterTheta;
+
+                RecipeProject project = LoadActiveProject(host);
+                if (project != null)
+                {
+                    if (project.ColletZ == null)
+                        project.ColletZ = new ColletZConfigSubset();
+                    project.ColletZ.Ensure();
+                    _colletZApply = project.ColletZ.Enable;
+                    _colletType = project.ColletZ.ColletType;
+                    _colletDieCalThicknessMm = project.ColletZ.DieCalThicknessMm;
+                    _colletBestFocusApplyOffsetMm = project.ColletZ.BestFocusApplyOffsetMm;
+                    _colletFlatZOffsetMm = project.ColletZ.FlatZOffsetMm;
+                    _colletRimOffsetFromFlatMm = project.ColletZ.RimOffsetFromFlatMm;
+                    _colletLastAppliedOffsetMm = project.ColletZ.LastAppliedOffsetMm;
+                }
             }
             catch (Exception ex)
             {
@@ -493,6 +692,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _moveAcceleration = data.Settings.Motion.MoveAcceleration;
                 _moveDeceleration = data.Settings.Motion.MoveDeceleration;
                 _moveTimeoutMs = data.Settings.Motion.MoveTimeoutMs;
+                string projectSaveMessage;
+                if (!SaveActiveProjectColletZ(host, false, out projectSaveMessage))
+                {
+                    lblStatus.Text = projectSaveMessage;
+                    if (showMessage)
+                        QMC.Common.MessageDialog.Show(this, projectSaveMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return false;
+                }
                 host.SaveMachineSettings();
                 QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalSaveSettings",
                     "Collet Calibration 설정 저장. side=" + _side +
@@ -552,6 +759,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                     SettingInfo info = row.Tag as SettingInfo;
                     if (info == null)
                         continue;
+                    if (info.ReadOnly)
+                        continue;
 
                     if (!ApplySettingRowValue(row, info, out reason))
                         return false;
@@ -572,6 +781,9 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool ApplySettingRowValue(DataGridViewRow row, SettingInfo info, out string reason)
         {
             reason = string.Empty;
+            if (info.ReadOnly)
+                return true;
+
             if (!info.Numeric)
             {
                 ApplySettingValue(row);
@@ -616,6 +828,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateNumber(SettingKey.MoveDeceleration, "Move Dec", "mm/s2", "Collet Calibration 전용 이동 감속도입니다. 축 인터락은 기존 규칙을 그대로 탑니다.", false), _moveDeceleration.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MoveTimeout, "Move Timeout", "ms", "Collet Calibration 전용 이동 완료/인포지션 대기 시간입니다.", true), _moveTimeoutMs.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateOption(SettingKey.AutoFocus, "AutoFocus", "True이면 Bottom 위치 진입 후 저장된 Focus Cal 기준에서 AutoFocus를 수행하고 Best Z로 이동한 뒤 Collet 검출을 시작합니다. False이면 저장된 Focus Cal Default Z만 사용합니다.", BoolOptions), _autoFocus ? "True" : "False");
+                AddSettingRow(CreateOption(SettingKey.ColletZApply, "Collet Z Apply", "True이면 SAVE BOTTOM POS 저장 시 Best Z 기준값에 레시피 Collet Type별 Z Offset을 적용해 Picker Z 티칭값을 저장합니다.", BoolOptions), _colletZApply ? "True" : "False");
+                AddSettingRow(CreateReadOnly(SettingKey.ColletType, "Collet Type", "", "Recipe Project에서 선택한 Collet Type입니다. 이 값은 Project 페이지에서 변경합니다."), _colletType.ToString());
+                AddSettingRow(CreateNumber(SettingKey.ColletDieCalThickness, "Collet Die Cal Thickness", "mm", "콜렛 다이 캘리브레이션 시 AutoFocus 기준으로 사용할 다이 두께입니다.", false), _colletDieCalThicknessMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletBestFocusApplyOffset, "Best Focus Apply Offset", "mm", "Best Focus에서 찾은 Z 위치에 더해 최종 저장 기준으로 사용할 Offset입니다.", false), _colletBestFocusApplyOffsetMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletFlatZOffset, "Flat Z Offset", "mm", "Flat Collet 기준으로 Picker Z 티칭값에 적용할 Offset입니다.", false), _colletFlatZOffsetMm.ToString("F6"));
+                AddSettingRow(CreateNumber(SettingKey.ColletRimOffsetFromFlat, "Rim Offset From Flat", "mm", "Rim Collet일 때 Flat 기준 Offset에 추가로 더할 Offset입니다.", false), _colletRimOffsetFromFlatMm.ToString("F6"));
+                AddSettingRow(CreateReadOnly(SettingKey.ColletLastAppliedOffset, "Last Applied Z Offset", "mm", "마지막으로 Picker Z 티칭값에 반영된 총 Offset입니다. 중복 적용 방지를 위해 읽기 전용입니다."), _colletLastAppliedOffsetMm.ToString("F6"));
                 _loading = oldLoading;
             }
             catch
@@ -652,7 +871,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 row.Cells[colSettingValue.Index].Value = value;
             }
 
-            row.Cells[colSettingValue.Index].ReadOnly = info.Numeric;
+            row.Cells[colSettingValue.Index].ReadOnly = info.Numeric || info.ReadOnly;
         }
 
         private void ApplySettingValue(DataGridViewRow row)
@@ -674,6 +893,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.AutoFocus:
                     _autoFocus = value == "True";
+                    break;
+                case SettingKey.ColletZApply:
+                    _colletZApply = value == "True";
                     break;
                 case SettingKey.XyToleranceMode:
                     _useDiagonalXyTolerance = value != "Axis";
@@ -737,6 +959,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                     break;
                 case SettingKey.MoveTimeout:
                     _moveTimeoutMs = Math.Max(100, (int)Math.Round(value));
+                    break;
+                case SettingKey.ColletDieCalThickness:
+                    _colletDieCalThicknessMm = Math.Max(0.0, value);
+                    break;
+                case SettingKey.ColletBestFocusApplyOffset:
+                    _colletBestFocusApplyOffsetMm = value;
+                    break;
+                case SettingKey.ColletFlatZOffset:
+                    _colletFlatZOffsetMm = value;
+                    break;
+                case SettingKey.ColletRimOffsetFromFlat:
+                    _colletRimOffsetFromFlatMm = value;
                     break;
             }
         }
@@ -954,6 +1188,14 @@ namespace QMC.CDT_320.Ui.Dialogs
                 string offsetSummary;
                 bool offsetApplied = PickerVisionOffsetCalibrationService.TryApplyAvailableOffsets(machine, "ColletBottomTeaching", out offsetSummary);
 
+                string colletZMessage;
+                if (!SaveActiveProjectColletZ(host, true, out colletZMessage))
+                {
+                    lblStatus.Text = colletZMessage;
+                    QMC.Common.MessageDialog.Show(this, colletZMessage, "COLLET CAL", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 bool recipeSaved = host.SaveMachineRecipe(host.CurrentRecipeName);
                 host.SaveMachineSettings();
                 RefreshResultGrid();
@@ -973,10 +1215,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     ", tZeroResidual=actualT-baseBottomT=" + actualT.ToString("F6") + "-" + baseBottomT.ToString("F6") + "=" + tZeroResidual.ToString("F6") +
                     ", tZeroHomeOffset=activePcOffset+residual=" + activeTPcHomeOffset.ToString("F6") + "+" + tZeroResidual.ToString("F6") + "=" + tZeroHomeOffset.ToString("F6") +
                     ", validUnchanged=" + record.Valid +
+                    ", colletZ=" + colletZMessage +
                     ", recipeSaved=" + recipeSaved);
 
                 lblStatus.Text = recipeSaved
-                    ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6") + " (Active=" + activeTPcHomeOffset.ToString("F6") + ", Residual=" + tZeroResidual.ToString("F6") + ")"
+                    ? "Bottom 검사 티칭 위치를 저장했습니다. TZero=" + tZeroHomeOffset.ToString("F6") + " (Active=" + activeTPcHomeOffset.ToString("F6") + ", Residual=" + tZeroResidual.ToString("F6") + "), " + colletZMessage
                     : "Bottom 검사 티칭 값은 메모리에 반영됐지만 Recipe 저장에 실패했습니다. Alarm/Event Log를 확인하세요.";
             }
             catch (Exception ex)
@@ -1249,6 +1492,251 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
         }
 
+        private CancellationTokenSource BeginManualCalibrationRun(
+            Form1 host,
+            string actionName,
+            out IDisposable actionScope,
+            out Action stopHandler)
+        {
+            if (host == null || host.Controller == null)
+                throw new InvalidOperationException("MachineController가 준비되지 않았습니다.");
+
+            actionScope = host.Controller.BeginManualActionScope(
+                ManualMotionScopeKind.ProcessSequence,
+                "ColletCalibration:" + actionName + ":" + _side + ":" + _colletNo);
+            CancellationTokenSource runCts = CancellationTokenSource.CreateLinkedTokenSource(host.Controller.ManualOperationToken);
+            _runCts = runCts;
+            stopHandler = delegate
+            {
+                try
+                {
+                    CancellationTokenSource cts = _runCts;
+                    if (cts != null && !cts.IsCancellationRequested)
+                        cts.Cancel();
+
+                    QMC.Common.Log.Write("Calibration", "SYSTEM", "ColletCalStop",
+                        "메인 STOP 요청으로 Collet Calibration 수동 이동 정지 요청. action=" + actionName +
+                        ", side=" + _side +
+                        ", colletNo=" + _colletNo);
+                }
+                catch
+                {
+                }
+            };
+            host.Controller.StopRequested += stopHandler;
+            return runCts;
+        }
+
+        private void EndManualCalibrationRun(
+            Form1 host,
+            Action stopHandler,
+            CancellationTokenSource runCts,
+            IDisposable actionScope)
+        {
+            if (host != null && host.Controller != null && stopHandler != null)
+                host.Controller.StopRequested -= stopHandler;
+
+            if (ReferenceEquals(_runCts, runCts))
+                _runCts = null;
+
+            if (runCts != null)
+                runCts.Dispose();
+
+            if (actionScope != null)
+                actionScope.Dispose();
+        }
+
+        private async Task<ManualMoveResult> MoveSelectedColletZToFocusDefaultAsync(CDT320_Machine machine)
+        {
+            double targetZ;
+            string reason;
+            if (!TryResolveBottomColletFocusDefaultPosition(machine, out targetZ, out reason))
+                throw new InvalidOperationException("Collet Z 전진 목표 위치를 찾을 수 없습니다. " + reason);
+
+            PickerAxis zAxis = ResolvePickerZAxis(_colletNo);
+            int result;
+            if (_side == VisionFocusPickerSide.Front)
+            {
+                if (machine == null || machine.PickerFrontUnit == null)
+                    return new ManualMoveResult { Result = -1, Target = targetZ };
+                result = await machine.PickerFrontUnit.MovePickerAxis(
+                    zAxis,
+                    targetZ,
+                    JogSpeedType.Custom,
+                    _moveVelocity,
+                    "ColletFocusDefault").ConfigureAwait(true);
+            }
+            else
+            {
+                if (machine == null || machine.PickerRearUnit == null)
+                    return new ManualMoveResult { Result = -1, Target = targetZ };
+                result = await machine.PickerRearUnit.MovePickerAxis(
+                    zAxis,
+                    targetZ,
+                    JogSpeedType.Custom,
+                    _moveVelocity,
+                    "ColletFocusDefault").ConfigureAwait(true);
+            }
+
+            return new ManualMoveResult { Result = result, Target = targetZ };
+        }
+
+        private async Task<int> MoveSelectedPickerYToAvoidAsync(CDT320_Machine machine)
+        {
+            if (machine == null)
+                return -1;
+
+            if (_side == VisionFocusPickerSide.Front)
+            {
+                if (machine.PickerFrontUnit == null)
+                    return -1;
+                if (machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return 0;
+                return await machine.PickerFrontUnit.MovePickerAxisToTeachingPosition(
+                    PickerAxis.PickerY,
+                    "AvoidPosition",
+                    JogSpeedType.Custom,
+                    _moveVelocity).ConfigureAwait(true);
+            }
+
+            if (machine.PickerRearUnit == null)
+                return -1;
+            if (machine.PickerRearUnit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                return 0;
+            return await machine.PickerRearUnit.MovePickerAxisToTeachingPosition(
+                PickerAxis.PickerY,
+                "AvoidPosition",
+                JogSpeedType.Custom,
+                _moveVelocity).ConfigureAwait(true);
+        }
+
+        private bool IsSelectedColletZInAvoidPosition(CDT320_Machine machine)
+        {
+            if (machine == null)
+                return false;
+
+            PickerAxis zAxis = ResolvePickerZAxis(_colletNo);
+            if (_side == VisionFocusPickerSide.Front)
+                return machine.PickerFrontUnit != null &&
+                       machine.PickerFrontUnit.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
+
+            return machine.PickerRearUnit != null &&
+                   machine.PickerRearUnit.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition");
+        }
+
+        private bool TryResolveBottomColletFocusDefaultPosition(CDT320_Machine machine, out double position, out string reason)
+        {
+            position = 0.0;
+            reason = string.Empty;
+            if (machine == null || machine.VisionUnit == null || machine.VisionUnit.Config == null)
+            {
+                reason = "Vision Focus Cal 설정 객체가 없습니다.";
+                return false;
+            }
+
+            VisionFocusCalibrationData focusData = machine.VisionUnit.Config.FocusCalibration;
+            if (focusData == null)
+            {
+                reason = "FocusCalibration 설정이 없습니다.";
+                return false;
+            }
+
+            focusData.EnsureObjects();
+            VisionFocusPositionRecord record = focusData.GetColletRecord(_side, _colletNo);
+            if (record == null || (!record.Valid && Math.Abs(record.DefaultPosition) <= 0.0000001))
+            {
+                reason = "recordValid=" + (record != null && record.Valid) +
+                         ", default=" + (record != null ? record.DefaultPosition.ToString("F6") : "null") +
+                         ", best=" + (record != null ? record.BestPosition.ToString("F6") : "null");
+                return false;
+            }
+
+            position = record.DefaultPosition;
+            return true;
+        }
+
+        private static RecipeProject LoadActiveProject(Form1 host)
+        {
+            RecipeProject project = null;
+            if (host != null && !string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                project = RecipeStore.Load(host.CurrentRecipeName);
+            if (project == null)
+                project = RecipeStore.LoadLastOrDefault();
+            if (project != null)
+            {
+                if (project.ColletZ == null)
+                    project.ColletZ = new ColletZConfigSubset();
+                project.ColletZ.Ensure();
+            }
+
+            return project;
+        }
+
+        private bool SaveActiveProjectColletZ(Form1 host, bool applyToMachineRecipe, out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                RecipeProject project = LoadActiveProject(host);
+                if (project == null || string.IsNullOrWhiteSpace(project.FileName))
+                {
+                    message = "현재 활성 Recipe Project를 찾을 수 없어 Collet Z 설정을 저장할 수 없습니다.";
+                    return false;
+                }
+
+                project.ColletZ.Ensure();
+                _colletType = project.ColletZ.ColletType;
+                project.ColletZ.Enable = _colletZApply;
+                project.ColletZ.DieCalThicknessMm = Math.Max(0.0, _colletDieCalThicknessMm);
+                project.ColletZ.BestFocusApplyOffsetMm = _colletBestFocusApplyOffsetMm;
+                project.ColletZ.FlatZOffsetMm = _colletFlatZOffsetMm;
+                project.ColletZ.RimOffsetFromFlatMm = _colletRimOffsetFromFlatMm;
+
+                // Collet Calibration에서는 Rim 높이 Offset만 Project에 보관한다.
+                // Recipe Z 티칭값 적용은 다른 Recipe 저장 흐름에서 승인 후 연결한다.
+                // RecipeColletZApplyResult applyResult = null;
+                // if (applyToMachineRecipe)
+                // {
+                //     if (host == null || host.Machine == null)
+                //     {
+                //         message = "장비가 준비되지 않아 Collet Z Offset을 Recipe Z 티칭값에 적용할 수 없습니다.";
+                //         return false;
+                //     }
+                //
+                //     if (!RecipeColletZApplyService.Apply(project, host.Machine, out applyResult))
+                //     {
+                //         message = applyResult != null ? applyResult.Message : "Collet Z Offset 적용 실패";
+                //         return false;
+                //     }
+                // }
+
+                if (!RecipeStore.Save(project))
+                {
+                    message = "Collet Z 설정 Project 저장 실패. project=" + project.FileName;
+                    return false;
+                }
+
+                _colletZApply = project.ColletZ.Enable;
+                _colletDieCalThicknessMm = project.ColletZ.DieCalThicknessMm;
+                _colletBestFocusApplyOffsetMm = project.ColletZ.BestFocusApplyOffsetMm;
+                _colletFlatZOffsetMm = project.ColletZ.FlatZOffsetMm;
+                _colletRimOffsetFromFlatMm = project.ColletZ.RimOffsetFromFlatMm;
+                _colletLastAppliedOffsetMm = project.ColletZ.LastAppliedOffsetMm;
+
+                message = "Collet Z 설정 저장 완료. project=" + project.FileName +
+                          ", type=" + project.ColletZ.ColletType +
+                          ", rimOffset=" + project.ColletZ.RimOffsetFromFlatMm.ToString("F6") +
+                          ", recipeApply=Disabled";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Collet Z 설정 저장/적용 실패: " + ex.Message;
+                EventLogger.Write(EventKind.Alarm, "CAL", "COLLET-Z-SAVE", message);
+                return false;
+            }
+        }
+
         private Form1 ResolveHost(out string reason)
         {
             reason = string.Empty;
@@ -1290,6 +1778,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStart.Enabled = enabled;
             btnSaveBottomTeaching.Enabled = enabled;
             btnApplyHomeOffset.Enabled = enabled;
+            btnMoveZForward.Enabled = enabled;
+            btnMoveYAvoid.Enabled = enabled;
             btnReload.Enabled = enabled;
             btnSave.Enabled = enabled;
             btnClose.Enabled = enabled;
@@ -1297,17 +1787,22 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private static SettingInfo CreateOption(SettingKey key, string name, string toolTip, string[] options)
         {
-            return new SettingInfo { Key = key, Name = name, Unit = string.Empty, ToolTip = toolTip, Numeric = false, Integer = false, Options = options };
+            return new SettingInfo { Key = key, Name = name, Unit = string.Empty, ToolTip = toolTip, Numeric = false, Integer = false, Options = options, ReadOnly = false };
         }
 
         private static SettingInfo CreateText(SettingKey key, string name, string toolTip)
         {
-            return new SettingInfo { Key = key, Name = name, Unit = string.Empty, ToolTip = toolTip, Numeric = false, Integer = false, Options = null };
+            return new SettingInfo { Key = key, Name = name, Unit = string.Empty, ToolTip = toolTip, Numeric = false, Integer = false, Options = null, ReadOnly = false };
         }
 
         private static SettingInfo CreateNumber(SettingKey key, string name, string unit, string toolTip, bool integer)
         {
-            return new SettingInfo { Key = key, Name = name, Unit = unit, ToolTip = toolTip, Numeric = true, Integer = integer, Options = null };
+            return new SettingInfo { Key = key, Name = name, Unit = unit, ToolTip = toolTip, Numeric = true, Integer = integer, Options = null, ReadOnly = false };
+        }
+
+        private static SettingInfo CreateReadOnly(SettingKey key, string name, string unit, string toolTip)
+        {
+            return new SettingInfo { Key = key, Name = name, Unit = unit, ToolTip = toolTip, Numeric = false, Integer = false, Options = null, ReadOnly = true };
         }
     }
 }

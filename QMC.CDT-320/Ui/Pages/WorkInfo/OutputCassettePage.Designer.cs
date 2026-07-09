@@ -621,7 +621,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // lblLegendEmptyColor
             // 
             this.lblLegendEmptyColor.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.lblLegendEmptyColor.BackColor = System.Drawing.Color.Lime;
+            this.lblLegendEmptyColor.BackColor = System.Drawing.Color.Gainsboro;
             this.lblLegendEmptyColor.Location = new System.Drawing.Point(8, 0);
             this.lblLegendEmptyColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendEmptyColor.Name = "lblLegendEmptyColor";
@@ -693,7 +693,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // lblLegendFinishColor
             // 
             this.lblLegendFinishColor.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.lblLegendFinishColor.BackColor = System.Drawing.Color.Red;
+            this.lblLegendFinishColor.BackColor = System.Drawing.Color.MediumSeaGreen;
             this.lblLegendFinishColor.Location = new System.Drawing.Point(8, 0);
             this.lblLegendFinishColor.Margin = new System.Windows.Forms.Padding(0);
             this.lblLegendFinishColor.Name = "lblLegendFinishColor";
@@ -768,7 +768,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._good1CassetteView.BackColor = System.Drawing.Color.White;
             this._good1CassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._good1CassetteView.EmptyColor = System.Drawing.Color.LightGray;
+            this._good1CassetteView.EmptyColor = System.Drawing.Color.Gainsboro;
             this._good1CassetteView.Location = new System.Drawing.Point(0, 0);
             this._good1CassetteView.Margin = new System.Windows.Forms.Padding(0);
             this._good1CassetteView.Name = "_good1CassetteView";
@@ -780,7 +780,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._good2CassetteView.BackColor = System.Drawing.Color.White;
             this._good2CassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._good2CassetteView.EmptyColor = System.Drawing.Color.LightGray;
+            this._good2CassetteView.EmptyColor = System.Drawing.Color.Gainsboro;
             this._good2CassetteView.Location = new System.Drawing.Point(272, 0);
             this._good2CassetteView.Margin = new System.Windows.Forms.Padding(0);
             this._good2CassetteView.Name = "_good2CassetteView";
@@ -792,7 +792,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this._ngCassetteView.BackColor = System.Drawing.Color.White;
             this._ngCassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._ngCassetteView.EmptyColor = System.Drawing.Color.LightGray;
+            this._ngCassetteView.EmptyColor = System.Drawing.Color.Gainsboro;
             this._ngCassetteView.Location = new System.Drawing.Point(544, 0);
             this._ngCassetteView.Margin = new System.Windows.Forms.Padding(0);
             this._ngCassetteView.Name = "_ngCassetteView";

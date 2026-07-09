@@ -545,14 +545,30 @@ namespace QMC.CDT320.Sequencing
                 if (config == null)
                     return 0;
 
+                bool delayModeRequested = config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs;
+                int requestedDelayMs = config.FlyingZStartDelayMs;
+                config.Ensure();
+                if (delayModeRequested)
+                {
+                    WriteLog("PickerBottomInspectionSequence",
+                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
+                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + requestedDelayMs +
+                        ", xRemaining=" + config.FlyingZStartXRemainingDistance.ToString("0.###") +
+                        ", pickerNo=" + _currentPickerNo + " - Check");
+                }
+
                 if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.Immediate)
                     return 0;
 
                 if (config.FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
                 {
-                    if (config.FlyingZStartDelayMs > 0)
-                        await Task.Delay(config.FlyingZStartDelayMs, ct).ConfigureAwait(false);
-                    return 0;
+                    WriteLog("PickerBottomInspectionSequence",
+                        Name + " Bottom Flying Z DelayMs 시작 모드는 장비 운전에서 사용하지 않습니다. " +
+                        "XRemainingDistance 기준으로 전환합니다. delayMs=" + config.FlyingZStartDelayMs +
+                        ", pickerNo=" + _currentPickerNo + " - Check");
+                    config.FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
+                    config.FlyingZStartDelayMs = 0;
+                    config.Ensure();
                 }
 
                 if (config.FlyingZStartMode != PickerBottomFlyingZStartMode.XRemainingDistance)

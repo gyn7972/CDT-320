@@ -42,6 +42,8 @@ namespace QMC.CDT320.Sequencing.Calibration
     {
         public int ResultCode { get; set; }
         public double DetectedPosition { get; set; }
+        public double FirstFlowOnPosition { get; set; }
+        public double StopPosition { get; set; }
         public int ElapsedMs { get; set; }
 
         public bool Success
@@ -849,6 +851,8 @@ namespace QMC.CDT320.Sequencing.Calibration
 
                 axis.UpdateStatus();
                 result.DetectedPosition = axis.ActualPosition;
+                result.FirstFlowOnPosition = result.DetectedPosition;
+                result.StopPosition = result.DetectedPosition;
                 result.ElapsedMs = (int)Math.Min(int.MaxValue, simWatch.ElapsedMilliseconds);
                 WriteLog("PickUpZCalibration",
                     "PickUpZ Calibration " + passName + " simulated Flow detected. side=" + Side +
@@ -871,117 +875,244 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return result;
             }
 
-            Stopwatch watch = Stopwatch.StartNew();
-            DateTime? stableSinceUtc = null;
-            bool detected = false;
+            int maxAttempts = Math.Max(1, Math.Min(3, Math.Max(1, _settings.RepeatCount)));
+            double currentStart = searchStart;
 
-            Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
-                _pickerZAxis,
-                searchLimit,
-                velocity,
-                _settings.Motion.MoveAcceleration,
-                _settings.Motion.MoveDeceleration,
-                SearchTargetName);
-
-            try
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
             {
-                while (!moveTask.IsCompleted)
+                string attemptName = passName;
+                if (attempt > 1)
+                    attemptName += "/Retry#" + (attempt - 1);
+
+                Stopwatch watch = Stopwatch.StartNew();
+                bool firstFlowOn = false;
+                double firstFlowOnPosition = 0.0;
+                double stopPosition = 0.0;
+
+                Task<int> moveTask = MovePickerAxisCommandWithMotionAsync(
+                    _pickerZAxis,
+                    searchLimit,
+                    velocity,
+                    _settings.Motion.MoveAcceleration,
+                    _settings.Motion.MoveDeceleration,
+                    SearchTargetName);
+
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
-                    if (Context != null)
-                        Context.StopIfCycleStopRequested(Name + ".SearchFlow." + passName);
-
-                    if (ReadPickerFlowState(_pickerNo))
+                    while (!moveTask.IsCompleted)
                     {
-                        if (!stableSinceUtc.HasValue)
-                            stableSinceUtc = DateTime.UtcNow;
+                        ct.ThrowIfCancellationRequested();
+                        if (Context != null)
+                            Context.StopIfCycleStopRequested(Name + ".SearchFlow." + attemptName);
 
-                        if ((DateTime.UtcNow - stableSinceUtc.Value).TotalMilliseconds >= _settings.FlowStableMs)
+                        if (ReadPickerFlowState(_pickerNo))
                         {
+                            axis.UpdateStatus();
+                            firstFlowOn = true;
+                            firstFlowOnPosition = axis.ActualPosition;
                             StopPickerZAxis();
-                            detected = true;
                             break;
                         }
+
+                        if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
+                        {
+                            StopPickerZAxis();
+                            break;
+                        }
+
+                        await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
                     }
-                    else
+
+                    int moveResult = await moveTask.ConfigureAwait(false);
+                    axis.UpdateStatus();
+
+                    if (!firstFlowOn && ReadPickerFlowState(_pickerNo))
                     {
-                        stableSinceUtc = null;
+                        firstFlowOn = true;
+                        firstFlowOnPosition = axis.ActualPosition;
                     }
 
-                    if (watch.ElapsedMilliseconds > _settings.Motion.MoveTimeoutMs)
+                    if (firstFlowOn)
                     {
-                        StopPickerZAxis();
-                        break;
+                        stopPosition = axis.ActualPosition;
+                        bool stable = await WaitPickerFlowStableAfterStopAsync(
+                            attemptName,
+                            firstFlowOnPosition,
+                            stopPosition,
+                            velocity,
+                            ct).ConfigureAwait(false);
+
+                        if (stable)
+                        {
+                            result.FirstFlowOnPosition = firstFlowOnPosition;
+                            result.StopPosition = stopPosition;
+                            result.DetectedPosition = stopPosition;
+                            result.ElapsedMs = (int)Math.Min(int.MaxValue, watch.ElapsedMilliseconds);
+                            WriteLog("PickUpZCalibration",
+                                "PickUpZ Calibration " + attemptName + " Flow detected after immediate stop. side=" + Side +
+                                ", pickerNo=" + _pickerNo +
+                                ", start=" + currentStart.ToString("F6") +
+                                ", limit=" + searchLimit.ToString("F6") +
+                                ", velocity=" + velocity.ToString("F6") +
+                                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                                ", stopZ=" + stopPosition.ToString("F6") +
+                                ", stopOverrun=" + (stopPosition - firstFlowOnPosition).ToString("F6") +
+                                ", stableMs=" + _settings.FlowStableMs +
+                                ", pollMs=" + _settings.FlowPollIntervalMs +
+                                ", elapsedMs=" + result.ElapsedMs + " - Ok");
+                            return result;
+                        }
+
+                        WriteLog("PickUpZCalibration",
+                            "PickUpZ Calibration " + attemptName + " Flow unstable after stop. BackOff/Blow reset and retry. side=" + Side +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", attempt=" + attempt +
+                            ", maxAttempts=" + maxAttempts + " - Check");
+
+                        if (attempt < maxAttempts)
+                        {
+                            double backOffTarget = CalculateBackOffTarget(stopPosition);
+                            int resetResult = await RunBackOffBlowResetAsync(
+                                stopPosition,
+                                backOffTarget,
+                                attempt,
+                                ct,
+                                "unstable flow retry").ConfigureAwait(false);
+                            if (resetResult != 0)
+                            {
+                                result.ResultCode = resetResult;
+                                return result;
+                            }
+
+                            currentStart = backOffTarget;
+                            continue;
+                        }
+
+                        result.ResultCode = Fail("PICKUP-Z-CAL-FLOW-UNSTABLE", Name,
+                            "PickUpZ Calibration Flow was detected but not stable after immediate stop. pass=" + attemptName +
+                            ", side=" + Side +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", stableMs=" + _settings.FlowStableMs +
+                            ", attempts=" + maxAttempts);
+                        return result;
                     }
 
-                    await Task.Delay(_settings.FlowPollIntervalMs, ct).ConfigureAwait(false);
-                }
-
-                int moveResult = await moveTask.ConfigureAwait(false);
-                axis.UpdateStatus();
-
-                if (!detected)
-                {
-                    if (ReadPickerFlowState(_pickerNo))
-                    {
-                        detected = true;
-                    }
-                    else if (moveResult != 0)
+                    if (moveResult != 0)
                     {
                         result.ResultCode = Fail("PICKUP-Z-CAL-Z-MOVE", Name,
-                            "PickUpZ Calibration search move failed. pass=" + passName +
+                            "PickUpZ Calibration search move failed. pass=" + attemptName +
                             ", result=" + moveResult +
                             ", " + BuildPickerAxisState(_pickerZAxis, searchLimit));
                         return result;
                     }
-                }
 
-                if (!detected)
-                {
                     result.ResultCode = Fail("PICKUP-Z-CAL-FLOW-NOT-DETECTED", Name,
-                        "PickUpZ Calibration Flow was not detected. pass=" + passName +
+                        "PickUpZ Calibration Flow was not detected. pass=" + attemptName +
                         ", side=" + Side +
                         ", pickerNo=" + _pickerNo +
-                        ", start=" + searchStart.ToString("F6") +
+                        ", start=" + currentStart.ToString("F6") +
                         ", limit=" + searchLimit.ToString("F6") +
                         ", actual=" + axis.ActualPosition.ToString("F6") +
                         ", timeoutMs=" + _settings.Motion.MoveTimeoutMs);
                     return result;
                 }
+                catch
+                {
+                    StopPickerZAxis();
+                    throw;
+                }
+                finally
+                {
+                    watch.Stop();
+                }
+            }
 
-                result.DetectedPosition = axis.ActualPosition;
-                result.ElapsedMs = (int)Math.Min(int.MaxValue, watch.ElapsedMilliseconds);
-                WriteLog("PickUpZCalibration",
-                    "PickUpZ Calibration " + passName + " Flow detected. side=" + Side +
-                    ", pickerNo=" + _pickerNo +
-                    ", start=" + searchStart.ToString("F6") +
-                    ", limit=" + searchLimit.ToString("F6") +
-                    ", velocity=" + velocity.ToString("F6") +
-                    ", flow=" + result.DetectedPosition.ToString("F6") +
-                    ", elapsedMs=" + result.ElapsedMs + " - Ok");
-                return result;
-            }
-            catch
+            result.ResultCode = Fail("PICKUP-Z-CAL-FLOW-NOT-DETECTED", Name,
+                "PickUpZ Calibration Flow search ended without result. pass=" + passName +
+                ", side=" + Side +
+                ", pickerNo=" + _pickerNo +
+                ", start=" + searchStart.ToString("F6") +
+                ", limit=" + searchLimit.ToString("F6"));
+            return result;
+        }
+
+        private async Task<bool> WaitPickerFlowStableAfterStopAsync(
+            string passName,
+            double firstFlowOnPosition,
+            double stopPosition,
+            double velocity,
+            CancellationToken ct)
+        {
+            int stableMs = Math.Max(0, _settings.FlowStableMs);
+            int pollMs = Math.Max(1, _settings.FlowPollIntervalMs);
+            if (stableMs <= 0)
+                return ReadPickerFlowState(_pickerNo);
+
+            int timeoutMs = Math.Max(stableMs + 100, stableMs + (pollMs * 4));
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            DateTime? stableSinceUtc = null;
+
+            while (DateTime.UtcNow <= deadline)
             {
-                StopPickerZAxis();
-                throw;
+                ct.ThrowIfCancellationRequested();
+                if (Context != null)
+                    Context.StopIfCycleStopRequested(Name + ".FlowStableAfterStop." + passName);
+
+                if (ReadPickerFlowState(_pickerNo))
+                {
+                    if (!stableSinceUtc.HasValue)
+                        stableSinceUtc = DateTime.UtcNow;
+
+                    if ((DateTime.UtcNow - stableSinceUtc.Value).TotalMilliseconds >= stableMs)
+                    {
+                        WriteLog("PickUpZCalibration",
+                            "PickUpZ Calibration Flow stable after stop. pass=" + passName +
+                            ", side=" + Side +
+                            ", pickerNo=" + _pickerNo +
+                            ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                            ", stopZ=" + stopPosition.ToString("F6") +
+                            ", stopOverrun=" + (stopPosition - firstFlowOnPosition).ToString("F6") +
+                            ", velocity=" + velocity.ToString("F6") +
+                            ", stableMs=" + stableMs +
+                            ", pollMs=" + pollMs + " - Ok");
+                        return true;
+                    }
+                }
+                else
+                {
+                    stableSinceUtc = null;
+                }
+
+                await Task.Delay(pollMs, ct).ConfigureAwait(false);
             }
-            finally
-            {
-                watch.Stop();
-            }
+
+            WriteLog("PickUpZCalibration",
+                "PickUpZ Calibration Flow stable check failed after stop. pass=" + passName +
+                ", side=" + Side +
+                ", pickerNo=" + _pickerNo +
+                ", firstOnZ=" + firstFlowOnPosition.ToString("F6") +
+                ", stopZ=" + stopPosition.ToString("F6") +
+                ", velocity=" + velocity.ToString("F6") +
+                ", stableMs=" + stableMs +
+                ", timeoutMs=" + timeoutMs + " - Check");
+            return false;
         }
 
         private async Task<int> RunBackOffBlowResetAsync(
             double detectedPosition,
             double backOffTarget,
             int repeatIndex,
-            CancellationToken ct)
+            CancellationToken ct,
+            string resetReason = "fine search")
         {
             int result = await MovePickerAxisAndVerifyAsync(
                 _pickerZAxis,
                 backOffTarget,
-                "PickUpZ Calibration Z-only BackOff before fine search #" + repeatIndex,
+                "PickUpZ Calibration Z-only BackOff before " + resetReason + " #" + repeatIndex,
                 ct,
                 SearchTargetName).ConfigureAwait(false);
             if (result != 0)
@@ -992,6 +1123,7 @@ namespace QMC.CDT320.Sequencing.Calibration
                 "PickUpZ Calibration BackOff complete. side=" + Side +
                 ", pickerNo=" + _pickerNo +
                 ", repeat=" + repeatIndex +
+                ", reason=" + resetReason +
                 ", detected=" + detectedPosition.ToString("F6") +
                 ", backOffTarget=" + backOffTarget.ToString("F6") +
                 ", vacuum=OFF");
@@ -1166,6 +1298,9 @@ namespace QMC.CDT320.Sequencing.Calibration
 
         private async Task<int> SearchFlowPositionAsync(CancellationToken ct)
         {
+            if (_settings != null)
+                return await SearchFlowPositionWithResetAsync(ct).ConfigureAwait(false);
+
             BaseAxis axis = GetPickerAxis(_pickerZAxis);
             if (axis == null)
                 return Fail("PICKUP-Z-CAL-Z-AXIS", Name, "PickerZ axis is null. axis=" + _pickerZAxis);

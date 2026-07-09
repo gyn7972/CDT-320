@@ -30,6 +30,7 @@ namespace QMC.CDT320.Materials
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
         private static DateTime _lastSaveCompletedUtc = DateTime.MinValue;
+        private static bool _lastSaveSucceeded;
         private static bool _stateChangedQueued;
         private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
@@ -4424,13 +4425,23 @@ namespace QMC.CDT320.Materials
         {
             try
             {
+                bool shouldSave;
                 lock (_saveRequestSync)
                 {
+                    shouldSave = _saveRequested || _saveWorkerRunning || !_lastSaveSucceeded || _lastSaveCompletedUtc == DateTime.MinValue;
                     _saveRequested = false;
                     _pendingSaveReason = reason ?? "";
                 }
 
                 RequestStateChanged();
+                if (!shouldSave)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateSave",
+                        "Material state flush skipped because latest snapshot is already saved. reason=" +
+                        (reason ?? "") + " - Ok");
+                    return true;
+                }
+
                 return SaveCurrentSnapshot(reason);
             }
             catch (Exception ex)
@@ -4582,7 +4593,20 @@ namespace QMC.CDT320.Materials
                 }
 
                 if (saved)
-                    _lastSaveCompletedUtc = DateTime.UtcNow;
+                {
+                    lock (_saveRequestSync)
+                    {
+                        _lastSaveCompletedUtc = DateTime.UtcNow;
+                        _lastSaveSucceeded = true;
+                    }
+                }
+                else
+                {
+                    lock (_saveRequestSync)
+                    {
+                        _lastSaveSucceeded = false;
+                    }
+                }
 
                 if (!saved)
                 {
@@ -4601,6 +4625,10 @@ namespace QMC.CDT320.Materials
             }
             catch (Exception ex)
             {
+                lock (_saveRequestSync)
+                {
+                    _lastSaveSucceeded = false;
+                }
                 Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed: " + ex.Message + " - Failed");
                 return false;
             }

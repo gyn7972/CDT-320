@@ -36,6 +36,8 @@ namespace QMC.CDT320.Sequencing
     public class InputSequence : UnitSequenceBase
     {
         private const string InputLoaderActiveSignal = "InputLoaderActive";
+        private const string InputStageAlignSequenceStateName = "InputStageSequence.Align";
+        private const string InputStageDieMappingSequenceStateName = "InputStageSequence.DieMapping";
         // 현재 자동/스텝 실행 위치. 장비 상태 복원 시 Runtime Material 위치를 보고 재설정된다.
         private InputSequenceAutoStep _autoStep = InputSequenceAutoStep.Mapping;
         // 현재 처리 중인 Input Cassette slot index. -1이면 아직 slot이 확정되지 않은 상태이다.
@@ -981,6 +983,13 @@ namespace QMC.CDT320.Sequencing
                     // [8] DieMapping: Align 결과를 기반으로 Stage wafer의 die map 정보를 생성한다.
                     case InputSequenceAutoStep.DieMapping:
                     {
+                        string dieMappingResumeStep;
+                        if (ShouldRestartWaferAlignForDieMappingResume(out dieMappingResumeStep))
+                        {
+                            RestartWaferAlignAfterMissingDieMapPoints(dieMappingResumeStep);
+                            break;
+                        }
+
                         result = await ExecuteWithInputPickerAvoidGateAsync("InputDieMapping", ct, async () =>
                         {
                             using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputDieMapping", ct).ConfigureAwait(false))
@@ -1546,6 +1555,69 @@ namespace QMC.CDT320.Sequencing
                    step == InputSequenceAutoStep.RecoverFeeder ||
                    step == InputSequenceAutoStep.AlignStage ||
                    step == InputSequenceAutoStep.DieMapping;
+        }
+
+        private bool ShouldRestartWaferAlignForDieMappingResume(out string resumeStep)
+        {
+            resumeStep = "";
+
+            try
+            {
+                resumeStep = SequenceResumeStore.ResolveStartStep(InputStageDieMappingSequenceStateName, "");
+                if (string.IsNullOrWhiteSpace(resumeStep))
+                    return false;
+
+                // DieMapping mark point 결과는 시퀀스 메모리에만 있으므로, 중간/계산 단계 재개 시 Align부터 다시 수행한다.
+                if (string.Equals(resumeStep, "FindTopPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveBottomPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindBottomPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveLeftPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindLeftPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveRightPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "FindRightPoint", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "CalculateDieMap", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "ApplyDieMap", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(resumeStep, "MoveVisionXAvoidAfterManual", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ShouldRestartWaferAlignForDieMappingResume",
+                    "DieMapping resume step 확인 실패. Align부터 재시작합니다. error=" + ex.Message + " - Failed");
+                return true;
+            }
+            finally
+            {
+            }
+
+            return false;
+        }
+
+        private void RestartWaferAlignAfterMissingDieMapPoints(string dieMappingResumeStep)
+        {
+            try
+            {
+                SequenceResumeStore.Clear(InputStageDieMappingSequenceStateName);
+                SequenceResumeStore.Clear(InputStageAlignSequenceStateName);
+                _autoStep = InputSequenceAutoStep.AlignStage;
+
+                WriteLog("ExecuteCurrentInputStepAsync",
+                    "DieMapping resume step=" + dieMappingResumeStep +
+                    " 은/는 재시작 후 맵포인트가 복원되지 않는 단계입니다. 웨이퍼 얼라인부터 다시 시작합니다. wafer=" +
+                    _autoWaferId + ", slot=" + _autoSlotIndex + " - Restart");
+            }
+            catch (Exception ex)
+            {
+                _autoStep = InputSequenceAutoStep.AlignStage;
+                WriteLog("ExecuteCurrentInputStepAsync",
+                    "DieMapping resume 상태 초기화 중 예외가 발생했지만 웨이퍼 얼라인부터 다시 시작합니다. error=" +
+                    ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private void SetInputLoaderActive(bool active, string holder)

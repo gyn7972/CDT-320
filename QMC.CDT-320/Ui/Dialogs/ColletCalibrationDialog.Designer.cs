@@ -29,6 +29,8 @@
         private CalibrationDialogButton btnStart;
         private CalibrationDialogButton btnSaveBottomTeaching;
         private CalibrationDialogButton btnApplyHomeOffset;
+        private CalibrationDialogButton btnMoveZForward;
+        private CalibrationDialogButton btnMoveYAvoid;
         private CalibrationDialogButton btnReload;
         private CalibrationDialogButton btnSave;
         private CalibrationDialogButton btnClose;
@@ -68,6 +70,8 @@
             this.btnStart = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSaveBottomTeaching = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnApplyHomeOffset = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnMoveZForward = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
+            this.btnMoveYAvoid = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnReload = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnSave = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
             this.btnClose = new QMC.CDT_320.Ui.Dialogs.CalibrationDialogButton();
@@ -326,21 +330,25 @@
             // 
             // buttonPanel
             // 
-            this.buttonPanel.ColumnCount = 7;
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
+            this.buttonPanel.ColumnCount = 9;
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
+            this.buttonPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 11.11111F));
             this.buttonPanel.Controls.Add(this.btnCheck, 0, 0);
             this.buttonPanel.Controls.Add(this.btnStart, 1, 0);
             this.buttonPanel.Controls.Add(this.btnSaveBottomTeaching, 2, 0);
             this.buttonPanel.Controls.Add(this.btnApplyHomeOffset, 3, 0);
-            this.buttonPanel.Controls.Add(this.btnReload, 4, 0);
-            this.buttonPanel.Controls.Add(this.btnSave, 5, 0);
-            this.buttonPanel.Controls.Add(this.btnClose, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveZForward, 4, 0);
+            this.buttonPanel.Controls.Add(this.btnMoveYAvoid, 5, 0);
+            this.buttonPanel.Controls.Add(this.btnReload, 6, 0);
+            this.buttonPanel.Controls.Add(this.btnSave, 7, 0);
+            this.buttonPanel.Controls.Add(this.btnClose, 8, 0);
             this.buttonPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.buttonPanel.Location = new System.Drawing.Point(10, 670);
             this.buttonPanel.Margin = new System.Windows.Forms.Padding(10, 0, 10, 13);
@@ -363,7 +371,7 @@
             this.btnCheck.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnCheck.Name = "btnCheck";
             this.btnCheck.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
-            this.btnCheck.Size = new System.Drawing.Size(147, 46);
+            this.btnCheck.Size = new System.Drawing.Size(111, 46);
             this.btnCheck.TabIndex = 0;
             this.btnCheck.Text = "CHECK";
             this.btnCheck.UseVisualStyleBackColor = false;
@@ -378,11 +386,11 @@
             this.btnStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnStart.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnStart.ForeColor = System.Drawing.Color.White;
-            this.btnStart.Location = new System.Drawing.Point(165, 4);
+            this.btnStart.Location = new System.Drawing.Point(129, 4);
             this.btnStart.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnStart.Name = "btnStart";
             this.btnStart.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Primary;
-            this.btnStart.Size = new System.Drawing.Size(147, 46);
+            this.btnStart.Size = new System.Drawing.Size(111, 46);
             this.btnStart.TabIndex = 1;
             this.btnStart.Text = "START";
             this.btnStart.UseVisualStyleBackColor = false;
@@ -397,11 +405,11 @@
             this.btnSaveBottomTeaching.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSaveBottomTeaching.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnSaveBottomTeaching.ForeColor = System.Drawing.Color.Black;
-            this.btnSaveBottomTeaching.Location = new System.Drawing.Point(324, 4);
+            this.btnSaveBottomTeaching.Location = new System.Drawing.Point(252, 4);
             this.btnSaveBottomTeaching.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnSaveBottomTeaching.Name = "btnSaveBottomTeaching";
             this.btnSaveBottomTeaching.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
-            this.btnSaveBottomTeaching.Size = new System.Drawing.Size(147, 46);
+            this.btnSaveBottomTeaching.Size = new System.Drawing.Size(111, 46);
             this.btnSaveBottomTeaching.TabIndex = 2;
             this.btnSaveBottomTeaching.Text = "SAVE BOTTOM POS";
             this.btnSaveBottomTeaching.UseVisualStyleBackColor = false;
@@ -416,15 +424,53 @@
             this.btnApplyHomeOffset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnApplyHomeOffset.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnApplyHomeOffset.ForeColor = System.Drawing.Color.Black;
-            this.btnApplyHomeOffset.Location = new System.Drawing.Point(483, 4);
+            this.btnApplyHomeOffset.Location = new System.Drawing.Point(375, 4);
             this.btnApplyHomeOffset.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnApplyHomeOffset.Name = "btnApplyHomeOffset";
             this.btnApplyHomeOffset.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
-            this.btnApplyHomeOffset.Size = new System.Drawing.Size(147, 46);
+            this.btnApplyHomeOffset.Size = new System.Drawing.Size(111, 46);
             this.btnApplyHomeOffset.TabIndex = 3;
             this.btnApplyHomeOffset.Text = "APPLY T HOME";
             this.btnApplyHomeOffset.UseVisualStyleBackColor = false;
             this.btnApplyHomeOffset.Click += new System.EventHandler(this.btnApplyHomeOffset_Click);
+            // 
+            // btnMoveZForward
+            // 
+            this.btnMoveZForward.BackColor = System.Drawing.Color.White;
+            this.btnMoveZForward.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMoveZForward.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMoveZForward.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnMoveZForward.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMoveZForward.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnMoveZForward.ForeColor = System.Drawing.Color.Black;
+            this.btnMoveZForward.Location = new System.Drawing.Point(498, 4);
+            this.btnMoveZForward.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.btnMoveZForward.Name = "btnMoveZForward";
+            this.btnMoveZForward.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnMoveZForward.Size = new System.Drawing.Size(111, 46);
+            this.btnMoveZForward.TabIndex = 4;
+            this.btnMoveZForward.Text = "Z MOVE";
+            this.btnMoveZForward.UseVisualStyleBackColor = false;
+            this.btnMoveZForward.Click += new System.EventHandler(this.btnMoveZForward_Click);
+            // 
+            // btnMoveYAvoid
+            // 
+            this.btnMoveYAvoid.BackColor = System.Drawing.Color.White;
+            this.btnMoveYAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMoveYAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnMoveYAvoid.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(176)))), ((int)(((byte)(176)))), ((int)(((byte)(176)))));
+            this.btnMoveYAvoid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMoveYAvoid.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this.btnMoveYAvoid.ForeColor = System.Drawing.Color.Black;
+            this.btnMoveYAvoid.Location = new System.Drawing.Point(621, 4);
+            this.btnMoveYAvoid.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
+            this.btnMoveYAvoid.Name = "btnMoveYAvoid";
+            this.btnMoveYAvoid.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
+            this.btnMoveYAvoid.Size = new System.Drawing.Size(111, 46);
+            this.btnMoveYAvoid.TabIndex = 5;
+            this.btnMoveYAvoid.Text = "P-Y AVOID";
+            this.btnMoveYAvoid.UseVisualStyleBackColor = false;
+            this.btnMoveYAvoid.Click += new System.EventHandler(this.btnMoveYAvoid_Click);
             // 
             // btnReload
             // 
@@ -435,12 +481,12 @@
             this.btnReload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.Black;
-            this.btnReload.Location = new System.Drawing.Point(642, 4);
+            this.btnReload.Location = new System.Drawing.Point(744, 4);
             this.btnReload.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnReload.Name = "btnReload";
             this.btnReload.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
-            this.btnReload.Size = new System.Drawing.Size(147, 46);
-            this.btnReload.TabIndex = 4;
+            this.btnReload.Size = new System.Drawing.Size(111, 46);
+            this.btnReload.TabIndex = 6;
             this.btnReload.Text = "RELOAD";
             this.btnReload.UseVisualStyleBackColor = false;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
@@ -454,12 +500,12 @@
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(801, 4);
+            this.btnSave.Location = new System.Drawing.Point(867, 4);
             this.btnSave.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Dark;
-            this.btnSave.Size = new System.Drawing.Size(147, 46);
-            this.btnSave.TabIndex = 5;
+            this.btnSave.Size = new System.Drawing.Size(111, 46);
+            this.btnSave.TabIndex = 7;
             this.btnSave.Text = "SAVE";
             this.btnSave.UseVisualStyleBackColor = false;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
@@ -473,12 +519,12 @@
             this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnClose.ForeColor = System.Drawing.Color.Black;
-            this.btnClose.Location = new System.Drawing.Point(960, 4);
+            this.btnClose.Location = new System.Drawing.Point(990, 4);
             this.btnClose.Margin = new System.Windows.Forms.Padding(6, 4, 6, 4);
             this.btnClose.Name = "btnClose";
             this.btnClose.Role = QMC.CDT_320.Ui.Dialogs.CalibrationDialogButtonRole.Normal;
-            this.btnClose.Size = new System.Drawing.Size(148, 46);
-            this.btnClose.TabIndex = 6;
+            this.btnClose.Size = new System.Drawing.Size(118, 46);
+            this.btnClose.TabIndex = 8;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);

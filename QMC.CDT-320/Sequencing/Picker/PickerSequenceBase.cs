@@ -37,6 +37,7 @@ namespace QMC.CDT320.Sequencing
         protected TStep CurrentStep { get; set; }
         private IDisposable pickerWorkAreaScope;
         private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
+        private bool safetyRetreatMoveActive;
 
         protected PickerFrontUnit FrontPicker
         {
@@ -755,7 +756,7 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
+                    if (!safetyRetreatMoveActive && Context != null)
                         Context.StopIfCycleStopRequested(Name + ".PickerXSharedRailDistanceWait");
 
                     if (IsAlarmStopActive())
@@ -860,7 +861,7 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
+                    if (!safetyRetreatMoveActive && Context != null)
                         Context.StopIfCycleStopRequested(Name + ".WaitPickerFacingYInterlock:" + axis);
 
                     string detail;
@@ -1035,7 +1036,7 @@ namespace QMC.CDT320.Sequencing
                 while (!IsOppositePickerYReadyForForwardMove(targetZone, target, pairedXTarget, targetName, out gateDetail))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Context != null)
+                    if (!safetyRetreatMoveActive && Context != null)
                         Context.StopIfCycleStopRequested(Name + ".WaitOppositePickerYAvoid");
 
                     if (!waitLogged)
@@ -1603,8 +1604,10 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> EnsureSelfSafeAsync(string reason, CancellationToken ct)
         {
             string label = string.IsNullOrWhiteSpace(reason) ? "EnsureSelfSafe" : reason;
+            bool previousSafetyRetreatMoveActive = safetyRetreatMoveActive;
             try
             {
+                safetyRetreatMoveActive = true;
                 ct.ThrowIfCancellationRequested();
 
                 int result = await MoveAllPickerZToAvoidAndVerifyAsync(
@@ -1640,6 +1643,7 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                safetyRetreatMoveActive = previousSafetyRetreatMoveActive;
             }
         }
 
@@ -3033,7 +3037,8 @@ namespace QMC.CDT320.Sequencing
                 while (true)
                 {
                     ct.ThrowIfCancellationRequested();
-                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+                    if (!safetyRetreatMoveActive)
+                        Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
 
                     SequenceResourceLease autoLease = await Context.Resources
                         .AcquireAsync(resource, safeHolder, 200, ct, false)
@@ -3120,7 +3125,7 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        private bool IsAlarmStopActive()
+        protected bool IsAlarmStopActive()
         {
             try
             {

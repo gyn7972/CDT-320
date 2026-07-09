@@ -30,6 +30,7 @@ namespace QMC.CDT320
     public enum PickerBottomFlyingZStartMode
     {
         Immediate = 0,
+        // Legacy compatibility only. Runtime operation normalizes DelayMs to XRemainingDistance.
         DelayMs = 1,
         XRemainingDistance = 2
     }
@@ -135,6 +136,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerBottomInspectionMotionConfig
     {
+        private const double DefaultFlyingZStartXRemainingDistance = 5.0;
+
         [DataMember] public PickerBottomFlyingZDownMode FlyingZDownMode { get; set; } = PickerBottomFlyingZDownMode.Off;
         [DataMember] public double FlyingZDownDistance { get; set; } = 2.0;
         [DataMember] public PickerBottomFlyingZStartMode FlyingZStartMode { get; set; } = PickerBottomFlyingZStartMode.XRemainingDistance;
@@ -150,9 +153,15 @@ namespace QMC.CDT320
         public void Ensure()
         {
             FlyingZDownDistance = NormalizeDistance(FlyingZDownDistance);
+            if (FlyingZStartMode == PickerBottomFlyingZStartMode.DelayMs)
+                FlyingZStartMode = PickerBottomFlyingZStartMode.XRemainingDistance;
             if (FlyingZStartDelayMs < 0)
                 FlyingZStartDelayMs = 0;
+            if (FlyingZStartMode != PickerBottomFlyingZStartMode.DelayMs)
+                FlyingZStartDelayMs = 0;
             FlyingZStartXRemainingDistance = NormalizeDistance(FlyingZStartXRemainingDistance);
+            if (FlyingZStartMode == PickerBottomFlyingZStartMode.XRemainingDistance && FlyingZStartXRemainingDistance <= 0.0)
+                FlyingZStartXRemainingDistance = DefaultFlyingZStartXRemainingDistance;
         }
 
         public static double NormalizeDistance(double distance)

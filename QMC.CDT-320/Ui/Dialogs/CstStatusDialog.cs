@@ -284,8 +284,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                         : SlotStatusItem.EmptyKnown();
 
                     Color backColor = item.IsKnown ? ResolveStateColor(item.State) : Color.White;
-                    Color foreColor = item.IsKnown && WaferMaterialStateText.Normalize(item.State) == WaferMaterialState.WorkReady
-                        ? Color.White
+                    Color foreColor = item.IsKnown
+                        ? ResolveStateForeColor(item.State, backColor)
                         : GetReadableTextColor(backColor);
 
                     label.BackColor = backColor;
@@ -391,12 +391,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 case WaferMaterialState.Working:
                     return Color.Orange;
                 case WaferMaterialState.Finish:
-                    return Color.Red;
+                    return Color.MediumSeaGreen;
                 case WaferMaterialState.WorkReady:
                     return Color.Navy;
                 default:
-                    return Color.LimeGreen;
+                    return Color.Gainsboro;
             }
+        }
+
+        private static Color ResolveStateForeColor(WaferMaterialState state, Color backColor)
+        {
+            WaferMaterialState normalized = WaferMaterialStateText.Normalize(state);
+            return normalized == WaferMaterialState.Finish ||
+                   normalized == WaferMaterialState.WorkReady
+                ? Color.White
+                : GetReadableTextColor(backColor);
         }
 
         private void SetLegendCell(Label swatch, Label text, int colorColumn)

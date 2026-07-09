@@ -123,8 +123,64 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                await EnsureCycleStopSafePoseAsync(ct).ConfigureAwait(false);
                 ReleasePickerProcessPhase("ProcessFinally");
                 ResetPickerPhaseSignals();
+            }
+        }
+
+        private async Task EnsureCycleStopSafePoseAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                    return;
+
+                if (Context == null || !Context.IsCycleStopRequested)
+                    return;
+
+                if (ct.IsCancellationRequested || IsAlarmStopActive())
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " Cycle Stop 안전 정리를 건너뜁니다. " +
+                        "tokenCanceled=" + ct.IsCancellationRequested +
+                        ", alarmActive=" + IsAlarmStopActive() +
+                        ", side=" + Side + " - Check");
+                    return;
+                }
+
+                // 현재 기준: 정상 Cycle Stop 최종 자세는 X 이동 없이 Picker Z 상승 후 Picker Y Avoid로 정리한다.
+                int result = await EnsureSelfSafeAsync(
+                    "Cycle Stop 최종 안전 자세",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " Cycle Stop 최종 안전 자세 정리 실패. result=" + result +
+                        ", side=" + Side + " - Failed");
+                    return;
+                }
+
+                WriteLog("PickerProcessSequence",
+                    Name + " Cycle Stop 최종 안전 자세 정리 완료. PickerZ=Avoid, PickerY=Avoid, X 이동 없음. side=" +
+                    Side + " - Ok");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerProcessSequence",
+                    Name + " Cycle Stop 최종 안전 자세 정리 중 예외 발생. side=" + Side +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
             }
         }
 

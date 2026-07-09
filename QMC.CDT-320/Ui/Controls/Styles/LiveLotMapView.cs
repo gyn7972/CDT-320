@@ -214,12 +214,34 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
+            WaferMaterial stageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            if (stageWafer != null)
+            {
+                DieMap stageMap = null;
+                if (stageWafer.HasInputStageDieMappingResult)
+                    stageMap = MaterialStateService.BuildDieMapFromWafer(stageWafer);
+
+                if (stageMap != null)
+                {
+                    DieMapGenerator.Normalize(stageMap);
+                    LotStorage.ActiveInputDieMap = stageMap;
+                    Dictionary<string, LiveDieMapCellState> stageStates;
+                    _displayMap = BuildDisplayMapFromMaterialState(stageMap, stageWafer, out stageStates);
+                    _displayStates = stageStates;
+                    return;
+                }
+
+                _displayMap = null;
+                _displayStates = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
+                return;
+            }
+
             DieMap active = LotStorage.ActiveInputDieMap;
             if (active != null)
             {
                 DieMapGenerator.Normalize(active);
                 Dictionary<string, LiveDieMapCellState> states;
-                _displayMap = BuildDisplayMapFromMaterialState(active, out states);
+                _displayMap = BuildDisplayMapFromMaterialState(active, null, out states);
                 _displayStates = states;
                 return;
             }
@@ -234,7 +256,7 @@ namespace QMC.CDT_320.Ui.Controls
                         DieMapGenerator.Normalize(built);
                         LotStorage.ActiveInputDieMap = built;
                         Dictionary<string, LiveDieMapCellState> states;
-                        _displayMap = BuildDisplayMapFromMaterialState(built, out states);
+                        _displayMap = BuildDisplayMapFromMaterialState(built, null, out states);
                         _displayStates = states;
                     }
                     else
@@ -281,6 +303,7 @@ namespace QMC.CDT_320.Ui.Controls
 
         private static DieMap BuildDisplayMapFromMaterialState(
             DieMap source,
+            WaferMaterial inputWafer,
             out Dictionary<string, LiveDieMapCellState> states)
         {
             states = new Dictionary<string, LiveDieMapCellState>(StringComparer.Ordinal);
@@ -296,10 +319,17 @@ namespace QMC.CDT_320.Ui.Controls
 
                 var dieById = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
                 var dieByGrid = new Dictionary<string, DieMaterial>(StringComparer.Ordinal);
+                string waferId = inputWafer != null ? inputWafer.WaferId : null;
                 foreach (DieMaterial die in state.Dies)
                 {
                     if (die == null)
                         continue;
+
+                    if (!string.IsNullOrWhiteSpace(waferId) &&
+                        !string.Equals(die.WaferID_Input, waferId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
 
                     if (!string.IsNullOrWhiteSpace(die.DieId) && !dieById.ContainsKey(die.DieId))
                         dieById.Add(die.DieId, die);
@@ -502,12 +532,14 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (map != null && map.Entries != null)
                 {
+                    h = h * 31 + BuildStringHash(map.FrameObjId);
                     h = h * 31 + map.DieMapX;
                     h = h * 31 + map.DieMapY;
                     foreach (var entry in map.Entries)
                     {
                         if (entry == null)
                             continue;
+                        h = h * 31 + BuildStringHash(entry.DieUid);
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
