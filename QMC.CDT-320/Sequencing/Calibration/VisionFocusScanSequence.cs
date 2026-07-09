@@ -511,7 +511,21 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveInputStageAxis(WaferStageAxis.VisionX, target, JogSpeedType.Fine, 0.0).ConfigureAwait(false);
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
+                    "Vision Focus Cal InputVisionX Avoid 이동. target=" + target.ToString("F6") +
+                    ", velocity=" + _request.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + _request.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + _request.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + ResolveMotionTimeoutMs() +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
+
+                int result = await stage.MoveInputStageAxisCommandWithMotion(
+                    WaferStageAxis.VisionX,
+                    target,
+                    _request.MoveVelocity,
+                    _request.MoveAcceleration,
+                    _request.MoveDeceleration).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-INPUT-CAMERA-MOVE", "InputStageUnit", "InputCamera Avoid \uC774\uB3D9 \uBA85\uB839 \uC2E4\uD328. result=" + result + ", target=" + target.ToString("F3"));
 
@@ -549,7 +563,21 @@ namespace QMC.CDT320.Sequencing.Calibration
                 if (stage.IsVisionXInAvoidPosition())
                     return 0;
 
-                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(ResolveMotionTimeoutMs(), JogSpeedType.Fine, 0.0, ct).ConfigureAwait(false);
+                QMC.Common.Log.Write("Calibration", "SYSTEM", "VisionFocusCalStartSafe",
+                    "Vision Focus Cal OutputVisionX Avoid 이동. actual=" + stage.OutputCameraX.ActualPosition.ToString("F6") +
+                    ", velocity=" + _request.MoveVelocity.ToString("F6") +
+                    ", acceleration=" + _request.MoveAcceleration.ToString("F6") +
+                    ", deceleration=" + _request.MoveDeceleration.ToString("F6") +
+                    ", timeoutMs=" + ResolveMotionTimeoutMs() +
+                    ", speedScalePercent=" + MotionSpeedScale.ScalePercent.ToString("F3") +
+                    ", effectiveScaleFactor=" + MotionSpeedScale.EffectiveScaleFactor.ToString("F6"));
+
+                int result = await stage.MoveVisionXToAvoidAndVerifyAsync(
+                    ResolveMotionTimeoutMs(),
+                    _request.MoveVelocity,
+                    _request.MoveAcceleration,
+                    _request.MoveDeceleration,
+                    ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("VISION-FOCUS-CAL-OUTPUT-CAMERA-MOVE", "OutputStageUnit", "OutputCamera Avoid 이동 실패. result=" + result);
 
@@ -1024,7 +1052,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return 0;
             }
 
-            int result = await _machine.PickerFrontUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
+            int result = await _machine.PickerFrontUnit.MovePickerAxisCommandWithMotion(
+                axis,
+                target,
+                _request.MoveVelocity,
+                _request.MoveAcceleration,
+                _request.MoveDeceleration,
+                targetName,
+                true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -1053,7 +1088,14 @@ namespace QMC.CDT320.Sequencing.Calibration
                 return 0;
             }
 
-            int result = await _machine.PickerRearUnit.MovePickerAxisCommand(axis, target, JogSpeedType.Fine, 0.0, targetName, true).ConfigureAwait(false);
+            int result = await _machine.PickerRearUnit.MovePickerAxisCommandWithMotion(
+                axis,
+                target,
+                _request.MoveVelocity,
+                _request.MoveAcceleration,
+                _request.MoveDeceleration,
+                targetName,
+                true).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

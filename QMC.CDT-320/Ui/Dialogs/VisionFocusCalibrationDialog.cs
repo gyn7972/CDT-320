@@ -446,6 +446,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return;
                 }
 
+                if (!SaveSettingsFromUi(false))
+                    return;
+
                 runCts = BeginManualCalibrationRun(host, "MoveDefault", out actionScope, out stopHandler);
                 VisionFocusScanRequest request = BuildRequest(false);
                 var sequence = new VisionFocusScanSequence(host.Machine, request);
