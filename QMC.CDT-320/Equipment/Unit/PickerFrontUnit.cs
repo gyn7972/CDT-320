@@ -1161,7 +1161,10 @@ namespace QMC.CDT320
 
         private bool VerifyContinuousJogInterlock(PickerAxis axis, Direction direction, string targetName)
         {
-            if (axis != PickerAxis.PickerY || string.IsNullOrWhiteSpace(targetName))
+            if (axis != PickerAxis.PickerY && !IsZAxis(axis))
+                return true;
+
+            if (axis == PickerAxis.PickerY && string.IsNullOrWhiteSpace(targetName))
                 return true;
 
             BaseAxis item = GetAxis(axis);
@@ -1169,7 +1172,7 @@ namespace QMC.CDT320
                 return false;
 
             double guardTarget = ResolveContinuousJogGuardTarget(item, direction);
-            string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+            string guardTargetName = BuildContinuousJogGuardTargetName(axis, direction, targetName);
             string reason;
             using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
             {
@@ -1178,6 +1181,15 @@ namespace QMC.CDT320
             }
 
             return true;
+        }
+
+        private string BuildContinuousJogGuardTargetName(PickerAxis axis, Direction direction, string targetName)
+        {
+            string name = string.IsNullOrWhiteSpace(targetName)
+                ? "JogContinuous" + (direction == Direction.Plus ? "Plus" : "Minus")
+                : targetName + ";JogDirection=" + (direction == Direction.Plus ? "Plus" : "Minus");
+
+            return BuildPickerGuardTargetName(axis, name);
         }
 
         private static double ResolveContinuousJogGuardTarget(BaseAxis axis, Direction direction)

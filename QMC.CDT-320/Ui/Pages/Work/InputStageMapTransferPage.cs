@@ -1755,6 +1755,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         out cameraOffsetX,
                         out cameraOffsetY);
                 double centerMoveDeltaX = bottomRefVisionDeltaX;
+
+                //double centerMoveDeltaY = -bottomRefVisionDeltaY;
                 double centerMoveDeltaY = bottomRefVisionDeltaY;
                 if (cameraOffsetXExcluded)
                 {
