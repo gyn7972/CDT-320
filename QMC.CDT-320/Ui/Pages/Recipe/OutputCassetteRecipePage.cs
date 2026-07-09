@@ -643,36 +643,63 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                var menu = new ContextMenuStrip();
-                menu.Items.Add("Move To Position", null, async (s, e) =>
-                {
-                    string positionName = GetSelectedTeachingPositionName();
-                    if (!string.IsNullOrWhiteSpace(positionName))
-                    {
-                        string actionName = optionParameterGrid.SelectedItem != null ? optionParameterGrid.SelectedItem.Key : positionName;
-                        if (ConfirmMoveToPositionSpeed("Output Cassette Move", actionName))
-                            await MoveByPositionName(positionName);
-                    }
-                });
-                menu.Items.Add("Teach Current Position", null, (s, e) =>
-                {
-                    string positionName = GetSelectedTeachingPositionName();
-                    if (string.IsNullOrWhiteSpace(positionName))
-                        return;
-
-                    TeachPosition(positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-                menu.Opening += (s, e) => e.Cancel = string.IsNullOrWhiteSpace(GetSelectedTeachingPositionName());
-                optionParameterGrid.ContextMenuStrip = menu;
+                // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+                optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+                optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "BindParameterGridMenus failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Output Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                string positionName = GetSelectedTeachingPositionName();
+                if (string.IsNullOrWhiteSpace(positionName))
+                    return;
+
+                if (ConfirmMoveToPositionSpeed("Output Cassette Move", e.Item.Key))
+                    await MoveByPositionName(positionName);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                string positionName = GetSelectedTeachingPositionName();
+                if (string.IsNullOrWhiteSpace(positionName))
+                    return;
+
+                TeachPosition(positionName);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-CASSETTE", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Cassette Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1369,6 +1396,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 () => AxisUnitConverter.ToDisplay(getter(), _OutCassetteUnit.OutputLifterZ),
                 v => setter(AxisUnitConverter.FromDisplay(v, _OutCassetteUnit.OutputLifterZ)));
             item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(_OutCassetteUnit.OutputLifterZ) + unitSuffix;
+            if (scope == ParameterGridScope.Recipe)
+                item.SupportsTeaching = true;   // Recipe scope = 티칭 포지션 → 행에 MOVE/TEACH 버튼 표시
             return item;
         }
 

@@ -3483,7 +3483,7 @@ namespace QMC.CDT320
 
         private int RaisePickerAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
+            // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

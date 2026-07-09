@@ -10,19 +10,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
     {
         private TableLayoutPanel rootLayout;
         private Label lblHeader;
-        private TableLayoutPanel statusLayout;
+        private TableLayoutPanel mapLayout;
+        private GroupBox grpReceiveMap;
+        private GroupBox grpDieGrid;
+        private GroupBox grpAction;
+        private TableLayoutPanel sideLayout;
         private Label lblProjectCaption;
         private Label lblProjectValue;
         private Label lblBarcodeCaption;
         private Label lblBarcodeValue;
         private Label lblBinCaption;
         private Label lblBinValue;
-        private TableLayoutPanel bodyLayout;
-        private TableLayoutPanel mapLayout;
         private Label lblMapTitle;
         private DieMapView mapView;
         private DataGridView gridDieList;
-        private TableLayoutPanel sideLayout;
         private GroupBox grpMapInfo;
         private TableLayoutPanel mapInfoLayout;
         private Label lblChipWCaption;
@@ -49,8 +50,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private RadioButton rbStartIndex;
         private RadioButton rbSelectPickStatus;
         private RadioButton rbDragPickStatus;
-        private ActionButton btnPickStatusSave;
-        private ActionButton btnReloadActiveMap;
+        private Button btnPickStatusSave;
+        private Button btnReloadActiveMap;
         private TableLayoutPanel actionLayout;
         private ActionButton btnManualAlignComplete;
         private ActionButton btnNeedleBlockDown;
@@ -58,25 +59,37 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ActionButton btnXyMatchMove;
         private Button btnClose;
 
+        private static readonly Color TitleColor = Color.FromArgb(38, 50, 66);
+        private static readonly Color CaptionBack = Color.FromArgb(236, 238, 241);
+        private static readonly Color CaptionFore = Color.FromArgb(70, 70, 70);
+        private static readonly Color PanelBack = Color.White;
+        private static readonly Color ActionButtonBack = Color.FromArgb(128, 128, 128);
+
         private void InitializeComponent()
         {
+            DataGridViewCellStyle headerStyle = new DataGridViewCellStyle();
+            DataGridViewCellStyle cellStyle = new DataGridViewCellStyle();
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpReceiveMap = new System.Windows.Forms.GroupBox();
+            this.mapLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.mapView = new QMC.CDT320.Ui.Controls.DieMapView();
+            this.grpDieGrid = new System.Windows.Forms.GroupBox();
+            this.gridDieList = new System.Windows.Forms.DataGridView();
+            this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpMapInfo = new System.Windows.Forms.GroupBox();
+            this.mapInfoLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpMode = new System.Windows.Forms.GroupBox();
+            this.modeLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpAction = new System.Windows.Forms.GroupBox();
+            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
-            this.statusLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblProjectCaption = new System.Windows.Forms.Label();
             this.lblProjectValue = new System.Windows.Forms.Label();
             this.lblBarcodeCaption = new System.Windows.Forms.Label();
             this.lblBarcodeValue = new System.Windows.Forms.Label();
             this.lblBinCaption = new System.Windows.Forms.Label();
             this.lblBinValue = new System.Windows.Forms.Label();
-            this.bodyLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.mapLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblMapTitle = new System.Windows.Forms.Label();
-            this.mapView = new QMC.CDT320.Ui.Controls.DieMapView();
-            this.gridDieList = new System.Windows.Forms.DataGridView();
-            this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.grpMapInfo = new System.Windows.Forms.GroupBox();
-            this.mapInfoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblChipWCaption = new System.Windows.Forms.Label();
             this.lblChipW = new System.Windows.Forms.Label();
             this.lblChipHCaption = new System.Windows.Forms.Label();
@@ -95,15 +108,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinRank = new System.Windows.Forms.Label();
             this.lblDieNumCaption = new System.Windows.Forms.Label();
             this.lblDieNum = new System.Windows.Forms.Label();
-            this.grpMode = new System.Windows.Forms.GroupBox();
-            this.modeLayout = new System.Windows.Forms.TableLayoutPanel();
             this.rbStandard = new System.Windows.Forms.RadioButton();
             this.rbStartIndex = new System.Windows.Forms.RadioButton();
             this.rbSelectPickStatus = new System.Windows.Forms.RadioButton();
             this.rbDragPickStatus = new System.Windows.Forms.RadioButton();
-            this.btnReloadActiveMap = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnPickStatusSave = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnReloadActiveMap = new System.Windows.Forms.Button();
+            this.btnPickStatusSave = new System.Windows.Forms.Button();
             this.btnManualAlignComplete = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnNeedleBlockDown = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -119,214 +129,97 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colAxisY = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colDieUid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.rootLayout.SuspendLayout();
-            this.statusLayout.SuspendLayout();
-            this.bodyLayout.SuspendLayout();
+            this.grpReceiveMap.SuspendLayout();
             this.mapLayout.SuspendLayout();
+            this.grpDieGrid.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridDieList)).BeginInit();
             this.sideLayout.SuspendLayout();
             this.grpMapInfo.SuspendLayout();
             this.mapInfoLayout.SuspendLayout();
             this.grpMode.SuspendLayout();
             this.modeLayout.SuspendLayout();
+            this.grpAction.SuspendLayout();
             this.actionLayout.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // rootLayout
-            // 
-            this.rootLayout.ColumnCount = 1;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.statusLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.bodyLayout, 0, 2);
+            //
+            this.rootLayout.BackColor = System.Drawing.Color.White;
+            this.rootLayout.ColumnCount = 2;
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.rootLayout.Controls.Add(this.grpReceiveMap, 0, 0);
+            this.rootLayout.Controls.Add(this.sideLayout, 1, 0);
+            this.rootLayout.Controls.Add(this.gridDieList, 0, 1);
+            this.rootLayout.Controls.Add(this.grpAction, 1, 1);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.RowCount = 3;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.rootLayout.RowCount = 2;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 65F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 35F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
-            // 
-            // lblHeader
-            // 
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblHeader.ForeColor = System.Drawing.Color.White;
-            this.lblHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
-            this.lblHeader.TabIndex = 0;
-            this.lblHeader.Tag = "i18n:work.page.outputMap";
-            this.lblHeader.Text = "OUTPUT STAGE DIE MAP";
-            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // statusLayout
-            // 
-            this.statusLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.statusLayout.ColumnCount = 8;
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 260F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 60F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.statusLayout.Controls.Add(this.lblProjectCaption, 0, 0);
-            this.statusLayout.Controls.Add(this.lblProjectValue, 1, 0);
-            this.statusLayout.Controls.Add(this.lblBarcodeCaption, 2, 0);
-            this.statusLayout.Controls.Add(this.lblBarcodeValue, 3, 0);
-            this.statusLayout.Controls.Add(this.lblBinCaption, 4, 0);
-            this.statusLayout.Controls.Add(this.lblBinValue, 5, 0);
-            this.statusLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.statusLayout.Location = new System.Drawing.Point(3, 29);
-            this.statusLayout.Name = "statusLayout";
-            this.statusLayout.RowCount = 1;
-            this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.Size = new System.Drawing.Size(1672, 16);
-            this.statusLayout.TabIndex = 1;
-            // 
-            // lblProjectCaption
-            // 
-            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblProjectCaption.ForeColor = System.Drawing.Color.White;
-            this.lblProjectCaption.Location = new System.Drawing.Point(3, 0);
-            this.lblProjectCaption.Name = "lblProjectCaption";
-            this.lblProjectCaption.Size = new System.Drawing.Size(74, 16);
-            this.lblProjectCaption.TabIndex = 0;
-            this.lblProjectCaption.Text = "Project Name :";
-            this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblProjectValue
-            // 
-            this.lblProjectValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProjectValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblProjectValue.ForeColor = System.Drawing.Color.White;
-            this.lblProjectValue.Location = new System.Drawing.Point(83, 0);
-            this.lblProjectValue.Name = "lblProjectValue";
-            this.lblProjectValue.Size = new System.Drawing.Size(254, 16);
-            this.lblProjectValue.TabIndex = 1;
-            this.lblProjectValue.Text = "--";
-            this.lblProjectValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBarcodeCaption
-            // 
-            this.lblBarcodeCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBarcodeCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBarcodeCaption.ForeColor = System.Drawing.Color.White;
-            this.lblBarcodeCaption.Location = new System.Drawing.Point(343, 0);
-            this.lblBarcodeCaption.Name = "lblBarcodeCaption";
-            this.lblBarcodeCaption.Size = new System.Drawing.Size(84, 16);
-            this.lblBarcodeCaption.TabIndex = 2;
-            this.lblBarcodeCaption.Text = "Barcode Name :";
-            this.lblBarcodeCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBarcodeValue
-            // 
-            this.lblBarcodeValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBarcodeValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBarcodeValue.ForeColor = System.Drawing.Color.White;
-            this.lblBarcodeValue.Location = new System.Drawing.Point(433, 0);
-            this.lblBarcodeValue.Name = "lblBarcodeValue";
-            this.lblBarcodeValue.Size = new System.Drawing.Size(214, 16);
-            this.lblBarcodeValue.TabIndex = 3;
-            this.lblBarcodeValue.Text = "--";
-            this.lblBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBinCaption
-            // 
-            this.lblBinCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinCaption.ForeColor = System.Drawing.Color.White;
-            this.lblBinCaption.Location = new System.Drawing.Point(653, 0);
-            this.lblBinCaption.Name = "lblBinCaption";
-            this.lblBinCaption.Size = new System.Drawing.Size(54, 16);
-            this.lblBinCaption.TabIndex = 4;
-            this.lblBinCaption.Text = "1Bin :";
-            this.lblBinCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBinValue
-            // 
-            this.lblBinValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinValue.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinValue.ForeColor = System.Drawing.Color.White;
-            this.lblBinValue.Location = new System.Drawing.Point(713, 0);
-            this.lblBinValue.Name = "lblBinValue";
-            this.lblBinValue.Size = new System.Drawing.Size(114, 16);
-            this.lblBinValue.TabIndex = 5;
-            this.lblBinValue.Text = "--";
-            this.lblBinValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // bodyLayout
-            // 
-            this.bodyLayout.ColumnCount = 2;
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.bodyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 520F));
-            this.bodyLayout.Controls.Add(this.mapLayout, 0, 0);
-            this.bodyLayout.Controls.Add(this.sideLayout, 1, 0);
-            this.bodyLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.bodyLayout.Location = new System.Drawing.Point(3, 51);
-            this.bodyLayout.Name = "bodyLayout";
-            this.bodyLayout.Padding = new System.Windows.Forms.Padding(6);
-            this.bodyLayout.RowCount = 1;
-            this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.bodyLayout.Size = new System.Drawing.Size(1672, 846);
-            this.bodyLayout.TabIndex = 2;
-            // 
+            //
+            // grpReceiveMap
+            //
+            ConfigureMainGroup(this.grpReceiveMap, "OUTPUT GOOD RECEIVE MAP", 0);
+            this.grpReceiveMap.Controls.Add(this.mapLayout);
+            this.grpReceiveMap.Margin = new System.Windows.Forms.Padding(0, 0, 1, 1);
+            this.grpReceiveMap.Location = new System.Drawing.Point(8, 8);
+            this.grpReceiveMap.Size = new System.Drawing.Size(827, 442);
+            //
             // mapLayout
-            // 
+            //
+            this.mapLayout.BackColor = System.Drawing.Color.White;
             this.mapLayout.ColumnCount = 1;
             this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLayout.Controls.Add(this.lblMapTitle, 0, 0);
-            this.mapLayout.Controls.Add(this.mapView, 0, 1);
-            this.mapLayout.Controls.Add(this.gridDieList, 0, 2);
+            this.mapLayout.Controls.Add(this.mapView, 0, 0);
             this.mapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapLayout.Location = new System.Drawing.Point(9, 9);
+            this.mapLayout.Location = new System.Drawing.Point(6, 24);
+            this.mapLayout.Margin = new System.Windows.Forms.Padding(0);
             this.mapLayout.Name = "mapLayout";
-            this.mapLayout.RowCount = 3;
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 58F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 42F));
-            this.mapLayout.Size = new System.Drawing.Size(1134, 828);
+            this.mapLayout.RowCount = 1;
+            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.mapLayout.Size = new System.Drawing.Size(815, 412);
             this.mapLayout.TabIndex = 0;
-            // 
-            // lblMapTitle
-            // 
-            this.lblMapTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblMapTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapTitle.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblMapTitle.ForeColor = System.Drawing.Color.White;
-            this.lblMapTitle.Location = new System.Drawing.Point(3, 0);
-            this.lblMapTitle.Name = "lblMapTitle";
-            this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapTitle.Size = new System.Drawing.Size(1128, 24);
-            this.lblMapTitle.TabIndex = 0;
-            this.lblMapTitle.Tag = "i18n:work.page.outputMap";
-            this.lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
-            this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // mapView
-            // 
-            this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
-            this.mapView.Caption = "Output Stage Die Map";
+            //
+            this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
+            this.mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapView.Location = new System.Drawing.Point(3, 27);
+            this.mapView.Location = new System.Drawing.Point(0, 0);
+            this.mapView.Margin = new System.Windows.Forms.Padding(0);
             this.mapView.Map = null;
             this.mapView.Name = "mapView";
-            this.mapView.Size = new System.Drawing.Size(1128, 460);
-            this.mapView.TabIndex = 1;
-            // 
+            this.mapView.Size = new System.Drawing.Size(815, 412);
+            this.mapView.TabIndex = 0;
+            //
+            // grpDieGrid
+            //
+            ConfigureMainGroup(this.grpDieGrid, "OUTPUT GOOD RECEIVE MAP DGV", 2);
+            this.grpDieGrid.Margin = new System.Windows.Forms.Padding(0, 1, 1, 0);
+            this.grpDieGrid.Location = new System.Drawing.Point(8, 454);
+            this.grpDieGrid.Size = new System.Drawing.Size(827, 438);
+            //
             // gridDieList
-            // 
+            //
             this.gridDieList.AllowUserToAddRows = false;
             this.gridDieList.AllowUserToDeleteRows = false;
             this.gridDieList.AllowUserToResizeRows = false;
             this.gridDieList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.gridDieList.BackgroundColor = System.Drawing.Color.White;
+            this.gridDieList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            headerStyle.BackColor = CaptionBack;
+            headerStyle.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            headerStyle.ForeColor = TitleColor;
+            headerStyle.SelectionBackColor = CaptionBack;
+            headerStyle.SelectionForeColor = TitleColor;
+            headerStyle.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.gridDieList.ColumnHeadersDefaultCellStyle = headerStyle;
             this.gridDieList.ColumnHeadersHeight = 32;
             this.gridDieList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridDieList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
@@ -339,627 +232,317 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colAxisX,
             this.colAxisY,
             this.colDieUid});
+            cellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            cellStyle.BackColor = System.Drawing.Color.White;
+            cellStyle.Font = new System.Drawing.Font("Consolas", 9F);
+            cellStyle.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            cellStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
+            cellStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
+            cellStyle.WrapMode = System.Windows.Forms.DataGridViewTriState.False;
+            this.gridDieList.DefaultCellStyle = cellStyle;
             this.gridDieList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.gridDieList.Location = new System.Drawing.Point(3, 493);
+            this.gridDieList.EnableHeadersVisualStyles = false;
+            this.gridDieList.GridColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
+            this.gridDieList.Location = new System.Drawing.Point(0, 451);
+            this.gridDieList.Margin = new System.Windows.Forms.Padding(0, 1, 1, 0);
             this.gridDieList.MultiSelect = false;
             this.gridDieList.Name = "gridDieList";
             this.gridDieList.ReadOnly = true;
             this.gridDieList.RowHeadersVisible = false;
-            this.gridDieList.RowTemplate.Height = 20;
+            this.gridDieList.RowTemplate.Height = 22;
             this.gridDieList.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridDieList.Size = new System.Drawing.Size(1128, 332);
-            this.gridDieList.TabIndex = 2;
-            // 
+            this.gridDieList.Size = new System.Drawing.Size(838, 449);
+            this.gridDieList.TabIndex = 0;
+            //
             // sideLayout
-            // 
+            //
+            this.sideLayout.BackColor = System.Drawing.Color.White;
             this.sideLayout.ColumnCount = 2;
-            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 230F));
-            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.sideLayout.Controls.Add(this.grpMapInfo, 0, 0);
             this.sideLayout.Controls.Add(this.grpMode, 1, 0);
-            this.sideLayout.Controls.Add(this.actionLayout, 1, 1);
             this.sideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.sideLayout.Location = new System.Drawing.Point(1149, 9);
+            this.sideLayout.Location = new System.Drawing.Point(843, 8);
+            this.sideLayout.Margin = new System.Windows.Forms.Padding(1, 0, 0, 1);
             this.sideLayout.Name = "sideLayout";
-            this.sideLayout.RowCount = 3;
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
-            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 190F));
+            this.sideLayout.RowCount = 1;
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.sideLayout.Size = new System.Drawing.Size(514, 828);
+            this.sideLayout.Size = new System.Drawing.Size(827, 442);
             this.sideLayout.TabIndex = 1;
-            // 
+            //
             // grpMapInfo
-            // 
-            this.grpMapInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            //
+            ConfigureMainGroup(this.grpMapInfo, "BIN / DIE INFO", 0);
             this.grpMapInfo.Controls.Add(this.mapInfoLayout);
             this.grpMapInfo.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMapInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpMapInfo.Location = new System.Drawing.Point(4, 4);
-            this.grpMapInfo.Margin = new System.Windows.Forms.Padding(4);
-            this.grpMapInfo.Name = "grpMapInfo";
-            this.grpMapInfo.Size = new System.Drawing.Size(222, 252);
-            this.grpMapInfo.TabIndex = 0;
-            this.grpMapInfo.TabStop = false;
-            this.grpMapInfo.Text = "DIE MAP INFO";
-            // 
+            this.grpMapInfo.Margin = new System.Windows.Forms.Padding(0, 0, 1, 0);
+            this.grpMapInfo.Size = new System.Drawing.Size(412, 449);
+            //
             // mapInfoLayout
-            // 
+            //
+            this.mapInfoLayout.BackColor = System.Drawing.Color.White;
             this.mapInfoLayout.ColumnCount = 2;
-            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 48F));
-            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 52F));
-            this.mapInfoLayout.Controls.Add(this.lblChipWCaption, 0, 0);
-            this.mapInfoLayout.Controls.Add(this.lblChipW, 1, 0);
-            this.mapInfoLayout.Controls.Add(this.lblChipHCaption, 0, 1);
-            this.mapInfoLayout.Controls.Add(this.lblChipH, 1, 1);
-            this.mapInfoLayout.Controls.Add(this.lblPitchXCaption, 0, 2);
-            this.mapInfoLayout.Controls.Add(this.lblPitchX, 1, 2);
-            this.mapInfoLayout.Controls.Add(this.lblPitchYCaption, 0, 3);
-            this.mapInfoLayout.Controls.Add(this.lblPitchY, 1, 3);
-            this.mapInfoLayout.Controls.Add(this.lblWaferDiaCaption, 0, 4);
-            this.mapInfoLayout.Controls.Add(this.lblWaferDia, 1, 4);
-            this.mapInfoLayout.Controls.Add(this.lblAxisXCaption, 0, 5);
-            this.mapInfoLayout.Controls.Add(this.lblAxisX, 1, 5);
-            this.mapInfoLayout.Controls.Add(this.lblAxisYCaption, 0, 6);
-            this.mapInfoLayout.Controls.Add(this.lblAxisY, 1, 6);
-            this.mapInfoLayout.Controls.Add(this.lblBinRankCaption, 0, 7);
-            this.mapInfoLayout.Controls.Add(this.lblBinRank, 1, 7);
-            this.mapInfoLayout.Controls.Add(this.lblDieNumCaption, 0, 8);
-            this.mapInfoLayout.Controls.Add(this.lblDieNum, 1, 8);
+            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 44F));
+            this.mapInfoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 56F));
+            this.mapInfoLayout.Controls.Add(this.lblProjectCaption, 0, 0);
+            this.mapInfoLayout.Controls.Add(this.lblProjectValue, 1, 0);
+            this.mapInfoLayout.Controls.Add(this.lblBarcodeCaption, 0, 1);
+            this.mapInfoLayout.Controls.Add(this.lblBarcodeValue, 1, 1);
+            this.mapInfoLayout.Controls.Add(this.lblBinCaption, 0, 2);
+            this.mapInfoLayout.Controls.Add(this.lblBinValue, 1, 2);
+            this.mapInfoLayout.Controls.Add(this.lblChipWCaption, 0, 3);
+            this.mapInfoLayout.Controls.Add(this.lblChipW, 1, 3);
+            this.mapInfoLayout.Controls.Add(this.lblChipHCaption, 0, 4);
+            this.mapInfoLayout.Controls.Add(this.lblChipH, 1, 4);
+            this.mapInfoLayout.Controls.Add(this.lblPitchXCaption, 0, 5);
+            this.mapInfoLayout.Controls.Add(this.lblPitchX, 1, 5);
+            this.mapInfoLayout.Controls.Add(this.lblPitchYCaption, 0, 6);
+            this.mapInfoLayout.Controls.Add(this.lblPitchY, 1, 6);
+            this.mapInfoLayout.Controls.Add(this.lblWaferDiaCaption, 0, 7);
+            this.mapInfoLayout.Controls.Add(this.lblWaferDia, 1, 7);
+            this.mapInfoLayout.Controls.Add(this.lblAxisXCaption, 0, 8);
+            this.mapInfoLayout.Controls.Add(this.lblAxisX, 1, 8);
+            this.mapInfoLayout.Controls.Add(this.lblAxisYCaption, 0, 9);
+            this.mapInfoLayout.Controls.Add(this.lblAxisY, 1, 9);
+            this.mapInfoLayout.Controls.Add(this.lblBinRankCaption, 0, 10);
+            this.mapInfoLayout.Controls.Add(this.lblBinRank, 1, 10);
+            this.mapInfoLayout.Controls.Add(this.lblDieNumCaption, 0, 11);
+            this.mapInfoLayout.Controls.Add(this.lblDieNum, 1, 11);
             this.mapInfoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapInfoLayout.Location = new System.Drawing.Point(3, 23);
+            this.mapInfoLayout.Location = new System.Drawing.Point(6, 24);
+            this.mapInfoLayout.Margin = new System.Windows.Forms.Padding(0);
             this.mapInfoLayout.Name = "mapInfoLayout";
-            this.mapInfoLayout.Padding = new System.Windows.Forms.Padding(4, 6, 4, 4);
-            this.mapInfoLayout.RowCount = 9;
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
-            this.mapInfoLayout.Size = new System.Drawing.Size(216, 226);
+            this.mapInfoLayout.Padding = new System.Windows.Forms.Padding(1);
+            this.mapInfoLayout.RowCount = 12;
+            for (int i = 0; i < 12; i++)
+                this.mapInfoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
+            this.mapInfoLayout.Size = new System.Drawing.Size(397, 412);
             this.mapInfoLayout.TabIndex = 0;
-            // 
-            // lblChipWCaption
-            // 
-            this.lblChipWCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblChipWCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblChipWCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipWCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipWCaption.Location = new System.Drawing.Point(7, 6);
-            this.lblChipWCaption.Name = "lblChipWCaption";
-            this.lblChipWCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipWCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblChipWCaption.TabIndex = 0;
-            this.lblChipWCaption.Text = "Chip Width";
-            this.lblChipWCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblChipW
-            // 
-            this.lblChipW.BackColor = System.Drawing.Color.White;
-            this.lblChipW.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblChipW.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipW.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipW.Location = new System.Drawing.Point(106, 6);
-            this.lblChipW.Name = "lblChipW";
-            this.lblChipW.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipW.Size = new System.Drawing.Size(103, 22);
-            this.lblChipW.TabIndex = 1;
-            this.lblChipW.Text = "0";
-            this.lblChipW.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblChipHCaption
-            // 
-            this.lblChipHCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblChipHCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblChipHCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipHCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipHCaption.Location = new System.Drawing.Point(7, 28);
-            this.lblChipHCaption.Name = "lblChipHCaption";
-            this.lblChipHCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipHCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblChipHCaption.TabIndex = 2;
-            this.lblChipHCaption.Text = "Chip Height";
-            this.lblChipHCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblChipH
-            // 
-            this.lblChipH.BackColor = System.Drawing.Color.White;
-            this.lblChipH.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblChipH.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblChipH.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipH.Location = new System.Drawing.Point(106, 28);
-            this.lblChipH.Name = "lblChipH";
-            this.lblChipH.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipH.Size = new System.Drawing.Size(103, 22);
-            this.lblChipH.TabIndex = 3;
-            this.lblChipH.Text = "0";
-            this.lblChipH.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblPitchXCaption
-            // 
-            this.lblPitchXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblPitchXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblPitchXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchXCaption.Location = new System.Drawing.Point(7, 50);
-            this.lblPitchXCaption.Name = "lblPitchXCaption";
-            this.lblPitchXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchXCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblPitchXCaption.TabIndex = 4;
-            this.lblPitchXCaption.Text = "Pitch X";
-            this.lblPitchXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblPitchX
-            // 
-            this.lblPitchX.BackColor = System.Drawing.Color.White;
-            this.lblPitchX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchX.Location = new System.Drawing.Point(106, 50);
-            this.lblPitchX.Name = "lblPitchX";
-            this.lblPitchX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchX.Size = new System.Drawing.Size(103, 22);
-            this.lblPitchX.TabIndex = 5;
-            this.lblPitchX.Text = "0";
-            this.lblPitchX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblPitchYCaption
-            // 
-            this.lblPitchYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblPitchYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblPitchYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchYCaption.Location = new System.Drawing.Point(7, 72);
-            this.lblPitchYCaption.Name = "lblPitchYCaption";
-            this.lblPitchYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchYCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblPitchYCaption.TabIndex = 6;
-            this.lblPitchYCaption.Text = "Pitch Y";
-            this.lblPitchYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblPitchY
-            // 
-            this.lblPitchY.BackColor = System.Drawing.Color.White;
-            this.lblPitchY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchY.Location = new System.Drawing.Point(106, 72);
-            this.lblPitchY.Name = "lblPitchY";
-            this.lblPitchY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchY.Size = new System.Drawing.Size(103, 22);
-            this.lblPitchY.TabIndex = 7;
-            this.lblPitchY.Text = "0";
-            this.lblPitchY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblWaferDiaCaption
-            // 
-            this.lblWaferDiaCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblWaferDiaCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblWaferDiaCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferDiaCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblWaferDiaCaption.Location = new System.Drawing.Point(7, 94);
-            this.lblWaferDiaCaption.Name = "lblWaferDiaCaption";
-            this.lblWaferDiaCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblWaferDiaCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblWaferDiaCaption.TabIndex = 8;
-            this.lblWaferDiaCaption.Text = "Wafer Dia";
-            this.lblWaferDiaCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblWaferDia
-            // 
-            this.lblWaferDia.BackColor = System.Drawing.Color.White;
-            this.lblWaferDia.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblWaferDia.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaferDia.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblWaferDia.Location = new System.Drawing.Point(106, 94);
-            this.lblWaferDia.Name = "lblWaferDia";
-            this.lblWaferDia.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblWaferDia.Size = new System.Drawing.Size(103, 22);
-            this.lblWaferDia.TabIndex = 9;
-            this.lblWaferDia.Text = "0";
-            this.lblWaferDia.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblAxisXCaption
-            // 
-            this.lblAxisXCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblAxisXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblAxisXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisXCaption.Location = new System.Drawing.Point(7, 116);
-            this.lblAxisXCaption.Name = "lblAxisXCaption";
-            this.lblAxisXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisXCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblAxisXCaption.TabIndex = 10;
-            this.lblAxisXCaption.Text = "Axis X";
-            this.lblAxisXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblAxisX
-            // 
-            this.lblAxisX.BackColor = System.Drawing.Color.White;
-            this.lblAxisX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblAxisX.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisX.Location = new System.Drawing.Point(106, 116);
-            this.lblAxisX.Name = "lblAxisX";
-            this.lblAxisX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisX.Size = new System.Drawing.Size(103, 22);
-            this.lblAxisX.TabIndex = 11;
-            this.lblAxisX.Text = "0";
-            this.lblAxisX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblAxisYCaption
-            // 
-            this.lblAxisYCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblAxisYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblAxisYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisYCaption.Location = new System.Drawing.Point(7, 138);
-            this.lblAxisYCaption.Name = "lblAxisYCaption";
-            this.lblAxisYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisYCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblAxisYCaption.TabIndex = 12;
-            this.lblAxisYCaption.Text = "Axis Y";
-            this.lblAxisYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblAxisY
-            // 
-            this.lblAxisY.BackColor = System.Drawing.Color.White;
-            this.lblAxisY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblAxisY.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisY.Location = new System.Drawing.Point(106, 138);
-            this.lblAxisY.Name = "lblAxisY";
-            this.lblAxisY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisY.Size = new System.Drawing.Size(103, 22);
-            this.lblAxisY.TabIndex = 13;
-            this.lblAxisY.Text = "0";
-            this.lblAxisY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblBinRankCaption
-            // 
-            this.lblBinRankCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblBinRankCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblBinRankCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinRankCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblBinRankCaption.Location = new System.Drawing.Point(7, 160);
-            this.lblBinRankCaption.Name = "lblBinRankCaption";
-            this.lblBinRankCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinRankCaption.Size = new System.Drawing.Size(93, 22);
-            this.lblBinRankCaption.TabIndex = 14;
-            this.lblBinRankCaption.Text = "BIN RANK";
-            this.lblBinRankCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBinRank
-            // 
-            this.lblBinRank.BackColor = System.Drawing.Color.White;
-            this.lblBinRank.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblBinRank.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinRank.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblBinRank.Location = new System.Drawing.Point(106, 160);
-            this.lblBinRank.Name = "lblBinRank";
-            this.lblBinRank.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblBinRank.Size = new System.Drawing.Size(103, 22);
-            this.lblBinRank.TabIndex = 15;
-            this.lblBinRank.Text = "0";
-            this.lblBinRank.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblDieNumCaption
-            // 
-            this.lblDieNumCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblDieNumCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblDieNumCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDieNumCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblDieNumCaption.Location = new System.Drawing.Point(7, 182);
-            this.lblDieNumCaption.Name = "lblDieNumCaption";
-            this.lblDieNumCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDieNumCaption.Size = new System.Drawing.Size(93, 40);
-            this.lblDieNumCaption.TabIndex = 16;
-            this.lblDieNumCaption.Text = "Die Number";
-            this.lblDieNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblDieNum
-            // 
-            this.lblDieNum.BackColor = System.Drawing.Color.White;
-            this.lblDieNum.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblDieNum.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDieNum.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblDieNum.Location = new System.Drawing.Point(106, 182);
-            this.lblDieNum.Name = "lblDieNum";
-            this.lblDieNum.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblDieNum.Size = new System.Drawing.Size(103, 40);
-            this.lblDieNum.TabIndex = 17;
-            this.lblDieNum.Text = "0/0";
-            this.lblDieNum.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
+            //
+            // info labels
+            //
+            ConfigureInfoCaption(this.lblProjectCaption, "Project Name", 0);
+            ConfigureInfoValue(this.lblProjectValue, "--", 1);
+            ConfigureInfoCaption(this.lblBarcodeCaption, "Source Wafer", 2);
+            ConfigureInfoValue(this.lblBarcodeValue, "--", 3);
+            ConfigureInfoCaption(this.lblBinCaption, "Side", 4);
+            ConfigureInfoValue(this.lblBinValue, "--", 5);
+            ConfigureInfoCaption(this.lblChipWCaption, "Grid X", 6);
+            ConfigureInfoValue(this.lblChipW, "0", 7);
+            ConfigureInfoCaption(this.lblChipHCaption, "Grid Y", 8);
+            ConfigureInfoValue(this.lblChipH, "0", 9);
+            ConfigureInfoCaption(this.lblPitchXCaption, "Pitch X", 10);
+            ConfigureInfoValue(this.lblPitchX, "0", 11);
+            ConfigureInfoCaption(this.lblPitchYCaption, "Pitch Y", 12);
+            ConfigureInfoValue(this.lblPitchY, "0", 13);
+            ConfigureInfoCaption(this.lblWaferDiaCaption, "Progress", 14);
+            ConfigureInfoValue(this.lblWaferDia, "0/0", 15);
+            ConfigureInfoCaption(this.lblAxisXCaption, "X (mm)", 16);
+            ConfigureInfoValue(this.lblAxisX, "0", 17);
+            ConfigureInfoCaption(this.lblAxisYCaption, "Y (mm)", 18);
+            ConfigureInfoValue(this.lblAxisY, "0", 19);
+            ConfigureInfoCaption(this.lblBinRankCaption, "Bin / State", 20);
+            ConfigureInfoValue(this.lblBinRank, "0", 21);
+            ConfigureInfoCaption(this.lblDieNumCaption, "Next Target", 22);
+            ConfigureInfoValue(this.lblDieNum, "0/0", 23);
+            //
             // grpMode
-            // 
-            this.grpMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            //
+            ConfigureMainGroup(this.grpMode, "OUTPUT STAGE", 1);
             this.grpMode.Controls.Add(this.modeLayout);
-            this.grpMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMode.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpMode.Location = new System.Drawing.Point(234, 4);
-            this.grpMode.Margin = new System.Windows.Forms.Padding(4);
-            this.grpMode.Name = "grpMode";
-            this.grpMode.Size = new System.Drawing.Size(276, 252);
-            this.grpMode.TabIndex = 1;
-            this.grpMode.TabStop = false;
-            this.grpMode.Text = "MODE";
-            // 
+            this.grpMode.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
+            this.grpMode.Dock = System.Windows.Forms.DockStyle.None;
+            this.grpMode.Margin = new System.Windows.Forms.Padding(1, 0, 0, 0);
+            this.grpMode.Size = new System.Drawing.Size(410, 216);
+            //
             // modeLayout
-            // 
-            this.modeLayout.ColumnCount = 1;
-            this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            //
+            this.modeLayout.BackColor = System.Drawing.Color.White;
+            this.modeLayout.ColumnCount = 2;
+            this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.modeLayout.Controls.Add(this.rbStandard, 0, 0);
             this.modeLayout.Controls.Add(this.rbStartIndex, 0, 1);
             this.modeLayout.Controls.Add(this.rbSelectPickStatus, 0, 2);
             this.modeLayout.Controls.Add(this.rbDragPickStatus, 0, 3);
             this.modeLayout.Controls.Add(this.btnReloadActiveMap, 0, 4);
-            this.modeLayout.Controls.Add(this.btnPickStatusSave, 0, 5);
+            this.modeLayout.Controls.Add(this.btnPickStatusSave, 1, 4);
             this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.modeLayout.Location = new System.Drawing.Point(3, 23);
+            this.modeLayout.Location = new System.Drawing.Point(6, 24);
+            this.modeLayout.Margin = new System.Windows.Forms.Padding(0);
             this.modeLayout.Name = "modeLayout";
-            this.modeLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 4);
-            this.modeLayout.RowCount = 6;
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.modeLayout.Size = new System.Drawing.Size(270, 226);
+            this.modeLayout.Padding = new System.Windows.Forms.Padding(10, 8, 10, 8);
+            this.modeLayout.RowCount = 5;
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.modeLayout.Size = new System.Drawing.Size(398, 186);
             this.modeLayout.TabIndex = 0;
-            // 
-            // rbStandard
-            // 
-            this.rbStandard.AutoSize = true;
-            this.rbStandard.Checked = true;
-            this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStandard.Location = new System.Drawing.Point(13, 11);
-            this.rbStandard.Name = "rbStandard";
-            this.rbStandard.Size = new System.Drawing.Size(244, 18);
-            this.rbStandard.TabIndex = 0;
-            this.rbStandard.TabStop = true;
-            this.rbStandard.Text = "GOOD STAGE";
-            this.rbStandard.UseVisualStyleBackColor = true;
-            // 
-            // rbStartIndex
-            // 
-            this.rbStartIndex.AutoSize = true;
-            this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStartIndex.Location = new System.Drawing.Point(13, 35);
-            this.rbStartIndex.Name = "rbStartIndex";
-            this.rbStartIndex.Size = new System.Drawing.Size(244, 18);
-            this.rbStartIndex.TabIndex = 1;
-            this.rbStartIndex.Text = "NG STAGE";
-            // 
-            // rbSelectPickStatus
-            // 
-            this.rbSelectPickStatus.AutoSize = true;
-            this.rbSelectPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbSelectPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbSelectPickStatus.Location = new System.Drawing.Point(13, 59);
-            this.rbSelectPickStatus.Name = "rbSelectPickStatus";
-            this.rbSelectPickStatus.Size = new System.Drawing.Size(244, 18);
-            this.rbSelectPickStatus.TabIndex = 2;
-            this.rbSelectPickStatus.Text = "SOURCE ORDER";
-            this.rbSelectPickStatus.UseVisualStyleBackColor = true;
-            // 
-            // rbDragPickStatus
-            // 
-            this.rbDragPickStatus.AutoSize = true;
-            this.rbDragPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rbDragPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbDragPickStatus.Location = new System.Drawing.Point(13, 83);
-            this.rbDragPickStatus.Name = "rbDragPickStatus";
-            this.rbDragPickStatus.Size = new System.Drawing.Size(244, 18);
-            this.rbDragPickStatus.TabIndex = 3;
-            this.rbDragPickStatus.Text = "RECEIVED STATUS";
-            // 
-            // btnReloadActiveMap
-            // 
-            this.btnReloadActiveMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnReloadActiveMap.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnReloadActiveMap.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReloadActiveMap.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnReloadActiveMap.ForeColor = System.Drawing.Color.White;
-            this.btnReloadActiveMap.Location = new System.Drawing.Point(14, 108);
-            this.btnReloadActiveMap.Margin = new System.Windows.Forms.Padding(4);
-            this.btnReloadActiveMap.Name = "btnReloadActiveMap";
-            this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 26);
-            this.btnReloadActiveMap.TabIndex = 5;
-            this.btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
-            // 
-            // btnPickStatusSave
-            // 
-            this.btnPickStatusSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnPickStatusSave.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnPickStatusSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnPickStatusSave.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnPickStatusSave.ForeColor = System.Drawing.Color.White;
-            this.btnPickStatusSave.Location = new System.Drawing.Point(14, 142);
-            this.btnPickStatusSave.Margin = new System.Windows.Forms.Padding(4);
-            this.btnPickStatusSave.Name = "btnPickStatusSave";
-            this.btnPickStatusSave.Size = new System.Drawing.Size(242, 76);
-            this.btnPickStatusSave.TabIndex = 4;
-            this.btnPickStatusSave.Text = "SELECTED PLAN INIT";
-            // 
+            ConfigureModeRadio(this.rbStandard, "GOOD STAGE", 0, true);
+            ConfigureModeRadio(this.rbStartIndex, "NG STAGE", 1, false);
+            ConfigureModeRadio(this.rbSelectPickStatus, "SOURCE ORDER", 2, false);
+            ConfigureModeRadio(this.rbDragPickStatus, "RECEIVED STATUS", 3, false);
+            this.modeLayout.SetColumnSpan(this.rbStandard, 2);
+            this.modeLayout.SetColumnSpan(this.rbStartIndex, 2);
+            this.modeLayout.SetColumnSpan(this.rbSelectPickStatus, 2);
+            this.modeLayout.SetColumnSpan(this.rbDragPickStatus, 2);
+            //
+            // grpAction
+            //
+            ConfigureMainGroup(this.grpAction, "ACTION", 3);
+            this.grpAction.Controls.Add(this.actionLayout);
+            this.grpAction.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)));
+            this.grpAction.Dock = System.Windows.Forms.DockStyle.None;
+            this.grpAction.Margin = new System.Windows.Forms.Padding(1, 1, 0, 0);
+            this.grpAction.Location = new System.Drawing.Point(843, 454);
+            this.grpAction.Size = new System.Drawing.Size(827, 124);
+            //
             // actionLayout
-            // 
-            this.actionLayout.ColumnCount = 1;
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            //
+            this.actionLayout.BackColor = System.Drawing.Color.White;
+            this.actionLayout.ColumnCount = 2;
+            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionLayout.Controls.Add(this.btnManualAlignComplete, 0, 0);
-            this.actionLayout.Controls.Add(this.btnNeedleBlockDown, 0, 1);
-            this.actionLayout.Controls.Add(this.btnThetaMatchMove, 0, 2);
-            this.actionLayout.Controls.Add(this.btnXyMatchMove, 0, 3);
-            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionLayout.Location = new System.Drawing.Point(233, 263);
+            this.actionLayout.Controls.Add(this.btnNeedleBlockDown, 1, 0);
+            this.actionLayout.Controls.Add(this.btnThetaMatchMove, 0, 1);
+            this.actionLayout.Controls.Add(this.btnXyMatchMove, 1, 1);
+            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Top;
+            this.actionLayout.Location = new System.Drawing.Point(6, 24);
+            this.actionLayout.Margin = new System.Windows.Forms.Padding(0);
             this.actionLayout.Name = "actionLayout";
-            this.actionLayout.Padding = new System.Windows.Forms.Padding(4, 6, 4, 4);
-            this.actionLayout.RowCount = 4;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.Size = new System.Drawing.Size(278, 184);
-            this.actionLayout.TabIndex = 3;
-            // 
-            // btnManualAlignComplete
-            // 
-            this.btnManualAlignComplete.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnManualAlignComplete.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnManualAlignComplete.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnManualAlignComplete.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnManualAlignComplete.ForeColor = System.Drawing.Color.White;
-            this.btnManualAlignComplete.Location = new System.Drawing.Point(8, 10);
-            this.btnManualAlignComplete.Margin = new System.Windows.Forms.Padding(4);
-            this.btnManualAlignComplete.Name = "btnManualAlignComplete";
-            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 35);
-            this.btnManualAlignComplete.TabIndex = 0;
-            this.btnManualAlignComplete.Text = "GOOD PLAN INIT";
-            // 
-            // btnNeedleBlockDown
-            // 
-            this.btnNeedleBlockDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNeedleBlockDown.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNeedleBlockDown.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNeedleBlockDown.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnNeedleBlockDown.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleBlockDown.Location = new System.Drawing.Point(8, 53);
-            this.btnNeedleBlockDown.Margin = new System.Windows.Forms.Padding(4);
-            this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
-            this.btnNeedleBlockDown.Size = new System.Drawing.Size(262, 35);
-            this.btnNeedleBlockDown.TabIndex = 1;
-            this.btnNeedleBlockDown.Text = "NG PLAN INIT";
-            // 
-            // btnThetaMatchMove
-            // 
-            this.btnThetaMatchMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnThetaMatchMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnThetaMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 96);
-            this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
-            this.btnThetaMatchMove.Name = "btnThetaMatchMove";
-            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 35);
-            this.btnThetaMatchMove.TabIndex = 2;
-            this.btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
-            // 
-            // btnXyMatchMove
-            // 
-            this.btnXyMatchMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnXyMatchMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnXyMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnXyMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 139);
-            this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(4);
-            this.btnXyMatchMove.Name = "btnXyMatchMove";
-            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 37);
-            this.btnXyMatchMove.TabIndex = 3;
-            this.btnXyMatchMove.Text = "REFRESH DISPLAY";
-            // 
+            this.actionLayout.Padding = new System.Windows.Forms.Padding(3, 1, 3, 0);
+            this.actionLayout.RowCount = 2;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
+            this.actionLayout.Size = new System.Drawing.Size(815, 93);
+            this.actionLayout.TabIndex = 0;
+            ConfigureStageCommandButton(this.btnReloadActiveMap, "RELOAD OUTPUT DIE MAP", 0);
+            ConfigureStageCommandButton(this.btnPickStatusSave, "MOVE SELECTED SLOT", 1);
+            ConfigureMapActionButton(this.btnManualAlignComplete, "GOOD PLAN INIT", 2);
+            ConfigureMapActionButton(this.btnNeedleBlockDown, "NG PLAN INIT", 3);
+            ConfigureMapActionButton(this.btnThetaMatchMove, "SAVE MATERIAL STATE", 4);
+            ConfigureMapActionButton(this.btnXyMatchMove, "REFRESH DISPLAY", 5);
+            AssignStableControlNames();
+            //
+            // lblHeader
+            //
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblHeader.Font = new System.Drawing.Font("Malgun Gothic", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
+            this.lblHeader.Name = "lblHeader";
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(0, 0);
+            this.lblHeader.TabIndex = 100;
+            this.lblHeader.Tag = "i18n:work.page.outputMap";
+            this.lblHeader.Text = "OUTPUT GOOD RECEIVE MAP";
+            this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblHeader.Visible = false;
+            //
+            // lblMapTitle
+            //
+            this.lblMapTitle.Name = "lblMapTitle";
+            this.lblMapTitle.Size = new System.Drawing.Size(0, 0);
+            this.lblMapTitle.TabIndex = 101;
+            this.lblMapTitle.Tag = "i18n:work.page.outputMap";
+            this.lblMapTitle.Text = "OUTPUT GOOD RECEIVE MAP";
+            this.lblMapTitle.Visible = false;
+            //
             // btnClose
-            // 
-            this.btnClose.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnClose.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.btnClose.Location = new System.Drawing.Point(4, 208);
-            this.btnClose.Margin = new System.Windows.Forms.Padding(4);
+            //
             this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(279, 44);
-            this.btnClose.TabIndex = 4;
+            this.btnClose.Size = new System.Drawing.Size(0, 0);
+            this.btnClose.TabIndex = 102;
             this.btnClose.Text = "CLOSE";
-            this.btnClose.UseVisualStyleBackColor = false;
-            // 
+            this.btnClose.Visible = false;
+            //
             // colIndex
-            // 
+            //
             this.colIndex.FillWeight = 45F;
             this.colIndex.HeaderText = "Index";
             this.colIndex.Name = "colIndex";
             this.colIndex.ReadOnly = true;
             this.colIndex.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colGridX
-            // 
+            //
             this.colGridX.FillWeight = 55F;
             this.colGridX.HeaderText = "DieMapX";
             this.colGridX.Name = "colGridX";
             this.colGridX.ReadOnly = true;
             this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colGridY
-            // 
+            //
             this.colGridY.FillWeight = 55F;
             this.colGridY.HeaderText = "DieMapY";
             this.colGridY.Name = "colGridY";
             this.colGridY.ReadOnly = true;
             this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colTarget
-            // 
+            //
             this.colTarget.FillWeight = 65F;
             this.colTarget.HeaderText = "State";
             this.colTarget.Name = "colTarget";
             this.colTarget.ReadOnly = true;
             this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colResult
-            // 
+            //
             this.colResult.FillWeight = 80F;
             this.colResult.HeaderText = "Result";
             this.colResult.Name = "colResult";
             this.colResult.ReadOnly = true;
             this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colBin
-            // 
+            //
             this.colBin.FillWeight = 55F;
             this.colBin.HeaderText = "Bin";
             this.colBin.Name = "colBin";
             this.colBin.ReadOnly = true;
             this.colBin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colAxisX
-            // 
+            //
             this.colAxisX.FillWeight = 80F;
             this.colAxisX.HeaderText = "X(mm)";
             this.colAxisX.Name = "colAxisX";
             this.colAxisX.ReadOnly = true;
             this.colAxisX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colAxisY
-            // 
+            //
             this.colAxisY.FillWeight = 80F;
             this.colAxisY.HeaderText = "Y(mm)";
             this.colAxisY.Name = "colAxisY";
             this.colAxisY.ReadOnly = true;
             this.colAxisY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // colDieUid
-            // 
+            //
             this.colDieUid.FillWeight = 180F;
             this.colDieUid.HeaderText = "Die UID";
             this.colDieUid.Name = "colDieUid";
             this.colDieUid.ReadOnly = true;
             this.colDieUid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
+            //
             // OutputStageMapTransferPage
-            // 
+            //
             this.AutoScroll = false;
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
+            this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "OutputStageMapTransferPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
-            this.statusLayout.ResumeLayout(false);
-            this.bodyLayout.ResumeLayout(false);
+            this.grpReceiveMap.ResumeLayout(false);
             this.mapLayout.ResumeLayout(false);
+            this.grpDieGrid.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.gridDieList)).EndInit();
             this.sideLayout.ResumeLayout(false);
             this.grpMapInfo.ResumeLayout(false);
@@ -967,9 +550,143 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMode.ResumeLayout(false);
             this.modeLayout.ResumeLayout(false);
             this.modeLayout.PerformLayout();
+            this.grpAction.ResumeLayout(false);
             this.actionLayout.ResumeLayout(false);
             this.ResumeLayout(false);
 
+        }
+
+        private static void ConfigureMainGroup(GroupBox group, string text, int tabIndex)
+        {
+            group.BackColor = PanelBack;
+            group.Dock = System.Windows.Forms.DockStyle.Fill;
+            group.Font = new System.Drawing.Font("Malgun Gothic", 11F, System.Drawing.FontStyle.Bold);
+            group.ForeColor = TitleColor;
+            group.Margin = new System.Windows.Forms.Padding(0, 0, 1, 1);
+            group.Padding = new System.Windows.Forms.Padding(3);
+            group.TabIndex = tabIndex;
+            group.TabStop = false;
+            group.Text = text;
+        }
+
+        private static void ConfigureInfoCaption(Label label, string text, int tabIndex)
+        {
+            label.AutoEllipsis = true;
+            label.BackColor = CaptionBack;
+            label.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            label.Dock = System.Windows.Forms.DockStyle.Fill;
+            label.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            label.ForeColor = CaptionFore;
+            label.Margin = new System.Windows.Forms.Padding(1);
+            label.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            label.TabIndex = tabIndex;
+            label.Text = text;
+            label.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+        }
+
+        private static void ConfigureInfoValue(Label label, string text, int tabIndex)
+        {
+            label.AutoEllipsis = true;
+            label.BackColor = System.Drawing.Color.White;
+            label.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            label.Dock = System.Windows.Forms.DockStyle.Fill;
+            label.Font = new System.Drawing.Font("Consolas", 9F);
+            label.ForeColor = System.Drawing.Color.FromArgb(25, 29, 34);
+            label.Margin = new System.Windows.Forms.Padding(1);
+            label.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            label.TabIndex = tabIndex;
+            label.Text = text;
+            label.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+        }
+
+        private static void ConfigureModeRadio(RadioButton radio, string text, int tabIndex, bool isChecked)
+        {
+            radio.AutoSize = false;
+            radio.CheckAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            radio.Checked = isChecked;
+            radio.Dock = System.Windows.Forms.DockStyle.Fill;
+            radio.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            radio.ForeColor = System.Drawing.Color.Black;
+            radio.Margin = new System.Windows.Forms.Padding(3);
+            radio.Padding = new System.Windows.Forms.Padding(0);
+            radio.TabIndex = tabIndex;
+            radio.TabStop = isChecked;
+            radio.Text = text;
+            radio.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            radio.UseVisualStyleBackColor = true;
+        }
+
+        private static void ConfigureMapActionButton(ActionButton button, string text, int tabIndex)
+        {
+            button.BackColor = ActionButtonBack;
+            button.Cursor = System.Windows.Forms.Cursors.Hand;
+            button.Dock = System.Windows.Forms.DockStyle.Fill;
+            button.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            button.ForeColor = System.Drawing.Color.White;
+            button.Margin = new System.Windows.Forms.Padding(3);
+            button.TabIndex = tabIndex;
+            button.Text = text;
+        }
+
+        private static void ConfigureStageCommandButton(Button button, string text, int tabIndex)
+        {
+            button.BackColor = System.Drawing.Color.FromArgb(0xE9, 0xEE, 0xF4);
+            button.Cursor = System.Windows.Forms.Cursors.Hand;
+            button.Dock = System.Windows.Forms.DockStyle.Fill;
+            button.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0x8F, 0x9C, 0xAD);
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xC7, 0xD2, 0xE0);
+            button.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xDA, 0xE2, 0xEC);
+            button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            button.ForeColor = System.Drawing.Color.FromArgb(0x26, 0x32, 0x42);
+            button.Margin = new System.Windows.Forms.Padding(3, 4, 3, 3);
+            button.TabIndex = tabIndex;
+            button.Text = text;
+            button.UseVisualStyleBackColor = false;
+        }
+
+        private void AssignStableControlNames()
+        {
+            this.grpReceiveMap.Name = "grpReceiveMap";
+            this.grpDieGrid.Name = "grpDieGrid";
+            this.grpAction.Name = "grpAction";
+            this.grpMapInfo.Name = "grpMapInfo";
+            this.grpMode.Name = "grpMode";
+            this.lblProjectCaption.Name = "lblProjectCaption";
+            this.lblProjectValue.Name = "lblProjectValue";
+            this.lblBarcodeCaption.Name = "lblBarcodeCaption";
+            this.lblBarcodeValue.Name = "lblBarcodeValue";
+            this.lblBinCaption.Name = "lblBinCaption";
+            this.lblBinValue.Name = "lblBinValue";
+            this.lblChipWCaption.Name = "lblChipWCaption";
+            this.lblChipW.Name = "lblChipW";
+            this.lblChipHCaption.Name = "lblChipHCaption";
+            this.lblChipH.Name = "lblChipH";
+            this.lblPitchXCaption.Name = "lblPitchXCaption";
+            this.lblPitchX.Name = "lblPitchX";
+            this.lblPitchYCaption.Name = "lblPitchYCaption";
+            this.lblPitchY.Name = "lblPitchY";
+            this.lblWaferDiaCaption.Name = "lblWaferDiaCaption";
+            this.lblWaferDia.Name = "lblWaferDia";
+            this.lblAxisXCaption.Name = "lblAxisXCaption";
+            this.lblAxisX.Name = "lblAxisX";
+            this.lblAxisYCaption.Name = "lblAxisYCaption";
+            this.lblAxisY.Name = "lblAxisY";
+            this.lblBinRankCaption.Name = "lblBinRankCaption";
+            this.lblBinRank.Name = "lblBinRank";
+            this.lblDieNumCaption.Name = "lblDieNumCaption";
+            this.lblDieNum.Name = "lblDieNum";
+            this.rbStandard.Name = "rbStandard";
+            this.rbStartIndex.Name = "rbStartIndex";
+            this.rbSelectPickStatus.Name = "rbSelectPickStatus";
+            this.rbDragPickStatus.Name = "rbDragPickStatus";
+            this.btnReloadActiveMap.Name = "btnReloadActiveMap";
+            this.btnPickStatusSave.Name = "btnPickStatusSave";
+            this.btnManualAlignComplete.Name = "btnManualAlignComplete";
+            this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
+            this.btnThetaMatchMove.Name = "btnThetaMatchMove";
+            this.btnXyMatchMove.Name = "btnXyMatchMove";
         }
 
         private DataGridViewTextBoxColumn colIndex;
@@ -983,5 +700,3 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DataGridViewTextBoxColumn colDieUid;
     }
 }
-
-

@@ -13,14 +13,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyGeneralLayout();
             LoadSettings();
             WireEvents();
         }
 
         private void ApplyRuntimeUi()
         {
-            lblHeader.Text = Lang.T("common.setting");
-            lblHeader.Tag = "i18n:common.setting";
+            lblHeader.Text = Lang.T("set.general");
+            lblHeader.Tag = "i18n:set.general";
             lblHeader.BackColor = UiTheme.StatusBarBg;
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
@@ -38,6 +40,125 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblUseVision.Text = "VISION USE";
 
             grpAjin.Tag = "level:Maintenance";
+        }
+
+        private void ApplyGeneralLayout()
+        {
+            rootLayout.SuspendLayout();
+            bodyLayout.SuspendLayout();
+            logBtnLayout.SuspendLayout();
+            try
+            {
+                rootLayout.Padding = Padding.Empty;
+                rootLayout.Margin = Padding.Empty;
+                lblHeader.Margin = Padding.Empty;
+
+                rootLayout.ColumnCount = 2;
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.SetColumnSpan(lblHeader, 2);
+
+                rootLayout.RowCount = 5;
+                while (rootLayout.RowStyles.Count < 5)
+                    rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                rootLayout.RowStyles[0].Height = 30F;
+                rootLayout.RowStyles[1].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[1].Height = 304F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[2].Height = 78F;
+                rootLayout.RowStyles[3].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[3].Height = 40F;
+                rootLayout.RowStyles[4].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[4].Height = 100F;
+
+                bodyLayout.Margin = Padding.Empty;
+                bodyLayout.Padding = Padding.Empty;
+                bodyLayout.Dock = DockStyle.Fill;
+                bodyLayout.ColumnStyles[1].SizeType = SizeType.Percent;
+                bodyLayout.ColumnStyles[1].Width = 100F;
+                SetBodyRowsHeight(34F);
+
+                logBtnLayout.Margin = Padding.Empty;
+                logBtnLayout.Padding = new Padding(0, 3, 0, 0);
+                logBtnLayout.Dock = DockStyle.Fill;
+                ConfigureLogButtonLayout();
+
+                rootLayout.Controls.Remove(bodyLayout);
+                rootLayout.Controls.Remove(logBtnLayout);
+
+                var grpSetting = new GroupBox
+                {
+                    BackColor = System.Drawing.Color.White,
+                    Dock = DockStyle.Fill,
+                    Font = UiTheme.SectionFont,
+                    ForeColor = System.Drawing.Color.FromArgb(35, 45, 57),
+                    Margin = new Padding(0, 0, 0, 1),
+                    Name = "grpSetting",
+                    Padding = new Padding(1, 10, 1, 2),
+                    TabIndex = 1,
+                    TabStop = false,
+                    Text = "SETTING"
+                };
+
+                var settingLayout = new TableLayoutPanel
+                {
+                    ColumnCount = 1,
+                    Dock = DockStyle.Fill,
+                    Margin = Padding.Empty,
+                    Name = "settingLayout",
+                    Padding = Padding.Empty,
+                    RowCount = 1
+                };
+                settingLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                settingLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 272F));
+
+                settingLayout.Controls.Add(bodyLayout, 0, 0);
+                grpSetting.Controls.Add(settingLayout);
+
+                rootLayout.Controls.Add(grpSetting, 0, 1);
+                rootLayout.SetColumn(grpSetting, 0);
+                rootLayout.SetRow(grpAjin, 2);
+                rootLayout.SetColumn(grpAjin, 0);
+                grpAjin.Margin = new Padding(0, 0, 0, 2);
+                grpAjin.Padding = new Padding(1, 10, 1, 2);
+                rootLayout.Controls.Add(logBtnLayout, 0, 3);
+                rootLayout.SetRow(logBtnLayout, 3);
+                rootLayout.SetColumn(logBtnLayout, 0);
+            }
+            finally
+            {
+                logBtnLayout.ResumeLayout(false);
+                bodyLayout.ResumeLayout(false);
+                rootLayout.ResumeLayout(false);
+            }
+        }
+
+        private void ConfigureLogButtonLayout()
+        {
+            logBtnLayout.ColumnCount = 2;
+            logBtnLayout.ColumnStyles.Clear();
+            logBtnLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            logBtnLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+            logBtnLayout.RowCount = 1;
+            logBtnLayout.RowStyles.Clear();
+            logBtnLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            logBtnLayout.Controls.Remove(btnLogSettings);
+            btnLogSettings.Dock = DockStyle.Fill;
+            btnLogSettings.Margin = Padding.Empty;
+            logBtnLayout.Controls.Add(btnLogSettings, 1, 0);
+            logBtnLayout.SetColumnSpan(btnLogSettings, 1);
+        }
+
+        private void SetBodyRowsHeight(float height)
+        {
+            for (int i = 0; i < bodyLayout.RowStyles.Count && i < 8; i++)
+            {
+                bodyLayout.RowStyles[i].SizeType = SizeType.Absolute;
+                bodyLayout.RowStyles[i].Height = height;
+            }
         }
 
         private void LoadSettings()

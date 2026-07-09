@@ -154,13 +154,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.centerLayout.Controls.Add(this.leftLayout, 1, 0);
             this.centerLayout.SetRowSpan(this.leftLayout, 2);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.centerLayout.Location = new System.Drawing.Point(8, 8);
+            this.centerLayout.Location = new System.Drawing.Point(1, 1);
             this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.RowCount = 2;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 56F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
-            this.centerLayout.Size = new System.Drawing.Size(683, 854);
+            this.centerLayout.Size = new System.Drawing.Size(1205, 868);
             this.centerLayout.TabIndex = 0;
             // 
             // grpVision
@@ -169,11 +169,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpVision.Controls.Add(this.tabVision);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpVision.Location = new System.Drawing.Point(4, 4);
+            this.grpVision.Location = new System.Drawing.Point(0, 0);
             this.grpVision.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this.grpVision.Name = "grpVision";
             this.grpVision.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpVision.Size = new System.Drawing.Size(675, 470);
+            this.grpVision.Size = new System.Drawing.Size(603, 482);
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
             this.grpVision.Text = "VISION";
@@ -187,7 +187,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tabVision.Location = new System.Drawing.Point(3, 20);
             this.tabVision.Name = "tabVision";
             this.tabVision.SelectedIndex = 0;
-            this.tabVision.Size = new System.Drawing.Size(669, 447);
+            this.tabVision.Size = new System.Drawing.Size(597, 459);
             this.tabVision.TabIndex = 0;
             // 
             // tabBottom
@@ -197,7 +197,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tabBottom.Location = new System.Drawing.Point(4, 24);
             this.tabBottom.Name = "tabBottom";
             this.tabBottom.Padding = new System.Windows.Forms.Padding(3);
-            this.tabBottom.Size = new System.Drawing.Size(661, 419);
+            this.tabBottom.Size = new System.Drawing.Size(589, 431);
             this.tabBottom.TabIndex = 0;
             this.tabBottom.Text = "BOTTOM";
             // 
@@ -208,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.visionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.visionPanel.Location = new System.Drawing.Point(3, 3);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(655, 413);
+            this.visionPanel.Size = new System.Drawing.Size(583, 425);
             this.visionPanel.TabIndex = 0;
             // 
             // lblVisionInfo
@@ -219,9 +219,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo.Location = new System.Drawing.Point(0, 0);
             this.lblVisionInfo.Name = "lblVisionInfo";
             this.lblVisionInfo.Padding = new System.Windows.Forms.Padding(14);
-            this.lblVisionInfo.Size = new System.Drawing.Size(655, 413);
+            this.lblVisionInfo.Size = new System.Drawing.Size(583, 425);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "VISION VIEW";
+            this.lblVisionInfo.Visible = false;
             // 
             // tabSide
             // 
@@ -230,7 +231,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.tabSide.Location = new System.Drawing.Point(4, 24);
             this.tabSide.Name = "tabSide";
             this.tabSide.Padding = new System.Windows.Forms.Padding(3);
-            this.tabSide.Size = new System.Drawing.Size(661, 419);
+            this.tabSide.Size = new System.Drawing.Size(391, 423);
             this.tabSide.TabIndex = 1;
             this.tabSide.Text = "SIDE";
             // 
@@ -247,7 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.sideLayout.RowCount = 2;
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.sideLayout.Size = new System.Drawing.Size(655, 413);
+            this.sideLayout.Size = new System.Drawing.Size(385, 417);
             this.sideLayout.TabIndex = 0;
             // 
             // lblVisionInfo2
@@ -260,9 +261,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo2.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
             this.lblVisionInfo2.Name = "lblVisionInfo2";
             this.lblVisionInfo2.Padding = new System.Windows.Forms.Padding(14);
-            this.lblVisionInfo2.Size = new System.Drawing.Size(655, 205);
+            this.lblVisionInfo2.Size = new System.Drawing.Size(385, 207);
             this.lblVisionInfo2.TabIndex = 0;
             this.lblVisionInfo2.Text = "SIDE VISION 1";
+            this.lblVisionInfo2.Visible = false;
             // 
             // lblVisionInfo3
             // 
@@ -270,13 +272,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblVisionInfo3.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
             this.lblVisionInfo3.ForeColor = System.Drawing.Color.Lime;
-            this.lblVisionInfo3.Location = new System.Drawing.Point(0, 207);
+            this.lblVisionInfo3.Location = new System.Drawing.Point(0, 209);
             this.lblVisionInfo3.Margin = new System.Windows.Forms.Padding(0, 1, 0, 0);
             this.lblVisionInfo3.Name = "lblVisionInfo3";
             this.lblVisionInfo3.Padding = new System.Windows.Forms.Padding(14);
-            this.lblVisionInfo3.Size = new System.Drawing.Size(655, 206);
+            this.lblVisionInfo3.Size = new System.Drawing.Size(385, 208);
             this.lblVisionInfo3.TabIndex = 1;
             this.lblVisionInfo3.Text = "SIDE VISION 2";
+            this.lblVisionInfo3.Visible = false;
             // 
             // grpManual
             // 
@@ -284,22 +287,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpManual.Controls.Add(this.manualActionPanel);
             this.grpManual.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpManual.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpManual.Location = new System.Drawing.Point(4, 482);
+            this.grpManual.Location = new System.Drawing.Point(0, 563);
             this.grpManual.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpManual.Name = "grpManual";
             this.grpManual.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpManual.Size = new System.Drawing.Size(675, 260);
+            this.grpManual.Size = new System.Drawing.Size(603, 305);
             this.grpManual.TabIndex = 1;
             this.grpManual.TabStop = false;
             this.grpManual.Text = "MANUAL ACTION";
             // 
             // manualActionPanel
             // 
+            this.manualActionPanel.AutoFitParentGroupHeight = false;
+            this.manualActionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.manualActionPanel.ColumnCount = 4;
             this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.manualActionPanel.Location = new System.Drawing.Point(3, 21);
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 20);
             this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.manualActionPanel.Name = "manualActionPanel";
-            this.manualActionPanel.Size = new System.Drawing.Size(549, 236);
+            this.manualActionPanel.RowHeight = 45;
+            this.manualActionPanel.Size = new System.Drawing.Size(597, 282);
             this.manualActionPanel.TabIndex = 0;
             // 
             // leftLayout
@@ -311,14 +318,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.leftLayout.Controls.Add(this.grpWait, 0, 1);
             this.leftLayout.Controls.Add(this.grpIo, 0, 2);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.leftLayout.Location = new System.Drawing.Point(691, 8);
+            this.leftLayout.Location = new System.Drawing.Point(607, 0);
             this.leftLayout.Margin = new System.Windows.Forms.Padding(0);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 3;
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 400F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 160F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(457, 854);
+            this.leftLayout.Size = new System.Drawing.Size(598, 868);
             this.leftLayout.TabIndex = 1;
             // 
             // grpOptions

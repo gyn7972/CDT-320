@@ -51,7 +51,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.rootLayout.Controls.Add(this.grid, 0, 1);
             this.rootLayout.Controls.Add(this.actionLayout, 0, 2);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rootLayout.Padding = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(0);
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -64,6 +64,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
+            this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.lblHeader.Text = "USER ACCOUNT";
@@ -85,6 +86,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.grid.ColumnHeadersHeight = 29;
             this.grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { this.colId, this.colLevel, this.colEnabled, this.colLast });
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grid.Margin = new System.Windows.Forms.Padding(0);
             this.grid.EnableHeadersVisualStyles = false;
             this.grid.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
             this.grid.RowHeadersVisible = false;
@@ -140,6 +142,7 @@ namespace QMC.CDT_320.Ui.Pages.User
             this.actionLayout.Controls.Add(this.btnDelete, 2, 0);
             this.actionLayout.Controls.Add(this.btnLogout, 4, 0);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionLayout.Margin = new System.Windows.Forms.Padding(0);
             this.actionLayout.Padding = new System.Windows.Forms.Padding(10, 9, 10, 9);
             this.actionLayout.RowCount = 1;
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));

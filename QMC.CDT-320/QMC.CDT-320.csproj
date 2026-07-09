@@ -1105,6 +1105,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
+    <Compile Include="Ui\Pages\Recipe\RecipeVisionPreview.cs" />
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
       <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>
@@ -1124,6 +1125,7 @@
     <Compile Include="Ui\Pages\Settings\DevicePages.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\SettingsPageLayoutStyler.cs" />
     <Compile Include="Ui\Pages\Settings\GeneralPage.Designer.cs">
       <DependentUpon>GeneralPage.cs</DependentUpon>
     </Compile>

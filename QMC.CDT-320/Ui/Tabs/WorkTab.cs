@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Pages.Material;
@@ -24,7 +26,13 @@ namespace QMC.CDT_320.Ui.Tabs
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
+            // 작업 탭 콘텐츠 배경을 흰색으로(메인 페이지 흰색과 통일). 다른 탭은 기존 MainBg 유지.
+            PnlContent.BackColor = System.Drawing.Color.White;
+            this.BackColor = System.Drawing.Color.White;
+
             SetSidebarHeader("tab.work");
+            // 사이드바 헤더(탭 제목) 배경도 흰색으로 — 회색(240)이 흰 콘텐츠와 이질감이 있어 통일.
+            LblSidebarHeader.BackColor = System.Drawing.Color.White;
             const UserLevel op = UserLevel.Operator;
             const UserLevel en = UserLevel.Engineer;
             const UserLevel mt = UserLevel.Maintenance;
@@ -61,9 +69,9 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterModeButton(BtnSelfCheckMode,   "work.selfCheckMode",   en, () => new SelfInspectionDialog());
             RegisterModeButton(BtnAutoPosMode,     "work.autoPosMode",     mt, () => new AutoPositionDialog());
             RegisterModeButton(BtnColletCleanMode, "work.colletCleanMode", en, () => new ColletCleaningDialog());
-            RegisterModeButton(BtnColletCheckMode, "work.colletCheckMode", en, () => new PositionCheckDialog());
-            RegisterModeButton(BtnPosCheck,        "work.posCheck",        en, () => new PositionCheckDialog());
-            RegisterModeButton(BtnNeedlePosMode,   "work.needlePosMode",   en, () => new PositionCheckDialog());
+            RegisterModeButton(BtnColletCheckMode, "work.colletCheckMode", en, () => new PositionCheckDialog("work.colletCheckMode"));
+            RegisterModeButton(BtnPosCheck,        "work.posCheck",        en, () => new PositionCheckDialog("work.posCheck"));
+            RegisterModeButton(BtnNeedlePosMode,   "work.needlePosMode",   en, () => new PositionCheckDialog("work.needlePosMode"));
 
             RegisterSidebarButton(BtnInputMapTransfer,  "work.inputMapTransfer",  op, () => new InputStageMapTransferPage("work.page.inputMap"));
             RegisterSidebarButton(BtnOutputMapTransfer, "work.outputMapTransfer", op, () => new OutputStageMapTransferPage("work.page.outputMap"));
@@ -119,10 +127,10 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             try
             {
-                RegisterSidebarButton(button, i18nKey, minLevel, () => new QMC.CDT_320.Ui.Pages.PlaceholderPage(i18nKey));
+                RegisterSidebarButton(button, i18nKey, minLevel, () => new QMC.CDT_320.Ui.Pages.PlaceholderPage(i18nKey, true));
                 button.Click += (s, e) =>
                 {
-                    using (var dlg = dlgFactory()) dlg.ShowDialog(FindForm());
+                    using (var dlg = dlgFactory()) ShowModeDialogCenteredOnContent(dlg);
                 };
             }
             catch (Exception ex)
@@ -132,6 +140,36 @@ namespace QMC.CDT_320.Ui.Tabs
             finally
             {
             }
+        }
+
+        private void ShowModeDialogCenteredOnContent(Form dialog)
+        {
+            if (dialog == null)
+                return;
+
+            Form owner = FindForm();
+            CenterDialogOnContent(dialog);
+            if (owner != null)
+                dialog.ShowDialog(owner);
+            else
+                dialog.ShowDialog();
+        }
+
+        private void CenterDialogOnContent(Form dialog)
+        {
+            if (dialog == null || PnlContent == null || !PnlContent.IsHandleCreated)
+                return;
+
+            System.Drawing.Rectangle bounds = PnlContent.RectangleToScreen(PnlContent.ClientRectangle);
+            int x = bounds.Left + ((bounds.Width - dialog.Width) / 2);
+            int y = bounds.Top + ((bounds.Height - dialog.Height) / 2);
+
+            System.Drawing.Rectangle screen = Screen.FromControl(PnlContent).WorkingArea;
+            x = Math.Max(screen.Left, Math.Min(x, screen.Right - dialog.Width));
+            y = Math.Max(screen.Top, Math.Min(y, screen.Bottom - dialog.Height));
+
+            dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Location = new System.Drawing.Point(x, y);
         }
 
         // 축 이동 운전 버튼(Ready/Start/CycleRun) 전 HOME END(IsHomeDone) 등 전 축 준비 상태 확인.
@@ -625,7 +663,8 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             try
             {
-                using (var dlg = new CstStatusDialog(isInput: true)) dlg.ShowDialog(FindForm());
+                using (var dlg = new CstStatusDialog("INPUT CASSETTE STATUS", BuildInputCstStatusSources()))
+                    dlg.ShowDialog(FindForm());
             }
             catch (Exception ex)
             {
@@ -640,7 +679,8 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             try
             {
-                using (var dlg = new CstStatusDialog(isInput: false)) dlg.ShowDialog(FindForm());
+                using (var dlg = new CstStatusDialog("OUTPUT CASSETTE STATUS", BuildOutputCstStatusSources()))
+                    dlg.ShowDialog(FindForm());
             }
             catch (Exception ex)
             {
@@ -649,6 +689,105 @@ namespace QMC.CDT_320.Ui.Tabs
             finally
             {
             }
+        }
+
+        private IEnumerable<CstStatusDialog.CassetteStatusSource> BuildInputCstStatusSources()
+        {
+            int slotCount = 25;
+            int levelCount = 1;
+            IReadOnlyList<bool> input1Fallback = null;
+
+            try
+            {
+                var loader = Host != null && Host.Machine != null ? Host.Machine.InputCassetteUnit : null;
+                if (loader != null && loader.Config != null)
+                {
+                    if (loader.Config.SlotCount > 0)
+                        slotCount = loader.Config.SlotCount;
+                    levelCount = loader.Config.SelectedCassetteLevel >= 2 ? 2 : 1;
+                }
+
+                if (loader != null && loader.WaferMap != null)
+                    input1Fallback = loader.WaferMap;
+                else if (Host != null && Host.CassetteDriver != null)
+                    input1Fallback = Host.CassetteDriver.InputSlotsHasWafer;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            var sources = new List<CstStatusDialog.CassetteStatusSource>
+            {
+                CstStatusDialog.CassetteStatusSource.Input("INPUT CASSETTE 1", CassetteMaterialRole.Input1, slotCount, input1Fallback)
+            };
+
+            if (levelCount >= 2)
+                sources.Add(CstStatusDialog.CassetteStatusSource.Input("INPUT CASSETTE 2", CassetteMaterialRole.Input2, slotCount, null));
+
+            return sources;
+        }
+
+        private IEnumerable<CstStatusDialog.CassetteStatusSource> BuildOutputCstStatusSources()
+        {
+            int slotCount = 25;
+            OutputCassetteUnit outputCassette = null;
+
+            try
+            {
+                outputCassette = Host != null && Host.Machine != null ? Host.Machine.OutputCassetteUnit : null;
+                if (outputCassette != null && outputCassette.Config != null && outputCassette.Config.SlotCount > 0)
+                    slotCount = outputCassette.Config.SlotCount;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            var driver = Host != null ? Host.CassetteDriver : null;
+            return new[]
+            {
+                CstStatusDialog.CassetteStatusSource.Output(
+                    "OUTPUT GOOD 1",
+                    CassetteMaterialRole.Good1,
+                    slotCount,
+                    ResolveOutputCstSlots(outputCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null)),
+                CstStatusDialog.CassetteStatusSource.Output(
+                    "OUTPUT GOOD 2",
+                    CassetteMaterialRole.Good2,
+                    slotCount,
+                    ResolveOutputCstSlots(outputCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null)),
+                CstStatusDialog.CassetteStatusSource.Output(
+                    "OUTPUT NG",
+                    CassetteMaterialRole.Ng1,
+                    slotCount,
+                    ResolveOutputCstSlots(outputCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null))
+            };
+        }
+
+        private static IReadOnlyList<bool> ResolveOutputCstSlots(OutputCassetteUnit outputCassette, TargetCassette cassette, bool[] fallback)
+        {
+            try
+            {
+                if (outputCassette != null && outputCassette.SlotMap != null)
+                {
+                    bool[] map;
+                    if (outputCassette.SlotMap.TryGetValue(cassette, out map) && map != null && map.Length > 0)
+                        return map;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return fallback;
         }
     }
 }

@@ -217,7 +217,13 @@ namespace QMC.Vision.Comm
             var cam = m.Camera;
             System.Threading.Tasks.Task.Run(() =>
             {
-                try { if (on) cam.StartLive(); else cam.StopLive(); }
+                try
+                {
+                    // Live 시작 전, 선택된 도구(없으면 모듈)의 레시피 노출+조명을 적용 — 도구 노출>0이면 그 값,
+                    //   아니면 모듈(설정) 기본 노출로 폴백. 레시피 페이지 그랩/라이브와 동일한 촬상 조건 보장.
+                    if (on) { try { m.PrepareToolAcquisition(toolName); } catch { } }
+                    if (on) cam.StartLive(); else cam.StopLive();
+                }
                 catch (Exception ex)
                 {
                     try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "VISION",

@@ -1048,7 +1048,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     bool hasWafer;
                     bool known;
                     ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer, out known);
-                    Color stateColor = known ? GetStateColor(state) : SystemColors.Control;
+                    Color stateColor = known ? GetStateColor(state) : Color.White;   // 미지정 상태 값은 흰색
                     lblSlotStateValue.Text = known ? BuildStateText(state, waferId, false) : "-";
                     lblSlotStateValue.BackColor = stateColor;
                     lblSlotStateValue.ForeColor = stateColor == Color.Navy ? Color.White : Color.Black;

@@ -159,14 +159,14 @@ namespace QMC.Vision.Core
             const int WaitMs = 6000;
             const int StepMs = 30;
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            for (;;)
+            for (; ; )
             {
                 var st = AsyncMatchStore.TryGet(m.Name, insp, chipUid, out string payload);
                 switch (st)
                 {
-                    case AsyncMatchStore.State.Done:  return "1;" + payload;
+                    case AsyncMatchStore.State.Done: return "1;" + payload;
                     case AsyncMatchStore.State.Error: return "ERR;" + payload;
-                    case AsyncMatchStore.State.None:  return "0";   // 미시작(INSPECTASYNC 전) — 즉시 반환
+                    case AsyncMatchStore.State.None: return "0";   // 미시작(INSPECTASYNC 전) — 즉시 반환
                 }
                 if (sw.ElapsedMilliseconds >= WaitMs) return "0";
                 System.Threading.Thread.Sleep(StepMs);

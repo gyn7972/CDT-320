@@ -7,9 +7,11 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public ColletChangeDialog() : base("dlg.colletChange")
         {
+            SetTitle("work.colletMode");
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("#1 COLLET CHANGE", width: 160);
             AddAction("#2 COLLET CHANGE", width: 160);
-            AddAction(Lang.T("common.complete"), width: 160).Tag = "i18n:common.complete";
+            AddAction("COMPLETE", width: 160);
         }
     }
 
@@ -17,6 +19,8 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public ColletCleaningDialog() : base("dlg.colletCleaning")
         {
+            SetTitle("work.colletCleanMode");
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("START", width: 160);
             AddAction("COMPLETE", width: 160);
         }
@@ -26,6 +30,8 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public NeedleChangeDialog() : base("dlg.needleChange")
         {
+            SetTitle("work.needleMode");
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("START", width: 180);
             AddAction("COMPLETE", width: 180);
         }
@@ -94,6 +100,8 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public AutoPositionDialog() : base("dlg.autoPos")
         {
+            SetTitle("work.autoPosMode");
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("START", width: 180);
             AddAction("COMPLETE", width: 180);
         }
@@ -101,8 +109,14 @@ namespace QMC.CDT_320.Ui.Dialogs
 
     public class PositionCheckDialog : ModeOverlayDialog
     {
-        public PositionCheckDialog() : base("dlg.posCheck")
+        public PositionCheckDialog() : this("work.posCheck")
         {
+        }
+
+        public PositionCheckDialog(string titleI18n) : base("dlg.posCheck")
+        {
+            SetTitle(titleI18n);
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("CHECK", width: 180);
             AddAction("COMPLETE", width: 180);
         }
@@ -112,6 +126,8 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         public SelfInspectionDialog() : base("dlg.selfInspection")
         {
+            SetTitle("work.selfCheckMode");
+            UseCompactCommandLayout(actionColumns: 1);
             AddAction("START", width: 180);
             AddAction("COMPLETE", width: 180);
         }

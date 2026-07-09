@@ -22,6 +22,8 @@ namespace QMC.CDT_320.Ui.Pages
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
             this.rootLayout.Controls.Add(this.lblPlaceholder, 0, 1);
             this.rootLayout.Dock = DockStyle.Fill;
+            this.rootLayout.Margin = new Padding(0);
+            this.rootLayout.Padding = new Padding(0);
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -30,6 +32,7 @@ namespace QMC.CDT_320.Ui.Pages
             this.lblHeader.Dock = DockStyle.Fill;
             this.lblHeader.Font = UiTheme.SectionFont;
             this.lblHeader.ForeColor = UiTheme.StatusBarFg;
+            this.lblHeader.Margin = new Padding(0);
             this.lblHeader.Padding = new Padding(10, 0, 0, 0);
             this.lblHeader.Tag = "i18n:common.caption";
             this.lblHeader.Text = Lang.T("common.caption");
@@ -38,6 +41,7 @@ namespace QMC.CDT_320.Ui.Pages
             this.lblPlaceholder.Dock = DockStyle.Fill;
             this.lblPlaceholder.Font = new Font("맑은 고딕", 20F);
             this.lblPlaceholder.ForeColor = Color.FromArgb(0x55, 0x55, 0x55);
+            this.lblPlaceholder.Margin = new Padding(0);
             this.lblPlaceholder.Tag = "i18n:common.caption";
             this.lblPlaceholder.Text = Lang.T("common.caption") + "   (placeholder)";
             this.lblPlaceholder.TextAlign = ContentAlignment.MiddleCenter;

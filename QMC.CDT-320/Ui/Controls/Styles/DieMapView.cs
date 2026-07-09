@@ -36,19 +36,43 @@ namespace QMC.CDT320.Ui.Controls
         /// <summary>좌상단 정보 라벨에 표시할 추가 텍스트.</summary>
         public string Caption { get; set; } = "Die Map";
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, Color> CellColorResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellTextResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellStatusResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<Tuple<string, Color>[]> LegendItemsResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, bool> EntryVisibilityPredicate { get; set; }
 
         public bool CompactUsedBounds { get; set; }
 
         public bool ShowWaferOutline { get; set; }
+
+        // ─── 스타일 훅 (기본값 = 기존 룩). 파생 뷰에서 override 하여 부드러운 팔레트 적용. ───
+        /// <summary>외곽 테두리 색.</summary>
+        protected virtual Color MapBorderColor => Color.DimGray;
+        /// <summary>외곽 테두리 두께(px).</summary>
+        protected virtual float MapBorderWidth => 1f;
+        /// <summary>외곽 테두리를 가장자리에서 안쪽으로 들여쓰는 정도(px). 0 = 컨트롤 가장자리.</summary>
+        protected virtual int MapBorderInset => 0;
+        /// <summary>웨이퍼 외곽 원 색.</summary>
+        protected virtual Color WaferOutlineColor => Color.FromArgb(70, 130, 220);
+        /// <summary>캡션/정보/범례 등 오버레이 텍스트 폰트 패밀리.</summary>
+        protected virtual string OverlayFontFamily => "Consolas";
+        /// <summary>격자 크기·pitch·zoom 등 기술 정보 라인 표시 여부.</summary>
+        protected virtual bool ShowTechnicalInfoLine => true;
 
         public DieMapEntry SelectedEntry
         {
@@ -80,13 +104,19 @@ namespace QMC.CDT320.Ui.Controls
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             g.Clear(BackColor);
-            using (var pen = new Pen(Color.DimGray, 1f))
-                g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            using (var pen = new Pen(MapBorderColor, MapBorderWidth))
+            {
+                int ins = MapBorderInset;
+                g.DrawRectangle(pen, ins, ins,
+                    Math.Max(1, Width - 1 - ins * 2), Math.Max(1, Height - 1 - ins * 2));
+            }
 
             Color textColor = ResolveOverlayTextColor();
             using (var br = new SolidBrush(textColor))
-            using (var f  = new Font("Consolas", 10F, FontStyle.Bold))
+            using (var f  = new Font(OverlayFontFamily, 10F, FontStyle.Bold))
                 g.DrawString(Caption, f, br, 8, 6);
 
             if (_map == null || _map.DieMapX <= 0 || _map.DieMapY <= 0)
@@ -108,7 +138,7 @@ namespace QMC.CDT320.Ui.Controls
                 float radius = Math.Max(mapRect.Width, mapRect.Height) / 2.0F;
                 float cx = mapRect.Left + mapRect.Width / 2.0F;
                 float cy = mapRect.Top + mapRect.Height / 2.0F;
-                using (var pen = new Pen(Color.FromArgb(70, 130, 220), 1f))
+                using (var pen = new Pen(WaferOutlineColor, 1.4f))
                     g.DrawEllipse(pen, cx - radius, cy - radius, radius * 2.0F, radius * 2.0F);
             }
 
@@ -167,13 +197,16 @@ namespace QMC.CDT320.Ui.Controls
 
             // 좌상단 정보
             using (var br = new SolidBrush(textColor))
-            using (var f  = new Font("Consolas", 9F))
+            using (var f  = new Font(OverlayFontFamily, 9F))
             {
-                string dieSizeInfo = FormatDieSizeInfo();
-                string info = bounds.Compacted
-                    ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  zoom={_zoom * 100.0F:F0}%"
-                    : $"{_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
-                g.DrawString(info, f, br, 8, 24);
+                if (ShowTechnicalInfoLine)
+                {
+                    string dieSizeInfo = FormatDieSizeInfo();
+                    string info = bounds.Compacted
+                        ? $"{bounds.Width}×{bounds.Height} display={bounds.VisibleCount}  source={_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  zoom={_zoom * 100.0F:F0}%"
+                        : $"{_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  {dieSizeInfo}  total={_map.TotalCells}  zoom={_zoom * 100.0F:F0}%";
+                    g.DrawString(info, f, br, 8, 24);
+                }
                 if (_hover != null && IsEntryVisible(_hover))
                 {
                     string status = CellStatusResolver != null ? CellStatusResolver(_hover) : _hover.Result.ToString();
@@ -207,7 +240,7 @@ namespace QMC.CDT320.Ui.Controls
         private void DrawLegend(Graphics g, int totalW, int x0, int y)
         {
             Color textColor = ResolveOverlayTextColor();
-            using (var f = new Font("Consolas", 8F))
+            using (var f = new Font(OverlayFontFamily, 8.5F))
             {
                 int sx = x0;
                 int sw = 14;

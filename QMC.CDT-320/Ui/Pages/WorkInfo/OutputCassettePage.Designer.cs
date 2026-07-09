@@ -175,7 +175,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // contentLayout
             // 
-            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.contentLayout.BackColor = System.Drawing.Color.White;
             this.contentLayout.ColumnCount = 2;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -196,7 +196,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpSlotState
             // 
-            this.grpSlotState.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpSlotState.BackColor = System.Drawing.Color.White;
             this.grpSlotState.Controls.Add(this.slotStateLayout);
             this.grpSlotState.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpSlotState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -250,7 +250,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblSlotNoValue
             // 
-            this.lblSlotNoValue.BackColor = System.Drawing.SystemColors.Control;
+            this.lblSlotNoValue.BackColor = System.Drawing.Color.White;
             this.lblSlotNoValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSlotNoValue.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblSlotNoValue.Location = new System.Drawing.Point(139, 4);
@@ -482,7 +482,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // lblSlotStateValue
             // 
-            this.lblSlotStateValue.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.lblSlotStateValue.BackColor = System.Drawing.Color.White;
             this.lblSlotStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSlotStateValue.Font = new System.Drawing.Font("Consolas", 10F);
             this.lblSlotStateValue.Location = new System.Drawing.Point(139, 43);
@@ -516,7 +516,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpLifter
             // 
-            this.grpLifter.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpLifter.BackColor = System.Drawing.Color.White;
             this.grpLifter.Controls.Add(this.lifterContentLayout);
             this.grpLifter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLifter.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -766,7 +766,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // _good1CassetteView
             // 
-            this._good1CassetteView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this._good1CassetteView.BackColor = System.Drawing.Color.White;
             this._good1CassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
             this._good1CassetteView.EmptyColor = System.Drawing.Color.LightGray;
             this._good1CassetteView.Location = new System.Drawing.Point(0, 0);
@@ -778,7 +778,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // _good2CassetteView
             // 
-            this._good2CassetteView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this._good2CassetteView.BackColor = System.Drawing.Color.White;
             this._good2CassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
             this._good2CassetteView.EmptyColor = System.Drawing.Color.LightGray;
             this._good2CassetteView.Location = new System.Drawing.Point(272, 0);
@@ -790,7 +790,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // _ngCassetteView
             // 
-            this._ngCassetteView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this._ngCassetteView.BackColor = System.Drawing.Color.White;
             this._ngCassetteView.Dock = System.Windows.Forms.DockStyle.Fill;
             this._ngCassetteView.EmptyColor = System.Drawing.Color.LightGray;
             this._ngCassetteView.Location = new System.Drawing.Point(544, 0);
@@ -802,7 +802,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpAction
             // 
-            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.BackColor = System.Drawing.Color.White;
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -888,7 +888,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // materialDetailView
             // 
-            this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.materialDetailView.BackColor = System.Drawing.Color.White;
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialDetailView.Location = new System.Drawing.Point(842, 0);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
@@ -900,7 +900,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // OutputCassettePage
             // 
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "OutputCassettePage";

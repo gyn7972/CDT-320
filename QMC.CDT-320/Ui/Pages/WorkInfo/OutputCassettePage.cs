@@ -382,7 +382,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var wafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
             WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
             lblSlotStateValue.Text = wafer != null ? WaferMaterialStateText.ToDisplayName(state) : "-";
-            lblSlotStateValue.BackColor = System.Drawing.Color.FromArgb(240, 240, 240);
+            lblSlotStateValue.BackColor = System.Drawing.Color.White;   // 값 라벨은 흰색
         }
 
         private void RefreshSelectedMaterialDetail()

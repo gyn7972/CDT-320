@@ -146,7 +146,7 @@ namespace QMC.Vision.Core
             if (map.ReturnMmCoordinates)
             {
                 var scale = new VisionScale(map.ScaleX, map.ScaleY);
-                var vec   = new CameraVector(map.InvertedX, map.InvertedY, map.IsRotated);
+                var vec = new CameraVector(map.InvertedX, map.InvertedY, map.IsRotated);
                 VisionScale.ConvertPosition(scale, vec, image.Width, image.Height, b.CenterX, b.CenterY, out xOut, out yOut);
             }
 
@@ -164,15 +164,17 @@ namespace QMC.Vision.Core
             // 오버레이 저장 — 핸들러 뷰어가 '찾은 위치/각/박스 + 검색 ROI' 를 영상 위에 표시(메타로 송출).
             try
             {
-                double bw = f.TrainRoi?.Width  ?? 0.0;
+                double bw = f.TrainRoi?.Width ?? 0.0;
                 double bh = f.TrainRoi?.Height ?? 0.0;
                 var marks = new System.Collections.Generic.List<MatchOverlayStore.Mark>();
                 if (r.Instances != null)
                     foreach (var inst in r.Instances)
                         marks.Add(new MatchOverlayStore.Mark
                         {
-                            X = inst.CenterX, Y = inst.CenterY,
-                            Angle = inst.AngleDeg, Score = inst.Score,
+                            X = inst.CenterX,
+                            Y = inst.CenterY,
+                            Angle = inst.AngleDeg,
+                            Score = inst.Score,
                             // 플랫 콜렛 등 검출 사각형 크기가 있으면 그 크기로(콜렛 전용 오버레이), 없으면 Train ROI.
                             BoxW = inst.BoxW > 0 ? inst.BoxW : bw,
                             BoxH = inst.BoxH > 0 ? inst.BoxH : bh
@@ -186,8 +188,12 @@ namespace QMC.Vision.Core
             catch { }
 
             // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 MATCH 결과값(위치/각/점수)도 라인으로 표시.
-            try { ModuleResultStore.Record(m.Name, finderId, true,
-                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}"); } catch { }
+            try
+            {
+                ModuleResultStore.Record(m.Name, finderId, true,
+                $"x={b.CenterX:F1};y={b.CenterY:F1};r={rOut:F2};score={b.Score:F3}");
+            }
+            catch { }
 
             return $"OK;x={b.CenterX:F3};y={b.CenterY:F3};r={rOut:F3};score={b.Score:F3};width={image.Width};height={image.Height}";   // 항상 픽셀 + 이미지크기(px) — 핸들러가 mm 변환
         }
@@ -348,13 +354,13 @@ namespace QMC.Vision.Core
                 try
                 {
                     if (inspId.IndexOf("Surface", StringComparison.OrdinalIgnoreCase) >= 0
-                        || inspId.IndexOf("Bottom",  StringComparison.OrdinalIgnoreCase) >= 0)
+                        || inspId.IndexOf("Bottom", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplyBottom(chipUid, r);
                     else if (inspId.IndexOf("Side", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplySide(chipUid, r, cfg?.SideLocation);
                     else if (inspId.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0
-                          || inspId.IndexOf("DieGap",    StringComparison.OrdinalIgnoreCase) >= 0
-                          || inspId.IndexOf("Bin",       StringComparison.OrdinalIgnoreCase) >= 0)
+                          || inspId.IndexOf("DieGap", StringComparison.OrdinalIgnoreCase) >= 0
+                          || inspId.IndexOf("Bin", StringComparison.OrdinalIgnoreCase) >= 0)
                         MaterialTracker.ApplyDieGap(chipUid, r);
 
                     ImageLogSaver.Save(cfg, m.Name, inspId, chipUid, image, r.IsPass);
@@ -744,8 +750,12 @@ namespace QMC.Vision.Core
                         double score = AutoFocusCore.Score(g.Image);
                         int series0 = pickup0 >= 1 ? pickup0 : 1;
                         AutoFocusStore.AddSample(cam, tgt, series0, mz, score, init0);
-                        try { ModuleResultStore.Record(modName, "FOCUS", true,
-                            "z=" + mz.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv)); } catch { }
+                        try
+                        {
+                            ModuleResultStore.Record(modName, "FOCUS", true,
+                            "z=" + mz.ToString("F3", inv) + ";avgScore=" + score.ToString("F1", inv));
+                        }
+                        catch { }
                     }
                 }
                 catch (Exception ex)

@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
@@ -8,15 +8,26 @@ namespace QMC.CDT_320.Ui.Pages.Work
     partial class WorkMainPage
     {
         private TableLayoutPanel rootLayout;
-        private TableLayoutPanel visionLayout;
-        private TableLayoutPanel mapLayout;
-        private TableLayoutPanel infoLayout;
-        private TableLayoutPanel timeLayout;
-        private Label lblVisionHeader;
-        private Label lblMapHeader;
-        private Label lblInfoHeader;
-        private Label lblTimeHeader;
+        private GroupBox grpVision;
+        private GroupBox grpMap;
+        private GroupBox grpInfo;
+        private GroupBox grpTime;
+        private TableLayoutPanel mapBody;
         private Panel visionPanel;
+        private Label lblStageInfo;
+        private TableLayoutPanel visionShellLayout;
+        private TableLayoutPanel visionMainLayout;
+        private TableLayoutPanel visionLeftLayout;
+        private TableLayoutPanel visionSideLayout;
+        private Panel pnlWaferVision;
+        private Panel pnlBottomInspVision;
+        private Panel pnlSideRearVision;
+        private Panel pnlSideFrontVision;
+        private Panel pnlBinVision;
+        private Label lblBottomInspInfo;
+        private Label lblSideRearInfo;
+        private Label lblSideFrontInfo;
+        private Label lblBinVisionInfo;
         private TabControl mapTabControl;
         private TabPage tabInputMap;
         private TabPage tabOutputGoodMap;
@@ -25,6 +36,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private LiveLotMapView outputGoodLotMapView;
         private LiveLotMapView outputNgLotMapView;
         private TableLayoutPanel mapHeaderLayout;
+        private Panel mapHeaderTotalTile;
+        private Panel mapHeaderBinTile;
         private Label lblTotalChipCaption;
         private Label lblTotalChip;
         private Label lblBinNumCaption;
@@ -32,8 +45,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblVisionCaption;
         private Label lblPickCaption;
         private Label lblPlaceCaption;
-        private Label lblStageInfo;
-        private Label lblLive;
         private TableLayoutPanel workInfoBody;
         private TableLayoutPanel workTimeBody;
         private Label lblProjectCaption;
@@ -79,19 +90,77 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblLotCaption;
         private Label lblLot;
         private Button btnCcs;
-        private Button btnTestAlarm;
+        private Panel workInfoProjectTile;
+        private Panel workInfoBinQtyTile;
+        private Panel workInfoPickFailTile;
+        private Panel workInfoPlaceFailTile;
+        private Panel workInfoNeedleTile;
+        private Panel workInfoFrontCollet1Tile;
+        private Panel workInfoFrontCollet2Tile;
+        private Panel workInfoFrontCollet3Tile;
+        private Panel workInfoFrontCollet4Tile;
+        private Panel workInfoRearCollet1Tile;
+        private Panel workInfoRearCollet2Tile;
+        private Panel workInfoRearCollet3Tile;
+        private Panel workInfoRearCollet4Tile;
+        private Label lblFrontCollet1CaptionDesigner;
+        private Label lblFrontCollet2CaptionDesigner;
+        private Label lblFrontCollet3CaptionDesigner;
+        private Label lblFrontCollet4CaptionDesigner;
+        private Label lblRearCollet1CaptionDesigner;
+        private Label lblRearCollet2CaptionDesigner;
+        private Label lblRearCollet3CaptionDesigner;
+        private Label lblRearCollet4CaptionDesigner;
+        private Label lblFrontCollet1Designer;
+        private Label lblFrontCollet2Designer;
+        private Label lblFrontCollet3Designer;
+        private Label lblFrontCollet4Designer;
+        private Label lblRearCollet1Designer;
+        private Label lblRearCollet2Designer;
+        private Label lblRearCollet3Designer;
+        private Label lblRearCollet4Designer;
+        private Panel workTimeLotTile;
+        private Panel workTimeUphTile;
+        private Panel workTimeUpTile;
+        private Panel workTimeContUpTile;
+        private Panel workTimeRateTile;
+        private Panel workTimeCycleTile;
+        private Panel workTimeLoadTile;
+        private Panel workTimeMtbfTile;
+        private Panel workTimeMttrTile;
+        private Panel workTimeRecoveryTile;
+        private Panel workTimeNormDownTile;
+        private Panel workTimeErrDownTile;
+        private Panel workTimeErrCntTile;
+
+        private static readonly Color AccentColor = Color.FromArgb(217, 119, 6);
 
         private void InitializeComponent()
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.visionLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblVisionHeader = new System.Windows.Forms.Label();
+            this.grpVision = new System.Windows.Forms.GroupBox();
+            this.grpMap = new System.Windows.Forms.GroupBox();
+            this.grpInfo = new System.Windows.Forms.GroupBox();
+            this.grpTime = new System.Windows.Forms.GroupBox();
+            this.mapBody = new System.Windows.Forms.TableLayoutPanel();
             this.visionPanel = new System.Windows.Forms.Panel();
             this.lblStageInfo = new System.Windows.Forms.Label();
-            this.lblLive = new System.Windows.Forms.Label();
-            this.mapLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblMapHeader = new System.Windows.Forms.Label();
+            this.visionShellLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.visionMainLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.visionLeftLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.visionSideLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.pnlWaferVision = new System.Windows.Forms.Panel();
+            this.pnlBottomInspVision = new System.Windows.Forms.Panel();
+            this.pnlSideRearVision = new System.Windows.Forms.Panel();
+            this.pnlSideFrontVision = new System.Windows.Forms.Panel();
+            this.pnlBinVision = new System.Windows.Forms.Panel();
+            this.lblBottomInspInfo = new System.Windows.Forms.Label();
+            this.lblSideRearInfo = new System.Windows.Forms.Label();
+            this.lblSideFrontInfo = new System.Windows.Forms.Label();
+            this.lblBinVisionInfo = new System.Windows.Forms.Label();
             this.mapHeaderLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.mapHeaderTotalTile = new System.Windows.Forms.Panel();
+            this.mapHeaderBinTile = new System.Windows.Forms.Panel();
             this.lblTotalChipCaption = new System.Windows.Forms.Label();
             this.lblTotalChip = new System.Windows.Forms.Label();
             this.lblBinNumCaption = new System.Windows.Forms.Label();
@@ -106,8 +175,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
             this.outputGoodLotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
             this.outputNgLotMapView = new QMC.CDT_320.Ui.Controls.LiveLotMapView();
-            this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblInfoHeader = new System.Windows.Forms.Label();
             this.workInfoBody = new System.Windows.Forms.TableLayoutPanel();
             this.lblProjectCaption = new System.Windows.Forms.Label();
             this.lblProject = new System.Windows.Forms.Label();
@@ -125,8 +192,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblCollet2 = new System.Windows.Forms.Label();
             this.lblBinArrMonCaption = new System.Windows.Forms.Label();
             this.lblBinArrMon = new System.Windows.Forms.Label();
-            this.timeLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblTimeHeader = new System.Windows.Forms.Label();
             this.workTimeBody = new System.Windows.Forms.TableLayoutPanel();
             this.lblLoadCaption = new System.Windows.Forms.Label();
             this.lblLoad = new System.Windows.Forms.Label();
@@ -155,250 +220,472 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblLotCaption = new System.Windows.Forms.Label();
             this.lblLot = new System.Windows.Forms.Label();
             this.btnCcs = new System.Windows.Forms.Button();
-            this.btnTestAlarm = new System.Windows.Forms.Button();
+            this.workInfoProjectTile = new System.Windows.Forms.Panel();
+            this.workInfoBinQtyTile = new System.Windows.Forms.Panel();
+            this.workInfoPickFailTile = new System.Windows.Forms.Panel();
+            this.workInfoPlaceFailTile = new System.Windows.Forms.Panel();
+            this.workInfoNeedleTile = new System.Windows.Forms.Panel();
+            this.workInfoFrontCollet1Tile = new System.Windows.Forms.Panel();
+            this.workInfoFrontCollet2Tile = new System.Windows.Forms.Panel();
+            this.workInfoFrontCollet3Tile = new System.Windows.Forms.Panel();
+            this.workInfoFrontCollet4Tile = new System.Windows.Forms.Panel();
+            this.workInfoRearCollet1Tile = new System.Windows.Forms.Panel();
+            this.workInfoRearCollet2Tile = new System.Windows.Forms.Panel();
+            this.workInfoRearCollet3Tile = new System.Windows.Forms.Panel();
+            this.workInfoRearCollet4Tile = new System.Windows.Forms.Panel();
+            this.lblFrontCollet1CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblFrontCollet2CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblFrontCollet3CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblFrontCollet4CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblRearCollet1CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblRearCollet2CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblRearCollet3CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblRearCollet4CaptionDesigner = new System.Windows.Forms.Label();
+            this.lblFrontCollet1Designer = new System.Windows.Forms.Label();
+            this.lblFrontCollet2Designer = new System.Windows.Forms.Label();
+            this.lblFrontCollet3Designer = new System.Windows.Forms.Label();
+            this.lblFrontCollet4Designer = new System.Windows.Forms.Label();
+            this.lblRearCollet1Designer = new System.Windows.Forms.Label();
+            this.lblRearCollet2Designer = new System.Windows.Forms.Label();
+            this.lblRearCollet3Designer = new System.Windows.Forms.Label();
+            this.lblRearCollet4Designer = new System.Windows.Forms.Label();
+            this.workTimeLotTile = new System.Windows.Forms.Panel();
+            this.workTimeUphTile = new System.Windows.Forms.Panel();
+            this.workTimeUpTile = new System.Windows.Forms.Panel();
+            this.workTimeContUpTile = new System.Windows.Forms.Panel();
+            this.workTimeRateTile = new System.Windows.Forms.Panel();
+            this.workTimeCycleTile = new System.Windows.Forms.Panel();
+            this.workTimeLoadTile = new System.Windows.Forms.Panel();
+            this.workTimeMtbfTile = new System.Windows.Forms.Panel();
+            this.workTimeMttrTile = new System.Windows.Forms.Panel();
+            this.workTimeRecoveryTile = new System.Windows.Forms.Panel();
+            this.workTimeNormDownTile = new System.Windows.Forms.Panel();
+            this.workTimeErrDownTile = new System.Windows.Forms.Panel();
+            this.workTimeErrCntTile = new System.Windows.Forms.Panel();
             this.rootLayout.SuspendLayout();
-            this.visionLayout.SuspendLayout();
+            this.grpVision.SuspendLayout();
+            this.grpMap.SuspendLayout();
+            this.grpInfo.SuspendLayout();
+            this.grpTime.SuspendLayout();
+            this.mapBody.SuspendLayout();
             this.visionPanel.SuspendLayout();
-            this.mapLayout.SuspendLayout();
+            this.visionShellLayout.SuspendLayout();
+            this.visionMainLayout.SuspendLayout();
+            this.visionLeftLayout.SuspendLayout();
+            this.visionSideLayout.SuspendLayout();
+            this.pnlWaferVision.SuspendLayout();
+            this.pnlBottomInspVision.SuspendLayout();
+            this.pnlSideRearVision.SuspendLayout();
+            this.pnlSideFrontVision.SuspendLayout();
+            this.pnlBinVision.SuspendLayout();
             this.mapHeaderLayout.SuspendLayout();
+            this.mapHeaderTotalTile.SuspendLayout();
+            this.mapHeaderBinTile.SuspendLayout();
             this.mapTabControl.SuspendLayout();
             this.tabInputMap.SuspendLayout();
             this.tabOutputGoodMap.SuspendLayout();
             this.tabOutputNgMap.SuspendLayout();
-            this.infoLayout.SuspendLayout();
             this.workInfoBody.SuspendLayout();
-            this.timeLayout.SuspendLayout();
             this.workTimeBody.SuspendLayout();
             this.SuspendLayout();
-            // 
-            // rootLayout
-            // 
-            this.rootLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.rootLayout.CellBorderStyle = System.Windows.Forms.TableLayoutPanelCellBorderStyle.Single;
+            //
+            // rootLayout  (2x2, 50:50 / 65:35, 흰 배경)
+            //
+            this.rootLayout.BackColor = System.Drawing.Color.White;
             this.rootLayout.ColumnCount = 2;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.rootLayout.Controls.Add(this.visionLayout, 0, 0);
-            this.rootLayout.Controls.Add(this.mapLayout, 1, 0);
-            this.rootLayout.Controls.Add(this.infoLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.timeLayout, 1, 1);
+            this.rootLayout.Controls.Add(this.grpVision, 0, 0);
+            this.rootLayout.Controls.Add(this.grpMap, 1, 0);
+            this.rootLayout.Controls.Add(this.grpInfo, 0, 1);
+            this.rootLayout.Controls.Add(this.grpTime, 1, 1);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(4);
             this.rootLayout.RowCount = 2;
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 55F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 65F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 35F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
-            // 
-            // visionLayout
-            // 
-            this.visionLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.visionLayout.ColumnCount = 1;
-            this.visionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.visionLayout.Controls.Add(this.lblVisionHeader, 0, 0);
-            this.visionLayout.Controls.Add(this.visionPanel, 0, 1);
-            this.visionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionLayout.Location = new System.Drawing.Point(4, 4);
-            this.visionLayout.Name = "visionLayout";
-            this.visionLayout.RowCount = 2;
-            this.visionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.visionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.visionLayout.Size = new System.Drawing.Size(831, 487);
-            this.visionLayout.TabIndex = 0;
-            // 
-            // lblVisionHeader
-            // 
-            this.lblVisionHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblVisionHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblVisionHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblVisionHeader.ForeColor = System.Drawing.Color.White;
-            this.lblVisionHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblVisionHeader.Name = "lblVisionHeader";
-            this.lblVisionHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblVisionHeader.Size = new System.Drawing.Size(825, 30);
-            this.lblVisionHeader.TabIndex = 0;
-            this.lblVisionHeader.Tag = "i18n:work.sec.visionView";
-            this.lblVisionHeader.Text = "비전 화면";
-            this.lblVisionHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // grpVision
+            //
+            this.grpVision.BackColor = System.Drawing.Color.White;
+            this.grpVision.Controls.Add(this.visionPanel);
+            this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpVision.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
+            this.grpVision.Margin = new System.Windows.Forms.Padding(4);
+            this.grpVision.Name = "grpVision";
+            this.grpVision.Padding = new System.Windows.Forms.Padding(6, 4, 6, 6);
+            this.grpVision.TabIndex = 0;
+            this.grpVision.TabStop = false;
+            this.grpVision.Tag = "i18n:work.sec.visionView";
+            this.grpVision.Text = "비전 화면";
+            //
             // visionPanel
-            // 
+            //
             this.visionPanel.BackColor = System.Drawing.Color.Black;
-            this.visionPanel.Controls.Add(this.lblStageInfo);
-            this.visionPanel.Controls.Add(this.lblLive);
+            this.visionPanel.Controls.Add(this.visionShellLayout);
             this.visionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionPanel.Location = new System.Drawing.Point(3, 33);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(825, 451);
             this.visionPanel.TabIndex = 1;
-            // 
+            //
+            // visionShellLayout
+            //
+            this.visionShellLayout.BackColor = System.Drawing.Color.Black;
+            this.visionShellLayout.ColumnCount = 1;
+            this.visionShellLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.visionShellLayout.Controls.Add(this.visionMainLayout, 0, 0);
+            this.visionShellLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.visionShellLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.visionShellLayout.Name = "visionShellLayout";
+            this.visionShellLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.visionShellLayout.RowCount = 1;
+            this.visionShellLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.visionShellLayout.TabIndex = 0;
+            //
+            // visionMainLayout
+            //
+            this.visionMainLayout.BackColor = System.Drawing.Color.Black;
+            this.visionMainLayout.ColumnCount = 2;
+            this.visionMainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.visionMainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.visionMainLayout.Controls.Add(this.visionLeftLayout, 0, 0);
+            this.visionMainLayout.Controls.Add(this.visionSideLayout, 1, 0);
+            this.visionMainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.visionMainLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.visionMainLayout.Name = "visionMainLayout";
+            this.visionMainLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.visionMainLayout.RowCount = 1;
+            this.visionMainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.visionMainLayout.TabIndex = 0;
+            //
+            // visionLeftLayout
+            //
+            this.visionLeftLayout.BackColor = System.Drawing.Color.Black;
+            this.visionLeftLayout.ColumnCount = 1;
+            this.visionLeftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.visionLeftLayout.Controls.Add(this.pnlWaferVision, 0, 0);
+            this.visionLeftLayout.Controls.Add(this.pnlBinVision, 0, 1);
+            this.visionLeftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.visionLeftLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.visionLeftLayout.Name = "visionLeftLayout";
+            this.visionLeftLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.visionLeftLayout.RowCount = 2;
+            this.visionLeftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.visionLeftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.visionLeftLayout.TabIndex = 0;
+            //
+            // visionSideLayout
+            //
+            this.visionSideLayout.BackColor = System.Drawing.Color.Black;
+            this.visionSideLayout.ColumnCount = 1;
+            this.visionSideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.visionSideLayout.Controls.Add(this.pnlSideRearVision, 0, 0);
+            this.visionSideLayout.Controls.Add(this.pnlBottomInspVision, 0, 1);
+            this.visionSideLayout.Controls.Add(this.pnlSideFrontVision, 0, 2);
+            this.visionSideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.visionSideLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.visionSideLayout.Name = "visionSideLayout";
+            this.visionSideLayout.Padding = new System.Windows.Forms.Padding(0);
+            this.visionSideLayout.RowCount = 3;
+            this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.visionSideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.visionSideLayout.TabIndex = 2;
+            //
+            // pnlWaferVision
+            //
+            this.pnlWaferVision.BackColor = System.Drawing.Color.Black;
+            this.pnlWaferVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlWaferVision.Controls.Add(this.lblStageInfo);
+            this.pnlWaferVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlWaferVision.Margin = new System.Windows.Forms.Padding(1);
+            this.pnlWaferVision.Name = "pnlWaferVision";
+            this.pnlWaferVision.TabIndex = 0;
+            //
+            // pnlBottomInspVision
+            //
+            this.pnlBottomInspVision.BackColor = System.Drawing.Color.Black;
+            this.pnlBottomInspVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlBottomInspVision.Controls.Add(this.lblBottomInspInfo);
+            this.pnlBottomInspVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlBottomInspVision.Margin = new System.Windows.Forms.Padding(1);
+            this.pnlBottomInspVision.Name = "pnlBottomInspVision";
+            this.pnlBottomInspVision.TabIndex = 1;
+            //
+            // pnlSideRearVision
+            //
+            this.pnlSideRearVision.BackColor = System.Drawing.Color.Black;
+            this.pnlSideRearVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlSideRearVision.Controls.Add(this.lblSideRearInfo);
+            this.pnlSideRearVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlSideRearVision.Margin = new System.Windows.Forms.Padding(1);
+            this.pnlSideRearVision.Name = "pnlSideRearVision";
+            this.pnlSideRearVision.TabIndex = 0;
+            //
+            // pnlSideFrontVision
+            //
+            this.pnlSideFrontVision.BackColor = System.Drawing.Color.Black;
+            this.pnlSideFrontVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlSideFrontVision.Controls.Add(this.lblSideFrontInfo);
+            this.pnlSideFrontVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlSideFrontVision.Margin = new System.Windows.Forms.Padding(1);
+            this.pnlSideFrontVision.Name = "pnlSideFrontVision";
+            this.pnlSideFrontVision.TabIndex = 1;
+            //
+            // pnlBinVision
+            //
+            this.pnlBinVision.BackColor = System.Drawing.Color.Black;
+            this.pnlBinVision.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.pnlBinVision.Controls.Add(this.lblBinVisionInfo);
+            this.pnlBinVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlBinVision.Margin = new System.Windows.Forms.Padding(1);
+            this.pnlBinVision.Name = "pnlBinVision";
+            this.pnlBinVision.TabIndex = 3;
+            //
             // lblStageInfo
-            // 
+            //
             this.lblStageInfo.AutoSize = true;
             this.lblStageInfo.BackColor = System.Drawing.Color.Black;
             this.lblStageInfo.Font = new System.Drawing.Font("Consolas", 9F);
             this.lblStageInfo.ForeColor = System.Drawing.Color.LightGreen;
             this.lblStageInfo.Location = new System.Drawing.Point(8, 8);
             this.lblStageInfo.Name = "lblStageInfo";
-            this.lblStageInfo.Size = new System.Drawing.Size(70, 56);
+            this.lblStageInfo.Size = new System.Drawing.Size(84, 42);
             this.lblStageInfo.TabIndex = 0;
-            this.lblStageInfo.Text = "STAGE\r\nW : 640\r\nH : 480\r\nframe : 0";
-            // 
-            // lblLive
-            // 
-            this.lblLive.BackColor = System.Drawing.Color.Black;
-            this.lblLive.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.lblLive.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblLive.ForeColor = System.Drawing.Color.LightGreen;
-            this.lblLive.Location = new System.Drawing.Point(0, 433);
-            this.lblLive.Name = "lblLive";
-            this.lblLive.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLive.Size = new System.Drawing.Size(825, 18);
-            this.lblLive.TabIndex = 1;
-            this.lblLive.Text = "Live";
-            this.lblLive.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // mapLayout
-            // 
-            this.mapLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.mapLayout.ColumnCount = 1;
-            this.mapLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLayout.Controls.Add(this.lblMapHeader, 0, 0);
-            this.mapLayout.Controls.Add(this.mapHeaderLayout, 0, 1);
-            this.mapLayout.Controls.Add(this.mapTabControl, 0, 2);
-            this.mapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapLayout.Location = new System.Drawing.Point(842, 4);
-            this.mapLayout.Name = "mapLayout";
-            this.mapLayout.RowCount = 3;
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
-            this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapLayout.Size = new System.Drawing.Size(832, 487);
-            this.mapLayout.TabIndex = 1;
-            // 
-            // lblMapHeader
-            // 
-            this.lblMapHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblMapHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblMapHeader.ForeColor = System.Drawing.Color.White;
-            this.lblMapHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblMapHeader.Name = "lblMapHeader";
-            this.lblMapHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapHeader.Size = new System.Drawing.Size(826, 30);
-            this.lblMapHeader.TabIndex = 0;
-            this.lblMapHeader.Tag = "i18n:work.sec.workMap";
-            this.lblMapHeader.Text = "작업 맵";
-            this.lblMapHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            this.lblStageInfo.Text = "WAFER VISION\r\nSTAGE\r\nW:640 H:480";
+            //
+            // lblBottomInspInfo
+            //
+            this.lblBottomInspInfo.AutoSize = true;
+            this.lblBottomInspInfo.BackColor = System.Drawing.Color.Black;
+            this.lblBottomInspInfo.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblBottomInspInfo.ForeColor = System.Drawing.Color.LightGreen;
+            this.lblBottomInspInfo.Location = new System.Drawing.Point(8, 8);
+            this.lblBottomInspInfo.Name = "lblBottomInspInfo";
+            this.lblBottomInspInfo.Size = new System.Drawing.Size(98, 42);
+            this.lblBottomInspInfo.TabIndex = 0;
+            this.lblBottomInspInfo.Text = "BOTTOM VISION\r\nSTAGE\r\nW:640 H:480";
+            //
+            // lblSideRearInfo
+            //
+            this.lblSideRearInfo.AutoSize = true;
+            this.lblSideRearInfo.BackColor = System.Drawing.Color.Black;
+            this.lblSideRearInfo.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblSideRearInfo.ForeColor = System.Drawing.Color.LightGreen;
+            this.lblSideRearInfo.Location = new System.Drawing.Point(8, 8);
+            this.lblSideRearInfo.Name = "lblSideRearInfo";
+            this.lblSideRearInfo.Size = new System.Drawing.Size(126, 42);
+            this.lblSideRearInfo.TabIndex = 0;
+            this.lblSideRearInfo.Text = "REAR SIDE VISION\r\nSTAGE\r\nW:640 H:480";
+            //
+            // lblSideFrontInfo
+            //
+            this.lblSideFrontInfo.AutoSize = true;
+            this.lblSideFrontInfo.BackColor = System.Drawing.Color.Black;
+            this.lblSideFrontInfo.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblSideFrontInfo.ForeColor = System.Drawing.Color.LightGreen;
+            this.lblSideFrontInfo.Location = new System.Drawing.Point(8, 8);
+            this.lblSideFrontInfo.Name = "lblSideFrontInfo";
+            this.lblSideFrontInfo.Size = new System.Drawing.Size(133, 42);
+            this.lblSideFrontInfo.TabIndex = 0;
+            this.lblSideFrontInfo.Text = "FRONT SIDE VISION\r\nSTAGE\r\nW:640 H:480";
+            //
+            // lblBinVisionInfo
+            //
+            this.lblBinVisionInfo.AutoSize = true;
+            this.lblBinVisionInfo.BackColor = System.Drawing.Color.Black;
+            this.lblBinVisionInfo.Font = new System.Drawing.Font("Consolas", 9F);
+            this.lblBinVisionInfo.ForeColor = System.Drawing.Color.LightGreen;
+            this.lblBinVisionInfo.Location = new System.Drawing.Point(8, 8);
+            this.lblBinVisionInfo.Name = "lblBinVisionInfo";
+            this.lblBinVisionInfo.Size = new System.Drawing.Size(77, 42);
+            this.lblBinVisionInfo.TabIndex = 0;
+            this.lblBinVisionInfo.Text = "BIN VISION\r\nSTAGE\r\nW:640 H:480";
+            // grpMap
+            //
+            this.grpMap.BackColor = System.Drawing.Color.White;
+            this.grpMap.Controls.Add(this.mapBody);
+            this.grpMap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpMap.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpMap.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
+            this.grpMap.Margin = new System.Windows.Forms.Padding(4);
+            this.grpMap.Name = "grpMap";
+            this.grpMap.Padding = new System.Windows.Forms.Padding(6, 4, 6, 6);
+            this.grpMap.TabIndex = 1;
+            this.grpMap.TabStop = false;
+            this.grpMap.Tag = "i18n:work.sec.workMap";
+            this.grpMap.Text = "작업 맵";
+            //
+            // mapBody
+            //
+            this.mapBody.BackColor = System.Drawing.Color.White;
+            this.mapBody.ColumnCount = 1;
+            this.mapBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.mapBody.Controls.Add(this.mapHeaderLayout, 0, 0);
+            this.mapBody.Controls.Add(this.mapTabControl, 0, 1);
+            this.mapBody.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapBody.Margin = new System.Windows.Forms.Padding(0);
+            this.mapBody.Name = "mapBody";
+            this.mapBody.RowCount = 2;
+            this.mapBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.mapBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.mapBody.TabIndex = 0;
+            //
             // mapHeaderLayout
-            // 
-            this.mapHeaderLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.mapHeaderLayout.ColumnCount = 8;
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 60F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 80F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.mapHeaderLayout.Controls.Add(this.lblTotalChipCaption, 0, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblTotalChip, 1, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblBinNumCaption, 2, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblBinNum, 3, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblVisionCaption, 5, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblPickCaption, 6, 0);
-            this.mapHeaderLayout.Controls.Add(this.lblPlaceCaption, 7, 0);
+            //
+            this.mapHeaderLayout.BackColor = System.Drawing.Color.FromArgb(240, 242, 245);
+            this.mapHeaderLayout.ColumnCount = 2;
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.mapHeaderLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.mapHeaderLayout.Controls.Add(this.mapHeaderTotalTile, 0, 0);
+            this.mapHeaderLayout.Controls.Add(this.mapHeaderBinTile, 1, 0);
             this.mapHeaderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapHeaderLayout.Location = new System.Drawing.Point(3, 33);
+            this.mapHeaderLayout.Margin = new System.Windows.Forms.Padding(0);
             this.mapHeaderLayout.Name = "mapHeaderLayout";
+            this.mapHeaderLayout.Padding = new System.Windows.Forms.Padding(0);
             this.mapHeaderLayout.RowCount = 1;
             this.mapHeaderLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mapHeaderLayout.Size = new System.Drawing.Size(826, 18);
-            this.mapHeaderLayout.TabIndex = 1;
-            // 
+            this.mapHeaderLayout.TabIndex = 0;
+            //
+            // mapHeaderTotalTile
+            //
+            this.mapHeaderTotalTile.BackColor = System.Drawing.Color.White;
+            this.mapHeaderTotalTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.mapHeaderTotalTile.Controls.Add(this.lblTotalChip);
+            this.mapHeaderTotalTile.Controls.Add(this.lblTotalChipCaption);
+            this.mapHeaderTotalTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapHeaderTotalTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            this.mapHeaderTotalTile.Name = "mapHeaderTotalTile";
+            this.mapHeaderTotalTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.mapHeaderTotalTile.TabIndex = 0;
+            //
+            // mapHeaderBinTile
+            //
+            this.mapHeaderBinTile.BackColor = System.Drawing.Color.White;
+            this.mapHeaderBinTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.mapHeaderBinTile.Controls.Add(this.lblBinNum);
+            this.mapHeaderBinTile.Controls.Add(this.lblBinNumCaption);
+            this.mapHeaderBinTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.mapHeaderBinTile.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            this.mapHeaderBinTile.Name = "mapHeaderBinTile";
+            this.mapHeaderBinTile.Padding = new System.Windows.Forms.Padding(8, 0, 8, 0);
+            this.mapHeaderBinTile.TabIndex = 1;
+            //
             // lblTotalChipCaption
-            // 
+            //
             this.lblTotalChipCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTotalChipCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblTotalChipCaption.ForeColor = System.Drawing.Color.White;
-            this.lblTotalChipCaption.Location = new System.Drawing.Point(3, 0);
+            this.lblTotalChipCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblTotalChipCaption.ForeColor = System.Drawing.Color.FromArgb(70, 70, 70);
             this.lblTotalChipCaption.Name = "lblTotalChipCaption";
-            this.lblTotalChipCaption.Size = new System.Drawing.Size(84, 18);
+            this.lblTotalChipCaption.Size = new System.Drawing.Size(84, 26);
             this.lblTotalChipCaption.TabIndex = 0;
             this.lblTotalChipCaption.Text = "Total Chip :";
             this.lblTotalChipCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            this.lblTotalChipCaption.AutoSize = false;
+            this.lblTotalChipCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblTotalChipCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblTotalChipCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblTotalChipCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblTotalChipCaption.Height = 12;
+            this.lblTotalChipCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblTotalChipCaption.Padding = new System.Windows.Forms.Padding(0);
+            this.lblTotalChipCaption.Size = new System.Drawing.Size(379, 12);
+            this.lblTotalChipCaption.Text = "TOTAL CHIP";
+            this.lblTotalChipCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // lblTotalChip
-            // 
+            //
             this.lblTotalChip.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblTotalChip.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
-            this.lblTotalChip.ForeColor = System.Drawing.Color.White;
-            this.lblTotalChip.Location = new System.Drawing.Point(93, 0);
+            this.lblTotalChip.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
             this.lblTotalChip.Name = "lblTotalChip";
-            this.lblTotalChip.Size = new System.Drawing.Size(74, 18);
+            this.lblTotalChip.Size = new System.Drawing.Size(74, 26);
             this.lblTotalChip.TabIndex = 1;
             this.lblTotalChip.Text = "0";
             this.lblTotalChip.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            this.lblTotalChip.AutoSize = false;
+            this.lblTotalChip.BackColor = System.Drawing.Color.Transparent;
+            this.lblTotalChip.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblTotalChip.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblTotalChip.ForeColor = System.Drawing.Color.FromArgb(217, 119, 6);
+            this.lblTotalChip.Margin = new System.Windows.Forms.Padding(0);
+            this.lblTotalChip.Padding = new System.Windows.Forms.Padding(0);
+            this.lblTotalChip.Size = new System.Drawing.Size(379, 15);
+            //
             // lblBinNumCaption
-            // 
+            //
             this.lblBinNumCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinNumCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinNumCaption.ForeColor = System.Drawing.Color.White;
-            this.lblBinNumCaption.Location = new System.Drawing.Point(173, 0);
+            this.lblBinNumCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblBinNumCaption.ForeColor = System.Drawing.Color.FromArgb(70, 70, 70);
             this.lblBinNumCaption.Name = "lblBinNumCaption";
-            this.lblBinNumCaption.Size = new System.Drawing.Size(54, 18);
+            this.lblBinNumCaption.Size = new System.Drawing.Size(54, 26);
             this.lblBinNumCaption.TabIndex = 2;
             this.lblBinNumCaption.Text = "Bin # :";
             this.lblBinNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            this.lblBinNumCaption.AutoSize = false;
+            this.lblBinNumCaption.BackColor = System.Drawing.Color.Transparent;
+            this.lblBinNumCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblBinNumCaption.Font = new System.Drawing.Font("맑은 고딕", 7F, System.Drawing.FontStyle.Bold);
+            this.lblBinNumCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblBinNumCaption.Height = 12;
+            this.lblBinNumCaption.Margin = new System.Windows.Forms.Padding(0);
+            this.lblBinNumCaption.Padding = new System.Windows.Forms.Padding(0);
+            this.lblBinNumCaption.Size = new System.Drawing.Size(379, 12);
+            this.lblBinNumCaption.Text = "CURRENT BIN";
+            this.lblBinNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // lblBinNum
-            // 
+            //
             this.lblBinNum.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinNum.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
-            this.lblBinNum.ForeColor = System.Drawing.Color.White;
-            this.lblBinNum.Location = new System.Drawing.Point(233, 0);
+            this.lblBinNum.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
             this.lblBinNum.Name = "lblBinNum";
-            this.lblBinNum.Size = new System.Drawing.Size(74, 18);
+            this.lblBinNum.Size = new System.Drawing.Size(74, 26);
             this.lblBinNum.TabIndex = 3;
             this.lblBinNum.Text = "--";
             this.lblBinNum.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            this.lblBinNum.AutoSize = false;
+            this.lblBinNum.BackColor = System.Drawing.Color.Transparent;
+            this.lblBinNum.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblBinNum.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblBinNum.ForeColor = System.Drawing.Color.FromArgb(217, 119, 6);
+            this.lblBinNum.Margin = new System.Windows.Forms.Padding(0);
+            this.lblBinNum.Padding = new System.Windows.Forms.Padding(0);
+            this.lblBinNum.Size = new System.Drawing.Size(379, 15);
+            //
             // lblVisionCaption
-            // 
+            //
             this.lblVisionCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblVisionCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblVisionCaption.ForeColor = System.Drawing.Color.White;
-            this.lblVisionCaption.Location = new System.Drawing.Point(609, 0);
+            this.lblVisionCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblVisionCaption.ForeColor = System.Drawing.Color.FromArgb(70, 70, 70);
             this.lblVisionCaption.Name = "lblVisionCaption";
-            this.lblVisionCaption.Size = new System.Drawing.Size(74, 18);
+            this.lblVisionCaption.Size = new System.Drawing.Size(74, 26);
             this.lblVisionCaption.TabIndex = 4;
             this.lblVisionCaption.Text = "VISION";
             this.lblVisionCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            //
             // lblPickCaption
-            // 
+            //
             this.lblPickCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblPickCaption.ForeColor = System.Drawing.Color.White;
-            this.lblPickCaption.Location = new System.Drawing.Point(689, 0);
+            this.lblPickCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblPickCaption.ForeColor = System.Drawing.Color.FromArgb(70, 70, 70);
             this.lblPickCaption.Name = "lblPickCaption";
-            this.lblPickCaption.Size = new System.Drawing.Size(64, 18);
+            this.lblPickCaption.Size = new System.Drawing.Size(64, 26);
             this.lblPickCaption.TabIndex = 5;
             this.lblPickCaption.Text = "PICK";
             this.lblPickCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            //
             // lblPlaceCaption
-            // 
+            //
             this.lblPlaceCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceCaption.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.lblPlaceCaption.ForeColor = System.Drawing.Color.White;
-            this.lblPlaceCaption.Location = new System.Drawing.Point(759, 0);
+            this.lblPlaceCaption.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblPlaceCaption.ForeColor = System.Drawing.Color.FromArgb(70, 70, 70);
             this.lblPlaceCaption.Name = "lblPlaceCaption";
-            this.lblPlaceCaption.Size = new System.Drawing.Size(64, 18);
+            this.lblPlaceCaption.Size = new System.Drawing.Size(64, 26);
             this.lblPlaceCaption.TabIndex = 6;
             this.lblPlaceCaption.Text = "PLACE";
             this.lblPlaceCaption.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -409,47 +696,37 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapTabControl.Controls.Add(this.tabOutputGoodMap);
             this.mapTabControl.Controls.Add(this.tabOutputNgMap);
             this.mapTabControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapTabControl.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.mapTabControl.ItemSize = new System.Drawing.Size(145, 24);
-            this.mapTabControl.Location = new System.Drawing.Point(3, 57);
+            this.mapTabControl.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold);
+            this.mapTabControl.ItemSize = new System.Drawing.Size(260, 21);
+            this.mapTabControl.Margin = new System.Windows.Forms.Padding(0);
             this.mapTabControl.Name = "mapTabControl";
-            this.mapTabControl.Padding = new System.Drawing.Point(12, 4);
+            this.mapTabControl.Padding = new System.Drawing.Point(6, 1);
             this.mapTabControl.SelectedIndex = 0;
-            this.mapTabControl.Size = new System.Drawing.Size(826, 427);
             this.mapTabControl.SizeMode = System.Windows.Forms.TabSizeMode.Fixed;
-            this.mapTabControl.TabIndex = 2;
+            this.mapTabControl.TabIndex = 1;
             //
             // tabInputMap
             //
             this.tabInputMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.tabInputMap.Controls.Add(this.lotMapView);
-            this.tabInputMap.Location = new System.Drawing.Point(4, 28);
             this.tabInputMap.Margin = new System.Windows.Forms.Padding(0);
             this.tabInputMap.Name = "tabInputMap";
-            this.tabInputMap.Size = new System.Drawing.Size(818, 395);
-            this.tabInputMap.TabIndex = 0;
             this.tabInputMap.Text = "INPUT MAP";
             //
             // tabOutputGoodMap
             //
             this.tabOutputGoodMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.tabOutputGoodMap.Controls.Add(this.outputGoodLotMapView);
-            this.tabOutputGoodMap.Location = new System.Drawing.Point(4, 28);
             this.tabOutputGoodMap.Margin = new System.Windows.Forms.Padding(0);
             this.tabOutputGoodMap.Name = "tabOutputGoodMap";
-            this.tabOutputGoodMap.Size = new System.Drawing.Size(818, 395);
-            this.tabOutputGoodMap.TabIndex = 1;
             this.tabOutputGoodMap.Text = "OUTPUT GOOD";
             //
             // tabOutputNgMap
             //
             this.tabOutputNgMap.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(221)))), ((int)(((byte)(221)))));
             this.tabOutputNgMap.Controls.Add(this.outputNgLotMapView);
-            this.tabOutputNgMap.Location = new System.Drawing.Point(4, 28);
             this.tabOutputNgMap.Margin = new System.Windows.Forms.Padding(0);
             this.tabOutputNgMap.Name = "tabOutputNgMap";
-            this.tabOutputNgMap.Size = new System.Drawing.Size(818, 395);
-            this.tabOutputNgMap.TabIndex = 2;
             this.tabOutputNgMap.Text = "OUTPUT NG";
             //
             // lotMapView
@@ -458,10 +735,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lotMapView.GridX = 5;
             this.lotMapView.GridY = 5;
-            this.lotMapView.Location = new System.Drawing.Point(0, 0);
             this.lotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.lotMapView.Name = "lotMapView";
-            this.lotMapView.Size = new System.Drawing.Size(818, 395);
             this.lotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.Input;
             this.lotMapView.TabIndex = 0;
             //
@@ -471,10 +746,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.outputGoodLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.outputGoodLotMapView.GridX = 5;
             this.outputGoodLotMapView.GridY = 5;
-            this.outputGoodLotMapView.Location = new System.Drawing.Point(0, 0);
             this.outputGoodLotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.outputGoodLotMapView.Name = "outputGoodLotMapView";
-            this.outputGoodLotMapView.Size = new System.Drawing.Size(818, 395);
             this.outputGoodLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputGood;
             this.outputGoodLotMapView.TabIndex = 0;
             //
@@ -484,825 +757,803 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.outputNgLotMapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.outputNgLotMapView.GridX = 5;
             this.outputNgLotMapView.GridY = 5;
-            this.outputNgLotMapView.Location = new System.Drawing.Point(0, 0);
             this.outputNgLotMapView.Margin = new System.Windows.Forms.Padding(0);
             this.outputNgLotMapView.Name = "outputNgLotMapView";
-            this.outputNgLotMapView.Size = new System.Drawing.Size(818, 395);
             this.outputNgLotMapView.SourceKind = QMC.CDT_320.Ui.Controls.LiveLotMapSourceKind.OutputNg;
             this.outputNgLotMapView.TabIndex = 0;
-            // 
-            // infoLayout
-            // 
-            this.infoLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.infoLayout.ColumnCount = 1;
-            this.infoLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.infoLayout.Controls.Add(this.lblInfoHeader, 0, 0);
-            this.infoLayout.Controls.Add(this.workInfoBody, 0, 1);
-            this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.infoLayout.Location = new System.Drawing.Point(4, 498);
-            this.infoLayout.Name = "infoLayout";
-            this.infoLayout.RowCount = 2;
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.infoLayout.Size = new System.Drawing.Size(831, 398);
-            this.infoLayout.TabIndex = 2;
-            // 
-            // lblInfoHeader
-            // 
-            this.lblInfoHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblInfoHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInfoHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblInfoHeader.ForeColor = System.Drawing.Color.White;
-            this.lblInfoHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblInfoHeader.Name = "lblInfoHeader";
-            this.lblInfoHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblInfoHeader.Size = new System.Drawing.Size(825, 30);
-            this.lblInfoHeader.TabIndex = 0;
-            this.lblInfoHeader.Tag = "i18n:work.sec.workInfo";
-            this.lblInfoHeader.Text = "작업 정보";
-            this.lblInfoHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
+            // grpInfo
+            //
+            this.grpInfo.BackColor = System.Drawing.Color.White;
+            this.grpInfo.Controls.Add(this.workInfoBody);
+            this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpInfo.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
+            this.grpInfo.Margin = new System.Windows.Forms.Padding(4);
+            this.grpInfo.Name = "grpInfo";
+            this.grpInfo.Padding = new System.Windows.Forms.Padding(6, 4, 6, 6);
+            this.grpInfo.TabIndex = 2;
+            this.grpInfo.TabStop = false;
+            this.grpInfo.Tag = "i18n:work.sec.workInfo";
+            this.grpInfo.Text = "작업 정보";
+            //
             // workInfoBody
-            // 
-            this.workInfoBody.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            //
+            this.workInfoBody.BackColor = System.Drawing.Color.FromArgb(240, 242, 245);
             this.workInfoBody.ColumnCount = 4;
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workInfoBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.workInfoBody.Controls.Add(this.lblProjectCaption, 0, 0);
-            this.workInfoBody.Controls.Add(this.lblProject, 1, 0);
-            this.workInfoBody.Controls.Add(this.lblPickFailCaption, 0, 1);
-            this.workInfoBody.Controls.Add(this.lblPickFail, 1, 1);
-            this.workInfoBody.Controls.Add(this.lblBinQtyCaption, 2, 1);
-            this.workInfoBody.Controls.Add(this.lblBinQty, 3, 1);
-            this.workInfoBody.Controls.Add(this.lblCollet1Caption, 0, 2);
-            this.workInfoBody.Controls.Add(this.lblCollet1, 1, 2);
-            this.workInfoBody.Controls.Add(this.lblPlaceFailCaption, 2, 2);
-            this.workInfoBody.Controls.Add(this.lblPlaceFail, 3, 2);
-            this.workInfoBody.Controls.Add(this.lblNeedleCaption, 0, 3);
-            this.workInfoBody.Controls.Add(this.lblNeedle, 1, 3);
-            this.workInfoBody.Controls.Add(this.lblCollet2Caption, 2, 3);
-            this.workInfoBody.Controls.Add(this.lblCollet2, 3, 3);
-            this.workInfoBody.Controls.Add(this.lblBinArrMonCaption, 0, 4);
-            this.workInfoBody.Controls.Add(this.lblBinArrMon, 1, 4);
+            this.workInfoBody.Controls.Add(this.workInfoProjectTile, 0, 0);
+            this.workInfoBody.Controls.Add(this.workInfoBinQtyTile, 0, 1);
+            this.workInfoBody.Controls.Add(this.workInfoPickFailTile, 1, 1);
+            this.workInfoBody.Controls.Add(this.workInfoPlaceFailTile, 2, 1);
+            this.workInfoBody.Controls.Add(this.workInfoNeedleTile, 3, 1);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet1Tile, 0, 2);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet2Tile, 1, 2);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet3Tile, 2, 2);
+            this.workInfoBody.Controls.Add(this.workInfoFrontCollet4Tile, 3, 2);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet1Tile, 0, 3);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet2Tile, 1, 3);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet3Tile, 2, 3);
+            this.workInfoBody.Controls.Add(this.workInfoRearCollet4Tile, 3, 3);
             this.workInfoBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workInfoBody.Location = new System.Drawing.Point(3, 33);
+            this.workInfoBody.Margin = new System.Windows.Forms.Padding(0);
             this.workInfoBody.Name = "workInfoBody";
-            this.workInfoBody.Padding = new System.Windows.Forms.Padding(6);
-            this.workInfoBody.RowCount = 5;
-            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workInfoBody.Size = new System.Drawing.Size(825, 362);
-            this.workInfoBody.TabIndex = 1;
-            // 
-            // lblProjectCaption
-            // 
-            this.lblProjectCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblProjectCaption.Location = new System.Drawing.Point(7, 7);
-            this.lblProjectCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblProjectCaption.Name = "lblProjectCaption";
-            this.lblProjectCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblProjectCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblProjectCaption.TabIndex = 0;
-            this.lblProjectCaption.Tag = "i18n:work.workInfo.project";
-            this.lblProjectCaption.Text = "프로젝트 이름";
-            this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblProject
-            // 
-            this.lblProject.BackColor = System.Drawing.Color.White;
-            this.lblProject.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProject.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblProject.Location = new System.Drawing.Point(210, 7);
-            this.lblProject.Margin = new System.Windows.Forms.Padding(1);
-            this.lblProject.Name = "lblProject";
-            this.lblProject.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblProject.Size = new System.Drawing.Size(201, 28);
-            this.lblProject.TabIndex = 1;
-            this.lblProject.Text = "--";
-            this.lblProject.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblPickFailCaption
-            // 
-            this.lblPickFailCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblPickFailCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickFailCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblPickFailCaption.Location = new System.Drawing.Point(7, 37);
-            this.lblPickFailCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblPickFailCaption.Name = "lblPickFailCaption";
-            this.lblPickFailCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPickFailCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblPickFailCaption.TabIndex = 2;
-            this.lblPickFailCaption.Tag = "i18n:work.workInfo.pickFail";
-            this.lblPickFailCaption.Text = "PICK 실패 수량";
-            this.lblPickFailCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblPickFail
-            // 
-            this.lblPickFail.BackColor = System.Drawing.Color.White;
-            this.lblPickFail.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickFail.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblPickFail.Location = new System.Drawing.Point(210, 37);
-            this.lblPickFail.Margin = new System.Windows.Forms.Padding(1);
-            this.lblPickFail.Name = "lblPickFail";
-            this.lblPickFail.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPickFail.Size = new System.Drawing.Size(201, 28);
-            this.lblPickFail.TabIndex = 3;
-            this.lblPickFail.Text = "0 ea";
-            this.lblPickFail.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblBinQtyCaption
-            // 
-            this.lblBinQtyCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblBinQtyCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinQtyCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblBinQtyCaption.Location = new System.Drawing.Point(413, 37);
-            this.lblBinQtyCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblBinQtyCaption.Name = "lblBinQtyCaption";
-            this.lblBinQtyCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinQtyCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblBinQtyCaption.TabIndex = 4;
-            this.lblBinQtyCaption.Tag = "i18n:work.workInfo.workBinQty";
-            this.lblBinQtyCaption.Text = "작업 BIN 수량";
-            this.lblBinQtyCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBinQty
-            // 
-            this.lblBinQty.BackColor = System.Drawing.Color.White;
-            this.lblBinQty.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinQty.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblBinQty.Location = new System.Drawing.Point(616, 37);
-            this.lblBinQty.Margin = new System.Windows.Forms.Padding(1);
-            this.lblBinQty.Name = "lblBinQty";
-            this.lblBinQty.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblBinQty.Size = new System.Drawing.Size(202, 28);
-            this.lblBinQty.TabIndex = 5;
-            this.lblBinQty.Text = "0 ea";
-            this.lblBinQty.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblCollet1Caption
-            // 
-            this.lblCollet1Caption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblCollet1Caption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet1Caption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblCollet1Caption.Location = new System.Drawing.Point(7, 67);
-            this.lblCollet1Caption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblCollet1Caption.Name = "lblCollet1Caption";
-            this.lblCollet1Caption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblCollet1Caption.Size = new System.Drawing.Size(201, 28);
-            this.lblCollet1Caption.TabIndex = 6;
-            this.lblCollet1Caption.Tag = "i18n:work.workInfo.collet1Use";
-            this.lblCollet1Caption.Text = "# 1 Collet 사용";
-            this.lblCollet1Caption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblCollet1
-            // 
-            this.lblCollet1.BackColor = System.Drawing.Color.White;
-            this.lblCollet1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet1.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblCollet1.Location = new System.Drawing.Point(210, 67);
-            this.lblCollet1.Margin = new System.Windows.Forms.Padding(1);
-            this.lblCollet1.Name = "lblCollet1";
-            this.lblCollet1.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblCollet1.Size = new System.Drawing.Size(201, 28);
-            this.lblCollet1.TabIndex = 7;
-            this.lblCollet1.Text = "0";
-            this.lblCollet1.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblPlaceFailCaption
-            // 
-            this.lblPlaceFailCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblPlaceFailCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceFailCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblPlaceFailCaption.Location = new System.Drawing.Point(413, 67);
-            this.lblPlaceFailCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblPlaceFailCaption.Name = "lblPlaceFailCaption";
-            this.lblPlaceFailCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPlaceFailCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblPlaceFailCaption.TabIndex = 8;
-            this.lblPlaceFailCaption.Tag = "i18n:work.workInfo.placeFail";
-            this.lblPlaceFailCaption.Text = "PLACE 실패 수량";
-            this.lblPlaceFailCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblPlaceFail
-            // 
-            this.lblPlaceFail.BackColor = System.Drawing.Color.White;
-            this.lblPlaceFail.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceFail.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblPlaceFail.Location = new System.Drawing.Point(616, 67);
-            this.lblPlaceFail.Margin = new System.Windows.Forms.Padding(1);
-            this.lblPlaceFail.Name = "lblPlaceFail";
-            this.lblPlaceFail.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPlaceFail.Size = new System.Drawing.Size(202, 28);
-            this.lblPlaceFail.TabIndex = 9;
-            this.lblPlaceFail.Text = "0 ea";
-            this.lblPlaceFail.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblNeedleCaption
-            // 
-            this.lblNeedleCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblNeedleCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNeedleCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblNeedleCaption.Location = new System.Drawing.Point(7, 97);
-            this.lblNeedleCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblNeedleCaption.Name = "lblNeedleCaption";
-            this.lblNeedleCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNeedleCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblNeedleCaption.TabIndex = 10;
-            this.lblNeedleCaption.Tag = "i18n:work.workInfo.needleUse";
-            this.lblNeedleCaption.Text = "NEEDLE 사용 횟수";
-            this.lblNeedleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblNeedle
-            // 
-            this.lblNeedle.BackColor = System.Drawing.Color.White;
-            this.lblNeedle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNeedle.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNeedle.Location = new System.Drawing.Point(210, 97);
-            this.lblNeedle.Margin = new System.Windows.Forms.Padding(1);
-            this.lblNeedle.Name = "lblNeedle";
-            this.lblNeedle.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblNeedle.Size = new System.Drawing.Size(201, 28);
-            this.lblNeedle.TabIndex = 11;
-            this.lblNeedle.Text = "0";
-            this.lblNeedle.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblCollet2Caption
-            // 
-            this.lblCollet2Caption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblCollet2Caption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet2Caption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblCollet2Caption.Location = new System.Drawing.Point(413, 97);
-            this.lblCollet2Caption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblCollet2Caption.Name = "lblCollet2Caption";
-            this.lblCollet2Caption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblCollet2Caption.Size = new System.Drawing.Size(201, 28);
-            this.lblCollet2Caption.TabIndex = 12;
-            this.lblCollet2Caption.Tag = "i18n:work.workInfo.collet2Use";
-            this.lblCollet2Caption.Text = "# 2 Collet 사용";
-            this.lblCollet2Caption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblCollet2
-            // 
-            this.lblCollet2.BackColor = System.Drawing.Color.White;
-            this.lblCollet2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCollet2.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblCollet2.Location = new System.Drawing.Point(616, 97);
-            this.lblCollet2.Margin = new System.Windows.Forms.Padding(1);
-            this.lblCollet2.Name = "lblCollet2";
-            this.lblCollet2.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblCollet2.Size = new System.Drawing.Size(202, 28);
-            this.lblCollet2.TabIndex = 13;
-            this.lblCollet2.Text = "0";
-            this.lblCollet2.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblBinArrMonCaption
-            // 
-            this.lblBinArrMonCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblBinArrMonCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinArrMonCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblBinArrMonCaption.Location = new System.Drawing.Point(7, 127);
-            this.lblBinArrMonCaption.Margin = new System.Windows.Forms.Padding(1);
-            this.lblBinArrMonCaption.Name = "lblBinArrMonCaption";
-            this.lblBinArrMonCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinArrMonCaption.Size = new System.Drawing.Size(201, 228);
-            this.lblBinArrMonCaption.TabIndex = 14;
-            this.lblBinArrMonCaption.Tag = "i18n:work.workInfo.binArrMon";
-            this.lblBinArrMonCaption.Text = "빈 배열 모니터링";
-            this.lblBinArrMonCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblBinArrMon
-            // 
-            this.lblBinArrMon.BackColor = System.Drawing.Color.White;
-            this.lblBinArrMon.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBinArrMon.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblBinArrMon.Location = new System.Drawing.Point(210, 127);
-            this.lblBinArrMon.Margin = new System.Windows.Forms.Padding(1);
-            this.lblBinArrMon.Name = "lblBinArrMon";
-            this.lblBinArrMon.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblBinArrMon.Size = new System.Drawing.Size(201, 228);
-            this.lblBinArrMon.TabIndex = 15;
-            this.lblBinArrMon.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // timeLayout
-            // 
-            this.timeLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.timeLayout.ColumnCount = 1;
-            this.timeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.timeLayout.Controls.Add(this.lblTimeHeader, 0, 0);
-            this.timeLayout.Controls.Add(this.workTimeBody, 0, 1);
-            this.timeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.timeLayout.Location = new System.Drawing.Point(842, 498);
-            this.timeLayout.Name = "timeLayout";
-            this.timeLayout.RowCount = 2;
-            this.timeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.timeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.timeLayout.Size = new System.Drawing.Size(832, 398);
-            this.timeLayout.TabIndex = 3;
-            // 
-            // lblTimeHeader
-            // 
-            this.lblTimeHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
-            this.lblTimeHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTimeHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.lblTimeHeader.ForeColor = System.Drawing.Color.White;
-            this.lblTimeHeader.Location = new System.Drawing.Point(3, 0);
-            this.lblTimeHeader.Name = "lblTimeHeader";
-            this.lblTimeHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblTimeHeader.Size = new System.Drawing.Size(826, 30);
-            this.lblTimeHeader.TabIndex = 0;
-            this.lblTimeHeader.Tag = "i18n:work.sec.workTime";
-            this.lblTimeHeader.Text = "작업 시간";
-            this.lblTimeHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            this.workInfoBody.Padding = new System.Windows.Forms.Padding(3);
+            this.workInfoBody.RowCount = 4;
+            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
+            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workInfoBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workInfoBody.TabIndex = 0;
+            this.workInfoBody.SetColumnSpan(this.workInfoProjectTile, 4);
+            //
+            // grpTime
+            //
+            this.grpTime.BackColor = System.Drawing.Color.White;
+            this.grpTime.Controls.Add(this.workTimeBody);
+            this.grpTime.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpTime.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.grpTime.ForeColor = System.Drawing.Color.FromArgb(38, 50, 66);
+            this.grpTime.Margin = new System.Windows.Forms.Padding(4);
+            this.grpTime.Name = "grpTime";
+            this.grpTime.Padding = new System.Windows.Forms.Padding(6, 4, 6, 6);
+            this.grpTime.TabIndex = 3;
+            this.grpTime.TabStop = false;
+            this.grpTime.Tag = "i18n:work.sec.workTime";
+            this.grpTime.Text = "작업 시간";
+            //
             // workTimeBody
-            // 
-            this.workTimeBody.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            //
+            this.workTimeBody.BackColor = System.Drawing.Color.FromArgb(240, 242, 245);
             this.workTimeBody.ColumnCount = 4;
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.workTimeBody.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.workTimeBody.Controls.Add(this.lblLoadCaption, 0, 0);
-            this.workTimeBody.Controls.Add(this.lblLoad, 1, 0);
-            this.workTimeBody.Controls.Add(this.lblUpCaption, 2, 0);
-            this.workTimeBody.Controls.Add(this.lblUp, 3, 0);
-            this.workTimeBody.Controls.Add(this.lblContUpCaption, 0, 1);
-            this.workTimeBody.Controls.Add(this.lblContUp, 1, 1);
-            this.workTimeBody.Controls.Add(this.lblNormDownCaption, 2, 1);
-            this.workTimeBody.Controls.Add(this.lblNormDown, 3, 1);
-            this.workTimeBody.Controls.Add(this.lblErrDownCaption, 0, 2);
-            this.workTimeBody.Controls.Add(this.lblErrDown, 1, 2);
-            this.workTimeBody.Controls.Add(this.lblErrCntCaption, 2, 2);
-            this.workTimeBody.Controls.Add(this.lblErrCnt, 3, 2);
-            this.workTimeBody.Controls.Add(this.lblRecoveryCaption, 0, 3);
-            this.workTimeBody.Controls.Add(this.lblRecovery, 1, 3);
-            this.workTimeBody.Controls.Add(this.lblUphCaption, 2, 3);
-            this.workTimeBody.Controls.Add(this.lblUph, 3, 3);
-            this.workTimeBody.Controls.Add(this.lblMtbfCaption, 0, 4);
-            this.workTimeBody.Controls.Add(this.lblMtbf, 1, 4);
-            this.workTimeBody.Controls.Add(this.lblMttrCaption, 2, 4);
-            this.workTimeBody.Controls.Add(this.lblMttr, 3, 4);
-            this.workTimeBody.Controls.Add(this.lblCycleCaption, 0, 5);
-            this.workTimeBody.Controls.Add(this.lblCycle, 1, 5);
-            this.workTimeBody.Controls.Add(this.lblRateCaption, 2, 5);
-            this.workTimeBody.Controls.Add(this.lblRate, 3, 5);
-            this.workTimeBody.Controls.Add(this.lblLotCaption, 0, 6);
-            this.workTimeBody.Controls.Add(this.lblLot, 1, 6);
-            this.workTimeBody.Controls.Add(this.btnCcs, 2, 6);
-            this.workTimeBody.Controls.Add(this.btnTestAlarm, 3, 7);
+            this.workTimeBody.Controls.Add(this.workTimeLotTile, 0, 0);
+            this.workTimeBody.Controls.Add(this.btnCcs, 3, 0);
+            this.workTimeBody.Controls.Add(this.workTimeUphTile, 0, 1);
+            this.workTimeBody.Controls.Add(this.workTimeUpTile, 1, 1);
+            this.workTimeBody.Controls.Add(this.workTimeContUpTile, 2, 1);
+            this.workTimeBody.Controls.Add(this.workTimeRateTile, 3, 1);
+            this.workTimeBody.Controls.Add(this.workTimeCycleTile, 0, 2);
+            this.workTimeBody.Controls.Add(this.workTimeLoadTile, 1, 2);
+            this.workTimeBody.Controls.Add(this.workTimeMtbfTile, 2, 2);
+            this.workTimeBody.Controls.Add(this.workTimeMttrTile, 3, 2);
+            this.workTimeBody.Controls.Add(this.workTimeRecoveryTile, 0, 3);
+            this.workTimeBody.Controls.Add(this.workTimeNormDownTile, 1, 3);
+            this.workTimeBody.Controls.Add(this.workTimeErrDownTile, 2, 3);
+            this.workTimeBody.Controls.Add(this.workTimeErrCntTile, 3, 3);
             this.workTimeBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.workTimeBody.Location = new System.Drawing.Point(3, 33);
+            this.workTimeBody.Margin = new System.Windows.Forms.Padding(0);
             this.workTimeBody.Name = "workTimeBody";
-            this.workTimeBody.Padding = new System.Windows.Forms.Padding(6);
-            this.workTimeBody.RowCount = 8;
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 27F));
-            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.workTimeBody.Size = new System.Drawing.Size(826, 362);
-            this.workTimeBody.TabIndex = 1;
-            // 
-            // lblLoadCaption
-            // 
-            this.lblLoadCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblLoadCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLoadCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblLoadCaption.Location = new System.Drawing.Point(7, 7);
-            this.lblLoadCaption.Margin = new System.Windows.Forms.Padding(1);
+            this.workTimeBody.Padding = new System.Windows.Forms.Padding(3);
+            this.workTimeBody.RowCount = 4;
+            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
+            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeBody.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
+            this.workTimeBody.TabIndex = 0;
+            this.workTimeBody.SetColumnSpan(this.workTimeLotTile, 3);
+            //
+            // work info tiles
+            //
+            this.workInfoProjectTile.BackColor = System.Drawing.Color.White;
+            this.workInfoProjectTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoProjectTile.Controls.Add(this.lblProject);
+            this.workInfoProjectTile.Controls.Add(this.lblProjectCaption);
+            this.workInfoProjectTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoProjectTile.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.workInfoProjectTile.Name = "workInfoProjectTile";
+            this.workInfoProjectTile.Padding = new System.Windows.Forms.Padding(8, 1, 8, 1);
+            this.workInfoBinQtyTile.BackColor = System.Drawing.Color.White;
+            this.workInfoBinQtyTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoBinQtyTile.Controls.Add(this.lblBinQty);
+            this.workInfoBinQtyTile.Controls.Add(this.lblBinQtyCaption);
+            this.workInfoBinQtyTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoBinQtyTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoBinQtyTile.Name = "workInfoBinQtyTile";
+            this.workInfoBinQtyTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoPickFailTile.BackColor = System.Drawing.Color.White;
+            this.workInfoPickFailTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoPickFailTile.Controls.Add(this.lblPickFail);
+            this.workInfoPickFailTile.Controls.Add(this.lblPickFailCaption);
+            this.workInfoPickFailTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoPickFailTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoPickFailTile.Name = "workInfoPickFailTile";
+            this.workInfoPickFailTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoPlaceFailTile.BackColor = System.Drawing.Color.White;
+            this.workInfoPlaceFailTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoPlaceFailTile.Controls.Add(this.lblPlaceFail);
+            this.workInfoPlaceFailTile.Controls.Add(this.lblPlaceFailCaption);
+            this.workInfoPlaceFailTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoPlaceFailTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoPlaceFailTile.Name = "workInfoPlaceFailTile";
+            this.workInfoPlaceFailTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoNeedleTile.BackColor = System.Drawing.Color.White;
+            this.workInfoNeedleTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoNeedleTile.Controls.Add(this.lblNeedle);
+            this.workInfoNeedleTile.Controls.Add(this.lblNeedleCaption);
+            this.workInfoNeedleTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoNeedleTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoNeedleTile.Name = "workInfoNeedleTile";
+            this.workInfoNeedleTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoFrontCollet1Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoFrontCollet1Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoFrontCollet1Tile.Controls.Add(this.lblFrontCollet1Designer);
+            this.workInfoFrontCollet1Tile.Controls.Add(this.lblFrontCollet1CaptionDesigner);
+            this.workInfoFrontCollet1Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoFrontCollet1Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoFrontCollet1Tile.Name = "workInfoFrontCollet1Tile";
+            this.workInfoFrontCollet1Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoFrontCollet2Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoFrontCollet2Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoFrontCollet2Tile.Controls.Add(this.lblFrontCollet2Designer);
+            this.workInfoFrontCollet2Tile.Controls.Add(this.lblFrontCollet2CaptionDesigner);
+            this.workInfoFrontCollet2Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoFrontCollet2Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoFrontCollet2Tile.Name = "workInfoFrontCollet2Tile";
+            this.workInfoFrontCollet2Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoFrontCollet3Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoFrontCollet3Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoFrontCollet3Tile.Controls.Add(this.lblFrontCollet3Designer);
+            this.workInfoFrontCollet3Tile.Controls.Add(this.lblFrontCollet3CaptionDesigner);
+            this.workInfoFrontCollet3Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoFrontCollet3Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoFrontCollet3Tile.Name = "workInfoFrontCollet3Tile";
+            this.workInfoFrontCollet3Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoFrontCollet4Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoFrontCollet4Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoFrontCollet4Tile.Controls.Add(this.lblFrontCollet4Designer);
+            this.workInfoFrontCollet4Tile.Controls.Add(this.lblFrontCollet4CaptionDesigner);
+            this.workInfoFrontCollet4Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoFrontCollet4Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoFrontCollet4Tile.Name = "workInfoFrontCollet4Tile";
+            this.workInfoFrontCollet4Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoRearCollet1Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoRearCollet1Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoRearCollet1Tile.Controls.Add(this.lblRearCollet1Designer);
+            this.workInfoRearCollet1Tile.Controls.Add(this.lblRearCollet1CaptionDesigner);
+            this.workInfoRearCollet1Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoRearCollet1Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoRearCollet1Tile.Name = "workInfoRearCollet1Tile";
+            this.workInfoRearCollet1Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoRearCollet2Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoRearCollet2Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoRearCollet2Tile.Controls.Add(this.lblRearCollet2Designer);
+            this.workInfoRearCollet2Tile.Controls.Add(this.lblRearCollet2CaptionDesigner);
+            this.workInfoRearCollet2Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoRearCollet2Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoRearCollet2Tile.Name = "workInfoRearCollet2Tile";
+            this.workInfoRearCollet2Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoRearCollet3Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoRearCollet3Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoRearCollet3Tile.Controls.Add(this.lblRearCollet3Designer);
+            this.workInfoRearCollet3Tile.Controls.Add(this.lblRearCollet3CaptionDesigner);
+            this.workInfoRearCollet3Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoRearCollet3Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoRearCollet3Tile.Name = "workInfoRearCollet3Tile";
+            this.workInfoRearCollet3Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workInfoRearCollet4Tile.BackColor = System.Drawing.Color.White;
+            this.workInfoRearCollet4Tile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workInfoRearCollet4Tile.Controls.Add(this.lblRearCollet4Designer);
+            this.workInfoRearCollet4Tile.Controls.Add(this.lblRearCollet4CaptionDesigner);
+            this.workInfoRearCollet4Tile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workInfoRearCollet4Tile.Margin = new System.Windows.Forms.Padding(3);
+            this.workInfoRearCollet4Tile.Name = "workInfoRearCollet4Tile";
+            this.workInfoRearCollet4Tile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            //
+            // work time tiles
+            //
+            this.workTimeLotTile.BackColor = System.Drawing.Color.White;
+            this.workTimeLotTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeLotTile.Controls.Add(this.lblLot);
+            this.workTimeLotTile.Controls.Add(this.lblLotCaption);
+            this.workTimeLotTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeLotTile.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
+            this.workTimeLotTile.Name = "workTimeLotTile";
+            this.workTimeLotTile.Padding = new System.Windows.Forms.Padding(8, 1, 8, 1);
+            this.workTimeUphTile.BackColor = System.Drawing.Color.White;
+            this.workTimeUphTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeUphTile.Controls.Add(this.lblUph);
+            this.workTimeUphTile.Controls.Add(this.lblUphCaption);
+            this.workTimeUphTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeUphTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeUphTile.Name = "workTimeUphTile";
+            this.workTimeUphTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeUpTile.BackColor = System.Drawing.Color.White;
+            this.workTimeUpTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeUpTile.Controls.Add(this.lblUp);
+            this.workTimeUpTile.Controls.Add(this.lblUpCaption);
+            this.workTimeUpTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeUpTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeUpTile.Name = "workTimeUpTile";
+            this.workTimeUpTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeContUpTile.BackColor = System.Drawing.Color.White;
+            this.workTimeContUpTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeContUpTile.Controls.Add(this.lblContUp);
+            this.workTimeContUpTile.Controls.Add(this.lblContUpCaption);
+            this.workTimeContUpTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeContUpTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeContUpTile.Name = "workTimeContUpTile";
+            this.workTimeContUpTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeRateTile.BackColor = System.Drawing.Color.White;
+            this.workTimeRateTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeRateTile.Controls.Add(this.lblRate);
+            this.workTimeRateTile.Controls.Add(this.lblRateCaption);
+            this.workTimeRateTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeRateTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeRateTile.Name = "workTimeRateTile";
+            this.workTimeRateTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeCycleTile.BackColor = System.Drawing.Color.White;
+            this.workTimeCycleTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeCycleTile.Controls.Add(this.lblCycle);
+            this.workTimeCycleTile.Controls.Add(this.lblCycleCaption);
+            this.workTimeCycleTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeCycleTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeCycleTile.Name = "workTimeCycleTile";
+            this.workTimeCycleTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeLoadTile.BackColor = System.Drawing.Color.White;
+            this.workTimeLoadTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeLoadTile.Controls.Add(this.lblLoad);
+            this.workTimeLoadTile.Controls.Add(this.lblLoadCaption);
+            this.workTimeLoadTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeLoadTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeLoadTile.Name = "workTimeLoadTile";
+            this.workTimeLoadTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeMtbfTile.BackColor = System.Drawing.Color.White;
+            this.workTimeMtbfTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeMtbfTile.Controls.Add(this.lblMtbf);
+            this.workTimeMtbfTile.Controls.Add(this.lblMtbfCaption);
+            this.workTimeMtbfTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeMtbfTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeMtbfTile.Name = "workTimeMtbfTile";
+            this.workTimeMtbfTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeMttrTile.BackColor = System.Drawing.Color.White;
+            this.workTimeMttrTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeMttrTile.Controls.Add(this.lblMttr);
+            this.workTimeMttrTile.Controls.Add(this.lblMttrCaption);
+            this.workTimeMttrTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeMttrTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeMttrTile.Name = "workTimeMttrTile";
+            this.workTimeMttrTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeRecoveryTile.BackColor = System.Drawing.Color.White;
+            this.workTimeRecoveryTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeRecoveryTile.Controls.Add(this.lblRecovery);
+            this.workTimeRecoveryTile.Controls.Add(this.lblRecoveryCaption);
+            this.workTimeRecoveryTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeRecoveryTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeRecoveryTile.Name = "workTimeRecoveryTile";
+            this.workTimeRecoveryTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeNormDownTile.BackColor = System.Drawing.Color.White;
+            this.workTimeNormDownTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeNormDownTile.Controls.Add(this.lblNormDown);
+            this.workTimeNormDownTile.Controls.Add(this.lblNormDownCaption);
+            this.workTimeNormDownTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeNormDownTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeNormDownTile.Name = "workTimeNormDownTile";
+            this.workTimeNormDownTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeErrDownTile.BackColor = System.Drawing.Color.White;
+            this.workTimeErrDownTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeErrDownTile.Controls.Add(this.lblErrDown);
+            this.workTimeErrDownTile.Controls.Add(this.lblErrDownCaption);
+            this.workTimeErrDownTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeErrDownTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeErrDownTile.Name = "workTimeErrDownTile";
+            this.workTimeErrDownTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            this.workTimeErrCntTile.BackColor = System.Drawing.Color.White;
+            this.workTimeErrCntTile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.workTimeErrCntTile.Controls.Add(this.lblErrCnt);
+            this.workTimeErrCntTile.Controls.Add(this.lblErrCntCaption);
+            this.workTimeErrCntTile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.workTimeErrCntTile.Margin = new System.Windows.Forms.Padding(3);
+            this.workTimeErrCntTile.Name = "workTimeErrCntTile";
+            this.workTimeErrCntTile.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
+            //
+            // designer metric label layout
+            //
+            this.lblProjectCaption.AutoSize = false;
+            this.lblProjectCaption.Dock = System.Windows.Forms.DockStyle.Left;
+            this.lblProjectCaption.Width = 148;
+            this.lblProjectCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblProjectCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblProject.AutoSize = false;
+            this.lblProject.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblProject.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold);
+            this.lblProject.ForeColor = System.Drawing.Color.FromArgb(217, 119, 6);
+            this.lblProject.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblLotCaption.AutoSize = false;
+            this.lblLotCaption.Dock = System.Windows.Forms.DockStyle.Left;
+            this.lblLotCaption.Width = 148;
+            this.lblLotCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblLotCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblLotCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblLot.AutoSize = false;
+            this.lblLot.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLot.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold);
+            this.lblLot.ForeColor = System.Drawing.Color.FromArgb(217, 119, 6);
+            this.lblLot.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBinQtyCaption.AutoSize = false;
+            this.lblBinQtyCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblBinQtyCaption.Height = 17;
+            this.lblBinQtyCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblBinQtyCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblBinQtyCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblBinQty.AutoSize = false;
+            this.lblBinQty.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblBinQty.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblBinQty.ForeColor = System.Drawing.Color.FromArgb(30, 120, 60);
+            this.lblBinQty.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblPickFailCaption.AutoSize = false;
+            this.lblPickFailCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblPickFailCaption.Height = 17;
+            this.lblPickFailCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblPickFailCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblPickFailCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblPickFail.AutoSize = false;
+            this.lblPickFail.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblPickFail.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblPickFail.ForeColor = System.Drawing.Color.FromArgb(190, 55, 55);
+            this.lblPickFail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblPlaceFailCaption.AutoSize = false;
+            this.lblPlaceFailCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblPlaceFailCaption.Height = 17;
+            this.lblPlaceFailCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblPlaceFailCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblPlaceFailCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblPlaceFail.AutoSize = false;
+            this.lblPlaceFail.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblPlaceFail.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblPlaceFail.ForeColor = System.Drawing.Color.FromArgb(190, 55, 55);
+            this.lblPlaceFail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNeedleCaption.AutoSize = false;
+            this.lblNeedleCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblNeedleCaption.Height = 17;
+            this.lblNeedleCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblNeedleCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblNeedleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNeedle.AutoSize = false;
+            this.lblNeedle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNeedle.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblNeedle.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblNeedle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUphCaption.AutoSize = false;
+            this.lblUphCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblUphCaption.Height = 17;
+            this.lblUphCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblUphCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblUphCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUph.AutoSize = false;
+            this.lblUph.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUph.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblUph.ForeColor = System.Drawing.Color.FromArgb(24, 95, 165);
+            this.lblUph.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUpCaption.AutoSize = false;
+            this.lblUpCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblUpCaption.Height = 17;
+            this.lblUpCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblUpCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblUpCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUp.AutoSize = false;
+            this.lblUp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUp.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblUp.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblUp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblContUpCaption.AutoSize = false;
+            this.lblContUpCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblContUpCaption.Height = 17;
+            this.lblContUpCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblContUpCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblContUpCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblContUp.AutoSize = false;
+            this.lblContUp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblContUp.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblContUp.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblContUp.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRateCaption.AutoSize = false;
+            this.lblRateCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRateCaption.Height = 17;
+            this.lblRateCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRateCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRateCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRate.AutoSize = false;
+            this.lblRate.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRate.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRate.ForeColor = System.Drawing.Color.FromArgb(30, 120, 60);
+            this.lblRate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblCycleCaption.AutoSize = false;
+            this.lblCycleCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblCycleCaption.Height = 17;
+            this.lblCycleCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblCycleCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblCycleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblCycle.AutoSize = false;
+            this.lblCycle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblCycle.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblCycle.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblCycle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblLoadCaption.AutoSize = false;
+            this.lblLoadCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblLoadCaption.Height = 17;
+            this.lblLoadCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblLoadCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblLoadCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblLoad.AutoSize = false;
+            this.lblLoad.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblLoad.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblLoad.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblLoad.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblMtbfCaption.AutoSize = false;
+            this.lblMtbfCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblMtbfCaption.Height = 17;
+            this.lblMtbfCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblMtbfCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblMtbfCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblMtbf.AutoSize = false;
+            this.lblMtbf.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblMtbf.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblMtbf.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblMtbf.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblMttrCaption.AutoSize = false;
+            this.lblMttrCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblMttrCaption.Height = 17;
+            this.lblMttrCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblMttrCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblMttrCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblMttr.AutoSize = false;
+            this.lblMttr.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblMttr.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblMttr.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblMttr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRecoveryCaption.AutoSize = false;
+            this.lblRecoveryCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecoveryCaption.Height = 17;
+            this.lblRecoveryCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRecoveryCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRecoveryCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRecovery.AutoSize = false;
+            this.lblRecovery.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRecovery.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRecovery.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblRecovery.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNormDownCaption.AutoSize = false;
+            this.lblNormDownCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblNormDownCaption.Height = 17;
+            this.lblNormDownCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblNormDownCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblNormDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNormDown.AutoSize = false;
+            this.lblNormDown.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNormDown.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblNormDown.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblNormDown.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblErrDownCaption.AutoSize = false;
+            this.lblErrDownCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblErrDownCaption.Height = 17;
+            this.lblErrDownCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblErrDownCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblErrDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblErrDown.AutoSize = false;
+            this.lblErrDown.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblErrDown.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblErrDown.ForeColor = System.Drawing.Color.FromArgb(190, 55, 55);
+            this.lblErrDown.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblErrCntCaption.AutoSize = false;
+            this.lblErrCntCaption.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblErrCntCaption.Height = 17;
+            this.lblErrCntCaption.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblErrCntCaption.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblErrCntCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblErrCnt.AutoSize = false;
+            this.lblErrCnt.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblErrCnt.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblErrCnt.ForeColor = System.Drawing.Color.FromArgb(190, 55, 55);
+            this.lblErrCnt.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet1CaptionDesigner.AutoSize = false;
+            this.lblFrontCollet1CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblFrontCollet1CaptionDesigner.Height = 17;
+            this.lblFrontCollet1CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet1CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblFrontCollet1CaptionDesigner.Name = "lblFrontCollet1CaptionDesigner";
+            this.lblFrontCollet1CaptionDesigner.Text = "FRONT COLLET #1";
+            this.lblFrontCollet1CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet1Designer.AutoSize = false;
+            this.lblFrontCollet1Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFrontCollet1Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet1Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblFrontCollet1Designer.Name = "lblFrontCollet1Designer";
+            this.lblFrontCollet1Designer.Text = "00 ea";
+            this.lblFrontCollet1Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet2CaptionDesigner.AutoSize = false;
+            this.lblFrontCollet2CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblFrontCollet2CaptionDesigner.Height = 17;
+            this.lblFrontCollet2CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet2CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblFrontCollet2CaptionDesigner.Name = "lblFrontCollet2CaptionDesigner";
+            this.lblFrontCollet2CaptionDesigner.Text = "FRONT COLLET #2";
+            this.lblFrontCollet2CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet2Designer.AutoSize = false;
+            this.lblFrontCollet2Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFrontCollet2Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet2Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblFrontCollet2Designer.Name = "lblFrontCollet2Designer";
+            this.lblFrontCollet2Designer.Text = "00 ea";
+            this.lblFrontCollet2Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet3CaptionDesigner.AutoSize = false;
+            this.lblFrontCollet3CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblFrontCollet3CaptionDesigner.Height = 17;
+            this.lblFrontCollet3CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet3CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblFrontCollet3CaptionDesigner.Name = "lblFrontCollet3CaptionDesigner";
+            this.lblFrontCollet3CaptionDesigner.Text = "FRONT COLLET #3";
+            this.lblFrontCollet3CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet3Designer.AutoSize = false;
+            this.lblFrontCollet3Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFrontCollet3Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet3Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblFrontCollet3Designer.Name = "lblFrontCollet3Designer";
+            this.lblFrontCollet3Designer.Text = "00 ea";
+            this.lblFrontCollet3Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet4CaptionDesigner.AutoSize = false;
+            this.lblFrontCollet4CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblFrontCollet4CaptionDesigner.Height = 17;
+            this.lblFrontCollet4CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet4CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblFrontCollet4CaptionDesigner.Name = "lblFrontCollet4CaptionDesigner";
+            this.lblFrontCollet4CaptionDesigner.Text = "FRONT COLLET #4";
+            this.lblFrontCollet4CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFrontCollet4Designer.AutoSize = false;
+            this.lblFrontCollet4Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFrontCollet4Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblFrontCollet4Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblFrontCollet4Designer.Name = "lblFrontCollet4Designer";
+            this.lblFrontCollet4Designer.Text = "00 ea";
+            this.lblFrontCollet4Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet1CaptionDesigner.AutoSize = false;
+            this.lblRearCollet1CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRearCollet1CaptionDesigner.Height = 17;
+            this.lblRearCollet1CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet1CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRearCollet1CaptionDesigner.Name = "lblRearCollet1CaptionDesigner";
+            this.lblRearCollet1CaptionDesigner.Text = "REAR COLLET #1";
+            this.lblRearCollet1CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet1Designer.AutoSize = false;
+            this.lblRearCollet1Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRearCollet1Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet1Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblRearCollet1Designer.Name = "lblRearCollet1Designer";
+            this.lblRearCollet1Designer.Text = "00 ea";
+            this.lblRearCollet1Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet2CaptionDesigner.AutoSize = false;
+            this.lblRearCollet2CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRearCollet2CaptionDesigner.Height = 17;
+            this.lblRearCollet2CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet2CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRearCollet2CaptionDesigner.Name = "lblRearCollet2CaptionDesigner";
+            this.lblRearCollet2CaptionDesigner.Text = "REAR COLLET #2";
+            this.lblRearCollet2CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet2Designer.AutoSize = false;
+            this.lblRearCollet2Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRearCollet2Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet2Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblRearCollet2Designer.Name = "lblRearCollet2Designer";
+            this.lblRearCollet2Designer.Text = "00 ea";
+            this.lblRearCollet2Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet3CaptionDesigner.AutoSize = false;
+            this.lblRearCollet3CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRearCollet3CaptionDesigner.Height = 17;
+            this.lblRearCollet3CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet3CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRearCollet3CaptionDesigner.Name = "lblRearCollet3CaptionDesigner";
+            this.lblRearCollet3CaptionDesigner.Text = "REAR COLLET #3";
+            this.lblRearCollet3CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet3Designer.AutoSize = false;
+            this.lblRearCollet3Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRearCollet3Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet3Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblRearCollet3Designer.Name = "lblRearCollet3Designer";
+            this.lblRearCollet3Designer.Text = "00 ea";
+            this.lblRearCollet3Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet4CaptionDesigner.AutoSize = false;
+            this.lblRearCollet4CaptionDesigner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRearCollet4CaptionDesigner.Height = 17;
+            this.lblRearCollet4CaptionDesigner.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet4CaptionDesigner.ForeColor = System.Drawing.Color.FromArgb(51, 65, 85);
+            this.lblRearCollet4CaptionDesigner.Name = "lblRearCollet4CaptionDesigner";
+            this.lblRearCollet4CaptionDesigner.Text = "REAR COLLET #4";
+            this.lblRearCollet4CaptionDesigner.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblRearCollet4Designer.AutoSize = false;
+            this.lblRearCollet4Designer.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblRearCollet4Designer.Font = new System.Drawing.Font("Consolas", 11.5F, System.Drawing.FontStyle.Bold);
+            this.lblRearCollet4Designer.ForeColor = System.Drawing.Color.FromArgb(45, 45, 45);
+            this.lblRearCollet4Designer.Name = "lblRearCollet4Designer";
+            this.lblRearCollet4Designer.Text = "00 ea";
+            this.lblRearCollet4Designer.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // metric labels
+            //
             this.lblLoadCaption.Name = "lblLoadCaption";
-            this.lblLoadCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLoadCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblLoadCaption.TabIndex = 0;
             this.lblLoadCaption.Tag = "i18n:work.workTime.load";
             this.lblLoadCaption.Text = "부하 시간";
-            this.lblLoadCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblLoad
-            // 
-            this.lblLoad.BackColor = System.Drawing.Color.White;
-            this.lblLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLoad.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblLoad.Location = new System.Drawing.Point(210, 7);
-            this.lblLoad.Margin = new System.Windows.Forms.Padding(1);
             this.lblLoad.Name = "lblLoad";
-            this.lblLoad.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblLoad.Size = new System.Drawing.Size(201, 28);
-            this.lblLoad.TabIndex = 1;
             this.lblLoad.Text = "00:00:00";
-            this.lblLoad.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblUpCaption
-            // 
-            this.lblUpCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblUpCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUpCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblUpCaption.Location = new System.Drawing.Point(413, 7);
-            this.lblUpCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblUpCaption.Name = "lblUpCaption";
-            this.lblUpCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUpCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblUpCaption.TabIndex = 2;
             this.lblUpCaption.Tag = "i18n:work.workTime.up";
             this.lblUpCaption.Text = "가동 시간";
-            this.lblUpCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblUp
-            // 
-            this.lblUp.BackColor = System.Drawing.Color.White;
-            this.lblUp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUp.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblUp.Location = new System.Drawing.Point(616, 7);
-            this.lblUp.Margin = new System.Windows.Forms.Padding(1);
             this.lblUp.Name = "lblUp";
-            this.lblUp.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblUp.Size = new System.Drawing.Size(203, 28);
-            this.lblUp.TabIndex = 3;
             this.lblUp.Text = "00:00:00";
-            this.lblUp.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblContUpCaption
-            // 
-            this.lblContUpCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblContUpCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblContUpCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblContUpCaption.Location = new System.Drawing.Point(7, 37);
-            this.lblContUpCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblContUpCaption.Name = "lblContUpCaption";
-            this.lblContUpCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblContUpCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblContUpCaption.TabIndex = 4;
             this.lblContUpCaption.Tag = "i18n:work.workTime.contUp";
             this.lblContUpCaption.Text = "연속 가동 시간";
-            this.lblContUpCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblContUp
-            // 
-            this.lblContUp.BackColor = System.Drawing.Color.White;
-            this.lblContUp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblContUp.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblContUp.Location = new System.Drawing.Point(210, 37);
-            this.lblContUp.Margin = new System.Windows.Forms.Padding(1);
             this.lblContUp.Name = "lblContUp";
-            this.lblContUp.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblContUp.Size = new System.Drawing.Size(201, 28);
-            this.lblContUp.TabIndex = 5;
             this.lblContUp.Text = "00:00:00";
-            this.lblContUp.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblNormDownCaption
-            // 
-            this.lblNormDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblNormDownCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNormDownCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblNormDownCaption.Location = new System.Drawing.Point(413, 37);
-            this.lblNormDownCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblNormDownCaption.Name = "lblNormDownCaption";
-            this.lblNormDownCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblNormDownCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblNormDownCaption.TabIndex = 6;
             this.lblNormDownCaption.Tag = "i18n:work.workTime.normDown";
             this.lblNormDownCaption.Text = "통상 정지 시간";
-            this.lblNormDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblNormDown
-            // 
-            this.lblNormDown.BackColor = System.Drawing.Color.White;
-            this.lblNormDown.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNormDown.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNormDown.Location = new System.Drawing.Point(616, 37);
-            this.lblNormDown.Margin = new System.Windows.Forms.Padding(1);
             this.lblNormDown.Name = "lblNormDown";
-            this.lblNormDown.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblNormDown.Size = new System.Drawing.Size(203, 28);
-            this.lblNormDown.TabIndex = 7;
             this.lblNormDown.Text = "00:00:00";
-            this.lblNormDown.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblErrDownCaption
-            // 
-            this.lblErrDownCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblErrDownCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblErrDownCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblErrDownCaption.Location = new System.Drawing.Point(7, 67);
-            this.lblErrDownCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblErrDownCaption.Name = "lblErrDownCaption";
-            this.lblErrDownCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblErrDownCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblErrDownCaption.TabIndex = 8;
             this.lblErrDownCaption.Tag = "i18n:work.workTime.errDown";
             this.lblErrDownCaption.Text = "이상 정지 시간";
-            this.lblErrDownCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblErrDown
-            // 
-            this.lblErrDown.BackColor = System.Drawing.Color.White;
-            this.lblErrDown.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblErrDown.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblErrDown.Location = new System.Drawing.Point(210, 67);
-            this.lblErrDown.Margin = new System.Windows.Forms.Padding(1);
             this.lblErrDown.Name = "lblErrDown";
-            this.lblErrDown.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblErrDown.Size = new System.Drawing.Size(201, 28);
-            this.lblErrDown.TabIndex = 9;
             this.lblErrDown.Text = "00:00:00";
-            this.lblErrDown.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblErrCntCaption
-            // 
-            this.lblErrCntCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblErrCntCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblErrCntCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblErrCntCaption.Location = new System.Drawing.Point(413, 67);
-            this.lblErrCntCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblErrCntCaption.Name = "lblErrCntCaption";
-            this.lblErrCntCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblErrCntCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblErrCntCaption.TabIndex = 10;
             this.lblErrCntCaption.Tag = "i18n:work.workTime.errCnt";
             this.lblErrCntCaption.Text = "이상 정지 횟수";
-            this.lblErrCntCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblErrCnt
-            // 
-            this.lblErrCnt.BackColor = System.Drawing.Color.White;
-            this.lblErrCnt.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblErrCnt.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblErrCnt.Location = new System.Drawing.Point(616, 67);
-            this.lblErrCnt.Margin = new System.Windows.Forms.Padding(1);
             this.lblErrCnt.Name = "lblErrCnt";
-            this.lblErrCnt.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblErrCnt.Size = new System.Drawing.Size(203, 28);
-            this.lblErrCnt.TabIndex = 11;
             this.lblErrCnt.Text = "0 ea";
-            this.lblErrCnt.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblRecoveryCaption
-            // 
-            this.lblRecoveryCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblRecoveryCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRecoveryCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblRecoveryCaption.Location = new System.Drawing.Point(7, 97);
-            this.lblRecoveryCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblRecoveryCaption.Name = "lblRecoveryCaption";
-            this.lblRecoveryCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblRecoveryCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblRecoveryCaption.TabIndex = 12;
             this.lblRecoveryCaption.Tag = "i18n:work.workTime.recovery";
             this.lblRecoveryCaption.Text = "이상 복귀 시간";
-            this.lblRecoveryCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblRecovery
-            // 
-            this.lblRecovery.BackColor = System.Drawing.Color.White;
-            this.lblRecovery.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRecovery.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblRecovery.Location = new System.Drawing.Point(210, 97);
-            this.lblRecovery.Margin = new System.Windows.Forms.Padding(1);
             this.lblRecovery.Name = "lblRecovery";
-            this.lblRecovery.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblRecovery.Size = new System.Drawing.Size(201, 28);
-            this.lblRecovery.TabIndex = 13;
             this.lblRecovery.Text = "00:00:00";
-            this.lblRecovery.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblUphCaption
-            // 
-            this.lblUphCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblUphCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUphCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblUphCaption.Location = new System.Drawing.Point(413, 97);
-            this.lblUphCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblUphCaption.Name = "lblUphCaption";
-            this.lblUphCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblUphCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblUphCaption.TabIndex = 14;
             this.lblUphCaption.Tag = "i18n:work.workTime.uph";
             this.lblUphCaption.Text = "UPH";
-            this.lblUphCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblUph
-            // 
-            this.lblUph.BackColor = System.Drawing.Color.White;
-            this.lblUph.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUph.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblUph.Location = new System.Drawing.Point(616, 97);
-            this.lblUph.Margin = new System.Windows.Forms.Padding(1);
             this.lblUph.Name = "lblUph";
-            this.lblUph.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblUph.Size = new System.Drawing.Size(203, 28);
-            this.lblUph.TabIndex = 15;
             this.lblUph.Text = "0.00";
-            this.lblUph.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblMtbfCaption
-            // 
-            this.lblMtbfCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblMtbfCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMtbfCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblMtbfCaption.Location = new System.Drawing.Point(7, 127);
-            this.lblMtbfCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblMtbfCaption.Name = "lblMtbfCaption";
-            this.lblMtbfCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblMtbfCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblMtbfCaption.TabIndex = 16;
             this.lblMtbfCaption.Tag = "i18n:work.workTime.mtbf";
             this.lblMtbfCaption.Text = "MTBF";
-            this.lblMtbfCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMtbf
-            // 
-            this.lblMtbf.BackColor = System.Drawing.Color.White;
-            this.lblMtbf.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMtbf.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblMtbf.Location = new System.Drawing.Point(210, 127);
-            this.lblMtbf.Margin = new System.Windows.Forms.Padding(1);
             this.lblMtbf.Name = "lblMtbf";
-            this.lblMtbf.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblMtbf.Size = new System.Drawing.Size(201, 28);
-            this.lblMtbf.TabIndex = 17;
             this.lblMtbf.Text = "00:00:00";
-            this.lblMtbf.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblMttrCaption
-            // 
-            this.lblMttrCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblMttrCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMttrCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblMttrCaption.Location = new System.Drawing.Point(413, 127);
-            this.lblMttrCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblMttrCaption.Name = "lblMttrCaption";
-            this.lblMttrCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblMttrCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblMttrCaption.TabIndex = 18;
             this.lblMttrCaption.Tag = "i18n:work.workTime.mttr";
             this.lblMttrCaption.Text = "MTTR";
-            this.lblMttrCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblMttr
-            // 
-            this.lblMttr.BackColor = System.Drawing.Color.White;
-            this.lblMttr.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMttr.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblMttr.Location = new System.Drawing.Point(616, 127);
-            this.lblMttr.Margin = new System.Windows.Forms.Padding(1);
             this.lblMttr.Name = "lblMttr";
-            this.lblMttr.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblMttr.Size = new System.Drawing.Size(203, 28);
-            this.lblMttr.TabIndex = 19;
             this.lblMttr.Text = "00:00:00";
-            this.lblMttr.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblCycleCaption
-            // 
-            this.lblCycleCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblCycleCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCycleCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblCycleCaption.Location = new System.Drawing.Point(7, 157);
-            this.lblCycleCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblCycleCaption.Name = "lblCycleCaption";
-            this.lblCycleCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblCycleCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblCycleCaption.TabIndex = 20;
             this.lblCycleCaption.Tag = "i18n:work.workTime.cycle";
             this.lblCycleCaption.Text = "CYCLE TIME";
-            this.lblCycleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblCycle
-            // 
-            this.lblCycle.BackColor = System.Drawing.Color.White;
-            this.lblCycle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCycle.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblCycle.Location = new System.Drawing.Point(210, 157);
-            this.lblCycle.Margin = new System.Windows.Forms.Padding(1);
             this.lblCycle.Name = "lblCycle";
-            this.lblCycle.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblCycle.Size = new System.Drawing.Size(201, 28);
-            this.lblCycle.TabIndex = 21;
             this.lblCycle.Text = "0 ms";
-            this.lblCycle.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblRateCaption
-            // 
-            this.lblRateCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblRateCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRateCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblRateCaption.Location = new System.Drawing.Point(413, 157);
-            this.lblRateCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblRateCaption.Name = "lblRateCaption";
-            this.lblRateCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblRateCaption.Size = new System.Drawing.Size(201, 28);
-            this.lblRateCaption.TabIndex = 22;
             this.lblRateCaption.Tag = "i18n:work.workTime.rate";
             this.lblRateCaption.Text = "가동률";
-            this.lblRateCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblRate
-            // 
-            this.lblRate.BackColor = System.Drawing.Color.White;
-            this.lblRate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRate.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblRate.Location = new System.Drawing.Point(616, 157);
-            this.lblRate.Margin = new System.Windows.Forms.Padding(1);
             this.lblRate.Name = "lblRate";
-            this.lblRate.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblRate.Size = new System.Drawing.Size(203, 28);
-            this.lblRate.TabIndex = 23;
             this.lblRate.Text = "0.00 %";
-            this.lblRate.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
-            // lblLotCaption
-            // 
-            this.lblLotCaption.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.lblLotCaption.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLotCaption.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblLotCaption.Location = new System.Drawing.Point(7, 187);
-            this.lblLotCaption.Margin = new System.Windows.Forms.Padding(1);
             this.lblLotCaption.Name = "lblLotCaption";
-            this.lblLotCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblLotCaption.Size = new System.Drawing.Size(201, 48);
-            this.lblLotCaption.TabIndex = 24;
             this.lblLotCaption.Tag = "i18n:work.workTime.lotId";
             this.lblLotCaption.Text = "작업중인 LOT ID";
-            this.lblLotCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblLot
-            // 
-            this.lblLot.BackColor = System.Drawing.Color.White;
-            this.lblLot.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLot.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblLot.Location = new System.Drawing.Point(210, 187);
-            this.lblLot.Margin = new System.Windows.Forms.Padding(1);
             this.lblLot.Name = "lblLot";
-            this.lblLot.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblLot.Size = new System.Drawing.Size(201, 48);
-            this.lblLot.TabIndex = 25;
-            this.lblLot.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
+            this.lblLot.Text = "(no lot)";
+            //
+            // 작업 정보 라벨 (텍스트/Tag만; 스타일·배치는 .cs)
+            //
+            this.lblProjectCaption.Name = "lblProjectCaption";
+            this.lblProjectCaption.Tag = "i18n:work.workInfo.project";
+            this.lblProjectCaption.Text = "프로젝트 이름";
+            this.lblProject.Name = "lblProject";
+            this.lblProject.Text = "--";
+            this.lblPickFailCaption.Name = "lblPickFailCaption";
+            this.lblPickFailCaption.Tag = "i18n:work.workInfo.pickFail";
+            this.lblPickFailCaption.Text = "PICK 실패 수량";
+            this.lblPickFail.Name = "lblPickFail";
+            this.lblPickFail.Text = "0 ea";
+            this.lblBinQtyCaption.Name = "lblBinQtyCaption";
+            this.lblBinQtyCaption.Tag = "i18n:work.workInfo.workBinQty";
+            this.lblBinQtyCaption.Text = "작업 BIN 수량";
+            this.lblBinQty.Name = "lblBinQty";
+            this.lblBinQty.Text = "0 ea";
+            this.lblCollet1Caption.Name = "lblCollet1Caption";
+            this.lblCollet1Caption.Tag = "i18n:work.workInfo.collet1Use";
+            this.lblCollet1Caption.Text = "# 1 Collet 사용";
+            this.lblCollet1.Name = "lblCollet1";
+            this.lblCollet1.Text = "0";
+            this.lblPlaceFailCaption.Name = "lblPlaceFailCaption";
+            this.lblPlaceFailCaption.Tag = "i18n:work.workInfo.placeFail";
+            this.lblPlaceFailCaption.Text = "PLACE 실패 수량";
+            this.lblPlaceFail.Name = "lblPlaceFail";
+            this.lblPlaceFail.Text = "0 ea";
+            this.lblNeedleCaption.Name = "lblNeedleCaption";
+            this.lblNeedleCaption.Tag = "i18n:work.workInfo.needleUse";
+            this.lblNeedleCaption.Text = "NEEDLE 사용 횟수";
+            this.lblNeedle.Name = "lblNeedle";
+            this.lblNeedle.Text = "0";
+            this.lblCollet2Caption.Name = "lblCollet2Caption";
+            this.lblCollet2Caption.Tag = "i18n:work.workInfo.collet2Use";
+            this.lblCollet2Caption.Text = "# 2 Collet 사용";
+            this.lblCollet2.Name = "lblCollet2";
+            this.lblCollet2.Text = "0";
+            this.lblBinArrMonCaption.Name = "lblBinArrMonCaption";
+            this.lblBinArrMonCaption.Tag = "i18n:work.workInfo.binArrMon";
+            this.lblBinArrMonCaption.Text = "빈 배열 모니터링";
+            this.lblBinArrMon.Name = "lblBinArrMon";
+            //
             // btnCcs
-            // 
+            //
             this.btnCcs.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(89)))), ((int)(((byte)(89)))), ((int)(((byte)(89)))));
-            this.workTimeBody.SetColumnSpan(this.btnCcs, 2);
             this.btnCcs.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCcs.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCcs.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnCcs.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
             this.btnCcs.ForeColor = System.Drawing.Color.White;
-            this.btnCcs.Location = new System.Drawing.Point(415, 189);
+            this.btnCcs.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.btnCcs.Name = "btnCcs";
-            this.btnCcs.Size = new System.Drawing.Size(402, 44);
             this.btnCcs.TabIndex = 26;
             this.btnCcs.Tag = "i18n:work.workTime.ccs";
             this.btnCcs.Text = "CCS 검수 확인";
             this.btnCcs.UseVisualStyleBackColor = false;
-            // 
-            // btnTestAlarm
-            // 
-            this.btnTestAlarm.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(183)))), ((int)(((byte)(28)))), ((int)(((byte)(28)))));
-            this.workTimeBody.SetColumnSpan(this.btnTestAlarm, 4);
-            this.btnTestAlarm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTestAlarm.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnTestAlarm.ForeColor = System.Drawing.Color.White;
-            this.btnTestAlarm.Location = new System.Drawing.Point(9, 266);
-            this.btnTestAlarm.Name = "btnTestAlarm";
-            this.btnTestAlarm.Size = new System.Drawing.Size(122, 47);
-            this.btnTestAlarm.TabIndex = 27;
-            this.btnTestAlarm.Text = "TEST ALARM";
-            this.btnTestAlarm.UseVisualStyleBackColor = false;
-            this.btnTestAlarm.Visible = false;
-            // 
+            //
             // WorkMainPage
-            // 
+            //
             this.Controls.Add(this.rootLayout);
             this.Name = "WorkMainPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
-            this.visionLayout.ResumeLayout(false);
+            this.grpVision.ResumeLayout(false);
+            this.grpMap.ResumeLayout(false);
+            this.grpInfo.ResumeLayout(false);
+            this.grpTime.ResumeLayout(false);
+            this.mapBody.ResumeLayout(false);
             this.visionPanel.ResumeLayout(false);
-            this.visionPanel.PerformLayout();
-            this.mapLayout.ResumeLayout(false);
+            this.visionShellLayout.ResumeLayout(false);
+            this.visionMainLayout.ResumeLayout(false);
+            this.visionLeftLayout.ResumeLayout(false);
+            this.visionSideLayout.ResumeLayout(false);
+            this.pnlWaferVision.ResumeLayout(false);
+            this.pnlWaferVision.PerformLayout();
+            this.pnlBottomInspVision.ResumeLayout(false);
+            this.pnlBottomInspVision.PerformLayout();
+            this.pnlSideRearVision.ResumeLayout(false);
+            this.pnlSideRearVision.PerformLayout();
+            this.pnlSideFrontVision.ResumeLayout(false);
+            this.pnlSideFrontVision.PerformLayout();
+            this.pnlBinVision.ResumeLayout(false);
+            this.pnlBinVision.PerformLayout();
             this.mapHeaderLayout.ResumeLayout(false);
+            this.mapHeaderTotalTile.ResumeLayout(false);
+            this.mapHeaderBinTile.ResumeLayout(false);
             this.mapTabControl.ResumeLayout(false);
             this.tabInputMap.ResumeLayout(false);
             this.tabOutputGoodMap.ResumeLayout(false);
             this.tabOutputNgMap.ResumeLayout(false);
-            this.infoLayout.ResumeLayout(false);
             this.workInfoBody.ResumeLayout(false);
-            this.timeLayout.ResumeLayout(false);
             this.workTimeBody.ResumeLayout(false);
             this.ResumeLayout(false);
-
         }
     }
 }
-

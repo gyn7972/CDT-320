@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Drawing;
+using System.Windows.Forms;
 using QMC.CDT_320.Ui.Pages;
 using QMC.CDT_320.Ui.Pages.Settings;
 using QMC.CDT_320.Ui.Security;
@@ -17,6 +19,7 @@ namespace QMC.CDT_320.Ui.Tabs
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
             SetSidebarHeader("tab.settings");
+            LblSidebarHeader.BackColor = System.Drawing.Color.White;   // 작업정보 탭 헤더와 동일하게
 
             const UserLevel op = UserLevel.Operator;
             const UserLevel en = UserLevel.Engineer;
@@ -39,8 +42,8 @@ namespace QMC.CDT_320.Ui.Tabs
 
             // ?? 蹂댁“ 硫붾돱 ??
             RegisterSidebarButton(BtnBarcode,      "set.barcode",      en, () => new BarcodeReaderPage());
-            RegisterSidebarButton(BtnZoomLens,     "set.zoomLens",     en, () => new ZoomLensPage());
-            RegisterSidebarButton(BtnHeightSensor, "set.heightSensor", en, () => new HeightSensorPage());
+            RemoveSettingsSidebarButton(BtnZoomLens);
+            RemoveSettingsSidebarButton(BtnHeightSensor);
             RegisterSidebarButton(BtnSimulator,    "set.simulator",    en, () => new SimulatorLinkPage());
             RegisterSidebarButton(BtnVisionLink,   "set.visionLink",   en, () => new VisionLinkPage());
 
@@ -50,7 +53,7 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.SystemSelfTestDialog(host))
-                    dlg.ShowDialog(host);
+                    ShowDialogCenteredOnContent(dlg);
             };
 
             // Stage 19 — Alarm Master 페이지
@@ -69,8 +72,102 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.RemoteViewerDialog(host))
-                    dlg.ShowDialog(host);
+                    ShowDialogCenteredOnContent(dlg);
             };
+
+            CompactSettingsSidebar();
+        }
+
+        private void ShowDialogCenteredOnContent(Form dialog)
+        {
+            if (dialog == null)
+                return;
+
+            Form owner = FindForm();
+            CenterDialogOnContentBody(dialog);
+            if (owner != null)
+                dialog.ShowDialog(owner);
+            else
+                dialog.ShowDialog();
+        }
+
+        private void CenterDialogOnContentBody(Form dialog)
+        {
+            if (dialog == null || PnlContent == null || !PnlContent.IsHandleCreated)
+                return;
+
+            Rectangle bounds = PnlContent.RectangleToScreen(PnlContent.ClientRectangle);
+            const int headerHeight = 30;
+            if (bounds.Height > headerHeight)
+            {
+                bounds.Y += headerHeight;
+                bounds.Height -= headerHeight;
+            }
+
+            int x = bounds.Left + ((bounds.Width - dialog.Width) / 2);
+            int y = bounds.Top + ((bounds.Height - dialog.Height) / 2);
+
+            Rectangle screen = Screen.FromControl(PnlContent).WorkingArea;
+            x = Math.Max(screen.Left, Math.Min(x, screen.Right - dialog.Width));
+            y = Math.Max(screen.Top, Math.Min(y, screen.Bottom - dialog.Height));
+
+            dialog.StartPosition = FormStartPosition.Manual;
+            dialog.Location = new Point(x, y);
+        }
+
+        private void RemoveSettingsSidebarButton(Control button)
+        {
+            if (button == null)
+                return;
+
+            PnlSidebarButtons.Controls.Remove(button);
+            button.Visible = false;
+        }
+
+        private void CompactSettingsSidebar()
+        {
+            Control[] controls =
+            {
+                BtnGeneral,
+                BtnMotion,
+                BtnIoControl,
+                BtnDigital,
+                BtnCylinder,
+                BtnLamp,
+                BtnSwitch,
+                BtnLightSource,
+                PnlSecondarySeparator,
+                BtnBarcode,
+                BtnSimulator,
+                BtnVisionLink,
+                BtnSelfTest,
+                BtnAlarmMaster,
+                BtnTeach,
+                BtnAxisSetup,
+                BtnCameraSetup,
+                BtnLightSetup,
+                BtnRemoteViewer
+            };
+
+            int y = 6;
+            foreach (Control control in controls)
+            {
+                if (control == null || !control.Visible)
+                    continue;
+
+                if (control == PnlSecondarySeparator)
+                {
+                    y += 6;
+                    control.Location = new Point(4, y);
+                    control.Size = new Size(202, 2);
+                    y += 8;
+                    continue;
+                }
+
+                control.Location = new Point(4, y);
+                control.Size = new Size(202, 46);
+                y += 48;
+            }
         }
 
         private static class CatalogRows
