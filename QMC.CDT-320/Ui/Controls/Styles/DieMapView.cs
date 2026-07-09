@@ -36,14 +36,24 @@ namespace QMC.CDT320.Ui.Controls
         /// <summary>좌상단 정보 라벨에 표시할 추가 텍스트.</summary>
         public string Caption { get; set; } = "Die Map";
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, Color> CellColorResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellTextResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, string> CellStatusResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<Tuple<string, Color>[]> LegendItemsResolver { get; set; }
 
+        [Browsable(false)]
+        [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<DieMapEntry, bool> EntryVisibilityPredicate { get; set; }
 
         public bool CompactUsedBounds { get; set; }

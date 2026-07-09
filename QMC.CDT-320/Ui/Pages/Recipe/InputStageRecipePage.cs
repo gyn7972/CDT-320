@@ -1,5 +1,6 @@
 ﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Dialogs;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
@@ -60,6 +61,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
+        private IDisposable _visionPreview;
         private readonly ToolTip _toolTip = new ToolTip();
         private InputStageUnit _InputStageUnit;
 
@@ -240,6 +242,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
+                InstallVisionPreview();
                 ApplyTitle();
                 ApplyRuntimeLayout();
                 ConfigureRuntimeBehavior();
@@ -288,6 +291,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 _refreshTimer.Stop();
+                DisposeVisionPreview();
                 if (jogAxisMoveControl != null)
                     jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
@@ -298,6 +302,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void InstallVisionPreview()
+        {
+            _visionPreview = RecipeVisionPreview.ShowSingle(visionPanel, "WAFER VISION", VisionViewerPorts.Wafer);
+        }
+
+        private void DisposeVisionPreview()
+        {
+            try { if (_visionPreview != null) _visionPreview.Dispose(); } catch { }
+            _visionPreview = null;
         }
 
         private void ApplyTitle()

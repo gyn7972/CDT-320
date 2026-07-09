@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
@@ -20,6 +21,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private const int ManualCylinderTimeoutMs = 5000;
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
+        private IDisposable _visionPreview;
         private OutputStageUnit _outputStageUnit;
 
         public OutputStageRecipePage() : this("recipe.outputStage")
@@ -35,6 +37,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
+                InstallVisionPreview();
                 ApplyTitle();
                 ApplyRuntimeLayout();
                 ConfigureRuntimeBehavior();
@@ -84,6 +87,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 _refreshTimer.Stop();
+                DisposeVisionPreview();
                 if (jogAxisMoveControl != null)
                     jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
@@ -94,6 +98,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void InstallVisionPreview()
+        {
+            _visionPreview = RecipeVisionPreview.ShowSingle(visionPanel, "BIN VISION", VisionViewerPorts.Bin);
+        }
+
+        private void DisposeVisionPreview()
+        {
+            try { if (_visionPreview != null) _visionPreview.Dispose(); } catch { }
+            _visionPreview = null;
         }
 
         private void ApplyTitle()

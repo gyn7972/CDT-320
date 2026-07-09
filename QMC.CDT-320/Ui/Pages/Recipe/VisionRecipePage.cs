@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
@@ -18,6 +19,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     {
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
+        private IDisposable bottomVisionPreview;
+        private IDisposable sideVisionPreview;
         private VisionUnit _visionUnit;
 
         public VisionRecipePage() : this("recipe.inputVision")
@@ -33,6 +36,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                     return;
 
+                InstallVisionPreview();
                 ApplyTitle();
                 ApplyRuntimeLayout();
                 ConfigureRuntimeBehavior();
@@ -82,6 +86,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 _refreshTimer.Stop();
+                DisposeVisionPreview();
                 if (jogAxisMoveControl != null)
                     jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
@@ -92,6 +97,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void InstallVisionPreview()
+        {
+            tabBottom.Text = "BOTTOM";
+            tabSide.Text = "SIDE";
+            bottomVisionPreview = RecipeVisionPreview.ShowSingle(tabBottom, "BOTTOM VISION", VisionViewerPorts.BottomInspection);
+            sideVisionPreview = RecipeVisionPreview.ShowVertical(
+                tabSide,
+                new RecipeVisionPreviewTile("FRONT SIDE VISION", VisionViewerPorts.FrontSideVision),
+                new RecipeVisionPreviewTile("REAR SIDE VISION", VisionViewerPorts.RearSideVision));
+        }
+
+        private void DisposeVisionPreview()
+        {
+            try { if (bottomVisionPreview != null) bottomVisionPreview.Dispose(); } catch { }
+            try { if (sideVisionPreview != null) sideVisionPreview.Dispose(); } catch { }
+            bottomVisionPreview = null;
+            sideVisionPreview = null;
         }
 
         private void ApplyTitle()

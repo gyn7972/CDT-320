@@ -16,6 +16,9 @@
         private QMC.CDT_320.Ui.Controls.ManualActionPanelControl manualActionPanel;
         private System.Windows.Forms.GroupBox grpIo;
         private System.Windows.Forms.GroupBox grpVision;
+        private System.Windows.Forms.TabControl tabVision;
+        private System.Windows.Forms.TabPage tabBottom;
+        private System.Windows.Forms.TabPage tabSide;
         private System.Windows.Forms.GroupBox grpJog;
         private System.Windows.Forms.GroupBox grpSpeed;
         private System.Windows.Forms.TableLayoutPanel optionLayout;
@@ -23,6 +26,9 @@
         private System.Windows.Forms.TableLayoutPanel ioLayout;
         private System.Windows.Forms.Panel visionPanel;
         private System.Windows.Forms.Label lblVisionInfo;
+        private System.Windows.Forms.TableLayoutPanel sideLayout;
+        private System.Windows.Forms.Label lblVisionInfo2;
+        private System.Windows.Forms.Label lblVisionInfo3;
         private System.Windows.Forms.TableLayoutPanel jogLayout;
         private System.Windows.Forms.TableLayoutPanel jogAxisLayout;
         private System.Windows.Forms.TableLayoutPanel jogXyLayout;
@@ -112,8 +118,14 @@
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
             this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpVision = new System.Windows.Forms.GroupBox();
+            this.tabVision = new System.Windows.Forms.TabControl();
+            this.tabBottom = new System.Windows.Forms.TabPage();
             this.visionPanel = new System.Windows.Forms.Panel();
             this.lblVisionInfo = new System.Windows.Forms.Label();
+            this.tabSide = new System.Windows.Forms.TabPage();
+            this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblVisionInfo2 = new System.Windows.Forms.Label();
+            this.lblVisionInfo3 = new System.Windows.Forms.Label();
             this.grpManual = new System.Windows.Forms.GroupBox();
             this.manualActionPanel = new QMC.CDT_320.Ui.Controls.ManualActionPanelControl();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -199,7 +211,11 @@
             this.contentLayout.SuspendLayout();
             this.centerLayout.SuspendLayout();
             this.grpVision.SuspendLayout();
+            this.tabVision.SuspendLayout();
+            this.tabBottom.SuspendLayout();
             this.visionPanel.SuspendLayout();
+            this.tabSide.SuspendLayout();
+            this.sideLayout.SuspendLayout();
             this.grpManual.SuspendLayout();
             this.leftLayout.SuspendLayout();
             this.grpOptions.SuspendLayout();
@@ -293,7 +309,7 @@
             // grpVision
             // 
             this.grpVision.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
-            this.grpVision.Controls.Add(this.visionPanel);
+            this.grpVision.Controls.Add(this.tabVision);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpVision.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpVision.Location = new System.Drawing.Point(4, 4);
@@ -305,16 +321,39 @@
             this.grpVision.TabStop = false;
             this.grpVision.Text = "VISION";
             // 
+            // tabVision
+            // 
+            this.tabVision.Controls.Add(this.tabBottom);
+            this.tabVision.Controls.Add(this.tabSide);
+            this.tabVision.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tabVision.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.tabVision.Location = new System.Drawing.Point(3, 21);
+            this.tabVision.Name = "tabVision";
+            this.tabVision.SelectedIndex = 0;
+            this.tabVision.Size = new System.Drawing.Size(670, 446);
+            this.tabVision.TabIndex = 0;
+            // 
+            // tabBottom
+            // 
+            this.tabBottom.BackColor = System.Drawing.Color.Black;
+            this.tabBottom.Controls.Add(this.visionPanel);
+            this.tabBottom.Location = new System.Drawing.Point(4, 24);
+            this.tabBottom.Name = "tabBottom";
+            this.tabBottom.Padding = new System.Windows.Forms.Padding(3);
+            this.tabBottom.Size = new System.Drawing.Size(662, 418);
+            this.tabBottom.TabIndex = 0;
+            this.tabBottom.Text = "BOTTOM";
+            // 
             // visionPanel
             // 
             this.visionPanel.BackColor = System.Drawing.Color.Black;
             this.visionPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.visionPanel.Controls.Add(this.lblVisionInfo);
             this.visionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.visionPanel.Location = new System.Drawing.Point(3, 21);
-            this.visionPanel.Margin = new System.Windows.Forms.Padding(10);
+            this.visionPanel.Location = new System.Drawing.Point(3, 3);
+            this.visionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.visionPanel.Name = "visionPanel";
-            this.visionPanel.Size = new System.Drawing.Size(670, 446);
+            this.visionPanel.Size = new System.Drawing.Size(656, 412);
             this.visionPanel.TabIndex = 0;
             // 
             // lblVisionInfo
@@ -328,6 +367,64 @@
             this.lblVisionInfo.Size = new System.Drawing.Size(56, 90);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "STAGE\r\nW : 640\r\nH : 480\r\nX : 0\r\nY : 0\r\nT : 0";
+            this.lblVisionInfo.Visible = false;
+            // 
+            // tabSide
+            // 
+            this.tabSide.BackColor = System.Drawing.Color.Black;
+            this.tabSide.Controls.Add(this.sideLayout);
+            this.tabSide.Location = new System.Drawing.Point(4, 24);
+            this.tabSide.Name = "tabSide";
+            this.tabSide.Padding = new System.Windows.Forms.Padding(3);
+            this.tabSide.Size = new System.Drawing.Size(662, 418);
+            this.tabSide.TabIndex = 1;
+            this.tabSide.Text = "SIDE";
+            // 
+            // sideLayout
+            // 
+            this.sideLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(60)))), ((int)(((byte)(60)))));
+            this.sideLayout.ColumnCount = 1;
+            this.sideLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.sideLayout.Controls.Add(this.lblVisionInfo2, 0, 0);
+            this.sideLayout.Controls.Add(this.lblVisionInfo3, 0, 1);
+            this.sideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.sideLayout.Location = new System.Drawing.Point(3, 3);
+            this.sideLayout.Name = "sideLayout";
+            this.sideLayout.RowCount = 2;
+            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.sideLayout.Size = new System.Drawing.Size(656, 412);
+            this.sideLayout.TabIndex = 0;
+            // 
+            // lblVisionInfo2
+            // 
+            this.lblVisionInfo2.BackColor = System.Drawing.Color.Black;
+            this.lblVisionInfo2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblVisionInfo2.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
+            this.lblVisionInfo2.ForeColor = System.Drawing.Color.Lime;
+            this.lblVisionInfo2.Location = new System.Drawing.Point(0, 0);
+            this.lblVisionInfo2.Margin = new System.Windows.Forms.Padding(0, 0, 0, 1);
+            this.lblVisionInfo2.Name = "lblVisionInfo2";
+            this.lblVisionInfo2.Padding = new System.Windows.Forms.Padding(14);
+            this.lblVisionInfo2.Size = new System.Drawing.Size(656, 205);
+            this.lblVisionInfo2.TabIndex = 0;
+            this.lblVisionInfo2.Text = "SIDE VISION 1";
+            this.lblVisionInfo2.Visible = false;
+            // 
+            // lblVisionInfo3
+            // 
+            this.lblVisionInfo3.BackColor = System.Drawing.Color.Black;
+            this.lblVisionInfo3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblVisionInfo3.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
+            this.lblVisionInfo3.ForeColor = System.Drawing.Color.Lime;
+            this.lblVisionInfo3.Location = new System.Drawing.Point(0, 207);
+            this.lblVisionInfo3.Margin = new System.Windows.Forms.Padding(0, 1, 0, 0);
+            this.lblVisionInfo3.Name = "lblVisionInfo3";
+            this.lblVisionInfo3.Padding = new System.Windows.Forms.Padding(14);
+            this.lblVisionInfo3.Size = new System.Drawing.Size(656, 205);
+            this.lblVisionInfo3.TabIndex = 1;
+            this.lblVisionInfo3.Text = "SIDE VISION 2";
+            this.lblVisionInfo3.Visible = false;
             // 
             // grpManual
             // 
@@ -1488,8 +1585,12 @@
             this.contentLayout.ResumeLayout(false);
             this.centerLayout.ResumeLayout(false);
             this.grpVision.ResumeLayout(false);
+            this.tabVision.ResumeLayout(false);
+            this.tabBottom.ResumeLayout(false);
             this.visionPanel.ResumeLayout(false);
             this.visionPanel.PerformLayout();
+            this.tabSide.ResumeLayout(false);
+            this.sideLayout.ResumeLayout(false);
             this.grpManual.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
             this.grpOptions.ResumeLayout(false);

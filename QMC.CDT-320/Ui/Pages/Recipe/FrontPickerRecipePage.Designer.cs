@@ -221,6 +221,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo.Size = new System.Drawing.Size(583, 425);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "VISION VIEW";
+            this.lblVisionInfo.Visible = false;
             // 
             // tabSide
             // 
@@ -262,6 +263,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo2.Size = new System.Drawing.Size(385, 207);
             this.lblVisionInfo2.TabIndex = 0;
             this.lblVisionInfo2.Text = "SIDE VISION 1";
+            this.lblVisionInfo2.Visible = false;
             // 
             // lblVisionInfo3
             // 
@@ -276,6 +278,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblVisionInfo3.Size = new System.Drawing.Size(385, 208);
             this.lblVisionInfo3.TabIndex = 1;
             this.lblVisionInfo3.Text = "SIDE VISION 2";
+            this.lblVisionInfo3.Visible = false;
             // 
             // grpManual
             // 
@@ -283,22 +286,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpManual.Controls.Add(this.manualActionPanel);
             this.grpManual.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpManual.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpManual.Location = new System.Drawing.Point(0, 608);
+            this.grpManual.Location = new System.Drawing.Point(0, 518);
             this.grpManual.Margin = new System.Windows.Forms.Padding(0, 0, 4, 0);
             this.grpManual.Name = "grpManual";
             this.grpManual.Padding = new System.Windows.Forms.Padding(3, 2, 3, 3);
-            this.grpManual.Size = new System.Drawing.Size(603, 260);
+            this.grpManual.Size = new System.Drawing.Size(603, 350);
             this.grpManual.TabIndex = 1;
             this.grpManual.TabStop = false;
             this.grpManual.Text = "MANUAL ACTION";
             // 
             // manualActionPanel
             // 
+            this.manualActionPanel.AutoFitParentGroupHeight = false;
+            this.manualActionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.manualActionPanel.ColumnCount = 4;
             this.manualActionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.manualActionPanel.Location = new System.Drawing.Point(3, 21);
+            this.manualActionPanel.Location = new System.Drawing.Point(3, 20);
             this.manualActionPanel.Margin = new System.Windows.Forms.Padding(0);
             this.manualActionPanel.Name = "manualActionPanel";
-            this.manualActionPanel.Size = new System.Drawing.Size(549, 236);
+            this.manualActionPanel.RowHeight = 45;
+            this.manualActionPanel.Size = new System.Drawing.Size(597, 327);
             this.manualActionPanel.TabIndex = 0;
             // 
             // leftLayout

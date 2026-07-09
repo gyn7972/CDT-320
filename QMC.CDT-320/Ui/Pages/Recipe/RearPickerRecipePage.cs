@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Interlocks;
@@ -27,8 +28,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
 
         private readonly Timer refreshTimer = new Timer();
+        private IDisposable bottomVisionPreview;
+        private IDisposable sideVisionPreview;
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
+        private const int ManualActionFrameHeight = 29;
         private PickerRearUnit unit;
         private int selectedManualPickerNo = 4;
 
@@ -38,6 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
+            InstallVisionPreview();
             BackColor = Color.FromArgb(207, 210, 214);
             ForeColor = Color.Black;
             refreshTimer.Interval = 250;
@@ -86,6 +91,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 refreshTimer.Stop();
+                DisposeVisionPreview();
                 if (jogAxisMoveControl != null)
                     jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
@@ -96,6 +102,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 base.OnHandleDestroyed(e);
             }
+        }
+
+        private void InstallVisionPreview()
+        {
+            tabBottom.Text = "BOTTOM";
+            tabSide.Text = "SIDE";
+            bottomVisionPreview = RecipeVisionPreview.ShowSingle(tabBottom, "BOTTOM VISION", VisionViewerPorts.BottomInspection);
+            sideVisionPreview = RecipeVisionPreview.ShowVertical(
+                tabSide,
+                new RecipeVisionPreviewTile("FRONT SIDE VISION", VisionViewerPorts.FrontSideVision),
+                new RecipeVisionPreviewTile("REAR SIDE VISION", VisionViewerPorts.RearSideVision));
+        }
+
+        private void DisposeVisionPreview()
+        {
+            try { if (bottomVisionPreview != null) bottomVisionPreview.Dispose(); } catch { }
+            try { if (sideVisionPreview != null) sideVisionPreview.Dispose(); } catch { }
+            bottomVisionPreview = null;
+            sideVisionPreview = null;
         }
 
         private void ResolveUnit()
@@ -130,6 +155,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 // 픽커 선택은 4열 한 줄, 이동 동작은 2칸씩 사용해서 기존 2열 감각을 유지한다.
+                manualActionPanel.RowHeight = 45;
                 manualActionPanel.ColumnCount = 4;
                 manualActionPanel.SetItems(new[]
                 {
@@ -148,6 +174,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     CreateManualMoveItem("DIE PLACE POSITION", () => ConfirmSelectedAppliedZoneMoveAsync("DIE PLACE POSITION", "DiePlacePosition", "PLACE")),
                     CreateManualMoveItem("APPLIED ZONE MOVE", ShowAppliedZoneMoveDialogAsync)
                 });
+                FitManualActionGroupHeight();
             }
             catch (Exception ex)
             {
@@ -156,6 +183,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void FitManualActionGroupHeight()
+        {
+            grpManual.Height = manualActionPanel.PreferredContentHeight + ManualActionFrameHeight;
         }
 
         private ManualActionItem CreatePickerSelectItem(int pickerNo)

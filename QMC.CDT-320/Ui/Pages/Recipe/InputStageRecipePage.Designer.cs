@@ -328,6 +328,7 @@
             this.lblVisionInfo.Size = new System.Drawing.Size(56, 90);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "STAGE\r\nW : 640\r\nH : 480\r\nX : 0\r\nY : 0\r\nT : 0";
+            this.lblVisionInfo.Visible = false;
             // 
             // grpManual
             // 
