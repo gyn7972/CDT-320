@@ -21,16 +21,30 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string MoveAccKey = "Move Acc";
         private const string MoveDecKey = "Move Dec";
         private const string MoveTimeoutKey = "Move Timeout";
+        private const string StartZKey = "Start Z";
+        private const string FineSearchSpeedKey = "Fine Search Speed";
         private const string SearchStartOffsetKey = "Search Start Offset";
         private const string SearchMaxDistanceKey = "Search Max Distance";
+        private const string BackOffDistanceKey = "BackOff Distance";
+        private const string FilmThicknessKey = "Film Thickness";
+        private const string DieThicknessKey = "Die Thickness";
+        private const string PositionOffsetXKey = "Position Offset X";
+        private const string PositionOffsetYKey = "Position Offset Y";
         private const string ContactOffsetKey = "Contact Offset";
         private const string VacuumOnDelayKey = "Vacuum On Delay";
+        private const string VacuumReOnDelayKey = "Vacuum Re-On Delay";
+        private const string BlowPulseTimeKey = "Blow Pulse Time";
+        private const string BlowSettleTimeKey = "Blow Settle Time";
+        private const string FlowOffConfirmTimeoutKey = "Flow Off Confirm Timeout";
         private const string FlowStableKey = "Flow Stable";
         private const string FlowPollIntervalKey = "Flow Poll Interval";
+        private const string RepeatCountKey = "Repeat Count";
+        private const string RepeatToleranceKey = "Repeat Tolerance";
         private const string MoveAvoidAfterScanKey = "Move Avoid After Scan";
         private const string FailIfFlowAlreadyOnKey = "Fail If Flow Already On";
 
         private readonly ComboBox _cmbSide;
+        private readonly ComboBox _cmbOutputSide;
         private readonly ComboBox _cmbPickerNo;
         private readonly DataGridView _settingsGrid;
         private readonly DataGridView _resultGrid;
@@ -114,10 +128,31 @@ namespace QMC.CDT_320.Ui.Dialogs
             _cmbSide.SelectedIndex = 0;
             selector.Controls.Add(_cmbSide);
 
+            var lblOutput = new Label
+            {
+                Text = "Output",
+                Location = new Point(202, 9),
+                Size = new Size(62, 24),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
+            };
+            selector.Controls.Add(lblOutput);
+
+            _cmbOutputSide = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(266, 7),
+                Size = new Size(90, 25)
+            };
+            _cmbOutputSide.Items.Add("Good");
+            _cmbOutputSide.Items.Add("NG");
+            _cmbOutputSide.SelectedIndex = 0;
+            selector.Controls.Add(_cmbOutputSide);
+
             var lblPicker = new Label
             {
                 Text = "Picker No",
-                Location = new Point(202, 9),
+                Location = new Point(382, 9),
                 Size = new Size(80, 24),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("Malgun Gothic", 9F, FontStyle.Bold)
@@ -127,7 +162,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _cmbPickerNo = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Location = new Point(286, 7),
+                Location = new Point(466, 7),
                 Size = new Size(80, 25)
             };
             _cmbPickerNo.Items.Add("1");
@@ -211,6 +246,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             _btnSave.Click += delegate { SaveSettingsFromUi(true); };
             _btnClose.Click += delegate { Close(); };
             _cmbSide.SelectedIndexChanged += delegate { RefreshResultGrid(); };
+            _cmbOutputSide.SelectedIndexChanged += delegate { RefreshResultGrid(); };
             _cmbPickerNo.SelectedIndexChanged += delegate { RefreshResultGrid(); };
         }
 
@@ -276,18 +312,26 @@ namespace QMC.CDT_320.Ui.Dialogs
             };
             grid.Columns.Add("Item", "ITEM");
             grid.Columns.Add("Side", "SIDE");
+            grid.Columns.Add("Output", "OUTPUT");
             grid.Columns.Add("Picker", "PICKER");
             grid.Columns.Add("OldPlace", "OLD PLACE");
+            grid.Columns.Add("StartZ", "START Z");
             grid.Columns.Add("FlowZ", "FLOW Z");
+            grid.Columns.Add("Die", "DIE");
+            grid.Columns.Add("Film", "FILM");
             grid.Columns.Add("SavedPlace", "SAVED PLACE");
             grid.Columns.Add("Valid", "VALID");
             grid.Columns[0].FillWeight = 32F;
             grid.Columns[1].FillWeight = 18F;
-            grid.Columns[2].FillWeight = 16F;
-            grid.Columns[3].FillWeight = 24F;
+            grid.Columns[2].FillWeight = 18F;
+            grid.Columns[3].FillWeight = 16F;
             grid.Columns[4].FillWeight = 24F;
             grid.Columns[5].FillWeight = 24F;
-            grid.Columns[6].FillWeight = 14F;
+            grid.Columns[6].FillWeight = 24F;
+            grid.Columns[7].FillWeight = 18F;
+            grid.Columns[8].FillWeight = 18F;
+            grid.Columns[9].FillWeight = 24F;
+            grid.Columns[10].FillWeight = 14F;
             CalibrationDialogGridBehavior.Apply(grid);
             return grid;
         }
@@ -318,19 +362,30 @@ namespace QMC.CDT_320.Ui.Dialogs
                 settings.EnsureDefaults();
                 _settingsGrid.Rows.Clear();
                 AddSetting(MoveSpeedKey, settings.Motion.MoveVelocity, "mm/s");
+                AddSetting(FineSearchSpeedKey, settings.FineSearchVelocityMmPerSec, "mm/s");
                 AddSetting(MoveAccKey, settings.Motion.MoveAcceleration, "mm/s2");
                 AddSetting(MoveDecKey, settings.Motion.MoveDeceleration, "mm/s2");
                 AddSetting(MoveTimeoutKey, settings.Motion.MoveTimeoutMs, "ms");
-                AddSetting(SearchStartOffsetKey, settings.SearchStartOffsetMm, "mm");
+                AddSetting(StartZKey, settings.StartZMm, "mm");
                 AddSetting(SearchMaxDistanceKey, settings.SearchMaxDistanceMm, "mm");
-                AddSetting(ContactOffsetKey, settings.ContactOffsetMm, "mm");
+                AddSetting(BackOffDistanceKey, settings.BackOffDistanceMm, "mm");
+                AddSetting(DieThicknessKey, settings.DieThicknessMm, "mm");
+                AddSetting(FilmThicknessKey, settings.FilmThicknessMm, "mm");
+                AddSetting(PositionOffsetXKey, settings.PositionOffsetXmm, "mm");
+                AddSetting(PositionOffsetYKey, settings.PositionOffsetYmm, "mm");
                 AddSetting(VacuumOnDelayKey, settings.VacuumOnDelayMs, "ms");
+                AddSetting(VacuumReOnDelayKey, settings.VacuumReOnDelayMs, "ms");
+                AddSetting(BlowPulseTimeKey, settings.BlowPulseTimeMs, "ms");
+                AddSetting(BlowSettleTimeKey, settings.BlowSettleTimeMs, "ms");
+                AddSetting(FlowOffConfirmTimeoutKey, settings.FlowOffConfirmTimeoutMs, "ms");
                 AddSetting(FlowStableKey, settings.FlowStableMs, "ms");
                 AddSetting(FlowPollIntervalKey, settings.FlowPollIntervalMs, "ms");
+                AddSetting(RepeatCountKey, settings.RepeatCount, "count");
+                AddSetting(RepeatToleranceKey, settings.RepeatToleranceMm, "mm");
                 AddSetting(MoveAvoidAfterScanKey, settings.MoveAvoidAfterScan ? "True" : "False", "");
                 AddSetting(FailIfFlowAlreadyOnKey, settings.FailIfFlowAlreadyOn ? "True" : "False", "");
                 RefreshResultGrid();
-                _status.Text = "설정을 불러왔습니다. Picker를 Place 위치 위에 위치시킨 후 START SCAN을 실행하세요.";
+                _status.Text = "설정을 불러왔습니다. Output Good/NG와 Picker를 선택한 후 START SCAN을 실행하세요.";
             }
             catch (Exception ex)
             {
@@ -364,13 +419,17 @@ namespace QMC.CDT_320.Ui.Dialogs
                 int row = _resultGrid.Rows.Add(
                     side + " P" + pickerNo,
                     side.ToString(),
+                    record.OutputSide.ToString(),
                     pickerNo.ToString(CultureInfo.InvariantCulture),
                     record.OldPlacePosition.ToString("0.######", CultureInfo.InvariantCulture),
+                    record.StartZMm.ToString("0.######", CultureInfo.InvariantCulture),
                     record.DetectedFlowPosition.ToString("0.######", CultureInfo.InvariantCulture),
+                    record.DieThicknessMm.ToString("0.######", CultureInfo.InvariantCulture),
+                    record.FilmThicknessMm.ToString("0.######", CultureInfo.InvariantCulture),
                     record.SavedPlacePosition.ToString("0.######", CultureInfo.InvariantCulture),
                     record.Valid ? "OK" : "-");
 
-                if (side == ResolveSide() && pickerNo == ResolvePickerNo())
+                if (side == ResolveSide() && record.OutputSide == ResolveOutputSide() && pickerNo == ResolvePickerNo())
                     _resultGrid.Rows[row].DefaultCellStyle.BackColor = Color.FromArgb(210, 232, 255);
             }
         }
@@ -416,24 +475,50 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 case MoveSpeedKey:
                     return "PlaceZ Calibration에서 Picker Z를 탐색 시작 위치와 접촉 위치로 이동할 때 사용하는 속도입니다.";
+                case FineSearchSpeedKey:
+                    return "BackOff, Blow, Flow OFF 확인 후 최종 Flow 위치를 다시 찾을 때 사용하는 정밀 탐색 속도입니다.";
                 case MoveAccKey:
                     return "PlaceZ Calibration 전용 이동 가속도입니다. 값이 너무 크면 Place 접촉 탐색 중 충격이 커질 수 있습니다.";
                 case MoveDecKey:
                     return "PlaceZ Calibration 전용 이동 감속도입니다. 접촉 감지 후 정지 안정성에 영향을 줍니다.";
                 case MoveTimeoutKey:
                     return "각 Z 이동 명령 후 인포지션 완료를 기다리는 최대 시간입니다. 초과하면 캘리브레이션을 실패 처리합니다.";
+                case StartZKey:
+                    return "PickerZ가 Flow 탐색을 시작할 Z 위치입니다. 안전 위치 정렬 후 선택 PickerZ가 이 위치로 먼저 이동합니다.";
+                case DieThicknessKey:
+                    return "Die thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.";
+                case FilmThicknessKey:
+                    return "Film thickness. Saved Place Z = Flow Z + Die Thickness + Film Thickness.";
+                case PositionOffsetXKey:
+                    return "Output Process 기준 위치에서 X 방향으로 추가 이동할 거리입니다. OutputVision 기준 Place 계산식의 receiveTargetX로 적용됩니다.";
+                case PositionOffsetYKey:
+                    return "Output Process 기준 위치에서 Y 방향으로 추가 이동할 거리입니다. OutputStageY Place 계산식의 receiveTargetY로 적용됩니다.";
                 case SearchStartOffsetKey:
                     return "현재 Place 위치보다 이 거리만큼 위쪽 안전 위치에서 탐색을 시작합니다. 대상면에 바로 닿지 않도록 여유를 둡니다.";
                 case SearchMaxDistanceKey:
                     return "Vacuum/Flow 접촉 신호를 찾기 위해 Z를 내릴 수 있는 최대 거리입니다. 이 거리 안에 신호가 없으면 실패합니다.";
+                case BackOffDistanceKey:
+                    return "Flow ON 감지 후 정밀 재탐색 전에 PickerZ를 되돌리는 거리입니다. 잔진공/잔에어 제거 구간입니다.";
                 case ContactOffsetKey:
-                    return "접촉 감지 위치에서 최종 Place Z로 저장할 때 더하거나 뺄 보정량입니다. 내려놓는 높이 보정에 사용합니다.";
+                    return "기존 호환용 값입니다. 현재는 Die Thickness와 같은 값으로 저장됩니다.";
                 case VacuumOnDelayKey:
                     return "탐색 시작 전 Vacuum을 켠 뒤 Flow 신호가 안정될 때까지 기다리는 시간입니다.";
+                case VacuumReOnDelayKey:
+                    return "BackOff/Blow 후 Vacuum을 다시 켠 뒤 Flow OFF 확인 전 기다리는 시간입니다.";
+                case BlowPulseTimeKey:
+                    return "BackOff 후 Vacuum을 끄고 잔진공/잔에어를 제거하기 위해 Blow를 짧게 켜는 시간입니다.";
+                case BlowSettleTimeKey:
+                    return "Blow OFF 후 다시 Vacuum ON 하기 전에 압력이 안정되도록 기다리는 시간입니다.";
+                case FlowOffConfirmTimeoutKey:
+                    return "BackOff/Blow/Vacuum ON 후 Flow OFF 상태가 확인될 때까지 기다리는 최대 시간입니다.";
                 case FlowStableKey:
                     return "Flow 접촉 신호가 이 시간 동안 유지되어야 접촉으로 인정합니다.";
                 case FlowPollIntervalKey:
                     return "접촉 탐색 중 Flow 신호를 다시 확인하는 주기입니다.";
+                case RepeatCountKey:
+                    return "정밀 Flow 탐색 반복 횟수입니다. 반복 결과의 최대-최소 차이가 Repeat Tolerance 안이어야 합니다.";
+                case RepeatToleranceKey:
+                    return "정밀 Flow 탐색 반복 결과 사이에 허용되는 최대 편차입니다.";
                 case MoveAvoidAfterScanKey:
                     return "캘리브레이션 완료 또는 실패 후 Picker Z를 Avoid 위치로 복귀할지 선택합니다.";
                 case FailIfFlowAlreadyOnKey:
@@ -480,15 +565,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (settings.Motion == null)
                     settings.Motion = new CalibrationMotionSettings();
                 settings.Motion.MoveVelocity = Math.Max(0.001, ReadDouble(MoveSpeedKey));
+                settings.FineSearchVelocityMmPerSec = Math.Max(0.001, ReadDouble(FineSearchSpeedKey));
                 settings.Motion.MoveAcceleration = Math.Max(0.001, ReadDouble(MoveAccKey));
                 settings.Motion.MoveDeceleration = Math.Max(0.001, ReadDouble(MoveDecKey));
                 settings.Motion.MoveTimeoutMs = Math.Max(100, ReadInt(MoveTimeoutKey, CalibrationMotionSettings.DefaultMoveTimeoutMs));
-                settings.SearchStartOffsetMm = Math.Max(0.0, ReadDouble(SearchStartOffsetKey));
+                settings.StartZMm = ReadDouble(StartZKey);
                 settings.SearchMaxDistanceMm = Math.Max(0.001, ReadDouble(SearchMaxDistanceKey));
-                settings.ContactOffsetMm = ReadDouble(ContactOffsetKey);
+                settings.BackOffDistanceMm = Math.Max(0.001, ReadDouble(BackOffDistanceKey));
+                settings.DieThicknessMm = Math.Max(0.0, ReadDouble(DieThicknessKey));
+                settings.FilmThicknessMm = Math.Max(0.0, ReadDouble(FilmThicknessKey));
+                settings.ContactOffsetMm = settings.DieThicknessMm;
+                settings.PositionOffsetXmm = ReadDouble(PositionOffsetXKey);
+                settings.PositionOffsetYmm = ReadDouble(PositionOffsetYKey);
                 settings.VacuumOnDelayMs = Math.Max(0, ReadInt(VacuumOnDelayKey, 100));
+                settings.VacuumReOnDelayMs = Math.Max(0, ReadInt(VacuumReOnDelayKey, 100));
+                settings.BlowPulseTimeMs = Math.Max(0, ReadInt(BlowPulseTimeKey, 50));
+                settings.BlowSettleTimeMs = Math.Max(0, ReadInt(BlowSettleTimeKey, 50));
+                settings.FlowOffConfirmTimeoutMs = Math.Max(1, ReadInt(FlowOffConfirmTimeoutKey, 1000));
                 settings.FlowStableMs = Math.Max(0, ReadInt(FlowStableKey, 30));
                 settings.FlowPollIntervalMs = Math.Max(1, ReadInt(FlowPollIntervalKey, 5));
+                settings.RepeatCount = Math.Max(1, ReadInt(RepeatCountKey, 2));
+                settings.RepeatToleranceMm = Math.Max(0.0001, ReadDouble(RepeatToleranceKey));
                 settings.MoveAvoidAfterScan = ReadBool(MoveAvoidAfterScanKey, true);
                 settings.FailIfFlowAlreadyOn = ReadBool(FailIfFlowAlreadyOnKey, true);
                 settings.EnsureDefaults();
@@ -552,7 +649,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 if (showOk)
-                    _status.Text = "실행 가능한 상태입니다. 현재 XY 위치가 Output Place 위치인지 확인하세요.";
+                    _status.Text = "실행 가능한 상태입니다. 선택 Output Stage와 Picker 기준으로 PlaceZ Calibration을 실행할 수 있습니다.";
                 return true;
             }
             catch (Exception ex)
@@ -613,7 +710,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 host = ResolveHost();
                 runCts = BeginManualCalibrationRun(host, actionName, out actionScope, out stopHandler);
                 var context = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
-                var sequence = new PickerPlaceZCalibrationSequence(context, ResolveSide(), ResolvePickerNo());
+                var sequence = new PickerPlaceZCalibrationSequence(context, ResolveSide(), ResolvePickerNo(), ResolveOutputSide());
                 PickerSequenceOptions options = PickerSequenceOptions.Default();
                 options.RunMode = SequenceRunMode.Manual;
                 options.StartMode = SequenceStartMode.Restart;
@@ -847,6 +944,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             return _cmbSide.SelectedIndex == 1 ? VisionFocusPickerSide.Rear : VisionFocusPickerSide.Front;
         }
 
+        private BinSide ResolveOutputSide()
+        {
+            return _cmbOutputSide.SelectedIndex == 1 ? BinSide.Ng : BinSide.Good;
+        }
+
         private int ResolvePickerNo()
         {
             int pickerNo;
@@ -895,6 +997,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SetButtonsEnabled(bool enabled)
         {
             _cmbSide.Enabled = enabled;
+            _cmbOutputSide.Enabled = enabled;
             _cmbPickerNo.Enabled = enabled;
             _settingsGrid.Enabled = enabled;
             _btnCheck.Enabled = enabled;

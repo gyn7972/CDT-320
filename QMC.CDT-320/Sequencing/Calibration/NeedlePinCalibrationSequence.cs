@@ -456,7 +456,7 @@ namespace QMC.CDT320.Sequencing.Calibration
             {
                 VisionCameraPixelCalibration camera = ResolveNeedlePinCameraCalibration();
                 double pixelDeltaX = match != null && match.Success ? match.X - camera.ImageCenterPixelX : 0.0;
-                double pixelDeltaY = match != null && match.Success ? match.Y - camera.ImageCenterPixelY : 0.0;
+                double pixelDeltaY = match != null && match.Success ? camera.ImageCenterPixelY - match.Y : 0.0;
                 double pixelMmX = match != null && match.Success ? camera.PixelToMmOffsetX(match.X) : 0.0;
                 double pixelMmY = match != null && match.Success ? camera.PixelToMmOffsetY(match.Y) : 0.0;
 
@@ -475,11 +475,11 @@ namespace QMC.CDT320.Sequencing.Calibration
                     ", centerX=" + camera.ImageCenterPixelX.ToString("F3") +
                     ", centerY=" + camera.ImageCenterPixelY.ToString("F3") +
                     ", pixelDeltaX=pixelX-centerX=" + pixelDeltaX.ToString("F6") +
-                    ", pixelDeltaY=pixelY-centerY=" + pixelDeltaY.ToString("F6") +
+                    ", pixelDeltaY=centerY-pixelY=" + pixelDeltaY.ToString("F6") +
                     ", pixelToMmX=" + camera.PixelToMmX.ToString("F9") +
                     ", pixelToMmY=" + camera.PixelToMmY.ToString("F9") +
                     ", pixelMmX=(pixelX-centerX)*pixelToMmX=" + pixelMmX.ToString("F6") +
-                    ", pixelMmY=(pixelY-centerY)*pixelToMmY=" + pixelMmY.ToString("F6") +
+                    ", pixelMmY=(centerY-pixelY)*pixelToMmY=" + pixelMmY.ToString("F6") +
                     ", inputBottomRef=not_applied" +
                     ", finalDeltaX=" + (align != null ? align.DeltaX.ToString("F6") : "null") +
                     ", finalDeltaY=" + (align != null ? align.DeltaY.ToString("F6") : "null") +

@@ -366,9 +366,12 @@ namespace QMC.CDT320.Interlocks
                 if (!VerifyReticleCylinderClear(machine, "FrontPickerY", out reason))
                     return false;
 
-                // 인터락 항목: 조그 FrontPickerY는 Z/Reticle 확인 후 목표 Zone 판정만 생략한다.
+                // 기존 조건: 조그 FrontPickerY는 Z/Reticle 확인 후 목표 Zone 판정을 생략하고 바로 허용했다.
+                // 현재 필요 여부: 목표 Zone 판정은 생략하지만 Front/Rear Y 돌출 + X 안전거리는 반드시 확인한다.
+                //if (MotionGuardRuleHelpers.IsJogMove(request))
+                //    return true;
                 if (MotionGuardRuleHelpers.IsJogMove(request))
-                    return true;
+                    return PickerZoneInterlockRules.VerifyFrontPickerYJogFacingMove(request, out reason);
 
                 // 현재 기준: AvoidPosition보다 작은 Y 목표는 Input 진입이며 InputExpandingZ가 0 이하 위치여야 한다.
                 if (!PickerZoneInterlockRules.VerifyFrontPickerYMove(request, out reason))

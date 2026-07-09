@@ -900,7 +900,7 @@ namespace QMC.CDT320
 
             BinStageAxis stageAxis;
             if (TryResolveStageAxis(axis, out stageAxis))
-                return await MoveStageAxis(stageAxis, target, speedType, customSpeed).ConfigureAwait(false);
+                return await MoveStageAxis(stageAxis, target, speedType, customSpeed, true).ConfigureAwait(false);
 
             return -1;
         }
@@ -1000,13 +1000,18 @@ namespace QMC.CDT320
 
         public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
         {
+            return await MoveStageAxis(axis, targetPos, speedType, customSpeed, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
             try
             {
                 if (!HasStageAxis(axis))
                     return 0;
 
                 BaseAxis item = ResolveStageAxis(axis);
-                if (IsAxisAtTarget(item, targetPos))
+                if (!forceMove && IsAxisAtTarget(item, targetPos))
                     return 0;
 
                 int clearResult = await EnsureGoodStageZNonAvoidMoveClearIfNeededAsync(
@@ -1022,7 +1027,7 @@ namespace QMC.CDT320
                 double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
                 double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " 조그 속도 위치 이동 시작. target=" + targetPos + ", velocity=" + velocity);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
                     return RaiseOutputStageAlarm(
                         "OS-MOVE",
@@ -2751,7 +2756,7 @@ namespace QMC.CDT320
 
         private int RaiseOutputStageAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
+            // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

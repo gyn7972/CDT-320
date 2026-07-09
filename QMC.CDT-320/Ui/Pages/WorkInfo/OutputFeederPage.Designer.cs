@@ -179,7 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // rootPanel
             // 
-            this.rootPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.rootPanel.BackColor = System.Drawing.Color.White;
             this.rootPanel.ColumnCount = 1;
             this.rootPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
@@ -228,7 +228,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // leftStack
             // 
-            this.leftStack.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.leftStack.BackColor = System.Drawing.Color.White;
             this.leftStack.ColumnCount = 1;
             this.leftStack.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftStack.Controls.Add(this.grpInfo, 0, 0);
@@ -245,7 +245,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpInfo
             // 
-            this.grpInfo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpInfo.BackColor = System.Drawing.Color.White;
             this.grpInfo.Controls.Add(this.infoWrap);
             this.grpInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInfo.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -579,7 +579,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorRingPanel
             // 
-            this.sensorRingPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorRingPanel.BackColor = System.Drawing.Color.White;
             this.sensorRingPanel.ColumnCount = 2;
             this.sensorRingPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorRingPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -620,7 +620,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorOverloadPanel
             // 
-            this.sensorOverloadPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorOverloadPanel.BackColor = System.Drawing.Color.White;
             this.sensorOverloadPanel.ColumnCount = 2;
             this.sensorOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorOverloadPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -661,7 +661,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorUnclampPanel
             // 
-            this.sensorUnclampPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorUnclampPanel.BackColor = System.Drawing.Color.White;
             this.sensorUnclampPanel.ColumnCount = 2;
             this.sensorUnclampPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorUnclampPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -702,7 +702,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorUpPanel
             // 
-            this.sensorUpPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorUpPanel.BackColor = System.Drawing.Color.White;
             this.sensorUpPanel.ColumnCount = 2;
             this.sensorUpPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorUpPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -743,7 +743,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorDownPanel
             // 
-            this.sensorDownPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorDownPanel.BackColor = System.Drawing.Color.White;
             this.sensorDownPanel.ColumnCount = 2;
             this.sensorDownPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorDownPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -784,7 +784,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorNgBwPanel
             // 
-            this.sensorNgBwPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorNgBwPanel.BackColor = System.Drawing.Color.White;
             this.sensorNgBwPanel.ColumnCount = 2;
             this.sensorNgBwPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorNgBwPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -825,7 +825,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorMappingPanel
             // 
-            this.sensorMappingPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorMappingPanel.BackColor = System.Drawing.Color.White;
             this.sensorMappingPanel.ColumnCount = 2;
             this.sensorMappingPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorMappingPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -866,7 +866,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorProtrusionPanel
             // 
-            this.sensorProtrusionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorProtrusionPanel.BackColor = System.Drawing.Color.White;
             this.sensorProtrusionPanel.ColumnCount = 2;
             this.sensorProtrusionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorProtrusionPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -907,7 +907,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorNgLockPanel
             // 
-            this.sensorNgLockPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorNgLockPanel.BackColor = System.Drawing.Color.White;
             this.sensorNgLockPanel.ColumnCount = 2;
             this.sensorNgLockPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorNgLockPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -948,7 +948,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorGood1Panel
             // 
-            this.sensorGood1Panel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorGood1Panel.BackColor = System.Drawing.Color.White;
             this.sensorGood1Panel.ColumnCount = 2;
             this.sensorGood1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorGood1Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -989,7 +989,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorGood2Panel
             // 
-            this.sensorGood2Panel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorGood2Panel.BackColor = System.Drawing.Color.White;
             this.sensorGood2Panel.ColumnCount = 2;
             this.sensorGood2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorGood2Panel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1030,7 +1030,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // sensorNgPanel
             // 
-            this.sensorNgPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.sensorNgPanel.BackColor = System.Drawing.Color.White;
             this.sensorNgPanel.ColumnCount = 2;
             this.sensorNgPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.sensorNgPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1071,7 +1071,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // grpAction
             // 
-            this.grpAction.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.grpAction.BackColor = System.Drawing.Color.White;
             this.grpAction.Controls.Add(this.actionBar);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -1186,7 +1186,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // materialDetailView
             // 
-            this.materialDetailView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.materialDetailView.BackColor = System.Drawing.Color.White;
             this.materialDetailView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialDetailView.Location = new System.Drawing.Point(842, 0);
             this.materialDetailView.Margin = new System.Windows.Forms.Padding(3, 0, 0, 0);
@@ -1197,7 +1197,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             // OutputFeederPage
             // 
-            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootPanel);
             this.Margin = new System.Windows.Forms.Padding(0);
             this.Name = "OutputFeederPage";

@@ -31,8 +31,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyMotionLayout();
             WireActions();
             InitializeConfigPanels();
+            ConfigureCompactConfigLayout();
             InitializeSpeedTab();
             InitializeStatusPanels();
 
@@ -50,6 +53,243 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 DetachAxes();
                 try { if (_motionTestDialog != null && !_motionTestDialog.IsDisposed) _motionTestDialog.Dispose(); } catch { }
             };
+        }
+
+        private void ApplyMotionLayout()
+        {
+            rootLayout.SuspendLayout();
+            actionsPanel.SuspendLayout();
+            try
+            {
+                rootLayout.Controls.Clear();
+                rootLayout.Padding = Padding.Empty;
+                rootLayout.Margin = Padding.Empty;
+                rootLayout.ColumnCount = 1;
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                rootLayout.RowCount = 4;
+                rootLayout.RowStyles.Clear();
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
+
+                lblPageHeader.Dock = DockStyle.Fill;
+                lblPageHeader.Margin = Padding.Empty;
+                lblPageHeader.Padding = new Padding(10, 0, 0, 0);
+
+                lblModuleHeader.Visible = false;
+                lblConfigHeader.Visible = false;
+
+                var grpModule = CreateMotionGroupBox("grpMotionModuleList", "MODULE LIST");
+                var grpConfiguration = CreateMotionGroupBox("grpMotionConfiguration", "CONFIGURATION");
+                var grpAction = CreateMotionGroupBox("grpMotionAction", "ACTION");
+
+                grid.Dock = DockStyle.Fill;
+                grid.Margin = Padding.Empty;
+                configTabs.Dock = DockStyle.Fill;
+                configTabs.Margin = Padding.Empty;
+                configTabs.ItemSize = new Size(92, 28);
+                configTabs.BackColor = Color.White;
+                foreach (TabPage page in new[] { tabConfig, tabStatus, tabSpeed })
+                {
+                    page.UseVisualStyleBackColor = false;
+                    page.BackColor = Color.White;
+                }
+                tabConfig.Padding = new Padding(1);
+                tabStatus.Padding = new Padding(1);
+                tabSpeed.Padding = new Padding(1);
+
+                ConfigureCompactConfigLayout();
+                ConfigureActionPanel();
+                ConfigureSpeedButtons();
+
+                grpModule.Controls.Add(grid);
+                grpConfiguration.Controls.Add(configTabs);
+                grpAction.Controls.Add(actionsPanel);
+
+                rootLayout.Controls.Add(lblPageHeader, 0, 0);
+                rootLayout.Controls.Add(grpModule, 0, 1);
+                rootLayout.Controls.Add(grpConfiguration, 0, 2);
+                rootLayout.Controls.Add(grpAction, 0, 3);
+            }
+            finally
+            {
+                actionsPanel.ResumeLayout(false);
+                rootLayout.ResumeLayout(false);
+            }
+        }
+
+        private static GroupBox CreateMotionGroupBox(string name, string text)
+        {
+            return new GroupBox
+            {
+                BackColor = Color.White,
+                Dock = DockStyle.Fill,
+                Font = UiTheme.SectionFont,
+                ForeColor = Color.Black,
+                Margin = Padding.Empty,
+                Name = name,
+                Padding = new Padding(1, 9, 1, 1),
+                TabStop = false,
+                Text = text
+            };
+        }
+
+        private void ConfigureCompactConfigLayout()
+        {
+            configLayout.SuspendLayout();
+            try
+            {
+                configLayout.Controls.Clear();
+                configLayout.AutoScroll = false;
+                configLayout.BackColor = Color.White;
+                configLayout.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
+                configLayout.ColumnCount = 3;
+                configLayout.Margin = Padding.Empty;
+                configLayout.Padding = Padding.Empty;
+
+                configLayout.ColumnStyles.Clear();
+                for (int i = 0; i < 3; i++)
+                    configLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 3F));
+
+                configLayout.RowCount = 3;
+                configLayout.RowStyles.Clear();
+                configLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
+                configLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+                configLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+
+                AddConfigGroup(grpConfig, 0, 0);
+                AddConfigGroup(grpInposition, 1, 0);
+                AddConfigGroup(grpLimit, 2, 0);
+                AddConfigGroup(grpEmergency, 0, 1);
+                AddConfigGroup(grpHome, 1, 1);
+                AddConfigGroup(grpAlarm, 2, 1);
+                AddConfigGroup(grpPositionClear, 0, 2);
+                AddConfigFiller(1, 2, 2);
+
+                var grids = new[]
+                {
+                    pgConfig, pgInposition, pgLimit, pgEmergency, pgHome, pgAlarm, pgPositionClear
+                };
+
+                foreach (var gridControl in grids)
+                {
+                    gridControl.Margin = Padding.Empty;
+                    gridControl.Padding = new Padding(2);
+                    gridControl.PairsPerRow = 2;
+                    gridControl.RowHeight = 20;
+                    gridControl.NameWidth = 98;
+                }
+            }
+            finally
+            {
+                configLayout.ResumeLayout(false);
+            }
+        }
+
+        private static void StyleConfigGroup(GroupBox group)
+        {
+            group.BackColor = Color.White;
+            group.ForeColor = Color.Black;
+            group.Padding = new Padding(1, 9, 1, 1);
+        }
+
+        private Panel AddConfigGroup(GroupBox group, int column, int row)
+        {
+            if (group.Parent != null)
+            {
+                group.Parent.Controls.Remove(group);
+            }
+
+            var border = new Panel
+            {
+                BackColor = Color.FromArgb(170, 170, 170),
+                Dock = DockStyle.Fill,
+                Margin = new Padding(1),
+                Padding = new Padding(1),
+                Name = group.Name + "Border"
+            };
+
+            StyleConfigGroup(group);
+            group.Dock = DockStyle.Fill;
+            group.Margin = Padding.Empty;
+            border.Controls.Add(group);
+            configLayout.Controls.Add(border, column, row);
+            return border;
+        }
+
+        private void AddConfigFiller(int column, int row, int columnSpan)
+        {
+            var filler = new Panel
+            {
+                BackColor = Color.White,
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            configLayout.Controls.Add(filler, column, row);
+            configLayout.SetColumnSpan(filler, columnSpan);
+        }
+
+        private void ConfigureActionPanel()
+        {
+            actionsPanel.Controls.Clear();
+            actionsPanel.Margin = Padding.Empty;
+            actionsPanel.Padding = new Padding(1);
+            actionsPanel.Dock = DockStyle.Fill;
+            actionsPanel.BackColor = Color.White;
+            actionsPanel.ColumnCount = 14;
+            actionsPanel.ColumnStyles.Clear();
+            for (int i = 0; i < 14; i++)
+                actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+
+            actionsPanel.RowCount = 1;
+            actionsPanel.RowStyles.Clear();
+            actionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var buttons = new[]
+            {
+                btnEnable, btnDisable, btnServoOn, btnServoOff, btnHome, btnGroupHome, btnAllHome,
+                btnAllStop, btnAlarmClear, btnAllServoOff, btnParaLoad, btnParaSave, btnBoardScan, btnMotionTest
+            };
+
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                var button = buttons[i];
+                button.Dock = DockStyle.Fill;
+                button.Margin = new Padding(2);
+                button.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
+                button.MinimumSize = new Size(72, 28);
+                button.BackColor = Color.FromArgb(128, 128, 128);
+                actionsPanel.Controls.Add(button, i, 0);
+            }
+
+            btnAllStop.BackColor = Color.FromArgb(156, 66, 66);
+        }
+
+        private void ConfigureSpeedButtons()
+        {
+            speedLayout.Margin = Padding.Empty;
+            speedLayout.Padding = Padding.Empty;
+            speedLayout.RowStyles[1].SizeType = SizeType.Absolute;
+            speedLayout.RowStyles[1].Height = 42F;
+
+            speedButtons.Margin = Padding.Empty;
+            speedButtons.Padding = new Padding(2);
+            speedButtons.Dock = DockStyle.Fill;
+
+            var buttons = new[] { btnSpeedReload, btnSpeedSave, btnSpeedScale };
+            foreach (var button in buttons)
+            {
+                button.Margin = new Padding(3);
+                button.Size = new Size(112, 32);
+                button.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+                button.BackColor = Color.FromArgb(128, 128, 128);
+            }
+
+            lblSpeedScaleCaption.Margin = new Padding(3);
+            lblSpeedScaleCaption.Size = new Size(166, 32);
         }
 
         private Form1 Host => FindForm() as Form1;
@@ -73,12 +313,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             actionsPanel.BackColor = UiTheme.OptionPanelBg;
             configTabs.SelectedTab = tabConfig;
 
-            // configLayout: 세로 스크롤만 허용하고 가로 스크롤은 표시하지 않는다.
-            // TableLayoutPanel은 Layout 시마다 스크롤 상태를 재계산하므로 이벤트에서 매번 강제로 끈다.
-            configLayout.AutoScroll = true;
-            configLayout.Layout += SuppressHorizontalScroll;
-            configLayout.Resize += SuppressHorizontalScroll;
-            SuppressHorizontalScroll(configLayout, null);
+            configLayout.AutoScroll = false;
 
             grid.AllowUserToResizeColumns = true;
             grid.AllowUserToResizeRows = false;

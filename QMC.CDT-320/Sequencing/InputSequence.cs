@@ -521,7 +521,9 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("RestoreInputStepSession",
                         "Input sequence restored from InputStage wafer. wafer=" + _autoWaferId +
                         ", slot=" + _autoSlotIndex +
-                        ", step=" + _autoStep + " - Ok");
+                        ", step=" + _autoStep +
+                        ", positions=" + BuildAutoResumePositionSummary() +
+                        " - Ok");
                     return;
                 }
 
@@ -535,7 +537,9 @@ namespace QMC.CDT320.Sequencing
                     WriteLog("RestoreInputStepSession",
                         "Input sequence restored from InputFeeder wafer. wafer=" + _autoWaferId +
                         ", slot=" + _autoSlotIndex +
-                        ", step=" + _autoStep + " - Ok");
+                        ", step=" + _autoStep +
+                        ", positions=" + BuildAutoResumePositionSummary() +
+                        " - Ok");
                     return;
                 }
 
@@ -545,7 +549,9 @@ namespace QMC.CDT320.Sequencing
                     : InputSequenceAutoStep.Mapping;
 
                 WriteLog("RestoreInputStepSession",
-                    "Input sequence restored from cassette state. step=" + _autoStep + " - Ok");
+                    "Input sequence restored from cassette state. step=" + _autoStep +
+                    ", positions=" + BuildAutoResumePositionSummary() +
+                    " - Ok");
             }
             catch (Exception ex)
             {
@@ -558,6 +564,82 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string BuildAutoResumePositionSummary()
+        {
+            try
+            {
+                CDT320_Machine machine = Context != null ? Context.Machine : null;
+                if (machine == null)
+                    return "machine=null";
+
+                InputStageUnit stage = machine.InputStageUnit;
+                InputFeederUnit inputFeeder = machine.InputFeederUnit;
+                PickerFrontUnit front = machine.PickerFrontUnit;
+                PickerRearUnit rear = machine.PickerRearUnit;
+                OutputStageUnit outputStage = machine.OutputStageUnit;
+                OutputFeederUnit outputFeeder = machine.OutputFeederUnit;
+
+                return
+                    FormatAxis("InputFeederY", inputFeeder != null ? inputFeeder.FeederY : null) + "; " +
+                    "InputFeederDown=" + SafeBool(inputFeeder != null ? (bool?)inputFeeder.IsWaferFeederDown() : null) + "; " +
+                    FormatAxis("InputStageY", stage != null ? stage.StageY : null) + "; " +
+                    FormatAxis("InputStageT", stage != null ? stage.StageT : null) + "; " +
+                    FormatAxis("ExpanderZ", stage != null ? stage.ExpanderZ : null) + "; " +
+                    FormatAxis("InputVisionX", stage != null ? stage.CameraX : null) + "; " +
+                    FormatAxis("NeedleX", stage != null ? stage.NeedleBlockX : null) + "; " +
+                    FormatAxis("NeedleZ", stage != null ? stage.NeedleZ : null) + "; " +
+                    FormatAxis("EjectPinZ", stage != null ? stage.EjectPinZ : null) + "; " +
+                    FormatAxis("FrontPickerX", front != null ? front.PickerX : null) + "; " +
+                    FormatAxis("FrontPickerY", front != null ? front.PickerY : null) + "; " +
+                    FormatAxis("FrontPickerZ0", front != null ? front.PickerZ0 : null) + "; " +
+                    FormatAxis("RearPickerX", rear != null ? rear.PickerX : null) + "; " +
+                    FormatAxis("RearPickerY", rear != null ? rear.PickerY : null) + "; " +
+                    FormatAxis("RearPickerZ0", rear != null ? rear.PickerZ0 : null) + "; " +
+                    FormatAxis("OutputVisionX", outputStage != null ? outputStage.OutputCameraX : null) + "; " +
+                    FormatAxis("GoodStageY", outputStage != null && outputStage.GoodStage != null ? outputStage.GoodStage.StageY : null) + "; " +
+                    FormatAxis("GoodStageZ", outputStage != null && outputStage.GoodStage != null ? outputStage.GoodStage.StageZ : null) + "; " +
+                    FormatAxis("OutputFeederY", outputFeeder != null ? outputFeeder.FeederY : null) + "; " +
+                    "OutputFeederDown=" + SafeBool(outputFeeder != null ? (bool?)outputFeeder.IsBinFeederDown() : null);
+            }
+            catch (Exception ex)
+            {
+                return "positionSummaryFailed=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatAxis(string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                    return label + "[null]";
+
+                return label +
+                    "[actual=" + axis.ActualPosition.ToString("F6") +
+                    ", command=" + axis.CommandPosition.ToString("F6") +
+                    ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                    ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                    ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                    ", homeDone=" + (axis.IsHomeDone ? "Y" : "N") +
+                    "]";
+            }
+            catch (Exception ex)
+            {
+                return label + "[stateFailed=" + ex.Message + "]";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string SafeBool(bool? value)
+        {
+            return value.HasValue ? (value.Value ? "Y" : "N") : "-";
         }
 
         private WaferMaterial ResolveStageWaferFromRuntimeState()

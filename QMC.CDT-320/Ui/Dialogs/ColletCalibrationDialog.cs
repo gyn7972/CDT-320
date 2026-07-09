@@ -95,6 +95,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 InitializeComponent();
                 ApplyButtonStyle();
                 CalibrationDialogGridBehavior.Apply(gridSettings, gridResults);
+                ConfigureEditableSettingGrid();
                 LoadSettingsToUi();
                 RefreshResultGrid();
                 lblStatus.Text = "대기 중입니다. Collet과 보정 조건을 확인한 뒤 START를 실행하세요.";
@@ -116,6 +117,30 @@ namespace QMC.CDT_320.Ui.Dialogs
                 new[] { btnCheck, btnSaveBottomTeaching, btnApplyHomeOffset, btnReload, btnClose },
                 new[] { btnStart },
                 new[] { btnSave });
+        }
+
+        private void ConfigureEditableSettingGrid()
+        {
+            gridSettings.ReadOnly = false;
+            gridSettings.EditMode = DataGridViewEditMode.EditOnEnter;
+            colSettingName.ReadOnly = true;
+            colSettingValue.ReadOnly = false;
+            colSettingUnit.ReadOnly = true;
+            gridSettings.CellClick += gridSettings_CellClick;
+        }
+
+        private void gridSettings_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_busy || e.RowIndex < 0 || e.ColumnIndex != colSettingValue.Index)
+                return;
+
+            DataGridViewComboBoxCell comboCell = gridSettings.Rows[e.RowIndex].Cells[e.ColumnIndex] as DataGridViewComboBoxCell;
+            if (comboCell == null || comboCell.ReadOnly)
+                return;
+
+            gridSettings.CurrentCell = comboCell;
+            if (gridSettings.BeginEdit(true) && gridSettings.EditingControl is ComboBox combo)
+                combo.DroppedDown = true;
         }
 
         private void gridSettings_CurrentCellDirtyStateChanged(object sender, EventArgs e)
@@ -577,7 +602,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 AddSettingRow(CreateText(SettingKey.Finder, "Finder", "Vision PC BottomInspection 채널에 요청할 Finder 이름입니다. Vision PC에 등록된 Collet 검출 이름과 같아야 합니다."), _finder);
                 AddSettingRow(CreateNumber(SettingKey.ThetaTolerance, "Theta Tol", "deg", "T축 보정 완료 판정 각도입니다. Vision에서 받은 절대 Theta 값이 이 값 이하이면 T 보정 OK로 봅니다.", false), _thetaToleranceDeg.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MaxThetaIteration, "Theta Retry", "ea", "T축 보정을 반복할 최대 횟수입니다. 이 횟수 안에 Theta Tol 안으로 들어오지 않으면 NG 처리합니다.", true), _maxThetaIterations.ToString(CultureInfo.InvariantCulture));
-                AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", "Vision에서 측정한 Theta 보정량에 곱하는 이동 비율입니다. 1.0은 측정값만큼 그대로 보정합니다.", false), _thetaGain.ToString("F3"));
+                AddSettingRow(CreateNumber(SettingKey.ThetaGain, "Theta Gain", "x", "Vision에서 측정한 Theta를 0으로 만들기 위해 반대 방향으로 곱하는 이동 비율입니다. 1.0은 측정값만큼 보정합니다.", false), _thetaGain.ToString("F3"));
                 AddSettingRow(CreateNumber(SettingKey.XyTolerance, "XY Tol", "mm", "XY 중심 보정 완료 판정 거리입니다. XY Tol Mode가 Diagonal이면 대각 거리, Axis면 X/Y 각각의 절대값으로 판정합니다.", false), _xyToleranceMm.ToString("F6"));
                 AddSettingRow(CreateNumber(SettingKey.MaxXyIteration, "XY Retry", "ea", "XY 중심 보정을 반복할 최대 횟수입니다. 이 횟수 안에 XY Tol 안으로 들어오지 않으면 NG 처리합니다.", true), _maxXyIterations.ToString(CultureInfo.InvariantCulture));
                 AddSettingRow(CreateNumber(SettingKey.XyGainX, "XY Gain X", "x", "Vision에서 측정한 X 방향 보정량에 곱하는 이동 비율입니다. 1.0은 측정값만큼 그대로 보정합니다.", false), _xyGainX.ToString("F3"));
@@ -625,8 +650,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             else
             {
                 row.Cells[colSettingValue.Index].Value = value;
-                row.Cells[colSettingValue.Index].ReadOnly = info.Numeric;
             }
+
+            row.Cells[colSettingValue.Index].ReadOnly = info.Numeric;
         }
 
         private void ApplySettingValue(DataGridViewRow row)

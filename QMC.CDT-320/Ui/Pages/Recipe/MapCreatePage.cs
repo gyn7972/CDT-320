@@ -330,8 +330,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             try
             {
-                int gridX = DieMapGenerator.CalculateWaferGridCount((double)_nDiameter.Value, (double)_nPitchX.Value, (double)_nDieSizeX.Value);
-                int gridY = DieMapGenerator.CalculateWaferGridCount((double)_nDiameter.Value, (double)_nPitchY.Value, (double)_nDieSizeY.Value);
+                int gridX = ResolvePitchBasedGridCount((double)_nDiameter.Value, (double)_nPitchX.Value);
+                int gridY = ResolvePitchBasedGridCount((double)_nDiameter.Value, (double)_nPitchY.Value);
                 _suppressMapSpecEvents = true;
                 _nGridX.Value = ClampDecimal(gridX, _nGridX.Minimum, _nGridX.Maximum);
                 _nGridY.Value = ClampDecimal(gridY, _nGridY.Minimum, _nGridY.Maximum);
@@ -842,8 +842,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 frame.OuterDiameterMm,
                 frame.PitchX,
                 frame.PitchY,
-                frame.DieSizeX,
-                frame.DieSizeY,
+                frame.PitchX,
+                frame.PitchY,
                 edgeSkipMode,
                 sideEdgeSkip,
                 topBottomEdgeSkip,
@@ -953,8 +953,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return new TapeFrameSubset
             {
                 FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim(),
-                DieMapX = DieMapGenerator.CalculateWaferGridCount(diameter, pitchX, dieSizeX),
-                DieMapY = DieMapGenerator.CalculateWaferGridCount(diameter, pitchY, dieSizeY),
+                DieMapX = ResolvePitchBasedGridCount(diameter, pitchX),
+                DieMapY = ResolvePitchBasedGridCount(diameter, pitchY),
                 PitchX = pitchX,
                 PitchY = pitchY,
                 DieSizeX = dieSizeX,
@@ -966,6 +966,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 SideEdgeSkipMm = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? Math.Max(0.0, edgeSideValue) : 0.0,
                 TopBottomEdgeSkipMm = edgeSkipMode == WaferEdgeSkipMode.Millimeter ? Math.Max(0.0, edgeTopBottomValue) : 0.0
             };
+        }
+
+        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm)
+        {
+            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
+                return 1;
+
+            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private void ApplyMapToControls(DieMap map)

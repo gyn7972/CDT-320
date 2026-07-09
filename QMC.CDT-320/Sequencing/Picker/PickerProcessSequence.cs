@@ -93,6 +93,17 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                string pendingPermissionDetail;
+                bool hasAnyPermission = InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail);
+                WriteLog("PickerProcessSequence",
+                    Name + " Picker 공정 취소. side=" + Side +
+                    ", step=" + CurrentStep +
+                    ", tokenCanceled=" + ct.IsCancellationRequested +
+                    ", cycleStopRequested=" + (Context != null && Context.IsCycleStopRequested) +
+                    ", hasOwnPermission=" + InputCameraPickUpPermissionStore.HasPermission(Side) +
+                    ", hasAnyPermission=" + hasAnyPermission +
+                    ", permissionDetail=" + (string.IsNullOrWhiteSpace(pendingPermissionDetail) ? "-" : pendingPermissionDetail) +
+                    " - Canceled");
                 throw;
             }
             catch (SequenceStopException)
@@ -505,6 +516,16 @@ namespace QMC.CDT320.Sequencing
             }
             catch (OperationCanceledException)
             {
+                string pendingPermissionDetail;
+                bool hasAnyPermission = InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail);
+                WriteLog("PickerProcessSequence",
+                    Name + " InputCamera Mark 검사 취소. side=" + Side +
+                    ", tokenCanceled=" + ct.IsCancellationRequested +
+                    ", cycleStopRequested=" + (Context != null && Context.IsCycleStopRequested) +
+                    ", hasOwnPermission=" + InputCameraPickUpPermissionStore.HasPermission(Side) +
+                    ", hasAnyPermission=" + hasAnyPermission +
+                    ", permissionDetail=" + (string.IsNullOrWhiteSpace(pendingPermissionDetail) ? "-" : pendingPermissionDetail) +
+                    " - Canceled");
                 throw;
             }
             catch (SequenceStopException)

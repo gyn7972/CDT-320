@@ -24,6 +24,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private double _targetPickerZ;
         private double _targetOutputStageY;
+        // Formula from the central place target resolver; logged after XYT/Z final position checks.
+        private string _targetFormula = "";
         private double _outputVisionToPickerX;
         private double _outputVisionToPickerY;
         private string _placedDieId = "";
@@ -36,6 +38,7 @@ namespace QMC.CDT320.Sequencing
         private bool _pickerZPlacedBySynchronizedArrival;
         private int _pendingSynchronizedRetreatPickerIndex = -1;
         private int _pendingSynchronizedRetreatPickerNo;
+        private bool _suppressOutputPostPlaceInspection;
 
         public bool ForceSafeYBeforeFirstPlaceMove { get; set; }
 
@@ -67,6 +70,301 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        internal async Task<int> RunManualSelectedOutputSlotPlaceAsync(
+            BinSide targetSide,
+            OutputStageReceiveTarget receiveTarget,
+            int pickerNo,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            bool updatedMaterial = false;
+
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _suppressOutputPostPlaceInspection = true;
+
+                int result = PrepareManualSelectedOutputPlaceContext(targetSide, receiveTarget, pickerNo, options);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPlaceManual",
+                    Name + " manual selected output slot place start. die=" +
+                    (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") +
+                    ", map=(" + (_receiveTarget != null ? _receiveTarget.DieMapX.ToString() : "-") +
+                    "," + (_receiveTarget != null ? _receiveTarget.DieMapY.ToString() : "-") + ") - Start");
+
+                result = await MoveAllPickerZToAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveOutputStageAvoidPositionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveOutputStageReceivePositionAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = VerifyPlaceTarget();
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZPlaceAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await VacuumOffAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await BlowOffAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerZToAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await VerifyFlowOffAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = UpdateMaterialToOutputStage(ct);
+                if (result != 0)
+                    return result;
+                updatedMaterial = true;
+
+                result = await RecoverOutputStageAfterPlaceAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerToAvoidAfterPlaceAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                WriteLog("PickerPlaceManual",
+                    Name + " manual selected output slot place complete. die=" +
+                    (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + _currentOutputSide +
+                    ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") +
+                    " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-MANUAL-EX", Name,
+                    "Manual selected output slot place failed. pickerNo=" + pickerNo +
+                    ", outputSide=" + targetSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                if (!updatedMaterial)
+                    CancelOutputPostPlaceInspectionBatch("Manual selected output slot place aborted before material update.");
+
+                ReleaseOutputPlaceArea();
+                ReleaseOutputStageArea();
+                ReleaseOutputFeederArea();
+                _suppressOutputPostPlaceInspection = false;
+            }
+        }
+
+        internal async Task<int> RunManualSelectedOutputSlotPlaceStepAsync(
+            BinSide targetSide,
+            OutputStageReceiveTarget receiveTarget,
+            int pickerNo,
+            PickerPlaceManualStep step,
+            CancellationToken ct,
+            PickerSequenceOptions options)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _suppressOutputPostPlaceInspection = true;
+
+                int result = PrepareManualSelectedOutputPlaceContext(targetSide, receiveTarget, pickerNo, options);
+                if (result != 0)
+                    return result;
+
+                switch (step)
+                {
+                    case PickerPlaceManualStep.PreparePlaceTarget:
+                        WriteLog("PickerPlaceManual",
+                            Name + " manual place target prepared. die=" +
+                            (_currentDie != null ? _currentDie.DieId : "-") +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", outputSide=" + _currentOutputSide +
+                            ", formula=" + (_targetFormula ?? "") + " - Ok");
+                        return 0;
+
+                    case PickerPlaceManualStep.MoveStagePickerToPlace:
+                        result = await MoveAllPickerZToAvoidAsync(ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                        result = await MoveOutputStageAvoidPositionAsync(ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                        return await MoveOutputStageReceivePositionAsync(ct).ConfigureAwait(false);
+
+                    case PickerPlaceManualStep.VerifyPlaceTarget:
+                        return VerifyPlaceTarget();
+
+                    case PickerPlaceManualStep.MovePickerZPlace:
+                        result = VerifyPlaceTarget();
+                        if (result != 0)
+                            return result;
+                        return await MovePickerZPlaceAsync(ct).ConfigureAwait(false);
+
+                    case PickerPlaceManualStep.VacuumOffBlow:
+                        result = await VacuumOffAsync(ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                        return await BlowOffAsync(ct).ConfigureAwait(false);
+
+                    case PickerPlaceManualStep.MovePickerZToAvoid:
+                        return await MovePickerZToAvoidAsync(ct).ConfigureAwait(false);
+
+                    case PickerPlaceManualStep.VerifyFlowOff:
+                        return await VerifyFlowOffAsync(ct).ConfigureAwait(false);
+
+                    case PickerPlaceManualStep.UpdateMaterialToOutputStage:
+                        return UpdateMaterialToOutputStage(ct);
+
+                    case PickerPlaceManualStep.RecoverAfterPlace:
+                        result = await RecoverOutputStageAfterPlaceAsync(ct).ConfigureAwait(false);
+                        if (result != 0)
+                            return result;
+                        return await MovePickerToAvoidAfterPlaceAsync(ct).ConfigureAwait(false);
+
+                    default:
+                        return Fail("PICKER-PLACE-MANUAL-STEP", Name,
+                            "Unsupported manual place step. step=" + step);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-MANUAL-STEP-EX", Name,
+                    "Manual place step failed. step=" + step +
+                    ", pickerNo=" + pickerNo +
+                    ", outputSide=" + targetSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                ReleaseOutputPlaceArea();
+                ReleaseOutputStageArea();
+                ReleaseOutputFeederArea();
+                _suppressOutputPostPlaceInspection = false;
+            }
+        }
+
+        private int PrepareManualSelectedOutputPlaceContext(
+            BinSide targetSide,
+            OutputStageReceiveTarget receiveTarget,
+            int pickerNo,
+            PickerSequenceOptions options)
+        {
+            SetOptionsForManualOperation(options);
+            ClearPendingSynchronizedRetreat();
+            _pickedPickerIndexes.Clear();
+            _pickerCursor = 0;
+            _currentPickerIndex = -1;
+            _currentPickerNo = 0;
+            _currentDie = null;
+            _receiveTarget = null;
+            _placedDieId = "";
+            _placedReceiveTarget = null;
+            _pickerZPlacedBySynchronizedArrival = false;
+
+            if (OutputStage == null)
+                return Fail("PICKER-PLACE-OUTPUT-STAGE-MISSING", "OutputStage", "OutputStageUnit is null.");
+
+            string axisReason = BuildRequiredPickerAxesReason();
+            if (!string.IsNullOrWhiteSpace(axisReason))
+                return Fail("PICKER-PLACE-AXIS-NOT-READY", Name,
+                    "Picker axis is not ready. side=" + Side + ", reason=" + axisReason);
+
+            int normalizedPickerNo = pickerNo;
+            if (normalizedPickerNo < 1)
+                normalizedPickerNo = 1;
+            if (normalizedPickerNo > 4)
+                normalizedPickerNo = 4;
+
+            _currentPickerNo = normalizedPickerNo;
+            _currentPickerIndex = normalizedPickerNo - 1;
+            _pickedPickerIndexes.Add(_currentPickerIndex);
+            _currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
+            if (_currentDie == null)
+            {
+                return Fail("PICKER-PLACE-MANUAL-NO-DIE", "Material",
+                    "Manual Place 대상 Picker에 Die가 없습니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + targetSide);
+            }
+
+            if (receiveTarget == null)
+            {
+                return Fail("PICKER-PLACE-MANUAL-TARGET", "Material",
+                    "Manual Place 대상 Output slot 정보가 없습니다. side=" + Side +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", outputSide=" + targetSide);
+            }
+
+            _currentOutputSide = targetSide;
+            _receiveTarget = CloneReceiveTarget(receiveTarget, targetSide);
+
+            string offsetReason;
+            if (!TryResolveOutputVisionToPickerOffsets(
+                _currentOutputSide,
+                _currentPickerIndex,
+                out _outputVisionToPickerX,
+                out _outputVisionToPickerY,
+                out offsetReason))
+            {
+                return Fail("PICKER-PLACE-MANUAL-OFFSET", Name,
+                    "Manual Place OutputVision 기준 Picker 좌표 보정값 계산 실패. side=" + Side +
+                    ", outputSide=" + _currentOutputSide +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", reason=" + offsetReason);
+            }
+
+            CalculatePlaceTargetValues();
+            return 0;
+        }
+
+        private static OutputStageReceiveTarget CloneReceiveTarget(OutputStageReceiveTarget source, BinSide side)
+        {
+            if (source == null)
+                return null;
+
+            return new OutputStageReceiveTarget
+            {
+                StageLocation = side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood,
+                OutputWaferId = source.OutputWaferId ?? "",
+                SourceWaferId = source.SourceWaferId ?? "",
+                OrderIndex = source.OrderIndex,
+                DieMapX = source.DieMapX,
+                DieMapY = source.DieMapY,
+                OffsetX = source.OffsetX,
+                OffsetY = source.OffsetY,
+                TargetX = source.TargetX,
+                TargetY = source.TargetY
+            };
         }
 
         private OutputStageUnit OutputStage
@@ -891,30 +1189,26 @@ namespace QMC.CDT320.Sequencing
                 ? OutputStage.Recipe.NGStageY.ProcessPosition
                 : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
-            PlaceCoordinateResult coordinate = DieCoordinateTransformService.CalculatePlaceTarget(
-                Name,
+            PlaceCoordinateResult coordinate = PickerMotionTargetResolver.CalculateOutputPlaceTarget(
+                Context != null ? Context.Machine : null,
                 Side,
                 _currentPickerIndex,
+                Name,
                 dieId,
                 _currentOutputSide,
                 outputStageBaseY,
+                _receiveTarget != null ? _receiveTarget.TargetX : 0.0,
                 _receiveTarget != null ? _receiveTarget.TargetY : 0.0,
                 OutputStage.Recipe.VisionX.ProcessPosition,
-                _receiveTarget != null ? _receiveTarget.TargetX : 0.0,
                 _outputVisionToPickerX,
-                _outputVisionToPickerY,
-                ResolvePickerAlignOffsetX(_currentPickerIndex),
-                ResolvePickerAlignOffsetY(_currentPickerIndex),
-                GetPickerTeachingPosition(PickerAxis.PickerY, "PlacePosition"),
-                GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition"),
-                ResolvePickerAlignOffsetT(_currentPickerIndex),
-                GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "PlacePosition"));
+                _outputVisionToPickerY);
 
             _targetOutputStageY = coordinate.OutputStageY;
             _targetPickerX = coordinate.PickerX;
             _targetPickerY = coordinate.PickerY;
             _targetPickerT = coordinate.PickerT;
             _targetPickerZ = coordinate.PickerZ;
+            _targetFormula = coordinate.Formula;
 
             WriteLog("PickerPlaceSequence",
                 Name + " calculated place target. die=" + dieId +
@@ -1827,11 +2121,17 @@ namespace QMC.CDT320.Sequencing
             foreach (int pickerIndex in _pickedPickerIndexes)
             {
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                double target = ResolvePickerZoneT("DiePlacePosition", pickerIndex);
+                double target = ResolvePlacePickerTTarget(pickerIndex);
 
                 if (!IsPickerAxisAlreadyInPosition(tAxis, target))
                     targets[tAxis] = target;
             }
+        }
+
+        private double ResolvePlacePickerTTarget(int pickerIndex)
+        {
+            // Place T는 보정값을 더하지 않고 레시피 Place 티칭값을 그대로 사용한다.
+            return GetPickerTeachingPosition(GetPickerTAxis(pickerIndex), "PlacePosition");
         }
 
         private int VerifyPlaceTarget()
@@ -1866,6 +2166,20 @@ namespace QMC.CDT320.Sequencing
                     ", " + BuildPickerAxisState(tAxis, _targetPickerT));
             }
 
+            PickerAxis currentTAxis = GetPickerTAxis(_currentPickerIndex);
+            WriteLog("PickerPlaceTargetVerify",
+                Name + " place target verified after XYT move. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickerIndex=" + _currentPickerIndex +
+                ", outputSide=" + _currentOutputSide +
+                ", formula=" + (_targetFormula ?? "") +
+                ", outputStageYState=" + OutputStage.BuildStageAxisState(yAxis, _targetOutputStageY) +
+                ", pickerXState=" + BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX) +
+                ", pickerYState=" + BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY) +
+                ", pickerTState=" + BuildPickerAxisState(currentTAxis, _targetPickerT) +
+                ", pickerZTarget=" + _targetPickerZ.ToString("F6") +
+                " - Ok");
+
             if (_pickerZPlacedBySynchronizedArrival)
             {
                 PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
@@ -1875,6 +2189,14 @@ namespace QMC.CDT320.Sequencing
                         "Place 보간 이동 후 PickerZ 최종 위치 확인 실패. pickerNo=" + _currentPickerNo +
                         ", " + BuildPickerAxisState(zAxis, _targetPickerZ));
                 }
+
+                WriteLog("PickerPlaceTargetVerify",
+                    Name + " place synchronized Z target verified after move. die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", formula=" + (_targetFormula ?? "") +
+                    ", pickerZState=" + BuildPickerAxisState(zAxis, _targetPickerZ) +
+                    " - Ok");
 
                 CurrentStep = PickerPlaceStep.VacuumOff;
                 return 0;
@@ -2023,6 +2345,16 @@ namespace QMC.CDT320.Sequencing
             _placedDieId = _currentDie.DieId;
             _placedOutputSide = _currentOutputSide;
             _placedReceiveTarget = _receiveTarget;
+
+            if (_suppressOutputPostPlaceInspection)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " manual Place: Output camera 후검사 큐 등록을 생략합니다. die=" +
+                    _placedDieId + ", side=" + _placedOutputSide +
+                    ", pickerNo=" + _currentPickerNo + " - Check");
+                CurrentStep = PickerPlaceStep.RecoverOutputStageAfterPlace;
+                return 0;
+            }
 
             int inspectQueueResult = RegisterOutputPostPlaceInspection(ct);
             if (inspectQueueResult != 0)

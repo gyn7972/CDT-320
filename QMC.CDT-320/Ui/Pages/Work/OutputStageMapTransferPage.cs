@@ -13,6 +13,7 @@ using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Pages.WorkInfo;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
@@ -27,6 +28,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private ToolStripMenuItem _gridMoveMenuItem;
         private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
         private ToolStripMenuItem[] _gridMoveRearPickerMenuItems;
+        private ToolStripMenuItem[] _gridPlaceTestFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridPlaceTestRearPickerMenuItems;
+        private OutputPlaceTargetSelectDialog _placeTestDialog;
         private bool _manualMoveBusy;
 
         private sealed class OutputPlaceManualTargets
@@ -36,6 +40,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             public double PickerY { get; set; }
             public double PickerYForward { get; set; }
             public double PickerT { get; set; }
+            public string Formula { get; set; }
         }
 
         public OutputStageMapTransferPage() : this("work.page.outputMap")
@@ -47,6 +52,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             _i18nTitle = titleI18n;
             InitializeComponent();
             ConfigureOutputDesignerText();
+            BuildTwoByTwoLayout();
             ApplyTitle();
             WireEvents();
 
@@ -80,16 +86,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             lblHeader.Tag = "i18n:" + _i18nTitle;
             lblHeader.Text = Lang.T(_i18nTitle);
-            lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
-            mapView.Caption = "OUTPUT STAGE DIE MAP";
+            lblMapTitle.Text = "OUTPUT GOOD RECEIVE MAP";
+            grpReceiveMap.Text = "OUTPUT GOOD RECEIVE MAP";
+            grpDieGrid.Text = "OUTPUT GOOD RECEIVE MAP DGV";
+            grpAction.Text = "ACTION";
+            mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
             // 현재 기준: 출력 전환 화면도 공통 DieMapView 표시 옵션으로 맞춘다.
             mapView.BackColor = System.Drawing.Color.FromArgb(0xDD, 0xDD, 0xDD);
             mapView.ShowWaferOutline = true;
             mapView.CompactUsedBounds = true;
             mapView.EntryVisibilityPredicate = IsVisibleOutputMapEntry;
 
-            rbStandard.Text = "GOOD STAGE";
-            rbStartIndex.Text = "NG STAGE";
+            rbStandard.Text = "GOOD";
+            rbStartIndex.Text = "NG";
             rbSelectPickStatus.Text = "SOURCE ORDER";
             rbDragPickStatus.Text = "RECEIVED STATUS";
             rbStandard.Checked = true;
@@ -126,6 +135,217 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblProjectValue.Text = GetCurrentProjectName();
         }
 
+        /// <summary>Input Die Map 전환 페이지와 같은 2x2 기준 좌표로 재구성한다.</summary>
+        private void BuildTwoByTwoLayout()
+        {
+            SuspendLayout();
+            try
+            {
+                StyleAsQuadrantGroup(grpReceiveMap, "OUTPUT GOOD RECEIVE MAP");
+                StyleAsQuadrantGroup(grpMapInfo, "BIN / DIE INFO");
+                StyleAsQuadrantGroup(grpMode, "OUTPUT STAGE");
+                StyleAsQuadrantGroup(grpAction, "ACTION");
+
+                grpReceiveMap.Controls.Clear();
+                Reparent(mapView, grpReceiveMap, new Padding(0));
+
+                grpDieGrid.Parent?.Controls.Remove(grpDieGrid);
+
+                mapInfoLayout.RowStyles.Clear();
+                mapInfoLayout.RowCount = 12;
+                for (int i = 0; i < 12; i++)
+                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 12F));
+                mapInfoLayout.ColumnStyles.Clear();
+                mapInfoLayout.ColumnCount = 2;
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44F));
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56F));
+                mapInfoLayout.Dock = DockStyle.Fill;
+
+                modeLayout.Controls.Clear();
+                modeLayout.ColumnStyles.Clear();
+                modeLayout.ColumnCount = 4;
+                for (int i = 0; i < 4; i++)
+                    modeLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+                modeLayout.RowStyles.Clear();
+                modeLayout.RowCount = 5;
+                for (int i = 0; i < 4; i++)
+                    modeLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+                modeLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));
+                modeLayout.Padding = new Padding(10, 8, 10, 8);
+                modeLayout.Dock = DockStyle.Fill;
+                ConfigureStageToggleButton(rbStandard, "GOOD", 0);
+                ConfigureStageToggleButton(rbStartIndex, "NG", 1);
+                modeLayout.Controls.Add(rbStandard, 2, 0);
+                modeLayout.Controls.Add(rbStartIndex, 3, 0);
+                modeLayout.Controls.Add(rbSelectPickStatus, 0, 2);
+                modeLayout.Controls.Add(rbDragPickStatus, 0, 3);
+                modeLayout.Controls.Add(btnReloadActiveMap, 0, 4);
+                modeLayout.Controls.Add(btnPickStatusSave, 2, 4);
+                modeLayout.SetColumnSpan(rbStandard, 1);
+                modeLayout.SetColumnSpan(rbStartIndex, 1);
+                modeLayout.SetRowSpan(rbStandard, 2);
+                modeLayout.SetRowSpan(rbStartIndex, 2);
+                modeLayout.SetColumnSpan(rbSelectPickStatus, 4);
+                modeLayout.SetColumnSpan(rbDragPickStatus, 4);
+                modeLayout.SetColumnSpan(btnReloadActiveMap, 2);
+                modeLayout.SetColumnSpan(btnPickStatusSave, 2);
+                UpdateStageToggleButtonStyle(rbStandard);
+                UpdateStageToggleButtonStyle(rbStartIndex);
+
+                var infoStageBody = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(3),
+                    Padding = new Padding(0),
+                    ColumnCount = 2,
+                    RowCount = 1
+                };
+                infoStageBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoStageBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoStageBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                grpMapInfo.Parent?.Controls.Remove(grpMapInfo);
+                grpMapInfo.Dock = DockStyle.Fill;
+                grpMapInfo.Margin = new Padding(0, 0, 2, 0);
+                infoStageBody.Controls.Add(grpMapInfo, 0, 0);
+
+                grpMode.Parent?.Controls.Remove(grpMode);
+                grpMode.Dock = DockStyle.Top;
+                grpMode.Margin = new Padding(2, 0, 0, 0);
+                grpMode.Height = 4 * 30 + 44 + 52;
+                infoStageBody.Controls.Add(grpMode, 1, 0);
+
+                gridDieList.Parent?.Controls.Remove(gridDieList);
+                gridDieList.Dock = DockStyle.Fill;
+                gridDieList.Margin = new Padding(3);
+
+                Control[] actionButtons =
+                {
+                    btnManualAlignComplete, btnNeedleBlockDown,
+                    btnThetaMatchMove, btnXyMatchMove
+                };
+                int rows = (actionButtons.Length + 1) / 2;
+                actionLayout.Controls.Clear();
+                actionLayout.ColumnStyles.Clear();
+                actionLayout.RowStyles.Clear();
+                actionLayout.BackColor = System.Drawing.Color.White;
+                actionLayout.Dock = DockStyle.Top;
+                actionLayout.Margin = new Padding(0);
+                actionLayout.Padding = new Padding(3, 1, 3, 0);
+                actionLayout.ColumnCount = 2;
+                actionLayout.RowCount = rows;
+                actionLayout.Height = rows * 46 + 4;
+                actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                actionLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                for (int r = 0; r < rows; r++)
+                    actionLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                for (int i = 0; i < actionButtons.Length; i++)
+                {
+                    Control b = actionButtons[i];
+                    b.Parent?.Controls.Remove(b);
+                    b.Dock = DockStyle.Fill;
+                    b.Margin = new Padding(3);
+                    b.Visible = true;
+                    b.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                    actionLayout.Controls.Add(b, i % 2, i / 2);
+                }
+
+                grpAction.Controls.Clear();
+                grpAction.Controls.Add(actionLayout);
+                grpAction.Dock = DockStyle.Top;
+                grpAction.Height = actionLayout.Height + 30;
+
+                rootLayout.Controls.Clear();
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.RowStyles.Clear();
+                rootLayout.BackColor = System.Drawing.Color.White;
+                rootLayout.Padding = new Padding(0);
+                rootLayout.ColumnCount = 2;
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.RowCount = 2;
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 65F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 35F));
+                rootLayout.Controls.Add(grpReceiveMap, 0, 0);
+                rootLayout.Controls.Add(gridDieList, 0, 1);
+                rootLayout.Controls.Add(infoStageBody, 1, 0);
+                rootLayout.Controls.Add(grpAction, 1, 1);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                ResumeLayout(true);
+            }
+        }
+
+        private static void StyleAsQuadrantGroup(GroupBox group, string text)
+        {
+            if (group == null)
+                return;
+
+            group.Text = text;
+            group.Dock = DockStyle.Fill;
+            group.BackColor = System.Drawing.Color.White;
+            group.ForeColor = System.Drawing.Color.Black;
+            group.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            group.Margin = new Padding(3);
+            group.Padding = new Padding(3);
+            group.TabStop = false;
+        }
+
+        private static void Reparent(Control child, Control newParent, Padding margin)
+        {
+            if (child == null || newParent == null)
+                return;
+
+            child.Parent?.Controls.Remove(child);
+            child.Dock = DockStyle.Fill;
+            child.Margin = margin;
+            newParent.Controls.Add(child);
+        }
+
+        private static void ConfigureStageToggleButton(RadioButton radio, string text, int tabIndex)
+        {
+            if (radio == null)
+                return;
+
+            radio.Appearance = Appearance.Button;
+            radio.AutoSize = false;
+            radio.CheckAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            radio.Cursor = Cursors.Hand;
+            radio.Dock = DockStyle.Fill;
+            radio.FlatAppearance.BorderSize = 1;
+            radio.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xE4, 0xEC, 0xF6);
+            radio.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xF4, 0xF7, 0xFB);
+            radio.FlatStyle = FlatStyle.Flat;
+            radio.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            radio.Margin = new Padding(3, 1, 3, 1);
+            radio.Padding = new Padding(0);
+            radio.TabIndex = tabIndex;
+            radio.TabStop = true;
+            radio.Text = text;
+            radio.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            radio.UseVisualStyleBackColor = false;
+        }
+
+        private static void UpdateStageToggleButtonStyle(RadioButton radio)
+        {
+            if (radio == null)
+                return;
+
+            bool selected = radio.Checked;
+            radio.BackColor = System.Drawing.Color.White;
+            radio.ForeColor = selected
+                ? System.Drawing.Color.FromArgb(0x00, 0x66, 0xB3)
+                : System.Drawing.Color.FromArgb(0x25, 0x29, 0x2E);
+            radio.FlatAppearance.BorderColor = selected
+                ? System.Drawing.Color.FromArgb(0x00, 0x78, 0xD7)
+                : System.Drawing.Color.FromArgb(0xC9, 0xCF, 0xD8);
+        }
+
         private void WireEvents()
         {
             mapView.CellClicked += entry =>
@@ -148,6 +368,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             rbStandard.CheckedChanged += (s, e) =>
             {
+                UpdateStageToggleButtonStyle(rbStandard);
                 if (!rbStandard.Checked)
                     return;
                 _selectedSide = BinSide.Good;
@@ -157,6 +378,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             rbStartIndex.CheckedChanged += (s, e) =>
             {
+                UpdateStageToggleButtonStyle(rbStartIndex);
                 if (!rbStartIndex.Checked)
                     return;
                 _selectedSide = BinSide.Ng;
@@ -648,8 +870,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private void ApplyEmptyOutputMap(WaferMaterial outputWafer, WaferMaterial sourceWafer)
         {
             mapView.Map = null;
-            mapView.Caption = "OUTPUT STAGE DIE MAP";
-            lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
+            mapView.Caption = "OUTPUT GOOD RECEIVE MAP";
+            lblMapTitle.Text = "OUTPUT GOOD RECEIVE MAP";
             lblProjectValue.Text = GetCurrentProjectName();
             lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
             lblBinValue.Text = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
@@ -956,6 +1178,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 _gridMenu.Items.Add(new ToolStripSeparator());
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE FRONT PICKER", PickerSequenceSide.Front, out _gridMoveFrontPickerMenuItems));
                 _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE REAR PICKER", PickerSequenceSide.Rear, out _gridMoveRearPickerMenuItems));
+                _gridMenu.Items.Add(new ToolStripSeparator());
+                _gridMenu.Items.Add(BuildPickerPlaceTestMenu("PLACE TEST FRONT PICKER", PickerSequenceSide.Front, out _gridPlaceTestFrontPickerMenuItems));
+                _gridMenu.Items.Add(BuildPickerPlaceTestMenu("PLACE TEST REAR PICKER", PickerSequenceSide.Rear, out _gridPlaceTestRearPickerMenuItems));
                 _gridMenu.Opening += (s, e) =>
                 {
                     bool enabled = _selectedEntry != null && !_manualMoveBusy;
@@ -964,6 +1189,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     SetPickerMoveMenuEnabled(_gridMoveFrontPickerMenuItems, enabled);
                     SetPickerMoveMenuEnabled(_gridMoveRearPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPlaceTestFrontPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridPlaceTestRearPickerMenuItems, enabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -986,6 +1213,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 int pickerNo = i + 1;
                 ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
                 item.Click += async (s, e) => await MoveSelectedSlotByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private ToolStripMenuItem BuildPickerPlaceTestMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += (s, e) => ShowPlaceTestDialogForSelectedOutputSlot(side, pickerNo);
                 items[i] = item;
                 root.DropDownItems.Add(item);
             }
@@ -1019,6 +1263,110 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     gridDieList.CurrentCell = row.Cells[0];
 
                 SelectEntryByGridRow(e.RowIndex);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ShowPlaceTestDialogForSelectedOutputSlot(PickerSequenceSide side, int pickerNo)
+        {
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Place Test 대상 Output Slot이 선택되지 않았습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Place Test를 실행할 Controller 정보를 찾을 수 없습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                CloseOutputMapPlaceTestDialog();
+
+                _placeTestDialog = new OutputPlaceTargetSelectDialog(
+                    host.Controller,
+                    side,
+                    pickerNo,
+                    _selectedSide,
+                    entry,
+                    ResolveSelectedEntryOrderIndex(entry));
+                _placeTestDialog.FormClosed += (s, e) => _placeTestDialog = null;
+
+                IWin32Window ownerWindow = FindForm();
+                if (ownerWindow != null)
+                    _placeTestDialog.Show(ownerWindow);
+                else
+                    _placeTestDialog.Show();
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " Place Test dialog opened. slot=" + BuildEntryMapText(entry) +
+                    ", outputSide=" + _selectedSide + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Place Test dialog open failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Place Test 다이얼로그 실행 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveSelectedEntryOrderIndex(DieMapEntry entry)
+        {
+            try
+            {
+                DieMap map = mapView != null ? mapView.Map : null;
+                if (entry == null || map == null)
+                    return 0;
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    DieMapEntry item = ordered[i];
+                    if (item == null)
+                        continue;
+
+                    if (ResolveEntryMapX(item) == ResolveEntryMapX(entry) &&
+                        ResolveEntryMapY(item) == ResolveEntryMapY(entry) &&
+                        string.Equals(item.DieUid ?? "", entry.DieUid ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return i;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0;
+        }
+
+        private void CloseOutputMapPlaceTestDialog()
+        {
+            try
+            {
+                if (_placeTestDialog == null || _placeTestDialog.IsDisposed)
+                    return;
+
+                _placeTestDialog.Close();
             }
             catch
             {
@@ -1208,6 +1556,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
                     "PickerY Forward=" + targets.PickerYForward.ToString("F3") + " mm\r\n" +
                     "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
+                    "Formula=" + (targets.Formula ?? string.Empty) + "\r\n" +
                     "PickerZ는 이동하지 않습니다.",
                     "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
@@ -1333,10 +1682,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " output place view move complete. slot=" + BuildEntryMapText(entry) +
-                    ", stageY=" + targets.OutputStageY.ToString("F3") +
-                    ", pickerX=" + targets.PickerX.ToString("F3") +
-                    ", pickerY=" + targets.PickerY.ToString("F3") +
-                    ", pickerT=" + targets.PickerT.ToString("F3") + " - Ok");
+                    ", formula=" + (targets.Formula ?? string.Empty) +
+                    ", outputStageYState=" + unit.BuildStageAxisState(yAxis, targets.OutputStageY) +
+                    ", pickerXState=" + BuildPickerAxisState(host, side, PickerAxis.PickerX, targets.PickerX) +
+                    ", pickerYState=" + BuildPickerAxisState(host, side, PickerAxis.PickerY, targets.PickerY) +
+                    ", pickerTState=" + BuildPickerAxisState(host, side, tAxis, targets.PickerT) +
+                    " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -1613,28 +1964,29 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return false;
                 }
 
-                PickerAlignOffset alignOffset = ResolveRuntimePickerOffset(host, side, pickerIndex);
-                PickerAxis tAxis = GetPickerTAxis(pickerIndex);
-                PickerCalibratedManualOutputTarget calibratedTarget =
-                    CalibrationCoordinateService.ResolveManualOutputMapTarget(
+                PlaceCoordinateResult calibratedTarget =
+                    PickerMotionTargetResolver.CalculateOutputPlaceTarget(
                         host.Machine,
-                        ToVisionFocusPickerSide(side),
+                        side,
                         pickerIndex,
+                        "OutputStageMapTransferPage.ManualOutputMap",
+                        entry.DieUid,
+                        outputSide,
+                        0.0,
                         entry.PosX,
                         entry.PosY,
+                        0.0,
                         offsetX,
-                        offsetY,
-                        alignOffset,
-                        GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition"),
-                        GetPickerTeachingPosition(host, side, tAxis, "PlacePosition"));
+                        offsetY);
 
                 targets = new OutputPlaceManualTargets
                 {
                     OutputStageY = calibratedTarget.OutputStageY,
                     PickerX = calibratedTarget.PickerX,
                     PickerY = calibratedTarget.PickerY,
-                    PickerYForward = calibratedTarget.PickerYForward,
-                    PickerT = calibratedTarget.PickerT
+                    PickerYForward = Math.Abs(calibratedTarget.PickerY),
+                    PickerT = calibratedTarget.PickerT,
+                    Formula = calibratedTarget.Formula
                 };
                 return true;
             }
@@ -1737,6 +2089,47 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             PickerRearUnit rear = host.Machine.PickerRearUnit;
             return rear != null && rear.IsRearPickerAxisInPosition(axis, target, ResolvePickerAxisTolerance(rear, axis));
+        }
+
+        private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            BaseAxis item = ResolvePickerAxis(host, side, axis);
+            if (item == null)
+                return "axis=" + axis + ", target=" + target.ToString("F6") + ", state=axis-not-found";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axis +
+                   ", name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition.ToString("F6") +
+                   ", target=" + target.ToString("F6") +
+                   ", tolerance=" + tolerance.ToString("F6");
+        }
+
+        private static BaseAxis ResolvePickerAxis(Form1 host, PickerSequenceSide side, PickerAxis axis)
+        {
+            if (host == null || host.Machine == null)
+                return null;
+
+            BaseAxis item;
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (front != null && front.Axes != null && front.Axes.TryGetValue(axis, out item))
+                    return item;
+                return null;
+            }
+
+            PickerRearUnit rear = host.Machine.PickerRearUnit;
+            if (rear != null && rear.Axes != null && rear.Axes.TryGetValue(axis, out item))
+                return item;
+
+            return null;
         }
 
         private static double ResolvePickerAxisTolerance(PickerFrontUnit picker, PickerAxis axis)
@@ -2074,6 +2467,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
+                CloseOutputMapPlaceTestDialog();
                 _refresh?.Stop();
                 _refresh?.Dispose();
             }

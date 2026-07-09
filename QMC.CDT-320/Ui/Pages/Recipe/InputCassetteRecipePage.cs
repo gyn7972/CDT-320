@@ -466,36 +466,63 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                var menu = new ContextMenuStrip();
-                menu.Items.Add("Move To Position", null, async (s, e) =>
-                {
-                    string positionName = GetSelectedTeachingPositionName();
-                    if (!string.IsNullOrWhiteSpace(positionName))
-                    {
-                        string actionName = optionParameterGrid.SelectedItem != null ? optionParameterGrid.SelectedItem.Key : positionName;
-                        if (ConfirmMoveToPositionSpeed("Input Cassette Move", actionName))
-                            await MoveByPositionName(positionName);
-                    }
-                });
-                menu.Items.Add("Teach Current Position", null, (s, e) =>
-                {
-                    string positionName = GetSelectedTeachingPositionName();
-                    if (string.IsNullOrWhiteSpace(positionName))
-                        return;
-
-                    TeachPosition(positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                ManualMoveGuard.ConfigureTeachingPositionContextMenu(menu);
-                menu.Opening += (s, e) => e.Cancel = string.IsNullOrWhiteSpace(GetSelectedTeachingPositionName());
-                optionParameterGrid.ContextMenuStrip = menu;
+                // 우클릭 메뉴 대신, 티칭 포지션 행의 MOVE/TEACH 버튼으로 이동/티칭 수행
+                optionParameterGrid.ParameterMoveRequested += OptionParameterGrid_MoveRequested;
+                optionParameterGrid.ParameterTeachRequested += OptionParameterGrid_TeachRequested;
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGridMenus failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private async void OptionParameterGrid_MoveRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                string positionName = GetSelectedTeachingPositionName();
+                if (string.IsNullOrWhiteSpace(positionName))
+                    return;
+
+                if (ConfirmMoveToPositionSpeed("Input Cassette Move", e.Item.Key))
+                    await MoveByPositionName(positionName);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "Move button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_TeachRequested(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                string positionName = GetSelectedTeachingPositionName();
+                if (string.IsNullOrWhiteSpace(positionName))
+                    return;
+
+                TeachPosition(positionName);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "Teach button failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -696,53 +723,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.InputLifterZ, AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ), 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
-                axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
-                {
-                    try
-                    {
-                        double target = _InputCassetteUnit.InputLifterZ.ActualPosition + (direction * axisStepDistance);
-                        int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, speedType, customSpeed);
-                        if (moveResult != 0)
-                            return moveResult;
-
-                        return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
-                axisItem.ContinuousMoveAsync = async (item, direction, speedType, customSpeed) =>
-                {
-                    try
-                    {
-                        return await _InputCassetteUnit.ManualMoveWaferLifterZJog(direction, speedType, customSpeed);
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
-                axisItem.StopAsync = async item =>
-                {
-                    try
-                    {
-                        return await _InputCassetteUnit.ManualStopWaferLifterZ();
-                    }
-                    catch
-                    {
-                        throw;
-                    }
-                    finally
-                    {
-                    }
-                };
+                axisItem.StepMoveAsync = (item, direction, speedType, customSpeed, axisStepDistance) =>
+                    _InputCassetteUnit.JogStepAsync(_InputCassetteUnit.InputLifterZ, direction, speedType, customSpeed, axisStepDistance);
+                axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
+                    _InputCassetteUnit.JogContinuousAsync(_InputCassetteUnit.InputLifterZ, direction, speedType, customSpeed);
+                axisItem.StopAsync = item =>
+                    _InputCassetteUnit.StopJogAsync(_InputCassetteUnit.InputLifterZ);
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
@@ -908,6 +894,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 () => AxisUnitConverter.ToDisplay(getter(), _InputCassetteUnit.InputLifterZ),
                 v => setter(AxisUnitConverter.FromDisplay(v, _InputCassetteUnit.InputLifterZ)));
             item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ) + unitSuffix;
+            if (scope == ParameterGridScope.Recipe)
+                item.SupportsTeaching = true;   // Recipe scope = 티칭 포지션 → 행에 MOVE/TEACH 버튼 표시
             return item;
         }
 

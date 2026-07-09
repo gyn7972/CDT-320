@@ -1002,12 +1002,12 @@ namespace QMC.CDT320.Sequencing
                 if (axis == null)
                     return Fail("READY-SAFETY-INPUT-STAGE-Z-AXIS", "InputStageUnit", "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ) 축을 확인할 수 없습니다.");
 
-                if (axis.ActualPosition >= 0.0)
+                if (axis.ActualPosition > 0.0)
                 {
                     return Fail(
                         "READY-SAFETY-INPUT-STAGE-Z",
                         "InputStageUnit",
-                        "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ)는 0 미만이어야 합니다. actual=" +
+                        "Ready 상부 헤드/비전/픽커 이동 전 InputStageZ(ExpanderZ)는 0 이하이어야 합니다. actual=" +
                         axis.ActualPosition.ToString("0.###") +
                         ", blockLimit=0.000, " +
                         BuildAxisState("ExpanderZ", axis, 0.0) +

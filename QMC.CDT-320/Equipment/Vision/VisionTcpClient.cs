@@ -616,6 +616,9 @@ namespace QMC.CDT320.VisionComm
         public double Y        { get; set; }
         public double AngleDeg { get; set; }
         public double Score    { get; set; }
+        public bool   HasSideInspectionCorrection { get; set; }
+        public double SideVisionYOffset { get; set; }
+        public double PickerZOffset { get; set; }
         public bool   HasImageSize { get; set; }
         public double ImageWidthPixel { get; set; }
         public double ImageHeightPixel { get; set; }
@@ -642,11 +645,18 @@ namespace QMC.CDT320.VisionComm
             if (angle == 0)
                 response.TryGetDouble("theta", out angle);
             response.TryGetDouble("score", out var score);
+            double sideVisionYOffset;
+            double pickerZOffset;
+            bool hasSideVisionYOffset = TryGetAny(response, out sideVisionYOffset, "side_y", "sidey", "side_offset_y", "sideoffsety", "sidevisiony", "side_vision_y");
+            bool hasPickerZOffset = TryGetAny(response, out pickerZOffset, "z", "dz", "offsetz", "offset_z", "pickerz", "picker_z", "picker_z_offset");
 
             r.X = x;
             r.Y = y;
             r.AngleDeg = angle;
             r.Score = score;
+            r.SideVisionYOffset = hasSideVisionYOffset ? sideVisionYOffset : 0.0;
+            r.PickerZOffset = hasPickerZOffset ? pickerZOffset : 0.0;
+            r.HasSideInspectionCorrection = hasSideVisionYOffset || hasPickerZOffset;
             ApplyImageSize(response, r);
             return r;
         }
@@ -689,6 +699,21 @@ namespace QMC.CDT320.VisionComm
                 return false;
 
             return width > 0 && height > 0;
+        }
+
+        private static bool TryGetAny(VisionProtocolResponse response, out double value, params string[] keys)
+        {
+            value = 0.0;
+            if (response == null || keys == null)
+                return false;
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                if (response.TryGetDouble(keys[i], out value))
+                    return true;
+            }
+
+            return false;
         }
     }
 

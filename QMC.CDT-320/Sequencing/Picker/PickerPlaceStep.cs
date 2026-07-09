@@ -27,4 +27,17 @@ namespace QMC.CDT320.Sequencing
         Complete,
         Error
     }
+
+    public enum PickerPlaceManualStep
+    {
+        PreparePlaceTarget = 0,
+        MoveStagePickerToPlace = 1,
+        VerifyPlaceTarget = 2,
+        MovePickerZPlace = 3,
+        VacuumOffBlow = 4,
+        MovePickerZToAvoid = 5,
+        VerifyFlowOff = 6,
+        UpdateMaterialToOutputStage = 7,
+        RecoverAfterPlace = 8
+    }
 }

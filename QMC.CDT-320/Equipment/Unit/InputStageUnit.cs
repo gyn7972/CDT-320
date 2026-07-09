@@ -1830,7 +1830,7 @@ namespace QMC.CDT320
                 }
 
                 double tolerance = ResolveAxisPositionTolerance(item);
-                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                if (!isJogStep && !item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
                 {
                     LastStageMoveFailureMessage = string.Empty;
                     return 0;
@@ -2069,9 +2069,9 @@ namespace QMC.CDT320
                 // for interlock rules that must allow manual recovery movement.
                 Task<int> moveTask;
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, target, ContinuousJogTargetName))
-                    moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed);
+                    moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed, true);
 
-                _ = ObserveBoundedJogMoveAsync(moveTask);
+                _ = ObserveBoundedJogMoveAsync(axis, target, moveTask);
             }
             catch (Exception ex)
             {
@@ -2082,7 +2082,7 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task ObserveBoundedJogMoveAsync(Task<int> moveTask)
+        private async Task ObserveBoundedJogMoveAsync(BaseAxis axis, double target, Task<int> moveTask)
         {
             try
             {
@@ -2090,6 +2090,18 @@ namespace QMC.CDT320
                     return;
 
                 int result = await moveTask.ConfigureAwait(false);
+                if (result == -4)
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    EventLogger.Write(
+                        EventKind.Event,
+                        "QMC",
+                        "IN-STAGE-JOG",
+                        "InputStage 제한 조그 사용자 정지. axis=" + (axis != null ? axis.Name : "-") +
+                        ", target=" + target.ToString("F3"));
+                    return;
+                }
+
                 if (result != 0)
                 {
                     AlarmManager.Raise(
@@ -3604,7 +3616,7 @@ namespace QMC.CDT320
             try
             {
                 Console.WriteLine($"[ALARM] '{Name}' ? {message}");
-                EventLogger.Write(EventKind.Alarm, "QMC", code, source, message);
+                // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
                 AlarmManager.Raise(severity, code, source: source, message: message);
             }
             catch

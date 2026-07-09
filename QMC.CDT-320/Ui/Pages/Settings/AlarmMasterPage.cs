@@ -14,6 +14,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             WireEvents();
             LoadCategoryItems();
             if (!IsDesignerMode()) LoadGrid();
@@ -26,6 +28,66 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblHeader.BackColor = UiTheme.StatusBarBg;
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SettingsPageLayoutStyler.ApplyRoot(rootLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+
+            if (rootLayout.RowStyles.Count >= 3)
+            {
+                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[0].Height = 30F;
+                rootLayout.RowStyles[1].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[1].Height = 34F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[2].Height = 100F;
+            }
+
+            filterLayout.Margin = Padding.Empty;
+            filterLayout.Padding = Padding.Empty;
+            filterLayout.ColumnStyles.Clear();
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 74F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 86F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 80F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+
+            AlignFilterLabel(lblSearch);
+            AlignFilterLabel(lblCategory);
+            AlignFilterInput(_tbFilter);
+            AlignFilterInput(_cbCategory);
+            _lblCount.BorderStyle = BorderStyle.None;
+            _lblCount.Dock = DockStyle.Fill;
+            _lblCount.Margin = new Padding(2);
+            _lblCount.TextAlign = ContentAlignment.MiddleCenter;
+
+            SettingsPageLayoutStyler.ApplyActionControl(btnReload);
+            SettingsPageLayoutStyler.ApplyActionControl(btnSave);
+        }
+
+        private static void AlignFilterLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.Dock = DockStyle.Fill;
+            label.Margin = new Padding(2);
+            label.Padding = Padding.Empty;
+            label.TextAlign = ContentAlignment.MiddleCenter;
+        }
+
+        private static void AlignFilterInput(Control control)
+        {
+            if (control == null)
+                return;
+
+            control.Dock = DockStyle.Fill;
+            control.Margin = new Padding(2, 5, 2, 5);
         }
 
         private void WireEvents()

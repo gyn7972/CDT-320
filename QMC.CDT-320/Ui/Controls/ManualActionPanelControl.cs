@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 InitializeComponent();
+                AutoScroll = true;
             }
             catch
             {
@@ -97,7 +98,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    int rows = Math.Max(1, (int)Math.Ceiling(_items.Count / (double)_columnCount));
+                    int rows = CalculateRowCount(Math.Max(1, _columnCount));
                     return rows * _rowHeight + buttonsHost.Padding.Top + buttonsHost.Padding.Bottom;
                 }
                 catch
@@ -162,7 +163,7 @@ namespace QMC.CDT_320.Ui.Controls
                 _buttons.Clear();
 
                 int columns = Math.Max(1, _columnCount);
-                int rows = Math.Max(1, (int)Math.Ceiling(_items.Count / (double)columns));
+                int rows = CalculateRowCount(columns);
 
                 buttonsHost.ColumnCount = columns;
                 buttonsHost.RowCount = rows;
@@ -174,16 +175,43 @@ namespace QMC.CDT_320.Ui.Controls
                 // 남는 세로 공간이 마지막 행에 흡수되지 않도록 내용 높이로 상단 도킹
                 buttonsHost.Dock = DockStyle.Top;
                 buttonsHost.Height = PreferredContentHeight;
+                AutoScrollMinSize = new Size(0, buttonsHost.Height);
 
+                int row = 0;
+                int column = 0;
                 for (int i = 0; i < _items.Count; i++)
                 {
                     ManualActionItem item = _items[i];
+                    int span = ResolveColumnSpan(item, columns);
+                    if (column + span > columns)
+                    {
+                        row++;
+                        column = 0;
+                    }
+
                     if (item == null)
+                    {
+                        column += span;
+                        if (column >= columns)
+                        {
+                            row++;
+                            column = 0;
+                        }
                         continue;   // 빈 칸 - 자리만 차지
+                    }
 
                     ActionButton button = CreateButton(item);
                     _buttons.Add(button);
-                    buttonsHost.Controls.Add(button, i % columns, i / columns);
+                    buttonsHost.Controls.Add(button, column, row);
+                    if (span > 1)
+                        buttonsHost.SetColumnSpan(button, span);
+
+                    column += span;
+                    if (column >= columns)
+                    {
+                        row++;
+                        column = 0;
+                    }
                 }
             }
             catch
@@ -207,8 +235,82 @@ namespace QMC.CDT_320.Ui.Controls
             button.BackColor = Color.FromArgb(88, 94, 103);
             button.ForeColor = Color.White;
             button.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
+            ApplyButtonVisualKind(button, item.VisualKind);
             button.Click += ActionButton_Click;
             return button;
+        }
+
+        private static void ApplyButtonVisualKind(ActionButton button, ManualActionVisualKind visualKind)
+        {
+            switch (visualKind)
+            {
+                case ManualActionVisualKind.PickerSelected:
+                    button.BadgeText = "SELECTED";
+                    button.BadgeColor = Color.White;
+                    button.BackColor = Color.FromArgb(38, 111, 186);
+                    button.BorderColor = Color.FromArgb(245, 166, 35);
+                    button.BorderWidth = 2;
+                    button.ForeColor = Color.White;
+                    button.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
+                    break;
+
+                case ManualActionVisualKind.PickerSelect:
+                    button.BadgeText = "SELECT";
+                    button.BadgeColor = Color.FromArgb(126, 214, 255);
+                    button.BackColor = Color.FromArgb(52, 78, 96);
+                    button.BorderColor = Color.FromArgb(82, 128, 153);
+                    button.BorderWidth = 1;
+                    button.ForeColor = Color.White;
+                    button.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
+                    break;
+
+                default:
+                    button.BadgeText = "ACTION";
+                    button.BadgeColor = Color.FromArgb(245, 166, 35);
+                    button.BorderColor = Color.Empty;
+                    button.BorderWidth = 0;
+                    break;
+            }
+        }
+
+        private int CalculateRowCount(int columns)
+        {
+            try
+            {
+                int row = 0;
+                int column = 0;
+                foreach (ManualActionItem item in _items)
+                {
+                    int span = ResolveColumnSpan(item, columns);
+                    if (column + span > columns)
+                    {
+                        row++;
+                        column = 0;
+                    }
+
+                    column += span;
+                    if (column >= columns)
+                    {
+                        row++;
+                        column = 0;
+                    }
+                }
+
+                return Math.Max(1, row + (column > 0 ? 1 : 0));
+            }
+            catch
+            {
+                return Math.Max(1, (int)Math.Ceiling(_items.Count / (double)Math.Max(1, columns)));
+            }
+            finally
+            {
+            }
+        }
+
+        private static int ResolveColumnSpan(ManualActionItem item, int columns)
+        {
+            int span = item != null ? item.ColumnSpan : 1;
+            return Math.Max(1, Math.Min(Math.Max(1, columns), span));
         }
 
         private async void ActionButton_Click(object sender, EventArgs e)

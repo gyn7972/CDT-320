@@ -233,7 +233,7 @@ namespace QMC.CDT320
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
             double target = axis.ActualPosition + signedDistance;
-            return await MoveVisionAxis(visionAxis, target, speedType, customSpeed).ConfigureAwait(false);
+            return await MoveVisionAxis(visionAxis, target, speedType, customSpeed, true).ConfigureAwait(false);
         }
 
         public Task<int> JogContinuousAsync(
@@ -314,6 +314,11 @@ namespace QMC.CDT320
 
         public async Task<int> MoveVisionAxis(VisionAxis axis, double targetPos, JogSpeedType speedType, double customSpeed)
         {
+            return await MoveVisionAxis(axis, targetPos, speedType, customSpeed, false).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveVisionAxis(VisionAxis axis, double targetPos, JogSpeedType speedType, double customSpeed, bool forceMove)
+        {
             try
             {
                 BaseAxis item = ResolveVisionAxis(axis);
@@ -326,7 +331,7 @@ namespace QMC.CDT320
                 double acceleration = UnitJogVelocityResolver.ResolveAcceleration(item);
                 double deceleration = UnitJogVelocityResolver.ResolveDeceleration(item);
                 EventLogger.Write(EventKind.Event, "QMC", "VS-MOVE", axis + " 조그 속도 위치 이동 시작. target=" + targetPos + ", velocity=" + velocity);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration).ConfigureAwait(false);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity, acceleration, deceleration, forceMove).ConfigureAwait(false);
                 if (result != 0 || item.IsAlarm)
                     return RaiseVisionAlarm("VS-MOVE", axis + " 조그 속도 위치 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
 
@@ -1318,7 +1323,7 @@ namespace QMC.CDT320
         private int RaiseVisionAlarm(string code, string message)
         {
             LastVisionMoveFailureMessage = message;
-            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

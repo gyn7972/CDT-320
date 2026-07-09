@@ -180,6 +180,7 @@ namespace QMC.CDT_320.Ui.Controls
                     cameraView.SetVerdict(meta.Verdict, meta.VerdictPass);
                     cameraView.SetResultLines(meta.ResultLines);
                     cameraView.SetOverlay(System.Drawing.RectangleF.Empty, BuildMarks(meta));
+
                 }
             }
             finally

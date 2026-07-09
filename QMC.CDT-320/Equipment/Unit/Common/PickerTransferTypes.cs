@@ -299,6 +299,9 @@ namespace QMC.CDT320
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double OffsetT { get; set; }
+        public double SideVisionYOffset { get; set; }
+        public double PickerZOffset { get; set; }
+        public bool HasSideInspectionCorrection { get; set; }
         public bool IsOk { get; set; }
     }
 

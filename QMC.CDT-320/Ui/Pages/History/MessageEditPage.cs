@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Logging;
 using QMC.CDT_320.Ui.Localization;
@@ -32,6 +33,10 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             lblHeader.Text = Lang.T("hist.msgEdit");
             lblHeader.Tag = "i18n:hist.msgEdit";
+            BackColor = Color.White;
+            rootLayout.BackColor = Color.White;
+            actionLayout.BackColor = Color.White;
+            grid.BackgroundColor = Color.White;
         }
 
         private void WireEvents()

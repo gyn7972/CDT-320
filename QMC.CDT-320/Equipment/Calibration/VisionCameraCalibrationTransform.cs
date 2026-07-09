@@ -43,6 +43,9 @@ namespace QMC.CDT320.Calibration
                 OffsetX = ok ? camera.PixelToMmOffsetX(match.X) : 0.0,
                 OffsetY = ok ? camera.PixelToMmOffsetY(match.Y) : 0.0,
                 OffsetT = ok ? match.AngleDeg : 0.0,
+                SideVisionYOffset = ok && match.HasSideInspectionCorrection ? match.SideVisionYOffset : 0.0,
+                PickerZOffset = ok && match.HasSideInspectionCorrection ? match.PickerZOffset : 0.0,
+                HasSideInspectionCorrection = ok && match.HasSideInspectionCorrection,
                 IsOk = ok
             };
         }

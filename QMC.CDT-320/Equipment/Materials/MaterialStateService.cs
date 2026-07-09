@@ -25,6 +25,7 @@ namespace QMC.CDT320.Materials
         private const int MaterialSaveMinimumIntervalMs = 5000;
         private const int MaterialStateChangedQuietMs = 200;
         private const double InputStageThetaOffsetReadyEpsilon = 0.000001;
+        private const double ProcessTestThetaAlignOffsetDeg = 0.000010;
         private static bool _saveWorkerRunning;
         private static bool _saveRequested;
         private static string _pendingSaveReason = "";
@@ -559,8 +560,9 @@ namespace QMC.CDT320.Materials
                         inputStage != null && inputStage.Recipe != null && inputStage.Recipe.WaferT != null
                             ? inputStage.Recipe.WaferT.ProcessPosition
                             : 0.0;
-                    inputStageWafer.InputStageAlignCorrectedT = inputStageWafer.InputStageAlignReferenceT;
-                    inputStageWafer.InputStageAlignOffsetT = 0.0;
+                    inputStageWafer.InputStageAlignOffsetT = ResolveProcessTestThetaAlignOffset(inputStage);
+                    inputStageWafer.InputStageAlignCorrectedT =
+                        inputStageWafer.InputStageAlignReferenceT + inputStageWafer.InputStageAlignOffsetT;
                     inputStageWafer.HasInputStageDieMappingResult = true;
                     inputStageWafer.InputStageDieMappingOffsetX = 0.0;
                     inputStageWafer.InputStageDieMappingOffsetY = 0.0;
@@ -635,6 +637,31 @@ namespace QMC.CDT320.Materials
 
             EnsureTapeFrameSpecFromFrame(project, frame, specName, "");
             return specName;
+        }
+
+        private static double ResolveProcessTestThetaAlignOffset(QMC.CDT320.InputStageUnit inputStage)
+        {
+            try
+            {
+                double offset = ProcessTestThetaAlignOffsetDeg;
+                if (inputStage != null)
+                {
+                    double limit = inputStage.ResolveWaferAlignThetaCorrectionLimit();
+                    if (limit > InputStageThetaOffsetReadyEpsilon && offset > limit)
+                        offset = (limit + InputStageThetaOffsetReadyEpsilon) * 0.5;
+                }
+
+                return Math.Abs(offset) > InputStageThetaOffsetReadyEpsilon
+                    ? offset
+                    : InputStageThetaOffsetReadyEpsilon * 10.0;
+            }
+            catch
+            {
+                return ProcessTestThetaAlignOffsetDeg;
+            }
+            finally
+            {
+            }
         }
 
         public static int ResolveWaferSizeInch(int inchSelect)
@@ -1263,9 +1290,7 @@ namespace QMC.CDT320.Materials
                     if (ordered.Count == 0)
                         return null;
 
-                    int index = outputWafer.DieIds != null
-                        ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
-                        : 0;
+                    int index = ResolveNextOutputReceiveIndex(outputWafer);
 
                     if (index >= ordered.Count)
                         return null;
@@ -1304,6 +1329,94 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Output receive target reserve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static OutputStageReceiveTarget PeekNextOutputStageReceiveTarget(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    if (outputWafer == null)
+                        return null;
+
+                    int index = ResolveNextOutputReceiveIndex(outputWafer);
+                    if (index < 0)
+                        index = 0;
+
+                    OutputReceiveSlotMaterial slot = null;
+                    if (outputWafer.OutputReceiveSlots != null)
+                    {
+                        slot = outputWafer.OutputReceiveSlots
+                            .Where(s => s != null && s.IsTarget)
+                            .OrderBy(s => s.OrderIndex)
+                            .FirstOrDefault(s => s.OrderIndex == index);
+
+                        if (slot == null)
+                        {
+                            slot = outputWafer.OutputReceiveSlots
+                                .Where(s => s != null && s.IsTarget && string.IsNullOrWhiteSpace(s.DieUid))
+                                .OrderBy(s => s.OrderIndex)
+                                .FirstOrDefault();
+                        }
+                    }
+
+                    if (slot != null)
+                    {
+                        return new OutputStageReceiveTarget
+                        {
+                            StageLocation = ResolveOutputStageLocation(side),
+                            OutputWaferId = outputWafer.WaferId,
+                            SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
+                            OrderIndex = slot.OrderIndex,
+                            DieMapX = slot.DieMapX,
+                            DieMapY = slot.DieMapY,
+                            OffsetX = slot.PosX,
+                            OffsetY = slot.PosY,
+                            TargetX = slot.PosX,
+                            TargetY = slot.PosY
+                        };
+                    }
+
+                    if (outputWafer.OutputReceiveTotalCount <= 0)
+                        return null;
+
+                    DieMap binMap = LoadRecipeBinMap(side);
+                    if (binMap == null)
+                        return null;
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = ResolveOutputPickup(project);
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
+                    if (ordered.Count == 0 || index >= ordered.Count)
+                        return null;
+
+                    DieMapEntry entry = ordered[index];
+                    var target = new OutputStageReceiveTarget
+                    {
+                        StageLocation = ResolveOutputStageLocation(side),
+                        OutputWaferId = outputWafer.WaferId,
+                        SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
+                        OrderIndex = index,
+                        DieMapX = ResolveEntryMapX(entry),
+                        DieMapY = ResolveEntryMapY(entry),
+                        OffsetX = entry.PosX,
+                        OffsetY = entry.PosY
+                    };
+                    target.TargetX = target.OffsetX;
+                    target.TargetY = target.OffsetY;
+                    return target;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output receive target peek failed: " + ex.Message + " - Failed");
                 return null;
             }
             finally
@@ -1350,7 +1463,7 @@ namespace QMC.CDT320.Materials
                             IsValid = true
                         };
                     }
-                    UpdateOutputReceiveSlot(outputWafer, die, side);
+                    UpdateOutputReceiveSlot(outputWafer, die, side, receiveTarget);
                     die.UpdatedAt = DateTime.Now;
 
                     if (outputWafer.DieIds == null)
@@ -1358,7 +1471,7 @@ namespace QMC.CDT320.Materials
                     if (!outputWafer.DieIds.Any(id => string.Equals(id, dieId, StringComparison.OrdinalIgnoreCase)))
                         outputWafer.DieIds.Add(dieId);
 
-                    outputWafer.OutputReceiveNextIndex = outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id));
+                    outputWafer.OutputReceiveNextIndex = ResolveNextOutputReceiveIndex(outputWafer);
                     outputWafer.OutputGrade = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
                     outputWafer.State = IsOutputStageReceiveComplete(outputWafer)
                         ? WaferMaterialState.Finish
@@ -1735,15 +1848,15 @@ namespace QMC.CDT320.Materials
                     : null;
                 if (spec != null)
                 {
-                    dieMapX = spec.DieMapX;
-                    dieMapY = spec.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchX, spec.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(spec.OuterDiameterMm, spec.PitchY, spec.DieMapY);
                     pitchX = spec.PitchX;
                     pitchY = spec.PitchY;
                 }
                 else if (project != null && project.Frame != null)
                 {
-                    dieMapX = project.Frame.DieMapX;
-                    dieMapY = project.Frame.DieMapY;
+                    dieMapX = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchX, project.Frame.DieMapX);
+                    dieMapY = ResolvePitchBasedGridCount(project.Frame.OuterDiameterMm, project.Frame.PitchY, project.Frame.DieMapY);
                     pitchX = project.Frame.PitchX;
                     pitchY = project.Frame.PitchY;
                 }
@@ -2178,7 +2291,11 @@ namespace QMC.CDT320.Materials
             return pitch * index;
         }
 
-        private static void UpdateOutputReceiveSlot(WaferMaterial outputWafer, DieMaterial die, QMC.CDT320.BinSide side)
+        private static void UpdateOutputReceiveSlot(
+            WaferMaterial outputWafer,
+            DieMaterial die,
+            QMC.CDT320.BinSide side,
+            OutputStageReceiveTarget receiveTarget)
         {
             if (outputWafer == null || die == null)
                 return;
@@ -2186,12 +2303,20 @@ namespace QMC.CDT320.Materials
             if (outputWafer.OutputReceiveSlots == null)
                 outputWafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
 
-            int index = outputWafer.DieIds != null
-                ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
-                : 0;
+            int index = receiveTarget != null
+                ? receiveTarget.OrderIndex
+                : ResolveNextOutputReceiveIndex(outputWafer);
 
             OutputReceiveSlotMaterial slot = outputWafer.OutputReceiveSlots
                 .FirstOrDefault(s => s != null && s.OrderIndex == index);
+
+            if (slot == null && receiveTarget != null)
+            {
+                slot = outputWafer.OutputReceiveSlots.FirstOrDefault(s =>
+                    s != null &&
+                    s.DieMapX == receiveTarget.DieMapX &&
+                    s.DieMapY == receiveTarget.DieMapY);
+            }
 
             if (slot == null)
             {
@@ -2199,12 +2324,23 @@ namespace QMC.CDT320.Materials
                 {
                     OrderIndex = index,
                     SequenceNo = index,
-                    DieMapX = die.Bin_IndexX >= 0 ? die.Bin_IndexX : index,
-                    DieMapY = die.Bin_IndexY >= 0 ? die.Bin_IndexY : 0,
+                    DieMapX = receiveTarget != null ? receiveTarget.DieMapX : (die.Bin_IndexX >= 0 ? die.Bin_IndexX : index),
+                    DieMapY = receiveTarget != null ? receiveTarget.DieMapY : (die.Bin_IndexY >= 0 ? die.Bin_IndexY : 0),
                     IsTarget = true,
-                    BinCode = side == QMC.CDT320.BinSide.Ng ? 255 : 1
+                    BinCode = side == QMC.CDT320.BinSide.Ng ? 255 : 1,
+                    PosX = receiveTarget != null ? receiveTarget.TargetX : 0.0,
+                    PosY = receiveTarget != null ? receiveTarget.TargetY : 0.0
                 };
                 outputWafer.OutputReceiveSlots.Add(slot);
+            }
+
+            if (receiveTarget != null)
+            {
+                slot.OrderIndex = receiveTarget.OrderIndex;
+                slot.DieMapX = receiveTarget.DieMapX;
+                slot.DieMapY = receiveTarget.DieMapY;
+                slot.PosX = receiveTarget.TargetX;
+                slot.PosY = receiveTarget.TargetY;
             }
 
             slot.DieUid = die.DieId;
@@ -2219,6 +2355,30 @@ namespace QMC.CDT320.Materials
             die.BinOffset.Y = slot.PosY;
             die.BinOffset.R = 0.0;
             die.BinOffset.IsValid = true;
+        }
+
+        private static int ResolveNextOutputReceiveIndex(WaferMaterial outputWafer)
+        {
+            if (outputWafer == null)
+                return 0;
+
+            if (outputWafer.OutputReceiveSlots != null && outputWafer.OutputReceiveSlots.Count > 0)
+            {
+                OutputReceiveSlotMaterial next = outputWafer.OutputReceiveSlots
+                    .Where(s => s != null && s.IsTarget && string.IsNullOrWhiteSpace(s.DieUid))
+                    .OrderBy(s => s.OrderIndex)
+                    .FirstOrDefault();
+                if (next != null)
+                    return next.OrderIndex;
+
+                int targetCount = outputWafer.OutputReceiveSlots.Count(s => s != null && s.IsTarget);
+                if (targetCount > 0)
+                    return targetCount;
+            }
+
+            return outputWafer.DieIds != null
+                ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
+                : 0;
         }
 
         private static PickupSubset ResolveInputPickup(RecipeProject project)
@@ -4565,11 +4725,13 @@ namespace QMC.CDT320.Materials
                 return;
 
             EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
+            int dieMapX = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchX, frame.DieMapX);
+            int dieMapY = ResolvePitchBasedGridCount(frame.OuterDiameterMm, frame.PitchY, frame.DieMapY);
 
             MaterialSpecs.UpsertFrame(
                 specName,
-                frame.DieMapX,
-                frame.DieMapY,
+                dieMapX,
+                dieMapY,
                 frame.PitchX,
                 frame.PitchY,
                 frame.DieSizeX,
@@ -4582,6 +4744,14 @@ namespace QMC.CDT320.Materials
                 frame.TopBottomEdgeSkipMm,
                 mapFileName,
                 project.Die != null ? project.Die.DieSpecName ?? "" : "");
+        }
+
+        private static int ResolvePitchBasedGridCount(double outerDiameterMm, double pitchMm, int fallback)
+        {
+            if (outerDiameterMm <= 0.0 || pitchMm <= 0.0)
+                return Math.Max(1, fallback);
+
+            return DieMapGenerator.CalculateWaferGridCount(outerDiameterMm, pitchMm, pitchMm);
         }
 
         private static void EnsureDieSpecFromRecipe(RecipeProject project, string specName)

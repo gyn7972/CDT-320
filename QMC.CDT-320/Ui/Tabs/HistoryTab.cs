@@ -13,6 +13,7 @@ namespace QMC.CDT_320.Ui.Tabs
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
             SetSidebarHeader("tab.history");
+            LblSidebarHeader.BackColor = System.Drawing.Color.White;   // 작업정보 탭 헤더와 동일하게
             const UserLevel op = UserLevel.Operator;
 
             RegisterSidebarButton(BtnEvent, "hist.event", op, () => new EventLogPage(EventKind.Event));

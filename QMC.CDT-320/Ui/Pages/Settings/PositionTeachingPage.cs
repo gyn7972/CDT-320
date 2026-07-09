@@ -36,6 +36,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
 
         private List<TeachItem> _items;
+        private GroupBox _positionListGroup;
+        private GroupBox _axisJogGroup;
+        private GroupBox _actionGroup;
 
         private System.Windows.Forms.Timer _jogPosTimer;
         private QMC.Common.Motion.BaseAxis _jogCurrentAxis;
@@ -47,10 +50,115 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         public PositionTeachingPage()
         {
             InitializeComponent();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             WireRuntimeEvents();
 
             _items = LoadOrSeed();
             FillGrid();
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SuspendLayout();
+            try
+            {
+                SettingsPageLayoutStyler.ApplyRoot(mainLayout);
+                SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+
+                if (_positionListGroup == null)
+                    _positionListGroup = new GroupBox();
+                _positionListGroup.Text = "POSITION TEACHING LIST";
+                SettingsPageLayoutStyler.ApplyGroupBox(_positionListGroup);
+
+                if (_axisJogGroup == null)
+                    _axisJogGroup = new GroupBox();
+                _axisJogGroup.Text = "AXIS JOG";
+                SettingsPageLayoutStyler.ApplyGroupBox(_axisJogGroup);
+
+                if (_actionGroup == null)
+                    _actionGroup = new GroupBox();
+                _actionGroup.Text = "ACTION";
+                SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
+
+                _grid.Dock = DockStyle.Fill;
+                _grid.Margin = Padding.Empty;
+                if (_grid.Parent != _positionListGroup)
+                {
+                    if (_grid.Parent != null)
+                        _grid.Parent.Controls.Remove(_grid);
+                    _positionListGroup.Controls.Add(_grid);
+                }
+
+                jogLayout.Dock = DockStyle.Fill;
+                jogLayout.Margin = Padding.Empty;
+                if (jogLayout.Parent != _axisJogGroup)
+                {
+                    if (jogLayout.Parent != null)
+                        jogLayout.Parent.Controls.Remove(jogLayout);
+                    _axisJogGroup.Controls.Add(jogLayout);
+                }
+
+                contentLayout.Controls.Clear();
+                contentLayout.ColumnStyles.Clear();
+                contentLayout.RowStyles.Clear();
+                contentLayout.Dock = DockStyle.Fill;
+                contentLayout.Margin = Padding.Empty;
+                contentLayout.Padding = Padding.Empty;
+                contentLayout.ColumnCount = 2;
+                contentLayout.RowCount = 1;
+                contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300F));
+                contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                contentLayout.Controls.Add(_positionListGroup, 0, 0);
+                contentLayout.Controls.Add(_axisJogGroup, 1, 0);
+
+                actionsPanel.Controls.Clear();
+                actionsPanel.ColumnStyles.Clear();
+                actionsPanel.RowStyles.Clear();
+                actionsPanel.Dock = DockStyle.Fill;
+                actionsPanel.Margin = Padding.Empty;
+                actionsPanel.Padding = Padding.Empty;
+                actionsPanel.BackColor = Color.White;
+                actionsPanel.ColumnCount = 14;
+                actionsPanel.RowCount = 1;
+                for (int i = 0; i < 14; i++)
+                    actionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+                actionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                actionsPanel.Controls.Add(btnTeach, 0, 0);
+                actionsPanel.Controls.Add(btnGoto, 1, 0);
+                actionsPanel.Controls.Add(btnApply, 2, 0);
+                actionsPanel.Controls.Add(btnSave, 3, 0);
+                actionsPanel.Controls.Add(btnReload, 4, 0);
+                actionsPanel.Controls.Add(btnReset, 5, 0);
+                SettingsPageLayoutStyler.ApplyActionRow(actionsPanel);
+
+                if (actionsPanel.Parent != _actionGroup)
+                {
+                    if (actionsPanel.Parent != null)
+                        actionsPanel.Parent.Controls.Remove(actionsPanel);
+                    _actionGroup.Controls.Add(actionsPanel);
+                }
+
+                mainLayout.Controls.Clear();
+                mainLayout.ColumnStyles.Clear();
+                mainLayout.RowStyles.Clear();
+                mainLayout.ColumnCount = 1;
+                mainLayout.RowCount = 4;
+                mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                mainLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+                mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+                mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+                mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
+                mainLayout.Controls.Add(lblHeader, 0, 0);
+                mainLayout.Controls.Add(contentLayout, 0, 1);
+                mainLayout.SetRowSpan(contentLayout, 2);
+                mainLayout.Controls.Add(_actionGroup, 0, 3);
+            }
+            finally
+            {
+                ResumeLayout(false);
+            }
         }
 
         private void WireRuntimeEvents()

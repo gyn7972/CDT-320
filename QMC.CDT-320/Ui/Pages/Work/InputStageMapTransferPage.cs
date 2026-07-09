@@ -137,6 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
+            BuildTwoByTwoLayout();
             ApplyTitle();
             InitializeMapDisplayStyle();
             WireEvents();
@@ -207,6 +208,304 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        /// <summary>작업정보 아웃풋카세트와 동일한 룩(240 회색 그룹박스·채움 행·2열 액션)으로 2×2 재구성한다.
+        /// Designer가 만든 컨트롤을 그대로 재부모화(reparent)해 기능·바인딩을 유지한다.</summary>
+        private void BuildTwoByTwoLayout()
+        {
+            SuspendLayout();
+            try
+            {
+                GroupBox grpCreate = CreateQuadrantGroup("INPUT DIE MAP CREATE");
+                GroupBox grpAction = CreateQuadrantGroup("ACTION");
+
+                // ① 좌상단: 맵 뷰
+                Reparent(mapView, grpCreate, new Padding(0));
+
+                // ② 우상단: DIE MAP INFO | DIE STATE EDIT — 두 그룹 모두 하단까지 꽉 차게(Dock.Fill)
+                StyleAsQuadrantGroup(grpMapInfo, "DIE MAP INFO");
+                StyleAsQuadrantGroup(grpDieState, "DIE STATE EDIT");
+
+                // DIE MAP INFO: 9행이 그룹 높이를 균등하게 채우도록 Percent
+                mapInfoLayout.RowStyles.Clear();
+                mapInfoLayout.RowCount = 9;
+                for (int i = 0; i < 9; i++)
+                    mapInfoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 9F));
+                // Die Number 값이 길어 줄바꿈되던 문제: 값 칸을 넓히고(40:60) 폰트를 줄여 한 줄로.
+                mapInfoLayout.ColumnStyles.Clear();
+                mapInfoLayout.ColumnCount = 2;
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+                mapInfoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60F));
+                mapInfoLayout.Dock = DockStyle.Fill;
+                StyleInfoLabelsLikeOutput();                        // 아웃풋 BIN/DIE INFO 라벨 스타일과 통일
+                lblDieNum.Font = new System.Drawing.Font("Consolas", 8F);   // 긴 값은 한 줄 유지
+
+                // APPLY SELECTED DIE: 액션 버튼과 다른 '일반 버튼' 모양. 흰 배경에서 묻히지 않도록
+                //   연한 톤 배경 + 테두리로 버튼임을 명확히.
+                btnApplyDieState.FlatStyle = FlatStyle.Flat;
+                btnApplyDieState.UseVisualStyleBackColor = false;
+                btnApplyDieState.BackColor = System.Drawing.Color.FromArgb(0xE9, 0xEE, 0xF4);
+                btnApplyDieState.ForeColor = System.Drawing.Color.FromArgb(0x26, 0x32, 0x42);
+                btnApplyDieState.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0x8F, 0x9C, 0xAD);
+                btnApplyDieState.FlatAppearance.BorderSize = 1;
+                btnApplyDieState.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xDA, 0xE2, 0xEC);
+                btnApplyDieState.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xC7, 0xD2, 0xE0);
+                btnApplyDieState.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                btnApplyDieState.Dock = DockStyle.Fill;
+                btnApplyDieState.Margin = new Padding(3, 4, 3, 3);
+
+                // DIE STATE EDIT: 라디오 4개 + APPLY 만 (채움 없이 타이트). APPLY 는 이 그룹과 묶어둔다.
+                dieStateLayout.RowStyles.Clear();
+                dieStateLayout.RowCount = 5;
+                for (int i = 0; i < 4; i++)
+                    dieStateLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));   // 라디오 4행
+                dieStateLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44F));       // APPLY
+                dieStateLayout.Dock = DockStyle.Fill;
+                dieStateLayout.SetCellPosition(btnApplyDieState, new TableLayoutPanelCellPosition(0, 4));
+
+                var infoEditBody = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(3),
+                    Padding = new Padding(0),
+                    ColumnCount = 2,
+                    RowCount = 1
+                };
+                infoEditBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoEditBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                infoEditBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                grpMapInfo.Parent?.Controls.Remove(grpMapInfo);
+                grpMapInfo.Dock = DockStyle.Fill;                   // 하단까지 꽉 차게
+                grpMapInfo.Margin = new Padding(0, 0, 2, 0);
+                infoEditBody.Controls.Add(grpMapInfo, 0, 0);
+
+                grpDieState.Parent?.Controls.Remove(grpDieState);
+                int dieStateHeight = 4 * 30 + 44 + 52;              // 라디오+APPLY+타이틀/패딩
+                var dieStateArea = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(2, 0, 0, 0),
+                    Padding = new Padding(0),
+                    ColumnCount = 1,
+                    RowCount = 4
+                };
+                dieStateArea.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, dieStateHeight));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, 56F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+                dieStateArea.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                grpDieState.Dock = DockStyle.Fill;
+                grpDieState.Margin = new Padding(0);
+                dieStateArea.Controls.Add(grpDieState, 0, 0);
+
+                var detachedButtonRow = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
+                    ColumnCount = 1,
+                    RowCount = 2
+                };
+                detachedButtonRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                detachedButtonRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                detachedButtonRow.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+
+                ConfigureDetachedStageButton(btnManualAlignComplete, "MANUAL ALIGN COMPLETE", 0);
+                ConfigureDetachedStageButton(btnReloadActiveMap, "RELOAD ACTIVE MAP", 1);
+                btnManualAlignComplete.Parent?.Controls.Remove(btnManualAlignComplete);
+                btnReloadActiveMap.Parent?.Controls.Remove(btnReloadActiveMap);
+                detachedButtonRow.Controls.Add(btnManualAlignComplete, 0, 0);
+                detachedButtonRow.Controls.Add(btnReloadActiveMap, 0, 1);
+                dieStateArea.Controls.Add(detachedButtonRow, 0, 2);
+                infoEditBody.Controls.Add(dieStateArea, 1, 0);
+
+                // ④ 우하단: 액션 버튼 3개 — 왼쪽 1열만 쓰고 그룹 테두리도 버튼 폭에 맞춰 타이트하게 축소
+                Control[] actionButtons =
+                {
+                    btnThetaMatchMove, btnXyMatchMove, btnManualDieMapOffsetApply
+                };
+                int rows = actionButtons.Length;
+                int compactActionWidth = rootLayout.ClientSize.Width > 0
+                    ? Math.Max(330, (rootLayout.ClientSize.Width / 4) - 10)
+                    : 410;
+                var actionBar = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Top,
+                    BackColor = System.Drawing.Color.White,
+                    Margin = new Padding(0),
+                    Padding = new Padding(3, 1, 3, 0),
+                    ColumnCount = 1,
+                    RowCount = rows,
+                    Height = rows * 46 + 4
+                };
+                actionBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                for (int r = 0; r < rows; r++)
+                    actionBar.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
+                for (int i = 0; i < actionButtons.Length; i++)
+                {
+                    Control b = actionButtons[i];
+                    b.Parent?.Controls.Remove(b);
+                    b.Dock = DockStyle.Fill;
+                    b.Margin = new Padding(3);
+                    b.Visible = true;
+                    b.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                    actionBar.Controls.Add(b, 0, i);
+                }
+                grpAction.Controls.Add(actionBar);
+                grpAction.Dock = DockStyle.None;                    // 버튼 폭/높이만큼만(타이트), 오른쪽은 배경 노출
+                grpAction.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                grpAction.Width = compactActionWidth;
+                grpAction.Height = actionBar.Height + 30;           // 버튼 영역 + 타이틀
+
+                // ③ 좌하단: DGV (그룹박스 없이)
+                gridDieList.Parent?.Controls.Remove(gridDieList);
+                gridDieList.Dock = DockStyle.Fill;
+                gridDieList.Margin = new Padding(3);
+
+                // rootLayout → 2×2 (아웃풋카세트와 동일한 회색 배경)
+                rootLayout.Controls.Clear();
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.RowStyles.Clear();
+                rootLayout.BackColor = System.Drawing.Color.White;
+                rootLayout.Padding = new Padding(0);
+                rootLayout.ColumnCount = 2;
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                rootLayout.RowCount = 2;
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 65F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 35F));
+                rootLayout.Controls.Add(grpCreate, 0, 0);   // 좌상단: 맵 뷰
+                rootLayout.Controls.Add(gridDieList, 0, 1); // 좌하단: DGV (그룹박스 없이)
+                rootLayout.Controls.Add(infoEditBody, 1, 0);// 우상단: DIE MAP INFO | DIE STATE EDIT
+                rootLayout.Controls.Add(grpAction, 1, 1);   // 우하단: MAP ACTION 버튼 3개
+            }
+            catch { }
+            finally
+            {
+                ResumeLayout(true);
+            }
+        }
+
+        private static void ConfigureDetachedStageButton(Control button, string text, int tabIndex)
+        {
+            if (button == null)
+                return;
+
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(3);
+            button.Visible = true;
+            button.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            button.ForeColor = System.Drawing.Color.FromArgb(0x26, 0x32, 0x42);
+            button.BackColor = System.Drawing.Color.FromArgb(0xF2, 0xF4, 0xF7);
+            button.TabIndex = tabIndex;
+            button.Text = text;
+
+            Button winButton = button as Button;
+            if (winButton == null)
+                return;
+
+            winButton.FlatStyle = FlatStyle.Flat;
+            winButton.UseVisualStyleBackColor = false;
+            winButton.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(0xB7, 0xC0, 0xCA);
+            winButton.FlatAppearance.BorderSize = 1;
+            winButton.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(0xE7, 0xEC, 0xF2);
+            winButton.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(0xD5, 0xDE, 0xE9);
+        }
+
+        /// <summary>DIE MAP INFO 캡션/값 라벨을 아웃풋 전환 페이지 BIN/DIE INFO 그룹과 동일한 스타일로 통일한다.</summary>
+        private void StyleInfoLabelsLikeOutput()
+        {
+            System.Drawing.Color capBack = System.Drawing.Color.FromArgb(236, 238, 241);
+            System.Drawing.Color capFore = System.Drawing.Color.FromArgb(70, 70, 70);
+            System.Drawing.Color valFore = System.Drawing.Color.FromArgb(25, 29, 34);
+
+            Label[] captions =
+            {
+                lblChipWCaption, lblChipHCaption, lblPitchXCaption, lblPitchYCaption,
+                lblWaferDiaCaption, lblAxisXCaption, lblAxisYCaption, lblBinRankCaption, lblDieNumCaption
+            };
+            Label[] values =
+            {
+                lblChipW, lblChipH, lblPitchX, lblPitchY,
+                lblWaferDia, lblAxisX, lblAxisY, lblBinRank, lblDieNum
+            };
+
+            foreach (Label c in captions)
+            {
+                if (c == null)
+                    continue;
+                c.AutoEllipsis = true;
+                c.BackColor = capBack;
+                c.BorderStyle = BorderStyle.FixedSingle;
+                c.Dock = DockStyle.Fill;
+                c.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+                c.ForeColor = capFore;
+                c.Margin = new Padding(1);
+                c.Padding = new Padding(6, 0, 0, 0);
+                c.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            }
+            foreach (Label v in values)
+            {
+                if (v == null)
+                    continue;
+                v.AutoEllipsis = true;
+                v.BackColor = System.Drawing.Color.White;
+                v.BorderStyle = BorderStyle.FixedSingle;
+                v.Dock = DockStyle.Fill;
+                v.Font = new System.Drawing.Font("Consolas", 9F);
+                v.ForeColor = valFore;
+                v.Margin = new Padding(1);
+                v.Padding = new Padding(0, 0, 6, 0);
+                v.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            }
+        }
+
+        private static GroupBox CreateQuadrantGroup(string text)
+        {
+            var g = new GroupBox();
+            StyleAsQuadrantGroup(g, text);
+            return g;
+        }
+
+        /// <summary>기존/신규 그룹박스를 메인화면 스타일(흰 배경·짙은 제목·여백)로 통일한다.</summary>
+        private static void StyleAsQuadrantGroup(GroupBox g, string text)
+        {
+            if (g == null)
+                return;
+            g.Text = text;
+            g.Dock = DockStyle.Fill;
+            g.BackColor = System.Drawing.Color.White;
+            g.ForeColor = System.Drawing.Color.Black;
+            g.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            g.Margin = new Padding(3);
+            g.Padding = new Padding(3);
+            g.TabStop = false;
+        }
+
+        private static void Reparent(Control child, Control newParent, Padding margin)
+        {
+            if (child == null || newParent == null)
+                return;
+            child.Parent?.Controls.Remove(child);
+            child.Dock = DockStyle.Fill;
+            child.Margin = margin;
+            newParent.Controls.Add(child);
+        }
+
+        private static void Reparent(Control child, TableLayoutPanel newParent, int col, int row, Padding margin)
+        {
+            if (child == null || newParent == null)
+                return;
+            child.Parent?.Controls.Remove(child);
+            child.Dock = DockStyle.Fill;
+            child.Margin = margin;
+            newParent.Controls.Add(child, col, row);
         }
 
         private void WireEvents()
@@ -439,21 +738,23 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             entry.PosX,
                             entry.PosY,
                             effectiveX,
-                            effectiveY);
+                            effectiveY,
+                            false);
                         double cameraOffsetX;
                         double cameraOffsetY;
                         InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(host.Machine, out cameraOffsetX, out cameraOffsetY);
                         needleTargetText =
                             "\r\nNeedleX 이동 목표 X=" + target.NeedleX.ToString("F3") +
                             " mm (Die VisionX=" + entry.PosX.ToString("F3") +
-                            " - CameraX=" + cameraOffsetX.ToString("F3") +
                             " - NeedleXToVisionXOffset=" +
                             InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F3") + ")";
                         needleTargetText +=
                             "\r\nPicker 이동 목표 X=" + target.PickerX.ToString("F3") +
                             " mm, Y=" + target.PickerY.ToString("F3") +
                             " mm, StageY=" + target.StageY.ToString("F3") +
-                            " mm (CameraY=" + cameraOffsetY.ToString("F3") + " PickerY - 적용)";
+                            " mm (CameraOffset X=" + cameraOffsetX.ToString("F3") +
+                            ", Y=" + cameraOffsetY.ToString("F3") +
+                            " is included in InputVisionToPicker)";
                     }
 
                     QMC.Common.MessageDialog.Show(this,
@@ -1448,17 +1749,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double bottomRefVisionDeltaY = vision.DeltaY;
                 double cameraOffsetX = 0.0;
                 double cameraOffsetY = 0.0;
-                bool cameraOffsetExcluded = !simulationOrDryRun &&
+                bool cameraOffsetXExcluded = !simulationOrDryRun &&
                     InputPickerPickTargetResolver.TryResolveInputCameraToBottomOffsets(
                         host.Machine,
                         out cameraOffsetX,
                         out cameraOffsetY);
                 double centerMoveDeltaX = bottomRefVisionDeltaX;
                 double centerMoveDeltaY = bottomRefVisionDeltaY;
-                if (cameraOffsetExcluded)
+                if (cameraOffsetXExcluded)
                 {
                     centerMoveDeltaX -= cameraOffsetX;
-                    centerMoveDeltaY -= cameraOffsetY;
                 }
 
                 VisionAlignResult centerMoveVision = new VisionAlignResult
@@ -1538,10 +1838,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", jogDeltaX=" + jogDeltaX.ToString("F6") +
                     ", jogDeltaY=" + jogDeltaY.ToString("F6") +
                     ", bottomRefVisionDeltaX=" + bottomRefVisionDeltaX.ToString("F6") +
-                    ", bottomRefVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
-                    ", cameraOffsetExcluded=" + cameraOffsetExcluded +
+                    ", inputVisionDeltaY=" + bottomRefVisionDeltaY.ToString("F6") +
+                    ", cameraOffsetXExcluded=" + cameraOffsetXExcluded +
                     ", cameraOffsetX=" + cameraOffsetX.ToString("F6") +
-                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") +
+                    ", cameraOffsetY=" + cameraOffsetY.ToString("F6") + "(notUsedForDieY)" +
                     ", centerMoveDeltaX=" + centerMoveDeltaX.ToString("F6") +
                     ", centerMoveDeltaY=" + centerMoveDeltaY.ToString("F6") +
                     ", offsetX=" + offsetX.ToString("F6") +
@@ -1552,9 +1852,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + sentDieX.ToString("F3") + " mm, Y=" + sentDieY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + currentVisionX.ToString("F3") + " mm, Y=" + currentStageY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + jogDeltaX.ToString("F6") + " mm, Y=" + jogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta(보정 포함) X=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + " mm, Y=" + cameraOffsetY.ToString("F6") +
-                    (cameraOffsetExcluded ? " mm (센터 이동에서 제외)\r\n" : " mm (미적용)\r\n") +
+                    "Vision Delta X(보정 포함)=" + bottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + bottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + cameraOffsetX.ToString("F6") + (cameraOffsetXExcluded ? " mm (X 센터 이동에서 제외), " : " mm (X 미적용), ") +
+                    "Y=" + cameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
                     "Center Move Delta X=" + centerMoveDeltaX.ToString("F6") + " mm, Y=" + centerMoveDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + vision.DeltaTheta.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + detectedCenterX.ToString("F3") + " mm, Y=" + detectedCenterY.ToString("F3") + " mm\r\n" +
@@ -1909,8 +2209,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "보낸 Die 위치 X=" + _manualDieDetectReferenceX.ToString("F3") + " mm, Y=" + _manualDieDetectReferenceY.ToString("F3") + " mm\r\n" +
                     "현재 Jog 위치 X=" + _manualDieDetectCurrentX.ToString("F3") + " mm, Y=" + _manualDieDetectCurrentY.ToString("F3") + " mm\r\n" +
                     "Jog 이동량 X=" + _manualDieDetectJogDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectJogDeltaY.ToString("F6") + " mm\r\n" +
-                    "Vision Delta(보정 포함) X=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
-                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm, Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (센터 이동에서 제외)\r\n" +
+                    "Vision Delta X(보정 포함)=" + _manualDieDetectBottomRefVisionDeltaX.ToString("F6") + " mm, Y(Input only)=" + _manualDieDetectBottomRefVisionDeltaY.ToString("F6") + " mm\r\n" +
+                    "Camera Offset X=" + _manualDieDetectCameraOffsetX.ToString("F6") + " mm (X 센터 이동에서 제외), Y=" + _manualDieDetectCameraOffsetY.ToString("F6") + " mm (Die Y 계산 미사용)\r\n" +
                     "Center Move Delta X=" + _manualDieDetectVisionDeltaX.ToString("F6") + " mm, Y=" + _manualDieDetectVisionDeltaY.ToString("F6") + " mm\r\n" +
                     "Vision Delta T=" + _manualDieDetectVisionDeltaT.ToString("F6") + " deg (T 보정 미적용)\r\n" +
                     "Detected Center X=" + _manualDieDetectDetectedCenterX.ToString("F3") + " mm, Y=" + _manualDieDetectDetectedCenterY.ToString("F3") + " mm\r\n" +
@@ -2063,21 +2363,63 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return null;
                 }
 
-                VisionAlignResult result = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAlignAsync(
+                QMC.CDT320.VisionComm.MatchResultDto match = await QMC.CDT320.VisionComm.AutoVisionRequestService.MatchAsync(
                     QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
                     ManualInputDieDetectFinderName,
                     ManualInputDieDetectVisionIndex,
-                    ManualInputDieDetectPitchMm,
                     ManualInputDieDetectVisionTimeoutMs,
                     System.Threading.CancellationToken.None).ConfigureAwait(true);
+                if (match == null || !match.Success)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Manual input die detect Vision MATCH failed. channel=Wafer" +
+                        ", finder=" + ManualInputDieDetectFinderName +
+                        ", index=" + ManualInputDieDetectVisionIndex +
+                        ", raw=" + (match != null ? match.RawError ?? "" : "null") + " - Failed");
+                    return null;
+                }
+
+                VisionAlignResult bottomRefAlign = QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ToAlignResult(
+                    QMC.CDT320.VisionComm.AutoVisionChannel.Wafer,
+                    match,
+                    ManualInputDieDetectPitchMm);
+                if (bottomRefAlign == null)
+                    return null;
+
+                QMC.CDT320.Calibration.VisionCameraPixelCalibration inputCamera =
+                    QMC.CDT320.Calibration.VisionCameraCalibrationTransform.ResolveCamera(
+                        null,
+                        QMC.CDT320.VisionComm.AutoVisionChannel.Wafer);
+                if (inputCamera == null)
+                    inputCamera = new QMC.CDT320.Calibration.VisionCameraPixelCalibration();
+
+                inputCamera.EnsureDefaults(320.0, 240.0, 0.001, 0.001);
+                if (match.HasImageSize)
+                    inputCamera.ApplyImageSize(match.ImageWidthPixel, match.ImageHeightPixel);
+
+                double inputOnlyDeltaY = inputCamera.PixelToMmOffsetY(match.Y);
+                VisionAlignResult result = new VisionAlignResult
+                {
+                    DeltaX = bottomRefAlign.DeltaX,
+                    DeltaY = inputOnlyDeltaY,
+                    DeltaTheta = bottomRefAlign.DeltaTheta,
+                    PitchX = bottomRefAlign.PitchX,
+                    PitchY = bottomRefAlign.PitchY
+                };
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual input die detect Vision result. channel=Wafer" +
                     ", finder=" + ManualInputDieDetectFinderName +
                     ", index=" + ManualInputDieDetectVisionIndex +
+                    ", pixelX=" + match.X.ToString("F6") +
+                    ", pixelY=" + match.Y.ToString("F6") +
+                    ", inputCenterY=" + inputCamera.ImageCenterPixelY.ToString("F6") +
+                    ", inputScaleY=" + inputCamera.PixelToMmY.ToString("F9") +
+                    ", formulaY=(centerY-pixelY)*scaleY=" + inputOnlyDeltaY.ToString("F6") +
                     ", dx=" + (result != null ? result.DeltaX.ToString("F6") : "null") +
                     ", dy=" + (result != null ? result.DeltaY.ToString("F6") : "null") +
                     ", dt=" + (result != null ? result.DeltaTheta.ToString("F6") : "null") +
+                    ", inputToBottomOffsetY=notUsedForDieY" +
                     (result != null ? " - Ok" : " - Failed"));
                 return result;
             }
@@ -2510,7 +2852,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     entry.PosX,
                     entry.PosY,
                     offsetX,
-                    offsetY);
+                    offsetY,
+                    false);
                 double targetPickerX = target.PickerX;
                 double targetPickerY = target.PickerY;
                 double targetStageY = target.StageY;
@@ -2532,9 +2875,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "StageY=" + targetStageY.ToString("F3") + " mm\r\n" +
                     "(InputVision Offset X=" + offsetX.ToString("F3") + " mm, Y=" + offsetY.ToString("F3") + " mm\r\n" +
                     " Camera Bottom-Input Offset X=" + cameraOffsetX.ToString("F3") +
-                    " mm (X - 적용), Y=" + cameraOffsetY.ToString("F3") +
-                    " mm (PickerY - 적용, StageY 미적용)\r\n" +
-                    " Auto formula 기준, CameraOffsetX는 X - 적용, CameraOffsetY는 PickerY - 적용, AlignOffset X/Y/T=0\r\n" +
+                    " mm, Y=" + cameraOffsetY.ToString("F3") +
+                    " mm (InputVision Offset 저장값에 포함됨, 이동 공식에서 중복 적용하지 않음)\r\n" +
+                    " Auto formula 기준, Runtime AlignOffset X/Y=0 (DieMap 좌표에 이미 적용됨)\r\n" +
                     " " + target.Formula + ")",
                     out speedType))
                 {
@@ -2548,7 +2891,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "InputStageMapTransferPage:" + ResolvePickerMoveTitle(side, pickerNo));
 
                 int result = await AwaitManualMoveStepAsync(
-                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetPickerY, targetStageY, targetNeedleX, speedType),
+                    MoveSelectedDieByPickerCoreAsync(host, side, pickerNo, entry, targetPickerX, targetPickerY, targetStageY, targetNeedleX, target.Formula, speedType),
                     ResolvePickerManualMoveTimeoutMs(),
                     ResolvePickerMoveTitle(side, pickerNo) + " 선택 다이 좌표 이동",
                     () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " die move timeout")).ConfigureAwait(true);
@@ -2778,6 +3121,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             double targetPickerY,
             double targetStageY,
             double targetNeedleX,
+            string targetFormula,
             JogSpeedType speedType)
         {
             try
@@ -2807,6 +3151,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     ", pickerY=" + targetPickerY.ToString("F6") +
                     ", stageY=" + targetStageY.ToString("F6") +
                     ", needleX=" + targetNeedleX.ToString("F6") +
+                    ", formula=" + (targetFormula ?? string.Empty) +
                     ", formulaNeedleX=dieVisionX(" + entry.PosX.ToString("F6") +
                     ")-NeedleXToVisionXOffset(" +
                     InputPickerPickTargetResolver.ResolveNeedleCalibrationOffsetX(host.Machine).ToString("F6") +
@@ -2900,10 +3245,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     ResolvePickerMoveTitle(side, pickerNo) +
                     " move complete. die=" + BuildSelectedDieText(entry) +
-                    ", pickerX=" + targetPickerX.ToString("F3") +
-                    ", pickerY=" + targetPickerY.ToString("F3") +
-                    ", needleX=" + targetNeedleX.ToString("F3") +
-                    ", stageY=" + targetStageY.ToString("F3") + " - Ok");
+                    ", formula=" + (targetFormula ?? string.Empty) +
+                    ", pickerXState=" + BuildPickerAxisState(host, side, PickerAxis.PickerX, targetPickerX) +
+                    ", pickerYState=" + BuildPickerAxisState(host, side, PickerAxis.PickerY, targetPickerY) +
+                    ", needleXState=" + BuildAxisStateForLog("NeedleX", stage.NeedleBlockX, targetNeedleX) +
+                    ", stageYState=" + BuildAxisStateForLog("StageY", stage.StageY, targetStageY) +
+                    " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -4111,6 +4458,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 ? axis.Config.InPositionTolerance
                 : 0.05;
             return Math.Abs(axis.ActualPosition - target) <= tolerance && !axis.IsAlarm && !axis.IsMoving;
+        }
+
+        private static string BuildAxisStateForLog(string axisName, BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return "axis=" + axisName + ", target=" + target.ToString("F6") + ", state=axis-not-found";
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axisName +
+                   ", name=" + axis.Name +
+                   ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                   ", actual=" + axis.ActualPosition.ToString("F6") +
+                   ", target=" + target.ToString("F6") +
+                   ", tolerance=" + tolerance.ToString("F6");
+        }
+
+        private static string BuildPickerAxisState(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            return BuildAxisStateForLog(axis.ToString(), ResolvePickerAxis(host, side, axis), target);
         }
 
         private static bool IsPickerAxisInPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)

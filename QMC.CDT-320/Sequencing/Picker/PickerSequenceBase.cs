@@ -503,6 +503,14 @@ namespace QMC.CDT320.Sequencing
                     "commandMs=" + commandMs,
                     "waitMs=" + waitMs,
                     "elapsedMs=" + totalWatch.ElapsedMilliseconds);
+                WriteLog("PickerMoveComplete",
+                    Name + " picker axis move complete. description=" + (description ?? string.Empty) +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", commandMs=" + commandMs +
+                    ", waitMs=" + waitMs +
+                    ", elapsedMs=" + totalWatch.ElapsedMilliseconds +
+                    ", " + BuildPickerAxisState(axis, target) +
+                    " - Ok");
                 ct.ThrowIfCancellationRequested();
                 return 0;
             }
@@ -660,6 +668,16 @@ namespace QMC.CDT320.Sequencing
                 }
                 if (commandTargets.Count > 0 && (waitMs >= 200 || totalWatch.ElapsedMilliseconds >= 250))
                     WritePickerSequenceGroupMoveElapsed(targetName, description, commandDetails, 0, commandMs, waitMs, totalWatch.ElapsedMilliseconds, "Ok");
+
+                WriteLog("PickerMoveComplete",
+                    Name + " picker group move complete. description=" + (description ?? string.Empty) +
+                    ", targetName=" + (targetName ?? string.Empty) +
+                    ", commandCount=" + commandTargets.Count +
+                    ", commandMs=" + commandMs +
+                    ", waitMs=" + waitMs +
+                    ", elapsedMs=" + totalWatch.ElapsedMilliseconds +
+                    ", axisStates=" + BuildPickerAxesState(targets) +
+                    " - Ok");
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -1426,22 +1444,46 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
+            // Carry-zone moves use the central resolver so auto/manual/calibration targets are calculated consistently.
             PickerCalibratedZoneTarget zoneTarget = ResolvePickerZoneTarget(positionArrayName, index);
             var xyTargets = new Dictionary<PickerAxis, double>();
             xyTargets[PickerAxis.PickerX] = zoneTarget.X;
             xyTargets[PickerAxis.PickerY] = zoneTarget.Y;
             xyTargets[zoneTarget.PickerTAxis] = zoneTarget.T;
 
+            WriteLog("PickerZoneTarget",
+                Name + " picker zone target calculated. description=" + (description ?? string.Empty) +
+                ", targetName=" + targetName +
+                ", pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", policy=CarryRuntimeAndCollet" +
+                ", formula=" + zoneTarget.Formula +
+                " - Calc");
+
             result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            return await MovePickerAxisAndVerifyAsync(
+            result = await MovePickerAxisAndVerifyAsync(
                 zoneTarget.PickerZAxis,
                 zoneTarget.Z,
                 description + " Z",
                 ct,
                 targetName).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            var allTargets = new Dictionary<PickerAxis, double>(xyTargets);
+            allTargets[zoneTarget.PickerZAxis] = zoneTarget.Z;
+            WriteLog("PickerZoneMoveComplete",
+                Name + " picker zone move complete. description=" + (description ?? string.Empty) +
+                ", targetName=" + targetName +
+                ", pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", formula=" + zoneTarget.Formula +
+                ", axisStates=" + BuildPickerAxesState(allTargets) +
+                " - Ok");
+            return 0;
         }
 
         protected Task<int> MoveAllPickerZToAvoidAndVerifyAsync(string description, CancellationToken ct, bool forceMove = false)
@@ -2278,6 +2320,24 @@ namespace QMC.CDT320.Sequencing
                    ", tolerance=" + tolerance;
         }
 
+        // Formats every commanded picker axis so move-complete logs include target, actual, tolerance, and drive state.
+        protected string BuildPickerAxesState(IDictionary<PickerAxis, double> targets)
+        {
+            if (targets == null || targets.Count == 0)
+                return "-";
+
+            string result = string.Empty;
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (!string.IsNullOrEmpty(result))
+                    result += " | ";
+
+                result += BuildPickerAxisState(pair.Key, pair.Value);
+            }
+
+            return result;
+        }
+
         protected string BuildPickerMoveCommandFailureMessage(
             PickerAxis axis,
             double target,
@@ -2469,14 +2529,11 @@ namespace QMC.CDT320.Sequencing
 
         protected PickerCalibratedZoneTarget ResolvePickerZoneTarget(string positionArrayName, int pickerIndex)
         {
-            return CalibrationCoordinateService.ResolvePickerZoneTarget(
+            return PickerMotionTargetResolver.ResolveCarryZoneTarget(
                 Context != null ? Context.Machine : null,
-                ResolvePickerSide(),
+                Side,
                 positionArrayName,
-                pickerIndex,
-                ResolvePickerRuntimeOffset(pickerIndex),
-                true,
-                true);
+                pickerIndex);
         }
 
         protected string ResolveZonePositionName(string positionArrayName)
@@ -2511,21 +2568,20 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerAlignOffsetT(int index)
         {
             PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
-            PickerCalibrationOffset calibration = ResolvePickerCalibrationOffset(index);
-            return (offset != null ? offset.AlignOffsetT : 0.0) + calibration.T;
+            return offset != null ? offset.AlignOffsetT : 0.0;
         }
 
         protected double ResolvePickerRuntimeAlignOffsetX(int index)
         {
             PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
-            // InputVisionToPicker X는 Collet Final 위치 기준 저장값이므로 Pick 계산에서는 Runtime X만 추가한다.
+            // InputVisionToPicker X는 카메라/콜렛 캘 포함 저장값이므로 Pick 계산에서는 Runtime X만 추가한다.
             return offset != null ? offset.AlignOffsetX : 0.0;
         }
 
         protected double ResolvePickerRuntimeAlignOffsetY(int index)
         {
             PickerAlignOffset offset = ResolvePickerRuntimeOffset(index);
-            // InputVisionToPicker Y는 Collet Final 위치 기준 저장값이므로 Pick 계산에서는 Runtime Y만 추가한다.
+            // InputVisionToPicker Y는 카메라/콜렛 캘 포함 저장값이므로 Pick 계산에서는 Runtime Y만 추가한다.
             return offset != null ? offset.AlignOffsetY : 0.0;
         }
 

@@ -179,6 +179,54 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public sealed class PickerSideInspectionCorrection
+    {
+        [DataMember] public bool IsValid { get; set; } // Bottom 검사에서 Side 검사 보정값을 정상 수신했는지 여부입니다.
+        [DataMember] public double SideVisionYOffset { get; set; } // SideVisionY Process 위치에 더할 Picker별 런타임 보정값입니다.
+        [DataMember] public double PickerZOffset { get; set; } // Side 검사 PickerZ 티칭 위치에 더할 Picker별 런타임 보정값입니다.
+        [DataMember] public string SourceDieId { get; set; } // 해당 보정값을 만든 Bottom 검사 Die ID입니다.
+        [DataMember] public DateTime UpdatedAt { get; set; } // 보정값이 갱신된 시각입니다.
+
+        public PickerSideInspectionCorrection Clone()
+        {
+            return new PickerSideInspectionCorrection
+            {
+                IsValid = IsValid,
+                SideVisionYOffset = SideVisionYOffset,
+                PickerZOffset = PickerZOffset,
+                SourceDieId = SourceDieId,
+                UpdatedAt = UpdatedAt
+            };
+        }
+
+        public void Set(double sideVisionYOffset, double pickerZOffset, bool isValid, string sourceDieId)
+        {
+            SideVisionYOffset = sideVisionYOffset;
+            PickerZOffset = pickerZOffset;
+            IsValid = isValid;
+            SourceDieId = sourceDieId ?? string.Empty;
+            UpdatedAt = DateTime.Now;
+        }
+
+        public void Clear()
+        {
+            IsValid = false;
+            SideVisionYOffset = 0.0;
+            PickerZOffset = 0.0;
+            SourceDieId = string.Empty;
+            UpdatedAt = DateTime.MinValue;
+        }
+
+        public static PickerSideInspectionCorrection[] CreateArray(int count)
+        {
+            PickerSideInspectionCorrection[] corrections = new PickerSideInspectionCorrection[count];
+            for (int i = 0; i < corrections.Length; i++)
+                corrections[i] = new PickerSideInspectionCorrection();
+            return corrections;
+        }
+    }
+
+    [DataContract]
     public sealed class PickerFrontConfig : IConfigData
     {
         [DataMember] public bool UseUnit { get; set; } = true; // Front Picker Unit 전체를 자동/수동 시컨스에서 사용할지 여부입니다.
@@ -519,6 +567,7 @@ namespace QMC.CDT320
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
         public PickerAlignOffset[] RuntimePickerOffsets { get; private set; }
+        public PickerSideInspectionCorrection[] RuntimeSideInspectionCorrections { get; private set; }
         public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
         public int PickFailCount { get; private set; }
         public int PlaceFailCount { get; private set; }
@@ -554,6 +603,7 @@ namespace QMC.CDT320
             }
 
             RuntimePickerOffsets = PickerAlignOffset.CreateArray(MaxPickerCount);
+            RuntimeSideInspectionCorrections = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
             Pickers = CreateRuntimePickers();
         }
 
@@ -595,6 +645,68 @@ namespace QMC.CDT320
                 return;
 
             RuntimePickerOffsets[pickerIndex] = offset.Clone();
+        }
+
+        public void EnsureRuntimeSideInspectionCorrections()
+        {
+            if (RuntimeSideInspectionCorrections == null || RuntimeSideInspectionCorrections.Length < MaxPickerCount)
+            {
+                PickerSideInspectionCorrection[] next = PickerSideInspectionCorrection.CreateArray(MaxPickerCount);
+                if (RuntimeSideInspectionCorrections != null)
+                {
+                    for (int i = 0; i < Math.Min(RuntimeSideInspectionCorrections.Length, next.Length); i++)
+                    {
+                        if (RuntimeSideInspectionCorrections[i] != null)
+                            next[i] = RuntimeSideInspectionCorrections[i].Clone();
+                    }
+                }
+
+                RuntimeSideInspectionCorrections = next;
+            }
+
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+            {
+                if (RuntimeSideInspectionCorrections[i] == null)
+                    RuntimeSideInspectionCorrections[i] = new PickerSideInspectionCorrection();
+            }
+        }
+
+        public PickerSideInspectionCorrection GetRuntimeSideInspectionCorrection(int pickerIndex)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return null;
+            return RuntimeSideInspectionCorrections[pickerIndex];
+        }
+
+        public void SetRuntimeSideInspectionCorrection(
+            int pickerIndex,
+            double sideVisionYOffset,
+            double pickerZOffset,
+            bool isValid,
+            string sourceDieId)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex].Set(sideVisionYOffset, pickerZOffset, isValid, sourceDieId);
+        }
+
+        public void RestoreRuntimeSideInspectionCorrection(int pickerIndex, PickerSideInspectionCorrection correction)
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            if (pickerIndex < 0 || pickerIndex >= RuntimeSideInspectionCorrections.Length || correction == null)
+                return;
+
+            RuntimeSideInspectionCorrections[pickerIndex] = correction.Clone();
+        }
+
+        public void ClearRuntimeSideInspectionCorrections()
+        {
+            EnsureRuntimeSideInspectionCorrections();
+            for (int i = 0; i < RuntimeSideInspectionCorrections.Length; i++)
+                RuntimeSideInspectionCorrections[i].Clear();
         }
 
         private PickerRuntimeTool[] CreateRuntimePickers()
@@ -1749,17 +1861,45 @@ namespace QMC.CDT320
             return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, "AvoidPosition"), bFine, "AvoidPosition");
         }
 
-        public Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
+        public async Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
             PickerAxis axis = GetPickerTAxis(index);
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
-            QMC.CDT320.Calibration.PickerCalibrationOffset calibrationOffset = ResolvePickerCalibrationOffset(index);
-            return MovePickerAxisNamed(
+            double teachingT = GetPickerTeachingPosition(axis, "PickPosition");
+            double runtimeT = offset.AlignOffsetT;
+            double targetT = teachingT + runtimeT;
+
+            // runtimeT is the current PickerAlignOffset.AlignOffsetT. Collet theta is already reflected in picker T home zero.
+            EventLogger.Write(EventKind.Event, "QMC", "PK-T-OFFSET-CALC",
+                Name + " MovePickerTToOffset target calculated. pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", axis=" + axis +
+                ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
+                ")+runtimeT(" + runtimeT.ToString("F6") +
+                ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6"));
+
+            int result = await MovePickerAxisNamed(
                 axis,
-                GetPickerTeachingPosition(axis, "PickPosition") + offset.AlignOffsetT + calibrationOffset.T,
+                targetT,
                 bFine,
-                "PickPosition");
+                "PickPosition").ConfigureAwait(false);
+
+            BaseAxis item = GetAxis(axis);
+            double tolerance = item != null && item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            EventLogger.Write(EventKind.Event, "QMC", result == 0 ? "PK-T-OFFSET-OK" : "PK-T-OFFSET-FAIL",
+                Name + " MovePickerTToOffset move complete. result=" + result +
+                ", pickerNo=" + pickerNo +
+                ", pickerIndex=" + index +
+                ", formula=targetT=teachingT(" + teachingT.ToString("F6") +
+                ")+runtimeT(" + runtimeT.ToString("F6") +
+                ")+colletT(homeZeroApplied)(0.000000)=" + targetT.ToString("F6") +
+                ", " + AxisMoveWaiter.BuildAxisState(item, targetT, tolerance) +
+                (result == 0 ? " - Ok" : " - Failed"));
+
+            return result;
         }
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
@@ -3042,14 +3182,11 @@ namespace QMC.CDT320
 
         private QMC.CDT320.Calibration.PickerCalibratedZoneTarget ResolvePickerZoneTarget(string positionArrayName, int index)
         {
-            return QMC.CDT320.Calibration.CalibrationCoordinateService.ResolvePickerZoneTarget(
+            return QMC.CDT320.Sequencing.PickerMotionTargetResolver.ResolveCarryZoneTarget(
                 QMC.CDT320.Calibration.CalibrationCoordinateService.ResolveMachine(),
-                QMC.CDT320.Calibration.VisionFocusPickerSide.Front,
+                QMC.CDT320.Sequencing.PickerSequenceSide.Front,
                 positionArrayName,
-                index,
-                GetRuntimePickerOffset(index),
-                true,
-                true);
+                index);
         }
 
         private static string ResolveZonePositionName(string positionArrayName)
@@ -3338,7 +3475,7 @@ namespace QMC.CDT320
 
         private int RaisePickerAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
+            // AlarmManager.Raise가 이벤트 로그(EventKind.Alarm)를 기록하므로 직접 기록 생략(이벤트 로그 중복 방지)
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

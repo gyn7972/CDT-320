@@ -34,11 +34,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private List<LightRow> _items;
         private static readonly string SavePath =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "light_setup.json");
+        private GroupBox _lightGroup;
+        private GroupBox _actionGroup;
 
         public LightControllerPage()
         {
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             WireEvents();
             _items = LoadOrSeed();
             FillGrid();
@@ -55,6 +59,74 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblSubHeader.BackColor = UiTheme.StatusBarBg;
             lblSubHeader.ForeColor = Color.White;
             lblSubHeader.Font = UiTheme.SectionFont;
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SettingsPageLayoutStyler.ApplyRoot(rootLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+            lblSubHeader.Visible = false;
+
+            if (_lightGroup == null)
+                _lightGroup = new GroupBox();
+            _lightGroup.Text = "LIGHT CONTROLLER";
+            SettingsPageLayoutStyler.ApplyGroupBox(_lightGroup);
+            _lightGroup.Dock = DockStyle.Top;
+            _lightGroup.Height = 252;
+            _lightGroup.Padding = new Padding(1, 8, 1, 1);
+            _grid.Dock = DockStyle.Fill;
+            _grid.Margin = Padding.Empty;
+            if (_grid.Parent != _lightGroup)
+            {
+                if (_grid.Parent != null)
+                    _grid.Parent.Controls.Remove(_grid);
+                _lightGroup.Controls.Add(_grid);
+            }
+
+            if (_actionGroup == null)
+                _actionGroup = new GroupBox();
+            _actionGroup.Text = "ACTION";
+            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
+            if (actionsLayout.Parent != _actionGroup)
+            {
+                if (actionsLayout.Parent != null)
+                    actionsLayout.Parent.Controls.Remove(actionsLayout);
+                _actionGroup.Controls.Add(actionsLayout);
+            }
+
+            actionsLayout.Margin = Padding.Empty;
+            actionsLayout.Padding = Padding.Empty;
+            actionsLayout.ColumnStyles.Clear();
+            actionsLayout.ColumnCount = 14;
+            for (int i = 0; i < 14; i++)
+                actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+            SettingsPageLayoutStyler.ApplyActionRow(actionsLayout);
+
+            rootLayout.Controls.Clear();
+            rootLayout.ColumnStyles.Clear();
+            rootLayout.RowStyles.Clear();
+            rootLayout.ColumnCount = 1;
+            rootLayout.RowCount = 4;
+            rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 45F));
+            rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
+            rootLayout.Controls.Add(lblHeader, 0, 0);
+            rootLayout.Controls.Add(_lightGroup, 0, 1);
+            rootLayout.Controls.Add(_actionGroup, 0, 3);
+
+            if (rootLayout.RowStyles.Count >= 4)
+            {
+                rootLayout.RowStyles[0].SizeType = SizeType.Absolute;
+                rootLayout.RowStyles[0].Height = 30F;
+                rootLayout.RowStyles[1].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[1].Height = 45F;
+                rootLayout.RowStyles[2].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[2].Height = 45F;
+                rootLayout.RowStyles[3].SizeType = SizeType.Percent;
+                rootLayout.RowStyles[3].Height = 10F;
+            }
         }
 
         private void WireEvents()
@@ -174,6 +246,23 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 else
                     _grid.Rows[rowIndex].DefaultCellStyle.ForeColor = Color.Gray;
             }
+            AdjustLightGroupHeight();
+        }
+
+        private void AdjustLightGroupHeight()
+        {
+            if (_lightGroup == null)
+                return;
+
+            int rowsHeight = 0;
+            foreach (DataGridViewRow row in _grid.Rows)
+            {
+                if (!row.IsNewRow)
+                    rowsHeight += row.Height;
+            }
+
+            int headerHeight = _grid.ColumnHeadersVisible ? _grid.ColumnHeadersHeight : 0;
+            _lightGroup.Height = Math.Max(150, headerHeight + rowsHeight + 46);
         }
 
         private void OnCellEdit(object s, DataGridViewCellEventArgs e)

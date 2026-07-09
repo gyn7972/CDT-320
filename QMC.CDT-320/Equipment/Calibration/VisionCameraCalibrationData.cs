@@ -113,7 +113,7 @@ namespace QMC.CDT320.Calibration
 
         public double PixelToMmOffsetY(double pixelY)
         {
-            return (pixelY - ImageCenterPixelY) * PixelToMmY;
+            return (ImageCenterPixelY - pixelY) * PixelToMmY;
         }
     }
 

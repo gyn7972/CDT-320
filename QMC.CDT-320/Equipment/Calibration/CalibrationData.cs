@@ -105,12 +105,25 @@ namespace QMC.CDT320.Calibration
     public sealed class PickUpZCalibrationSettings
     {
         [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
+        [DataMember] public double StartZMm { get; set; } = 0.0;
         [DataMember] public double SearchStartOffsetMm { get; set; } = 1.0;
         [DataMember] public double SearchMaxDistanceMm { get; set; } = 2.0;
+        [DataMember] public double FineSearchVelocityMmPerSec { get; set; } = 1.0;
+        [DataMember] public double BackOffDistanceMm { get; set; } = 0.2;
         [DataMember] public double ContactOffsetMm { get; set; } = 0.0;
+        [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
+        [DataMember] public double DieThicknessMm { get; set; } = 0.0;
+        [DataMember] public double PositionOffsetXmm { get; set; } = 0.0;
+        [DataMember] public double PositionOffsetYmm { get; set; } = 0.0;
         [DataMember] public int VacuumOnDelayMs { get; set; } = 100;
+        [DataMember] public int VacuumReOnDelayMs { get; set; } = 100;
+        [DataMember] public int BlowPulseTimeMs { get; set; } = 50;
+        [DataMember] public int BlowSettleTimeMs { get; set; } = 50;
+        [DataMember] public int FlowOffConfirmTimeoutMs { get; set; } = 1000;
         [DataMember] public int FlowStableMs { get; set; } = 30;
         [DataMember] public int FlowPollIntervalMs { get; set; } = 5;
+        [DataMember] public int RepeatCount { get; set; } = 2;
+        [DataMember] public double RepeatToleranceMm { get; set; } = 0.01;
         [DataMember] public bool MoveAvoidAfterScan { get; set; } = true;
         [DataMember] public bool FailIfFlowAlreadyOn { get; set; } = true;
 
@@ -125,18 +138,49 @@ namespace QMC.CDT320.Calibration
             if (Motion == null)
                 Motion = new CalibrationMotionSettings();
             Motion.EnsureDefaults();
+            if (double.IsNaN(StartZMm) || double.IsInfinity(StartZMm))
+                StartZMm = 0.0;
             if (SearchStartOffsetMm < 0.0)
                 SearchStartOffsetMm = 1.0;
             if (SearchMaxDistanceMm <= 0.0)
                 SearchMaxDistanceMm = 2.0;
+            if (double.IsNaN(FineSearchVelocityMmPerSec) || double.IsInfinity(FineSearchVelocityMmPerSec) || FineSearchVelocityMmPerSec <= 0.0)
+                FineSearchVelocityMmPerSec = Math.Max(0.001, Math.Min(Motion.MoveVelocity, 1.0));
+            if (double.IsNaN(BackOffDistanceMm) || double.IsInfinity(BackOffDistanceMm) || BackOffDistanceMm <= 0.0)
+                BackOffDistanceMm = 0.2;
+            if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)
+                FilmThicknessMm = 0.0;
+            if (double.IsNaN(DieThicknessMm) || double.IsInfinity(DieThicknessMm) || DieThicknessMm < 0.0)
+                DieThicknessMm = Math.Max(0.0, ContactOffsetMm);
+            if (Math.Abs(ContactOffsetMm) > 1e-9 && DieThicknessMm <= 0.0)
+                DieThicknessMm = Math.Max(0.0, ContactOffsetMm);
+            ContactOffsetMm = DieThicknessMm;
+            if (double.IsNaN(PositionOffsetXmm) || double.IsInfinity(PositionOffsetXmm))
+                PositionOffsetXmm = 0.0;
+            if (double.IsNaN(PositionOffsetYmm) || double.IsInfinity(PositionOffsetYmm))
+                PositionOffsetYmm = 0.0;
             if (VacuumOnDelayMs < 0)
                 VacuumOnDelayMs = 100;
+            if (VacuumReOnDelayMs < 0)
+                VacuumReOnDelayMs = 100;
+            if (BlowPulseTimeMs < 0)
+                BlowPulseTimeMs = 50;
+            if (BlowSettleTimeMs < 0)
+                BlowSettleTimeMs = 50;
+            if (FlowOffConfirmTimeoutMs <= 0)
+                FlowOffConfirmTimeoutMs = 1000;
             if (FlowStableMs < 0)
                 FlowStableMs = 30;
             if (FlowPollIntervalMs <= 0)
                 FlowPollIntervalMs = 5;
             if (FlowPollIntervalMs > 100)
                 FlowPollIntervalMs = 100;
+            if (RepeatCount <= 0)
+                RepeatCount = 1;
+            if (RepeatCount > 5)
+                RepeatCount = 5;
+            if (double.IsNaN(RepeatToleranceMm) || double.IsInfinity(RepeatToleranceMm) || RepeatToleranceMm <= 0.0)
+                RepeatToleranceMm = 0.01;
         }
     }
 
@@ -151,6 +195,11 @@ namespace QMC.CDT320.Calibration
         [DataMember] public double DetectedFlowPosition { get; set; }
         [DataMember] public double SavedPickPosition { get; set; }
         [DataMember] public double ContactOffsetMm { get; set; }
+        [DataMember] public double StartZMm { get; set; }
+        [DataMember] public double FilmThicknessMm { get; set; }
+        [DataMember] public double DieThicknessMm { get; set; }
+        [DataMember] public double PositionOffsetXmm { get; set; }
+        [DataMember] public double PositionOffsetYmm { get; set; }
         [DataMember] public int DetectElapsedMs { get; set; }
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }
@@ -313,12 +362,25 @@ namespace QMC.CDT320.Calibration
     public sealed class PlaceZCalibrationSettings
     {
         [DataMember] public CalibrationMotionSettings Motion { get; set; } = new CalibrationMotionSettings();
+        [DataMember] public double StartZMm { get; set; } = 0.0;
         [DataMember] public double SearchStartOffsetMm { get; set; } = 1.0;
         [DataMember] public double SearchMaxDistanceMm { get; set; } = 2.0;
+        [DataMember] public double FineSearchVelocityMmPerSec { get; set; } = 1.0;
+        [DataMember] public double BackOffDistanceMm { get; set; } = 0.2;
         [DataMember] public double ContactOffsetMm { get; set; } = 0.0;
+        [DataMember] public double FilmThicknessMm { get; set; } = 0.0;
+        [DataMember] public double DieThicknessMm { get; set; } = 0.0;
+        [DataMember] public double PositionOffsetXmm { get; set; } = 0.0;
+        [DataMember] public double PositionOffsetYmm { get; set; } = 0.0;
         [DataMember] public int VacuumOnDelayMs { get; set; } = 100;
+        [DataMember] public int VacuumReOnDelayMs { get; set; } = 100;
+        [DataMember] public int BlowPulseTimeMs { get; set; } = 50;
+        [DataMember] public int BlowSettleTimeMs { get; set; } = 50;
+        [DataMember] public int FlowOffConfirmTimeoutMs { get; set; } = 1000;
         [DataMember] public int FlowStableMs { get; set; } = 30;
         [DataMember] public int FlowPollIntervalMs { get; set; } = 5;
+        [DataMember] public int RepeatCount { get; set; } = 2;
+        [DataMember] public double RepeatToleranceMm { get; set; } = 0.01;
         [DataMember] public bool MoveAvoidAfterScan { get; set; } = true;
         [DataMember] public bool FailIfFlowAlreadyOn { get; set; } = true;
 
@@ -333,18 +395,49 @@ namespace QMC.CDT320.Calibration
             if (Motion == null)
                 Motion = new CalibrationMotionSettings();
             Motion.EnsureDefaults();
+            if (double.IsNaN(StartZMm) || double.IsInfinity(StartZMm))
+                StartZMm = 0.0;
             if (SearchStartOffsetMm < 0.0)
                 SearchStartOffsetMm = 1.0;
             if (SearchMaxDistanceMm <= 0.0)
                 SearchMaxDistanceMm = 2.0;
+            if (double.IsNaN(FineSearchVelocityMmPerSec) || double.IsInfinity(FineSearchVelocityMmPerSec) || FineSearchVelocityMmPerSec <= 0.0)
+                FineSearchVelocityMmPerSec = Math.Max(0.001, Math.Min(Motion.MoveVelocity, 1.0));
+            if (double.IsNaN(BackOffDistanceMm) || double.IsInfinity(BackOffDistanceMm) || BackOffDistanceMm <= 0.0)
+                BackOffDistanceMm = 0.2;
+            if (double.IsNaN(FilmThicknessMm) || double.IsInfinity(FilmThicknessMm) || FilmThicknessMm < 0.0)
+                FilmThicknessMm = 0.0;
+            if (double.IsNaN(DieThicknessMm) || double.IsInfinity(DieThicknessMm) || DieThicknessMm < 0.0)
+                DieThicknessMm = Math.Max(0.0, ContactOffsetMm);
+            if (Math.Abs(ContactOffsetMm) > 1e-9 && DieThicknessMm <= 0.0)
+                DieThicknessMm = Math.Max(0.0, ContactOffsetMm);
+            ContactOffsetMm = DieThicknessMm;
+            if (double.IsNaN(PositionOffsetXmm) || double.IsInfinity(PositionOffsetXmm))
+                PositionOffsetXmm = 0.0;
+            if (double.IsNaN(PositionOffsetYmm) || double.IsInfinity(PositionOffsetYmm))
+                PositionOffsetYmm = 0.0;
             if (VacuumOnDelayMs < 0)
                 VacuumOnDelayMs = 100;
+            if (VacuumReOnDelayMs < 0)
+                VacuumReOnDelayMs = 100;
+            if (BlowPulseTimeMs < 0)
+                BlowPulseTimeMs = 50;
+            if (BlowSettleTimeMs < 0)
+                BlowSettleTimeMs = 50;
+            if (FlowOffConfirmTimeoutMs <= 0)
+                FlowOffConfirmTimeoutMs = 1000;
             if (FlowStableMs < 0)
                 FlowStableMs = 30;
             if (FlowPollIntervalMs <= 0)
                 FlowPollIntervalMs = 5;
             if (FlowPollIntervalMs > 100)
                 FlowPollIntervalMs = 100;
+            if (RepeatCount <= 0)
+                RepeatCount = 1;
+            if (RepeatCount > 5)
+                RepeatCount = 5;
+            if (double.IsNaN(RepeatToleranceMm) || double.IsInfinity(RepeatToleranceMm) || RepeatToleranceMm <= 0.0)
+                RepeatToleranceMm = 0.01;
         }
     }
 
@@ -354,11 +447,17 @@ namespace QMC.CDT320.Calibration
         private static readonly DateTime SafeUnsetDateTime = new DateTime(2000, 1, 1);
 
         [DataMember] public VisionFocusPickerSide Side { get; set; }
+        [DataMember] public BinSide OutputSide { get; set; }
         [DataMember] public int PickerNo { get; set; }
         [DataMember] public double OldPlacePosition { get; set; }
         [DataMember] public double DetectedFlowPosition { get; set; }
         [DataMember] public double SavedPlacePosition { get; set; }
         [DataMember] public double ContactOffsetMm { get; set; }
+        [DataMember] public double StartZMm { get; set; }
+        [DataMember] public double FilmThicknessMm { get; set; }
+        [DataMember] public double DieThicknessMm { get; set; }
+        [DataMember] public double PositionOffsetXmm { get; set; }
+        [DataMember] public double PositionOffsetYmm { get; set; }
         [DataMember] public int DetectElapsedMs { get; set; }
         [DataMember] public bool Valid { get; set; }
         [DataMember] public DateTime UpdatedAt { get; set; }

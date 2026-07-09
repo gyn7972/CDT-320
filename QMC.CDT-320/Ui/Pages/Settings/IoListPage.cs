@@ -21,6 +21,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private AjinIoScanService _subscribedService;
         private bool _loadingRows;
         private bool _pendingCylinderPanelUpdate;
+        private GroupBox _listGroup;
+        private GroupBox _cylinderSettingsGroup;
+        private GroupBox _actionGroup;
+        private TableLayoutPanel _cylinderHostLayout;
 
         // 스캔 스냅샷마다 그리드 전체를 훑지 않도록, 행을 주소/이름(또는 실린더 입력 모듈:비트)으로
         // 미리 인덱싱해 둔다. 백그라운드 스레드에서도 안전하게 읽을 수 있도록 통째로 교체(원자적 참조 대입)한다.
@@ -40,6 +44,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             InitializeComponent();
             ApplyRuntimeUi();
+            SettingsPageLayoutStyler.Apply(this);
+            ApplyCompactLayout();
             WireEvents();
             BuildColumns();
             ConfigureCylinderTestPanel();
@@ -57,11 +63,235 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
 
-            lblSubHeader.Text = Lang.T(_i18nKey) + " LIST - AjinIoCatalog";
+            lblSubHeader.Text = ListGroupTitle();
             lblSubHeader.Tag = "i18n:" + _i18nKey;
             lblSubHeader.BackColor = UiTheme.StatusBarBg;
             lblSubHeader.ForeColor = System.Drawing.Color.White;
             lblSubHeader.Font = UiTheme.SectionFont;
+        }
+
+        private void ApplyCompactLayout()
+        {
+            SettingsPageLayoutStyler.ApplyRoot(rootLayout);
+            SettingsPageLayoutStyler.ApplyHeader(lblHeader);
+
+            bool isCylinder = IsCylinderPage();
+
+            _grid.Dock = DockStyle.Fill;
+            _grid.Margin = Padding.Empty;
+
+            rootLayout.SuspendLayout();
+            try
+            {
+                EnsureListGroup();
+                EnsureActionGroup(isCylinder);
+                if (isCylinder)
+                    EnsureCylinderSettingsGroup();
+
+                rootLayout.Controls.Clear();
+                rootLayout.ColumnStyles.Clear();
+                rootLayout.RowStyles.Clear();
+                rootLayout.ColumnCount = 1;
+                rootLayout.RowCount = 4;
+                rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, isCylinder ? 72F : 45F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, isCylinder ? 18F : 45F));
+                rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 10F));
+
+                rootLayout.Controls.Add(lblHeader, 0, 0);
+                rootLayout.Controls.Add(_listGroup, 0, 1);
+                if (!isCylinder)
+                    rootLayout.SetRowSpan(_listGroup, 2);
+                if (isCylinder)
+                    rootLayout.Controls.Add(_cylinderHostLayout, 0, 2);
+                rootLayout.Controls.Add(_actionGroup, 0, 3);
+            }
+            finally
+            {
+                rootLayout.ResumeLayout(false);
+            }
+        }
+
+        private void EnsureListGroup()
+        {
+            if (_listGroup == null)
+                _listGroup = new GroupBox();
+
+            _listGroup.Text = ListGroupTitle();
+            SettingsPageLayoutStyler.ApplyGroupBox(_listGroup);
+            _listGroup.Padding = new Padding(1, 8, 1, 1);
+            _listGroup.Dock = IsCylinderPage() ? DockStyle.Top : DockStyle.Fill;
+
+            if (_grid.Parent != _listGroup)
+            {
+                if (_grid.Parent != null)
+                    _grid.Parent.Controls.Remove(_grid);
+                _listGroup.Controls.Add(_grid);
+            }
+        }
+
+        private void EnsureCylinderSettingsGroup()
+        {
+            if (_cylinderSettingsGroup == null)
+                _cylinderSettingsGroup = new GroupBox();
+
+            _cylinderSettingsGroup.Text = "CYLINDER TEST";
+            SettingsPageLayoutStyler.ApplyGroupBox(_cylinderSettingsGroup);
+            _cylinderSettingsGroup.Padding = new Padding(1, 8, 1, 1);
+
+            cylinderTestPanel.BackColor = Color.White;
+            cylinderTestPanel.Dock = DockStyle.Fill;
+            cylinderTestPanel.Margin = Padding.Empty;
+            cylinderTestPanel.Padding = new Padding(2);
+            cylinderTestPanel.RowStyles.Clear();
+            cylinderTestPanel.RowCount = 3;
+            cylinderTestPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+            cylinderTestPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            cylinderTestPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+
+            cylinderTestPanel.Controls.Remove(btnCylinderApply);
+            cylinderTestPanel.Controls.Remove(btnCylinderFwd);
+            cylinderTestPanel.Controls.Remove(btnCylinderBwd);
+            cylinderTestPanel.Controls.Remove(btnCylinderOff);
+            cylinderTestPanel.Controls.Remove(lblCylinderResult);
+
+            if (cylinderTestPanel.Parent != _cylinderSettingsGroup)
+            {
+                if (cylinderTestPanel.Parent != null)
+                    cylinderTestPanel.Parent.Controls.Remove(cylinderTestPanel);
+                _cylinderSettingsGroup.Controls.Add(cylinderTestPanel);
+            }
+
+            if (_cylinderHostLayout == null)
+            {
+                _cylinderHostLayout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    Margin = Padding.Empty,
+                    Padding = Padding.Empty,
+                    BackColor = Color.White,
+                    ColumnCount = 2,
+                    RowCount = 1
+                };
+                _cylinderHostLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 1120F));
+                _cylinderHostLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                _cylinderHostLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            }
+
+            _cylinderHostLayout.Controls.Clear();
+            _cylinderHostLayout.Controls.Add(_cylinderSettingsGroup, 0, 0);
+        }
+
+        private void EnsureActionGroup(bool isCylinder)
+        {
+            if (_actionGroup == null)
+                _actionGroup = new GroupBox();
+
+            _actionGroup.Text = "ACTION";
+            SettingsPageLayoutStyler.ApplyGroupBox(_actionGroup);
+
+            if (actionsLayout.Parent != _actionGroup)
+            {
+                if (actionsLayout.Parent != null)
+                    actionsLayout.Parent.Controls.Remove(actionsLayout);
+                _actionGroup.Controls.Add(actionsLayout);
+            }
+
+            actionsLayout.SuspendLayout();
+            try
+            {
+                actionsLayout.Controls.Clear();
+                actionsLayout.ColumnStyles.Clear();
+                actionsLayout.RowStyles.Clear();
+                actionsLayout.Dock = DockStyle.Fill;
+                actionsLayout.Margin = Padding.Empty;
+                actionsLayout.Padding = Padding.Empty;
+                actionsLayout.RowCount = 1;
+                actionsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                if (isCylinder)
+                    ConfigureCylinderActionLayout();
+                else
+                    ConfigureListActionLayout();
+
+                SettingsPageLayoutStyler.ApplyActionRow(actionsLayout);
+            }
+            finally
+            {
+                actionsLayout.ResumeLayout(false);
+            }
+        }
+
+        private void ConfigureListActionLayout()
+        {
+            bool hasSave = HasSimulationColumn();
+            actionsLayout.ColumnCount = 14;
+            for (int i = 0; i < 14; i++)
+                actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+            if (hasSave)
+            {
+                actionsLayout.Controls.Add(btnSave, 0, 0);
+                actionsLayout.Controls.Add(btnReload, 1, 0);
+            }
+            else
+            {
+                actionsLayout.Controls.Add(btnReload, 0, 0);
+            }
+        }
+
+        private void ConfigureCylinderActionLayout()
+        {
+            actionsLayout.ColumnCount = 14;
+            for (int i = 0; i < 14; i++)
+                actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / 14F));
+
+            actionsLayout.Controls.Add(btnCylinderApply, 0, 0);
+            actionsLayout.Controls.Add(btnCylinderFwd, 1, 0);
+            actionsLayout.Controls.Add(btnCylinderBwd, 2, 0);
+            actionsLayout.Controls.Add(btnCylinderOff, 3, 0);
+            actionsLayout.Controls.Add(lblCylinderResult, 4, 0);
+            actionsLayout.Controls.Add(btnSave, 12, 0);
+            actionsLayout.Controls.Add(btnReload, 13, 0);
+            actionsLayout.SetColumnSpan(lblCylinderResult, 1);
+
+            lblCylinderResult.Dock = DockStyle.Fill;
+            lblCylinderResult.Margin = new Padding(2);
+            lblCylinderResult.Padding = new Padding(8, 0, 8, 0);
+            lblCylinderResult.BorderStyle = BorderStyle.FixedSingle;
+            lblCylinderResult.BackColor = Color.White;
+            lblCylinderResult.ForeColor = Color.FromArgb(40, 40, 40);
+            lblCylinderResult.TextAlign = ContentAlignment.MiddleCenter;
+        }
+
+        private bool HasSimulationColumn()
+        {
+            if (_columns == null)
+                return false;
+
+            foreach (string column in _columns)
+            {
+                if (string.Equals(column, "SIM", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private string ListGroupTitle()
+        {
+            if (string.Equals(_i18nKey, "set.digital", StringComparison.OrdinalIgnoreCase))
+                return "DIGITAL I/O LIST";
+            if (string.Equals(_i18nKey, "set.cylinder", StringComparison.OrdinalIgnoreCase))
+                return "CYLINDER LIST";
+            if (string.Equals(_i18nKey, "set.lamp", StringComparison.OrdinalIgnoreCase))
+                return "LAMP LIST";
+            if (string.Equals(_i18nKey, "set.switch", StringComparison.OrdinalIgnoreCase))
+                return "SWITCH LIST";
+            if (string.Equals(_i18nKey, "set.lightSource", StringComparison.OrdinalIgnoreCase))
+                return "LIGHT SOURCE LIST";
+
+            return Lang.T(_i18nKey) + " LIST";
         }
 
         private void WireEvents()
@@ -194,7 +424,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 RebuildRowIndex();
                 RestoreSelectedRow(previousName, previousColumn);
                 UpdateSelectedCylinderPanel();
+                AdjustCylinderListGroupHeight();
             }
+        }
+
+        private void AdjustCylinderListGroupHeight()
+        {
+            if (!IsCylinderPage() || _listGroup == null)
+                return;
+
+            int rowsHeight = 0;
+            foreach (DataGridViewRow row in _grid.Rows)
+            {
+                if (!row.IsNewRow)
+                    rowsHeight += row.Height;
+            }
+
+            int headerHeight = _grid.ColumnHeadersVisible ? _grid.ColumnHeadersHeight : 0;
+            int desired = headerHeight + rowsHeight + 46;
+            _listGroup.Height = Math.Max(140, desired);
         }
 
         private void RestoreSelectedRow(string name, int columnIndex)
@@ -238,8 +486,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 bool visible = IsCylinderPage();
                 cylinderTestPanel.Visible = visible;
+                if (_cylinderSettingsGroup != null)
+                    _cylinderSettingsGroup.Visible = visible;
+                if (_cylinderHostLayout != null)
+                    _cylinderHostLayout.Visible = visible;
                 if (rootLayout.RowStyles.Count > 3)
-                    rootLayout.RowStyles[3].Height = visible ? 190F : 0F;
+                {
+                    rootLayout.RowStyles[1].Height = visible ? 72F : 45F;
+                    rootLayout.RowStyles[2].Height = visible ? 18F : 45F;
+                    rootLayout.RowStyles[3].Height = 10F;
+                }
                 lblCylinderResult.Text = visible ? "READY" : string.Empty;
             }
             catch

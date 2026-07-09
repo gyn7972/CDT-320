@@ -41,6 +41,10 @@ namespace QMC.CDT_320.Ui.Controls
         /// <summary>항목이 속한 그룹 키입니다. 헤더와 멤버가 같은 키를 공유합니다. 비어 있으면 그룹이 없습니다.</summary>
         public string GroupKey { get; set; }
 
+        /// <summary>이 항목이 티칭 포지션(MOVE/TEACH 대상)인지 여부입니다. true면 그리드 행에 MOVE/TEACH 버튼이 표시됩니다.
+        /// 하나 이상의 항목이 true면 그리드에 버튼 열 두 개가 자동으로 나타납니다.</summary>
+        public bool SupportsTeaching { get; set; }
+
         /// <summary>데이터 그리드 그룹 헤더 항목을 만듭니다.</summary>
         public static ParameterGridItem Header(string displayName, string groupKey)
         {

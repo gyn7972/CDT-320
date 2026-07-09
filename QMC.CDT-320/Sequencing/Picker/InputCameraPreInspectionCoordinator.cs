@@ -86,9 +86,27 @@ namespace QMC.CDT320.Sequencing
 
             while (true)
             {
+                if (ct.IsCancellationRequested)
+                {
+                    string pendingPermissionDetail;
+                    bool hasAnyPermission = InputCameraPickUpPermissionStore.HasAnyPermission(out pendingPermissionDetail);
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 대기 진입 전 취소 토큰 감지. " +
+                        "cycleStopRequested=" + (context != null && context.IsCycleStopRequested) +
+                        ", hasOwnPermission=" + InputCameraPickUpPermissionStore.HasPermission(side) +
+                        ", hasAnyPermission=" + hasAnyPermission +
+                        ", permissionDetail=" + (string.IsNullOrWhiteSpace(pendingPermissionDetail) ? "-" : pendingPermissionDetail) +
+                        ", reason=" + (reason ?? "-") + " - Canceled");
+                }
+
                 ct.ThrowIfCancellationRequested();
-                if (context != null)
+                if (context != null && context.IsCycleStopRequested)
+                {
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 대기 중 CYCLE STOP 요청 감지. " +
+                        "reason=" + (reason ?? "-") + " - CycleStop");
                     context.StopIfCycleStopRequested("InputCameraPreInspectionCoordinator.Wait:" + side);
+                }
 
                 if (InputCameraPickUpPermissionStore.HasPermission(side))
                 {
@@ -101,9 +119,87 @@ namespace QMC.CDT320.Sequencing
                     return InputCameraPreInspectionWaitResult.PermissionReady();
                 }
 
+                Task<int> runningTask = GetRunningTask(side);
+                if (runningTask != null)
+                {
+                    if (runningTask.IsCompleted)
+                    {
+                        int result;
+                        try
+                        {
+                            result = await runningTask.ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            if (ct.IsCancellationRequested ||
+                                (context != null && context.IsCycleStopRequested))
+                            {
+                                throw;
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 취소 완료 Task가 남아 있어 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
+                        catch (ObjectDisposedException ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            if (ct.IsCancellationRequested ||
+                                (context != null && context.IsCycleStopRequested))
+                            {
+                                throw new OperationCanceledException(ex.Message, ex, ct);
+                            }
+
+                            WriteLog("InputCameraPreInspectionCoordinator",
+                                side + " InputCamera 선행검사 Task 정리 중 dispose 상태를 감지해 제거 후 새 선행검사를 시작합니다. " +
+                                "reason=" + (reason ?? "-") + ", error=" + ex.Message + " - Recover");
+                            waitLogged = false;
+                            continue;
+                        }
+                        catch (Exception ex)
+                        {
+                            RemoveIfSame(side, runningTask);
+                            return InputCameraPreInspectionWaitResult.Failed(
+                                -1,
+                                "InputCamera 선행검사 task 예외. error=" + ex.Message);
+                        }
+
+                        RemoveIfSame(side, runningTask);
+
+                        if (InputCameraPickUpPermissionStore.HasPermission(side))
+                            return InputCameraPreInspectionWaitResult.PermissionReady();
+
+                        if (result != 0)
+                        {
+                            return InputCameraPreInspectionWaitResult.Failed(
+                                result,
+                                "InputCamera 선행검사 실패. result=" + result);
+                        }
+
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            side + " InputCamera 선행검사 완료 후 PickUp 대상이 없습니다. " +
+                            "reason=" + (reason ?? "-") + " - NoTarget");
+                        return InputCameraPreInspectionWaitResult.NoTarget();
+                    }
+
+                    if (!waitLogged)
+                    {
+                        WriteLog("InputCameraPreInspectionCoordinator",
+                            side + " InputCamera 선행검사 완료 대기 중입니다. 조건이 맞을 때까지 대기합니다. " +
+                            "reason=" + (reason ?? "-") + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(1, ct).ConfigureAwait(false);
+                    continue;
+                }
+
                 EnsureStarted(context, side, options, ct, reason);
 
-                Task<int> runningTask = GetRunningTask(side);
+                runningTask = GetRunningTask(side);
                 if (runningTask == null)
                 {
                     string pendingPermissionDetail;
@@ -122,40 +218,9 @@ namespace QMC.CDT320.Sequencing
                         continue;
                     }
 
-                    return InputCameraPreInspectionWaitResult.NoTarget();
-                }
-
-                if (runningTask.IsCompleted)
-                {
-                    int result;
-                    try
-                    {
-                        result = await runningTask.ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        RemoveIfSame(side, runningTask);
-                        return InputCameraPreInspectionWaitResult.Failed(
-                            -1,
-                            "InputCamera 선행검사 task 예외. error=" + ex.Message);
-                    }
-
-                    RemoveIfSame(side, runningTask);
-
-                    if (InputCameraPickUpPermissionStore.HasPermission(side))
-                        return InputCameraPreInspectionWaitResult.PermissionReady();
-
-                    if (result != 0)
-                    {
-                        return InputCameraPreInspectionWaitResult.Failed(
-                            result,
-                            "InputCamera 선행검사 실패. result=" + result);
-                    }
-
+                    WriteLog("InputCameraPreInspectionCoordinator",
+                        side + " InputCamera 선행검사 시작 대상이 없습니다. " +
+                        "reason=" + (reason ?? "-") + " - NoTarget");
                     return InputCameraPreInspectionWaitResult.NoTarget();
                 }
 

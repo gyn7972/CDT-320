@@ -52,9 +52,17 @@ namespace QMC.CDT_320.Ui.Controls
         private string _lotText = "(no active lot)";
         private long _signature = long.MinValue;
 
+        // 부드러운 모던 팔레트 — 회색 기계 룩 대신 밝은 뉴트럴 + 은은한 테두리/아웃라인.
+        protected override Color MapBorderColor => Color.FromArgb(0x8F, 0x9C, 0xAD);
+        protected override float MapBorderWidth => 2f;          // 얇은 1px 대신 또렷한 2px 프레임
+        protected override int MapBorderInset => 3;             // 가장자리에서 3px 들여써 카드처럼 분리
+        protected override Color WaferOutlineColor => Color.FromArgb(0xB4, 0xC4, 0xD8);
+        protected override string OverlayFontFamily => "맑은 고딕";
+        protected override bool ShowTechnicalInfoLine => false;   // pitch/zoom 등 기술 라인 숨김
+
         public LiveLotMapView()
         {
-            BackColor = Color.FromArgb(0xDD, 0xDD, 0xDD);
+            BackColor = Color.FromArgb(0xF6, 0xF8, 0xFA);
             // 현재 기준: 작업 메인도 Input/Output 전환 화면과 같은 DieMapView 렌더러를 사용한다.
             CompactUsedBounds = true;
             ShowWaferOutline = true;

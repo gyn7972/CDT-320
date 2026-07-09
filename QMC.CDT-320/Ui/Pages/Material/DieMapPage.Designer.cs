@@ -40,11 +40,11 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private Label lblRotate;
         private GroupBox grpActions;
         private TableLayoutPanel actionLayout;
-        private Button btnLoadActive;
-        private Button btnGenerate;
-        private Button btnDemo;
-        private Button btnLoad;
-        private Button btnSave;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnLoadActive;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGenerate;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnDemo;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnLoad;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSave;
         private Label _lblStats;
         private Label _lblCellInfo;
 
@@ -83,11 +83,11 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._cbRotate = new System.Windows.Forms.ComboBox();
             this.grpActions = new System.Windows.Forms.GroupBox();
             this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.btnLoadActive = new System.Windows.Forms.Button();
-            this.btnGenerate = new System.Windows.Forms.Button();
-            this.btnDemo = new System.Windows.Forms.Button();
-            this.btnLoad = new System.Windows.Forms.Button();
-            this.btnSave = new System.Windows.Forms.Button();
+            this.btnLoadActive = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnGenerate = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnDemo = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this._lblStats = new System.Windows.Forms.Label();
             this._lblCellInfo = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
@@ -588,74 +588,64 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // 
             // btnLoadActive
             // 
-            this.btnLoadActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
+            this.btnLoadActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.actionLayout.SetColumnSpan(this.btnLoadActive, 2);
+            this.btnLoadActive.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadActive.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoadActive.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnLoadActive.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnLoadActive.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnLoadActive.ForeColor = System.Drawing.Color.White;
-            this.btnLoadActive.Location = new System.Drawing.Point(13, 21);
             this.btnLoadActive.Name = "btnLoadActive";
             this.btnLoadActive.Size = new System.Drawing.Size(518, 38);
             this.btnLoadActive.TabIndex = 6;
             this.btnLoadActive.Text = "LOAD ACTIVE / STAGE MAP";
-            this.btnLoadActive.UseVisualStyleBackColor = false;
-            // 
+            //
             // btnGenerate
-            // 
-            this.btnGenerate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
+            //
+            this.btnGenerate.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGenerate.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnGenerate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGenerate.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnGenerate.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnGenerate.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnGenerate.ForeColor = System.Drawing.Color.White;
-            this.btnGenerate.Location = new System.Drawing.Point(13, 65);
             this.btnGenerate.Name = "btnGenerate";
             this.btnGenerate.Size = new System.Drawing.Size(256, 38);
             this.btnGenerate.TabIndex = 0;
             this.btnGenerate.Text = "GENERATE";
-            this.btnGenerate.UseVisualStyleBackColor = false;
-            // 
+            //
             // btnDemo
-            // 
-            this.btnDemo.BackColor = System.Drawing.Color.White;
+            //
+            this.btnDemo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDemo.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnDemo.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDemo.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnDemo.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnDemo.ForeColor = System.Drawing.Color.Black;
-            this.btnDemo.Location = new System.Drawing.Point(275, 65);
+            this.btnDemo.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDemo.ForeColor = System.Drawing.Color.White;
             this.btnDemo.Name = "btnDemo";
             this.btnDemo.Size = new System.Drawing.Size(256, 38);
             this.btnDemo.TabIndex = 1;
             this.btnDemo.Text = "FILL DEMO RESULTS";
-            this.btnDemo.UseVisualStyleBackColor = false;
-            // 
+            //
             // btnLoad
-            // 
-            this.btnLoad.BackColor = System.Drawing.Color.White;
+            //
+            this.btnLoad.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnLoad.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoad.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnLoad.ForeColor = System.Drawing.Color.Black;
-            this.btnLoad.Location = new System.Drawing.Point(13, 109);
+            this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnLoad.ForeColor = System.Drawing.Color.White;
             this.btnLoad.Name = "btnLoad";
             this.btnLoad.Size = new System.Drawing.Size(256, 38);
             this.btnLoad.TabIndex = 2;
             this.btnLoad.Text = "LOAD JSON/CSV";
-            this.btnLoad.UseVisualStyleBackColor = false;
-            // 
+            //
             // btnSave
-            // 
-            this.btnSave.BackColor = System.Drawing.Color.White;
+            //
+            this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnSave.ForeColor = System.Drawing.Color.Black;
-            this.btnSave.Location = new System.Drawing.Point(275, 109);
+            this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(256, 38);
             this.btnSave.TabIndex = 3;
             this.btnSave.Text = "SAVE CSV+JSON";
-            this.btnSave.UseVisualStyleBackColor = false;
             // 
             // _lblStats
             // 

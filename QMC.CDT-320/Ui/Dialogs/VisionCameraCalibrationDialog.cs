@@ -151,11 +151,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 toolTip.SetToolTip(btnSaveReticleValues, "FIND INPUT/OUTPUT에서 측정한 InputVisionX/OutputVisionX 위치를 ReticlePosition으로 저장합니다.\r\nBottom 위 Reticle 촬영 X Encoder 값도 VisionUnit Config에 함께 저장합니다.");
                 toolTip.SetToolTip(gridAppliedValues, "Admin 권한에서 값을 더블클릭하면 키패드로 수정하고 VisionUnit CalibrationData에 저장합니다.");
                 toolTip.SetToolTip(btnCheck, "자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n측정 버튼을 누르기 전에 현재 장비 상태가 안전한지 확인합니다.");
-                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Front Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다.");
+                toolTip.SetToolTip(btnRunAll, "사전 준비 후 Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 Rear Back -> Lift Down으로 복귀한 뒤 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
                 toolTip.SetToolTip(btnFindBottom, "Bottom Vision에 ReticleFinder 실행을 요청합니다.\r\n성공하면 X/Y/T/Score를 VisionUnit Config의 Bottom 측정값으로 저장합니다.");
                 toolTip.SetToolTip(btnFindInput, "Input Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Output-side Avoid로 안전 순차 이동한 뒤 InputVisionX를 Reticle 위치로 이동합니다.");
                 toolTip.SetToolTip(btnFindOutput, "Output Vision에 ReticleFinder 실행을 요청합니다.\r\nPicker 이동 전 Reticle을 안전 위치로 복귀하고 Front/Rear Picker를 Input-side Avoid로 안전 순차 이동한 뒤 OutputVisionX를 Reticle 위치로 이동합니다.");
-                toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 역순으로 복귀합니다.\r\nRear Slide 후진, Front Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다.");
+                toolTip.SetToolTip(btnRetractReticle, "Reticle을 촬영 준비 위치에서 복귀합니다.\r\nRear Slide 후진, Lift Down 순서로 실행하고 최종 위치를 확인합니다. Front Slide는 Rear Back 기준으로 확인합니다.");
                 toolTip.SetToolTip(btnCalculateSave, "Bottom/Input/Output 측정값으로 카메라 간 Offset을 계산합니다.\r\n계산된 값을 CalibrationData.Camera에 저장합니다.");
                 toolTip.SetToolTip(btnHelp, "Vision Camera Calibration 수행 순서를 표시합니다.");
                 toolTip.SetToolTip(btnClose, "Vision Camera Calibration 창을 닫습니다.");
@@ -362,24 +362,24 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "   - 자동 운전, 다른 수동 동작, 알람 상태를 확인합니다.\r\n\r\n" +
                 "2. PREPARE && FIND BOTTOM\r\n" +
                 "   - Input/Output VisionX Avoid 이동\r\n" +
-                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Lift Down, Front Slide는 Rear Back 기준 확인)\r\n" +
                 "   - Front/Rear Picker Output-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
-                "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
+                "   - Reticle Lift Up -> Rear Slide 전진(Front Slide는 Rear Forward 기준 확인)\r\n" +
                 "   - Bottom Vision ReticleFinder 촬영 및 X/Y/T/Score 저장\r\n\r\n" +
                 "3. FIND INPUT\r\n" +
                 "   - OutputVisionX Avoid 이동\r\n" +
-                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Lift Down, Front Slide는 Rear Back 기준 확인)\r\n" +
                 "   - Front/Rear Picker Output-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
-                "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
+                "   - Reticle Lift Up -> Rear Slide 전진(Front Slide는 Rear Forward 기준 확인)\r\n" +
                 "   - InputVisionX Reticle 위치 이동 후 ReticleFinder 촬영\r\n\r\n" +
                 "4. FIND OUTPUT\r\n" +
                 "   - InputVisionX Avoid 이동\r\n" +
-                "   - Reticle 안전 위치 복귀(Rear Back -> Front Back -> Lift Down)\r\n" +
+                "   - Reticle 안전 위치 복귀(Rear Back -> Lift Down, Front Slide는 Rear Back 기준 확인)\r\n" +
                 "   - Front/Rear Picker Input-side Avoid 이동(Z Avoid -> Y Avoid -> X 이동)\r\n" +
-                "   - Reticle Lift Up -> Front Slide 전진 -> Rear Slide 전진\r\n" +
+                "   - Reticle Lift Up -> Rear Slide 전진(Front Slide는 Rear Forward 기준 확인)\r\n" +
                 "   - OutputVisionX Reticle 위치 이동 후 ReticleFinder 촬영\r\n\r\n" +
                 "5. RETICLE BACK\r\n" +
-                "   - Rear Slide 후진 -> Front Slide 후진 -> Lift Down\r\n\r\n" +
+                "   - Rear Slide 후진 -> Lift Down. Front Slide는 동작하지 않고 Rear Back 기준으로 확인합니다.\r\n\r\n" +
                 "6. CALC / SAVE\r\n" +
                 "   - Bottom/Input/Output 측정값으로 Offset을 계산하고 VisionUnit Config의 CalibrationData.Camera에 저장합니다.\r\n" +
                 "   - 저장 후 Offset valid=True 상태인지 확인합니다.\r\n\r\n" +
@@ -586,13 +586,13 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return true;
 
             bool up = vision.IsVisionReticleUp();
-            bool frontForward = vision.IsVisionReticleFrontSideForward();
             bool rearForward = vision.IsVisionReticleRearSideForward();
-            if (up && frontForward && rearForward)
+            bool frontForward = rearForward;
+            if (up && rearForward)
                 return true;
 
-            reason = "Bottom 촬영 준비 상태가 아닙니다. Reticle 상태를 확인하세요. 필요상태=Lift Up, Front Slide 전진, Rear Slide 전진, 현재 up=" +
-                     up + ", frontForward=" + frontForward + ", rearForward=" + rearForward;
+            reason = "Bottom 촬영 준비 상태가 아닙니다. Reticle 상태를 확인하세요. 필요상태=Lift Up, Rear Slide 전진(Front Slide는 Rear Forward 기준 확인), 현재 up=" +
+                     up + ", frontForwardByRear=" + frontForward + ", rearForward=" + rearForward + ", rawFrontForward=" + vision.IsVisionReticleFrontSideForward();
             return false;
         }
 

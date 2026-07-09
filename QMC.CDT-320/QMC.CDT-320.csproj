@@ -812,6 +812,9 @@
     <Compile Include="Ui\Dialogs\PickerZoneSetupDialog.Designer.cs">
       <DependentUpon>PickerZoneSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\PickerAppliedZoneMoveDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\InputPickerOffsetSetupDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -924,6 +927,7 @@
     <Compile Include="Sequencing\Picker\PickerFirstForwardSequencer.cs" />
     <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
     <Compile Include="Sequencing\Picker\DieCoordinateTransformService.cs" />
+    <Compile Include="Sequencing\Picker\PickerMotionTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\InputPickerPickTargetResolver.cs" />
     <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\InputDieVisionPreparedItem.cs" />
@@ -980,6 +984,9 @@
       <DependentUpon>InputPickTargetSelectDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\InputPickTargetSelectDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\OutputPlaceTargetSelectDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.Designer.cs">
@@ -1075,6 +1082,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
+    <Compile Include="Ui\Pages\Recipe\RecipePickerMoveTarget.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>
@@ -1094,6 +1102,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
+    <Compile Include="Ui\Pages\Recipe\RecipeVisionPreview.cs" />
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
       <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>
@@ -1113,6 +1122,7 @@
     <Compile Include="Ui\Pages\Settings\DevicePages.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\SettingsPageLayoutStyler.cs" />
     <Compile Include="Ui\Pages\Settings\GeneralPage.Designer.cs">
       <DependentUpon>GeneralPage.cs</DependentUpon>
     </Compile>

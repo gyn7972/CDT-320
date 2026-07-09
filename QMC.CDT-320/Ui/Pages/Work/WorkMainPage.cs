@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Drawing;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -8,7 +9,9 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 using QMC.CDT320.Stats;
-using QMC.Common.Alarms;
+using QMC.CDT320.VisionComm;
+using QMC.Common.Ui.Controls;
+using QMC.CDT_320.Equipment.Vision;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
@@ -17,6 +20,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         // UI 적용 주기(250~500ms). 표시 갱신만 수행하며 저장/모션 루프와 분리된다.
         private const int RefreshIntervalMs = 500;
         private const int MaterialRefreshIntervalMs = 1000;
+        private const int BottomPanelReserveHeight = 56;
 
         private System.Windows.Forms.Timer _refresh;
         private ToolTip _workTimeToolTip;
@@ -29,20 +33,38 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private bool _fallbackProjectNameLoaded;
         private readonly Label[] _frontColletUseValues = new Label[4];
         private readonly Label[] _rearColletUseValues = new Label[4];
+        private readonly List<VisionViewerSource> _visionSources = new List<VisionViewerSource>();
+        private readonly List<CameraViewBase> _visionCameras = new List<CameraViewBase>();
 
         public WorkMainPage()
         {
             InitializeComponent();
-            RebuildWorkInfoPanel();
-            WireEvents();
-            InitializeWorkTimeToolTips();
+            bool designerMode = IsDesignerMode();
 
-            if (!IsDesignerMode())
+            BindDesignerMetricLabels();
+
+            if (!designerMode)
             {
+                RebuildVisionPanel();
+                StyleMapTabs();
+                ApplyBottomGroupSizing();
+                WireEvents();
+                InitializeWorkTimeToolTips();
                 HookStateEvents();
-
                 EnsureRefreshTimer();
             }
+        }
+
+        private void BindDesignerMetricLabels()
+        {
+            _frontColletUseValues[0] = lblFrontCollet1Designer;
+            _frontColletUseValues[1] = lblFrontCollet2Designer;
+            _frontColletUseValues[2] = lblFrontCollet3Designer;
+            _frontColletUseValues[3] = lblFrontCollet4Designer;
+            _rearColletUseValues[0] = lblRearCollet1Designer;
+            _rearColletUseValues[1] = lblRearCollet2Designer;
+            _rearColletUseValues[2] = lblRearCollet3Designer;
+            _rearColletUseValues[3] = lblRearCollet4Designer;
         }
 
         protected override void Dispose(bool disposing)
@@ -61,13 +83,296 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     _refresh.Dispose();
                     _refresh = null;
                 }
+
+                DisposeVisionSources();
             }
 
             base.Dispose(disposing);
         }
 
+        private void RebuildVisionPanel()
+        {
+            if (visionPanel == null)
+                return;
+
+            bool designerMode = IsDesignerMode();
+            if (!designerMode)
+                DisposeVisionSources();
+
+            visionPanel.SuspendLayout();
+            try
+            {
+                visionPanel.Controls.Clear();
+                visionPanel.BackColor = Color.Black;
+                visionPanel.Padding = new Padding(0);
+
+                TableLayoutPanel mainLayout = new TableLayoutPanel
+                {
+                    BackColor = Color.Black,
+                    ColumnCount = 2,
+                    Dock = DockStyle.Fill,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
+                    RowCount = 1
+                };
+                mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                mainLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                mainLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                TableLayoutPanel leftLayout = new TableLayoutPanel
+                {
+                    BackColor = Color.Black,
+                    ColumnCount = 1,
+                    Dock = DockStyle.Fill,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
+                    RowCount = 2
+                };
+                leftLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+                TableLayoutPanel rightLayout = new TableLayoutPanel
+                {
+                    BackColor = Color.Black,
+                    ColumnCount = 1,
+                    Dock = DockStyle.Fill,
+                    Margin = new Padding(0),
+                    Padding = new Padding(0),
+                    RowCount = 3
+                };
+                rightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));
+                rightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / 3F));
+
+                if (designerMode && lblStageInfo != null)
+                    lblStageInfo.Text = BuildVisionInfoText("WAFER VISION", 640, 480);
+
+                int waferPort = designerMode ? 0 : VisionViewerPorts.Wafer;
+                int bottomPort = designerMode ? 0 : VisionViewerPorts.BottomInspection;
+                int binPort = designerMode ? 0 : VisionViewerPorts.Bin;
+                int rearPort = designerMode ? 0 : VisionViewerPorts.RearSideVision;
+                int frontPort = designerMode ? 0 : VisionViewerPorts.FrontSideVision;
+
+                leftLayout.Controls.Add(BuildVisionTile("WAFER VISION", waferPort, lblStageInfo), 0, 0);
+                leftLayout.Controls.Add(BuildVisionTile("BIN VISION", binPort), 0, 1);
+                rightLayout.Controls.Add(BuildVisionTile("REAR SIDE VISION", rearPort), 0, 0);
+                rightLayout.Controls.Add(BuildVisionTile("BOTTOM VISION", bottomPort), 0, 1);
+                rightLayout.Controls.Add(BuildVisionTile("FRONT SIDE VISION", frontPort), 0, 2);
+
+                mainLayout.Controls.Add(leftLayout, 0, 0);
+                mainLayout.Controls.Add(rightLayout, 1, 0);
+                visionPanel.Controls.Add(mainLayout);
+            }
+            finally
+            {
+                visionPanel.ResumeLayout(true);
+            }
+        }
+
+        private Control BuildVisionTile(string title, int viewerPort, out Label infoLabel)
+        {
+            infoLabel = CreateVisionInfoLabel(BuildVisionInfoText(title, 640, 480));
+            return BuildVisionTile(title, viewerPort, infoLabel);
+        }
+
+        private Control BuildVisionTile(string title, int viewerPort)
+        {
+            Label infoLabel;
+            return BuildVisionTile(title, viewerPort, out infoLabel);
+        }
+
+        private Control BuildVisionTile(string title, int viewerPort, Label infoLabel)
+        {
+            Panel tile = new Panel
+            {
+                BackColor = Color.Black,
+                BorderStyle = BorderStyle.FixedSingle,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(1),
+                Padding = new Padding(0)
+            };
+
+            bool designerMode = IsDesignerMode();
+            Control display;
+            CameraViewBase camera = null;
+
+            if (designerMode)
+            {
+                display = new Panel
+                {
+                    BackColor = Color.Black,
+                    Dock = DockStyle.Fill,
+                    Margin = new Padding(0),
+                    Name = "preview" + title.Replace(" ", "")
+                };
+            }
+            else
+            {
+                camera = new CameraViewBase
+                {
+                    BackColor = Color.Black,
+                    Dock = DockStyle.Fill,
+                    Name = "camera" + title.Replace(" ", ""),
+                    ShowToolbar = false
+                };
+                SetCameraInfoText(camera, BuildVisionInfoText(title, 640, 480));
+                display = camera;
+            }
+
+            tile.Controls.Add(display);
+
+            if (designerMode && infoLabel != null)
+            {
+                infoLabel.AutoSize = true;
+                infoLabel.BackColor = Color.Black;
+                infoLabel.Font = new Font("Consolas", 8.5F, FontStyle.Regular);
+                infoLabel.ForeColor = Color.LightGreen;
+                infoLabel.Location = new Point(8, 8);
+                infoLabel.Margin = new Padding(0);
+                infoLabel.Padding = new Padding(0);
+                tile.Controls.Add(infoLabel);
+                infoLabel.BringToFront();
+            }
+
+            if (!designerMode)
+                AttachPassiveVisionSource(camera, infoLabel, title, viewerPort);
+            return tile;
+        }
+
+        private static Label CreateVisionInfoLabel(string text)
+        {
+            return new Label
+            {
+                AutoSize = true,
+                BackColor = Color.Black,
+                Font = new Font("Consolas", 8.5F, FontStyle.Regular),
+                ForeColor = Color.LightGreen,
+                Location = new Point(8, 8),
+                Margin = new Padding(0),
+                Padding = new Padding(0),
+                Text = text
+            };
+        }
+
+        private void AttachPassiveVisionSource(CameraViewBase camera, Label infoLabel, string title, int viewerPort)
+        {
+            if (camera == null || viewerPort <= 0)
+                return;
+
+            try
+            {
+                string host = string.IsNullOrWhiteSpace(VisionHub.Host) ? "127.0.0.1" : VisionHub.Host.Trim();
+                VisionViewerSource source = new VisionViewerSource(host, viewerPort, 2000, null);
+                source.FrameMeta += meta => OnVisionFrameMeta(camera, infoLabel, title, meta);
+                camera.AttachSource(source);
+
+                _visionSources.Add(source);
+                _visionCameras.Add(camera);
+
+                camera.HandleCreated += (s, e) => StartPassiveVisionCamera(camera);
+                if (camera.IsHandleCreated)
+                    StartPassiveVisionCamera(camera);
+            }
+            catch
+            {
+            }
+        }
+
+        private static void StartPassiveVisionCamera(CameraViewBase camera)
+        {
+            if (camera == null || camera.IsDisposed)
+                return;
+
+            try { camera.StartLive(); } catch { }
+        }
+
+        private void OnVisionFrameMeta(CameraViewBase camera, Label infoLabel, string title, VisionFrameMeta meta)
+        {
+            if (meta == null || IsDisposed || !IsHandleCreated)
+                return;
+
+            try
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    if (IsDisposed || camera == null || camera.IsDisposed)
+                        return;
+
+                    string text = BuildVisionInfoText(title, meta);
+                    SetCameraInfoText(camera, text);
+
+                    try { camera.SetVerdict(meta.Verdict, meta.VerdictPass); } catch { }
+                    try { camera.SetResultLines(meta.ResultLines); } catch { }
+
+                    if (infoLabel != null)
+                        SetText(infoLabel, text);
+                }));
+            }
+            catch
+            {
+            }
+        }
+
+        private static string BuildVisionInfoText(string title, VisionFrameMeta meta)
+        {
+            string module = meta == null || string.IsNullOrWhiteSpace(meta.Module)
+                ? "STAGE"
+                : meta.Module.Trim();
+            int width = meta != null ? meta.Width : 640;
+            int height = meta != null ? meta.Height : 480;
+            return BuildVisionInfoText(title, module, width, height);
+        }
+
+        private static string BuildVisionInfoText(string title, int width, int height)
+        {
+            return BuildVisionInfoText(title, "STAGE", width, height);
+        }
+
+        private static string BuildVisionInfoText(string title, string module, int width, int height)
+        {
+            string size = width > 0 && height > 0
+                ? "W:" + width + " H:" + height
+                : "W:640 H:480";
+            string fixedTitle = string.IsNullOrWhiteSpace(title) ? "VISION" : title.Trim();
+            string bodyTitle = string.IsNullOrWhiteSpace(module) ? "STAGE" : module.Trim();
+            return fixedTitle + "\r\n" + bodyTitle + "\r\n" + size;
+        }
+
+        private static void SetCameraInfoText(CameraViewBase camera, string text)
+        {
+            try
+            {
+                if (camera != null)
+                    camera.InfoText = text;
+            }
+            catch
+            {
+            }
+        }
+
+        private void DisposeVisionSources()
+        {
+            for (int i = 0; i < _visionCameras.Count; i++)
+            {
+                try { _visionCameras[i].StopLive(); } catch { }
+            }
+
+            for (int i = 0; i < _visionSources.Count; i++)
+            {
+                try { _visionSources[i].Dispose(); } catch { }
+            }
+
+            _visionCameras.Clear();
+            _visionSources.Clear();
+        }
+
         private void WireEvents()
         {
+            if (rootLayout != null)
+                rootLayout.SizeChanged += (s, e) => ApplyBottomGroupSizing();
+
             btnCcs.Click += (s, e) =>
             {
                 try
@@ -87,24 +392,22 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     MessageBoxIcon.Information);
             };
 
-            btnTestAlarm.Click += (s, e) =>
-            {
-                try
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        QMC.CDT_320.Ui.Security.UserSession.Name,
-                        "TEST-ALARM",
-                        "작업 메인 화면에서 테스트 알람 버튼을 눌렀습니다.");
-                }
-                catch { }
+        }
 
-                AlarmManager.Raise(
-                    AlarmSeverity.Critical,
-                    "TEST-ALARM",
-                    "WorkMainPage",
-                    "테스트 알람이 발생했습니다. 오토/메뉴얼 시퀀스 정지 및 축 긴급 정지 응답을 확인하세요.");
-            };
+        private void ApplyBottomGroupSizing()
+        {
+            if (rootLayout == null || grpInfo == null || grpTime == null)
+                return;
+
+            int available = rootLayout.ClientSize.Height - rootLayout.Padding.Vertical;
+            int bottomRow = Math.Max(0, (int)(available * 0.35F));
+            int groupHeight = Math.Max(230, bottomRow - BottomPanelReserveHeight);
+            groupHeight = Math.Min(Math.Max(0, bottomRow), groupHeight);
+
+            grpInfo.Dock = DockStyle.Top;
+            grpTime.Dock = DockStyle.Top;
+            grpInfo.Height = groupHeight;
+            grpTime.Height = groupHeight;
         }
 
         private void InitializeWorkTimeToolTips()
@@ -460,8 +763,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             SetText(lblTotalChip, s.TotalChip);
             SetText(lblBinNum, s.BinNum);
-            SetText(lblStageInfo, s.StageInfo);
-            SetText(lblLive, s.Live);
             SetText(lblProject, s.Project);
             SetText(lblPickFail, s.PickFail);
             SetText(lblPlaceFail, s.PlaceFail);
@@ -503,93 +804,67 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private void RebuildWorkInfoPanel()
+        /// <summary>작업 맵 탭을 플랫 오너드로우로 스타일링한다(선택 탭=액센트, 나머지=연회색).</summary>
+        private void StyleMapTabs()
         {
-            if (workInfoBody == null)
+            if (mapTabControl == null)
                 return;
 
-            workInfoBody.SuspendLayout();
-            try
-            {
-                workInfoBody.Controls.Clear();
-                workInfoBody.ColumnStyles.Clear();
-                workInfoBody.RowStyles.Clear();
-                workInfoBody.ColumnCount = 4;
-                workInfoBody.RowCount = 11;
-                workInfoBody.BackColor = Color.FromArgb(240, 240, 240);
-                workInfoBody.Padding = new Padding(6);
-                workInfoBody.CellBorderStyle = TableLayoutPanelCellBorderStyle.None;
-
-                for (int i = 0; i < 4; i++)
-                    workInfoBody.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-                for (int i = 0; i < 10; i++)
-                    workInfoBody.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-                workInfoBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-                AddWorkInfoPair(lblProjectCaption, lblProject, 0, 0, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblBinQtyCaption, lblBinQty, 2, 0, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblPickFailCaption, lblPickFail, 0, 1, WorkInfoCaptionColor, Color.White);
-                AddWorkInfoPair(lblPlaceFailCaption, lblPlaceFail, 2, 1, WorkInfoCaptionColor, Color.White);
-
-                for (int i = 0; i < 4; i++)
-                {
-                    Label caption = CreateWorkInfoLabel("Front - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
-                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
-                    _frontColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 2 + i, WorkInfoCaptionColor, Color.White);
-                }
-
-                for (int i = 0; i < 4; i++)
-                {
-                    Label caption = CreateWorkInfoLabel("Rear - #" + (i + 1) + " Collet 사용", true, WorkInfoCaptionColor);
-                    Label value = CreateWorkInfoLabel("00 ea", false, Color.White);
-                    _rearColletUseValues[i] = value;
-                    AddWorkInfoPair(caption, value, 0, 6 + i, WorkInfoCaptionColor, Color.White);
-                }
-
-                lblNeedleCaption.Tag = null;
-                lblNeedleCaption.Text = "Needle 사용";
-                AddWorkInfoPair(lblNeedleCaption, lblNeedle, 2, 3, WorkInfoCaptionColor, Color.White);
-            }
-            finally
-            {
-                workInfoBody.ResumeLayout(false);
-            }
+            mapTabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+            mapTabControl.SizeMode = TabSizeMode.Fixed;
+            mapTabControl.BackColor = Color.White;
+            mapTabControl.Font = new Font("맑은 고딕", 8F, FontStyle.Bold);
+            mapTabControl.Padding = new Point(6, 1);
+            mapTabControl.DrawItem -= MapTabControl_DrawItem;
+            mapTabControl.DrawItem += MapTabControl_DrawItem;
+            mapTabControl.SizeChanged -= MapTabControl_SizeChanged;
+            mapTabControl.SizeChanged += MapTabControl_SizeChanged;
+            UpdateMapTabWidth();
         }
 
-        private static Color WorkInfoCaptionColor => Color.FromArgb(208, 208, 208);
-        private static Color WorkInfoYellowColor => Color.FromArgb(255, 192, 0);
-
-        private void AddWorkInfoPair(Label caption, Label value, int column, int row, Color captionBackColor, Color valueBackColor)
+        private void MapTabControl_SizeChanged(object sender, EventArgs e)
         {
-            ConfigureWorkInfoLabel(caption, true, captionBackColor);
-            ConfigureWorkInfoLabel(value, false, valueBackColor);
-            workInfoBody.Controls.Add(caption, column, row);
-            workInfoBody.Controls.Add(value, column + 1, row);
+            UpdateMapTabWidth();
         }
 
-        private static Label CreateWorkInfoLabel(string text, bool caption, Color backColor)
+        /// <summary>탭 3개가 좌우로 꽉 차도록 각 탭 폭을 컨트롤 폭에 맞춰 균등 분할한다.</summary>
+        private void UpdateMapTabWidth()
         {
-            var label = new Label { Text = text };
-            ConfigureWorkInfoLabel(label, caption, backColor);
-            return label;
-        }
-
-        private static void ConfigureWorkInfoLabel(Label label, bool caption, Color backColor)
-        {
-            if (label == null)
+            if (mapTabControl == null || mapTabControl.TabCount == 0)
                 return;
 
-            label.BackColor = backColor;
-            label.BorderStyle = BorderStyle.FixedSingle;
-            label.Dock = DockStyle.Fill;
-            label.Font = caption
-                ? new Font("맑은 고딕", 10F, FontStyle.Regular)
-                : new Font("Consolas", 10F, FontStyle.Regular);
-            label.ForeColor = caption && backColor == WorkInfoYellowColor ? Color.White : Color.Black;
-            label.Margin = new Padding(0);
-            label.Padding = caption ? new Padding(8, 0, 0, 0) : new Padding(0, 0, 6, 0);
-            label.TextAlign = caption ? ContentAlignment.MiddleLeft : ContentAlignment.MiddleRight;
+            int w = (mapTabControl.ClientSize.Width - 4) / mapTabControl.TabCount;
+            if (w < 40)
+                w = 40;
+            if (mapTabControl.ItemSize.Width != w || mapTabControl.ItemSize.Height != 21)
+                mapTabControl.ItemSize = new Size(w, 21);
+        }
+
+        private void MapTabControl_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            var tc = sender as TabControl;
+            if (tc == null || e.Index < 0 || e.Index >= tc.TabPages.Count)
+                return;
+
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            Rectangle r = tc.GetTabRect(e.Index);
+            bool selected = e.Index == tc.SelectedIndex;
+
+            // 탭 스트립을 콘텐츠와 같은 흰색으로 채워 카드와 자연스럽게 이어지게(모던 언더라인 탭).
+            using (var b = new SolidBrush(Color.White))
+                e.Graphics.FillRectangle(b, r);
+
+            Color fg = selected ? AccentColor : Color.FromArgb(51, 65, 85);   // 캡션과 동일한 slate-700 로 통일
+            using (Font font = new Font(tc.Font.FontFamily, 8F, FontStyle.Bold))   // 선택/미선택 모두 굵게
+                TextRenderer.DrawText(
+                    e.Graphics, tc.TabPages[e.Index].Text, font, r, fg,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            // 선택 탭: 하단 강조 언더라인 바.
+            if (selected)
+                using (var b = new SolidBrush(AccentColor))
+                    e.Graphics.FillRectangle(b, r.Left + 12, r.Bottom - 2, Math.Max(1, r.Width - 24), 2);
         }
 
         private static void SetText(Control control, string text)

@@ -18,6 +18,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     internal partial class InputPickTargetSelectDialog : Form
     {
+        private const int RunAllStepDelayMs = 300;
         private readonly MachineController _controller;
         private readonly PickerSequenceSide _side;
         private readonly List<InputStagePickTargetCandidate> _targets = new List<InputStagePickTargetCandidate>();
@@ -29,6 +30,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private string _preparedDieId = "";
         private int _preparedPickerNo;
         private bool _releasePreparedReservationOnClose;
+        private bool _runAllInProgress;
 
         private sealed class PickUpStepItem
         {
@@ -200,6 +202,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             await RunSelectedPickUpStepAsync(true).ConfigureAwait(true);
         }
 
+        private async void btnRunAllSteps_Click(object sender, EventArgs e)
+        {
+            await RunAllPickUpStepsAsync().ConfigureAwait(true);
+        }
+
         private void btnRefresh_Click(object sender, EventArgs e)
         {
             BindTargets();
@@ -233,6 +240,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task<bool> RunPrepareAsync(bool moveNextWhenSuccess)
         {
+            return await RunPrepareAsync(moveNextWhenSuccess, true).ConfigureAwait(true);
+        }
+
+        private async Task<bool> RunPrepareAsync(bool moveNextWhenSuccess, bool showConfirm)
+        {
             if (_busy)
                 return false;
 
@@ -252,17 +264,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 int pickerNo = ResolvePickerNo();
-                DialogResult answer = QMC.Common.MessageDialog.Show(
-                    this,
-                    "Prepare the selected die for PickUp Step test?\r\n\r\n" +
-                    "Input Vision inspection and picker approach sequence will run.\r\n\r\n" +
-                    "Die=" + target.DieId + "\r\n" +
-                    "PickerNo=" + pickerNo,
-                    SideName + " PickUp Test",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (answer != DialogResult.Yes)
-                    return false;
+                if (showConfirm)
+                {
+                    DialogResult answer = QMC.Common.MessageDialog.Show(
+                        this,
+                        "Prepare the selected die for PickUp Step test?\r\n\r\n" +
+                        "Input Vision inspection and picker approach sequence will run.\r\n\r\n" +
+                        "Die=" + target.DieId + "\r\n" +
+                        "PickerNo=" + pickerNo,
+                        SideName + " PickUp Test",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+                    if (answer != DialogResult.Yes)
+                        return false;
+                }
 
                 SetBusy(true);
                 SequenceFailureStore.Clear();
@@ -408,26 +423,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return;
             }
 
-            await RunPickZStepAsync(stepItem, moveNextWhenSuccess).ConfigureAwait(true);
+                await RunPickZStepAsync(stepItem, moveNextWhenSuccess).ConfigureAwait(true);
         }
 
-        private async Task RunPickZStepAsync(PickUpStepItem stepItem, bool moveNextWhenSuccess)
+        private async Task<bool> RunPickZStepAsync(PickUpStepItem stepItem, bool moveNextWhenSuccess)
         {
             if (_busy)
-                return;
+                return false;
 
             try
             {
                 if (_controller == null)
                 {
                     ShowMessage("MachineController is not available. Pick Z Step test cannot run.", MessageBoxIcon.Warning);
-                    return;
+                    return false;
                 }
 
                 if (string.IsNullOrWhiteSpace(_preparedDieId))
                 {
                     ShowMessage("PickUp target is not prepared. Prepare the picker target before Pick Z Step test.", MessageBoxIcon.Warning);
-                    return;
+                    return false;
                 }
 
                 int pickerNo = ResolvePickerNo();
@@ -437,7 +452,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         "Prepared Picker No and current Picker No are different.\r\n" +
                         "Prepared PickerNo=" + _preparedPickerNo + ", current PickerNo=" + pickerNo,
                         MessageBoxIcon.Warning);
-                    return;
+                    return false;
                 }
 
                 SetBusy(true);
@@ -458,7 +473,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         : _controller.LastActionFailureMessage;
                     lblStatus.Text = "Pick Z Step failed: " + stepItem.Text + " / " + reason;
                     ShowMessage("Pick Z Step failed: " + stepItem.Text + "\r\n" + reason, MessageBoxIcon.Error);
-                    return;
+                    return false;
                 }
 
                 lblStatus.Text = "Pick Z Step complete: " + stepItem.Text;
@@ -472,22 +487,129 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     _preparedDieId = "";
                     _releasePreparedReservationOnClose = false;
                     lblStatus.Text = "Pick Z Step complete: " + stepItem.Text;
-                    return;
+                    return true;
                 }
 
                 if (moveNextWhenSuccess)
                     MoveToNextPickUpStep();
+
+                return true;
             }
             catch (Exception ex)
             {
                 lblStatus.Text = "Pick Z Step exception: " + ex.Message;
                 ShowMessage("Error during Pick Z Step.\r\n" + ex.Message, MessageBoxIcon.Error);
+                return false;
             }
             finally
             {
                 SetBusy(false);
                 UpdatePreparedState();
             }
+        }
+
+        private async Task RunAllPickUpStepsAsync()
+        {
+            if (_busy || _runAllInProgress)
+                return;
+
+            try
+            {
+                if (_controller == null)
+                {
+                    ShowMessage("MachineController is not available. PickUp Step All cannot run.", MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int pickerNo = ResolvePickerNo();
+                bool prepared = !string.IsNullOrWhiteSpace(_preparedDieId);
+                if (prepared && pickerNo != _preparedPickerNo)
+                {
+                    ShowMessage(
+                        "Prepared Picker No and current Picker No are different.\r\n" +
+                        "Prepared PickerNo=" + _preparedPickerNo + ", current PickerNo=" + pickerNo,
+                        MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!prepared)
+                {
+                    InputStagePickTargetCandidate target = GetSelectedTarget();
+                    if (target == null || string.IsNullOrWhiteSpace(target.DieId))
+                    {
+                        ShowMessage("Select a die to run PickUp Step All.", MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+
+                DialogResult answer = QMC.Common.MessageDialog.Show(
+                    this,
+                    "Run all PickUp steps with a short delay between steps?\r\n\r\n" +
+                    "Delay=" + RunAllStepDelayMs + " ms\r\n" +
+                    "Prepared=" + (prepared ? ("Picker #" + _preparedPickerNo + " / " + _preparedDieId) : "No. Step 01 will prepare selected die."),
+                    SideName + " PickUp Test",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (answer != DialogResult.Yes)
+                    return;
+
+                _runAllInProgress = true;
+                SetBusy(false);
+                SequenceFailureStore.Clear();
+                Log.Write("Main", UserSession.Name, "PickUpTestDialog",
+                    SideName + " PickUp Step All start. prepared=" + prepared +
+                    ", pickerNo=" + pickerNo + " - Start");
+
+                if (!prepared)
+                {
+                    SelectPickUpStepRow(1);
+                    bool prepareOk = await RunPrepareAsync(true, false).ConfigureAwait(true);
+                    if (!prepareOk)
+                        return;
+
+                    await DelayBetweenRunAllStepsAsync().ConfigureAwait(true);
+                }
+                else
+                {
+                    SelectPickUpStepRow(2);
+                }
+
+                foreach (PickUpStepItem step in GetPickUpStepItems())
+                {
+                    if (step == null || step.IsPrepareTarget)
+                        continue;
+
+                    SelectPickUpStepRow(step.No);
+                    lblStatus.Text = "PickUp Step All running: " + step.Text;
+                    bool ok = await RunPickZStepAsync(step, true).ConfigureAwait(true);
+                    if (!ok)
+                        return;
+
+                    if (step.Step != PickerPickUpZManualStep.UpdateMaterialToPicker)
+                        await DelayBetweenRunAllStepsAsync().ConfigureAwait(true);
+                }
+
+                lblStatus.Text = "PickUp Step All complete.";
+                Log.Write("Main", UserSession.Name, "PickUpTestDialog",
+                    SideName + " PickUp Step All complete. pickerNo=" + pickerNo + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "PickUp Step All exception: " + ex.Message;
+                ShowMessage("Error during PickUp Step All.\r\n" + ex.Message, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _runAllInProgress = false;
+                SetBusy(false);
+                UpdatePreparedState();
+            }
+        }
+
+        private async Task DelayBetweenRunAllStepsAsync()
+        {
+            lblStatus.Text = lblStatus.Text + " / delay " + RunAllStepDelayMs + " ms";
+            await Task.Delay(RunAllStepDelayMs).ConfigureAwait(true);
         }
 
         private void InitializePickUpSteps()
@@ -530,6 +652,31 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             gridPickUpSteps.Rows[0].Selected = true;
             gridPickUpSteps.CurrentCell = gridPickUpSteps.Rows[0].Cells[0];
             return gridPickUpSteps.Rows[0].Tag as PickUpStepItem;
+        }
+
+        private IEnumerable<PickUpStepItem> GetPickUpStepItems()
+        {
+            foreach (DataGridViewRow row in gridPickUpSteps.Rows)
+            {
+                PickUpStepItem item = row.Tag as PickUpStepItem;
+                if (item != null)
+                    yield return item;
+            }
+        }
+
+        private void SelectPickUpStepRow(int stepNo)
+        {
+            foreach (DataGridViewRow row in gridPickUpSteps.Rows)
+            {
+                PickUpStepItem item = row.Tag as PickUpStepItem;
+                if (item == null || item.No != stepNo)
+                    continue;
+
+                gridPickUpSteps.ClearSelection();
+                row.Selected = true;
+                gridPickUpSteps.CurrentCell = row.Cells[0];
+                return;
+            }
         }
 
         private void MoveToNextPickUpStep()
@@ -813,25 +960,28 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void SetBusy(bool busy)
         {
             _busy = busy;
-            gridTargets.Enabled = !busy;
-            cmbPickerNo.Enabled = !busy;
-            btnRefresh.Enabled = !busy;
-            btnPickZTest.Enabled = !busy && !string.IsNullOrWhiteSpace(_preparedDieId);
-            btnRunStep.Enabled = !busy;
-            btnNextStep.Enabled = !busy;
-            gridPickUpSteps.Enabled = !busy;
-            btnClose.Enabled = !busy;
-            UseWaitCursor = busy;
+            bool locked = busy || _runAllInProgress;
+            gridTargets.Enabled = !locked;
+            cmbPickerNo.Enabled = !locked;
+            btnRefresh.Enabled = !locked;
+            btnPickZTest.Enabled = !locked && !string.IsNullOrWhiteSpace(_preparedDieId);
+            btnRunStep.Enabled = !locked;
+            btnNextStep.Enabled = !locked;
+            btnRunAllSteps.Enabled = !locked;
+            gridPickUpSteps.Enabled = !locked;
+            btnClose.Enabled = !locked;
+            UseWaitCursor = locked;
         }
 
         private void UpdatePreparedState()
         {
-            if (_busy)
+            if (_busy || _runAllInProgress)
                 return;
 
             btnPickZTest.Enabled = !string.IsNullOrWhiteSpace(_preparedDieId);
             btnRunStep.Enabled = true;
             btnNextStep.Enabled = true;
+            btnRunAllSteps.Enabled = true;
             lblPrepared.Text = string.IsNullOrWhiteSpace(_preparedDieId)
                 ? "Prepared: -"
                 : "Prepared: Picker #" + _preparedPickerNo + " / " + _preparedDieId;
